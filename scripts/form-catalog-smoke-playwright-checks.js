@@ -522,4 +522,4 @@ async function claimStep(label, body) {
 if (require.main === module) runWorkflow(NAME, workflow, {
   preflight: () => require('./lib/export-content-helpers').requirePoppler('pdftotext'),
 });
-module.exports = { workflow, FORMS, CONCERNS, validatePin, stepLabel, generatedLabel, PINNED, claimForms: CLAIM_FORMS };
+module.exports = { workflow, FORMS, CONCERNS, validatePin, stepLabel, generatedLabel, PINNED, claimForms: CLAIM_FORMS, revealSavedForm };

@@ -1,0 +1,1042 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Coverage plan Phase 3 (Ontario): the Rourke 2020 well-baby record and the two growth charts. User path:
+// Schedule > Search > Master Record > E-Chart > Forms menu > <form> > type (and, on Rourke, import weights and
+// lengths through the measurement dialog) > Save (form/formname) > the saved record redisplayed in the same
+// window > a fresh E-Chart's saved-form entry > the graph links and Print.
+//
+// Three forms, one owned FAKE infant (an 18-month-old girl, so every Rourke visit date, up to the 18-month one,
+// is in the past):
+//   Rourke 2020   formRourke2020 (+ form_boolean_value for its radio buttons): four pages behind jQuery tabs,
+//                 a "Graph Length and Weight" and a "Graph Head Circumference" link, Print = a four-page Jasper PDF;
+//   Growth 0-36m  formGrowth0_36 ("CDC US Growth Charts" in its title): ten rows of date, age, weight, length,
+//                 head circumference; Print Growth, Head Circ(1) and Head Circ(2) answer WHO chart PDFs;
+//   Growth Chart  formGrowthChart ("WHO Growth Charts", 2 to 20 years): rows of date, age, stature, weight, BMI;
+//                 Print Growth and Print BMI answer WHO chart PDFs. (The form takes any typed ages, so the infant
+//                 is used for it too: what is under test is the form's mechanics, not the clinical sense.)
+//
+// "THE GRAPH". The brief asked for a non-empty PNG; the application answers every graph as a PDF (FrmPDFServlet lays
+// the typed values over a WHO template, one stroked circle per point). So a graph is judged three ways, each from
+// the bytes in transit: it is a PDF (%PDF), its page overlay holds at least as many circles as there are typed
+// points the chart can place (lib/pdf-graph.js plottedPoints, which reads the content streams, so a chart with
+// nothing plotted fails although it is a perfectly valid PDF), and the page draws as a non-trivial PNG (pdftoppm).
+//
+// Each form has up to nineteen CONCERNS, asserted one labelled step each:
+//   open        the Forms-menu entry opens with no error page, uncaught script error, console error or failed asset;
+//   keys        the page shows no unresolved message key (the ???key??? text a missing bundle entry prints);
+//   measurements   (Rourke) the weights and lengths saved in the measurement dialog are stored in `measurements` and
+//                  imported into the form;
+//   headcirc       (Rourke) head circumference has a measurement dialog too;
+//   measuredate    (Rourke) the dialog files the local date of the observation by default (finding 152);
+//   save        Save stores one new row holding every typed value and the saving provider;
+//   redisplay   the window Save was pressed in redisplays the saved record (the right record, not an error page);
+//   reopen      a fresh chart's saved-form entry opens the saved record;
+//   restore     the typed values are shown again on the redisplayed form and on the reopened one (Rourke: on every page);
+//   graph       the graph PDFs plot every typed point and render as a PNG (Rourke: both graph links; Growth: the chart prints);
+//   graphmeasure   (Rourke) weights and lengths that exist only in `measurements` are plotted too;
+//   graphgrowth    (Rourke) the Growth 0-36 rows are plotted on the Rourke graphs ("Rourke will graph input here");
+//   print       Print produces a PDF that carries the typed text (Rourke: four pages; every typed number and text);
+//   printnull, printsex, printgestation, printnotes   (Rourke) the printed record leaves an empty visit date blank,
+//                  marks the patient's sex and only that, prints the gestational age the dates give, and carries the
+//                  notes typed under the visit columns; printbmi (Growth Chart) Print BMI is a PDF;
+//   printdob    (Growth forms) the printed chart carries the patient's date of birth;
+//   sweep, storage (Rourke) a second record with a distinct value in every other text box and every radio button and
+//                  checkbox ticked: each stored value is in its column, the ticks are stored and shown again (sweep),
+//                  and no box of the page is one the record cannot hold (storage).
+//
+// KNOWN FAILURES AND CLAIMS. Every run executes the flow of every selected form and records every concern; the entry
+// then asserts, in table order, the pairs it CLAIMS. ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT (lib/form-claims.js:
+// `<form>` or `<form>.<concern>`) choose them, so a broken pair gets its own manifest entry pinned on its own finding,
+// the default entry leaves that pair out, and scripts/form-claims.test.js proves the entries together claim every
+// pair once. A concern that depends on another is blocked when the other fails, so a defect that stops the flow
+// claims what it blocks.
+//
+// Fixtures: the owned synthetic patient (given a complete demographic record and an infant's date of birth), one
+// marker-named Forms-menu registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide,
+// so run EXCLUSIVE=1), and, for the graph concerns, measurement rows the check inserts for the owned patient. Cleanup
+// deletes every form row (and Rourke's form_boolean_value rows), measurement and registration and asserts all of it.
+const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
+const claims = require('./lib/form-claims');
+const pdfGraph = require('./lib/pdf-graph');
+const { takeProblems } = require('./lib/form-problems');
+const { captureRequest } = require('./lib/get-reject-probe');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { requirePoppler, pdfTextBuffer, squash } = require('./lib/export-content-helpers');
+const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { revealSavedForm } = require('./form-catalog-smoke-playwright-checks');
+
+const NAME = 'form-rourke2020-growth';
+const ONLY = 'ROURKE_GROWTH_ONLY';
+const EXCEPT = 'ROURKE_GROWTH_EXCEPT';
+
+/** The infant's age in days. 560 puts the 18-month visit (548 days) twelve days ago. */
+const INFANT_DAYS = 560;
+/** A rendered chart page at 40 dpi is about 60 KB; an empty page is a few KB. */
+const MIN_PNG_BYTES = 15000;
+
+/*
+ * THE BROWSER'S TIME ZONE IS A TEST INPUT. Finding 152: the measurement dialog files `new Date().toISOString()`'s date,
+ * which is the UTC date, so it differs from the clinician's date for part of every day wherever the clinic is not on UTC
+ * (Ontario: after 20:00). The packaged install runs on UTC, so a default browser could never show it. This picks a
+ * zone whose calendar date differs from the UTC date NOW (Kiritimati is UTC+14: ahead of UTC from 10:00 UTC; Pago Pago
+ * is UTC-11: behind it until 11:00 UTC), so the step is deterministic at every hour and fails only while the defect stands.
+ */
+function zoneWhereTodayDiffersFromUtc(now = new Date()) {
+  return now.getUTCHours() >= 10 ? 'Pacific/Kiritimati' : 'Pacific/Pago_Pago';
+}
+/** The calendar date (YYYY-MM-DD) in a zone. */
+function localDate(zone, now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+/** One zone for the whole run: the context is created with it and the measuredate step judges against it. */
+const RUN_ZONE = zoneWhereTodayDiffersFromUtc();
+
+const pad = n => String(n).padStart(2, '0');
+/** A calendar day as {y, m, d}, moved by whole days with UTC arithmetic, so no zone or daylight saving can shift it. */
+function day(from, days = 0) {
+  const t = new Date(Date.UTC(from.y, from.m - 1, from.d + days));
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
+}
+const dmy = x => `${pad(x.d)}/${pad(x.m)}/${x.y}`;
+const ymdSlash = x => `${x.y}/${pad(x.m)}/${pad(x.d)}`;
+const iso = x => `${x.y}-${pad(x.m)}-${pad(x.d)}`;
+
+// ---- what is typed -------------------------------------------------------------------------------------------------
+// kind: text/area (filled), date (the field is read-only: its value is set, as the calendar does), radio (checked),
+// measure (typed through the measurement dialog on Rourke; type is the dialog's measurement type, observed its date).
+const text = (name, page, value) => ({ kind: 'text', name, page, value });
+const area = (name, page, value) => ({ kind: 'text', name, page, value });
+const date = (name, page, value, column) => ({ kind: 'date', name, page, value, column });
+/** The column a field is stored in: its own name unless the form names it otherwise (start of pregnancy). */
+const colOf = field => field.column || field.name;
+const radio = (name, page) => ({ kind: 'radio', name, page });
+const measure = (name, page, type, value, observed) => ({ kind: 'measure', name, page, type, value, observed });
+
+/** Rourke 2020. Dates are visit dates after the infant's birth; every weight and length that has a dialog is imported. */
+function rourkeFields(marker, dob) {
+  const at = days => day(dob, days);
+  return [
+    area('c_birthRemarks', 0, `${marker} birth remarks`),
+    // The start of pregnancy is exactly 40 weeks before the birth: the printed gestational age is judged against it.
+    date('c_startOfGestation', 0, dmy(at(-280)), 'start_of_gestation'),
+    text('c_length', 0, '50.5'), text('c_headCirc', 0, '34.5'),
+    measure('c_birthWeight', 0, 'WT', '3.2', at(0)),
+    date('p1_date1w', 0, dmy(at(7))),
+    measure('p1_wt1w', 0, 'WT', '3.6', at(7)), measure('p1_ht1w', 0, 'HT', '52.1', at(7)), text('p1_hc1w', 0, '35.5'),
+    date('p1_date2w', 0, dmy(at(14))),
+    measure('p1_wt2w', 0, 'WT', '3.9', at(14)), measure('p1_ht2w', 0, 'HT', '53.6', at(14)), text('p1_hc2w', 0, '36.1'),
+    area('p1_pConcern1w', 0, `${marker} concern 1w`), radio('p1_breastFeeding1wOk', 0),
+    // One note box of each section the web form offers under the visit columns (the printnotes concern).
+    area('p1_pNutrition1w', 0, `${marker} nutrition 1w`), area('p1_education1w', 0, `${marker} education 1w`),
+    area('p1_development1w', 0, `${marker} development 1w`), area('p1_pPhysical1w', 0, `${marker} physical 1w`),
+    area('p1_immunization1w', 0, `${marker} immunization 1w`),
+    date('p2_date2m', 1, dmy(at(61))),
+    measure('p2_wt2m', 1, 'WT', '5.1', at(61)), measure('p2_ht2m', 1, 'HT', '57.2', at(61)), text('p2_hc2m', 1, '38.5'),
+    area('p2_pConcern2m', 1, `${marker} concern 2m`), radio('p2_breastFeeding2mOk', 1),
+    date('p3_date9m', 2, dmy(at(274))),
+    text('p3_wt9m', 2, '8.2'), text('p3_ht9m', 2, '70.3'), text('p3_hc9m', 2, '43.1'),
+    area('p3_pConcern9m', 2, `${marker} concern 9m`), radio('p3_breastFeeding9mOk', 2),
+    date('p4_date18m', 3, dmy(at(548))),
+    // No observed date: this one is imported with the dialog's default date (the measuredate concern judges it).
+    measure('p4_wt18m', 3, 'WT', '10.2', null), text('p4_ht18m', 3, '80.1'), text('p4_hc18m', 3, '46.8'),
+    area('p4_pConcern18m', 3, `${marker} concern 18m`), radio('p4_breastFeeding18mOk', 3),
+  ];
+}
+const ROURKE_NOTES = ['p1_pNutrition1w', 'p1_education1w', 'p1_development1w', 'p1_pPhysical1w', 'p1_immunization1w'];
+/** The cells the sweep leaves to the main record: the measurement cells and dates Save validates, and the patient's own identity fields. */
+const MEASURE_OR_DATE = /^p\d_(ht|wt|hc|bmi)\d+[wm]$|^c_(length|headCirc|birthWeight|dischargeWeight|birthDate|pName|fsa|startOfGestation)$|^p\d_date|^CSRF/;
+/** Typed points the Rourke graphs can place: (date, weight) and (date, length) pairs, and (length, weight) pairs. */
+const ROURKE_LENGTH_WEIGHT_POINTS = 12;
+const ROURKE_HEAD_POINTS = 12;
+
+/** The rows of a Growth form: `cells` (text names, per row), at most `rows` of them, each with a comment. */
+function rowFields(rows, cells) {
+  return rows.flatMap(([n, values, comment]) => [
+    date(`date_${n}`, 0, values.date),
+    ...Object.entries(cells(values)).map(([name, value]) => text(`${name}_${n}`, 0, value)),
+    text(`comment_${n}`, 0, comment),
+  ]);
+}
+/** Growth Chart (2 to 20 years): rows 1 to 4 on the first block, row 8 on the second; ages are typed, as the form allows. */
+function chartFields(marker, today) {
+  const at = years => ymdSlash(day(today, -Math.round((7 - years) * 365.25)));
+  const rows = [
+    [1, { date: at(2.5), age: '2.5', stature: '92', weight: '13.5', bmi: '16' }, marker],
+    [2, { date: at(4), age: '4', stature: '103.5', weight: '16.5', bmi: '15.5' }, 'c2'],
+    [3, { date: at(5.5), age: '5.5', stature: '112', weight: '19', bmi: '15.1' }, 'c3'],
+    [4, { date: at(6.5), age: '6.5', stature: '118', weight: '22', bmi: '15.8' }, 'c4'],
+    [8, { date: at(6.9), age: '6.9', stature: '120', weight: '23', bmi: '16' }, `${marker}-8`],
+  ];
+  return [
+    text('recordNo', 0, 'R-2026'), text('motherStature', 0, '165'), text('fatherStature', 0, '180'),
+    ...rowFields(rows, v => ({ age: v.age, stature: v.stature, weight: v.weight, bmi: v.bmi })),
+  ];
+}
+const CHART_POINTS = 10; // five rows in range, two points each
+/** Growth 0-36 (birth to 24 months): rows 1 to 3 on the first block, row 6 on the second. */
+function growthFields(marker, dob) {
+  const at = days => ymdSlash(day(dob, days));
+  const rows = [
+    [1, { date: at(2), age: '0', weight: '3.3', length: '50', headCirc: '34.5' }, marker],
+    [2, { date: at(30), age: '1', weight: '4.4', length: '54.8', headCirc: '37.2' }, 'c2'],
+    [3, { date: at(120), age: '3.9', weight: '6.5', length: '61.5', headCirc: '40.8' }, 'c3'],
+    [6, { date: at(365), age: '12', weight: '9.2', length: '74.5', headCirc: '45.5' }, `${marker}-6`],
+  ];
+  return [
+    text('recordNo', 0, 'R-2026'), text('motherStature', 0, '165'), text('fatherStature', 0, '180'),
+    text('gestationalAge', 0, '39'), text('edc', 0, ymdSlash(day(dob, 5))),
+    ...rowFields(rows, v => ({ age: v.age, weight: v.weight, length: v.length, headCirc: v.headCirc })),
+  ];
+}
+const GROWTH_ROWS = 4; // every row in range, two points each on every chart
+
+/*
+ * code     the registration's suffix (the Forms menu name is `<run marker> <code>`, at most 30 characters)
+ * view     the form's route, form/<view>; the shipped registration is ../form/<view>.jsp?demographic_no=
+ * table    the form's table
+ * needs    forms that must run for a concern to be judged (the Rourke graph plots the Growth 0-36 rows)
+ */
+const FORMS = [
+  { key: 'rourke2020', code: 'R20', title: 'Rourke 2020', view: 'formrourke2020complete', table: 'formRourke2020',
+    concerns: ['open', 'keys', 'measurements', 'headcirc', 'measuredate', 'save', 'redisplay', 'reopen', 'restore', 'graph',
+      'graphmeasure', 'graphgrowth', 'print', 'printnull', 'printsex', 'printgestation', 'printnotes', 'sweep', 'storage'],
+    needs: { graphgrowth: ['growth036'] } },
+  { key: 'growth036', code: 'G36', title: 'Growth 0-36m', view: 'formGrowth0_36', table: 'formGrowth0_36',
+    concerns: ['open', 'keys', 'save', 'redisplay', 'reopen', 'restore', 'graph', 'print', 'printdob'] },
+  { key: 'growthchart', code: 'GRC', title: 'Growth Chart', view: 'formGrowthChart', table: 'formGrowthChart',
+    concerns: ['open', 'keys', 'save', 'redisplay', 'reopen', 'restore', 'graph', 'print', 'printbmi', 'printdob'] },
+];
+
+const CLAIM_FORMS = FORMS.map(({ key, concerns }) => ({ key, concerns }));
+
+/**
+ * ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT must be unset or lists of `<form>` / `<form>.<concern>` that name
+ * real pairs and leave something to assert. Judged when the check runs, never when the module is required.
+ */
+function validatePin(env = process.env) {
+  return claims.effectiveClaims({ only: env[ONLY], except: env[EXCEPT], onlyVariable: ONLY, exceptVariable: EXCEPT }, CLAIM_FORMS);
+}
+
+/*
+ * The step labels are literals on purpose where a manifest pins them: expectedFailure.step is checked against the
+ * script's own text (run-playwright-suite.js validateExpectedFailure), and a label assembled at run time cannot be found
+ * there. scripts/form-claims.test.js proves each literal equals the generated label, so the table cannot drift from
+ * the wording below.
+ */
+const PINNED = Object.freeze({
+  'rourke2020.headcirc': 'Rourke 2020: head circumference can be saved to measurements from the form like weight and length',
+  'rourke2020.measuredate': 'Rourke 2020: the measurement dialog files the local date of the observation by default',
+  'rourke2020.printnull': 'Rourke 2020: the printed form leaves an empty visit date blank',
+  'rourke2020.printsex': 'Rourke 2020: the printed form marks the sex of the patient, and only that',
+  'rourke2020.printgestation': 'Rourke 2020: the printed gestational age is the weeks from the start of pregnancy to the birth',
+  'rourke2020.printnotes': 'Rourke 2020: the printed form carries the notes typed under the visit columns',
+  'rourke2020.storage': 'Rourke 2020: every box the form offers can hold what is typed in it',
+  'growth036.printdob': 'Growth 0-36m: the printed chart carries the date of birth',
+  'growthchart.printbmi': 'Growth Chart: Print BMI produces a PDF',
+});
+const CONCERN_STEP = Object.freeze({
+  open: 'opens from the Forms menu with no error page, script error or failed asset',
+  keys: 'shows no unresolved message key',
+  measurements: 'weights and lengths saved in the measurement dialog are stored in measurements and imported into the form',
+  headcirc: 'head circumference can be saved to measurements from the form like weight and length',
+  measuredate: 'the measurement dialog files the local date of the observation by default',
+  save: 'Save stores one new row holding every typed value',
+  sweep: 'a value typed in every other box and every ticked box are stored and shown again',
+  storage: 'every box the form offers can hold what is typed in it',
+  redisplay: 'Save redisplays the saved record in the window it was pressed in',
+  reopen: "a fresh chart's saved-form entry reopens the saved record",
+  restore: 'the redisplayed and the reopened form show every saved value again',
+  graph: 'the graph PDFs plot every typed point and draw as a PNG',
+  graphmeasure: 'the graphs also plot weights and lengths held only in measurements',
+  graphgrowth: 'the graphs also plot the Growth 0-36 rows',
+  print: 'Print produces a PDF that carries the typed text',
+  printnull: 'the printed form leaves an empty visit date blank',
+  printsex: 'the printed form marks the sex of the patient, and only that',
+  printgestation: 'the printed gestational age is the weeks from the start of pregnancy to the birth',
+  printnotes: 'the printed form carries the notes typed under the visit columns',
+  printbmi: 'Print BMI produces a PDF',
+  printdob: 'the printed chart carries the date of birth',
+});
+function generatedLabel(key, concern) {
+  return `${FORMS.find(entry => entry.key === key).title}: ${CONCERN_STEP[concern]}`;
+}
+function stepLabel(key, concern) {
+  return PINNED[claims.claimKey(key, concern)] || generatedLabel(key, concern);
+}
+
+const labelsOf = form => [`form-${form.code}`, `reopen-${form.code}`, `print-${form.code}`];
+const isFormPost = response => response.request().method() === 'POST'
+  && new URL(response.url()).pathname.endsWith('/form/formname');
+/** How many times the word null stands on its own in a printed page's text (what Jasper prints for an expression that is null). */
+const nullWords = textOfPdf => (textOfPdf.match(/(^|[\s/])null(?=$|[\s/])/gm) || []).length;
+
+async function workflow(s, { select = validatePin() } = {}) {
+  const { sql, patient, provider, marker } = s;
+  const wanted = new Set(select);
+  const wants = form => form.concerns.some(concern => wanted.has(claims.claimKey(form.key, concern)));
+  const needed = new Set(FORMS.filter(wants).map(form => form.key));
+  for (const form of FORMS.filter(wants)) {
+    for (const concern of form.concerns.filter(name => wanted.has(claims.claimKey(form.key, name)))) {
+      for (const key of (form.needs || {})[concern] || []) needed.add(key);
+    }
+  }
+  const today = (() => { const n = new Date(); return { y: n.getUTCFullYear(), m: n.getUTCMonth() + 1, d: n.getUTCDate() }; })();
+  const dob = day(today, -INFANT_DAYS);
+  const fieldsOf = { rourke2020: rourkeFields(marker, dob), growth036: growthFields(marker, dob), growthchart: chartFields(marker, today) };
+  const entries = FORMS.filter(form => needed.has(form.key)).map(form => ({
+    form, name: `${marker} ${form.code}`, results: {}, seen: new Set(), restore: {}, lost: {}, pages: [], fields: fieldsOf[form.key], extras: [], radios: [],
+  }));
+  const byKey = key => entries.find(entry => entry.form.key === key);
+  const registrations = entries.map(entry => ({
+    name: entry.name, value: `../form/${entry.form.view}.jsp?fixture=${marker}&demographic_no=`, table: entry.form.table,
+  }));
+  const zone = RUN_ZONE;
+
+  s.cleanup(() => {
+    const tables = entries.map(entry => entry.form.table);
+    const rourke = tables.includes('formRourke2020');
+    // The radio buttons of a Rourke 2020 record live in form_boolean_value, keyed by the record's id: read the ids first.
+    const ids = rourke ? sql.rows(`SELECT ID FROM formRourke2020 WHERE demographic_no=${patient}`).map(row => Number(row[0])).filter(Number.isFinite) : [];
+    const list = ids.length ? ids.join(',') : '0';
+    sql.execute([
+      rourke && `DELETE FROM form_boolean_value WHERE form_name='formRourke2020' AND form_id IN (${list})`,
+      ...tables.map(table => `DELETE FROM ${table} WHERE demographic_no=${patient}`),
+      `DELETE FROM measurements WHERE demographicNo=${patient}`,
+    ].filter(Boolean).join(';'));
+    h.assert(sql.value(`SELECT ${[...tables.map(table => `(SELECT COUNT(*) FROM ${table} WHERE demographic_no=${patient})`),
+      `(SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient})`,
+      rourke && `(SELECT COUNT(*) FROM form_boolean_value WHERE form_name='formRourke2020' AND form_id IN (${list}))`].filter(Boolean).join('+')}`) === '0',
+    'Form, radio-button and measurement rows of the owned patient were not removed');
+  });
+  s.cleanup(() => {
+    for (const { name, value } of registrations) {
+      sql.execute(`DELETE FROM encounterForm WHERE form_value=${h.sqlString(value)} AND form_name=${h.sqlString(name)}`);
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM encounterForm WHERE form_value LIKE ${h.sqlString(`%fixture=${marker}&%`)}`) === '0',
+      'The owned Forms-menu registrations were not removed');
+  });
+
+  // FIXTURE, not an assertion. An infant (so every Rourke visit up to 18 months is in the past) with the contact
+  // and health-card columns every registered patient has.
+  sql.execute(`UPDATE demographic SET year_of_birth='${dob.y}',month_of_birth='${pad(dob.m)}',date_of_birth='${pad(dob.d)}',sex='F',
+    address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',phone2='416-555-0101',hin='9876543217',ver='AB',
+    email='fake@example.invalid',roster_status='RO'
+    WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+  for (const entry of entries) {
+    const { form } = entry;
+    h.assert(entry.name.length <= 30, `The owned registration name exceeds encounterForm.form_name: ${entry.name}`);
+    const columns = sql.rows(`SELECT COLUMN_NAME,COLUMN_KEY FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${h.sqlString(form.table)}`);
+    entry.idColumn = (columns.find(column => column[1] === 'PRI') || [])[0];
+    entry.columns = new Set(columns.map(column => column[0]));
+    h.assert(entry.idColumn, `FORMS is wrong: ${form.table} has no primary key`);
+    for (const field of entry.fields.filter(field => field.kind !== 'radio')) {
+      h.assert(entry.columns.has(colOf(field)), `FORMS is wrong: ${form.table} has no column ${colOf(field)}`);
+    }
+  }
+  for (const { name, value, table } of registrations) {
+    sql.execute(`INSERT INTO encounterForm (form_value,form_name,form_table,hidden)
+      SELECT ${h.sqlString(value)},${h.sqlString(name)},${h.sqlString(table)},COALESCE(MAX(hidden),0)+1 FROM encounterForm`);
+  }
+  const chart = await s.chart();
+
+  // ---- recording -------------------------------------------------------------------------------------------------
+  /**
+   * Run one concern's body; record how it ended, and every JS-layer problem the pages raised meanwhile. Save is
+   * answered by a redirect to the redisplay, so when Save succeeded the problems that follow it are left for the
+   * redisplay concern to take.
+   */
+  async function conclude(entry, concern, body, { carry = false } = {}) {
+    let failure;
+    try {
+      await body();
+    } catch (error) {
+      failure = error.message.split('\n')[0];
+    }
+    excuseViewerAborts();
+    if (failure || !carry) {
+      // A problem that recurs on every page of the form belongs to the concern that first met it.
+      const problems = takeProblems(s.recorder, labelsOf(entry.form)).filter(problem => !entry.seen.has(problem));
+      problems.forEach(problem => entry.seen.add(problem));
+      if (problems.length) failure = `${failure ? `${failure} | ` : ''}${problems.length} browser problem(s): ${problems.join(' | ')}`;
+    }
+    record(entry, concern, failure);
+  }
+  function record(entry, concern, failure) {
+    entry.results[concern] = failure ? { failure } : { ok: true };
+    console.log(`  ${failure ? 'FAIL' : 'PASS'} ${NAME}: ${stepLabel(entry.form.key, concern)}${failure ? ` -- ${failure}` : ''}`);
+  }
+  const blocked = (entry, concern, why) => {
+    if (!entry.form.concerns.includes(concern) || entry.results[concern]) return;
+    entry.results[concern] = { failure: `not reached: ${why}` };
+    console.log(`  SKIP ${NAME}: ${stepLabel(entry.form.key, concern)} -- not reached: ${why}`);
+  };
+  // The sweep and storage concerns run on a record of their own after the main flow, so a failure of the main flow does not block them.
+  const SWEEP = ['sweep', 'storage'];
+  const blockAll = (entry, why, except = []) => {
+    for (const concern of entry.form.concerns) if (!except.includes(concern) && !SWEEP.includes(concern)) blocked(entry, concern, why);
+  };
+
+  /**
+   * A graph popup is Chromium's built-in PDF viewer, and closing it can abort the viewer's own extension UI request
+   * (net::ERR_ABORTED on a chrome-extension: URL). That is the browser, not the application, whose PDF this check reads
+   * in transit; the same allowance is made in export-content-patient-labels. Only the print/graph popups of this
+   * check, only that failure.
+   */
+  function excuseViewerAborts() {
+    const list = s.recorder.requestFailures;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const failure = list[i];
+      if (/^print-/.test(failure.label) && failure.resourceType === 'other' && failure.errorText === 'net::ERR_ABORTED'
+        && String(failure.url).startsWith('chrome-extension://')) list.splice(i, 1);
+    }
+  }
+
+  /** A measured fact of the run (counts and sizes only, never a value of the patient), printed beside the concern's outcome. */
+  const detail = (entry, text) => console.log(`    detail ${entry.form.title}: ${text}`);
+
+  /** Pages the form opens besides its own (a Save that targets another window, a print or graph popup) belong to it. */
+  function watchPages(entry, label) {
+    const onPage = popup => { h.wireStrictPage(popup, label, s.recorder); entry.pages.push(popup); };
+    s.context.on('page', onPage);
+    return () => s.context.off('page', onPage);
+  }
+  async function closeAll(entry) {
+    for (const page of [entry.page, ...entry.pages]) if (page && !page.isClosed()) await page.close().catch(() => {});
+    entry.page = null;
+    entry.pages = [];
+  }
+
+  /**
+   * Run `act` (a real click) and return what the application answered to the requests `match` accepts, read in
+   * transit (a browser handed a PDF shows its viewer or downloads it, and neither leaves anything to read). The
+   * wait ends at the first answer: every print and graph here makes one such request.
+   */
+  async function answerTo(entry, match, act, timeout = 120000) {
+    const seen = [];
+    // A handler that throws would be an unhandled rejection, which ends the process before cleanup runs: every failure
+    // is kept as an answer of its own and judged by the caller.
+    const keep = async route => {
+      try {
+        const response = await route.fetch({ maxRedirects: 0, timeout });
+        const body = await response.body();
+        seen.push({ status: response.status(), type: response.headers()['content-type'] || '', body });
+        await route.fulfill({ response, body });
+      } catch (error) {
+        seen.push({ status: 0, type: '', body: Buffer.alloc(0), error: error.message.split('\n')[0] });
+        await route.abort().catch(() => {});
+      }
+    };
+    await s.context.route(match, keep);
+    const stop = watchPages(entry, `print-${entry.form.code}`);
+    try {
+      await h.withExpectedDialogs(entry.page, () => act());
+      const deadline = Date.now() + timeout;
+      while (!seen.length && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+    } finally {
+      stop();
+      await s.context.unroute(match, keep).catch(() => {});
+    }
+    h.assert(seen.length, `the application answered nothing within ${timeout / 1000} s`);
+    h.assert(!seen[0].error, `the request failed: ${seen[0].error}`);
+    return seen[0];
+  }
+  /** A PDF answer: 200, application/pdf, %PDF. Anything else (an HTML error page above all) is a failure naming the status. */
+  function assertPdf(answer, what) {
+    h.assert(answer.status === 200 && /application\/pdf/.test(answer.type), `${what} answered ${answer.status} ${answer.type || 'with no content type'}, not a PDF`);
+    h.assert(answer.body.subarray(0, 4).toString() === '%PDF', `${what} answered something other than a PDF document`);
+    return answer.body;
+  }
+  const isFormAnswer = url => url.pathname.endsWith('/form/formname');
+  const isCreatePdf = url => url.pathname.endsWith('/form/createpdf');
+
+  // ---- helpers shared by the forms -------------------------------------------------------------------------------
+  async function openForm(entry) {
+    const { form } = entry;
+    await chart.locator('#menuTitle1 a').hover();
+    // The menu entry (#menu1) opens a new record; the saved records of the same form are listed again in #formslist below it.
+    const link = chart.locator('#menu1').getByRole('link', { name: entry.name, exact: true });
+    const listed = await link.count();
+    h.assert(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+    entry.page = await s.popup(chart, link, `form-${form.code}`);
+    h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
+    await entry.page.getByRole('button', { name: 'Save', exact: true }).first().waitFor({ state: 'attached', timeout: 10000 });
+    if (form.key === 'rourke2020') await entry.page.locator('#rourke2020-tabs').waitFor({ state: 'visible', timeout: 10000 });
+  }
+  const tab = (page, index) => page.locator('#tab-list a').nth(index);
+
+  /**
+   * Rourke only, for the sweep: every text box and every radio button or checkbox the page offers (the measurement cells and visit
+   * dates, which Save validates, are left to the main record), so a box nobody listed here must also be saved and shown again.
+   */
+  async function findBoxes(entry) {
+    const found = await entry.page.evaluate(() => [...document.querySelectorAll('#frmP1 input[type="text"]:not([readonly]), #frmP1 textarea')]
+      .filter(element => element.name).map(element => ({ name: element.name, max: element.maxLength })));
+    const seen = new Set();
+    entry.extras = [];
+    for (const { name, max } of found) {
+      if (seen.has(name) || MEASURE_OR_DATE.test(name)) continue;
+      seen.add(name);
+      const base = `x${entry.extras.length + 1}`;
+      entry.extras.push({ kind: 'text', name, value: max > 0 && max < base.length ? base.slice(0, max) : base, stored: entry.columns.has(name) });
+    }
+    entry.radios = await entry.page.evaluate(() => [...new Set([...document.querySelectorAll('#frmP1 input[type="radio"], #frmP1 input[type="checkbox"]')]
+      .map(element => element.name).filter(Boolean))]);
+    detail(entry, `the sweep types ${entry.extras.length} text boxes and ticks ${entry.radios.length} radio buttons and checkboxes`);
+  }
+
+  /** What the page fails to show of the saved record (all of it, so one message names every missing value), or null. */
+  async function shownProblem(entry, page, where) {
+    const missing = [];
+    let current = -1;
+    for (const field of entry.fields) {
+      if (entry.form.key === 'rourke2020' && field.page !== current) { current = field.page; await tab(page, current).click(); }
+      const input = page.locator(`[name="${field.name}"]`).first();
+      if (field.kind === 'radio') {
+        if (!await input.isChecked()) missing.push(field.name);
+        continue;
+      }
+      if (entry.form.key === 'rourke2020' && !await input.isVisible()) { missing.push(`${field.name} (not shown on page ${field.page + 1})`); continue; }
+      const shown = await input.inputValue();
+      if (shown !== field.value) missing.push(field.kind === 'text' && field.value.length > 20 ? `${field.name} (typed ${field.value.length} characters, shown ${shown.length})` : field.name);
+    }
+    if (entry.form.key === 'rourke2020') {
+      // The All tab shows the four pages together.
+      await tab(page, 4).click();
+      for (const id of ['tab-cp1', 'tab-cp2', 'tab-cp3', 'tab-cp4']) {
+        if (!await page.locator(`#${id}`).isVisible()) missing.push(`the All tab does not show ${id}`);
+      }
+      await tab(page, 0).click();
+    }
+    return missing.length ? `${where} does not show the saved ${missing.join(', ')}` : null;
+  }
+
+  /** The values the row must hold: the Rourke dates are stored as dates and read back dd/MM/yyyy. */
+  const storedFields = entry => entry.fields.filter(field => field.kind !== 'radio');
+  function rowQuery(entry, id) {
+    const columns = storedFields(entry)
+      .map(field => (field.kind === 'date' && entry.form.key === 'rourke2020' ? `DATE_FORMAT(\`${colOf(field)}\`,'%d/%m/%Y')`
+        : field.kind === 'date' ? `DATE_FORMAT(\`${colOf(field)}\`,'%Y/%m/%d')` : `\`${colOf(field)}\``));
+    return `SELECT provider_no,${columns.join(',')} FROM ${entry.form.table} WHERE \`${entry.idColumn}\`=${Number(id)} AND demographic_no=${patient}`;
+  }
+  function assertRowHolds(entry, id) {
+    const rows = sql.rows(rowQuery(entry, id));
+    h.assert(rows.length === 1, 'the saved row is not in the form table');
+    const [row] = rows;
+    h.assert(row[0] === provider, 'the row is not attributed to the signed-in provider');
+    const wrong = [];
+    storedFields(entry).forEach((field, index) => { if (row[index + 1] !== field.value) wrong.push(colOf(field)); });
+    h.assert(!wrong.length, `the stored ${wrong.join(', ')} differ${wrong.length === 1 ? 's' : ''} from what was typed`);
+    const radios = entry.fields.filter(field => field.kind === 'radio').map(field => field.name);
+    if (radios.length) {
+      const stored = new Set(sql.rows(`SELECT field_name FROM form_boolean_value WHERE form_name=${h.sqlString(entry.form.table)} AND form_id=${Number(id)} AND value=1`).map(r => r[0]));
+      const unticked = radios.filter(name => !stored.has(name));
+      h.assert(!unticked.length, `${unticked.length} ticked boxes were not stored (${unticked.join(', ')})`);
+    }
+  }
+
+  /** Type every field except the measurement imports that worked; the value of an import that failed is typed (see rourkeMeasurements). */
+  async function typeFields(entry, { typeMeasures }) {
+    const { page, form } = entry;
+    let current = -1;
+    for (const field of entry.fields) {
+      if (field.kind === 'measure' && !typeMeasures.has(field.name)) continue;
+      if (form.key === 'rourke2020' && field.page !== current) { current = field.page; await tab(page, current).click(); }
+      const input = page.locator(`[name="${field.name}"]`).first();
+      if (field.kind === 'radio') await input.check();
+      else if (field.kind === 'date') await input.evaluate((element, value) => { element.value = value; }, field.value);
+      else await input.fill(field.value ?? '');
+    }
+    if (form.key === 'rourke2020') await tab(page, 0).click();
+  }
+
+  /** Press Save and judge the answer. Returns when the row is stored; records the redirect's frame for the redisplay. */
+  async function pressSave(entry, { exactRows }) {
+    const { page, form } = entry;
+    const save = form.key === 'rourke2020'
+      ? page.locator('#tab-cp1 input[type="submit"][value="Save"]').first()
+      : page.getByRole('button', { name: 'Save', exact: true }).first();
+    entry.before = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
+    entry.writes = 0;
+    const onRequest = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/form/formname')) entry.writes++;
+    };
+    page.on('request', onRequest);
+    const stop = watchPages(entry, `form-${form.code}`);
+    // A Rourke 2020 record stores one form_boolean_value row per ticked box (about 450 on an ordinary record, 1,400 here), so its Save is slow.
+    const posted = s.context.waitForEvent('response', { predicate: isFormPost, timeout: 90000 });
+    posted.catch(() => {});
+    const started = Date.now();
+    try {
+      const dialogs = await h.withExpectedDialogs(page, () => save.click());
+      const response = await posted.catch(() => null);
+      detail(entry, `Save was answered after ${Date.now() - started} ms`);
+      h.assert(response, `Save posted nothing to form/formname (dialogs: ${dialogs.map(d => `${d.type} "${d.text.slice(0, 60)}"`).join('; ') || 'none'})`);
+      h.assert(response.status() === 302, `the save was answered ${response.status()}, not accepted with a redirect`);
+      entry.saveFrame = response.frame();
+    } finally {
+      stop();
+      page.off('request', onRequest);
+    }
+    const after = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
+    // The Rourke form autosaves every ten seconds while it is changed, and each autosave is a row of its own, so its
+    // rows are counted against the writes the page made (the Save and any autosave in the same window), not assumed to be one.
+    h.assert(entry.writes >= 1, 'no write reached form/formname');
+    h.assert(after - entry.before === entry.writes, `Save wrote ${after - entry.before} rows for ${entry.writes} requests, not one row each`);
+    if (exactRows) h.assert(entry.writes === 1, `Save made ${entry.writes} requests, not one`);
+  }
+
+  /** The id of the record the redisplay shows (the formId of its URL). */
+  async function redisplayedId(entry) {
+    const landed = entry.saveFrame && entry.saveFrame.page();
+    h.assert(landed, 'the window that answered Save could not be found');
+    h.assert(landed === entry.page,
+      'the saved record was redisplayed in another window, and the one Save was pressed in still shows the unsaved form');
+    await landed.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
+    const id = new URL(landed.url()).searchParams.get('formId');
+    h.assert(/^[1-9]\d*$/.test(id || ''), 'Save redisplayed no saved record');
+    await h.assertNotErrorPage(landed, 'the redisplayed form');
+    return { landed, id };
+  }
+
+  /**
+   * Click the chart's saved-form entry. Closing a form window makes the chart reload its Forms module, which
+   * replaces the anchors and folds the list again, so a click that races the reload is retried on a freshly found
+   * entry. Only a failure to find or click the entry is retried, never one after the popup has opened.
+   */
+  async function openSavedEntry(fresh, entry) {
+    let last;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await fresh.waitForLoadState('networkidle').catch(() => {});
+        const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
+        await revealSavedForm(fresh, link);
+        return await ui.clickOpensPopup(fresh, link, { context: s.context, recorder: s.recorder,
+          label: `reopen-${entry.form.code}`, timeout: attempt < 3 ? 8000 : 20000, position: { x: 8, y: 9 } });
+      } catch (error) {
+        last = error;
+        if (!/locator\.(click|waitFor)|detached|not stable/.test(error.message)) throw error;
+      }
+    }
+    throw last;
+  }
+
+  /** Open the form's saved record from a fresh chart (the user path "open the saved form"), judge it, and leave it open. */
+  async function reopen(entry) {
+    const fresh = await s.context.newPage();
+    h.wireStrictPage(fresh, 'reopen-chart', s.recorder);
+    try {
+      await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+      await waitForNavbars(fresh, 20000);
+      let page;
+      await conclude(entry, 'reopen', async () => {
+        page = await openSavedEntry(fresh, entry);
+        const params = new URL(page.url()).searchParams;
+        h.assert(params.get('demographic_no') === patient, 'the saved-form entry opened another patient');
+        h.assert(params.get('formId') === entry.id, 'the saved-form entry did not open the saved record');
+        entry.restore.reopen = await shownProblem(entry, page, 'the reopened form');
+      });
+      if (entry.results.reopen.failure && page && !page.isClosed()) await page.close().catch(() => {});
+      entry.page = !entry.results.reopen.failure && page && !page.isClosed() ? page : null;
+    } finally {
+      await fresh.close().catch(() => {});
+    }
+  }
+
+  /** The common part of every form's flow up to the saved record: open, keys, (type, save), redisplay. */
+  async function openAndKeys(entry) {
+    await conclude(entry, 'open', () => openForm(entry));
+    if (!entry.page || entry.page.isClosed()) { blockAll(entry, 'the form did not open'); return false; }
+    await conclude(entry, 'keys', async () => {
+      if (entry.form.key === 'rourke2020') await tab(entry.page, 4).click();
+      const { title, body } = await entry.page.evaluate(() => ({ title: document.title, body: document.body.innerText }));
+      const keys = [...new Set(`${title}\n${body}`.match(/\?\?\?[\w.-]+\?\?\?/g) || [])];
+      h.assert(!keys.length, `the page shows ${keys.length} unresolved message key(s): ${keys.slice(0, 3).join(' ')}`);
+      if (entry.form.key === 'rourke2020') await tab(entry.page, 0).click();
+    });
+    return true;
+  }
+  async function saveAndRedisplay(entry, { typeMeasures = new Set() } = {}) {
+    await conclude(entry, 'save', async () => {
+      await typeFields(entry, { typeMeasures });
+      await pressSave(entry, { exactRows: entry.form.key !== 'rourke2020' });
+      const { id } = await redisplayedId(entry).catch(error => {
+        // The row was stored; the redisplay concern reports where the record landed.
+        entry.redisplayError = error;
+        return { id: null };
+      });
+      entry.id = id || sql.value(`SELECT MAX(\`${entry.idColumn}\`) FROM ${entry.form.table} WHERE demographic_no=${patient}`);
+      assertRowHolds(entry, entry.id);
+    }, { carry: true });
+    if (entry.results.save.failure) { blockAll(entry, 'Save stored no usable row'); await closeAll(entry); return false; }
+    await conclude(entry, 'redisplay', async () => {
+      if (entry.redisplayError) throw entry.redisplayError;
+      const { landed } = await redisplayedId(entry);
+      entry.restore.redisplay = await shownProblem(entry, landed, 'the redisplayed form');
+    });
+    await closeAll(entry);
+    return true;
+  }
+  /** `restore` judges the places the saved record was shown; if neither could be read it is blocked. */
+  function concludeRestore(entry) {
+    if (entry.results.restore) return;
+    const shown = Object.values(entry.restore);
+    if (!shown.length) blocked(entry, 'restore', 'neither the redisplayed nor the reopened form could be read');
+    else record(entry, 'restore', shown.filter(Boolean).join(' | '));
+  }
+
+  // ---- Rourke 2020 -----------------------------------------------------------------------------------------------
+  /** Import one value through the measurement dialog the label opens. Returns the date the dialog offered and the request it made. */
+  async function importMeasurement(page, field) {
+    await tab(page, field.page).click();
+    await page.locator(`a[onclick*="displayDemographicMeasurements('${field.name}'"]`).first().click();
+    await page.locator('#currentMeasurementValue').fill(field.value);
+    const offered = await page.locator('#currentMeasurementObservationDate').inputValue();
+    if (field.observed) await page.locator('#currentMeasurementObservationDate').fill(iso(field.observed));
+    const request = await captureRequest(page, url => url.pathname.endsWith('/encounter/MeasurementData')
+      && url.searchParams.get('action') === 'saveMeasurement', () => page.locator('.meas-btn-save').click(), { timeout: 15000 });
+    h.assert(request.status === 200, `the measurement Save for ${field.name} was answered ${request.status}`);
+    h.assert(request.params.get('type') === field.type && request.params.get('value') === field.value
+      && request.params.get('demographicNo') === patient, `the measurement Save for ${field.name} sent another patient, type or value`);
+    h.assert(await page.locator(`[name="${field.name}"]`).first().inputValue() === field.value, `the dialog did not import ${field.name} into the form`);
+    return { offered, request };
+  }
+  const measurementRows = `SELECT type,dataField,measuringInstruction,DATE(dateObserved),providerNo FROM measurements WHERE demographicNo=${patient}`;
+
+  async function rourkeMeasurements(entry) {
+    const imported = entry.fields.filter(field => field.kind === 'measure' && field.observed);
+    const byDefault = entry.fields.find(field => field.kind === 'measure' && !field.observed);
+    entry.importFailed = new Set();
+    // The imports, the default-date one included, are the controls of the pair below: a dialog that cannot import fails
+    // `measurements`, and measuredate then only compares a date.
+    await conclude(entry, 'measurements', async () => {
+      const failures = [];
+      for (const field of imported) {
+        try {
+          await importMeasurement(entry.page, field);
+        } catch (error) {
+          failures.push(`${field.name}: ${error.message.split('\n')[0]}`);
+          entry.importFailed.add(field.name);
+        }
+      }
+      try {
+        entry.defaultImport = { expected: localDate(zone), ...await importMeasurement(entry.page, byDefault) };
+      } catch (error) {
+        failures.push(`${byDefault.name}: ${error.message.split('\n')[0]}`);
+        entry.importFailed.add(byDefault.name);
+      }
+      h.assert(!failures.length, failures.join(' | '));
+      const rows = sql.rows(measurementRows);
+      for (const field of imported) {
+        const instruction = field.type === 'WT' ? 'in kg' : 'in cm';
+        const found = rows.filter(row => row[0] === field.type && row[1] === field.value && row[2] === instruction && row[3] === iso(field.observed));
+        h.assert(found.length === 1, `measurements holds ${found.length} rows for ${field.name} (${field.type} ${field.value} ${instruction}), not one`);
+        h.assert(found[0][4] === provider, `the ${field.name} measurement is not attributed to the signed-in provider`);
+      }
+      const defaulted = rows.filter(row => row[0] === byDefault.type && row[1] === byDefault.value && row[2] === 'in kg');
+      h.assert(defaulted.length === 1, `measurements holds ${defaulted.length} rows for ${byDefault.name} (${byDefault.type} ${byDefault.value} in kg), not one`);
+      entry.defaultImport.stored = defaulted[0][3];
+      h.assert(rows.length === imported.length + 1, `measurements holds ${rows.length} rows after ${imported.length + 1} imports`);
+    });
+    // Head circumference. The page gives every weight and length a measurement dialog; the brief asks for the same for head circumference.
+    await conclude(entry, 'headcirc', async () => {
+      const link = entry.page.locator(`a[onclick*="displayDemographicMeasurements('p1_hc1w'"]`);
+      h.assert(await link.count() > 0, 'the Rourke 2020 page has no measurement dialog for head circumference: the head circumference cells (c_headCirc, p1_hc1w and the rest) are not links, and the dialog knows only WT, HT, HR and BP');
+      // A dialog exists, so import through it and require a stored row: the pair keeps meaning something once the gap closes.
+      const before = Number(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`));
+      await tab(entry.page, 0).click();
+      await link.first().click();
+      await entry.page.locator('#currentMeasurementValue').fill('35.5');
+      await entry.page.locator('.meas-btn-save').click();
+      await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`, String(before + 1), 'the head circumference dialog stored no measurement');
+    });
+    // The date the dialog files by default, judged against the clinician's own calendar (the context's zone, see zoneWhereTodayDiffersFromUtc).
+    if (!entry.defaultImport || entry.importFailed.has(byDefault.name)) blocked(entry, 'measuredate', 'the default-date import did not complete');
+    else {
+      await conclude(entry, 'measuredate', async () => {
+        const { expected, offered, stored } = entry.defaultImport;
+        h.assert(stored === expected, `the dialog offered ${offered} and filed ${stored} on a day that is ${expected} where the clinician is (${zone}); it uses the UTC date`);
+      });
+    }
+    // A value whose import failed is typed, so Save, redisplay and the rest are judged on their own.
+    for (const field of entry.fields.filter(item => item.kind === 'measure')) {
+      const input = entry.page.locator(`[name="${field.name}"]`).first();
+      if (await input.inputValue().catch(() => '') !== field.value) entry.importFailed.add(field.name);
+    }
+  }
+
+  async function rourkeGraphsAndPrint(entry) {
+    const page = entry.page;
+    entry.graph = {};
+    // The graphs plot what the form holds; the measurements the dialog saved are removed first so that none of them can stand
+    // in for a typed point (graphmeasure then adds measurements of its own and asserts they are plotted too).
+    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}`);
+    await tab(page, 0).click();
+    const links = { length: page.locator('#tab-cp1 a[name="length"]').first(), headCirc: page.locator('#tab-cp1 a[name="headCirc"]').first() };
+    const fetchGraph = async name => {
+      const answer = await answerTo(entry, isFormAnswer, () => links[name].click({ noWaitAfter: true }));
+      const body = assertPdf(answer, `the ${name === 'length' ? 'Length and Weight' : 'Head Circumference'} graph`);
+      const url = await links[name].evaluate(a => (a.getAttribute('onclick').match(/'([^']*\/form\/formname\?[^']*)'/) || [])[1]);
+      h.assert(url, 'the graph link carries no address');
+      return { body, url };
+    };
+    await conclude(entry, 'graph', async () => {
+      for (const [name, points] of [['length', ROURKE_LENGTH_WEIGHT_POINTS], ['headCirc', ROURKE_HEAD_POINTS]]) {
+        const { body, url } = await fetchGraph(name);
+        entry.graph[name] = { url, plotted: pdfGraph.plottedPoints(body)[0] };
+        const what = name === 'length' ? 'the Length and Weight graph' : 'the Head Circumference graph';
+        const png = pdfGraph.renderPng(body);
+        detail(entry, `${what}: ${body.length} bytes, ${entry.graph[name].plotted} points plotted (floor ${points}), ${png.length}-byte PNG`);
+        h.assert(entry.graph[name].plotted >= points, `${what} plots ${entry.graph[name].plotted} points; ${points} typed points fit the chart`);
+        h.assert(pdfGraph.isPng(png) && png.length >= MIN_PNG_BYTES, `${what} draws as a ${png.length}-byte image, not a chart`);
+      }
+    });
+    if (entry.results.graph.failure) { blocked(entry, 'graphmeasure', 'the graphs did not plot'); }
+    else {
+      await conclude(entry, 'graphmeasure', async () => {
+        // Two measurements that exist only in the patient's measurements, as the chart's own Measurements module would hold them.
+        const when = `${iso(day(dob, 100))} 10:00:00`;
+        sql.execute(`INSERT INTO measurements (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered,appointmentNo)
+          VALUES ('WT',${patient},${h.sqlString(provider)},'6.4','in kg','',${h.sqlString(when)},NOW(),0),
+                 ('HT',${patient},${h.sqlString(provider)},'62.5','in cm','',${h.sqlString(when)},NOW(),0)`);
+        const answer = await s.context.request.get(new URL(entry.graph.length.url, chart.url()).toString());
+        const body = assertPdf({ status: answer.status(), type: answer.headers()['content-type'] || '', body: await answer.body() }, 'the Length and Weight graph');
+        const plotted = pdfGraph.plottedPoints(body)[0];
+        detail(entry, `the Length and Weight graph plots ${plotted} points with a weight and a length added to measurements (${entry.graph.length.plotted} before)`);
+        h.assert(plotted >= entry.graph.length.plotted + 2, `the graph plots ${plotted} points with a weight and a length in measurements, ${entry.graph.length.plotted} without`);
+      });
+    }
+    // The baseline for graphgrowth: the head circumference graph as it is now, before the Growth 0-36 form is saved.
+    try {
+      const answer = await s.context.request.get(new URL(entry.graph.headCirc.url, chart.url()).toString());
+      entry.graph.headCirc.baseline = pdfGraph.plottedPoints(await answer.body())[0];
+    } catch { /* graphgrowth is judged blocked below */ }
+
+    await conclude(entry, 'print', async () => {
+      await tab(page, 0).click();
+      const started = Date.now();
+      const answer = await answerTo(entry, isFormAnswer, () => page.locator('#tab-cp1 input[type="submit"][value="Print"]').first().click({ noWaitAfter: true }));
+      const answeredIn = Date.now() - started;
+      const body = assertPdf(answer, 'Print');
+      entry.printText = pdfTextBuffer(body);
+      const pages = pdfGraph.pageCount(body);
+      detail(entry, `Print answered a ${body.length}-byte, ${pages}-page PDF in ${answeredIn} ms`);
+      h.assert(pages === 4, `the printed Rourke record has ${pages} pages, not the form's four`);
+      const squashed = squash(entry.printText);
+      h.assert(squashed.includes(squash(marker)), 'the PDF does not carry the typed text');
+      const missing = entry.fields.filter(field => field.kind === 'measure'
+        || (field.kind === 'text' && (/^[\d.]+$/.test(field.value) || (field.value.includes(marker) && !ROURKE_NOTES.includes(field.name)))))
+        .filter(field => !squashed.includes(squash(field.value))).map(field => field.name);
+      h.assert(!missing.length, `the PDF does not carry the typed ${missing.join(', ')}`);
+      entry.printBody = body;
+    });
+    const printed = !entry.results.print.failure;
+    const afterPrint = async (concern, body) => {
+      if (!printed) blocked(entry, concern, 'Print produced no readable PDF'); else await conclude(entry, concern, body);
+    };
+    await afterPrint('printnull', async () => {
+      const nulls = nullWords(entry.printText);
+      h.assert(nulls === 0, `the printed record shows the word "null" ${nulls} times, where a visit date was left empty`);
+    });
+    await afterPrint('printsex', async () => {
+      const marks = pdfGraph.pageText(entry.printBody, 1).split(/\s+/).filter(token => /^[xX]$/.test(token)).length;
+      h.assert(marks === 1, `the first page of the printed record carries ${marks} sex marks; the patient is one sex`);
+    });
+    await afterPrint('printgestation', async () => {
+      const weeks = /(\d+) weeks/.exec(entry.printText);
+      h.assert(weeks && weeks[1] === '40', `the printed gestational age is ${weeks ? weeks[0] : 'blank'} for a pregnancy that started exactly 40 weeks before the birth`);
+    });
+    await afterPrint('printnotes', async () => {
+      const squashed = squash(entry.printText);
+      const dropped = ROURKE_NOTES.filter(name => !squashed.includes(squash(entry.fields.find(field => field.name === name).value)));
+      h.assert(!dropped.length, `the printed record does not carry the notes typed in ${dropped.join(', ')}`);
+    });
+  }
+
+  /**
+   * Rourke 2020's page offers 123 text boxes and 1,397 radio buttons and checkboxes, mapped to a table of columns and a list of field
+   * names by hand-written code (FormRourke2020, FormRourke2020Constants). A second, new record types a distinct value into every
+   * box and ticks every button, saves, and asks: is each value in its column, are the ticks stored, and does the redisplayed form
+   * show them? A box with no column (the two Immunization boxes of pages III and IV) shows up as text that never comes back.
+   * It is a record of its own so that the typed record the other concerns print and graph stays an ordinary one (a record with
+   * every box ticked takes twice as long to print).
+   */
+  async function rourkeSweep(entry) {
+    const failedOpen = entry.results.open && entry.results.open.failure;
+    if (failedOpen) { for (const concern of SWEEP) blocked(entry, concern, 'the form did not open'); return; }
+    let boxes;
+    try {
+      await openForm(entry);
+      await findBoxes(entry);
+      boxes = entry.page;
+    } catch (error) {
+      for (const concern of SWEEP) blocked(entry, concern, `the form did not open again: ${error.message.split('\n')[0]}`);
+      await closeAll(entry);
+      return;
+    }
+    let sweepId = null;
+    await conclude(entry, 'sweep', async () => {
+      await boxes.evaluate(({ extras }) => {
+        for (const { name, value } of extras) { const element = document.querySelector(`#frmP1 [name="${name}"]`); if (element) element.value = value; }
+        for (const element of document.querySelectorAll('#frmP1 input[type="radio"], #frmP1 input[type="checkbox"]')) element.checked = true;
+      }, { extras: entry.extras });
+      await pressSave(entry, { exactRows: false });
+      const { landed, id } = await redisplayedId(entry);
+      sweepId = id;
+      const stored = entry.extras.filter(extra => extra.stored);
+      const wrong = [];
+      if (stored.length) {
+        const [row] = sql.rows(`SELECT ${stored.map(extra => `\`${extra.name}\``).join(',')} FROM formRourke2020 WHERE ID=${Number(id)} AND demographic_no=${patient}`);
+        stored.forEach((extra, index) => { if (!row || row[index] !== extra.value) wrong.push(extra.name); });
+      }
+      const ticked = new Set(sql.rows(`SELECT field_name FROM form_boolean_value WHERE form_name='formRourke2020' AND form_id=${Number(id)} AND value=1`).map(r => r[0]));
+      const notTicked = entry.radios.filter(name => !ticked.has(name));
+      const state = await landed.evaluate(({ extras, radios }) => ({
+        values: extras.map(({ name }) => { const element = document.querySelector(`#frmP1 [name="${name}"]`); return element ? element.value : null; }),
+        unticked: radios.filter(name => { const element = document.querySelector(`#frmP1 [name="${name}"]`); return element && !element.checked; }),
+      }), { extras: entry.extras, radios: entry.radios });
+      const lost = [];
+      entry.extras.forEach((extra, index) => { if (state.values[index] !== extra.value) (extra.stored ? wrong : lost).push(extra.name); });
+      entry.lost.sweep = lost.length ? `the redisplayed form does not show the typed ${lost.join(', ')}: nothing stores what is typed in them` : null;
+      const problems = [];
+      if (wrong.length) problems.push(`the stored or redisplayed ${wrong.slice(0, 6).join(', ')}${wrong.length > 6 ? ` and ${wrong.length - 6} more` : ''} differ from what was typed`);
+      if (notTicked.length) problems.push(`${notTicked.length} ticked boxes were not stored (${notTicked.slice(0, 3).join(', ')}...)`);
+      if (state.unticked.length) problems.push(`${state.unticked.length} ticked boxes are not shown ticked again (${state.unticked.slice(0, 3).join(', ')}...)`);
+      h.assert(!problems.length, problems.join('; '));
+    }, { carry: true });
+    if (entry.results.sweep.failure && sweepId === null) blocked(entry, 'storage', 'the sweep record was not saved');
+    else if (entry.lost.sweep === undefined) blocked(entry, 'storage', 'the redisplayed sweep record could not be read');
+    else record(entry, 'storage', entry.lost.sweep);
+    await closeAll(entry);
+  }
+
+  // ---- the Growth forms ------------------------------------------------------------------------------------------
+  /** Press one of a Growth form's print buttons and return the PDF it answers (createpdf is the last request of the chain). */
+  async function pressGrowthButton(entry, label, nth = 0) {
+    const button = entry.page.getByRole('button', { name: label, exact: true }).nth(nth);
+    const answer = await answerTo(entry, isCreatePdf, () => button.click({ noWaitAfter: true }));
+    return assertPdf(answer, label);
+  }
+  async function growthPrints(entry) {
+    const { form } = entry;
+    const buttons = form.key === 'growthchart'
+      ? [['Print Growth', 0], ['Print Growth', 1]]
+      : [['Print Growth', 0], ['Head Circ(1)', 0], ['Head Circ(2)', 0]];
+    const minPoints = form.key === 'growthchart' ? CHART_POINTS : GROWTH_ROWS * 2;
+    const pdfs = [];
+    await conclude(entry, 'print', async () => {
+      for (const [label, nth] of buttons) {
+        const body = await pressGrowthButton(entry, label, nth);
+        const printed = pdfTextBuffer(body);
+        h.assert(squash(printed).includes(squash(marker)), `${label}${nth ? ` (block ${nth + 1})` : ''} does not carry the typed text`);
+        pdfs.push({ label, body, printed });
+      }
+    });
+    if (entry.results.print.failure) blocked(entry, 'graph', 'Print produced no readable PDF');
+    else {
+      await conclude(entry, 'graph', async () => {
+        for (const { label, body } of pdfs) {
+          const plotted = pdfGraph.plottedPoints(body)[0];
+          const png = pdfGraph.renderPng(body);
+          detail(entry, `${label}: ${body.length} bytes, ${plotted} points plotted (floor ${minPoints}), ${png.length}-byte PNG`);
+          h.assert(plotted >= minPoints, `${label} plots ${plotted} points; ${minPoints} typed points fit the chart`);
+          h.assert(pdfGraph.isPng(png) && png.length >= MIN_PNG_BYTES, `${label} draws as a ${png.length}-byte image, not a chart`);
+        }
+      });
+    }
+    if (entry.results.print.failure) blocked(entry, 'printdob', 'Print produced no readable PDF');
+    else {
+      await conclude(entry, 'printdob', async () => {
+        // The rows' own dates are all after the birth date, so the birth date can only come from the chart's DOB line.
+        const squashed = squash(pdfs[0].printed);
+        const shown = [`${dob.y}/${pad(dob.m)}/${pad(dob.d)}`, `${dob.y}-${pad(dob.m)}-${pad(dob.d)}`, dmy(dob), `${pad(dob.d)}-${pad(dob.m)}-${dob.y}`]
+          .some(format => squashed.includes(squash(format)));
+        h.assert(shown, 'the printed chart leaves its DOB line empty: the patient date of birth is nowhere on it');
+      });
+    }
+    if (form.key === 'growthchart') {
+      await conclude(entry, 'printbmi', async () => {
+        const body = await pressGrowthButton(entry, 'Print BMI', 0);
+        h.assert(squash(pdfTextBuffer(body)).includes(squash(marker)), 'Print BMI does not carry the typed text');
+      });
+    }
+  }
+
+  // ---- the flows -------------------------------------------------------------------------------------------------
+  /** One form's main flow: open to print. It returns early when a concern it depends on failed; the caller still runs what follows. */
+  async function mainFlow(entry) {
+    const { form } = entry;
+    if (!await openAndKeys(entry)) return;
+    // Everything from the Save on is judged against the typed values; a measurement import that failed is typed instead
+    // (rourkeMeasurements), so that one defect is not reported by two pairs.
+    if (form.key === 'rourke2020') await rourkeMeasurements(entry);
+    if (!await saveAndRedisplay(entry, { typeMeasures: entry.importFailed || new Set() })) return;
+    await reopen(entry);
+    if (!entry.page) {
+      blockAll(entry, 'the saved record did not reopen', ['restore']);
+      concludeRestore(entry);
+      return;
+    }
+    if (form.key === 'rourke2020') await rourkeGraphsAndPrint(entry);
+    else await growthPrints(entry);
+    concludeRestore(entry);
+    await closeAll(entry);
+  }
+  for (const entry of entries) {
+    const { form } = entry;
+    entry.pages = [];
+    await mainFlow(entry);
+    // The sweep is a second, slow save (every box ticked): an entry that does not assert it does not make it.
+    if (form.key === 'rourke2020' && SWEEP.some(concern => wanted.has(claims.claimKey(form.key, concern)))) await rourkeSweep(entry);
+
+    // The Rourke graph reads the Growth 0-36 rows of the same patient: once they are saved, ask the Rourke graph again.
+    const rourke = byKey('rourke2020');
+    if (form.key === 'growth036' && rourke && rourke.graph && rourke.graph.headCirc) {
+      await conclude(rourke, 'graphgrowth', async () => {
+        h.assert(entry.results.save && !entry.results.save.failure, 'the Growth 0-36 form did not save');
+        h.assert(Number.isInteger(rourke.graph.headCirc.baseline), 'the Head Circumference graph could not be read before the Growth 0-36 rows were saved');
+        const answer = await s.context.request.get(new URL(rourke.graph.headCirc.url, chart.url()).toString());
+        const body = assertPdf({ status: answer.status(), type: answer.headers()['content-type'] || '', body: await answer.body() }, 'the Head Circumference graph');
+        const plotted = pdfGraph.plottedPoints(body)[0];
+        detail(rourke, `the Head Circumference graph plots ${plotted} points with the Growth 0-36 rows saved (${rourke.graph.headCirc.baseline} before)`);
+        h.assert(plotted >= rourke.graph.headCirc.baseline + GROWTH_ROWS, `the Head Circumference graph plots ${plotted} points with ${GROWTH_ROWS} Growth 0-36 rows, ${rourke.graph.headCirc.baseline} without them`);
+      });
+    }
+  }
+  const rourkeEntry = byKey('rourke2020');
+  if (rourkeEntry) blocked(rourkeEntry, 'graphgrowth', 'the Rourke graphs or the Growth 0-36 form were not reached');
+
+  // ---- Phase 3: assert the claimed pairs, in table order ----
+  excuseViewerAborts();
+  for (const entry of entries) {
+    for (const concern of entry.form.concerns.filter(name => wanted.has(claims.claimKey(entry.form.key, name)))) {
+      const result = entry.results[concern];
+      await claimStep(stepLabel(entry.form.key, concern), () => {
+        h.assert(result, 'no outcome was recorded for this concern');
+        h.assert(!result.failure, result.failure);
+      });
+    }
+  }
+}
+
+/** One labelled step of the assertion phase. It tags a failure with its label, which is what a manifest pins. */
+async function claimStep(label, body) {
+  try {
+    await body();
+  } catch (error) {
+    throw h.markFailedStep(error, label);
+  }
+  console.log(`  ASSERTED ${NAME}: ${label}`);
+}
+
+if (require.main === module) runWorkflow(NAME, workflow, {
+  preflight: () => requirePoppler('pdftotext', 'pdfinfo', 'pdftoppm'),
+  contextOptions: { timezoneId: RUN_ZONE },
+});
+module.exports = {
+  workflow, FORMS, validatePin, stepLabel, generatedLabel, PINNED, claimForms: CLAIM_FORMS,
+  zoneWhereTodayDiffersFromUtc, localDate, rourkeFields, chartFields, growthFields, day, nullWords, dmy, iso, INFANT_DAYS,
+  ROURKE_LENGTH_WEIGHT_POINTS, ROURKE_HEAD_POINTS, CHART_POINTS, GROWTH_ROWS, MEASURE_OR_DATE, ROURKE_NOTES,
+};

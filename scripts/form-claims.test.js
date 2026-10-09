@@ -6,7 +6,7 @@ const { markProblems, takeProblems } = require('./lib/form-problems');
 const manifest = require('./playwright-suite.json');
 
 /*
- * The two table-driven form checks (form-catalog-smoke and clinical-forms-save-reopen) run one script under several
+ * The three table-driven form checks (form-catalog-smoke, form-rourke2020-growth and clinical-forms-save-reopen) run one script under several
  * manifest entries, and an entry names in an environment variable the (form, concern) pairs it asserts
  * (scripts/lib/form-claims.js). That arrangement is only honest if the entries together claim every pair exactly once:
  * a pair claimed by nobody is asserted by nothing, and a pair claimed twice hides behind two pins. These tests read the
@@ -105,6 +105,14 @@ const SUITES = [
     module: require('./form-catalog-smoke-playwright-checks.js'),
     variables: { only: 'FORM_CATALOG_ONLY', except: 'FORM_CATALOG_EXCEPT' },
     // The label the run gives a pair, and the one it would give with no PINNED entry.
+    labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
+    generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
+  },
+  {
+    label: 'form-rourke2020-growth',
+    script: 'scripts/form-rourke2020-growth-playwright-checks.js',
+    module: require('./form-rourke2020-growth-playwright-checks.js'),
+    variables: { only: 'ROURKE_GROWTH_ONLY', except: 'ROURKE_GROWTH_EXCEPT' },
     labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
     generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
   },

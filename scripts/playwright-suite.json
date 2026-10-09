@@ -5516,6 +5516,292 @@
       }
     },
     {
+      "name": "form-rourke2020-growth",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "",
+        "ROURKE_GROWTH_EXCEPT": "rourke2020.headcirc,rourke2020.measuredate,rourke2020.storage,rourke2020.printnull,rourke2020.printsex,rourke2020.printgestation,rourke2020.printnotes,growth036.printdob,growthchart.printdob,growthchart.printbmi"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The Rourke 2020 well-baby record and the two growth charts, driven from the Forms menu for an owned infant: Rourke 2020 opens with no error page, script error or failed asset and no unresolved message key; the weights and lengths saved in the measurement dialog are stored in measurements (type, value, instruction, date, provider) and imported into the form; Save stores one row with every typed value on all four pages (and its radio buttons in form_boolean_value) and the saving provider; Save redisplays the record in the same window; a fresh chart's saved-form entry reopens it; both show every value again on every page and the All tab shows the four pages; the Length and Weight and Head Circumference graph PDFs plot every typed point (counted from the content streams) and draw as a non-trivial PNG, plot weights and lengths held only in measurements, and plot the Growth 0-36 rows; Print is a four-page PDF that carries the typed text and values; a second record with a distinct value in every other text box and every radio button and checkbox ticked is stored and shown again. Growth 0-36m and Growth Chart: the same open, keys, save, redisplay, reopen and restore concerns, and every print button (Print Growth, Head Circ(1) and (2); Print Growth for two blocks) answers a PDF that carries the typed text and plots every typed point as a non-trivial PNG. The graph is a PDF, not the PNG the brief assumed; see the script header. This entry asserts every pair not claimed by a variant, so it passes when the rest is sound. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour."
+    },
+    {
+      "name": "form-rourke2020-growth-head-circumference",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.headcirc",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 243: head circumference has no measurement dialog (the Ht. and Wt. labels are links, the head circumference cells are not, and the dialog knows only WT, HT, HR and BP). Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 243,
+        "step": "Rourke 2020: head circumference can be saved to measurements from the form like weight and length"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-measure-date",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.measuredate",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 152: the measurement dialog files the UTC date, not the clinician's, shown deterministically by running the browser in a time zone whose date differs from UTC's. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 152,
+        "step": "Rourke 2020: the measurement dialog files the local date of the observation by default"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-storage",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.storage",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 244: the Immunization boxes of pages III and IV have no column, so what is typed in them is dropped by Save. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 244,
+        "step": "Rourke 2020: every box the form offers can hold what is typed in it"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-null",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.printnull",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 245: the printed record shows the word null in every empty visit-date field. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 245,
+        "step": "Rourke 2020: the printed form leaves an empty visit date blank"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-sex",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.printsex",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 246: FormRourke2020.toProperties() sets c_male from c_female, so the printed record marks both sexes for a girl and neither for a boy. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 246,
+        "step": "Rourke 2020: the printed form marks the sex of the patient, and only that"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-gestation",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.printgestation",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 247: the printed gestational age is one week short for a pregnancy of a whole number of weeks. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 247,
+        "step": "Rourke 2020: the printed gestational age is the weeks from the start of pregnancy to the birth"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-notes",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "rourke2020.printnotes",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2020, pinned to finding 248: 54 of the form's text boxes (the Nutrition, Education, Development, Physical Examination and Immunization notes) never reach the printed record. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 248,
+        "step": "Rourke 2020: the printed form carries the notes typed under the visit columns"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-dob",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "growth036.printdob,growthchart.printdob",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Growth 0-36m and Growth Chart, pinned to finding 249: the printed charts leave the DOB line empty. The first (Growth 0-36m) is the pinned step and the Growth Chart shares the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 249,
+        "step": "Growth 0-36m: the printed chart carries the date of birth"
+      }
+    },
+    {
+      "name": "form-rourke2020-growth-print-bmi",
+      "script": "scripts/form-rourke2020-growth-playwright-checks.js",
+      "envSet": {
+        "ROURKE_GROWTH_ONLY": "growthchart.printbmi",
+        "ROURKE_GROWTH_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ROURKE_GROWTH_ONLY",
+        "ROURKE_GROWTH_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Growth Chart, pinned to finding 250: Print BMI answers HTTP 500 because formGrowthChartPrint.jsp uses the empty __cfgGraphicFile expression before defining it. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250).",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
+      "expectedFailure": {
+        "finding": 250,
+        "step": "Growth Chart: Print BMI produces a PDF"
+      }
+    },
+    {
       "name": "palliative-care-save-reopen",
       "script": "scripts/palliative-care-save-reopen-playwright-checks.js",
       "tiers": [

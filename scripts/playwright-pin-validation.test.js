@@ -5,9 +5,9 @@ const test = require('node:test');
 const { spawnSync } = require('node:child_process');
 
 /*
- * Seven checks run one script under several manifest entries and pick the finding a run pins with an
+ * Eight checks run one script under several manifest entries and pick the finding a run pins with an
  * environment variable (ALLERGY_PIN, MCEDT_PIN, OAUTH_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, and the claim lists
- * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT and CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT). A bad value is an error of the RUN, so it is
+ * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT and CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT). A bad value is an error of the RUN, so it is
  * judged when the check runs and never when the module is required: oauth-rest-surfaces.test.js requires
  * the module only for its OAuth signer, and a stray OAUTH_PIN in whoever's shell runs the meta-tests must
  * not fail that. Each case runs in a child process because the variable is read once, at load.
@@ -33,6 +33,11 @@ const CASES = [
     good: ['', 'alpha', 'cesd.restore,falls.restore'], run: 'workflow({})' },
   { script: 'form-catalog-smoke-playwright-checks.js', variable: 'FORM_CATALOG_EXCEPT', label: 'FormCatalogExcept',
     good: ['', 'alpha', 'cesd.restore,falls.restore'], run: 'workflow({})' },
+  // form-rourke2020-growth selects its pairs the same way.
+  { script: 'form-rourke2020-growth-playwright-checks.js', variable: 'ROURKE_GROWTH_ONLY', label: 'RourkeGrowthOnly',
+    good: ['', 'rourke2020', 'rourke2020.printnull,growthchart.printbmi'], run: 'workflow({})' },
+  { script: 'form-rourke2020-growth-playwright-checks.js', variable: 'ROURKE_GROWTH_EXCEPT', label: 'RourkeGrowthExcept',
+    good: ['', 'growth036', 'rourke2020.measuredate,growth036.printdob'], run: 'workflow({})' },
   { script: 'clinical-forms-save-reopen-playwright-checks.js', variable: 'CLINICAL_FORMS_ONLY', label: 'ClinicalFormsOnly',
     good: ['', 'vt', 'mhc.problems,mh14.problems'], run: 'workflow({})' },
   { script: 'clinical-forms-save-reopen-playwright-checks.js', variable: 'CLINICAL_FORMS_EXCEPT', label: 'ClinicalFormsExcept',
