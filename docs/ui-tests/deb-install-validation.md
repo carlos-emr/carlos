@@ -2515,7 +2515,7 @@ every table before and after each run. The scratch schema was dropped at the end
 | Demo patient 1's `demographic` row (`province`, `newsletter`, `residentialProvince`, `lastUpdateDate`), 20 `demographicExt` rows (`date_time`), 100 `demographicExtArchive` rows and the `demographicArchive` rows | `clinical-freetext` (saved the Master Record twice a run), `browser-surface` | Restored from the artifact; the archive rows above the artifact's highest id removed |
 | 2,767 `EFormDocs` rows of the demo with `deleted` flipped, 2 `eform_data` instances, their `eform_values` and 3 `eform` templates left soft-deleted (the application only marks a template or an instance removed) | `eform-render`, `eform-saved-render`, `eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, the `eform-rtl-*` checks. The demo ships attachment rows for instance numbers 247 to 1063 that no `eform_data` row owns; an instance saved at one of those numbers inherits them, and removing the instance marks them deleted | `deleted` restored from the artifact; instances, values and templates removed by key |
 | 24 `demographiccust` and 82 `eChart` rows for owned patients that no longer exist | `runWorkflow`'s default cleanup omits both tables | Removed (a follow-up: add them to the default cleanup) |
-| `DigitalSignature` rows (the provider's signature image, a foreign key to `demographic`) and `consultationRequestExt`, `consultationRequestExtArchive` and `consultationRequestsArchive` rows whose request was deleted | the `consultation-*` checks (the request was deleted and nothing else) | Removed |
+| `DigitalSignature` rows (the provider's signature image, a foreign key to `demographic`) and `consultationRequestExt`, `consultationRequestExtArchive` and `consultationRequestsArchive` rows whose request was deleted | `consultation-print-preview`, `consultation-request-create` and `consultation-signature-submit` (the request was deleted and nothing else) | Removed |
 | `appointmentArchive` (4), `casemgmt_issue` (1), `form_boolean_value` (434), the `dates_reprinted` and `lastUpdateDate` of two demo prescriptions, the `addDate` of the demo's pharmacy links | `echart-note-sign-bill`, `schedule-quick-search-appointment`, `cpp-note-extension-archive`, `form-rourke2017`, `prescription-signature`, `rx-preview-pharmacy` | Removed or restored from the artifact |
 | The `pronoun` of 109 demo patients (124 by the end of the round) and the `gender` of 2, NULL in the artifact and `''` live, `lastUpdateDate` unchanged | not a check's write: the application (finding 266). Opening a patient's Master Record or finding one in the schedule's Search flushes `NULL` to `''` | Restored from the artifact. Pinned by `demographic-open-writes-nothing` |
 
@@ -2529,13 +2529,14 @@ only when the sweep ran the check that writes them once more, which is the evide
 collision (`INSERT IGNORE`), so `provider` (the seeded test provider has an empty `team` where the artifact has "Doctors"),
 `program`, `program_provider`, `serviceSpecialists`, `issue`, `PreventionsLotNrs`, `mygroup` (the seeded "IT Support" group),
 `ProviderPreference` and 3 `appointment` rows are the seed's; and the test provider's quick list (`quickListUser.lastUsed`)
-is stamped by the Echart navbar checks. This is what the earlier sentence about name sanitization and date shifts should have said:
-it was true of these tables and of nothing else.
+is stamped by the Echart navbar checks. The earlier sentence, that these differences are explained by name sanitization and date
+shifts, was wrong: they have the causes just listed.
 
 **What changed in the harness.** Checks that wrote a demo record now create a FAKE patient of their own (`lib/owned-patient.js`: last
 name = a `FAKE-PW` run marker; deleted by the patient's key, then asserted gone): `echart` (seeds 45 notes for pagination),
 `echart-print`, `echart-note-sign-bill`, `cpp-note-extension-archive`, `allergy-add-penicillin`, `allergy-rx-alert`,
-`clinical-freetext`, `browser-surface`, `demographic-edit-update`, the `consultation-*` checks, `eform-render`, `eform-saved-render`,
+`clinical-freetext`, `browser-surface`, `demographic-edit-update`, `consultation-print-preview`, `consultation-request-create`,
+`consultation-signature-submit`, `eform-render`, `eform-saved-render`,
 `eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, `eform-rtl-attachment-routes`,
 `eform-rtl-print-pdf`, `form-rourke2017` and `schedule-quick-search-appointment`. Two checks keep demo patient 1 on purpose, because they assert
 that patient's attachments, and remove what they saved by number (`lib/eform-instance-residue.js`): `eform-rtl-attachment-pdf` and
@@ -2544,6 +2545,36 @@ columns the application stamped back exactly (`lib/demo-timestamp-restore.js`): 
 `lab-acknowledge`'s copy of the demo lab moved into `lib/owned-lab.js`, which has a unit test of its SQL shapes. `document-residue.js`
 deletes the `casemgmt_note_ext` rows of a "Document ... created" note only for provider `-1` and that note text, and
 `audit-log-document-read` and `boundary-document-text` register the stored file for removal before they remove the document rows.
+
+**Checks that still write to demo patients 1 and 2 (not converted).** Twenty checks were left on a demo patient. They add rows
+keyed to demo patient 1 or 2 (a tickler, an appointment, a measurement, a prescription, a message), and remove or restore them by the
+keys below. They were not moved to an owned patient, and what holds them to "no residue" is the residue audit plus a `CHECKSUM TABLE`
+of every table, equal before and after one run of each on 2026-10-09. That is evidence from one run, not an enforced property: the
+audit counts rows, so a leftover or a removed row shows, and an in-place rewrite of a demo row does not (that is what the artifact
+comparison above is for). A regression in one of them would show only in the next artifact comparison.
+
+| Check | Demo patient it writes against | What it removes or restores, and the key |
+|---|---|---|
+| `appointment-lifecycle` | 1 | `appointment` and `appointmentArchive` rows, by the run marker in `reason` or `notes` |
+| `next-appointment-lookup` | 1 | `appointment` rows, by the run stamp in `notes` |
+| `consultation-lab-attachment-rows` | 1 | `consultdocs` by `requestId`, then the request by `requestId` and its stamped `reason` |
+| `document-upload` | 1 | the uploaded `document`, `ctl_document` and `providerLabRouting` rows by document number, and the note, link, queue and lock rows the upload filed above a mark (`lib/document-residue.js`), plus the stored files |
+| `echart-note-editor` | 2 | its stamped encounter-note draft (`casemgmt_tmpsave`, by provider, patient and the run stamp in the note text), and its note lock by session id |
+| `echart-vitals-bmi` | 1 | `measurements` rows, by `id` |
+| `measurement-validation` | 1 | `measurements` rows, by `id` |
+| `eform-rtl-attachment-behavior` | 1 | the instances it saves: `EFormDocs`, `eform_values`, `eform_data`, by `fdid` |
+| `eform-subject-preservation` | 1 | its template and instances: `EFormDocs`, `eform_values` by `fdid`, `eform_data` by `fid`, `eform` by `fid` and form name |
+| `form-labreq-practitioner-no` | 1 | the `formLabReq07` row, by `ID` |
+| `lab-requisition-links` | 1 | `labRequestReportLink` rows, by the link it created |
+| `messenger` | 1 | `msgDemoMap` and `messagelisttbl` rows by the ids it created, the message by `messageid`, and the `groupMembers_tbl` row it staged |
+| `patient-messenger-context` | 1 and 2 | `msgDemoMap` and `messagetbl` rows, by message id |
+| `prevention-brand-picker` | 1 | `preventions` and `preventionsExt` by id; the `CVCMedication`, `CVCMapping` and `CVCImmunization` rows it staged, by SNOMED code |
+| `rx-fax-record-binding` | 1 | `drugs`, `prescription` by `script_no`, its `DigitalSignature` by id, `FaxClientLog` and `faxes` by fax id and fax line, and the sender `fax_config` row it added, by id |
+| `rx-fax-reprint-represcribe` | 1 | `drugs` and `prescription` by `script_no`, `DigitalSignature` by id |
+| `rx-fax-signature-stamp` | 1 | `drugs`, `prescription` by `script_no`, `DigitalSignature` by id, `FaxClientLog`, `faxes` and the sender `fax_config` row, as `rx-fax-record-binding` |
+| `tickler-attachments` | 1 | the ticklers it makes: `ticklerdocs`, `tickler_comments`, `tickler_update`, `tickler`, by tickler number; it also stages a `secObjPrivilege` value and moves a lab routing row to the patient, and puts both back |
+| `tickler-crud` | 1 | the stamped tickler, its notes and links, by patient and stamp (`lib/tickler-fixture-cleanup.js`) |
+| `tickler-note-dialog` | 1 | the stamped ticklers, notes and links, by patient and stamp (`lib/tickler-fixture-cleanup.js`) |
 
 Three details cost a rerun each when the checks moved to an owned patient. The schedule's quick search lists only patients admitted to
 one of the login's programs (`PROGRAM_DOMAIN_RESTRICTION`), so `schedule-quick-search-appointment` admits its patient; the Master Record
