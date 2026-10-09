@@ -10,6 +10,10 @@ const { spawnSync } = require('node:child_process');
  * judged when the check runs and never when the module is required: oauth-rest-surfaces.test.js requires
  * the module only for its OAuth signer, and a stray OAUTH_PIN in whoever's shell runs the meta-tests must
  * not fail that. Each case runs in a child process because the variable is read once, at load.
+ *
+ * Only the pin is deferred. A check's other environment variables keep their own validation: the allergy check still
+ * validates DRUGREF_TEST_DATABASE and ALLERGY_DEMOGRAPHIC_NO (and BASE_URL and MYSQL_HOST) when its module loads, so
+ * "requiring never throws" holds for a bad pin and for nothing else.
  */
 const CASES = [
   { script: 'allergy-add-penicillin-playwright-checks.js', variable: 'ALLERGY_PIN', label: 'Allergy', good: ['', 'shortcut-id'],
@@ -52,3 +56,27 @@ for (const { script, variable, label, good, run } of CASES) {
     }
   });
 }
+
+/*
+ * The authz-write-role-matrix script is the sixth shared script, but it selects with AUTHZ_WRITE_MODE and AUTHZ_WRITE_ONLY
+ * (read through selection(), judged when the check runs) rather than a *_PIN. Four manifest entries run it; each must be
+ * reported under its own name, or the runner's expectedFailure bookkeeping would look up the wrong entry.
+ */
+test('shouldReportUnderTheManifestName_forEveryAuthzWriteEntry', () => {
+  const { selection } = require('./authz-write-role-matrix-playwright-checks.js');
+  const manifest = require('./playwright-suite.json');
+  const entries = manifest.checks.filter((check) => check.script === 'scripts/authz-write-role-matrix-playwright-checks.js');
+  assert.deepEqual(entries.map((check) => check.name).sort(), [
+    'authz-write-chart-bill', 'authz-write-issue-change', 'authz-write-role-matrix', 'authz-write-role-matrix-billing',
+  ]);
+  for (const check of entries) {
+    assert.equal(selection(check.envSet || {}).name, check.name, `${check.name}: its envSet selects another entry's name`);
+  }
+});
+
+test('shouldRefuseToRun_whenAuthzWriteSelectorIsInvalid', () => {
+  const { selection } = require('./authz-write-role-matrix-playwright-checks.js');
+  assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'not-a-mode' }), /AUTHZ_WRITE_MODE must be one of matrix, chart-bill, issue-change/);
+  assert.throws(() => selection({ AUTHZ_WRITE_ONLY: 'not-a-family' }), /AUTHZ_WRITE_ONLY names an unknown family/);
+  assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'issue-change', AUTHZ_WRITE_ONLY: 'billing-on-save' }), /cannot be combined/);
+});

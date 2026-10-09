@@ -34,7 +34,7 @@
  *      unchanged marker-keyed COUNT(*)); the same replay from the full login writes its row.
  * Families that pass come first, so a known failure cannot hide them (expectedFailure in the manifest).
  *
- * The same script backs two more manifest entries (envSet), so a failure that sits behind another
+ * The same script backs three more manifest entries (envSet), so a failure that sits behind another
  * has a live pin of its own:
  *   AUTHZ_WRITE_ONLY=<family key>,...  runs steps 1-3 and only the named families (keys:
  *       tickler-add, rx-save, allergy-add, demographic-update, provider-update, note-save,
@@ -42,6 +42,17 @@
  *   AUTHZ_WRITE_MODE=chart-bill  (authz-write-chart-bill) gives the role read-only note rights as well
  *       (`_casemgmt.notes` r), so its chart renders the note toolbar, and asserts that toolbar offers
  *       no Bill button to a role without `_billing`.
+ *   AUTHZ_WRITE_MODE=issue-change  (authz-write-issue-change) keeps the matrix role and asks the one write
+ *       the families above do not reach: may a role with chart read and no note or issue right change the
+ *       STATE of a chart issue? CaseManagementEntry2Action.execute gates the whole action on `_demographic`
+ *       r (:154) and issueChange (:2737) checks only that a role is in the session (:2744), then saves the
+ *       acute / certain / major / resolved flags it is sent (:2790). The full login resolves an owned,
+ *       SQL-seeded issue through the note editor's checklist (revealed by a script: nothing reveals it,
+ *       finding 227), the captured request is replayed by the full login (it writes) and then by the
+ *       restricted login, from its own chart so the session's form bean exists, with its own valid token.
+ *       The last step holds only the refusal assertion (h.assertRefused: the application's 403/405/
+ *       securityError and the issue row still in its seeded state); a write that lands fails it
+ *       (finding 229). Everything before it, including the restricted login's POST, is a separate step.
  *
  * Fixtures: the owned FAKE patient (runWorkflow), the custom role and two throwaway logins (the
  * restricted one and an er_clerk login whose provider row is the provider-update target), every
@@ -60,6 +71,11 @@ const NAME = 'authz-write-role-matrix';
 const TIMEOUT = 30000;
 const BILL_LINK = 'a[onclick*="/billing?billRegion"]';
 const CHART_BILL = 'input[src*="dollar-sign-icon"]';
+/** The issue-change mode's fixture: catalog issue "Safety" (the one echart-issues-filter seeds), filed under the chart's own program. */
+const ISSUE_CODE = 'CTCMM1000';
+const CHART_PROGRAM = 10034;
+/** The seeded row's update_date, in the past: issueChange always stamps now, so any save moves it and the row is no longer "unchanged". */
+const ISSUE_SEEDED_AT = '2020-01-01 00:00:00';
 
 /** The chart-bill mode's role: the write-restricted role with read-only note rights added. */
 const NOTE_READER_PRIVILEGES = Object.freeze({ ...WRITE_RESTRICTED_PRIVILEGES, '_casemgmt.notes': 'r' });
@@ -68,12 +84,14 @@ const NOTE_READER_PRIVILEGES = Object.freeze({ ...WRITE_RESTRICTED_PRIVILEGES, '
 const MODES = {
   matrix: { privileges: WRITE_RESTRICTED_PRIVILEGES, name: NAME },
   'chart-bill': { privileges: NOTE_READER_PRIVILEGES, name: 'authz-write-chart-bill' },
+  'issue-change': { privileges: WRITE_RESTRICTED_PRIVILEGES, name: 'authz-write-issue-change' },
 };
 
 // Literal step labels, so a manifest expectedFailure can name the step it fails at.
 const STEP_SIGN_IN = {
   matrix: 'the write-restricted role holds exactly _demographic r, _appointment w and _eChart r and signs in through the login form',
   'chart-bill': 'the note-reading role holds exactly _demographic r, _appointment w, _eChart r and _casemgmt.notes r and signs in through the login form',
+  'issue-change': 'the write-restricted role holds exactly _demographic r, _appointment w and _eChart r and signs in through the login form',
 };
 const STEP_TOP_BAR = 'the restricted top bar has no Administration and no billing entry, and its day sheet no Bill link, where the full login has both';
 const STEP_CHART = 'the restricted chart offers no Rx "+" and no Allergy "+", where the full login\'s chart offers both (its note toolbar, which holds Bill, is not rendered for a role without note rights)';
@@ -81,6 +99,12 @@ const STEP_CHART = 'the restricted chart offers no Rx "+" and no Allergy "+", wh
 // Rx and Allergy "+" are still absent) and, LAST, the pinned one (finding 200), which holds only the Bill button.
 const STEP_CHART_TOOLBAR = 'with read-only note rights the restricted chart renders its note toolbar and no Rx "+" or Allergy "+", where the full login\'s chart offers its Bill button';
 const STEP_CHART_BILL = 'the restricted chart\'s note toolbar offers no Bill button to a role without _billing';
+// The issue-change mode runs four steps: the fixture, a control (the full login's request writes), the restricted login's
+// POST and, LAST, the pinned one (finding 229), which holds only the refusal assertion.
+const STEP_ISSUE_SEED = '(fixture) the patient has one unresolved chart issue, seeded with SQL because no clinician path assigns one (findings 186 and 225)';
+const STEP_ISSUE_CONTROL = '(control) the full login resolves the issue from the note editor\'s checklist (revealed by a script, finding 227) and the same request replayed by the full login writes the issue row';
+const STEP_ISSUE_SEND = '(probe) the write-restricted login opens the chart and sends the same issueChange with its own valid token';
+const STEP_ISSUE_CHANGE = 'chart issue change: the restricted login\'s issueChange with its own valid token is refused and the issue row is unchanged';
 const STEPS = {
   'tickler-add': 'tickler add: the restricted login\'s replay with its own valid token is refused, and the full login\'s replay writes',
   'rx-save': 'Rx Save Only: the restricted login\'s replay with its own valid token is refused, and the full login\'s replay writes',
@@ -180,9 +204,123 @@ async function topBarItems(page) {
     .map((item) => (item.innerText || '').replace(/\s+/g, ' ').trim()).filter(Boolean));
 }
 
+/**
+ * Capture the chart's next CaseManagementEntry POST whose `method` field is `method`. The chart posts several
+ * CaseManagementEntry methods (lock refreshes, note saves), so the URL alone would match the wrong one.
+ */
+function captureChartPost(page, method, act) {
+  const watcher = {
+    waitForRequest: (predicate, options) => page.waitForRequest(
+      (request) => predicate(request) && new URLSearchParams(request.postData() || '').get('method') === method, options),
+  };
+  return R.captureRequest(watcher, (url) => /\/CaseManagementEntry$/.test(url.pathname), act, { timeout: TIMEOUT });
+}
+
+/**
+ * The issue-change mode (finding 229): may a role with chart read and no note or issue right change an issue's state?
+ * The fixture is one owned casemgmt_issue row in a known state; the question is whether it is still in that state
+ * after the restricted login's issueChange. The step that asks it is the last and holds only h.assertRefused.
+ */
+async function issueChange(s, { restricted, restrictedToken, fullToken, name, catalog }) {
+  const { sql, patient, config } = s;
+  const q = h.sqlString;
+  const origin = config.baseUrl.origin;
+  let issueRow;
+  // The seeded state, as a COUNT(*) key for h.assertRefused: 1 while the row is as seeded, 0 once any save has touched it.
+  const unchanged = () => `id=${issueRow} AND demographic_no=${patient} AND acute=0 AND certain=0 AND major=0 AND resolved=0`
+    + ` AND update_date=${q(ISSUE_SEEDED_AT)}`;
+  const reseed = () => {
+    sql.execute(`UPDATE casemgmt_issue SET acute=0, certain=0, major=0, resolved=0, update_date=${q(ISSUE_SEEDED_AT)}
+      WHERE id=${issueRow} AND demographic_no=${patient}`);
+    h.assert(R.count(sql, 'casemgmt_issue', unchanged()) === 1, 'The issue fixture could not be put back in its seeded state');
+  };
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE id IN (SELECT id FROM casemgmt_issue WHERE demographic_no=${patient});
+      DELETE FROM casemgmt_issue WHERE demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient}`) === '0', 'Owned chart issue rows were not removed');
+  });
+
+  await s.step(STEP_ISSUE_SEED, async () => {
+    issueRow = sql.value(`INSERT INTO casemgmt_issue (demographic_no, issue_id, acute, certain, major, resolved, program_id, type, update_date)
+      VALUES (${patient}, ${catalog.id}, 0, 0, 0, 0, ${CHART_PROGRAM}, ${q(catalog.role)}, ${q(ISSUE_SEEDED_AT)}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(issueRow), 'The casemgmt_issue fixture was not created');
+    h.assert(R.count(sql, 'casemgmt_issue', unchanged()) === 1, 'The seeded issue is not readable in its seeded state');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient}`) === '1', 'The patient has more than the one seeded issue');
+  });
+
+  // What the full login's UI really sent, and the one change the replays add to it (a second flag, so the probe
+  // sets resolved and one of acute / certain / major, as the finding is about any of the four).
+  let captured;
+  let overrides;
+  const replay = (token) => R.buildReplay(captured, { origin, token, overrides });
+
+  await s.step(STEP_ISSUE_CONTROL, async () => {
+    const chart = await s.chart();
+    await chart.locator('textarea[name="caseNote_note"]').first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    // A script reveals what no control reveals (finding 227); it proves the request, not a clinician path.
+    await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
+    await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').click({ timeout: TIMEOUT });
+    const radio = chart.locator('#noteIssues-unresolved input[type="radio"][name$=".issue.resolved"][value="true"]');
+    await radio.waitFor({ state: 'visible', timeout: TIMEOUT });
+    captured = await captureChartPost(chart, 'issueChange', () => radio.check({ timeout: TIMEOUT }));
+    h.assert(captured.status === 200, `Choosing Resolved in the full login's chart answered HTTP ${captured.status}`);
+    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1`, 1, 'The full login\'s own issueChange did not resolve the issue');
+
+    const field = [...captured.body.keys()].map((key) => /^issueCheckList\[(\d+)\]\.issue\.resolved$/.exec(key)).find(Boolean);
+    h.assert(field, 'The captured issueChange carries no issueCheckList[N].issue.resolved field');
+    overrides = { [`issueCheckList[${field[1]}].issue.major`]: 'true' };
+
+    // Positive control: the request the probe sends, from the login that may write, writes both flags.
+    reseed();
+    const response = await R.sendReplay(s.context, replay(fullToken));
+    h.assert(!h.isWafPage(response.status(), await response.text().catch(() => '')), 'The full login\'s replay was refused by the WAF front door, so it proves nothing about the request');
+    await R.expectCount(sql, 'casemgmt_issue', `id=${issueRow} AND resolved=1 AND major=1`, 1,
+      `The same issueChange sent by the full login (HTTP ${response.status()}) did not write, so the replay is not a request the application accepts`);
+    reseed();
+  });
+
+  let sent;
+  await s.step(STEP_ISSUE_SEND, async () => {
+    // Opened after the reseed: the session's form bean is built from the rows as they are when the chart opens.
+    const { offers } = await openRestrictedChart(restricted, config, patient);
+    h.assert(offers.toolbar === 0, 'The restricted chart rendered a note toolbar, so the role has note rights and this is not the question asked');
+    // edit() files the lock just before it stores the session's form bean (CaseManagementEntry2Action:555-566).
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no=${q(restricted.login.providerNo)}`) !== '0',
+      'Opening the restricted chart filed no note lock, so its session may hold no form bean for issueChange to read');
+    const before = R.count(sql, 'casemgmt_issue', unchanged());
+    h.assert(before === 1, 'The issue is not in its seeded state before the restricted login\'s request');
+    const response = await R.sendReplay(restricted.context, replay(restrictedToken));
+    const body = await response.text().catch(() => '');
+    h.assert(!h.isWafPage(response.status(), body), 'The restricted login\'s request was refused by the WAF front door, so it says nothing about the route');
+    sent = { response, before };
+    const where = h.pathOnly(response.headers().location || '');
+    // Recorded for the run log only; the verdict is the next step's.
+    const [flags] = sql.rows(`SELECT acute, certain, major, resolved FROM casemgmt_issue WHERE id=${issueRow}`);
+    console.log(`  probe ${name}: restricted issueChange (resolved + major) -> HTTP ${response.status()}${where ? ` to ${where}` : ''}; `
+      + `issue flags now acute=${flags[0]} certain=${flags[1]} major=${flags[2]} resolved=${flags[3]} (seeded 0 0 0 0)`);
+  });
+
+  // Pinned (finding 229): holds only the assertion the defect breaks.
+  await s.step(STEP_ISSUE_CHANGE, async () => {
+    const refusal = await h.assertRefused(s, {
+      response: sent.response, table: 'casemgmt_issue', where: unchanged(), before: sent.before,
+      label: 'The issueChange sent by the restricted login',
+    });
+    console.log(`  probe ${name}: ${refusal.evidence}, casemgmt_issue unchanged (${refusal.rows})`);
+  });
+}
+
 async function workflow(s, { mode, only, name } = selection()) {
   const { sql, marker, provider, config, patient } = s;
   const privileges = MODES[mode].privileges;
+  let catalog;
+  if (mode === 'issue-change') {
+    // Judged before any login is made, so a catalog without the issue skips with its reason and leaves nothing behind.
+    const found = sql.rows(`SELECT issue_id, role FROM issue WHERE code=${h.sqlString(ISSUE_CODE)}`);
+    if (found.length !== 1) throw new h.SkipCheck(`The issue catalog has no single row with code ${ISSUE_CODE} to seed`);
+    catalog = { id: found[0][0], role: found[0][1] };
+    h.assert(/^[1-9]\d*$/.test(catalog.id), 'The catalog issue id is not a number');
+  }
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   const visibilityPrefix = `${marker}-MV-`;
@@ -210,6 +348,12 @@ async function workflow(s, { mode, only, name } = selection()) {
     h.assert(restrictedToken !== fullToken, 'The two logins share a CSRF token, so they are not two sessions');
     console.log(`  probe ${name}: the restricted login is in the test login's ${programs} program(s)`);
   });
+
+  if (mode === 'issue-change') {
+    await issueChange(s, { restricted, restrictedToken, fullToken, name, catalog });
+    await restricted.context.close();
+    return;
+  }
 
   if (mode === 'chart-bill') {
     // Everything the Bill judgement depends on is established here, so a precondition that fails (no toolbar to judge,

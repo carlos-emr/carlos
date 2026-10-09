@@ -459,6 +459,7 @@
     "test:authz-write-role-matrix-playwright": "node scripts/authz-write-role-matrix-playwright-checks.js",
     "test:authz-write-role-matrix-billing-playwright": "AUTHZ_WRITE_ONLY=billing-on-save node scripts/authz-write-role-matrix-playwright-checks.js",
     "test:authz-write-chart-bill-playwright": "AUTHZ_WRITE_MODE=chart-bill node scripts/authz-write-role-matrix-playwright-checks.js",
+    "test:authz-write-issue-change-playwright": "AUTHZ_WRITE_MODE=issue-change node scripts/authz-write-role-matrix-playwright-checks.js",
     "test:authz-read-patient-lock-playwright": "node scripts/authz-read-patient-lock-playwright-checks.js",
     "test:authz-read-chart-note-history-playwright": "node scripts/authz-read-chart-note-history-playwright-checks.js",
     "test:authz-read-admin-objects-playwright": "node scripts/authz-read-admin-objects-playwright-checks.js",

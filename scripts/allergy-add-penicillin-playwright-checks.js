@@ -46,7 +46,10 @@
  *      "either identifier" assertion, which read an empty pair as set: the SQL helper trimmed the
  *      trailing empty columns off the row, leaving both fields undefined.) It reads the journal through
  *      CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP (never PASS) after its other
- *      assertions, because the no-ERROR half cannot be judged.
+ *      assertions, because the no-ERROR half cannot be judged. The rows and the journal are READ in a
+ *      step of their own just before the pinned one (OBSERVATION_STEP), so the pinned step holds only
+ *      the assertion on what that step recorded and a journal this check cannot read is a failure
+ *      elsewhere, not finding 178.
  *
  *   7. (Pinned to app-findings-log.md finding 215, selected by ALLERGY_PIN=shortcut-id: the manifest
  *      entry allergy-add-penicillin-shortcut-id runs this script with steps 1-5 and this step in place
@@ -103,7 +106,11 @@ const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
 // ALLERGY_PIN selects which finding the last step pins: unset pins finding 178 (the default entry),
 // `shortcut-id` pins finding 215 (the entry allergy-add-penicillin-shortcut-id).
 const ALLERGY_PIN = (process.env.ALLERGY_PIN || '').trim();
-/** ALLERGY_PIN must be unset or `shortcut-id`. Judged when the check runs (main), never when the module is required. */
+/**
+ * ALLERGY_PIN must be unset or `shortcut-id`. Judged when the check runs (main), never when the module is required.
+ * Only the pin is deferred: DRUGREF_TEST_DATABASE and ALLERGY_DEMOGRAPHIC_NO just below (and BASE_URL and MYSQL_HOST in
+ * the config above) are still validated when the module loads, so requiring this module can throw on those.
+ */
 function validatePin(value = ALLERGY_PIN) {
   if (value !== '' && value !== 'shortcut-id') throw new Error(`ALLERGY_PIN must be unset or shortcut-id, not ${value}`);
 }
@@ -190,6 +197,9 @@ const SHORTCUT_ID_STEP = 'the Penicillin shortcut files the allergy under the PE
 // PENICILLINS class at all) reads as a failure elsewhere and not as finding 215.
 const DRUGREF_STEP = 'the installed DrugRef is readable and holds the PENICILLINS drug class (category 10)';
 const IDENTIFIER_STEP = 'the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error';
+// The control of the default pin: the stored rows and this run's window of the server journal are read in a step of their own,
+// so a journal this check cannot read reads as a failure elsewhere and not as finding 178.
+const OBSERVATION_STEP = 'the added allergy and its amendment are stored, and this run\'s window of the server journal is read';
 
 /** Runs one labelled step, tagging a failure with its label for the suite runner (markFailedStep). */
 async function runStep(cancellation, label, body) {
@@ -407,25 +417,28 @@ async function main({ cancellation }) {
     }
 
     // 6. Both identifiers, on the added allergy and on its amendment, and no logged error (finding 178).
-    // Pinned: holds only what the finding breaks. The rows are read again here, after the amend archived
-    // the original, so the step judges what is stored rather than what the earlier stages saw.
+    // Everything that can fail for a reason other than the defect is read first, in a step of its own: the rows
+    // (read again here, after the amend archived the original, so the check judges what is stored rather than what
+    // the earlier stages saw) and this run's window of the server journal (an unreadable or empty journal throws).
+    // A failure there is reported as a failure elsewhere, never as the known one.
     const journalUnit = (process.env.CARLOS_LOG_JOURNAL_UNIT || '').trim();
-    let loggedErrors = null;
-    await runStep(cancellation, IDENTIFIER_STEP, async () => {
-      const problems = [];
+    const observed = { rows: [], loggedErrors: null };
+    await runStep(cancellation, OBSERVATION_STEP, async () => {
       for (const [what, wanted] of [['the added allergy', reactionText], ['its amendment', amendedReactionText]]) {
         const stored = allergyRow(wanted);
-        if (!stored) {
-          problems.push(`${what} is not stored`);
-          continue;
-        }
+        assert(stored, `${what} is not stored`);
+        observed.rows.push({ what, stored });
+      }
+      if (journalUnit) observed.loggedErrors = journalActionErrors(journalUnit, windowStart);
+    });
+    // Pinned: holds only what the finding breaks, judged on what the step above recorded.
+    await runStep(cancellation, IDENTIFIER_STEP, async () => {
+      const problems = [];
+      for (const { what, stored } of observed.rows) {
         if (stored.regionalId === '') problems.push(`${what} has no regional_identifier`);
         if (stored.atc === '') problems.push(`${what} has no atc`);
       }
-      if (journalUnit) {
-        loggedErrors = journalActionErrors(journalUnit, windowStart);
-        if (loggedErrors > 0) problems.push(`RxAddAllergy2Action logged ${loggedErrors} ERROR line(s) in this run's window`);
-      }
+      if (observed.loggedErrors > 0) problems.push(`RxAddAllergy2Action logged ${observed.loggedErrors} ERROR line(s) in this run's window`);
       assert(problems.length === 0,
         `The saved allergy lacks the drug identifiers that drug-allergy checking needs: ${problems.join('; ')}`);
     });
