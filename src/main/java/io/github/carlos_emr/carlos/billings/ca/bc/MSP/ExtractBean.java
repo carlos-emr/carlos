@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -266,7 +267,7 @@ public class ExtractBean extends Object implements Serializable {
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
 
-            htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
+            htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + SafeEncode.forHtml(providerNo) + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
             htmlCode = htmlContentHeader + htmlContent + htmlFooter;
 
             writeHtml(htmlCode);
@@ -543,7 +544,7 @@ public class ExtractBean extends Object implements Serializable {
         htmlContentHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
         htmlContentHeader += "<table width='100%' border='0' cellspacing='0' cellpadding='0'>";
         htmlContentHeader += "<tr>";
-        htmlContentHeader += "<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo + "</td>";
+        htmlContentHeader += "<td colspan='4' class='bodytext'>Billing Invoice for Billing No." + SafeEncode.forHtml(providerNo) + "</td>";
         htmlContentHeader += "<td colspan='7' class='bodytext'>Payment date of " + output + "</td>";
         htmlContentHeader += "</tr>";
         htmlContentHeader += "<tr>";
@@ -564,24 +565,27 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public String htmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
+        // Each field is encoded for where it lands: table text, or the record number inside the
+        // script call of the invoice link.
+        String recordNo = Misc.forwardZero(billingMasterNo, 7);
         String htmlContent =
                 "<tr>" +
                         "<td class='bodytext'>" +
                         "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
-                        Misc.forwardZero(billingMasterNo, 7) +
+                        SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(recordNo)) +
                         "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" +
-                        invNo +
+                        SafeEncode.forHtml(invNo) +
                         "</a>" +
                         "</td>" +
-                        "<td class='bodytext'>" + demoName + "</td>" +
-                        "<td class='bodytext'>" + phn + "</td>" +
-                        "<td class='bodytext'>" + serviceDate + "</td>" +
-                        "<td class='bodytext'>" + billingCode + "</td>" +
-                        "<td align='right' class='bodytext'>" + billAmount + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" +
-                        "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(demoName) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(phn) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(serviceDate) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(billingCode) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(billAmount) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx1, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx2, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx3, 5)) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(recordNo) + "</td>" +
                         "<td class='bodytext'>&nbsp;</td>" +
                         "</tr>";
         return htmlContent;

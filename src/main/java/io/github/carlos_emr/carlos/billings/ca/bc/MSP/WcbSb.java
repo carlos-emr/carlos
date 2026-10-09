@@ -35,6 +35,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -393,8 +394,11 @@ public class WcbSb {
     }
 
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent = "<tr>" + "<td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(billingMasterNo, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + invNo + "</a>" + "</td>" + "<td class='bodytext'>" + demoName + "</td>" + "<td class='bodytext'>" + w_phn + "</td>" + "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" + "<td class='bodytext'>" + billingCode + "</td>"
-                + "<td align='right' class='bodytext'>" + billAmount + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" + "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" + "<td class='bodytext'>&nbsp;</td>" + "</tr>";
+        // Each field is encoded for where it lands: table text, or the record number inside the
+        // script call of the invoice link.
+        String recordNo = Misc.forwardZero(billingMasterNo, 7);
+        String htmlContent = "<tr>" + "<td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(recordNo)) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + SafeEncode.forHtml(invNo) + "</a>" + "</td>" + "<td class='bodytext'>" + SafeEncode.forHtml(demoName) + "</td>" + "<td class='bodytext'>" + SafeEncode.forHtml(w_phn) + "</td>" + "<td class='bodytext'>" + SafeEncode.forHtml(dateFormat(serviceDate)) + "</td>" + "<td class='bodytext'>" + SafeEncode.forHtml(billingCode) + "</td>"
+                + "<td align='right' class='bodytext'>" + SafeEncode.forHtml(billAmount) + "</td>" + "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx1, 5)) + "</td>" + "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx2, 5)) + "</td>" + "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx3, 5)) + "</td>" + "<td class='bodytext'>" + SafeEncode.forHtml(recordNo) + "</td>" + "<td class='bodytext'>&nbsp;</td>" + "</tr>";
         return htmlContent;
     }
 
