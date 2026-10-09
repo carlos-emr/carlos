@@ -97,17 +97,6 @@ class AllergySaveTokensUnitTest {
     }
 
     @Test
-    void shouldResumeArchive_whenAddedButNotSaved() {
-        MockHttpSession session = new MockHttpSession();
-        AllergySaveTokens.claim(session, TOKEN, FP);
-        AllergySaveTokens.markAdded(session, TOKEN);
-        AllergySaveTokens.release(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.RESUME_ARCHIVE);
-        AllergySaveTokens.release(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.RESUME_ARCHIVE);
-    }
-
-    @Test
     void shouldReportMismatch_whenValuesChangedForUsedToken() {
         MockHttpSession session = new MockHttpSession();
         AllergySaveTokens.claim(session, TOKEN, FP);

@@ -28,6 +28,7 @@
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
@@ -301,8 +302,34 @@ async function workflow(s) {
       await form.locator('select[name="ticklerCategoryId"]').selectOption({ index: 0 });
       await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
       await form.locator('select[name="priority"]').selectOption('High');
-      await form.locator('input[name="serviceDate"]').fill('12-31-2030');
+      // #4423: the pickers must start inside the sanitized modal (DOMPurify strips inline scripts), and
+      // the format they produce must be the format the server accepts.
+      h.assert(await form.locator('input[name="serviceDate"].flatpickr-input').count() === 1
+        && await form.locator('input[name="serviceTime"].flatpickr-input').count() === 1,
+        'The Service Date / Time pickers did not start in the Assign Tickler modal');
+      // Set the value directly: typing into the picker normalizes what it can parse before submit.
+      await form.locator('input[name="serviceDate"]').evaluate(input => { input.value = '31/12/2030'; });
       await form.locator('input[name="serviceTime"]').fill('10:30 AM');
+      await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
+      // A refused date names the field to fix instead of the "could not be confirmed" text.
+      const mark = failureMark(recorder);
+      const dialogs = await h.withExpectedDialogs(dashboard, async () => {
+        await Promise.all([
+          dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname)
+            && r.request().method() === 'POST' && r.status() === 400),
+          dashboard.locator('#saveTicklerBtn').click(),
+        ]);
+        await dashboard.waitForTimeout(500);
+      });
+      consumeExpectedFailure(recorder, mark, { status: 400, path: /\/web\/dashboard\/display\/AssignTickler$/ });
+      h.assert(dialogs.length === 1, `Expected one alert for the refused date, saw ${dialogs.length}`);
+      const alertText = dialogs[0].text;
+      h.assert(/Nothing was saved/.test(alertText) && /service date/i.test(alertText) && !/could not be confirmed/.test(alertText),
+        `A bad Service Date was not explained to the user: ${alertText}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
+        'A refused date wrote ticklers');
+      // The ISO date the picker emits (and a typed one) is accepted; the same receipt is reused.
+      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
       const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
       // Match the save controller: DOMPurify removes the hidden name="method" field.

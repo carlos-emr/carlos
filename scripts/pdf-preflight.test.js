@@ -51,7 +51,7 @@ test('clinical forms registers a PDF preflight before the workflow can create fi
     return { requirePoppler(tool) { calls.push(tool); throw new SkipCheck('missing tool'); } };
   }, { main: module });
   vm.runInNewContext(registration, {
-    require, module, NAME: 'clinical-forms-save-reopen', FORMS: [],
+    require, module, NAME: 'clinical-forms-save-reopen', FORMS: [], testing: {},
     workflow() { assert.fail('Missing PDF tool must prevent fixture creation'); },
     runWorkflow(name, workflow, options) {
       assert.equal(name, 'clinical-forms-save-reopen');

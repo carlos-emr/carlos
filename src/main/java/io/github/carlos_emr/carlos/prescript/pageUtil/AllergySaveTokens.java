@@ -32,9 +32,9 @@ import java.util.regex.Pattern;
  * recognised on the retry and answered with success instead of writing a second allergy.
  * A token whose save threw is released so the retry can really save.
  *
- * <p>An edit is two writes (add the replacement, archive the original). The ledger therefore
- * tracks the stage: a retry after the replacement was added but the archive failed resumes at
- * the archive instead of reporting success or adding again. Each token is also bound to a
+ * <p>A save, including an edit's archive of the original, commits in one transaction
+ * ({@code RxPatientData.Patient#addAllergy} / {@code #amendActiveAllergy}), so a token is either
+ * pending or saved; there is no half-done stage to resume. Each token is also bound to a
  * fingerprint of the submitted values, so a retry whose values were changed after an unknown
  * outcome is refused rather than reported as saved with values that were never written.
  *
@@ -47,8 +47,6 @@ final class AllergySaveTokens {
     enum Claim {
         /** First time this token is seen (or none was supplied): the caller must save. */
         CLAIMED,
-        /** The replacement was added earlier but archiving the original did not complete. */
-        RESUME_ARCHIVE,
         /** An earlier request with this token already saved the allergy. */
         ALREADY_SAVED,
         /** Another request with this token is saving right now. */
@@ -61,7 +59,7 @@ final class AllergySaveTokens {
     private static final int MAX_TOKENS = 1000;
     private static final Pattern FORMAT = Pattern.compile("[A-Za-z0-9-]{16,64}");
 
-    private enum Stage { PENDING_ADD, ADDED, PENDING_ARCHIVE, SAVED }
+    private enum Stage { PENDING, SAVED }
 
     // Serializable so Tomcat session persistence (restart, clustering) keeps the ledger instead of
     // dropping the attribute: losing it would let a post-restart retry add the allergy again.
@@ -116,27 +114,14 @@ final class AllergySaveTokens {
         synchronized (ledger) {
             TokenState existing = ledger.get(token);
             if (existing == null) {
-                ledger.put(token, new TokenState(fingerprint, Stage.PENDING_ADD));
+                ledger.put(token, new TokenState(fingerprint, Stage.PENDING));
                 return Claim.CLAIMED;
             }
             if (!existing.fingerprint.equals(fingerprint)) {
                 return Claim.PAYLOAD_MISMATCH;
             }
-            switch (existing.stage) {
-                case SAVED:
-                    return Claim.ALREADY_SAVED;
-                case ADDED:
-                    existing.stage = Stage.PENDING_ARCHIVE;
-                    return Claim.RESUME_ARCHIVE;
-                default:
-                    return Claim.IN_PROGRESS;
-            }
+            return existing.stage == Stage.SAVED ? Claim.ALREADY_SAVED : Claim.IN_PROGRESS;
         }
-    }
-
-    /** The replacement allergy is persisted; only archiving the original (if any) remains. */
-    static void markAdded(HttpSession session, String token) {
-        setStage(session, token, Stage.ADDED);
     }
 
     static void markSaved(HttpSession session, String token) {
@@ -154,10 +139,8 @@ final class AllergySaveTokens {
             if (entry == null) {
                 return;
             }
-            if (entry.stage == Stage.PENDING_ADD) {
+            if (entry.stage == Stage.PENDING) {
                 ledger.remove(token);
-            } else if (entry.stage == Stage.PENDING_ARCHIVE) {
-                entry.stage = Stage.ADDED;
             }
         }
     }

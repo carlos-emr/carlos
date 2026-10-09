@@ -36,7 +36,6 @@
  * viewing already-persisted STORED signatures and their PDF rendering.
  *
  * Required environment variables:
- *   CONSULT_DEMO_NO=<id>        Demographic number for the test patient
  *   CONSULT_SERVICE_ID=<id>     Service ID to use when creating consultation requests
  *
  * Optional environment variables:
@@ -46,8 +45,12 @@
  *                                                     the warning flow (default: 99999)
  *   CONSULT_APPLICATION_TEMP_DIR=<path>      Installed java.io.tmpdir/carlos-temp for exact PDF cleanup
  *
- * Creates its own requests, reuses its unsigned warning request for update/preview,
- * and removes owned requests, related signatures and identified preview files in finally.
+ * Creates its own requests for a FAKE patient it creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker), reuses its unsigned warning request for update/preview, and removes the
+ * owned requests, every signature stored against the patient, the identified preview files and
+ * the patient in finally. It used to run on DEMO patient 1: the print preview and the stamp
+ * update store signature images the requests no longer reference, which a delete keyed by the
+ * requests could not find, so two DigitalSignature rows stayed on the demo patient per run.
  * Existing consultations are never updated. MYSQL_* follows the shared harness contract.
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   TEST_USER=carlosdoc
@@ -57,16 +60,13 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true   Only when intentionally targeting a non-local test server
  *
  * Example invocation:
- *   CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 node scripts/consultation-signature-submit-playwright-checks.js
- *
- * With all scenarios:
- *   CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_UNSIGNED_REQUEST_ID=42 \
- *     node scripts/consultation-signature-submit-playwright-checks.js
+ *   CONSULT_SERVICE_ID=1 node scripts/consultation-signature-submit-playwright-checks.js
  */
 
 const { chromium } = require('playwright');
-const {createSqlRunner, readConfig} = require('./lib/playwright-harness');
+const {createSqlRunner, readConfig, sqlString} = require('./lib/playwright-harness');
 const {createConsultationSubmitFixture} = require('./lib/consultation-submit-fixture');
+const {CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient} = require('./lib/owned-patient');
 const {createGracefulSignalCancellation} = require('./graceful-signal-cancellation');
 let fixture;
 
@@ -75,16 +75,15 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const consultDemoNo = process.env.CONSULT_DEMO_NO || '';
+// The owned patient the requests are filed for, created in the main block (never a demo patient).
+let consultDemoNo = null;
+const ownedMarker = newOwnedMarker();
 const consultServiceId = process.env.CONSULT_SERVICE_ID || '';
 const stampProviderNo = process.env.CONSULT_STAMP_PROVIDER_NO || '999998';
 const missingStampProviderNo = process.env.CONSULT_MISSING_STAMP_PROVIDER_NO || '99999';
 // The missing-stamp create scenario owns the unsigned request used below.
 let unsignedRequestId = '';
 
-if (!/^\d+$/.test(consultDemoNo)) {
-  throw new Error('CONSULT_DEMO_NO must be set to a numeric demographic number');
-}
 if (!/^\d+$/.test(consultServiceId)) {
   throw new Error('CONSULT_SERVICE_ID must be set to a numeric service ID');
 }
@@ -493,6 +492,9 @@ async function runStampPrintPreview(context) {
   let sql;
   try {
     sql = createSqlRunner(readConfig().mysql);
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(testUser)}`);
+    if (!provider) throw new Error('The configured test login has no provider');
+    consultDemoNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     fixture = createConsultationSubmitFixture(sql, consultDemoNo, process.env.CONSULT_APPLICATION_TEMP_DIR);
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
@@ -572,7 +574,12 @@ async function runStampPrintPreview(context) {
     try { await browser?.close(); }
     finally {
       try { fixture?.cleanup(); }
-      finally { sql?.dispose(); cancellation.dispose(); }
+      finally {
+        try {
+          // After the fixture's own cleanup: every signature, request row and chart row left for the patient, then the patient.
+          if (sql && consultDemoNo !== null) removeOwnedPatient(sql, consultDemoNo, ownedMarker, CONSULTATION_ROWS);
+        } finally { sql?.dispose(); cancellation.dispose(); }
+      }
     }
   }
 })().catch((error) => {

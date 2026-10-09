@@ -182,8 +182,37 @@ test('a 4xx after the success redirect is unconfirmed, not NOT saved: the allerg
     assert.match(page.statusRegion.textContent, /^The allergy save could not be confirmed: the server refused the request \(HTTP 403\)/);
     assert.match(dialogModule.saveFailureMessage(403, null, true), /^The allergy save could not be confirmed/);
     assert.match(dialogModule.saveFailureMessage(403), /^Allergy NOT saved/, 'a direct refusal still says NOT saved');
-    assert.match(dialogModule.saveFailureMessage(409), /^The allergy save could not be confirmed/,
+    assert.match(dialogModule.saveFailureMessage(409, null, false, true), /^The allergy save could not be confirmed/,
         'a save-token conflict may mean an earlier attempt saved, so it is not reported as NOT saved');
+});
+
+test('a 409 marked as a save-token conflict is unconfirmed, not the stale-amendment refusal (#3488)', async () => {
+    const page = fakePage({
+        fetchImpl: (url) => Promise.resolve(Object.assign(response(409, url), {
+            headers: { get: (name) => (name === 'X-Allergy-Save-Token' ? 'conflict' : null) },
+        })),
+    });
+    const dialog = dialogModule.create(page.win);
+
+    assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
+    assert.deepEqual(page.assigned, []);
+    assert.match(page.statusRegion.textContent, /^The allergy save could not be confirmed/);
+    assert.match(page.statusRegion.textContent, /Your entries are still in this form\./);
+    assert.equal(page.submitButton.disabled, false);
+});
+
+test('a 409 stale-amendment refusal keeps the entries and sends the clinician to the current list (#4410)', async () => {
+    const page = fakePage({ fetchImpl: (url) => Promise.resolve(response(409, url)) });
+    const dialog = dialogModule.create(page.win);
+
+    assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
+    assert.deepEqual(page.assigned, [], 'a stale amendment must not leave the patient\'s page');
+    assert.match(page.statusRegion.textContent, /^Allergy NOT saved: this allergy was changed or inactivated in another window/);
+    assert.match(page.statusRegion.textContent, /Your entries are still in this form\./);
+    assert.match(page.statusRegion.textContent, /review the patient\u2019s current allergies/);
+    assert.equal(page.submitButton.disabled, false);
+    // Only /rx/addAllergy2's own 409 is the stale refusal; one after the redirect stays unconfirmed.
+    assert.match(dialogModule.saveFailureMessage(409, null, true), /^The allergy save could not be confirmed/);
 });
 
 test('a form rendered without a status region gets one, announced as an alert', async () => {
