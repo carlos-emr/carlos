@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * One login field an SMS provider needs, such as an API user or an API password, as Administration &gt; SMS
  * shows it. Every value is stored encrypted in {@code sms_config} and never shown back.
  *
- * @param name     the field's key: values are stored under it and posted as {@code credential.<name>}; a letter
+ * @param name     the field's key: values are stored under it and posted as {@code credential.<PROVIDER>.<name>}; a letter
  *                 followed by up to 63 letters, digits or underscores
  * @param labelKey the {@code oscarResources} key of the field's label, which the provider adds to every bundle
  * @param required whether sending can be switched on while the field has no value

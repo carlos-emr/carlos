@@ -96,6 +96,23 @@ class SmsProviderValueTypesUnitTest {
     }
 
     @Test
+    void shouldCompareSettingsByValue_whenCheckingForChanges() {
+        SmsProviderSettings original = SmsProviderSettings.of(SmsProviderType.CLOUDLI, "+16135550100",
+                Map.of("api_user", "fake-user"));
+        SmsProviderSettings same = SmsProviderSettings.of(SmsProviderType.CLOUDLI, "+16135550100",
+                Map.of("api_user", "fake-user"));
+
+        assertThat(original).isEqualTo(same).hasSameHashCodeAs(same);
+        assertThat(original).isNotEqualTo(null).isNotEqualTo("fake-user");
+        assertThat(original).isNotEqualTo(SmsProviderSettings.of(SmsProviderType.VOIPMS, "+16135550100",
+                Map.of("api_user", "fake-user")));
+        assertThat(original).isNotEqualTo(SmsProviderSettings.of(SmsProviderType.CLOUDLI, "+16135550101",
+                Map.of("api_user", "fake-user")));
+        assertThat(original).isNotEqualTo(SmsProviderSettings.of(SmsProviderType.CLOUDLI, "+16135550100",
+                Map.of("api_user", "fake-rotated-user")));
+    }
+
+    @Test
     @DisplayName("no settings means no sender number and no credentials")
     void shouldHoldNothing_whenNone() {
         SmsProviderSettings none = SmsProviderSettings.none(SmsProviderType.STUB);

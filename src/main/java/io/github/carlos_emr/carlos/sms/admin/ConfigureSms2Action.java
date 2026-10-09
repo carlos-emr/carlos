@@ -44,6 +44,9 @@ import org.apache.struts2.ServletActionContext;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +67,7 @@ public class ConfigureSms2Action extends ActionSupport {
     static final String METHOD_SEND_SYSTEM_TEST = "sendSystemTest";
     private static final String SECURITY_OBJECT = "_admin.sms";
     private static final String CREDENTIAL_PARAMETER_PREFIX = "credential.";
+    static final String CREDENTIAL_PROVIDER_MISMATCH_ERROR = "sms.config.error.credentialProviderMismatch";
     static final String CONCURRENT_SAVE_ERROR = "sms.config.error.concurrentSave";
     static final String ENCRYPTION_UNAVAILABLE_ERROR = "sms.config.error.encryptionUnavailable";
     /** Stands in for a version field that is not a number: it matches no stored version, so the save is refused. */
@@ -110,8 +114,10 @@ public class ConfigureSms2Action extends ActionSupport {
             throws IOException {
         SmsProviderType providerType = parseProvider(request.getParameter("providerType"));
         Map<String, String> credentials = new HashMap<>();
-        for (SmsCredentialField field : configService.credentialFields(providerType)) {
-            String value = request.getParameter(CREDENTIAL_PARAMETER_PREFIX + field.name());
+        List<SmsCredentialField> fields = configService.credentialFields(providerType);
+        String selectedPrefix = CREDENTIAL_PARAMETER_PREFIX + providerType + ".";
+        for (SmsCredentialField field : fields) {
+            String value = request.getParameter(selectedPrefix + field.name());
             if (value != null) {
                 credentials.put(field.name(), value);
             }
@@ -126,8 +132,20 @@ public class ConfigureSms2Action extends ActionSupport {
                 credentials,
                 parseVersion(request.getParameter("version"))
         );
-        List<String> errors = validator.validate(update, configService.installedProviders(),
-                configService.providerNeeds(update));
+        List<String> errors = new ArrayList<>(validator.validate(update, configService.installedProviders(),
+                configService.providerNeeds(update)));
+        Set<String> allowedParameters = fields.stream().map(field -> selectedPrefix + field.name())
+                .collect(Collectors.toSet());
+        // With JavaScript disabled, all groups may be submitted. Refuse typed values for any other group
+        // (including the old unscoped names) rather than silently dropping or assigning them to a provider.
+        boolean mismatchedCredentials = request.getParameterMap().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(CREDENTIAL_PARAMETER_PREFIX))
+                .filter(entry -> !allowedParameters.contains(entry.getKey()))
+                .flatMap(entry -> Arrays.stream(entry.getValue()))
+                .anyMatch(value -> value != null && !value.isBlank());
+        if (mismatchedCredentials) {
+            errors.add(CREDENTIAL_PROVIDER_MISMATCH_ERROR);
+        }
         if (!errors.isEmpty()) {
             // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
             // under a 4xx status ("committed mid-chain"), which left the admin a blank page.

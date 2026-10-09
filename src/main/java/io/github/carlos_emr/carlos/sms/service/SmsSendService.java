@@ -148,7 +148,12 @@ public class SmsSendService {
         }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        SmsTransaction transaction;
+        try {
+            transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        } catch (SmsProviderSelectionChangedException e) {
+            return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
+        }
         if (!consentDecision.allowed()) {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
@@ -180,6 +185,24 @@ public class SmsSendService {
             transaction = transactionRecorder.renewClaim(transaction, new Date());
         } catch (RuntimeException e) {
             return releaseClaimAfterFailure(transaction, "claim renewal", e);
+        }
+
+        if (forcedProvider == null) {
+            boolean settingsCurrent;
+            try {
+                settingsCurrent = providerSelector.configuredDefault() == providerType
+                        && (configService == null || configService.sendingEnabled())
+                        && (configService == null || settings.equals(configService.readyProviderSettings(providerType)));
+                if (settingsCurrent && configService != null && configService.retirementTrackingEnabled()) {
+                    settingsCurrent = configService.dispatchSettings(transaction).filter(settings::equals).isPresent();
+                }
+            } catch (RuntimeException e) {
+                return releaseClaimAfterFailure(transaction, "provider settings recheck", e);
+            }
+            if (!settingsCurrent) {
+                return releaseClaimAfterFailure(transaction, "provider settings change",
+                        new IllegalStateException("SMS provider settings changed before dispatch"));
+            }
         }
 
         SmsProviderSendResultDto providerResult;

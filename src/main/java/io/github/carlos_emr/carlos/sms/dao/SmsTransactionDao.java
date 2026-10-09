@@ -17,6 +17,13 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
 
     List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit);
 
+    List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit,
+                                             long retiredThrough);
+
+    /** Locked queued rows retired by a durable selection boundary, including future retry dates. */
+    List<SmsTransaction> findRetiredQueuedForUpdate(SmsProviderType providerType, long retiredThrough,
+                                                   boolean inactive, Date now, List<Long> excludedIds);
+
     List<SmsTransaction> claimStaleOutboundSendingForRecovery(
             SmsProviderType providerType,
             Date staleBefore,

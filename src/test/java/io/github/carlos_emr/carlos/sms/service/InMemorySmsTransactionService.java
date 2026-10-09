@@ -34,6 +34,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Keeps SMS transactions in a list and applies each change to the row itself, as the JPA service would, so
@@ -41,6 +42,22 @@ import java.util.List;
  */
 final class InMemorySmsTransactionService implements SmsTransactionService {
     private final List<SmsTransaction> transactions = new ArrayList<>();
+
+    private Runnable afterNextQueueClaim = () -> { };
+    private Runnable afterNextMarkSending = () -> { };
+    private Consumer<SmsTransaction> afterProviderResult = row -> { };
+
+    void afterNextQueueClaim(Runnable hook) {
+        afterNextQueueClaim = hook;
+    }
+
+    void afterNextMarkSending(Runnable hook) {
+        afterNextMarkSending = hook;
+    }
+
+    void afterProviderResult(Consumer<SmsTransaction> hook) {
+        afterProviderResult = hook;
+    }
 
     /** @return every row, in the order it was added */
     List<SmsTransaction> transactions() {
@@ -85,12 +102,16 @@ final class InMemorySmsTransactionService implements SmsTransactionService {
     @Override
     public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
         transaction.markSending(attemptAt);
+        Runnable hook = afterNextMarkSending;
+        afterNextMarkSending = () -> { };
+        hook.run();
         return transaction;
     }
 
     @Override
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         transaction.markProviderResult(providerResult);
+        afterProviderResult.accept(transaction);
         return transaction;
     }
 
@@ -129,7 +150,7 @@ final class InMemorySmsTransactionService implements SmsTransactionService {
 
     @Override
     public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
-        return transactions.stream()
+        List<SmsTransaction> claimed = transactions.stream()
                 .filter(transaction -> transaction.getProviderType() == providerType)
                 .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
                 .filter(transaction -> transaction.getNextAttemptAt() == null
@@ -137,6 +158,12 @@ final class InMemorySmsTransactionService implements SmsTransactionService {
                 .limit(limit)
                 .peek(transaction -> transaction.markSending(now))
                 .toList();
+        if (!claimed.isEmpty()) {
+            Runnable hook = afterNextQueueClaim;
+            afterNextQueueClaim = () -> { };
+            hook.run();
+        }
+        return claimed;
     }
 
     @Override

@@ -80,7 +80,11 @@ public class SmsQueueService {
         }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
-        transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        try {
+            transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        } catch (SmsProviderSelectionChangedException e) {
+            return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
+        }
         if (!consentDecision.allowed()) {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }

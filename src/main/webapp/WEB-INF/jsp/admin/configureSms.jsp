@@ -126,32 +126,53 @@
             </c:if>
         </div>
 
-        <fieldset class="mb-3" id="credentialFields">
-            <legend class="fs-6"><fmt:message key="sms.config.credentials"/></legend>
-            <c:choose>
-                <c:when test="${empty smsConfig.credentialFields}">
-                    <p class="text-muted"><fmt:message key="sms.config.noCredentials"/></p>
-                </c:when>
-                <c:otherwise>
-                    <c:forEach items="${smsConfig.credentialFields}" var="field">
-                        <div class="mb-2">
-                            <label class="form-label"
-                                   for="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"><fmt:message key="${field.labelKey}"/></label>
-                            <input class="form-control" type="password" value="" autocomplete="new-password"
-                                   id="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"
-                                   name="credential.<carlos:encode value='${field.name}' context='htmlAttribute'/>"/>
-                            <div class="form-text">
-                                <c:choose>
-                                    <c:when test="${field.set}"><fmt:message key="sms.config.secretStored"/></c:when>
-                                    <c:otherwise><fmt:message key="sms.config.secretNotStored"/></c:otherwise>
-                                </c:choose>
-                                <c:if test="${field.required}"><fmt:message key="sms.config.credentialRequiredHint"/></c:if>
-                            </div>
-                        </div>
-                    </c:forEach>
-                </c:otherwise>
-            </c:choose>
-        </fieldset>
+        <div id="credentialFields">
+            <c:forEach items="${smsConfig.providerOptions}" var="credentialProvider">
+                <fieldset class="mb-3 sms-credential-group"
+                          data-provider="<carlos:encode value='${credentialProvider}' context='htmlAttribute'/>">
+                    <legend class="fs-6"><fmt:message key="sms.config.credentials"/>:
+                        <carlos:encode value="${credentialProvider}"/></legend>
+                    <c:choose>
+                        <c:when test="${empty smsConfig.credentialGroups[credentialProvider]}">
+                            <p class="text-muted"><fmt:message key="sms.config.noCredentials"/></p>
+                        </c:when>
+                        <c:otherwise>
+                            <c:forEach items="${smsConfig.credentialGroups[credentialProvider]}" var="field">
+                                <div class="mb-2">
+                                    <label class="form-label"
+                                           for="credential-<carlos:encode value='${credentialProvider}' context='htmlAttribute'/>-<carlos:encode value='${field.name}' context='htmlAttribute'/>"><fmt:message key="${field.labelKey}"/></label>
+                                    <input class="form-control" type="password" value="" autocomplete="new-password"
+                                           id="credential-<carlos:encode value='${credentialProvider}' context='htmlAttribute'/>-<carlos:encode value='${field.name}' context='htmlAttribute'/>"
+                                           name="credential.<carlos:encode value='${credentialProvider}' context='htmlAttribute'/>.<carlos:encode value='${field.name}' context='htmlAttribute'/>"/>
+                                    <div class="form-text">
+                                        <c:choose>
+                                            <c:when test="${field.set}"><fmt:message key="sms.config.secretStored"/></c:when>
+                                            <c:otherwise><fmt:message key="sms.config.secretNotStored"/></c:otherwise>
+                                        </c:choose>
+                                        <c:if test="${field.required}"><fmt:message key="sms.config.credentialRequiredHint"/></c:if>
+                                    </div>
+                                </div>
+                            </c:forEach>
+                        </c:otherwise>
+                    </c:choose>
+                </fieldset>
+            </c:forEach>
+        </div>
+        <script>
+            (function () {
+                var provider = document.getElementById('providerType');
+                var groups = document.querySelectorAll('#credentialFields .sms-credential-group');
+                function showSelectedCredentials() {
+                    groups.forEach(function (group) {
+                        var selected = group.dataset.provider === provider.value;
+                        group.hidden = !selected;
+                        group.disabled = !selected;
+                    });
+                }
+                provider.addEventListener('change', showSelectedCredentials);
+                showSelectedCredentials();
+            }());
+        </script>
 
         <button type="submit" class="btn btn-primary" id="smsConfigSave"><fmt:message key="sms.config.save"/></button>
     </form>

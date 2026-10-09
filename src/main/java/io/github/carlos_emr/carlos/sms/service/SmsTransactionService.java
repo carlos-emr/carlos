@@ -55,6 +55,11 @@ public interface SmsTransactionService {
 
     List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit);
 
+    /** Materializes durable provider retirements without dispatching or changing in-flight sends. */
+    default int failRetiredOutboundQueue(SmsProviderType providerType, int limit) {
+        return 0;
+    }
+
     List<SmsTransaction> claimStaleSendingForRecovery(
             SmsProviderType providerType,
             Date staleBefore,

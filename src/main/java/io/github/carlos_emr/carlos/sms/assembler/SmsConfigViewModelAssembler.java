@@ -36,6 +36,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -52,6 +54,7 @@ import java.util.function.BooleanSupplier;
 @Service
 public class SmsConfigViewModelAssembler {
     static final String SYSTEM_TEST_ENABLED_PROPERTY = "sms.systemTest.enabled";
+    private static final String PROVIDER_NOT_READY = "sms.config.error.providerNotReady";
     private static final Set<String> RESULT_CODES =
             Set.of("saved", "testSent", "testQueued", "testBlocked", "testInvalid", "testFailed");
 
@@ -85,6 +88,14 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assemble(String resultCode, List<String> errorKeys) {
+        return assemble(resultCode, errorKeys, true);
+    }
+
+    /**
+     * @param readinessWarning whether to warn that the stored provider can't send; off for a rejected save, whose
+     *                         own errors already say what is missing and whose form may name another provider
+     */
+    private SmsConfigViewModel assemble(String resultCode, List<String> errorKeys, boolean readinessWarning) {
         Optional<SmsConfig> stored = configService.current();
         List<String> messageKeys = new ArrayList<>(errorKeys == null ? List.of() : errorKeys);
         SmsProviderType providerType;
@@ -102,6 +113,13 @@ public class SmsConfigViewModelAssembler {
         if (stored.isPresent() && !credentialsReadable(stored.get())) {
             // The page still opens, so the administrator can enter the credentials again and save.
             messageKeys.add("sms.config.error.credentialsUnreadable");
+        } else if (readinessWarning && !messageKeys.contains("sms.config.error.invalidPropertyProvider")
+                && !messageKeys.contains(PROVIDER_NOT_READY)
+                && stored.map(SmsConfig::isEnabled).orElse(true) && !configService.providerReady(providerType)) {
+            // Sends and queueing are refused while the provider isn't ready, for example after an upgrade adds a
+            // required credential, or while sms.provider.default names a provider and nothing is saved. Say so
+            // here, not only in the log.
+            messageKeys.add(PROVIDER_NOT_READY);
         }
         boolean schedulerRunning = scheduler.isRunning();
         List<SmsConfigViewModel.CredentialField> credentialFields = credentialFields(providerType, stored.orElse(null));
@@ -114,6 +132,7 @@ public class SmsConfigViewModelAssembler {
                 stored.map(SmsConfig::getSenderNumber).orElse(""),
                 stored.map(SmsConfig::hasWebhookSecret).orElse(false),
                 credentialFields,
+                credentialGroups(stored.orElse(null)),
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
@@ -134,7 +153,7 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assembleRejected(SmsConfigUpdateDto submitted, List<String> errorKeys) {
-        SmsConfigViewModel page = assemble(null, errorKeys);
+        SmsConfigViewModel page = assemble(null, errorKeys, false);
         if (submitted == null) {
             return page;
         }
@@ -154,12 +173,18 @@ public class SmsConfigViewModelAssembler {
                 submitted.senderNumber() == null ? "" : submitted.senderNumber(),
                 page.webhookSecretSet(),
                 credentialFields,
+                page.credentialGroups(),
                 page.stored(),
                 page.systemTestEnabled(),
                 "",
                 page.errorKeys(),
                 submitted.expectedVersion() == null ? "" : String.valueOf(submitted.expectedVersion())
         );
+    }
+
+    private Map<String, List<SmsConfigViewModel.CredentialField>> credentialGroups(SmsConfig stored) {
+        return providerClients.registeredProviderTypes().stream().collect(Collectors.toUnmodifiableMap(
+                Enum::name, type -> credentialFields(type, stored)));
     }
 
     /**
