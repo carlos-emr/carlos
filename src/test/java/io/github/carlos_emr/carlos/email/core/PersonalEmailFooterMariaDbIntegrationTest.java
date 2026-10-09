@@ -120,7 +120,7 @@ class PersonalEmailFooterMariaDbIntegrationTest {
         }
         service.saveOwnFooter("101","");assertThat(service.ownFooter("101")).isEmpty();
         assertThat(service.ownFooter("202")).isEqualTo("Second personal");
-        assertThat(new TransactionTemplate(manager).execute(s->dao.findClinicEmailFooter().get(0).getValue()))
+        assertThat(new TransactionTemplate(manager).<String>execute(s->dao.findClinicEmailFooter().get(0).getValue()))
                 .isEqualTo("Mandatory Clinic");
     }
     @ParameterizedTest @CsvSource({"true","false"})
@@ -175,11 +175,11 @@ class PersonalEmailFooterMariaDbIntegrationTest {
                 assertThatThrownBy(()->reader.get(10,TimeUnit.SECONDS))
                         .hasCauseInstanceOf(jakarta.persistence.OptimisticLockException.class);
                 assertThat(service.ownFooter("101")).isEqualTo("Old personal");
-                assertThat(new TransactionTemplate(manager).execute(status->dao.getAllProperties("email_footer",List.of("101")).size())).isEqualTo(2);
+                assertThat(new TransactionTemplate(manager).<Integer>execute(status->dao.getAllProperties("email_footer",List.of("101")).size())).isEqualTo(2);
                 service.saveOwnFooter("101",clear?"":"Edited personal");
             }else{assertThat(reader.get(10,TimeUnit.SECONDS)).isTrue();}
         }
-        assertThat(new TransactionTemplate(manager).execute(status->dao.getAllProperties("email_footer",List.of("101")).size()))
+        assertThat(new TransactionTemplate(manager).<Integer>execute(status->dao.getAllProperties("email_footer",List.of("101")).size()))
                 .isEqualTo(clear?0:1);
         assertThat(service.ownFooter("101")).isEqualTo(clear?"":"Edited personal");assertOtherOwnerAndClinic();
     }
@@ -207,7 +207,7 @@ class PersonalEmailFooterMariaDbIntegrationTest {
     }
     private void assertOtherOwnerAndClinic(){
         assertThat(service.ownFooter("202")).isEqualTo("Other personal");
-        assertThat(new TransactionTemplate(manager).execute(status->dao.findClinicEmailFooter().get(0).getValue()))
+        assertThat(new TransactionTemplate(manager).<String>execute(status->dao.findClinicEmailFooter().get(0).getValue()))
                 .isEqualTo("Mandatory Clinic");
     }
     private void setSnapshotIsolation(boolean strict){
