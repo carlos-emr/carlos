@@ -79,6 +79,18 @@ class ChartSpaceAllergies2ActionIntegrationTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should resolve collaborators from SpringUtils in the no-arg constructor")
+    void shouldResolveCollaborators_whenNoArgConstructorUsed() throws Exception {
+        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager));
+        replaceSpringUtilsBean(AllergyBlockLoader.class, new AllergyBlockLoader(mockSecurityInfoManager, allergyManager));
+        allowPrivilege("_eChart", "r");
+
+        assertThat(executeAction(new ChartSpaceAllergies2Action())).isEqualTo(ActionSupport.NONE);
+
+        assertThat(status()).isEqualTo("NO_ACCESS");
+    }
+
+    @Test
     @DisplayName("should return NO_ACCESS json when _eChart is granted but _allergy is denied")
     void shouldReturnNoAccessJson_whenEChartGrantedButAllergyDenied() throws Exception {
         allowPrivilege("_eChart", "r");

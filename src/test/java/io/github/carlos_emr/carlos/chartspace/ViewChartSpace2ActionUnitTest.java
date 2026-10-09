@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.chartspace;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -68,7 +69,7 @@ class ViewChartSpace2ActionUnitTest {
         session.setAttribute(SESSION_KEY, mock(LoggedInInfo.class));
         ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
         securityInfoManager = mock(SecurityInfoManager.class);
-        action = new ViewChartSpace2Action(securityInfoManager);
+        action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager));
     }
 
     @AfterEach
@@ -81,7 +82,7 @@ class ViewChartSpace2ActionUnitTest {
         request.setParameter("demographicNo", "2");
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
 
-        assertThat(action.execute()).isEqualTo("success");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("demographicNo")).isEqualTo(2);
     }
 
@@ -107,7 +108,7 @@ class ViewChartSpace2ActionUnitTest {
     void shouldReturn400_whenDemographicNoInvalid() throws Exception {
         request.setParameter("demographicNo", "abc");
 
-        assertThat(action.execute()).isEqualTo("none");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(securityInfoManager);
     }
@@ -118,7 +119,7 @@ class ViewChartSpace2ActionUnitTest {
         request.setMethod(method);
         request.setParameter("demographicNo", "2");
 
-        assertThat(action.execute()).isEqualTo("none");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD");
         verifyNoInteractions(securityInfoManager);
@@ -130,6 +131,6 @@ class ViewChartSpace2ActionUnitTest {
         request.setParameter("demographicNo", "2");
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
 
-        assertThat(action.execute()).isEqualTo("success");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 }

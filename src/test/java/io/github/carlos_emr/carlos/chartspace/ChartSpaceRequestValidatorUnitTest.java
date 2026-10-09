@@ -92,7 +92,8 @@ class ChartSpaceRequestValidatorUnitTest {
         request.setParameter("demographicNo", "2");
 
         assertThatThrownBy(() -> validator.validate(request, response))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing session");
         verifyNoInteractions(securityInfoManager);
     }
 

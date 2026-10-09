@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -67,21 +66,17 @@ public class ViewChartSpace2Action extends ActionSupport {
      * @throws org.springframework.beans.BeansException if a required bean is unavailable
      */
     public ViewChartSpace2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class));
+        this(SpringUtils.getBean(ChartSpaceRequestValidator.class));
     }
 
     /**
      * Creates the action with explicit collaborators for Spring injection and tests.
      *
-     * <p>The validator is stateless and built here from the same
-     * {@code SecurityInfoManager}, so this action keeps a single-collaborator
-     * constructor.</p>
-     *
-     * @param securityInfoManager privilege checker
+     * @param validator shared ChartSpace request checks
      */
     @Autowired
-    public ViewChartSpace2Action(SecurityInfoManager securityInfoManager) {
-        this.validator = new ChartSpaceRequestValidator(securityInfoManager);
+    public ViewChartSpace2Action(ChartSpaceRequestValidator validator) {
+        this.validator = validator;
     }
 
     @Override

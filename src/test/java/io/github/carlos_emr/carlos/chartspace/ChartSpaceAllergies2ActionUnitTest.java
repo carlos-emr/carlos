@@ -163,7 +163,7 @@ class ChartSpaceAllergies2ActionUnitTest {
     void shouldMapRoute_withoutResults() throws Exception {
         var action = ViewChartSpace2ActionIntegrationTest.findAction(
                 ViewChartSpace2ActionIntegrationTest.parseStrutsConfig(
-                        "src/main/webapp/WEB-INF/classes/struts-encounter.xml"),
+                        ViewChartSpace2ActionIntegrationTest.ENCOUNTER_CONFIG),
                 "encounter/chartspace/allergies");
 
         assertThat(action).as("encounter/chartspace/allergies action mapping").isNotNull();

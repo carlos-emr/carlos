@@ -59,7 +59,13 @@ import static org.mockito.Mockito.when;
 @Tag("chartspace")
 class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
 
-    private static final String ENCOUNTER_CONFIG = "src/main/webapp/WEB-INF/classes/struts-encounter.xml";
+    /**
+     * Resolved against Maven's {@code basedir} (set by Surefire) so the test does not depend on
+     * the JVM working directory. The Struts XML lives under webapp resources, not on the test
+     * classpath, so a classpath lookup is not available.
+     */
+    static final String ENCOUNTER_CONFIG = java.nio.file.Path.of(System.getProperty("basedir", "."),
+            "src", "main", "webapp", "WEB-INF", "classes", "struts-encounter.xml").toString();
 
     @BeforeEach
     void setUpGate() {
@@ -67,6 +73,8 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
         mockRequest.setMethod("GET");
+        // The no-arg constructor resolves the validator through SpringUtils.
+        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager));
     }
 
     @Test
@@ -108,7 +116,7 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
 
         assertThatThrownBy(() -> executeAction(new ViewChartSpace2Action()))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_eChart");
+                .hasMessage("missing session");
     }
 
     @Test
@@ -133,7 +141,7 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
         String success = null;
         for (int i = 0; i < results.getLength(); i++) {
             Element result = (Element) results.item(i);
-            if ("success".equals(result.getAttribute("name"))) {
+            if (ActionSupport.SUCCESS.equals(result.getAttribute("name"))) {
                 success = result.getTextContent().trim();
             }
         }

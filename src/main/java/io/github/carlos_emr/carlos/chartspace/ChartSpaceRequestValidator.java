@@ -96,7 +96,7 @@ public class ChartSpaceRequestValidator {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            throw new SecurityException("missing required sec object (_eChart)");
+            throw new SecurityException("missing session");
         }
 
         OptionalInt demographicNo = ChartSpaceParams.parseDemographicNo(request.getParameter("demographicNo"));
