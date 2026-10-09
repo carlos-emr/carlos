@@ -5,9 +5,9 @@ const test = require('node:test');
 const { spawnSync } = require('node:child_process');
 
 /*
- * Nine checks run one script under several manifest entries and pick the finding a run pins with an
+ * Ten checks run one script under several manifest entries and pick the finding a run pins with an
  * environment variable (ALLERGY_PIN, MCEDT_PIN, OAUTH_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, and the claim lists
- * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT and CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT). A bad value is an error of the RUN, so it is
+ * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT, CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT and CONSULT_CONFIG_ONLY / CONSULT_CONFIG_EXCEPT). A bad value is an error of the RUN, so it is
  * judged when the check runs and never when the module is required: oauth-rest-surfaces.test.js requires
  * the module only for its OAuth signer, and a stray OAUTH_PIN in whoever's shell runs the meta-tests must
  * not fail that. Each case runs in a child process because the variable is read once, at load.
@@ -44,6 +44,11 @@ const CASES = [
     good: ['', 'vt', 'mhc.problems,mh14.problems'], run: 'workflow({})' },
   { script: 'clinical-forms-save-reopen-playwright-checks.js', variable: 'CLINICAL_FORMS_EXCEPT', label: 'ClinicalFormsExcept',
     good: ['', 'vt', 'mhc.reopen,mhc.print'], run: 'workflow({})' },
+  // get-reject-consult-config selects its (action, concern) pairs the same way.
+  { script: 'get-reject-consult-config-playwright-checks.js', variable: 'CONSULT_CONFIG_ONLY', label: 'ConsultConfigOnly',
+    good: ['', 'addservice', 'enablerequest.get,updateservice.restricted'], run: 'workflow({})' },
+  { script: 'get-reject-consult-config-playwright-checks.js', variable: 'CONSULT_CONFIG_EXCEPT', label: 'ConsultConfigExcept',
+    good: ['', 'delservice', 'enablerequest.get,updateinstitution.restricted'], run: 'workflow({})' },
 ];
 
 function child(script, variable, value, body) {

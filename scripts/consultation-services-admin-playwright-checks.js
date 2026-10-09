@@ -16,49 +16,8 @@
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-
-const FLAGS = ['consultRequestEnabled', 'consultResponseEnabled'];
-const REFERRING = 'Referring Doctor';
+const { REFERRING, removeScriptBlocks, restoreSwitch, scriptLinesFor, snapshotSwitch } = require('./lib/consult-config-state');
 const { insertId } = h;
-
-/**
- * Snapshot of the clinic-wide request/response switch: two property rows and one service.
- * Each value is selected with an explicit IS NULL flag: `mysql -B` prints SQL NULL and the
- * text 'NULL' alike, so only the flag can tell the restore which one to write back.
- */
-function snapshotSwitch(sql) {
-  const names = FLAGS.map(h.sqlString).join(',');
-  return {
-    properties: sql.rows(`SELECT id,name,value,value IS NULL FROM property WHERE name IN (${names}) ORDER BY id`),
-    services: sql.rows(`SELECT serviceId,active,active IS NULL FROM consultationServices
-      WHERE serviceDesc=${h.sqlString(REFERRING)} ORDER BY serviceId`),
-  };
-}
-
-/** SQL literal for a snapshotted value: the flag decides NULL; a parsed null beside flag 0 was the text 'NULL'. */
-function restoredLiteral(value, isNull) {
-  return isNull === '1' ? 'NULL' : h.sqlString(value === null ? 'NULL' : value);
-}
-
-function restoreSwitch(sql, before) {
-  const names = FLAGS.map(h.sqlString).join(',');
-  const keepProps = before.properties.map(row => row[0]);
-  const keepServices = before.services.map(row => row[0]);
-  sql.execute(`DELETE FROM property WHERE name IN (${names})
-    ${keepProps.length ? `AND id NOT IN (${keepProps.join(',')})` : ''}`);
-  for (const [id, , value, isNull] of before.properties) {
-    sql.execute(`UPDATE property SET value=${restoredLiteral(value, isNull)} WHERE id=${id}`);
-  }
-  // A Referring Doctor row that did not exist before was created by this check's toggle.
-  sql.execute(`DELETE FROM consultationServices WHERE serviceDesc=${h.sqlString(REFERRING)}
-    ${keepServices.length ? `AND serviceId NOT IN (${keepServices.join(',')})` : ''}`);
-  for (const [id, active, isNull] of before.services) {
-    sql.execute(`UPDATE consultationServices SET active=${restoredLiteral(active, isNull)} WHERE serviceId=${id}`);
-  }
-  const after = snapshotSwitch(sql);
-  h.assert(JSON.stringify(after) === JSON.stringify(before),
-    'The consultation request/response switch was not restored to its snapshot');
-}
 
 async function openNewConsultation(s, label) {
   const list = await s.popup(s.master,
@@ -92,11 +51,16 @@ async function workflow(s) {
   s.cleanup(() => restoreSwitch(sql, before));
   const ownedServices = `serviceDesc IN (${h.sqlString(serviceName)},${h.sqlString(sentinelName)})`;
   s.cleanup(() => {
+    // The Add, Delete and Update actions regenerate the legacy specialistsJavascript script from the services as
+    // they stand, so it names the owned services until they are dropped from it (lib/consult-config-state.js).
+    const owned = sql.rows(`SELECT serviceId FROM consultationServices WHERE ${ownedServices}`).map(row => row[0]);
     sql.execute(`DELETE FROM serviceSpecialists WHERE serviceId IN
       (SELECT serviceId FROM consultationServices WHERE ${ownedServices});
       DELETE FROM consultationServices WHERE ${ownedServices}`);
+    removeScriptBlocks(sql, owned);
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationServices WHERE ${ownedServices}`) === '0',
       'Owned consultation services were not removed');
+    h.assert(scriptLinesFor(sql, owned) === 0, 'The legacy consultation script still names an owned service');
   });
   const sentinel = insertId(sql, `INSERT INTO consultationServices(serviceDesc,active)
     VALUES(${h.sqlString(sentinelName)},'1')`, 'sentinel service');

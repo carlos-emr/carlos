@@ -8,7 +8,8 @@ const { markProblems, settleProblems, takeProblems } = require('./lib/form-probl
 const manifest = require('./playwright-suite.json');
 
 /*
- * The three table-driven form checks (form-catalog-smoke, form-rourke2020-growth and clinical-forms-save-reopen) run one script under several
+ * The three table-driven form checks (form-catalog-smoke, form-rourke2020-growth and clinical-forms-save-reopen) and the
+ * consultation configuration sweep (get-reject-consult-config, a table of actions) run one script under several
  * manifest entries, and an entry names in an environment variable the (form, concern) pairs it asserts
  * (scripts/lib/form-claims.js). That arrangement is only honest if the entries together claim every pair exactly once:
  * a pair claimed by nobody is asserted by nothing, and a pair claimed twice hides behind two pins. These tests read the
@@ -207,6 +208,16 @@ const SUITES = [
     variables: { only: 'CLINICAL_FORMS_ONLY', except: 'CLINICAL_FORMS_EXCEPT' },
     labelOf(suite, key, concern) { return suite.module.labelFor(suite.module.FORMS.find((form) => form.claim === key), concern); },
     generatedOf(suite, key, concern) { return suite.module.generatedLabel(suite.module.FORMS.find((form) => form.claim === key), concern); },
+  },
+  {
+    // The (action, concern) table of the consultation configuration writes: AddService, DelService,
+    // EnableConRequestResponse, UpdateServiceSpecialists and UpdateInstitutionDepartment.
+    label: 'get-reject-consult-config',
+    script: 'scripts/get-reject-consult-config-playwright-checks.js',
+    module: require('./get-reject-consult-config-playwright-checks.js'),
+    variables: { only: 'CONSULT_CONFIG_ONLY', except: 'CONSULT_CONFIG_EXCEPT' },
+    labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
+    generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
   },
 ];
 
