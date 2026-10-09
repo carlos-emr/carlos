@@ -95,8 +95,11 @@ class EmailFooterAuditSnapshotUnitTest {
     private static EmailLog log(int id, EmailLog.EmailStatus status) {
         var log = new EmailLog();
         ReflectionTestUtils.setField(log, "id", id);
-        log.setSubject("FAKE audit email"); log.setToEmail(new String[]{"fake@example.test"});
-        log.setTimestamp(new Date(id)); log.setStatus(status); log.setIsEncrypted(false);
+        log.setSubject("FAKE audit email");
+        log.setToEmail(new String[]{"fake@example.test"});
+        log.setTimestamp(new Date(id));
+        log.setStatus(status);
+        log.setIsEncrypted(false);
         log.setTransactionType(EmailLog.TransactionType.EFORM);
         return log;
     }

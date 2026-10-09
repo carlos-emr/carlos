@@ -53,9 +53,11 @@ class ViewPortalEmailFooterAuditUnitTest {
     private MockedStatic<ServletActionContext> context;
     private LoggedInInfo user;
     @BeforeEach void setup() {
-        request=new MockHttpServletRequest("GET","/admin/ViewConfigureEmail");user=new LoggedInInfo();
+        request=new MockHttpServletRequest("GET","/admin/ViewConfigureEmail");
+        user=new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),user);
-        context=mockStatic(ServletActionContext.class);context.when(ServletActionContext::getRequest).thenReturn(request);
+        context=mockStatic(ServletActionContext.class);
+        context.when(ServletActionContext::getRequest).thenReturn(request);
         when(clinic.clinicFooter()).thenReturn("FAKE Current Clinic");
     }
     @AfterEach void cleanup(){context.close();}
@@ -63,12 +65,16 @@ class ViewPortalEmailFooterAuditUnitTest {
     private void authorize(){when(security.hasPrivilege(any(),eq("_admin"),eq("r"),isNull())).thenReturn(true);}
     @Test void shouldDenyNonAdmin_beforeConfigurationOrHistoricalLookup() {
         AtomicInteger checks=new AtomicInteger();
-        var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->{checks.incrementAndGet();return true;});
+        var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->{checks.incrementAndGet();
+            return true;
+        });
         assertThatThrownBy(a::execute).isInstanceOf(SecurityException.class);
-        assertThat(checks).hasValue(0);verifyNoInteractions(audit,clinic,logo);
+        assertThat(checks).hasValue(0);
+        verifyNoInteractions(audit,clinic,logo);
     }
     @Test void shouldRenderSavedHistoricalPage_withoutSubstitutingCurrentClinic() throws Exception {
-        authorize();request.addParameter("portalFooterDate","2026-10-09");
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
         var row=new PortalEmailFooterAuditPage.Attempt("01791547200000000000-00000000000000000000000000000001",
                 "mfa",java.time.Instant.parse("2026-10-09T01:00:00Z"),"unknown",
                 java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null);
@@ -82,23 +88,31 @@ class ViewPortalEmailFooterAuditUnitTest {
     @Test void shouldRefuseInvalidOrDuplicateDateAndCursor_beforePortal() throws Exception {
         authorize();
         for(String invalid:List.of("2026-02-30","2026-1-01","0000-01-01","2026-10-09&limit=100")){
-            request.setParameter("portalFooterDate",invalid);action().execute();
+            request.setParameter("portalFooterDate",invalid);
+            action().execute();
             assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("invalid");
         }
-        request.setParameter("portalFooterDate",new String[]{"2026-10-09","2026-10-08"});action().execute();
-        request.setParameter("portalFooterDate","2026-10-09");request.setParameter("portalFooterBefore","../../private");action().execute();
+        request.setParameter("portalFooterDate",new String[]{"2026-10-09","2026-10-08"});
+        action().execute();
+        request.setParameter("portalFooterDate","2026-10-09");
+        request.setParameter("portalFooterBefore","../../private");
+        action().execute();
         verifyNoInteractions(audit);
     }
     @Test void shouldShowUnavailable_withoutTurningFailureIntoEmptyHistory() throws Exception {
-        authorize();request.addParameter("portalFooterDate","2026-10-09");
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
         when(audit.read(any(),any(),isNull())).thenThrow(new PatientPortalConfigurationException("missing configuration"));
         assertThat(action().execute()).isEqualTo("success");
         assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
         assertThat(request.getAttribute("portalFooterAudit")).isNull();
     }
     @Test void shouldOmitHistory_whenPortalIsOff_withoutClientLookup() throws Exception {
-        authorize();var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->false);a.execute();
-        assertThat(request.getAttribute("portalFooterAuditEnabled")).isNull();verifyNoInteractions(audit);
+        authorize();
+        var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->false);
+        a.execute();
+        assertThat(request.getAttribute("portalFooterAuditEnabled")).isNull();
+        verifyNoInteractions(audit);
     }
     @Test void shouldUseNativeCollapsedDetails_andEscapedSavedPlaintext() throws Exception {
         String jsp=Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"));

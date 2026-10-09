@@ -131,7 +131,9 @@ class ClinicEmailFooterMariaDbIntegrationTest {
         new TransactionTemplate(manager).executeWithoutResult(status -> {
             entities.createQuery("delete from UserProperty").executeUpdate();
             entities.createQuery("delete from Clinic").executeUpdate();
-            Clinic clinic = new Clinic(); clinic.setClinicName("FAKE Clinic"); entities.persist(clinic);
+            Clinic clinic = new Clinic();
+            clinic.setClinicName("FAKE Clinic");
+            entities.persist(clinic);
         });
     }
 
@@ -156,10 +158,12 @@ class ClinicEmailFooterMariaDbIntegrationTest {
                         assertThat(dao.findClinicEmailFooter()).isEmpty();
                         entities.unwrap(org.hibernate.Session.class).doWork(connection -> {
                             try (var statement = connection.createStatement(); var row = statement.executeQuery("SELECT CONNECTION_ID()")) {
-                                row.next(); readerConnection.set(row.getLong(1));
+                                row.next();
+                                readerConnection.set(row.getLong(1));
                             }
                         });
-                        readerReady.countDown(); await(startSave);
+                        readerReady.countDown();
+                        await(startSave);
                         return service.save("Reader Clinic", ClinicEmailFooterService.fingerprint(""));
                     }));
             if (!readerReady.await(10, TimeUnit.SECONDS)) {
@@ -170,7 +174,8 @@ class ClinicEmailFooterMariaDbIntegrationTest {
             var writer = workers.submit(() -> transaction(TransactionDefinition.ISOLATION_READ_COMMITTED)
                     .execute(status -> {
                         var outcome = service.save("Writer Clinic", ClinicEmailFooterService.fingerprint(""));
-                        writerSaved.countDown(); await(finishWriter);
+                        writerSaved.countDown();
+                        await(finishWriter);
                         if (!commitWinner) status.setRollbackOnly();
                         return outcome;
                     }));
@@ -182,7 +187,9 @@ class ClinicEmailFooterMariaDbIntegrationTest {
                 startSave.countDown();
                 assertThat(waitingForLock(readerConnection.get())).isTrue();
                 assertThat(reader.isDone()).isFalse();
-            } finally { finishWriter.countDown(); startSave.countDown(); }
+            } finally { finishWriter.countDown();
+                startSave.countDown();
+            }
             assertThat(writer.get(10, TimeUnit.SECONDS)).isEqualTo(ClinicEmailFooterService.SaveResult.SAVED);
             if (commitWinner && strictSnapshot) {
                 assertThatThrownBy(() -> reader.get(10, TimeUnit.SECONDS))
@@ -193,7 +200,8 @@ class ClinicEmailFooterMariaDbIntegrationTest {
             }
         }
         new TransactionTemplate(manager).executeWithoutResult(status -> {
-            var rows = dao.findClinicEmailFooter(); assertThat(rows).hasSize(1);
+            var rows = dao.findClinicEmailFooter();
+            assertThat(rows).hasSize(1);
             assertThat(rows.get(0).getValue()).isEqualTo(commitWinner ? "Writer Clinic" : "Reader Clinic");
         });
     }
@@ -203,13 +211,16 @@ class ClinicEmailFooterMariaDbIntegrationTest {
     void shouldRefuseStaleEdit_afterEarlierManagedPropertyRead(boolean strictSnapshot) throws Exception {
         assertThat(service.save("Old Clinic", ClinicEmailFooterService.fingerprint("")))
                 .isEqualTo(ClinicEmailFooterService.SaveResult.SAVED);
-        var cached = new CountDownLatch(1); var changed = new CountDownLatch(1);
+        var cached = new CountDownLatch(1);
+        var changed = new CountDownLatch(1);
         try (var worker = Executors.newSingleThreadExecutor()) {
             var reader = worker.submit(() -> transaction(TransactionDefinition.ISOLATION_REPEATABLE_READ)
                     .execute(status -> {
                         setSnapshotIsolation(strictSnapshot);
                         var old = dao.findClinicEmailFooter().get(0);
-                        assertThat(old.getValue()).isEqualTo("Old Clinic"); cached.countDown(); await(changed);
+                        assertThat(old.getValue()).isEqualTo("Old Clinic");
+                        cached.countDown();
+                        await(changed);
                         return service.save("Stale Clinic", ClinicEmailFooterService.fingerprint("Old Clinic"));
                     }));
             assertThat(cached.await(10, TimeUnit.SECONDS)).isTrue();
@@ -267,12 +278,14 @@ class ClinicEmailFooterMariaDbIntegrationTest {
                         var prior = dao.findClinicEmailFooter();
                         assertThat(prior).hasSize(1);
                         assertThat(prior.get(0).getValue()).isEqualTo("Existing Clinic");
-                        read.countDown(); await(inserted);
+                        read.countDown();
+                        await(inserted);
                         return service.save("Edited Clinic", ClinicEmailFooterService.fingerprint("Existing Clinic"));
                     }));
             try {
                 if (!read.await(10, TimeUnit.SECONDS)) {
-                    inserted.countDown();reader.get(1, TimeUnit.SECONDS);
+                    inserted.countDown();
+                    reader.get(1, TimeUnit.SECONDS);
                     fail("Reader did not reach the duplicate insertion barrier");
                 }
                 transaction(TransactionDefinition.ISOLATION_READ_COMMITTED).executeWithoutResult(status -> {
@@ -308,13 +321,15 @@ class ClinicEmailFooterMariaDbIntegrationTest {
                     .execute(status -> {
                         setSnapshotIsolation(strictSnapshot);
                         assertThat(dao.findClinicEmailFooter()).isEmpty();
-                        read.countDown(); await(inserted);
+                        read.countDown();
+                        await(inserted);
                         // The compose/admin page can be loaded outside this ambient transaction.
                         return service.save("Edited Clinic", ClinicEmailFooterService.fingerprint("Existing Clinic"));
                     }));
             try {
                 if (!read.await(10, TimeUnit.SECONDS)) {
-                    inserted.countDown();reader.get(1, TimeUnit.SECONDS);
+                    inserted.countDown();
+                    reader.get(1, TimeUnit.SECONDS);
                     fail("Reader did not reach the canonical insertion barrier");
                 }
                 retained.set(seedClinicAndOwnerProperties(false));
@@ -344,13 +359,17 @@ class ClinicEmailFooterMariaDbIntegrationTest {
     }
 
     private UserProperty property(String name, String owner, String value) {
-        var property = new UserProperty();property.setName(name);property.setProviderNo(owner);property.setValue(value);
+        var property = new UserProperty();
+        property.setName(name);
+        property.setProviderNo(owner);
+        property.setValue(value);
         return property;
     }
 
     private void assertSingleClinicAndOtherOwner(int retained, String value) {
         new TransactionTemplate(manager).executeWithoutResult(status -> {
-            var rows = dao.findClinicEmailFooter();assertThat(rows).hasSize(1);
+            var rows = dao.findClinicEmailFooter();
+            assertThat(rows).hasSize(1);
             assertThat(rows.get(0).getId()).isEqualTo(retained);
             assertThat(rows.get(0).getValue()).isEqualTo(value);
             assertOtherOwnerProperties();
@@ -378,7 +397,9 @@ class ClinicEmailFooterMariaDbIntegrationTest {
             try (var statement = admin.prepareStatement("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w "
                     + "JOIN information_schema.INNODB_TRX t ON w.requesting_trx_id=t.trx_id WHERE t.trx_mysql_thread_id=?")) {
                 statement.setLong(1, connection);
-                try (var rows = statement.executeQuery()) { rows.next(); if (rows.getInt(1) > 0) return true; }
+                try (var rows = statement.executeQuery()) { rows.next();
+                    if (rows.getInt(1) > 0) return true;
+                }
             }
             Thread.sleep(250); // InnoDB information-schema cache needs an idle interval to refresh.
         }
@@ -387,6 +408,8 @@ class ClinicEmailFooterMariaDbIntegrationTest {
 
     private static void await(CountDownLatch latch) {
         try { if (!latch.await(15, TimeUnit.SECONDS)) throw new AssertionError("Timed out at owned fixture barrier"); }
-        catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new AssertionError(error); }
+        catch (InterruptedException error) { Thread.currentThread().interrupt();
+            throw new AssertionError(error);
+        }
     }
 }
