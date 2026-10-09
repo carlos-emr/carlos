@@ -162,27 +162,27 @@
   }, {
     "groupId" : "com.fasterxml.jackson.core",
     "artifactId" : "jackson-core",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:5/CUFoW04CFuYpDEKSSn120bqR7sP5wibdmUmi0hdQLV9ubWV3YNXZUoSiaEriJ6gg2pFDhuVLovU86vs7VxVA=="
+    "integrity" : "sha512:jVmElhs3+VcNBYGnTwBUQv43xGxgHuD+Y+NpX5Z711mN0mjPszUJoon/RyOFzt2ZOWZg4x18uHPR5///Z2kS6A=="
   }, {
     "groupId" : "com.fasterxml.jackson.core",
     "artifactId" : "jackson-databind",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:CcYPmPcbxLKR2kTUYpmgCKvUQRjkhynf35Zid5YCbQkQU7BrnRW6IEw2dcZgFfaDuRkQ17RFYAAZ3ZQ12P11CQ=="
+    "integrity" : "sha512:LJRWDvDwH33RKuCBDbz6+A/d2Im8JfWXNQ+3Wg/MJm+mj1eVp3P3cmkkJqyBpu5l7SvejbgYS7J4gyO8le9+vg=="
   }, {
     "groupId" : "com.fasterxml.jackson.dataformat",
     "artifactId" : "jackson-dataformat-xml",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:KZAMj5Mp5bQEpKQDpWn9k1ZbFWPtYRdGEyTI8lfn2KHSFBTY5VYW8NEpsWWV3k/1vWNKwixuaZsgwytpd0x3AQ=="
+    "integrity" : "sha512:oTfZbS/ytEQXON7xJsbxNqwrHGGusOQJNGWNshwFc+GVk2s7eRmftME9BaY2E35fadoTneCBJ8vmNeVo+iQQng=="
   }, {
     "groupId" : "com.fasterxml.jackson.datatype",
     "artifactId" : "jackson-datatype-jsr310",
@@ -194,27 +194,27 @@
   }, {
     "groupId" : "com.fasterxml.jackson.jakarta.rs",
     "artifactId" : "jackson-jakarta-rs-base",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:CWQk6LxwOrQhH2Xbx18gHO/bZQ78iHmm5hFz0ZeC37Qa8HMNJ4+lrBe51rsYtmQoQFwD8jZT9mu+lza5aPGHmQ=="
+    "integrity" : "sha512:hJ18Rd1ELeW1lnQvUs1BPovjs15Amee5YWdlEctT0ViRF9VQKYfumgG4uPs+sZJ3HaCqvarCzNhrFHV+objF+A=="
   }, {
     "groupId" : "com.fasterxml.jackson.jakarta.rs",
     "artifactId" : "jackson-jakarta-rs-json-provider",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:dFO7Itujj3JTlFYS81DM/7Fg6hOtNZdy9jFn1bUB7TVxn5uC91EpyT6SLbZ909VctAIaznW4QaLEgelR7E2rtw=="
+    "integrity" : "sha512:Xl7OaJMDG3KerWj87vwvKzK5WjzfgpydoXfNamn1R0qoN1M/1frbnl8gwSSOK5zCgV5sHLhyN2Py8GTd3jQdkw=="
   }, {
     "groupId" : "com.fasterxml.jackson.module",
     "artifactId" : "jackson-module-jakarta-xmlbind-annotations",
-    "version" : "2.22.2",
+    "version" : "2.22.3",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:0xYsNFxHEmcuHgqzsNqcl0wdlObnVvkf/bfmfaakUxCaa1U7rAdJrUbvhzpHAAdJPIKA1vfmiDfnVjR4dPYCLQ=="
+    "integrity" : "sha512:SzGRBIQYWFRE1TC6nl2idU0GI7JxDgZcKF0tSfOgwdudo1dnnXuid3gX8aFhZnUEZImsPktdOpBh3rzAIS8JnA=="
   }, {
     "groupId" : "com.fasterxml.woodstox",
     "artifactId" : "woodstox-core",
