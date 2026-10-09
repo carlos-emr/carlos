@@ -540,7 +540,8 @@ async function main() {
       probes,
     }, null, 2));
     for (const artifactPath of artifactPaths) {
-      fs.rmSync(artifactPath, { force: true });
+      // screenshot() returns null when screenshots are disabled; there is no file to remove then.
+      if (artifactPath) fs.rmSync(artifactPath, { force: true });
     }
     console.log('PASS eForm renderer APCache bridge check');
   } catch (error) {
