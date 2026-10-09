@@ -227,7 +227,7 @@ async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    ".patient-nav a[href*='/tickler/ViewTicklerMain']",
     'tickler'
   );
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
@@ -239,7 +239,7 @@ async function checkPatientPopups(context, patientPage) {
   const consultation = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    ".patient-nav a[href*='ViewDisplayDemographicConsultationRequests']",
     'consultation'
   );
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });

@@ -24,7 +24,7 @@ async function workflow(s) {
     assert(/^[1-9]\d*$/.test(id), 'Pharmacy fixture was not created');
     ids.push(id);
   }
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="rx/choosePatient"]').first(), 'pharmacy-rx');
+  const rx = await s.popup(s.master, s.master.locator('.patient-nav a[href*="rx/choosePatient"]').first(), 'pharmacy-rx');
   await rx.locator('a[href$="/rx/managePharmacy"]').click();
   await rx.waitForURL(/\/rx\/managePharmacy(?:\?|$)/);
   assert(await rx.locator('#demographicNo').inputValue() === s.patient, 'Pharmacy screen lost the selected patient');

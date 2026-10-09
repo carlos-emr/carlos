@@ -75,7 +75,9 @@
     background: var(--portal-primary);
 }
 
-.portal-sidebar a,
+/* The sidebar's own short list (when the record's navigation is not shown); the shared navigation
+   (share/css/patient-nav.css) styles its own links. */
+.portal-sidebar > a,
 .portal-sidebar__current {
     display: block;
     padding: 8px 12px;
@@ -86,8 +88,8 @@
     text-decoration: none;
 }
 
-.portal-sidebar a:hover,
-.portal-sidebar a:focus-visible {
+.portal-sidebar > a:hover,
+.portal-sidebar > a:focus-visible {
     background: var(--portal-primary-dark);
     color: #fff;
     text-decoration: underline;
@@ -418,7 +420,11 @@
         flex-wrap: wrap;
     }
 
-    .portal-sidebar a,
+    .portal-sidebar > .patient-nav {
+        flex: 1 1 100%;
+    }
+
+    .portal-sidebar > a,
     .portal-sidebar__current {
         flex: 1 1 auto;
         border-right: 1px solid rgba(255, 255, 255, .15);

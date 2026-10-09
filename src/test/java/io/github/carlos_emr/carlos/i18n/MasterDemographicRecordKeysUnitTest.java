@@ -74,7 +74,8 @@ class MasterDemographicRecordKeysUnitTest {
             "src/main/webapp/WEB-INF/jsp/demographic/edit.jsp",
             "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp",
             "src/main/webapp/WEB-INF/jsp/demographic/edit-form-personal.jsp",
-            "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"
+            "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp",
+            "src/main/webapp/WEB-INF/jsp/demographic/patient-nav.jsp"
     };
 
     private static final Pattern HTML_COMMENT = Pattern.compile("<!--.*?-->", Pattern.DOTALL);
