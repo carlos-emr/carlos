@@ -228,7 +228,9 @@ class SmsConfigViewModelAssemblerUnitTest {
 
     @Test
     void shouldShowReadinessError_whenSavedProviderIsNotReady() {
-        when(configService.current()).thenReturn(Optional.of(new SmsConfig()));
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        when(configService.current()).thenReturn(Optional.of(stored));
         when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
 
         SmsConfigViewModel page = assembler().assemble(null, List.of());

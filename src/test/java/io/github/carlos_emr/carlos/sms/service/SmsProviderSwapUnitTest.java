@@ -485,7 +485,7 @@ class SmsProviderSwapUnitTest {
     }
 
     @Test
-    void shouldBackOffFaultyInactiveRow_andFailNextHealthyRow() {
+    void shouldBackOffFaultyInactiveRow_whenNextRowIsHealthy() {
         SmsTransaction first = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
         SmsTransaction second = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
         save(completeFakeSettings());
