@@ -56,7 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>An upload must be a PNG or JPEG of at most {@link #MAX_BYTES} bytes and
  * {@link #MAX_WIDTH} x {@link #MAX_HEIGHT} pixels. Its size is read from the file's header before
- * the picture is decoded, so a small file that would expand into a huge picture is refused unread.
+ * the picture is decoded, so a small file that would expand into a huge picture is refused unread,
+ * and a JPEG with more than {@link #MAX_JPEG_SCANS} scans is refused before it is decoded.
  * CARLOS then re-saves the picture in the same format, which drops anything else the file carried
  * (camera data, comments, embedded thumbnails), and stores that copy, never the upload. The copy
  * must fit {@link #MAX_BYTES} too.</p>
@@ -75,6 +76,11 @@ public class EmailFooterLogoService {
     public static final int MAX_WIDTH = 600;
     /** Tallest logo accepted, in pixels. */
     public static final int MAX_HEIGHT = 200;
+    /**
+     * Most scans a JPEG logo may have. Each scan is another pass over the whole picture when it is
+     * read; an ordinary JPEG has one and a progressive one about ten.
+     */
+    static final int MAX_JPEG_SCANS = 64;
 
     /** Why an upload was refused; nothing is saved. */
     public enum Rejection {
@@ -246,6 +252,9 @@ public class EmailFooterLogoService {
                 if (width < 1 || height < 1 || width > MAX_WIDTH || height > MAX_HEIGHT) {
                     throw new LogoRejectedException(Rejection.TOO_LARGE);
                 }
+                if (!png && jpegScanCount(upload) > MAX_JPEG_SCANS) {
+                    throw new LogoRejectedException(Rejection.NOT_AN_IMAGE);
+                }
                 byte[] bytes = resave(reader.read(0), png);
                 if (bytes.length > maxBytes) {
                     throw new LogoRejectedException(Rejection.COPY_TOO_BIG);
@@ -263,6 +272,22 @@ public class EmailFooterLogoService {
             logger.warn("Clinic email logo refused as not a readable picture; cause={}", e.getClass().getSimpleName());
             throw new LogoRejectedException(Rejection.NOT_AN_IMAGE);
         }
+    }
+
+    /**
+     * Counts the start-of-scan markers (0xFF 0xDA) in a JPEG's bytes. Inside the compressed data a
+     * 0xFF byte is followed only by 0x00 or a restart marker (0xD0 to 0xD7), never by 0xDA, so any
+     * 0xFF 0xDA found there is a real marker. One inside a metadata segment is counted too, which
+     * only errs towards refusing.
+     */
+    static int jpegScanCount(byte[] jpeg) {
+        int scans = 0;
+        for (int i = 0; i + 1 < jpeg.length; i++) {
+            if (jpeg[i] == (byte) 0xFF && jpeg[i + 1] == (byte) 0xDA) {
+                scans++;
+            }
+        }
+        return scans;
     }
 
     private static byte[] resave(BufferedImage image, boolean png) throws IOException {

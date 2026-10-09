@@ -23,11 +23,13 @@ package io.github.carlos_emr.carlos.email.core;
 
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
@@ -64,8 +66,19 @@ public final class EmailFooterHtml {
     private static final List<String> EMPTY_TAILS =
             List.of(BR, "<div><br></div>", "<p><br></p>", "<div></div>", "<p></p>");
 
+    // Control or invisible formatting characters, a lone surrogate, or a character the parser had
+    // to replace, in a link's address: such an address is dropped like one with a protocol that
+    // isn't allowed, so the address a reader sees is the one the link goes to.
+    private static final Pattern HIDDEN_CHARACTERS = Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Cs}\\uFFFD]");
+
     // Built once and never changed: Safelist is mutable, so it must not be handed out.
-    private static final Safelist ALLOWED = new Safelist()
+    private static final Safelist ALLOWED = new Safelist() {
+        @Override
+        public boolean isSafeAttribute(String tagName, Element el, Attribute attr) {
+            return super.isSafeAttribute(tagName, el, attr)
+                    && !("href".equals(attr.getKey()) && HIDDEN_CHARACTERS.matcher(attr.getValue()).find());
+        }
+    }
             .addTags("b", "strong", "i", "em", "br", "p", "div", "a")
             .addAttributes("a", "href")
             .addProtocols("a", "href", "https", "mailto");
