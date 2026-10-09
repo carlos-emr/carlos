@@ -8476,6 +8476,138 @@
       }
     },
     {
+      "name": "echart-issues-filter",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Assigning an issue to a chart note the way the coverage plan describes it, CPP > Assign Issues > Sign & Save, on an owned FAKE patient. Steps: a plain note is written and signed through the note editor; the Social History '+' opens the CPP item editor, whose Assign Issues box (#issueAutocompleteCPP, jQuery UI autocomplete on CaseManagementEntry?method=issueList) suggests the catalog issue 'Safety' (CTCMM1000, role counsellor; the packaged catalog has no issue 250, the plan's example) and takes the pick (the hidden #newIssueId holds the issue id, the box shows the name); the editor's own Sign & Save writes a signed casemgmt_note linked through casemgmt_issue_notes to its own Social History issue. LAST AND PINNED to finding 225: the picked issue is assigned to the note, a casemgmt_issue row for it linked through casemgmt_issue_notes; today the save links only the Social History issue, because the pick fills the hidden fields of the note editor's form while the CPP form posts none of them (addIssue2CPP is referenced only from a commented-out autocompleter). The steps after the pin run once 225 is fixed and are the functions the seeded entries run (verified live there): the Issues module lists the issue and the Resolved Issues module does not, clicking the issue lists only the linked note, and the heading brings every note back. The plan's example issue 250 is not in the packaged catalog, so 'Safety' stands in; its id is read by code. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227) and echart-issues-filter-panel (185), selected by ECHART_ISSUES_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), one plain note written and signed through the chart's note editor and one CPP Social History item written through the CPP editor. Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 225,
+        "step": "the issue picked in the CPP editor Assign Issues box is assigned to the note: a casemgmt_issue row linked through casemgmt_issue_notes"
+      }
+    },
+    {
+      "name": "echart-issues-filter-note-editor",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "editor"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "The main note editor offers a way to search for an issue and assign it, pinned to finding 186. A control step opens the owned patient's chart and finds the note editor with its issue area (#noteIssues, the area the controls belong in); the pin asserts the Assign Issues search box (#issueAutocomplete) and the Assign button (#asgnIssues) are shown, which newCaseManagementView.js.jsp and ChartNotesAjax.jsp drive but no template renders. Expected: the control passes and the pin fails. Assignment through the CPP editor is echart-issues-filter (finding 225). The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227) and echart-issues-filter-panel (185), selected by ECHART_ISSUES_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name); it writes nothing (the chart is opened and read). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 186,
+        "step": "the note editor offers an Assign Issues search box and an Assign button"
+      }
+    },
+    {
+      "name": "echart-issues-filter-heading",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "heading"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "The Issues module's click and heading on a SEEDED link, pinned to finding 226. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225 mean no UI route assigns it). The Issues module lists the issue and the Resolved Issues module does not (the CPP issues are not listed), the linked note shows 'Assigned Issues' with the issue and the other note does not, and clicking the issue in the module lists only the linked note (the ajax POST of CaseManagementEntry method=edit&ajaxview=ajaxView) with the database unchanged. PINNED, last: clicking the module's heading ('Unresolved Issues') brings every note back. The heading's onclick is $(\\x27check_issue\\x27).value=\\x27\\x27;... because LeftNavBarDisplay.jsp encodes the statement with the javaScriptAttribute encoder, which writes the quotes as \\x27 outside a string literal: the click throws 'Invalid or unexpected token' and the listing stays filtered. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227) and echart-issues-filter-panel (185), selected by ECHART_ISSUES_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 226,
+        "step": "clicking the Issues heading brings every note back"
+      }
+    },
+    {
+      "name": "echart-issues-filter-resolve",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "resolve"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "Resolving an issue from the chart, on a SEEDED link, pinned to finding 227. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225). The Issues module lists the issue. A control step opens the note editor and records what a clinician can see of its 'Reference Unresolved Issues' checklist (the only place the Resolved radio lives): the server delivers it with the issue in it, it is display:none, and no visible control in the editor names issues. A second control, labelled as not a clinician path, reveals the checklist with a script, opens the issue and picks Resolved: issueChange answers 200, casemgmt_issue.resolved becomes 1 at once and the link to the note stays; the reopened chart lists the issue under Resolved Issues and not under the Issues module, and clicking it there lists only the linked note. PINNED, last: a clinician can reach the control (the checklist is shown or one visible control opens it); showIssues()/showHideIssues() have no caller and the #toggleIssue they were bound to is not rendered. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227) and echart-issues-filter-panel (185), selected by ECHART_ISSUES_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 227,
+        "step": "a clinician can reach the control that resolves an issue from the note editor"
+      }
+    },
+    {
+      "name": "echart-issues-filter-panel",
+      "script": "scripts/echart-issues-filter-playwright-checks.js",
+      "envSet": {
+        "ECHART_ISSUES_PIN": "panel"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ECHART_ISSUES_PIN"
+      ],
+      "mutates": [
+        "log"
+      ],
+      "notes": "The notes filter panel, on a SEEDED link, pinned to finding 185. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225). The Issues module lists the issue. A control step proves the panel is in the page (#filter, display none) with a checkbox for the issue (name=issues, value = the casemgmt_issue id). PINNED, last: a clinician can open it, meaning a visible control outside the panel labelled Filter exists and clicking it shows #filter; showFilter() has no caller and toggles a class an inline display:none overrides. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227) and echart-issues-filter-panel (185), selected by ECHART_ISSUES_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 185,
+        "step": "the notes filter panel can be opened from the chart"
+      }
+    },
+    {
       "name": "inbox-file-forward",
       "script": "scripts/inbox-file-forward-playwright-checks.js",
       "tiers": [
