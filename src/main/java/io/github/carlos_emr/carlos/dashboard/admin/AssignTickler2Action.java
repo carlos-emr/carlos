@@ -117,6 +117,8 @@ public class AssignTickler2Action extends ActionSupport {
         } catch (IllegalArgumentException invalid) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             jsonObject.put("success", "false");
+            // Messages come from TicklerRequest's own fixed validation text, never from request data.
+            jsonObject.put("message", invalid.getMessage());
             return writeResult(jsonObject);
         }
         parsed.tickler().setCreator(loggedInInfo.getLoggedInProviderNo());

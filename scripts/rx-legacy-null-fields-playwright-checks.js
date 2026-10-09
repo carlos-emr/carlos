@@ -27,8 +27,9 @@ async function workflow(s) {
   script = s.sql.value(`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,textView,lastUpdateDate)
     VALUES(${h.sqlString(s.provider)},${s.patient},CURDATE(),CURDATE(),'Synthetic prescription',NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9][0-9]*$/.test(script), 'Owned prescription was not created');
-  const drug = s.sql.value(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,customName,special,script_no,create_date,lastUpdateDate)
-    VALUES(${h.sqlString(s.provider)},${s.patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 7 DAY),CURDATE(),${h.sqlString(s.marker)},${h.sqlString(s.marker)},'One tablet daily',${script},NOW(),NOW()); SELECT LAST_INSERT_ID()`);
+  // position and dispenseInternal are NOT NULL with no default: strict sql_mode refuses a row that omits them.
+  const drug = s.sql.value(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,customName,special,script_no,position,dispenseInternal,create_date,lastUpdateDate)
+    VALUES(${h.sqlString(s.provider)},${s.patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 7 DAY),CURDATE(),${h.sqlString(s.marker)},${h.sqlString(s.marker)},'One tablet daily',${script},0,0,NOW(),NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9][0-9]*$/.test(drug), 'Owned drug was not created');
   const page = await s.context.newPage();
   await s.step('load a prescription with schema-legal NULL dose, flags, repeats and quantity', async () => {

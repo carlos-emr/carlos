@@ -28,16 +28,21 @@
  *      exists for the patient, provider, date and time the slot returned;
  *   4. the day sheet shows the appointment link for it.
  *
- * The appointment is deleted in a finally.
+ * The patient is a FAKE one this check creates (lib/owned-patient.js: last name = a FAKE-PW run
+ * marker, active, admitted to one of the login's programs because the quick search lists nothing else, with the test
+ * provider as its MRP, who has a schedule template). The
+ * appointment, the archive rows its status changes file, the chart rows and the patient are
+ * deleted by key in a finally. It used to book for DEMO patient 1 and delete only the
+ * appointment, which left an appointmentArchive row behind per run.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: QUICKSEARCH_DEMOGRAPHIC_NO (1; the patient must be active with
- *   an MRP who has a schedule template applied in the next 90 days).
+ * The test provider is the patient's MRP and must have a schedule template applied in the next 90 days.
  */
 
 const { chromium } = require('playwright');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -66,8 +71,9 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.QUICKSEARCH_DEMOGRAPHIC_NO || '1';
-assert(/^\d+$/.test(demographicNo), 'QUICKSEARCH_DEMOGRAPHIC_NO must be numeric');
+// The owned patient the appointment is booked for, created in main (never a demo patient).
+let demographicNo = null;
+const ownedMarker = newOwnedMarker();
 const reason = `PW_QS_APPT_${Date.now()}`;
 
 let mysqlDefaults = null;
@@ -105,8 +111,17 @@ function appointmentRow() {
   const [id, providerNo, date, startTime, endTime, demoNo, name, creator] = out.split('\t');
   return { id, providerNo, date, startTime, endTime, demoNo, name, creator };
 }
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
 function cleanupRows() {
+  if (demographicNo === null) return;
   sql(`DELETE FROM appointment WHERE reason='${escapeSql(reason)}'`);
+  // Last: whatever else the pages wrote for the patient, and the patient, by its key. Each status change files an archive row of
+  // the appointment that the application never removes; it carries the patient's number, so it is keyed by the owned patient and
+  // not through the appointment row (which is already gone by now).
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, {
+    extra: [['appointmentArchive', 'demographic_no'], ['appointment', 'demographic_no'], ['admission', 'client_id']],
+  });
 }
 
 let browser = null;
@@ -145,6 +160,16 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
+    // The patient first, so a failure anywhere below still reaches cleanupRows() through runCleanup().
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
+    assert(provider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
+    // The quick search lists only patients admitted to one of the login's programs (DemographicDaoImpl PROGRAM_DOMAIN_RESTRICTION);
+    // a patient inserted bare is out of domain and the widget answers an empty list. One owned admission row, removed by client id.
+    const program = sql(`SELECT program_id FROM program_provider WHERE provider_no='${escapeSql(provider)}' ORDER BY program_id LIMIT 1`);
+    assert(/^[1-9]\d*$/.test(program), 'the test login belongs to no program, so no patient is searchable');
+    sql(`INSERT INTO admission (client_id,program_id,provider_no,admission_date,admission_from_transfer,discharge_from_transfer,admission_status,lastUpdateDate)
+      VALUES (${Number(demographicNo)},${program},'${escapeSql(provider)}',NOW(),0,0,'current',NOW())`);
     const [lastName, firstName, mrp, status] = sql(`SELECT last_name, first_name, IFNULL(provider_no,''), IFNULL(patient_status,'') FROM demographic WHERE demographic_no=${Number(demographicNo)}`).split('\t');
     assert(lastName, `demographic ${demographicNo} not found`);
     assert(mrp, `demographic ${demographicNo} has no MRP, so the widget will not offer Appt`);

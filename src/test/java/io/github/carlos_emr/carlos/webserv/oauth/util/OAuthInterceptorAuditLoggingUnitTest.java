@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import static org.mockito.Mockito.times;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -256,23 +260,98 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("bounds synchronous failure rows from one address and marks where suppression began")
-    void shouldBoundFailureRows_whenOneAddressFloods() {
+    @DisplayName("bounds anonymous failure rows per address and records one suppression notice")
+    void shouldSuppressFailureRows_afterPerAddressLimit() {
+        // #4429: an anonymous flood used to write one synchronous row per request.
         when(request.getParameter("oauth_consumer_key")).thenReturn(null);
-        int calls = OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS + 40;
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+
+        for (int i = 0; i < limit + 5; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(limit + 1));
+        List<OscarLog> rows = captor.getAllValues();
+        assertThat(rows.subList(0, limit)).allSatisfy(row -> assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE"));
+        assertThat(rows.get(limit).getAction()).isEqualTo("OAUTH_LOGIN_FAILURES_SUPPRESSED");
+        assertThat(rows.get(limit).getIp()).isEqualTo(REMOTE_IP);
+    }
+
+    @Test
+    @DisplayName("audits failures again once the suppression window has passed")
+    void shouldAuditAgain_whenWindowElapses() {
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        AtomicLong now = new AtomicLong(1_000_000L);
+        ReflectionTestUtils.setField(interceptor, "failureAuditBudget",
+                new OAuthInterceptor.FailureAuditBudget(now::get));
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+        for (int i = 0; i < limit + 3; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        now.addAndGet(OAuthInterceptor.FailureAuditBudget.WINDOW_MILLIS);
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(limit + 2));
+        assertThat(captor.getValue().getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+    }
+
+    @Test
+    @DisplayName("always audits a refusal after the signature is verified, whatever the budget")
+    void shouldAuditEverySignedRefusal_beyondFailureBudget() {
+        // #4429 review: an anonymous flood must not be able to hide a validly signed token being refused.
+        stubOAuthParameters(CONSUMER_KEY, ACCESS_TOKEN);
+        when(oauthDataProvider.getClient(CONSUMER_KEY))
+                .thenReturn(new Client(CONSUMER_KEY, "secret", "test-app", "http://localhost"));
+        when(verifier.verifySignature(eq(request), any(AppOAuth1Config.class))).thenReturn(ACCESS_TOKEN);
+        ServiceAccessToken sat = new ServiceAccessToken();
+        sat.setProviderNo(PROVIDER_NO);
+        when(oauthDataProvider.findUnexpiredAccessToken(ACCESS_TOKEN)).thenReturn(sat);
+        when(providerDao.getProvider(PROVIDER_NO)).thenReturn(null);  // unknown_provider, after the signature
+        int calls = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT + 5;
 
         for (int i = 0; i < calls; i++) {
             assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
         }
 
         ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
-        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()),
-            org.mockito.Mockito.times(OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS + 1));
-        long failures = captor.getAllValues().stream()
-            .filter(l -> "OAUTH_LOGIN_FAILURE".equals(l.getAction())).count();
-        long summaries = captor.getAllValues().stream()
-            .filter(l -> "OAUTH_LOGIN_FAILURE_SUPPRESSED".equals(l.getAction())).count();
-        assertThat(failures).isEqualTo(OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS);
-        assertThat(summaries).isEqualTo(1);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(calls));
+        assertThat(captor.getAllValues()).allSatisfy(row -> {
+            assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+            assertThat(row.getContent()).isEqualTo(CONSUMER_KEY);
+        });
+    }
+
+    @Test
+    @DisplayName("keeps a separate budget for bad signatures from a registered client")
+    void shouldAuditRegisteredClientFailures_whenAnonymousBudgetIsExhausted() {
+        // Review follow-up to #4429: anonymous floods must not crowd out attempts against a real client's
+        // credentials. Exhaust the anonymous budget for this address first.
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+        for (int i = 0; i < limit + 5; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        stubOAuthParameters(CONSUMER_KEY, ACCESS_TOKEN);
+        when(oauthDataProvider.getClient(CONSUMER_KEY))
+                .thenReturn(new Client(CONSUMER_KEY, "secret", "test-app", "http://localhost"));
+        when(verifier.verifySignature(eq(request), any(AppOAuth1Config.class)))
+                .thenThrow(new IllegalArgumentException("bad signature"));
+        for (int i = 0; i < limit + 3; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(2 * (limit + 1)));
+        List<OscarLog> clientRows = captor.getAllValues().subList(limit + 1, 2 * (limit + 1));
+        assertThat(clientRows.subList(0, limit)).allSatisfy(row -> {
+            assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+            assertThat(row.getContent()).isEqualTo(CONSUMER_KEY);
+        });
+        assertThat(clientRows.get(limit).getAction()).isEqualTo("OAUTH_LOGIN_FAILURES_SUPPRESSED");
+        assertThat(clientRows.get(limit).getContent()).isEqualTo("per-consumer limit reached for " + CONSUMER_KEY);
     }
 }

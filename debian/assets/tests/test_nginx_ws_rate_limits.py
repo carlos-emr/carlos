@@ -4,7 +4,8 @@
 
 `/ws/services` and `/ws/oauth/authorize` once had no `limit_req`, so an
 anonymous client could drive unbounded rejected-call traffic (each one a
-synchronous audit insert) through the proxy. These checks pin that every
+synchronous audit insert) through the proxy. Both now share the
+`carlos_wsapi` request zone, separate from the credential zones. These checks pin that every
 `limit_req` / `limit_conn` zone a location uses is declared at http level, and
 that the routes named in the issue fall into a throttled location.
 
@@ -75,7 +76,9 @@ class TestWsRateLimits(unittest.TestCase):
                 self.assertIsNotNone(body)
                 self.assertIn("limit_req ", body)
                 self.assertIn("limit_req_status 429", body)
-                self.assertIn("limit_conn ", body)
+                # Own API zone, and deliberately no connection ceiling: an
+                # integration may run several workers from one address.
+                self.assertIn("zone=carlos_wsapi", body)
 
     def test_previously_throttled_routes_stay_throttled(self):
         for path in ("/carlos/ws/LoginService", "/carlos/ws/oauth/initiate",
@@ -90,10 +93,12 @@ class TestWsRateLimits(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertNotIn("limit_req ", route_throttle(path) or "")
 
-    def test_services_zone_is_separate_from_credential_zones(self):
-        body = route_throttle("/carlos/ws/services/x")
-        self.assertNotIn("zone=carlos_login", body)
-        self.assertNotIn("zone=carlos_wsauth", body)
+    def test_api_zone_is_separate_from_credential_zones(self):
+        for path in ("/carlos/ws/services/x", "/carlos/ws/oauth/authorize"):
+            with self.subTest(path=path):
+                body = route_throttle(path)
+                self.assertNotIn("zone=carlos_login", body)
+                self.assertNotIn("zone=carlos_wsauth", body)
 
 
 if __name__ == "__main__":

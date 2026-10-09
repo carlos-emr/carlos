@@ -24,7 +24,7 @@
  *   1. Application bound (always). A run of sequential anonymous calls to
  *      /ws/services/oauth/info is each refused 401 (or 429 at the front door) and writes at
  *      most the per-address budget of OAUTH_LOGIN_FAILURE rows plus one
- *      OAUTH_LOGIN_FAILURE_SUPPRESSED marker, not one row per call. It needs MYSQL_*.
+ *      OAUTH_LOGIN_FAILURES_SUPPRESSED marker, not one row per call. It needs MYSQL_*.
  *   2. Front door (EXPECT_FRONT_DOOR=true only). A parallel burst over the nginx ceiling is
  *      answered 429 for /ws/services and for /ws/oauth/authorize, some of the burst still
  *      reaches the app (so the route is throttled, not blocked), and the human login route
@@ -44,7 +44,7 @@ const {
   SkipCheck, assert, createSqlRunner, launchBrowser, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 
-// Mirrors OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS (+1 for the suppression marker).
+// Mirrors OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT (+1 for the suppression marker).
 const MAX_ROWS_FOR_ONE_ADDRESS = 11;
 const SEQUENTIAL_CALLS = 40;
 
@@ -86,7 +86,7 @@ async function main(state = {}) {
   const app = (p) => `${config.baseUrl}${p}`.replace(/([^:])\/\/+/g, '$1/');
   const infoUrl = app('/ws/services/oauth/info');
   const auditRows = () => Number(sql.value(
-    "SELECT COUNT(*) FROM log WHERE action IN ('OAUTH_LOGIN_FAILURE','OAUTH_LOGIN_FAILURE_SUPPRESSED')"));
+    "SELECT COUNT(*) FROM log WHERE action IN ('OAUTH_LOGIN_FAILURE','OAUTH_LOGIN_FAILURES_SUPPRESSED')"));
 
   // 1. Application bound: many anonymous rejections, few synchronous audit rows. The run must also
   // show that rejected calls ARE audited (written >= 1): a bound of "zero rows" would pass vacuously
