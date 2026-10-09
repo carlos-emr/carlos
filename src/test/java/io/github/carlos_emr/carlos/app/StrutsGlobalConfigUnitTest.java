@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -72,6 +73,60 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
      */
     private static final Set<String> DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS =
             Set.of("execute", "input", "back", "cancel", "browse", "save", "delete", "list", "index");
+
+    @Test
+    @DisplayName("the form PDF servlet should bypass Struts while neighboring form views remain gated")
+    void shouldExcludePdfServlet_whenFormViewsUseWildcardAction()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Pattern exclusions = Pattern.compile(collectConstants(parseXml(strutsXmlPath))
+                .get("struts.action.excludePattern"));
+        for (String context : List.of("", "/worksheet")) {
+            assertThat(exclusions.matcher(context + "/form/createpdf").matches())
+                    .as("Native form Print must reach its PDF servlet in context %s", context)
+                    .isTrue();
+            assertThat(exclusions.matcher(context + "/form/createcustomedpdf").matches()).isTrue();
+            for (String view : List.of("patientEncounterWorksheet", "setupSelect", "select",
+                    "createpdfExtra", "createpdf/extra")) {
+                assertThat(exclusions.matcher(context + "/form/" + view).matches())
+                        .as("Neighboring form route %s must remain on its Struts gate", view)
+                        .isFalse();
+            }
+        }
+
+        Document forms = parseXml(strutsXmlPath.getParent().resolve("struts-form.xml"));
+        NodeList actions = forms.getElementsByTagName("action");
+        List<String> wildcardClasses = new ArrayList<>();
+        for (int i = 0; i < actions.getLength(); i++) {
+            Element action = (Element) actions.item(i);
+            if ("form/*".equals(action.getAttribute("name"))) {
+                wildcardClasses.add(action.getAttribute("class"));
+            }
+        }
+        assertThat(wildcardClasses)
+                .containsExactly("io.github.carlos_emr.carlos.form.gate.ViewForm2Action");
+
+        Document web = newHardenedDocumentBuilder().parse(resolveProjectPath(
+                Path.of("src", "main", "webapp", "WEB-INF", "web.xml")).toFile());
+        NodeList mappings = web.getElementsByTagName("servlet-mapping");
+        List<String> pdfServlets = new ArrayList<>();
+        for (int i = 0; i < mappings.getLength(); i++) {
+            Element mapping = (Element) mappings.item(i);
+            if ("/form/createpdf".equals(mapping.getElementsByTagName("url-pattern").item(0).getTextContent())) {
+                pdfServlets.add(mapping.getElementsByTagName("servlet-name").item(0).getTextContent());
+            }
+        }
+        assertThat(pdfServlets).containsExactly("pdfCreator");
+        NodeList servlets = web.getElementsByTagName("servlet");
+        List<String> pdfClasses = new ArrayList<>();
+        for (int i = 0; i < servlets.getLength(); i++) {
+            Element servlet = (Element) servlets.item(i);
+            if ("pdfCreator".equals(servlet.getElementsByTagName("servlet-name").item(0).getTextContent())) {
+                pdfClasses.add(servlet.getElementsByTagName("servlet-class").item(0).getTextContent());
+            }
+        }
+        assertThat(pdfClasses).containsExactly("io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServlet");
+    }
 
     @Test
     @DisplayName("Strict Method Invocation should be enabled globally")
