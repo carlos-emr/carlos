@@ -125,13 +125,16 @@ Set these in the deployment's override properties, not in the committed `carlos.
 ### Database
 
 - [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
-      columns on `emailLog`), `V1.0.43` (invitation delivery table and default grant) and
-      `develop`'s `V1.0.54` (approved SMS consent wording), the highest version.
-- [ ] The staging database is treated as disposable. It is at `V1.0.54` without the migrations
+      columns on `emailLog`), `develop`'s `V1.0.54` (approved SMS consent wording), `V1.0.57` (one
+      live consent per type) and `V1.0.58` (invitation delivery table and default grant), the
+      highest version.
+- [ ] The staging database is treated as disposable. It is at `V1.0.58` without the migrations
       `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
       cannot be upgraded once those migrations reach `develop`: rebuild it instead. Rebuild it too
-      if it ran this branch's `V1.0.43` before 5 Oct 2026 (an `INT` `email_log_id` and an extra
-      doctor grant): that file's checksum has changed, so Flyway validation refuses it.
+      if it ran the invitation delivery migration under its old number, `V1.0.43` (renumbered to
+      `V1.0.58` by #4440): Flyway validation then reports an applied `V1.0.43` that no longer
+      exists. A copy run before 5 Oct 2026 also differs (an `INT` `email_log_id` and an extra doctor
+      grant).
 
 ### Email
 
@@ -145,7 +148,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
+`V1.0.58` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
 `V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
 `_edoc` write.
 
