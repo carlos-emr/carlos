@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const claims = require('./lib/form-claims');
 const { markProblems, takeProblems } = require('./lib/form-problems');
@@ -86,6 +88,16 @@ test('shouldTakeOnlyWhatArrivedAfterTheMark_whenAMarkIsGiven', () => {
   assert.deepEqual(recorder.pageErrors.map((entry) => entry.text), ['Error: old']);
 });
 
+test('shouldLeaveAProblemInTheRecorder_whenAnotherConcernOwnsIt', () => {
+  const recorder = recorderWith([
+    ['pageErrors', { label: 'reopen-X', text: 'ReferenceError: docuemtn is not defined' }],
+    ['pageErrors', { label: 'reopen-X', text: 'TypeError: something else' }],
+  ]);
+  const taken = takeProblems(recorder, ['reopen-X'], undefined, (text) => /docuemtn/.test(text));
+  assert.deepEqual(taken, ['uncaught TypeError: something else']);
+  assert.deepEqual(recorder.pageErrors.map((entry) => entry.text), ['ReferenceError: docuemtn is not defined']);
+});
+
 test('shouldExcuseARequestTheBrowserAbandoned_butNotOneThatFailedOnItsOwn', () => {
   const abandoned = { label: 'form-X', url: 'https://h/a.png', resourceType: 'image', errorText: 'net::ERR_ABORTED' };
   Object.defineProperty(abandoned, 'navigatedAway', { value: () => true });
@@ -94,6 +106,53 @@ test('shouldExcuseARequestTheBrowserAbandoned_butNotOneThatFailedOnItsOwn', () =
   const recorder = recorderWith([['requestFailures', abandoned], ['requestFailures', failed]]);
   assert.deepEqual(takeProblems(recorder, ['form-X']), ['stylesheet https://h/b.css failed (net::ERR_ABORTED)']);
   assert.equal(recorder.requestFailures.length, 0, 'the abandoned request is taken out too, so it cannot fail the run later');
+});
+
+/* ---- what a failure means for a pin ---- */
+
+test('shouldCountABodyThatThrewAsAnAssertion_aPreconditionAsAPrecondition_andBrowserProblemsAlone', () => {
+  assert.deepEqual(claims.outcomeOf(null, []), { ok: true });
+  const assertion = claims.outcomeOf(new Error('the page shows no key\nsecond line'), ['console error: x']);
+  assert.equal(assertion.kind, 'assertion');
+  assert.equal(assertion.message, 'the page shows no key | 1 browser problem(s): console error: x');
+  assert.equal(claims.outcomeOf(new claims.Precondition('no Print button'), []).kind, 'precondition');
+  const only = claims.outcomeOf(null, ['uncaught A', 'uncaught B']);
+  assert.equal(only.kind, 'problems');
+  assert.deepEqual(only.problems, ['uncaught A', 'uncaught B']);
+  assert.equal(claims.blockedOutcome('open did not pass').kind, 'blocked');
+});
+
+test('shouldTurnATrappedFailureIntoAPrecondition_whenAStepNeedsAControlThatIsNotThere', async () => {
+  await assert.rejects(claims.asPrecondition(async () => { throw new Error('locator.click: Timeout 20000ms exceeded.\nCall log: ...'); }, 'the Print button'),
+    (error) => error instanceof claims.Precondition && error.message === 'the Print button: locator.click: Timeout 20000ms exceeded.');
+  assert.throws(() => claims.precondition(false, 'the Forms menu lists it 0 times'), claims.Precondition);
+  assert.doesNotThrow(() => claims.precondition(true, 'fine'));
+  // reaching() converts only the failures to find or click a control; an assertion about the page passes through.
+  await assert.rejects(claims.reaching(async () => { throw new Error('locator.waitFor: Timeout 8000ms exceeded.'); }), claims.Precondition);
+  await assert.rejects(claims.reaching(async () => { throw new Error('form-ALP rendered an error page'); }),
+    (error) => !(error instanceof claims.Precondition) && /rendered an error page/.test(error.message));
+});
+
+test('shouldKeepThePinnedLabel_onlyForThePairsOwnFailure', () => {
+  const label = 'Position Hazard: opens from the Forms menu';
+  const known = /positionHazardStyle\.css/;
+  assert.equal(claims.claimFailure({ ok: true }, label), null);
+  // The pair's own failure: an assertion, or only the known browser problem.
+  assert.deepEqual(claims.claimFailure(claims.outcomeOf(new Error('rendered an error page'), []), label, known),
+    { label, message: 'rendered an error page' });
+  const css = claims.outcomeOf(null, ['console error: Refused to apply style from .../positionHazardStyle.css']);
+  assert.equal(claims.claimFailure(css, label, known).label, label);
+  // Anything else reads as a failure elsewhere: the label no manifest pins.
+  assert.equal(claims.claimFailure(claims.blockedOutcome('Save stored no usable row'), label, known).label, `${label} (not reached)`);
+  assert.equal(claims.claimFailure(claims.outcomeOf(new claims.Precondition('the Forms menu lists it 0 times'), []), label, known).label,
+    `${label} (precondition)`);
+  const mixed = claims.outcomeOf(null, ['console error: Refused to apply style from .../positionHazardStyle.css', 'uncaught TypeError: x']);
+  const verdict = claims.claimFailure(mixed, label, known);
+  assert.equal(verdict.label, `${label} (other browser problems)`);
+  assert.match(verdict.message, /1 browser problem\(s\) besides the known one: uncaught TypeError: x/);
+  // With no signature declared, browser problems are the pair's own failure.
+  assert.equal(claims.claimFailure(mixed, label).label, label);
+  assert.match(claims.claimFailure(undefined, label).label, /\(no outcome\)$/);
 });
 
 /* ---- the real tables and the real manifest ---- */
@@ -173,3 +232,26 @@ for (const suite of SUITES) {
     }
   });
 }
+
+test('shouldAssertEveryPalliativeCarePair_whateverTheCallersShellExports', () => {
+  const { spawnSync } = require('node:child_process');
+  const expected = 'pc.open,pc.save,pc.redisplay,pc.reopen,pc.dialogs,pc.resave,pc.problems';
+  for (const leaked of [{}, { CLINICAL_FORMS_ONLY: 'vt', CLINICAL_FORMS_EXCEPT: 'pc.open' }, { CLINICAL_FORMS_ONLY: 'not-a-pin' }]) {
+    const result = spawnSync(process.execPath, ['-e', "console.log(require('./scripts/palliative-care-save-reopen-playwright-checks.js').select.join())"],
+      { cwd: path.join(__dirname, '..'), env: { ...process.env, ...leaked }, encoding: 'utf8', timeout: 30000 });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), expected, `a leaked ${Object.keys(leaked).join(', ') || 'nothing'} changed what the check asserts`);
+  }
+});
+
+test('shouldRunTheSameCommandFromPackageJson_asTheManifestEntryDoes', () => {
+  const scripts = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).scripts;
+  for (const suite of SUITES) {
+    for (const check of manifest.checks.filter((entry) => entry.script === suite.script)) {
+      const variables = Object.entries(check.envSet || {}).filter(([, value]) => value).map(([name, value]) => `${name}=${value}`);
+      const expected = [...variables, 'node', check.script].join(' ');
+      assert.equal(scripts[`test:${check.name}-playwright`], expected,
+        `${check.name}: the npm alias must run what the manifest entry runs (its non-empty envSet, then the script)`);
+    }
+  }
+});

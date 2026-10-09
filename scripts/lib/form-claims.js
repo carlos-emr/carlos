@@ -102,4 +102,121 @@ function partitionProblems(entries, universe) {
   return problems;
 }
 
-module.exports = { claimKey, effectiveClaims, parseSpec, partitionProblems };
+/*
+ * WHAT A FAILURE MEANS FOR A PIN. A manifest pin says "this step fails because of finding N", so the step must fail
+ * for that reason and no other. Three things can make a concern fail without the defect being the cause:
+ *   - a PRECONDITION: the thing the concern needs is not there (the Forms menu does not list the registration, the
+ *     saved-form entry cannot be clicked, the Print button is missing);
+ *   - NOT REACHED: an earlier concern failed, so this one never ran;
+ *   - OTHER BROWSER PROBLEMS: the concern passed its own assertion, but the browser reported problems, and the
+ *     pair declares the signature of the one it is pinned to, so anything else is a new problem.
+ * classify() sorts a recorded outcome into "the pair's own failure" and "something else", and the assertion phase
+ * throws the second kind under a different step label (`<label> (precondition)`), which the runner reads as a
+ * failure elsewhere, not as the known failure.
+ */
+
+/** An error that says a step could not be attempted, as opposed to the thing under test being wrong. */
+class Precondition extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'Precondition';
+  }
+}
+
+function precondition(condition, message) {
+  if (!condition) throw new Precondition(message);
+}
+
+/** Run `body`; whatever it throws becomes a Precondition (its first line, prefixed when a prefix is given). */
+async function asPrecondition(body, prefix) {
+  try {
+    return await body();
+  } catch (error) {
+    if (error instanceof Precondition) throw error;
+    const first = String(error && error.message || error).split('\n')[0];
+    throw new Precondition(prefix ? `${prefix}: ${first}` : first);
+  }
+}
+
+/** What Playwright says when it could not find, scroll to or click a control: the control, not the app, is the problem. */
+const LOCATOR_FAILURE = /^locator\.|Target page|detached|not stable|waiting for/;
+
+/** Run `body`; a failure to reach a control or window (see LOCATOR_FAILURE) becomes a Precondition, anything else passes through. */
+async function reaching(body) {
+  try {
+    return await body();
+  } catch (error) {
+    if (!(error instanceof Precondition) && LOCATOR_FAILURE.test(String(error && error.message))) {
+      throw new Precondition(String(error.message).split('\n')[0]);
+    }
+    throw error;
+  }
+}
+
+/**
+ * The record of one concern. `error` is what its body threw (if anything) and `problems` the browser problems taken
+ * while it ran. kind: assertion (the body threw), precondition, problems (the body passed but the browser reported
+ * problems), blocked (see blockedOutcome).
+ */
+function outcomeOf(error, problems = []) {
+  const assertion = error ? String(error.message).split('\n')[0] : null;
+  if (!assertion && !problems.length) return { ok: true };
+  const parts = [assertion, problems.length ? `${problems.length} browser problem(s): ${problems.join(' | ')}` : null].filter(Boolean);
+  return {
+    ok: false,
+    kind: error ? (error instanceof Precondition ? 'precondition' : 'assertion') : 'problems',
+    assertion, problems, message: parts.join(' | '),
+  };
+}
+
+function blockedOutcome(why) {
+  return { ok: false, kind: 'blocked', assertion: null, problems: [], message: `not reached: ${why}` };
+}
+
+/**
+ * Judge a recorded outcome for the assertion phase.
+ *
+ * @param {object|undefined} outcome  outcomeOf() / blockedOutcome() result
+ * @param {RegExp} [known]  the signature of the browser problem the pair is pinned to; without one, any problem
+ *   that ends a concern is that concern's own failure
+ * @returns {null|{pinned: boolean, reason?: string, message: string}} null when the concern passed; `pinned` false
+ *   means the step must be reported under a label of its own (`reason`), never the pair's pinned label
+ */
+function classify(outcome, known) {
+  if (!outcome) return { pinned: false, reason: 'no outcome', message: 'no outcome was recorded for this concern' };
+  if (outcome.ok) return null;
+  if (outcome.kind === 'blocked') return { pinned: false, reason: 'not reached', message: outcome.message };
+  if (outcome.kind === 'precondition') return { pinned: false, reason: 'precondition', message: outcome.message };
+  if (outcome.kind === 'problems' && known) {
+    const others = outcome.problems.filter((problem) => !known.test(problem));
+    if (others.length) {
+      return { pinned: false, reason: 'other browser problems',
+        message: `${others.length} browser problem(s) besides the known one: ${others.join(' | ')}` };
+    }
+  }
+  return { pinned: true, message: outcome.message };
+}
+
+/**
+ * The step a claim phase throws for a recorded outcome, or null when the concern passed.
+ *
+ * This is the one call a table-driven check makes per claimed pair: only the pair's own failure keeps the pinned
+ * `label` (the text a manifest's expectedFailure.step names); a precondition, a concern that was not reached and
+ * browser problems beyond the known one come back as `<label> (precondition)`, `<label> (not reached)` and
+ * `<label> (other browser problems)`, which no pin names, so the runner reads them as a failure elsewhere.
+ *
+ * @param {object|undefined} outcome  outcomeOf() / blockedOutcome() result for the pair
+ * @param {string} label  the pair's step label
+ * @param {RegExp} [known]  signature of the browser problem the pair is pinned to
+ * @returns {null|{label: string, message: string}} throw `h.markFailedStep(new Error(message), label)`
+ */
+function claimFailure(outcome, label, known) {
+  const verdict = classify(outcome, known);
+  if (!verdict) return null;
+  return { label: verdict.pinned ? label : `${label} (${verdict.reason})`, message: verdict.message };
+}
+
+module.exports = {
+  Precondition, asPrecondition, blockedOutcome, claimFailure, claimKey, classify, effectiveClaims, outcomeOf, parseSpec,
+  partitionProblems, precondition, reaching,
+};

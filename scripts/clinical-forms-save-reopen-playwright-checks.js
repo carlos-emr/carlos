@@ -57,11 +57,12 @@ const FORMS = [
       { name: 'todayDate', value: '2026-10-01', stored: '2026-10-01' }], print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'MH14', title: 'Mental Health Form 14', path: '../form/formMentalHealthForm14.jsp',
     table: 'formMentalHealthForm14', idColumn: 'id', provider: false, confirm: false, prose: 'physicianName',
-    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' }], print: { button: 'Print Pdf', kind: 'pdf' } },
+    fields: [{ name: 'relationship', value: 'Spouse', stored: 'Spouse' }], print: { button: 'Print Pdf', kind: 'pdf' },
+    known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
   { key: 'MH42', title: 'Mental Health Form 42', path: '../form/formMentalHealthForm42.jsp',
     table: 'formMentalHealthForm42', idColumn: 'id', provider: false, confirm: false, prose: 'name',
     fields: [check('chkThreatenedA'), { name: 'dateOfExamination', value: '2026/09/30', stored: '2026/09/30' }],
-    print: { button: 'Print Pdf', kind: 'pdf' } },
+    print: { button: 'Print Pdf', kind: 'pdf' }, known: { problems: /Cannot read properties of undefined \(reading 'name'\)/ } },
   { key: 'DS', title: 'Discharge Summary', path: '../form/formDischargeSummary.jsp', table: 'formDischargeSummary',
     idColumn: 'id', provider: true, confirm: true, prose: 'briefSummary', fields: [date('dischargeDate')] },
   { key: 'PC', title: 'Palliative Care', path: '../form/formpalliativecare.jsp', table: 'formPalliativeCare',
@@ -85,12 +86,23 @@ const FORMS = [
   { key: 'MHC', title: 'Mental Health', path: '../form/formmentalhealth.jsp', table: 'formMentalHealth',
     idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', fields: [], printOn: 'saved',
     chain: [{ link: 'Assessment', prose: 'a_assComments' }, { link: 'Outcome', prose: 'o_outComments' }],
-    print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' } },
-  // The shipped registration still points at the Struts 1 SetupForm.do route; the form saves
-  // through form/SubmitForm into formVTForm. Its fields are reached only once the form opens.
+    print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' },
+    known: { problems: /docuemtn is not defined/ } },
+  // The shipped registration points at the Struts 1 route SetupForm.do, which the chart opens as a raw URL and the
+  // application answers 404 (finding 103). That row only opens, so its pin is the open step and nothing downstream of
+  // the open can hold it up; the form behind it is VT2.
   { key: 'VT', title: 'Vascular Tracker', path: '../form/SetupForm.do', query: 'formName=VTForm&',
-    table: 'formVTForm', idColumn: 'ID', provider: true, confirm: false, prose: null, fields: [] },
+    table: 'formVTForm', openOnly: true, ready: { button: 'Update VT' } },
+  // The same form registered the way the route is mapped (SetupForm without the .do suffix; SetupForm.do is also
+  // refused by the action's own check of the registration). It saves through form/SubmitForm, names its inputs
+  // `value(Name)` (the column is Name), and has an Update VT button instead of Save (finding 254).
+  { key: 'VT2', title: 'Vascular Tracker (extensionless route)', path: '../form/SetupForm', query: 'formName=VTForm&',
+    table: 'formVTForm', idColumn: 'ID', provider: false, confirm: false, prose: 'value(ExerComments)',
+    fields: [{ name: 'value(ExerValue)', value: 'Y', stored: 'Y' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
+    idInUrl: false, ready: { button: 'Update VT' },
+    known: { problems: /Cannot set properties of undefined \(setting '(?:disabled|value)'\)/ } },
 ].map(form => {
+  if (form.openOnly) return { ...form, claim: form.key.toLowerCase(), concerns: ['open', 'problems'] };
   const concerns = ['open'];
   if (form.key === 'DS' || form.key === 'MH1') concerns.push('validate');
   concerns.push('save', 'redisplay');
@@ -123,6 +135,8 @@ function validatePin(env = process.env) {
  */
 const PINNED = Object.freeze({
   'vt.open': 'Vascular Tracker: is listed once in the Forms menu and opens for the owned patient',
+  'vt2.problems': 'Vascular Tracker (extensionless route): raised no JavaScript-layer problems',
+  'vt2.save': 'Vascular Tracker (extensionless route): Save stores exactly the typed prose and structured fields for the signed-in provider',
   'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
   'mhc.problems': 'Mental Health: raised no JavaScript-layer problems',
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',
@@ -133,15 +147,20 @@ const stepLabel = (form, concern, attemptLabel) => PINNED[claims.claimKey(form.c
 
 const labels = form => [`form-${form.key}`, `reopen-${form.key}`, `print-${form.key}`];
 
+/** The column an input fills: the Vascular Tracker names its inputs value(Column). */
+const column = name => name.replace(/^value\((.+)\)$/, '$1');
+/** The input that carries the form's text once everything is saved: the last page of a multi-page form. */
+const lastProse = form => (form.chain ? form.chain[form.chain.length - 1].prose : form.prose);
+
 async function fieldValue(page, field) {
   const input = page.locator(`[name="${field.name}"]`).first();
   return field.check ? (await input.isChecked() ? '1' : '0') : input.inputValue();
 }
 
-async function assertShown(page, form, text, where) {
-  if (form.prose) {
-    h.assert(await page.locator(`[name="${form.prose}"]`).first().inputValue() === text,
-      `${where} does not show the saved prose`);
+async function assertShown(page, form, text, where, proseName = form.prose) {
+  if (proseName) {
+    h.assert(await page.locator(`[name="${proseName}"]`).first().inputValue() === text,
+      `${where} does not show the saved ${proseName}`);
   }
   for (const field of form.fields) {
     const shown = await fieldValue(page, field);
@@ -199,32 +218,43 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   const chart = await s.chart();
 
   /**
-   * Run one concern's body and record how it ended. `needs` are the concerns it cannot run without. `own` are the
-   * page labels whose browser problems belong to this concern (the reopened and the print windows), so a script
-   * error on a reopened page is reported with the reopen, not with the form's own pages in the `problems` concern.
+   * Run one concern's body and record how it ended (lib/form-claims.js outcomeOf). `needs` are the concerns it cannot
+   * run without; unmet, it is recorded as not reached. `own` are the page labels whose browser problems belong to
+   * this concern (the reopened and the print windows), so a script error on a reopened page is reported with the
+   * reopen, not with the form's own pages in the `problems` concern. A body marks what it merely needs in order to
+   * act (a menu entry, a button, the typing) with claims.precondition / asPrecondition / reaching, so that a pin is
+   * never held by a step that could not be attempted.
    */
   async function attempt(entry, concern, label, body, needs = [], own = [], since) {
     const stamp = stepLabel(entry.form, concern, label);
     const unmet = needs.filter(need => entry.form.concerns.includes(need) && !(entry.results[need] && entry.results[need].ok));
     if (unmet.length) {
-      entry.results[concern] = { failure: `not reached: ${unmet.join(' and ')} did not pass` };
-      console.log(`  SKIP ${NAME}: ${stamp} -- not reached: ${unmet.join(' and ')} did not pass`);
+      entry.results[concern] = claims.blockedOutcome(`${unmet.join(' and ')} did not pass`);
+      console.log(`  SKIP ${NAME}: ${stamp} -- ${entry.results[concern].message}`);
       return;
     }
-    let failure;
+    let error;
     let detail = [];
     const mark = since || markProblems(s.recorder);
     try {
       await body();
-    } catch (error) {
-      failure = error.message.split('\n')[0];
+    } catch (caught) {
+      error = caught;
       // The rest of a Playwright call log (what the click waited for) is what tells a race from a defect.
-      detail = error.message.split('\n').slice(1, 12);
+      detail = caught.message.split('\n').slice(1, 12);
     }
-    const problems = own.length ? [...new Set(takeProblems(s.recorder, own, mark))] : [];
-    if (problems.length) failure = `${failure ? `${failure} | ` : ''}The browser reported ${problems.length} JavaScript-layer problem(s): ${problems.join(' | ')}`;
-    entry.results[concern] = failure ? { failure } : { ok: true };
-    console.log(`  ${failure ? 'FAIL' : 'PASS'} ${NAME}: ${stamp}${failure ? ` -- ${failure}` : ''}`);
+    // A problem the form's `problems` pair is pinned to (a script error on every page load) stays in the recorder for
+    // that pair to take: it is not a reason for the reopen or the print to fail.
+    const owned = entry.form.known && entry.form.known.problems;
+    // A concern that ended in a failure also owns what the form's own pages raised while it ran: the 400 a rejected
+    // Save is answered with, and the handler error that came with the click, are that Save's failure, not a second
+    // defect for the `problems` pair (which would then never read as the one defect it is pinned to). A concern that
+    // passed leaves them where they are, so a script error beside a working Save is still judged by `problems`.
+    const pages = own.length ? own : (error ? [`form-${entry.form.key}`] : []);
+    const problems = pages.length ? [...new Set(takeProblems(s.recorder, pages, mark, owned ? (text => owned.test(text)) : undefined))] : [];
+    const outcome = claims.outcomeOf(error, problems);
+    entry.results[concern] = outcome;
+    console.log(`  ${outcome.ok ? 'PASS' : 'FAIL'} ${NAME}: ${stamp}${outcome.ok ? '' : ` -- ${outcome.message}`}`);
     for (const line of detail) console.log(`        ${line.slice(0, 220)}`);
   }
 
@@ -243,15 +273,25 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     // Each form's menu entry is asserted in its own attempt, so one missing registration is
     // recorded without stopping the remaining forms.
     await attempt(entry, 'open', 'is listed once in the Forms menu and opens for the owned patient', async () => {
-      setSex(form.sex || 'F');
-      await chart.locator('#menuTitle1 a').hover();
-      const link = chart.getByRole('link', { name, exact: true });
-      h.assert(await link.count() === 1, 'The Forms menu does not list the registered form exactly once');
-      entry.page = await s.popup(chart, link, `form-${form.key}`);
-      h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
-      h.assert(form.prose, 'The form opened; add its prose and structured fields to FORMS');
-      await entry.page.locator(`[name="${form.prose}"]`).first().waitFor({ state: 'visible' });
+      // The entry being in the menu is what the step needs; the form opening for the owned patient is the test.
+      const link = await claims.asPrecondition(async () => {
+        setSex(form.sex || 'F');
+        await chart.locator('#menuTitle1 a').hover();
+        const found = chart.getByRole('link', { name, exact: true });
+        const listed = await found.count();
+        claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+        return found;
+      }, 'the Forms-menu entry');
+      entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.key}`));
+      // SetupForm redirects to a bare /form/formVTForm and reads the patient from the chart's session, so for that
+      // form the address cannot say whose record it is (the chart-wide session bean is finding 182).
+      if (form.idInUrl !== false) h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
+      const ready = form.ready ? entry.page.getByRole('button', { name: form.ready.button, exact: true }).first()
+        : entry.page.locator(`[name="${form.prose}"]`).first();
+      await ready.waitFor({ state: 'visible' });
     });
+
+    if (form.openOnly) continue;
 
     if (form.key === 'DS') {
       await attempt(entry, 'validate', 'invalid dates and cancelled confirmations prevent writes without JavaScript errors', async () => {
@@ -342,24 +382,29 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
 
     await attempt(entry, 'save', 'Save stores exactly the typed prose and structured fields for the signed-in provider', async () => {
       const { page } = entry;
-      await page.locator(`[name="${form.prose}"]`).first().fill(entry.text);
-      for (const field of form.fields) {
-        const input = page.locator(`[name="${field.name}"]`).first();
-        if (field.check) await input.check(); else await input.fill(field.value);
-      }
+      await claims.asPrecondition(async () => {
+        await page.locator(`[name="${form.prose}"]`).first().fill(entry.text);
+        for (const field of form.fields) {
+          const input = page.locator(`[name="${field.name}"]`).first();
+          if (field.check) await input.check(); else await input.fill(field.value);
+        }
+      }, 'typing into the form');
       // Forms that share a table (Annual V2) are counted from where this row started.
       entry.before = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
-      const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
-      const landed = page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
+      const savePath = form.savePath || '/form/formname';
+      const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(savePath));
+      const landed = form.idInUrl === false ? page.waitForLoadState('domcontentloaded')
+        : page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
       // Observed below; a failure raised first must not surface later as an unhandled rejection.
       posted.catch(() => {});
       landed.catch(() => {});
       // The confirmation is asserted after the save has been proven, so a missing prompt does
       // not hide whether the form still saves.
-      entry.dialogs = await h.withExpectedDialogs(page, () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
-      h.assert((await posted).status() === 302, 'The save was not accepted');
+      entry.dialogs = await h.withExpectedDialogs(page, () => page.getByRole('button', { name: form.saveButton || 'Save', exact: true }).first().click());
+      const status = (await posted).status();
+      h.assert(form.idInUrl === false ? status < 400 : status === 302, `The save was answered ${status}, not accepted`);
       await landed;
-      const columns = [form.idColumn, form.prose, ...form.fields.map(field => field.name), form.provider ? 'provider_no' : "''"];
+      const columns = [form.idColumn, column(form.prose), ...form.fields.map(field => column(field.name)), form.provider ? 'provider_no' : "''"];
       await expectValue(sql, `SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`, String(entry.before + 1),
         'Save did not store exactly one new row');
       const [row] = sql.rows(`SELECT ${columns.join(',')} FROM ${form.table} WHERE demographic_no=${patient}
@@ -368,11 +413,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       form.fields.forEach((field, i) => h.assert(row[2 + i] === field.stored, `The stored ${field.name} differs from what was set`));
       if (form.provider) h.assert(row[row.length - 1] === provider, 'The row is not attributed to the signed-in provider');
       entry.id = row[0];
-      h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, 'Save redisplayed another record');
+      if (form.idInUrl !== false) h.assert(new URL(page.url()).searchParams.get('formId') === entry.id, 'Save redisplayed another record');
     }, ['open']);
 
-    await attempt(entry, 'redisplay', 'the redisplayed form shows the saved values',
-      () => assertShown(entry.page, form, entry.text, 'The redisplayed form'), ['save']);
+    await attempt(entry, 'redisplay', 'the redisplayed form shows the saved values', async () => {
+      if (form.idInUrl === false) await h.assertNotErrorPage(entry.page, 'The redisplayed form');
+      await assertShown(entry.page, form, entry.text, 'The redisplayed form');
+    }, ['save']);
 
     if (form.chain) await mentalHealthChain(entry);
 
@@ -405,11 +452,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       let expected = entry.before + 1;
       const carried = [[form.prose, entry.text]];
       for (const next of form.chain) {
-        await page.getByRole('link', { name: next.link, exact: true }).first().click();
+        await claims.asPrecondition(() => page.getByRole('link', { name: next.link, exact: true }).first().click(), `the ${next.link} link`);
         await page.waitForURL(url => url.pathname.endsWith(`/form/formmh${next.link.toLowerCase()}`), { waitUntil: 'domcontentloaded' });
-        await page.locator(`[name="${next.prose}"]`).first().waitFor({ state: 'visible' });
         const text = `${marker} ${next.link} ${PROSE}`;
-        await page.locator(`[name="${next.prose}"]`).first().fill(text);
+        await claims.asPrecondition(async () => {
+          await page.locator(`[name="${next.prose}"]`).first().waitFor({ state: 'visible' });
+          await page.locator(`[name="${next.prose}"]`).first().fill(text);
+        }, `typing into the ${next.link} page`);
         const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
         const landed = page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
         posted.catch(() => {});
@@ -476,11 +525,12 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
       if (foldSavedForms) h.assert(!await link.isVisible(),
         'The folded-navigation fixture did not put the saved form beyond the first page');
-      page = await openSavedEntry(fresh, entry);
+      page = await claims.reaching(() => openSavedEntry(fresh, entry));
       const params = new URL(page.url()).searchParams;
       h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
-      h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
-      await assertShown(page, form, entry.text, 'The reopened form');
+      if (form.idInUrl !== false) h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
+      // After a multi-page form's last Save the chart opens its last page, so that page's text is what must be there.
+      await assertShown(page, form, entry.text, 'The reopened form', lastProse(form));
       if (!foldSavedForms) return;
       // A previously loaded and collapsed saved-form list must expand and reopen the same record.
       await page.close();
@@ -503,7 +553,11 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   async function pressPrint(entry, page) {
     const { form } = entry;
     const spec = form.print;
-    const button = page.getByRole('button', { name: spec.button, exact: true }).first();
+    const button = await claims.asPrecondition(async () => {
+      const found = page.getByRole('button', { name: spec.button, exact: true }).first();
+      await found.waitFor({ state: 'visible', timeout: 10000 });
+      return found;
+    }, `the ${spec.button} button`);
     if (spec.kind === 'window') {
       await page.evaluate(() => {
         window.__prints = 0;
@@ -569,6 +623,10 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   await waitForNavbars(fresh, 20000);
   for (const entry of results) {
     const { form } = entry;
+    if (form.openOnly) {
+      if (entry.page && !entry.page.isClosed()) await entry.page.close();
+      continue;
+    }
     if (!entry.reopened && !form.reopenNow) await reopen(entry, fresh);
     const page = entry.reopened;
 
@@ -643,24 +701,21 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
   for (const entry of results) {
     // The problems the form's pages raised belong to the form, so they are taken out of the recorder here and
     // reported with it; what remains (the chart's own pages) is judged by runWorkflow at the end.
-    await attempt(entry, 'problems', 'raised no JavaScript-layer problems', async () => {
-      const problems = takeProblems(s.recorder, labels(entry.form));
-      h.assert(!problems.length, `The browser reported ${problems.length} JavaScript-layer problem(s): ${[...new Set(problems)].join(' | ')}`);
-    });
+    const problems = [...new Set(takeProblems(s.recorder, labels(entry.form)))];
+    const outcome = problems.length ? { ...claims.outcomeOf(null, problems), message: `The browser reported ${problems.length} JavaScript-layer problem(s): ${problems.join(' | ')}` } : { ok: true };
+    entry.results.problems = outcome;
+    console.log(`  ${outcome.ok ? 'PASS' : 'FAIL'} ${NAME}: ${stepLabel(entry.form, 'problems', 'raised no JavaScript-layer problems')}${outcome.ok ? '' : ` -- ${outcome.message}`}`);
   }
   await fresh.close();
 
   // Assert the claimed pairs, in table order, one labelled step each.
   for (const entry of results) {
     for (const concern of entry.form.concerns.filter(name => wanted.has(claims.claimKey(entry.form.claim, name)))) {
-      const outcome = entry.results[concern];
       const label = labelFor(entry.form, concern);
-      try {
-        h.assert(outcome, 'no outcome was recorded for this concern');
-        h.assert(!outcome.failure, outcome.failure);
-      } catch (error) {
-        throw h.markFailedStep(error, label);
-      }
+      // Only the pair's own failure carries the pinned label; a precondition, a concern that was not reached and
+      // browser problems beyond the known one are reported under a label of their own (lib/form-claims.js).
+      const failure = claims.claimFailure(entry.results[concern], label, entry.form.known && entry.form.known[concern]);
+      if (failure) throw h.markFailedStep(new Error(failure.message), failure.label);
       console.log(`  ASSERTED ${NAME}: ${label}`);
     }
   }

@@ -10,7 +10,10 @@
 // Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport) plus the Patient
 // Encounter Worksheet, which only prints. Rourke 2020 and the growth charts are form-rourke2020-*.
 //
-// Each form has up to seven CONCERNS, asserted one labelled step each:
+// Each form has up to eight CONCERNS, asserted one labelled step each:
+//   bare       (Position Hazard and Health Passport only) the form opens for a patient whose address, phone and
+//              health-card columns are NULL, as the harness's bare fixture row leaves them (finding 241); it
+//              runs before the fixture is filled in;
 //   open       the Forms-menu entry opens the form with no error page, uncaught script error, console
 //              error or failed asset;
 //   keys       the page shows no unresolved message key (the ???key??? text a missing bundle entry prints);
@@ -26,10 +29,15 @@
 // gets its own manifest entry pinned on its own finding, the default entry leaves that pair out, and
 // scripts/form-claims.test.js proves the entries together claim every pair once. A concern that depends
 // on another (save needs open; reopen and print need save) is blocked when the other fails, so a defect
-// that stops the flow claims the whole form.
+// that stops the flow claims the whole form. A pin holds only the defect's own failure: a precondition that
+// could not be met (the Forms menu does not list the entry, the Print button is missing), a concern that was
+// not reached, and, for a pair that declares the signature of the browser problem it is pinned to (`known`),
+// any other browser problem, are reported under a step label of their own, so they read as a failure
+// elsewhere and never as the known one (lib/form-claims.js classify()).
 //
 // Fixtures: the owned synthetic patient (given a complete demographic record, as every registered patient
-// has: Position Hazard and Health Passport throw on NULL address and health-card columns, finding 241), and one marker-named Forms-menu
+// has, after the bare concern has run: Position Hazard and Health Passport throw on NULL address and
+// health-card columns, finding 241), and one marker-named Forms-menu
 // registration per form (the shipped rows are hidden on Ontario installs and are clinic-wide, so run
 // EXCLUSIVE=1). Cleanup deletes every form row of the owned patient and every registration and asserts both.
 const h = require('./lib/playwright-harness');
@@ -55,6 +63,8 @@ const typed = (name, value) => ({ name, value });
  * prose    the text typed into one input or textarea; limit is that column's length, when shorter than the prose
  * fields   further typed values or ticked boxes, each checked in the table and on every redisplay
  * reveal   what a clinician does before the questions show
+ * bare     the form also runs the `bare` concern (open for a patient with NULL contact columns)
+ * known    per concern, the signature of the browser problem a pin is for; any other problem is reported apart
  * print    window: the button calls window.print (stubbed and counted, so the browser's own print dialog is never
  *          opened); pdf: a POST or GET answers a PDF (read in transit), where 'same' replaces the form's window and
  *          'popup' opens another; carries: the typed text must be in what is printed
@@ -114,21 +124,28 @@ const FORMS = [
     } },
   { key: 'positionhazard', code: 'POS', title: 'Position Hazard', view: 'formPositionHazard', table: 'formPositionHazard',
     prose: { name: 'staffName' }, fields: [check('NewHire')], print: { kind: 'pdf', button: 'Print Pdf', where: 'popup' },
-    provider: false },
+    provider: false, bare: true, known: { open: /positionHazardStyle\.css/ } },
   { key: 'riskassessment', code: 'RISK', title: 'Risk Assessment', view: 'formselfadministered', table: 'formSelfAdministered',
     prose: null, fields: [check('healthEx'), check('stayInHospNo')], print: { kind: 'window', button: 'Print' } },
   { key: 'selfefficacy', code: 'SEFF', title: 'Self Efficacy', view: 'formselfefficacy', table: 'formSelfEfficacy',
     prose: null, fields: [typed('ex1', '5'), typed('ex2', '7')], print: { kind: 'window', button: 'Print' } },
   { key: 'selfmanagement', code: 'SMGT', title: 'Self Management', view: 'formselfmanagement', table: 'formSelfManagement',
-    prose: { name: 'ex6Spec' }, fields: [typed('ex1', '3')], print: { kind: 'window', button: 'Print' } },
+    prose: { name: 'ex6Spec' }, fields: [typed('ex1', '3'), check('tangibleHelpHouseY')], print: { kind: 'window', button: 'Print' },
+    // The six pages unlock one after another behind range checks, and the checkboxes (the only TINYINT answers the
+    // form can be asked to restore) are on page 4, so page 4 is shown beside page 1 by script: reaching them is not the test.
+    reveal: async page => {
+      await page.evaluate(() => { document.getElementById('page4').style.display = 'block'; });
+    } },
   { key: 'treatmentpref', code: 'TPRF', title: 'Treatment Preference', view: 'formtreatmentpref', table: 'formTreatmentPref',
     prose: null, fields: [check('treatmentGr')], print: { kind: 'window', button: 'Print' } },
   { key: 'healthpassport', code: 'HPP', title: 'Health Passport', view: 'formbchp', table: 'formBCHP',
-    prose: { name: 'pg1_allergies' }, fields: [check('pg1_diabetes')], print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+    prose: { name: 'pg1_allergies' }, fields: [check('pg1_diabetes')], print: { kind: 'pdf', button: 'Print', where: 'popup' },
+    bare: true },
   // Prints a worksheet and saves nothing: no table, so no save, redisplay or reopen.
   { key: 'worksheet', code: 'PEW', title: 'Patient Encounter Worksheet', view: 'patientEncounterWorksheet', table: '',
     prose: { name: 'encounter_notes' }, fields: [], ready: 'Print', print: { kind: 'pdf', button: 'Print', where: 'same' } },
-].map(form => ({ ...form, concerns: form.table ? CONCERNS : ['open', 'keys', 'print'] }));
+].map(form => ({ ...form,
+  concerns: [...(form.bare ? ['bare'] : []), ...(form.table ? CONCERNS : ['open', 'keys', 'print'])] }));
 
 const CLAIM_FORMS = FORMS.map(({ key, concerns }) => ({ key, concerns }));
 const ONLY = 'FORM_CATALOG_ONLY';
@@ -149,6 +166,7 @@ function validatePin(env = process.env) {
  * table cannot drift from the wording below.
  */
 const PINNED = Object.freeze({
+  'positionhazard.bare': 'Position Hazard: opens for a patient whose address, phone and health-card columns are NULL',
   'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
   'cesd.restore': 'CESD: the redisplayed and the reopened form show every saved value again',
@@ -159,6 +177,7 @@ const PINNED = Object.freeze({
   'adfv2.redisplay': 'ADFv2: Save redisplays the saved record in the window it was pressed in',
 });
 const CONCERN_STEP = Object.freeze({
+  bare: 'opens for a patient whose address, phone and health-card columns are NULL',
   open: 'opens from the Forms menu with no error page, script error or failed asset',
   keys: 'shows no unresolved message key',
   save: 'Save stores one new row holding every typed value',
@@ -219,7 +238,7 @@ async function workflow(s, { select = validatePin() } = {}) {
   const { sql, patient, provider, marker } = s;
   const wanted = new Set(select);
   const entries = FORMS.filter(form => form.concerns.some(concern => wanted.has(claims.claimKey(form.key, concern))))
-    .map(form => ({ form, name: `${marker} ${form.code}`, results: {}, seen: new Set(),
+    .map(form => ({ form, name: `${marker} ${form.code}`, results: {}, seen: new Set(), pages: [], restore: {},
       text: form.prose && (form.prose.limit && form.prose.limit < `${marker} ${PROSE}`.length ? `${marker} ${SHORT}` : `${marker} ${PROSE}`) }));
   const registrations = entries.map(entry => ({
     name: entry.name, value: `../form/${entry.form.view}.jsp?fixture=${marker}&demographic_no=`, table: entry.form.table,
@@ -240,12 +259,6 @@ async function workflow(s, { select = validatePin() } = {}) {
       'The owned Forms-menu registrations were not removed');
   });
 
-  // FIXTURE, not an assertion. The shipped templates read the patient's address and health-card columns and
-  // two of them (Position Hazard, Health Passport) throw on NULL (finding 241); every registered patient has them,
-  // the harness's bare fixture row does not.
-  sql.execute(`UPDATE demographic SET address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',
-    phone2='416-555-0101',hin='9876543217',ver='AB',email='fake@example.invalid',roster_status='RO'
-    WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
   for (const entry of entries) {
     const { form } = entry;
     h.assert(entry.name.length <= 30, `The owned registration name exceeds encounterForm.form_name: ${entry.name}`);
@@ -267,35 +280,33 @@ async function workflow(s, { select = validatePin() } = {}) {
   const chart = await s.chart();
 
   /**
-   * Run one concern's body; record how it ended, and every JS-layer problem the pages raised meanwhile. Save is
-   * answered by a redirect to the redisplay, so when Save succeeded the problems that follow it (the redisplay's
-   * 404, say) are left for the redisplay concern to take.
+   * Run one concern's body and record how it ended, with every JS-layer problem the form's pages raised meanwhile.
+   * Save is answered by a redirect to the redisplay, so when Save succeeded the problems that follow it (the
+   * redisplay's 404, say) are left for the redisplay concern to take.
    */
   async function conclude(entry, concern, body, { carry = false } = {}) {
-    let failure;
+    let error;
     try {
       await body();
-    } catch (error) {
-      failure = error.message.split('\n')[0];
+    } catch (caught) {
+      error = caught;
     }
-    if (failure || !carry) {
+    let problems = [];
+    if (error || !carry) {
       // A problem that recurs on every page of the form (a missing stylesheet) belongs to the concern that first met it.
-      const problems = takeProblems(s.recorder, labelsOf(entry.form)).filter(problem => !entry.seen.has(problem));
+      problems = takeProblems(s.recorder, labelsOf(entry.form)).filter(problem => !entry.seen.has(problem));
       problems.forEach(problem => entry.seen.add(problem));
-      if (problems.length) {
-        failure = `${failure ? `${failure} | ` : ''}${problems.length} browser problem(s): ${problems.join(' | ')}`;
-      }
     }
-    record(entry, concern, failure);
+    record(entry, concern, claims.outcomeOf(error, problems));
   }
-  function record(entry, concern, failure) {
-    entry.results[concern] = failure ? { failure } : { ok: true };
-    console.log(`  ${failure ? 'FAIL' : 'PASS'} ${NAME}: ${stepLabel(entry.form.key, concern)}${failure ? ` -- ${failure}` : ''}`);
+  function record(entry, concern, outcome) {
+    entry.results[concern] = outcome;
+    console.log(`  ${outcome.ok ? 'PASS' : 'FAIL'} ${NAME}: ${stepLabel(entry.form.key, concern)}${outcome.ok ? '' : ` -- ${outcome.message}`}`);
   }
   const blocked = (entry, concern, why) => {
     if (!entry.form.concerns.includes(concern)) return;
-    entry.results[concern] = { failure: `not reached: ${why}` };
-    console.log(`  SKIP ${NAME}: ${stepLabel(entry.form.key, concern)} -- not reached: ${why}`);
+    entry.results[concern] = claims.blockedOutcome(why);
+    console.log(`  SKIP ${NAME}: ${stepLabel(entry.form.key, concern)} -- ${entry.results[concern].message}`);
   };
 
   /** Pages the form opens besides its own (a Save that targets another window, a print popup) belong to it. */
@@ -311,6 +322,22 @@ async function workflow(s, { select = validatePin() } = {}) {
     entry.pages = [];
   }
 
+  /** Open the form from its Forms-menu entry. The entry being there is a precondition; the form opening is the test. */
+  async function openFromMenu(entry) {
+    const { form } = entry;
+    const link = await claims.asPrecondition(async () => {
+      await chart.locator('#menuTitle1 a').hover();
+      const found = chart.getByRole('link', { name: entry.name, exact: true });
+      const listed = await found.count();
+      claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
+      return found;
+    }, 'the Forms-menu entry');
+    entry.page = await claims.reaching(() => s.popup(chart, link, `form-${form.code}`));
+    h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
+    if (form.reveal) await claims.asPrecondition(() => form.reveal(entry.page), 'revealing the questions');
+    await entry.page.getByRole('button', { name: form.ready || 'Save', exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
+  }
+
   /**
    * Press the form's Print and judge what comes back. A PDF is read in transit (a browser handed a PDF shows its
    * viewer, whose DOM says nothing), so the answering route is wrapped and the bytes are kept.
@@ -318,9 +345,12 @@ async function workflow(s, { select = validatePin() } = {}) {
   async function pressPrint(entry, page) {
     const { form } = entry;
     const spec = form.print;
-    if (form.reveal) await form.reveal(page);
-    const button = page.getByRole('button', { name: spec.button, exact: true }).first();
-    await button.waitFor({ state: 'visible', timeout: 10000 });
+    const button = await claims.asPrecondition(async () => {
+      if (form.reveal) await form.reveal(page);
+      const found = page.getByRole('button', { name: spec.button, exact: true }).first();
+      await found.waitFor({ state: 'visible', timeout: 10000 });
+      return found;
+    }, `the ${spec.button} button`);
     if (spec.kind === 'window') {
       await page.evaluate(() => {
         window.__prints = 0;
@@ -357,21 +387,24 @@ async function workflow(s, { select = validatePin() } = {}) {
     if (spec.carries) h.assert(pdfText(pdf.body).includes(marker), 'the PDF does not carry the typed text');
   }
 
+  // ---- Phase 0: the bare concern, before the fixture is completed ----
+  for (const entry of entries.filter(item => item.form.bare)) {
+    await conclude(entry, 'bare', () => openFromMenu(entry));
+    await closeAll(entry);
+  }
+
+  // FIXTURE, not an assertion. The shipped templates read the patient's address and health-card columns, and two
+  // of them (Position Hazard, Health Passport) throw on NULL (finding 241, pinned by the bare concern above); every
+  // registered patient has them, the harness's bare fixture row does not, so they are filled in before the rest.
+  sql.execute(`UPDATE demographic SET address='1 Test St',city='Toronto',postal='M5V 2T6',phone='416-555-0100',
+    phone2='416-555-0101',hin='9876543217',ver='AB',email='fake@example.invalid',roster_status='RO'
+    WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+
   // ---- Phase 1, per form: open, keys, save, redisplay (and print, for a form that saves nothing) ----
   for (const entry of entries) {
     const { form } = entry;
-    entry.pages = [];
-    entry.restore = {};
-    await conclude(entry, 'open', async () => {
-      await chart.locator('#menuTitle1 a').hover();
-      const link = chart.getByRole('link', { name: entry.name, exact: true });
-      const listed = await link.count();
-      h.assert(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
-      entry.page = await s.popup(chart, link, `form-${form.code}`);
-      h.assert(new URL(entry.page.url()).searchParams.get('demographic_no') === patient, 'the form opened for another patient');
-      if (form.reveal) await form.reveal(entry.page);
-      await entry.page.getByRole('button', { name: form.ready || 'Save', exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
-    });
+    if (!form.concerns.includes('open')) continue;
+    await conclude(entry, 'open', () => openFromMenu(entry));
     if (!entry.page || entry.page.isClosed()) {
       for (const concern of ['keys', 'save', 'redisplay', 'reopen', 'restore', 'print']) blocked(entry, concern, 'the form did not open');
       continue;
@@ -385,7 +418,7 @@ async function workflow(s, { select = validatePin() } = {}) {
     if (!form.table) {
       // Nothing is saved: type, then Print on the form as opened.
       await conclude(entry, 'print', async () => {
-        if (form.prose) await entry.page.locator(`[name="${form.prose.name}"]`).first().fill(entry.text);
+        if (form.prose) await claims.asPrecondition(() => entry.page.locator(`[name="${form.prose.name}"]`).first().fill(entry.text), 'typing into the form');
         await pressPrint(entry, entry.page);
       });
       await closeAll(entry);
@@ -393,11 +426,13 @@ async function workflow(s, { select = validatePin() } = {}) {
     }
     await conclude(entry, 'save', async () => {
       const page = entry.page;
-      if (form.prose) await page.locator(`[name="${form.prose.name}"]`).first().fill(entry.text);
-      for (const field of form.fields) {
-        const input = page.locator(`[name="${field.name}"]`).first();
-        if (field.check) await input.check(); else await input.fill(field.value);
-      }
+      await claims.asPrecondition(async () => {
+        if (form.prose) await page.locator(`[name="${form.prose.name}"]`).first().fill(entry.text);
+        for (const field of form.fields) {
+          const input = page.locator(`[name="${field.name}"]`).first();
+          if (field.check) await input.check(); else await input.fill(field.value);
+        }
+      }, 'typing into the form');
       entry.before = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
       const stop = watchPages(entry, `form-${form.code}`);
       const posted = s.context.waitForEvent('response', { predicate: isFormPost, timeout: 15000 });
@@ -425,14 +460,14 @@ async function workflow(s, { select = validatePin() } = {}) {
       }
       if (entry.hasProvider) h.assert(row[at] === provider, 'the row is not attributed to the signed-in provider');
     }, { carry: true });
-    if (entry.results.save.failure) {
+    if (!entry.results.save.ok) {
       for (const concern of ['redisplay', 'reopen', 'restore', 'print']) blocked(entry, concern, 'Save stored no usable row');
       await closeAll(entry);
       continue;
     }
     await conclude(entry, 'redisplay', async () => {
       const landed = entry.saveFrame && entry.saveFrame.page();
-      h.assert(landed, 'the window that answered Save could not be found');
+      claims.precondition(landed, 'the window that answered Save could not be found');
       h.assert(landed === entry.page,
         'the saved record was redisplayed in another window, and the one Save was pressed in still shows the unsaved form');
       await landed.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
@@ -444,9 +479,9 @@ async function workflow(s, { select = validatePin() } = {}) {
   }
 
   /**
-   * Click the chart's saved-form entry. Closing a form window makes the chart reload its Forms module, which
-   * replaces the anchors and folds the list again, so a click that races the reload is retried on a freshly found
-   * entry. Only a failure to find or click the entry is retried, never one after the popup has opened.
+   * Click the chart's saved-form entry. Closing a form window makes the chart reload its Forms module, which replaces
+   * the anchors and folds the list again, so a click that races the reload is retried on a freshly found entry. Only a
+   * failure to find or click the entry is retried, never one after the popup has opened.
    */
   async function openSavedEntry(fresh, entry) {
     let last;
@@ -476,7 +511,7 @@ async function workflow(s, { select = validatePin() } = {}) {
       const { form } = entry;
       let page;
       await conclude(entry, 'reopen', async () => {
-        page = await openSavedEntry(fresh, entry);
+        page = await claims.reaching(() => openSavedEntry(fresh, entry));
         const params = new URL(page.url()).searchParams;
         h.assert(params.get('demographic_no') === patient, 'the saved-form entry opened another patient');
         h.assert(params.get('formId') === entry.id, 'the saved-form entry did not open the saved record');
@@ -494,29 +529,21 @@ async function workflow(s, { select = validatePin() } = {}) {
   for (const entry of entries.filter(item => item.form.table && !item.results.restore)) {
     const shown = Object.entries(entry.restore);
     if (!shown.length) { blocked(entry, 'restore', 'neither the redisplayed nor the reopened form could be read'); continue; }
-    record(entry, 'restore', shown.map(([, problem]) => problem).filter(Boolean).join(' | '));
+    const problems = shown.map(([, problem]) => problem).filter(Boolean);
+    record(entry, 'restore', problems.length ? claims.outcomeOf(new Error(problems.join(' | '))) : { ok: true });
   }
 
   // ---- Phase 3: assert the claimed pairs, in table order ----
   for (const entry of entries) {
     for (const concern of entry.form.concerns.filter(name => wanted.has(claims.claimKey(entry.form.key, name)))) {
-      const result = entry.results[concern];
-      await claimStep(stepLabel(entry.form.key, concern), () => {
-        h.assert(result, 'no outcome was recorded for this concern');
-        h.assert(!result.failure, result.failure);
-      });
+      const label = stepLabel(entry.form.key, concern);
+      // Only the pair's own failure carries the pinned label; a precondition, a concern that was not reached and
+      // browser problems beyond the known one are reported under a label of their own.
+      const failure = claims.claimFailure(entry.results[concern], label, entry.form.known && entry.form.known[concern]);
+      if (failure) throw h.markFailedStep(new Error(failure.message), failure.label);
+      console.log(`  ASSERTED ${NAME}: ${label}`);
     }
   }
-}
-
-/** One labelled step of the assertion phase. It tags a failure with its label, which is what a manifest pins. */
-async function claimStep(label, body) {
-  try {
-    await body();
-  } catch (error) {
-    throw h.markFailedStep(error, label);
-  }
-  console.log(`  ASSERTED ${NAME}: ${label}`);
 }
 
 if (require.main === module) runWorkflow(NAME, workflow, {

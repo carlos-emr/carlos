@@ -31,15 +31,17 @@ function markProblems(recorder) {
  * @param {object} recorder  harness recorder (createRecorder())
  * @param {string[]} labels  page labels to take
  * @param {Set<object>} [mark]  markProblems() result: leave the entries that were already there
+ * @param {(description: string) => boolean} [leave]  leave in the recorder (untaken) the entries whose description
+ *   this accepts, for the concern that owns them to take later
  * @returns {string[]} one description per problem, in the order pageErrors, consoleIssues, requestFailures,
  *   badResponses, unexpectedDialogs. Paths only: a query string can carry the patient number.
  */
-function takeProblems(recorder, labels, mark) {
+function takeProblems(recorder, labels, mark, leave) {
   const own = (entry) => labels.includes(entry.label) && !(mark && mark.has(entry));
   const taken = [];
   const take = (list, describe, skip = () => false) => {
     for (let i = 0; i < list.length;) {
-      if (!own(list[i])) { i++; continue; }
+      if (!own(list[i]) || (leave && leave(describe(list[i])))) { i++; continue; }
       const [entry] = list.splice(i, 1);
       if (!skip(entry)) taken.push(describe(entry));
     }
