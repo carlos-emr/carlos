@@ -266,19 +266,102 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public List<UserProperty> findPersonalEmailFooterForUpdate(String providerNo) {
         return personalCurrentRead(() -> {
-            // Scalar current reads bypass entity-cache hydration and refresh's old RR view.
-            @SuppressWarnings("unchecked")
-            List<Object[]> values = entityManager.createNativeQuery(
-                    "SELECT `id`, `value` FROM `property` WHERE `name` = :name "
-                            + "AND `provider_no` = :provider ORDER BY `id` FOR UPDATE")
-                    .setParameter("name", "email_footer").setParameter("provider", providerNo).getResultList();
-            return values.stream().map(value -> {
+            // Discover committed IDs without a locking scan or the caller's historical RR view.
+            // The provider PK mutex already serializes this owner's cooperating footer writers.
+            var ids = new java.util.TreeSet<Integer>();
+            try (var current = entityManager.getEntityManagerFactory().createEntityManager()) {
+                @SuppressWarnings("unchecked")
+                List<Number> committed = current.createNativeQuery(
+                        "SELECT `id` FROM `property` WHERE `name` = :name AND `provider_no` = :provider")
+                        .setParameter("name", "email_footer").setParameter("provider", providerNo).getResultList();
+                committed.forEach(id -> ids.add(Math.toIntExact(id.longValue())));
+            }
+            // The fresh connection cannot see uncommitted inserts or deletes made through
+            // this DAO. Overlay only our recorded writes; never union historical RR row IDs.
+            var writes = personalFooterWrites(false);
+            if (writes != null) {
+                writes.created.forEach((id, owner) -> { if (providerNo.equals(owner)) ids.add(id); });
+                ids.removeAll(writes.deleted);
+            }
+            var rows = new java.util.ArrayList<UserProperty>();
+            for (Integer id : ids) {
+                @SuppressWarnings("unchecked")
+                List<Object[]> values = entityManager.createNativeQuery(
+                        "SELECT `id`, `name`, `provider_no`, `value` FROM `property` FORCE INDEX (PRIMARY) "
+                                + "WHERE `id` = :id AND `name` = :name AND `provider_no` = :provider FOR UPDATE")
+                        .setParameter("id", id).setParameter("name", "email_footer")
+                        .setParameter("provider", providerNo).getResultList();
+                // Legacy writers outside the provider mutex can remove or repurpose a row.
+                // Refuse that race rather than silently create another default or edit its owner.
+                if (values.size() != 1 || !"email_footer".equals(values.get(0)[1])
+                        || !providerNo.equals(values.get(0)[2])) {
+                    throw new jakarta.persistence.OptimisticLockException("Personal footer changed concurrently");
+                }
+                Object[] value = values.get(0);
                 var row = new UserProperty();
-                row.setId(Math.toIntExact(((Number) value[0]).longValue()));
-                row.setName("email_footer"); row.setProviderNo(providerNo); row.setValue((String) value[1]);
-                return row;
-            }).toList();
+                row.setId(id); row.setName("email_footer"); row.setProviderNo(providerNo);
+                row.setValue((String) value[3]); rows.add(row);
+            }
+            return rows;
         });
+    }
+
+    // The DAO records only its own personal-row writes. The state follows Spring transaction
+    // suspension and is removed on commit or rollback; no historical view or other owner leaks in.
+    private final Object personalFooterWritesKey = new Object();
+    private static final class PersonalFooterWrites {
+        final java.util.Map<Integer, String> created = new java.util.HashMap<>();
+        final java.util.Set<Integer> deleted = new java.util.HashSet<>();
+    }
+
+    private PersonalFooterWrites personalFooterWrites(boolean create) {
+        var writes = (PersonalFooterWrites) org.springframework.transaction.support.TransactionSynchronizationManager
+                .getResource(personalFooterWritesKey);
+        if (writes != null || !create) return writes;
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            return null;
+        }
+        var transactionWrites = new PersonalFooterWrites();
+        org.springframework.transaction.support.TransactionSynchronizationManager
+                .bindResource(personalFooterWritesKey, transactionWrites);
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void suspend() {
+                        org.springframework.transaction.support.TransactionSynchronizationManager
+                                .unbindResourceIfPossible(personalFooterWritesKey);
+                    }
+                    @Override public void resume() {
+                        org.springframework.transaction.support.TransactionSynchronizationManager
+                                .bindResource(personalFooterWritesKey, transactionWrites);
+                    }
+                    @Override public void afterCompletion(int status) {
+                        org.springframework.transaction.support.TransactionSynchronizationManager
+                                .unbindResourceIfPossible(personalFooterWritesKey);
+                    }
+                });
+        return transactionWrites;
+    }
+
+    /** Retain IDs inserted through the property DAO so a joining footer save sees its own writes. */
+    @Override
+    public void persist(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
+        boolean newRow = model instanceof UserProperty property && property.getId() == null;
+        super.persist(model);
+        if (newRow && model instanceof UserProperty property && "email_footer".equals(property.getName())
+                && property.getProviderNo() != null && !property.getProviderNo().isBlank()) {
+            var writes = personalFooterWrites(true);
+            if (writes != null) writes.created.put(property.getId(), property.getProviderNo());
+        }
+    }
+
+    /** Retain DAO removals so a joining footer save does not rediscover its uncommitted deletes. */
+    @Override
+    public void remove(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
+        super.remove(model);
+        if (model instanceof UserProperty property && "email_footer".equals(property.getName())) {
+            var writes = personalFooterWrites(true);
+            if (writes != null) writes.deleted.add(property.getId());
+        }
     }
 
     @Override
@@ -337,6 +420,8 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             if (deleted != 1) {
                 throw new jakarta.persistence.OptimisticLockException("Personal footer row changed concurrently");
             }
+            var writes = personalFooterWrites(true);
+            if (writes != null) writes.deleted.add(propertyId);
             return deleted;
         });
     }

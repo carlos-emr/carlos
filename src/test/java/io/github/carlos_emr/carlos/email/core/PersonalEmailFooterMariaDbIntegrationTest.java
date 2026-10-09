@@ -107,14 +107,18 @@ class PersonalEmailFooterMariaDbIntegrationTest {
         });
     }
     @Test void shouldNotBlockAnotherOwner_andKeepClinicAndOtherPersonalOnClear()throws Exception {
+        assertIndependentOwnerSaves(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+    }
+    @Test void shouldNotBlockAnotherOwner_inReadCommitted_andKeepClinicAndOtherPersonalOnClear()throws Exception {
+        assertIndependentOwnerSaves(TransactionDefinition.ISOLATION_READ_COMMITTED);
+    }
+    private void assertIndependentOwnerSaves(int isolation)throws Exception {
         var locked=new CountDownLatch(1);var finish=new CountDownLatch(1);
         try(var workers=Executors.newFixedThreadPool(2)){
-            // Hold the save open in the READ_COMMITTED transaction the public service requests.
-            // The separate snapshot cases deliberately inherit repeatable-read callers.
-            var first=workers.submit(()->tx(TransactionDefinition.ISOLATION_READ_COMMITTED).execute(status->{
+            var first=workers.submit(()->tx(isolation).execute(status->{
                 service.saveOwnFooter("101","First personal");
                 entities.unwrap(org.hibernate.Session.class).doWork(connection ->
-                        assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED));
+                        assertThat(connection.getTransactionIsolation()).isEqualTo(isolation));
                 locked.countDown();await(finish);return true;
             }));
             try{
@@ -195,6 +199,77 @@ class PersonalEmailFooterMariaDbIntegrationTest {
             var rows=dao.getAllProperties("email_footer",List.of("101"));assertThat(rows).hasSize(1);
             assertThat(rows.get(0).getValue()).isEqualTo("Same personal");
         });
+    }
+    @ParameterizedTest @CsvSource({"true,true","true,false","false,true","false,false"})
+    void shouldKeepOwnPendingInserts_andRepeatedSaveClearAtomic(boolean rollback,boolean strictSnapshot){
+        tx(TransactionDefinition.ISOLATION_REPEATABLE_READ).executeWithoutResult(status->{
+            setSnapshotIsolation(strictSnapshot);
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).isEmpty();
+            for(String value:List.of("Pending first","Pending duplicate")){
+                var row=new UserProperty();row.setName("email_footer");row.setProviderNo("101");row.setValue(value);
+                dao.persist(row);
+            }
+            service.saveOwnFooter("101","Edited pending");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).hasSize(1);
+            assertThat(service.ownFooter("101")).isEqualTo("Edited pending");
+            service.saveOwnFooter("101","");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).isEmpty();
+            service.saveOwnFooter("101","Recreated pending");
+            service.saveOwnFooter("101","Recreated pending");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).hasSize(1);
+            assertThat(service.ownFooter("101")).isEqualTo("Recreated pending");
+            if(rollback)status.setRollbackOnly();
+        });
+        assertThat(service.ownFooter("101")).isEqualTo(rollback?"":"Recreated pending");
+        assertThat(new TransactionTemplate(manager).<String>execute(s->dao.findClinicEmailFooter().get(0).getValue()))
+                .isEqualTo("Mandatory Clinic");
+    }
+    @ParameterizedTest @CsvSource({"true,true","true,false","false,true","false,false"})
+    void shouldClearAndRecreateCommittedRows_inOuterTransactionWithoutLosingRollback(boolean rollback,boolean strictSnapshot){
+        int retained=seedDuplicatePersonal();
+        tx(TransactionDefinition.ISOLATION_REPEATABLE_READ).executeWithoutResult(status->{
+            setSnapshotIsolation(strictSnapshot);
+            service.saveOwnFooter("101","");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).isEmpty();
+            service.saveOwnFooter("101","Recreated committed");
+            service.saveOwnFooter("101","Recreated committed");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).hasSize(1);
+            assertThat(service.ownFooter("101")).isEqualTo("Recreated committed");
+            if(rollback)status.setRollbackOnly();
+        });
+        if(rollback)assertPersonalRows(retained,"Old personal",2);
+        else assertThat(new TransactionTemplate(manager).<Integer>execute(s->dao.getAllProperties("email_footer",List.of("101")).size())).isEqualTo(1);
+        assertThat(service.ownFooter("101")).isEqualTo(rollback?"Old personal":"Recreated committed");
+        assertOtherOwnerAndClinic();
+    }
+    @ParameterizedTest @CsvSource({"true","false"})
+    void shouldHonorCallerDaoRemovals_beforeJoiningFooterSave(boolean rollback){
+        int retained=seedDuplicatePersonal();
+        tx(TransactionDefinition.ISOLATION_REPEATABLE_READ).executeWithoutResult(status->{
+            dao.getAllProperties("email_footer",List.of("101")).forEach(dao::delete);
+            service.saveOwnFooter("101","After caller removal");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).hasSize(1);
+            assertThat(service.ownFooter("101")).isEqualTo("After caller removal");
+            if(rollback)status.setRollbackOnly();
+        });
+        if(rollback)assertPersonalRows(retained,"Old personal",2);
+        assertThat(service.ownFooter("101")).isEqualTo(rollback?"Old personal":"After caller removal");
+        assertOtherOwnerAndClinic();
+    }
+    @Test void shouldSuspendAndRestoreOwnWriteOverlay_acrossRequiresNew(){
+        tx(TransactionDefinition.ISOLATION_REPEATABLE_READ).executeWithoutResult(status->{
+            service.saveOwnFooter("101","Outer pending");
+            var inner=tx(TransactionDefinition.ISOLATION_READ_COMMITTED);
+            inner.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            inner.executeWithoutResult(nested->service.saveOwnFooter("202","Inner committed"));
+            service.saveOwnFooter("101","");service.saveOwnFooter("101","Outer recreated");
+            assertThat(service.ownFooter("101")).isEqualTo("Outer recreated");
+            status.setRollbackOnly();
+        });
+        assertThat(service.ownFooter("101")).isEmpty();
+        assertThat(service.ownFooter("202")).isEqualTo("Inner committed");
+        service.saveOwnFooter("101","Fresh later transaction");
+        assertThat(service.ownFooter("101")).isEqualTo("Fresh later transaction");
     }
     private int seedDuplicatePersonal(){
         service.saveOwnFooter("101","Old personal");service.saveOwnFooter("202","Other personal");
