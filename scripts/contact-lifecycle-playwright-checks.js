@@ -141,8 +141,11 @@ async function workflow(s) {
     const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
     await patientSearch.locator('input[name="keyword"][type="text"]').fill(relatedName);
     await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
+    // Each result row carries its patient number on the row's pick button. That
+    // button was renamed from `demographic_no` to `pick_demographic` (#3985) so it
+    // no longer collides with the picker form's hidden demographic_no field.
     await patientSearch.locator('tr[onclick]').filter({
-      has: patientSearch.locator(`input[name="demographic_no"][value="${related}"]`),
+      has: patientSearch.locator(`input[name="pick_demographic"][value="${related}"]`),
     }).locator('td.lastName').click();
     assert(await field('contactId').inputValue() === related, 'Internal search selected the wrong patient');
     assert(await field('contactName').inputValue() === `${relatedName},Related`, 'Internal search corrupted the patient display name');

@@ -588,6 +588,26 @@ VALUES
  ('999998','2026-08-10','11:00:00','11:15:00','LOCAL_SEED_OBEC_REPORT_3',81,'','','','',NULL,'','','t',NOW(),'carlosdoc');"
 ```
 
+`episode-lifecycle-playwright-checks.js` needs the chart's Episode module, which the
+seeded `doctor` role hides: it holds `o` on `_newCasemgmt.episode`. Without a grant the
+check SKIPs and names that object. Grant it for the run only and put each row back to the
+value it had before; this is a fixture, not a product default:
+
+```bash
+# Record the doctor role's current values for both objects (the seed has `o` on each,
+# but restore what this install actually holds, not an assumed default).
+lxc exec carlos-test -- mariadb -u root carlos -Nse "SELECT objectName, privilege
+  FROM secObjPrivilege WHERE roleUserGroup='doctor'
+  AND objectName IN ('_newCasemgmt.episode','_episode')" | tee /tmp/episode-grants.tsv
+lxc exec carlos-test -- mariadb -u root carlos -e "UPDATE secObjPrivilege SET privilege='x'
+  WHERE roleUserGroup='doctor' AND objectName IN ('_newCasemgmt.episode','_episode')"
+# ... run episode-lifecycle ...
+while IFS=$'\t' read -r object privilege; do
+  lxc exec carlos-test -- mariadb -u root carlos -e "UPDATE secObjPrivilege
+    SET privilege='${privilege}' WHERE roleUserGroup='doctor' AND objectName='${object}'"
+done < /tmp/episode-grants.tsv
+```
+
 `cds-export-lab-documents-playwright-checks.js` (#3946) needs one more
 fixture, and it deliberately does **not** relax the package's
 `demographic.export.encryptedOnly=true` default: it gives the install a PGP

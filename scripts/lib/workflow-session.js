@@ -65,8 +65,8 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
           }
           return chart;
         },
-        async popup(page, locator, label) {
-          return ui.clickOpensPopup(page, locator, { context, recorder, label, timeout: 20000 });
+        async popup(page, locator, label, clickOptions = {}) {
+          return ui.clickOpensPopup(page, locator, { context, recorder, label, timeout: 20000, ...clickOptions });
         },
         async step(label, body) {
           await cancellation.run(body);
