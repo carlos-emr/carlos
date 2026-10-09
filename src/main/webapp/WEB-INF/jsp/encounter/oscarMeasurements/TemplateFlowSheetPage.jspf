@@ -761,7 +761,7 @@ div.recommendations ul{
 <div class="preventionSection" id="<%=measure%>"  style="overflow: auto;<%=hidden%>" >
     <div class="headPrevention">
 
-        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]"   >
+        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<%= SafeEncode.forTooltipText((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= SafeEncode.forTooltipText((String) h2.get("guideline")) %>]"   >
         <%
             String safeMeasureUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure));
             String safeGraphMeasurementUrl = SafeEncode.forJavaScriptAttribute(
@@ -846,7 +846,7 @@ value="<%= h.get("name")%>"/>
     <div class="preventionProcedure" <%=hider%>
     onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&amp;id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
     >
-        <p <%=indColour%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>&lt;br/&gt;Entered By:<carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>]"><carlos:encode value='<%= String.valueOf(h2.get("value_name")) %>' context="html"/>: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+        <p <%=indColour%> title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>&lt;br/&gt;Entered By:<%= SafeEncode.forTooltipText(mdb.getProviderFirstName()) %> <%= SafeEncode.forTooltipText(mdb.getProviderLastName()) %>]"><carlos:encode value='<%= String.valueOf(h2.get("value_name")) %>' context="html"/>: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
             <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
@@ -876,7 +876,7 @@ value="<%= h.get("name")%>"/>
 <div class="preventionSection" style="<%=hidden%>" >
     <div class="headPrevention">
         <c:set var="__enc_4"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType) %>' context="uriComponent"/></c:set>
-        <p title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]">
+        <p title="fade=[on] header=[<%= SafeEncode.forTooltipText((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= SafeEncode.forTooltipText((String) h2.get("guideline")) %>]">
             <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?prevention=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
                 <span title="<carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>" style="font-weight:bold;"><carlos:encode value='<%= (String) h2.get("display_name") %>' context="html"/></span>
             </a>
@@ -925,7 +925,7 @@ value="<%= h.get("name")%>"/>
             }
     %>
     <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
-        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
             <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
