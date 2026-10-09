@@ -61,12 +61,15 @@
  *      missing-identifiers symptom of the same row). A control step of its own runs first and shows
  *      the check can read DrugRef and that the installed copy holds the PENICILLINS class.
  *
- * Both allergy rows (the original and the amendment) are deleted in a finally.
+ * FIXTURE. The check runs on a FAKE patient it creates (lib/owned-patient.js: last name = a FAKE-PW run marker) and removes
+ * with every row it wrote, by the patient's key: both allergy rows (the original and the amendment) and the chart rows the
+ * chart open in step 4 writes. It used to run on DEMO patient 1, and adding an allergy makes the application archive that
+ * patient's "No Known Drug Allergies" row; deleting the check's own rows could not undo that, so demo allergy 1 stayed archived.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: ALLERGY_DEMOGRAPHIC_NO (1), CARLOS_LOG_JOURNAL_UNIT (the systemd unit whose journal holds the
+ * Optional: CARLOS_LOG_JOURNAL_UNIT (the systemd unit whose journal holds the
  * server log, for step 6), ALLERGY_PIN (unset: step 6; shortcut-id: step 7), DRUGREF_TEST_DATABASE
  * (the DrugRef database step 7 reads, default drugref2).
  */
@@ -77,6 +80,7 @@ const h = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { ALLERGY_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNoPageErrors,
@@ -102,13 +106,15 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
+// The owned patient this run creates in main() and removes in runCleanup() (never a demo patient).
+let demographicNo = null;
+let ownedMarker = null;
 // ALLERGY_PIN selects which finding the last step pins: unset pins finding 178 (the default entry),
 // `shortcut-id` pins finding 215 (the entry allergy-add-penicillin-shortcut-id).
 const ALLERGY_PIN = (process.env.ALLERGY_PIN || '').trim();
 /**
  * ALLERGY_PIN must be unset or `shortcut-id`. Judged when the check runs (main), never when the module is required.
- * Only the pin is deferred: DRUGREF_TEST_DATABASE and ALLERGY_DEMOGRAPHIC_NO just below (and BASE_URL and MYSQL_HOST in
+ * Only the pin is deferred: DRUGREF_TEST_DATABASE just below (and BASE_URL and MYSQL_HOST in
  * the config above) are still validated when the module loads, so requiring this module can throw on those.
  */
 function validatePin(value = ALLERGY_PIN) {
@@ -116,7 +122,6 @@ function validatePin(value = ALLERGY_PIN) {
 }
 const drugrefDatabase = process.env.DRUGREF_TEST_DATABASE || 'drugref2';
 if (!/^[A-Za-z0-9_]+$/.test(drugrefDatabase)) throw new Error('DRUGREF_TEST_DATABASE must be a plain database name');
-assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
 const reactionMarker = `PW_ALLERGY_${Date.now()}`;
 const reactionText = `${reactionMarker} rash`;
 // The amend path writes a SECOND allergies row rather than updating the first, so
@@ -162,7 +167,14 @@ function allergyRow(wantedReaction = reactionText) {
   return { id, description, typeCode, drugrefId, reaction, severity, onset, startDate, lifeStage, archived, regionalId, atc };
 }
 function cleanupRows() {
+  if (demographicNo === null) return;
   sql(`DELETE FROM allergies WHERE demographic_no=${Number(demographicNo)} AND reaction LIKE '${escapeSql(reactionMarker)}%'`);
+}
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
+function removeFixturePatient() {
+  if (demographicNo === null) return;
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, ALLERGY_ROWS);
 }
 
 let browser = null;
@@ -176,7 +188,7 @@ function runCleanup() {
   }
   cleanupDone = true;
   const failures = [];
-  for (const step of [cleanupRows]) {
+  for (const step of [cleanupRows, removeFixturePatient]) {
     try {
       step();
     } catch (cleanupError) {
@@ -252,6 +264,11 @@ async function main({ cancellation }) {
   // The browser launch sits inside the protected scope so a failure in it still reaches the
   // fixture cleanup (runCheck's cleanup hook runs whatever this function does).
   try {
+    // The patient first, so a failure anywhere below still reaches removeFixturePatient() through runCleanup().
+    ownedMarker = newOwnedMarker();
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
+    assert(provider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);

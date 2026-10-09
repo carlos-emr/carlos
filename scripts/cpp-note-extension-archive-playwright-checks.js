@@ -49,9 +49,13 @@
  * token and its serialized form exactly as the browser builds them.
  *
  * WHAT IT WRITES, AND REMOVES. One casemgmt_note row and its casemgmt_note_ext
- * rows for the selected patient, plus the casemgmt_note_lock the chart takes.
- * All are deleted afterwards through MYSQL_*; the note is found by the stamp
- * this run generated, so no clinician's note is matched. The lock delete is
+ * rows for a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker), plus the casemgmt_note_lock the chart takes, the patient's
+ * casemgmt_issue assignment and CPP summary and eChart rows. The patient used to be
+ * DEMO patient 2, where the first Social History item also created the casemgmt_issue
+ * row the chart assigns the issue by, which stayed behind. The note's rows are deleted
+ * afterwards through MYSQL_*, found by the stamp this run generated, and then everything
+ * left for the patient and the patient itself by its key. The lock delete is
  * scoped to THIS browser session id (casemgmt_note_lock records the id that
  * took the lock), so a lock another session holds on the same patient is left
  * alone. Cleanup runs through runCheck()'s cleanup hook: a delete that fails is
@@ -65,11 +69,6 @@
  *   MYSQL_PASSWORD=... npm run test:cpp-note-extension-archive-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   CPP_EXT_SEARCH=FAKE-           surname prefix used to reach a patient
- *   CPP_EXT_DEMOGRAPHIC_NO=2       which patient's chart to open. Defaults to 2, not 1: the
- *                                  shared helper records that demographic 1's chart answers 500 on
- *                                  the demo dataset, because its HRM rows point at report files
- *                                  that never shipped
  *   CPP_EXT_TIMEOUT_MS=45000       per-step allowance
  */
 
@@ -78,6 +77,7 @@ const {
   sqlString,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /** The Social History box in the encounter layout's CPP grid. */
@@ -101,6 +101,9 @@ const fixture = {
   demographicNo: '',
   providerNo: '',
   sessionId: '',
+  /** The owned patient the item is written for, and its marker (never a demo patient). */
+  ownedPatient: '',
+  ownedMarker: '',
   /** What the patient's chart summary looked like before this run wrote anything. */
   chartBefore: null,
   /** eChart rows this run's own saves wrote: id -> fingerprint when last written by the run. */
@@ -436,6 +439,15 @@ async function cleanup() {
         failures.push(`the leftover eChart check: ${(error && error.message) || 'query failed'}`);
       }
     }
+    // LAST: whatever else the chart wrote for the owned patient (its casemgmt_issue assignment, its CPP summary and eChart
+    // rows), then the patient, all by its key, asserted gone.
+    if (fixture.ownedPatient) {
+      try {
+        removeOwnedPatient(sql, fixture.ownedPatient, fixture.ownedMarker);
+      } catch (error) {
+        failures.push(`the owned patient: ${(error && error.message) || 'delete failed'}`);
+      }
+    }
   } finally {
     // ALWAYS, EVEN ON THE WAY OUT OF A THROW: createSqlRunner writes MYSQL_PASSWORD into a
     // temporary client.cnf, and dispose() is what removes it.
@@ -480,8 +492,6 @@ function extensionRows(sql, stamp) {
 
 async function main() {
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
-  const searchTerm = process.env.CPP_EXT_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.CPP_EXT_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CPP_EXT_TIMEOUT_MS || '45000');
   // The stamp leads the note text so the cleanup can anchor its LIKE.
   const stamp = `PW_CPP_EXT_${Date.now()}`;
@@ -489,6 +499,13 @@ async function main() {
   const sql = createSqlRunner(config.mysql);
   fixture.sql = sql;
   fixture.stamp = stamp;
+  // The owned patient, recorded before it exists so cleanup can still find it: its marker is the search term.
+  fixture.ownedMarker = newOwnedMarker();
+  const searchTerm = fixture.ownedMarker;
+  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+  assert(provider, 'the configured test login has no provider');
+  const preferredDemographicNo = createOwnedPatient(sql, { marker: fixture.ownedMarker, provider });
+  fixture.ownedPatient = preferredDemographicNo;
 
   const recorder = createRecorder();
   let browser;

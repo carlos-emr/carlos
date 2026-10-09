@@ -47,8 +47,12 @@ function removeDocumentResidue(sql, mark, documentNumbers) {
   const links = `table_name=5 AND table_id IN (${list}) AND id > ${Number(mark.noteLinkFloor)}`;
   const notes = sql.rows(`SELECT note_id FROM casemgmt_note_link WHERE ${links}`).map(([id]) => id).filter((id) => POSITIVE.test(id));
   if (notes.length) {
-    // Only the application's own "document created" note (provider -1), never a note a clinician wrote.
-    sql.execute(`DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes.join(',')});
+    // Only the application's own "document created" note (provider -1), never a note a clinician wrote. The extension
+    // rows carry the same guard through the note they hang off (they have no provider or text of their own), and go
+    // first, while the note that says whose they are still exists.
+    const appNotes = `SELECT note_id FROM casemgmt_note WHERE note_id IN (${notes.join(',')})
+      AND provider_no='-1' AND note LIKE 'Document % created at %'`;
+    sql.execute(`DELETE FROM casemgmt_note_ext WHERE note_id IN (${appNotes});
       DELETE FROM casemgmt_note WHERE note_id IN (${notes.join(',')}) AND provider_no='-1' AND note LIKE 'Document % created at %'`);
   }
   sql.execute(`DELETE FROM casemgmt_note_link WHERE ${links};

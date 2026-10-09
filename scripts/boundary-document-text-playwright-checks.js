@@ -50,16 +50,20 @@ async function workflow(s) {
     WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker}%`)}`);
   s.cleanup(() => {
     const files = new Set();
-    for (const [no, file] of rows()) {
-      h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
-      sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
-      removeDocumentResidue(sql, mark, [no]);
-      files.add(file);
-    }
-    for (const file of files) {
-      const target = path.join(store, path.basename(file));
-      if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
-      h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+    try {
+      for (const [no, file] of rows()) {
+        // Registered before anything that can throw: the stored PDF is removed below even when a delete for its document fails.
+        files.add(file);
+        h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
+        sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
+        removeDocumentResidue(sql, mark, [no]);
+      }
+    } finally {
+      for (const file of files) {
+        const target = path.join(store, path.basename(file));
+        if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
+        h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+      }
     }
     fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(rows().length === 0, 'Owned documents were not removed');

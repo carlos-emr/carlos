@@ -844,7 +844,7 @@ service_restarts_before="$(systemctl show carlos-emr -p NRestarts --value)"
 suite_failed=0
 # Alpha-11 tester coverage scripts (docs/ui-tests/alpha-11-tester-coverage.md). They default to
 # demographic 1 / provider 999998 and clean up after themselves; the few knobs they take:
-#   NOTE_DEMOGRAPHIC_NO=2        (echart-note-sign-bill; demographic 1's chart 500s on the demo HRM rows)
+#   (echart-note-sign-bill creates its own FAKE patient; NOTE_DEMOGRAPHIC_NO is no longer read)
 #   BILLING_SUBMIT_DATE=2024-05-06 BILLING_OHIP_CODE=A007A BILLING_BONUS_CODE=Q040A (billing-on-submit)
 #   GROUP_DISK_SERVICE_DATE=2003-02-03 GROUP_DISK_PAID_CODE=A007A
 #                                (billing-on-group-disk-zero-total, issue #3942: selects only owned
@@ -868,11 +868,13 @@ suite_failed=0
 #   MESSENGER_PROVIDER_NO=999998 (messenger-inbox-actions; enrols the provider as a local contact
 #                                through the Administration page when it is not already one, because a
 #                                hand-inserted groupMembers_tbl row does not make a recipient appear)
-#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID must be the
-#                                NEWEST lab of its accession -- this fixture reviews the latest
-#                                report and separately verifies that an older Inbox row opens its own
-#                                version, while an explicit showLatest request opens the latest. Left
-#                                unset the check picks a qualifying lab itself.)
+#   LAB_PROVIDER_NO=999998 LAB_SEGMENT_ID=<hl7 lab_no>  (lab-acknowledge; LAB_SEGMENT_ID is only the
+#                                TEMPLATE: the check copies that demo lab into a lab of its own and
+#                                acknowledges the copy, never the demo lab. It must be linked to a
+#                                patient and be the NEWEST lab of its accession -- the copy reviews
+#                                the latest report, and the check separately verifies that an older
+#                                Inbox row opens its own version while an explicit showLatest request
+#                                opens the latest. Left unset the check picks a qualifying lab itself.)
 #                                (prevention-recall-report takes no knob: the screening type is fixed
 #                                to Flu because the check seeds a saved demographic query naming one
 #                                65+ patient with no flu shot and asserts the report classifies them
@@ -1128,11 +1130,14 @@ Notes on the contract:
   chart's own 5-second draft autosave still posts what it typed as the
   patient's draft, so before it opens the chart it applies the same
   synthetic-patient gate as the free-text check (`FAKE-`/`PLAYWRIGHT-` name
-  prefix on `ECHART_DEMOGRAPHIC_NO`, override with
-  `ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true`), and it reads the note before its first print and, when
+  prefix on the patient), and it reads the note before its first print and, when
   the prints are done, puts that text back and either writes it back over the
   draft (a clinician's restored draft) or deletes the draft through the page's
-  cancel path (a fresh note). Because of that write, its `BASE_URL` guard is
+  cancel path (a fresh note). The patient is a FAKE one the check creates and
+  removes by key (`lib/owned-patient.js`); it used to be demo patient 1, whose own
+  stored draft was taken for "a fresh note" and deleted on every run, and
+  `ECHART_DEMOGRAPHIC_NO` and `ECHART_ALLOW_NON_SYNTHETIC_PATIENT` no longer exist.
+  Because of that write, its `BASE_URL` guard is
   the same as the free-text check's: loopback only unless
   `ALLOW_NON_LOCAL_BASE_URL=true`, a non-loopback target must be HTTPS, and
   like `billing-on-third-party` it relaxes certificate verification only for
@@ -1181,18 +1186,20 @@ Notes on the contract:
   login would send credentials in cleartext; but loopback bounds the host, not
   the data, and a local
   install can hold real patient records. So before its first write it opens the
-  master record of `CLINICAL_DEMOGRAPHIC_NO` (default 1) and refuses to run
-  unless the first or last name carries the synthetic-data prefix the demo
-  dataset writes on every person name (`FAKE-`, see
-  `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the `PLAYWRIGHT-`
-  prefix the fixture-owning checks use; `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT=true`
-  overrides that only for a record you know to be test data. It then writes the
-  corpus, each phrase stamped `(Playwright clinical-freetext run <epoch>)`,
-  into the patient's Alert/Notes and puts the original text back at the end,
-  on the failure path as well as the success path (the restore is a save
-  through the same route and a failed restore fails the run). **The two
-  workflows write different things, measured on a packaged install:** the
-  demographic save runs in place (a seven-phrase run leaves eight
+  master record of the patient and refuses to run unless the first or last name
+  carries the synthetic-data prefix the demo dataset writes on every person name
+  (`FAKE-`, see `.devcontainer/db/scripts/demo-name-sanitization.sql`) or the
+  `PLAYWRIGHT-` prefix the fixture-owning checks use; the patient is a FAKE one
+  the check creates (`lib/owned-patient.js`, last name a `FAKE-PW` run marker), so
+  it always carries one. `CLINICAL_DEMOGRAPHIC_NO` and
+  `CLINICAL_ALLOW_NON_SYNTHETIC_PATIENT` no longer exist: the check used to run on
+  demo patient 1, and a Master Record save is not a round trip (it also rewrites
+  the record's province and newsletter codes and files a `demographicArchive`
+  row), so putting the Alert and Notes back could never put that record back. It
+  writes the corpus, each phrase stamped `(Playwright clinical-freetext run
+  <epoch>)`, into the patient's Alert/Notes and replays the original body at the
+  end. **The two workflows write different things, measured on a packaged
+  install:** the demographic save runs in place (a seven-phrase run leaves eight
   `demographicArchive` rows for the patient, the replays plus the restore),
   while the consultation replay **files a new request per phrase** -- seven
   `consultationRequests` rows for the patient per run, each with the phrase
@@ -1202,17 +1209,15 @@ Notes on the contract:
   defect fixed in #3623 presented (the front door accepted the prose; the
   application then threw and stored nothing), so the check reports it as a
   failure and points at the application log. There is no delete route for a
-  consultation request, so the rows stay until you remove them; the stamp is
-  the key:
-
-  ```sql
-  -- <n> is CLINICAL_DEMOGRAPHIC_NO (default 1). Ext rows first: no FK cascades.
-  DELETE e FROM consultationRequestExt e
-    JOIN consultationRequests r ON r.requestId = e.requestId
-   WHERE r.demographicNo = <n> AND r.reason LIKE '%(Playwright clinical-freetext run %';
-  DELETE FROM consultationRequests
-   WHERE demographicNo = <n> AND reason LIKE '%(Playwright clinical-freetext run %';
-  ```
+  consultation request, so the check deletes them with the rest of the patient's
+  rows (their extension, document and signature rows included) by the owned
+  patient's key and asserts them gone; the stamp-keyed cleanup SQL this paragraph
+  used to carry is no longer needed. A patient that was never saved through the
+  Master Record form has no `demographicExt` rows, so the form carries empty
+  extension ids and every replay of the same stale body would INSERT them again
+  (HTTP 500, the `uk_demo_ext_single_value` defect `concurrency-demographic-ext-insert`
+  pins); the check therefore saves the owned patient once, unchanged, and
+  re-opens the form before it captures the body.
   After each workflow's replays it re-opens that page and requires
   its free-text control to render again, because a session that lapsed mid-run
   would answer every replay with an opaque redirect indistinguishable from a
@@ -1265,7 +1270,12 @@ Notes on the contract:
   need more than 30 seconds. `ECHART_NOTES_POLL_TIMEOUT_MS` accepts 5000–240000
   milliseconds for an intentionally larger fixture; the check still requires
   four quiet seconds and a cleared loading indicator, and fails continuous
-  pagination at the configured deadline.
+  pagination at the configured deadline. The fixture is the check's own: a FAKE
+  patient seeded with 45 signed notes (two older batches page in above the reader's
+  note) and removed by key, with a zero-count assertion on every chart table. The
+  check no longer opens a demo patient, and `ECHART_DEMOGRAPHIC_NO` and
+  `ECHART_SEARCH_TERM` are gone; its env is `ECHART_NOTES_POLL_TIMEOUT_MS`,
+  `ECHART_SCREENSHOT_DIR` and `EXPECT_FRONT_DOOR`.
 - **`echart-new-patient-notes-playwright-checks.js` builds its own fixture** —
   it creates a `PLAYWRIGHT-EC-<timestamp>` patient, books an appointment for
   them, and opens the eChart from that appointment, which is the path the
@@ -2475,15 +2485,68 @@ application finding; each item was repaired from the artifact or by owned key, a
 
 | What was wrong | Cause | Repair |
 |---|---|---|
-| The demo's `providerLabRouting` row for HL7 lab 22 (id 24, provider `0`, status `N`, comment "Lab unlinked from incorrect demographic number: 1", timestamp 2023-09-01 21:19:22) was gone: 171 HL7 routing rows against the artifact's 172. A `table_modification` row (type `delete`) recorded it, and the demo has none. | `lab-acknowledge` acknowledged demo lab 22 (four runs, 2026-10-08 20:03 to 20:29); the application deletes the provider-0 routing rows of a lab on acknowledge (`CommonLabResultData:619-629`) and the check restored only the row it had added. | The row re-inserted exactly as the artifact has it (all 176 routing rows now equal the artifact's, compared column by column); the `table_modification` row removed and its counter reset. `lab-acknowledge` now copies the demo lab into a lab of its own and acknowledges the copy, removing it and everything the review wrote for it. |
+| The demo's `providerLabRouting` row for HL7 lab 22 (id 24, provider `0`, status `N`, comment "Lab unlinked from incorrect demographic number: 1", timestamp 2023-09-01 21:19:22) was gone: 171 HL7 routing rows against the artifact's 172. A `table_modification` row (type `delete`) recorded it, and the demo has none. | `lab-acknowledge` acknowledged demo lab 22 (48 acknowledge rows in 16 runs, 2026-10-08 20:03 to 23:14); the application deletes the provider-0 routing rows of a lab on acknowledge (`CommonLabResultData:619-629`) and the check restored only the row it had added. | The row re-inserted exactly as the artifact has it (all 176 routing rows now equal the artifact's, compared column by column); the `table_modification` row removed and its counter reset. `lab-acknowledge` now copies the demo lab into a lab of its own and acknowledges the copy, removing it and everything the review wrote for it. |
 | 9 `providerLabRoutingLock` rows on lab numbers 22, 24, 29, 31, 33, 35, 54, 63 and 82 (and 3 more, 94, 97 and 125, made by this round's audit runs before the checks were fixed). The demo artifact has no lock rows, and every timestamp is after the install's first `log` row (2026-10-08 12:12:25). | The lock is keyed by the number alone. Checks that route an owned document write it for the document's number, which the demo's HL7 labs also use (document numbers 22 and up, labs 1 to 172); lab 22's is the acknowledge above. | Removed by key. `detached-delete-forward-favourites`, `document-upload`, `inbox-file-forward`, `audit-log-document-read` and the stored-document mutation fixture (`stored-document-mutations`) now remove the lock rows written after a mark taken before the check wrote anything (`scripts/lib/document-residue.js`). |
 | 4 chart notes "Document ... created at ... by doctor ..." (provider -1) with their `casemgmt_note_link` rows, 6 `queue_document_link` rows for documents that no longer exist (the artifact has 2) and 9 `carlos-upload-probe-*.pdf` files in `DOCUMENT_DIR`. | Uploading a document through the UI files the note, its link and the Inbox queue link; `document-upload` and `audit-log-document-read` deleted the document rows and nothing else. | Removed by key and by file name. The two checks now remove them (and `document-upload` its uploaded files). |
-
 | 15 `patientLabRouting` rows (`DOC`, document numbers 65 to 80, patients that no longer exist, created 2026-10-08 20:04 to 23:14) and 3 `ctl_document` rows for documents 4953 to 4955 (module `providers` 999998 and `demographic` 2147483647, the harness's missing-patient number). None is in the artifact and no document with those numbers exists. | Left by earlier runs of document checks whose cleanup missed them; each of the 36 document-related checks audited this round now leaves nothing of the kind, so the source is a version of a check that has since changed. | Removed by key (id above the artifact's highest, document numbers that do not exist). |
 | 1 `DigitalSignature` row (the provider's signature image, 235 KB) and 2 more "Document ... created" notes with their links. | `consult-attachment-ownership` (saving a consultation stores the signature; deleting the request keeps it) and `boundary-document-text` (UI uploads). | Removed by key; both checks now remove them. |
 
-Found and left alone, because they belong to checks outside the list this round covered: the archived Social History notes 594 and
-655 ("... Playwright Social History <stamp>", written by `echart`) with their `casemgmt_issue_notes` rows, the
-`update_date` of the demo notes 27 and 28 that those runs moved, and the demo draft `casemgmt_tmpsave` 280278 (patient 1), which
-a chart open consumed. Every other table of the artifact that differs from the live data differs because the demo's name
-sanitization and date shifts are applied after the artifact loads.
+The claim that stood here until the next round, that every other differing table "differs because the demo's name sanitization and date shifts
+are applied after the artifact loads", had not been checked table by table, and it was wrong. The record below replaces it.
+
+### Demo records the harness changed, found by comparing the artifact table by table (2026-10-09)
+
+The shrink-aware audit only sees a table whose row count moved during one run. A check that rewrites a demo row in place (a Master
+Record save, an allergy added, a note signed) moves no count, and a later run does not see that the earlier one did it. The only
+witness is the demo dataset itself, so this round compared the whole installed database with the artifact the install was loaded from.
+
+**Method.** The artifact (`demo-additive-on.sql.gz`) and the companion pieces `carlos-ctl demo-data` applies after it were loaded into a
+scratch schema (each table cloned from the live one with `CREATE TABLE LIKE`; Flyway-seeded rows win on a key collision, as in the real
+load, because the artifact is `INSERT IGNORE`). For every table, the full rows were compared both ways with `SELECT <columns> EXCEPT
+SELECT <columns>`, leaving out the `ON UPDATE CURRENT_TIMESTAMP` columns, which both sides stamp at load time. A table the artifact
+does not carry is Flyway data and was not compared. The difference was then attributed to a check by running the 91 checks that touch the
+chart, the schedule, documents, prescriptions, forms or consultations one at a time under `--residue-audit` with a `CHECKSUM TABLE` of
+every table before and after each run. The scratch schema was dropped at the end.
+
+| What was wrong (live against the artifact) | Check | Repair |
+|---|---|---|
+| Demo patient 1's chart: 2 archived Social History notes (594, 655) with their `casemgmt_issue_notes` rows (593 notes against the artifact's 591; 147 links against 145), `casemgmt_cpp` row 1's `socialHistory` and `update_date`, the `update_date` of notes 27 and 28, the encounter-note draft `casemgmt_tmpsave` 280278 missing (a chart open consumes it), and 2 `eChart` rows (the artifact ships none) | `echart` (archived instead of removed; `cancel` posted over the demo draft), `echart-print` (deleted the draft) | Notes, links, extension and lock rows removed; the columns restored from the artifact; 280278 re-inserted from it; the eChart rows removed. Patient 1's `casemgmt_note`, `casemgmt_issue_notes` and `casemgmt_tmpsave` were then compared with the artifact and are equal, row for row |
+| Allergy 1, the demo's "No Known Drug Allergies" (`archived` and `lastUpdateDate`), and 2 allergy rows on demo patient 2 | `allergy-add-penicillin` (the application archives the "No Known Drug Allergies" row when an allergy is added), `allergy-rx-alert` | Row 1 restored; rows above the artifact's highest id removed |
+| Demo patient 1's `demographic` row (`province`, `newsletter`, `residentialProvince`, `lastUpdateDate`), 20 `demographicExt` rows (`date_time`), 100 `demographicExtArchive` rows and the `demographicArchive` rows | `clinical-freetext` (saved the Master Record twice a run), `browser-surface` | Restored from the artifact; the archive rows above the artifact's highest id removed |
+| 2,767 `EFormDocs` rows of the demo with `deleted` flipped, 2 `eform_data` instances, their `eform_values` and 3 `eform` templates left soft-deleted (the application only marks a template or an instance removed) | `eform-render`, `eform-saved-render`, `eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, the `eform-rtl-*` checks. The demo ships attachment rows for instance numbers 247 to 1063 that no `eform_data` row owns; an instance saved at one of those numbers inherits them, and removing the instance marks them deleted | `deleted` restored from the artifact; instances, values and templates removed by key |
+| 24 `demographiccust` and 82 `eChart` rows for owned patients that no longer exist | `runWorkflow`'s default cleanup omits both tables | Removed (a follow-up: add them to the default cleanup) |
+| `DigitalSignature` rows (the provider's signature image, a foreign key to `demographic`) and `consultationRequestExt`, `consultationRequestExtArchive` and `consultationRequestsArchive` rows whose request was deleted | the `consultation-*` checks (the request was deleted and nothing else) | Removed |
+| `appointmentArchive` (4), `casemgmt_issue` (1), `form_boolean_value` (434), the `dates_reprinted` and `lastUpdateDate` of two demo prescriptions, the `addDate` of the demo's pharmacy links | `echart-note-sign-bill`, `schedule-quick-search-appointment`, `cpp-note-extension-archive`, `form-rourke2017`, `prescription-signature`, `rx-preview-pharmacy` | Removed or restored from the artifact |
+| The `pronoun` of 109 demo patients (124 by the end of the round) and the `gender` of 2, NULL in the artifact and `''` live, `lastUpdateDate` unchanged | not a check's write: the application (finding 266). Opening a patient's Master Record or finding one in the schedule's Search flushes `NULL` to `''` | Restored from the artifact. Pinned by `demographic-open-writes-nothing` |
+
+The first comparison, made before any check was run again, found the patient 1 chart, allergy 1, the patient 1 demographic row, the
+eForm, `demographiccust` and `eChart` differences and the `pronoun` rewrites. The allergy rows of demo patient 2, the consultation
+rows, the `appointmentArchive`, `casemgmt_issue`, `form_boolean_value`, prescription and pharmacy differences and 40 more archive rows appeared
+only when the sweep ran the check that writes them once more, which is the evidence for naming it; they were repaired the same way.
+
+**What is left, and why it is not damage.** After the repair the tables that still differ from the artifact are `hash_audit` and
+`log` (they grow on every run), and rows whose differences were read one by one: the Flyway seed wins over the artifact on a key
+collision (`INSERT IGNORE`), so `provider` (the seeded test provider has an empty `team` where the artifact has "Doctors"),
+`program`, `program_provider`, `serviceSpecialists`, `issue`, `PreventionsLotNrs`, `mygroup` (the seeded "IT Support" group),
+`ProviderPreference` and 3 `appointment` rows are the seed's; and the test provider's quick list (`quickListUser.lastUsed`)
+is stamped by the Echart navbar checks. This is what the earlier sentence about name sanitization and date shifts should have said:
+it was true of these tables and of nothing else.
+
+**What changed in the harness.** Checks that wrote a demo record now create a FAKE patient of their own (`lib/owned-patient.js`: last
+name = a `FAKE-PW` run marker; deleted by the patient's key, then asserted gone): `echart` (seeds 45 notes for pagination),
+`echart-print`, `echart-note-sign-bill`, `cpp-note-extension-archive`, `allergy-add-penicillin`, `allergy-rx-alert`,
+`clinical-freetext`, `browser-surface`, `demographic-edit-update`, the `consultation-*` checks, `eform-render`, `eform-saved-render`,
+`eform-test-pattern`, `eform-apcache-renderer`, `eform-consultation-acceptance`, `eform-rtl-attachment-routes`,
+`eform-rtl-print-pdf`, `form-rourke2017` and `schedule-quick-search-appointment`. Two checks keep demo patient 1 on purpose, because they assert
+that patient's attachments, and remove what they saved by number (`lib/eform-instance-residue.js`): `eform-rtl-attachment-pdf` and
+`eform-rtl-attachment-types`. Two keep the demo prescription and pharmacy links the install is documented to use and write the audit
+columns the application stamped back exactly (`lib/demo-timestamp-restore.js`): `prescription-signature` and `rx-preview-pharmacy`.
+`lab-acknowledge`'s copy of the demo lab moved into `lib/owned-lab.js`, which has a unit test of its SQL shapes. `document-residue.js`
+deletes the `casemgmt_note_ext` rows of a "Document ... created" note only for provider `-1` and that note text, and
+`audit-log-document-read` and `boundary-document-text` register the stored file for removal before they remove the document rows.
+
+Three details cost a rerun each when the checks moved to an owned patient. The schedule's quick search lists only patients admitted to
+one of the login's programs (`PROGRAM_DOMAIN_RESTRICTION`), so `schedule-quick-search-appointment` admits its patient; the Master Record
+refuses a blank Canadian postal code, so `browser-surface` stores one; and `lib/owned-patient.js` finds a consultation request's
+extension and archive rows through the request, so the removal has to run before a check deletes the request itself.
+

@@ -82,7 +82,6 @@
  */
 
 const { chromium } = require('playwright');
-const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -118,6 +117,7 @@ assert(/^\d+$/.test(providerNo), 'LAB_PROVIDER_NO must be numeric');
 
 const {createLabRoutingFixture} = require('./lib/lab-routing-fixture');
 const { LOCK_NOT_SHARED } = require('./lab-forwarding-rules-playwright-checks');
+const { createOwnedLab } = require('./lib/owned-lab');
 
 const ackComment = `PW_LABACK_${Date.now()}`;
 const recorder = createRecorder();
@@ -126,9 +126,6 @@ const passed = [];
 // Captured so cleanup can put the deployment back exactly as it was.
 // segmentId is the OWNED copy of a demo lab (see cloneLab); only it is ever acknowledged.
 let segmentId = null;
-// What cleanup needs to find and remove the copy: its unique accession, the lab number once it exists, and the highest
-// table_modification id before the run (the review files one row there when it deletes the provider-0 routing row).
-let ownedLab = null;
 let demographicNo = null;
 let routingFixture = null;
 // The planted queue_document_link row (see the header): created when no document
@@ -262,72 +259,9 @@ function resolveSegment() {
   return { segmentId: row[0], demographicNo: row[1] };
 }
 
-/**
- * Copies a demo lab into a lab this run owns and returns the copy's number. One transaction in one session, so a failure leaves
- * nothing behind; the copy has a unique accession, so it is its own latest version and the demo labs sharing the template's
- * accession are untouched. The message row keeps the template's fileUploadCheck_id (the column is NOT NULL); cleanup deletes the
- * copy's message and never the checksum row, which belongs to the demo.
- */
-function cloneLab(template) {
-  const accession = `ACK${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
-  // Registered before the first write: cleanup keys on the accession.
-  ownedLab = { accession, labNo: null, modificationFloor: Number(sql('SELECT IFNULL(MAX(id), 0) FROM table_modification')) };
-  const copy = sql(`START TRANSACTION;
-    INSERT INTO hl7TextMessage (fileUploadCheck_id, message, type, serviceName, created)
-      SELECT fileUploadCheck_id, message, type, serviceName, created FROM hl7TextMessage WHERE lab_id=${Number(template)} LIMIT 1;
-    SET @lab = LAST_INSERT_ID();
-    INSERT INTO hl7TextInfo (lab_no, sex, health_no, result_status, final_result_count, obr_date, priority, requesting_client,
-        discipline, last_name, first_name, report_status, accessionNum, filler_order_num, sending_facility, label)
-      SELECT @lab, sex, health_no, result_status, final_result_count, obr_date, priority, requesting_client,
-        discipline, last_name, first_name, report_status, '${accession}', filler_order_num, sending_facility, label
-      FROM hl7TextInfo WHERE lab_no=${Number(template)} LIMIT 1;
-    INSERT INTO patientLabRouting (demographic_no, lab_no, lab_type, created)
-      SELECT demographic_no, @lab, 'HL7', created FROM patientLabRouting WHERE lab_no=${Number(template)} AND lab_type='HL7' LIMIT 1;
-    INSERT INTO providerLabRouting (provider_no, lab_no, status, comment, timestamp, lab_type)
-      SELECT provider_no, @lab, status, comment, timestamp, lab_type FROM providerLabRouting
-      WHERE lab_no=${Number(template)} AND lab_type='HL7' AND provider_no='0';
-    COMMIT;
-    SELECT @lab`);
-  assert(/^[1-9]\d*$/.test(copy) && Number(copy) > Number(template), `the copy of demo lab ${template} has no lab number of its own (${copy})`);
-  assert(sql(`SELECT (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no=${Number(copy)} AND accessionNum='${accession}')
-    + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id=${Number(copy)})
-    + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_no=${Number(copy)} AND lab_type='HL7')`) === '3',
-  `the copy of demo lab ${template} is missing its info, message or patient link`);
-  ownedLab.labNo = copy;
-  return copy;
-}
-
-/**
- * Removes the owned copy and everything the review wrote for it, by its own lab number, and asserts it gone. The lab number is
- * read from the accession too, so a copy whose number was never returned is still found. The routing lock is the row the
- * application files when it routes or acknowledges the lab; it is deleted unless another lab type also routes that number.
- */
-function removeOwnedLab() {
-  if (ownedLab === null) return;
-  const accession = escapeSql(ownedLab.accession);
-  const numbers = new Set(sqlRows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum='${accession}'`).map(([no]) => no));
-  if (ownedLab.labNo) numbers.add(String(ownedLab.labNo));
-  const labs = [...numbers].filter((no) => /^[1-9]\d*$/.test(no));
-  if (!labs.length) return;
-  const list = labs.join(',');
-  // The review files a table_modification row for each provider-0 routing row it deletes; it names the lab number in its XML.
-  const modifications = labs.map((no) => `resultSet LIKE '%<lab_no>${no}</lab_no>%'`).join(' OR ');
-  sql(`DELETE FROM table_modification WHERE id > ${Number(ownedLab.modificationFloor)} AND table_name='providerLabRouting'
-      AND modification_type='delete' AND (${modifications});
-    DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-    DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED};
-    DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-    DELETE FROM hl7TextInfo WHERE lab_no IN (${list}) AND accessionNum='${accession}';
-    DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
-  assert(sql(`SELECT (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
-    + (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED})
-    + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
-    + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no IN (${list}))
-    + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))
-    + (SELECT COUNT(*) FROM table_modification WHERE id > ${Number(ownedLab.modificationFloor)} AND table_name='providerLabRouting'
-        AND modification_type='delete' AND (${modifications}))`) === '0',
-  'the owned copy of the demo lab, or a row the review wrote for it, was not removed');
-}
+// The owned copy of a demo lab (lib/owned-lab.js): cloneLab() makes it and returns its number, removeOwnedLab() removes it and
+// every row the review wrote for it, by its own keys, and asserts it gone.
+const { cloneLab, removeOwnedLab } = createOwnedLab({ sql, sqlRows, lockNotShared: LOCK_NOT_SHARED });
 
 function routingRow() {
   const row = sqlRows(

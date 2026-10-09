@@ -47,7 +47,18 @@ test('shouldDeleteOnlyRowsOfTheOwnedNumbers_writtenAfterTheMark', () => {
     'a lock row that was already there is not the run\'s to delete');
   assert.match(statements, /DELETE FROM casemgmt_note WHERE note_id IN \(881\) AND provider_no='-1' AND note LIKE 'Document % created at %'/,
     'only the application\'s own "document created" note, never one a clinician wrote');
-  assert.match(statements, /DELETE FROM casemgmt_note_ext WHERE note_id IN \(881\)/);
+  assert.match(statements, /DELETE FROM casemgmt_note_ext WHERE note_id IN \(SELECT note_id FROM casemgmt_note WHERE note_id IN \(881\)\s+AND provider_no='-1' AND note LIKE 'Document % created at %'\)/,
+    'the extension rows carry the same provider -1 / "document created" guard as the note, through the note they hang off');
+});
+
+test('shouldDeleteTheExtensionRows_beforeTheNoteTheyHangOff', () => {
+  const sql = stubSql({ noteIds: ['881'] });
+  removeDocumentResidue(sql, markDocumentResidue(sql), ['88']);
+  const statements = sql.executed.join('\n');
+  assert.ok(statements.indexOf('DELETE FROM casemgmt_note_ext') < statements.indexOf('DELETE FROM casemgmt_note WHERE'),
+    'the guard reads the note, so the extension rows must go while it still exists');
+  assert.doesNotMatch(statements, /DELETE FROM casemgmt_note_ext WHERE note_id IN \(881\)/,
+    'an unguarded extension delete would remove the rows of a clinician\'s note that shared the number');
 });
 
 test('shouldFindTheNotesThroughTheOwnedLinks_andDeleteTheLinksAfterwards', () => {

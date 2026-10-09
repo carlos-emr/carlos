@@ -14,9 +14,16 @@
 
 /*
  * Local-only browser regression check for Rich Text Letter attachment type coverage.
+ *
+ * The letter is saved for demographic 1 on purpose: the check reads that patient's documents, labs, forms and HRM reports in the
+ * Attach popup for their field names, which an owned patient does not have. The saved instance and its rows are removed by their
+ * number afterwards (lib/eform-instance-residue.js), where the application's own Delete only marks them removed. MYSQL_* reaches
+ * the database.
  */
 
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
   buildFailureDetails,
@@ -46,6 +53,9 @@ const config = {
 
 (async () => {
   const recorder = createRecorder();
+  const sql = createSqlRunner(readConfig().mysql);
+  // Before the first save: the instances saved after this are the run's, and only they are removed.
+  const instanceMark = markEformInstances(sql);
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
@@ -125,5 +135,13 @@ const config = {
     process.exitCode = 1;
   } finally {
     await browser.close();
+    try {
+      removeEformInstancesSince(sql, instanceMark, config.demographicNo);
+    } catch (error) {
+      console.error(`FAIL cleanup: ${error.message}`);
+      process.exitCode = 1;
+    } finally {
+      sql.dispose();
+    }
   }
 })();
