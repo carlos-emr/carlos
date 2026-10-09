@@ -1,4 +1,4 @@
-CREATE TABLE sms_transaction (
+CREATE TABLE IF NOT EXISTS sms_transaction (
   id BIGINT NOT NULL AUTO_INCREMENT,
   direction VARCHAR(16) NOT NULL,
   provider_type VARCHAR(16) NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE sms_transaction (
   KEY sms_transaction_claim_token_idx (claim_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE sms_provider_rate_limit (
+CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (
   provider_type VARCHAR(16) NOT NULL,
   send_count INT NOT NULL DEFAULT 0,
   window_started_at DATETIME NOT NULL,

@@ -95,10 +95,14 @@ Renumbering only the low ones was not enough. `V1.0.72` (SMS consent type) alter
 seeds, so the whole chain moved together. No release migration depends on one of this line's. The
 release `emailConfig` widening (`V1.0.23.1`) still runs before this line's (`V1.0.68`).
 
-Each rename is byte-identical, so comments inside the files still cite the old numbers. A scratch or
-staging schema that ran this line's files under their old numbers with Flyway fails validation
-afterwards and must be rebuilt. The devcontainer databases are built without Flyway history and are
-unaffected.
+Each rename is byte-identical, so comments inside the files still cite the old numbers. The one
+content change: `V1.0.67` now creates its two tables `IF NOT EXISTS`. The devcontainer re-runs every
+migration that touches the security tables after loading the demo data
+(`reapply_security_migrations.sh`), and `V1.0.67` seeds `_msgSMS`, so it must survive a second run.
+
+A scratch or staging schema that ran this line's files under their old numbers with Flyway fails
+validation afterwards and must be rebuilt. The devcontainer databases are built without Flyway
+history and are unaffected.
 
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.

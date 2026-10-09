@@ -64,7 +64,9 @@ These were written on develop and renumbered at the 2026.08.0-alpha19 forward me
 develop's order, so that they all sit above `release/2026.08`'s `V1.0.56`: a lower number never runs
 on a database already upgraded through that release. Their earlier numbers were `V1.0.24`–`V1.0.28`,
 `V1.0.31`, `V1.0.32`, `V1.0.41`–`V1.0.43`, `V1.0.54`, `V1.0.57` and `V1.0.59`. The renames are
-byte-identical, so comments inside the files still cite the old numbers. See `../README.md`.
+byte-identical, so comments inside the files still cite the old numbers. The exception is
+`V1.0.67`, which now creates its tables `IF NOT EXISTS` so the devcontainer's security-migration
+re-apply can run it twice. See `../README.md`.
 
 `V1.0.66__add_email_consent_audit.sql` records the consent decision enforced for each
 provider-to-patient email attempt.
