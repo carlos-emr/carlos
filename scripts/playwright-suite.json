@@ -5062,6 +5062,263 @@
     {
       "name": "clinical-forms-save-reopen",
       "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "",
+        "CLINICAL_FORMS_EXCEPT": "vt,mh14.problems,mh42.problems,mhc.problems,mhc.opener,mhc.reopen,mhc.print"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Records each form independently and asserts, per form, open, validate (Discharge Summary and Mental Health Form 1: invalid dates and cancelled confirmations write nothing), save, redisplay, reopen, print, Save's confirmation, resave and script-error concerns. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without writes. Mental Health Form 14, Form 42, Annual V2 for a female and for a male patient (the wrapper picks its template by sex; each is reopened while its record is the table's latest) and the three-page Mental Health referral / assessment / outcome chain (three Saves of one record, each keeping the earlier pages) are driven the same way. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "clinical-forms-save-reopen-vascular-tracker",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "vt",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Vascular Tracker, pinned to finding 103: the shipped registration points at the Struts 1 SetupForm.do route, which the chart opens as a raw URL and the application answers 404. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 103,
+        "step": "Vascular Tracker: is listed once in the Forms menu and opens for the owned patient"
+      }
+    },
+    {
+      "name": "clinical-forms-save-reopen-form14-42",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "mh14.problems,mh42.problems",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Mental Health Forms 14 and 42, pinned to finding 239: they carry the lab requisition's checkAllDates(), so every Save raises a TypeError. Form 14 is the pinned step and Form 42 shares the defect. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 239,
+        "step": "Mental Health Form 14: raised no JavaScript-layer problems"
+      }
+    },
+    {
+      "name": "clinical-forms-save-reopen-mental-health-script",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "mhc.problems",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The Mental Health pages, pinned to finding 237: each page load throws ReferenceError: docuemtn is not defined. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 237,
+        "step": "Mental Health: raised no JavaScript-layer problems"
+      }
+    },
+    {
+      "name": "clinical-forms-save-reopen-mental-health-chart-reload",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "mhc.opener",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The Mental Health Assessment Save, pinned to finding 242: onSave() calls window.opener.location.reload(), so saving the page reloads the E-Chart that opened the form (the chart's main frame navigates and its note-lock beacon is aborted). Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 242,
+        "step": "Mental Health: Saving a page leaves the E-Chart that opened the form alone"
+      }
+    },
+    {
+      "name": "clinical-forms-save-reopen-mental-health-reopen",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "mhc.reopen",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The Mental Health chain, pinned to finding 236: after Referral, Assessment and Outcome are saved, the chart's saved-form entry answers HTTP 500 because the stored c_lastVisited is outcome/. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 236,
+        "step": "Mental Health: reopening from the E-Chart restores the saved values"
+      }
+    },
+    {
+      "name": "clinical-forms-save-reopen-mental-health-print",
+      "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
+      "envSet": {
+        "CLINICAL_FORMS_ONLY": "mhc.print",
+        "CLINICAL_FORMS_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CLINICAL_FORMS_ONLY",
+        "CLINICAL_FORMS_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The Mental Health Print button, pinned to finding 238: onPrint() calls document.forms[0].submit(), which the form's hidden input named submit shadows, so it throws and no print page is requested. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
+      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 238,
+        "step": "Mental Health: Print renders the saved page for the owned patient"
+      }
+    },
+    {
+      "name": "form-catalog-smoke",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "",
+        "FORM_CATALOG_EXCEPT": "alpha,cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore,cesd.redisplay,letterhead.restore,rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys,positionhazard.open,rourke2006.reopen,rourke2006.print,adfv2.redisplay"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Table-driven over 26 Ontario forms that had no save/reopen check: Rourke 2006 and the original Rourke, Letterhead, the 2003 Lab Req, ADFv2, ALPHA, CESD, CHF, Caregiver and Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Grip Strength, ImmunAllergies, Intake Information, FDI Disability and Function, Position Hazard, Risk Assessment, Self Efficacy, Self Management, Treatment Preference, Health Passport and the Patient Encounter Worksheet (print only). Per form, opened from a marker-named Forms-menu registration of its shipped form_value: it opens with no error page, uncaught script error, console error or failed asset; it shows no unresolved ???message key???; Save stores one new row holding the typed values and the signing provider; Save redisplays the record in the window it was pressed in; a fresh chart's saved-form entry reopens it; the redisplayed and reopened forms show every saved value; Print produces a PDF (%PDF, the typed text where the template carries it) or calls the browser print. This entry asserts every pair not claimed by a variant, so it passes when the rest of the catalogue is sound. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-alpha",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "alpha",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "ALPHA, pinned to finding 230: the Forms-menu entry answers HTTP 500 because formalpha.jsp asks for a record class (Alpha) that does not exist. The pin is the open step; the form's other steps are asserted once it opens. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 230,
+        "step": "ALPHA: opens from the Forms menu with no error page, script error or failed asset"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-checkbox-restore",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore",
+        "FORM_CATALOG_EXCEPT": ""
+      },
       "tiers": [
         "core"
       ],
@@ -5070,9 +5327,193 @@
         "ON"
       ],
       "timeoutSec": 600,
-      "env": [],
-      "notes": "Records each form independently. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without writes, followed by exact save/redisplay/reopen. Vascular Tracker routing remains a separately tracked failure.",
-      "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "The twelve forms whose record class compares the column type with TINY (finding 231): after Save stores the ticked boxes, the redisplayed form and the reopened form show them unticked. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment and Treatment Preference; the first (CESD) is the pinned step and the rest share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 231,
+        "step": "CESD: the redisplayed and the reopened form show every saved value again"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-cesd-redisplay",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "cesd.redisplay",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "CESD, pinned to finding 232: Save stores the row and then lands on the error page (HTTP 404) because the form's hidden form_link is formCDSD.jsp. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 232,
+        "step": "CESD: Save redisplays the saved record in the window it was pressed in"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-letterhead-restore",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "letterhead.restore",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Letterhead, pinned to finding 233: the redisplayed and the reopened Comments hold the typed text plus a newline and four spaces. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 233,
+        "step": "Letterhead: the redisplayed and the reopened form show every saved value again"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-message-keys",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: each prints ???key??? for a bundle entry that does not exist. The first (Rourke 2006) is the pinned step and the other three share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 234,
+        "step": "Rourke Baby Record 2006: shows no unresolved message key"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-position-hazard-css",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "positionhazard.open",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Position Hazard, pinned to finding 235: the form links form/positionHazardStyle.css, which does not exist, so Chromium refuses the error page as a stylesheet. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 235,
+        "step": "Position Hazard: opens from the Forms menu with no error page, script error or failed asset"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-rourke2006-reopen",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "rourke2006.reopen,rourke2006.print",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Rourke 2006, pinned to finding 236: the saved record cannot be reopened (HTTP 500) because the stored c_lastVisited is p1/. Print runs on the reopened record, so it is claimed here and is reached once the reopen is fixed. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 236,
+        "step": "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record"
+      }
+    },
+    {
+      "name": "form-catalog-smoke-adfv2-window",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "adfv2.redisplay",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "ADFv2, pinned to finding 240: Save posts into a window named apptProviderSearch, so the saved record opens in a second window and the first keeps the unsaved form. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 240,
+        "step": "ADFv2: Save redisplays the saved record in the window it was pressed in"
+      }
     },
     {
       "name": "palliative-care-save-reopen",
