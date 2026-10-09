@@ -308,13 +308,14 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         AtomicInteger sends = new AtomicInteger();
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
 
             @Override
-            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId) {
+            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId,
+                                                               SmsProviderSettings settings) {
                 return SmsProviderMessageStatusDto.notFound();
             }
         };
@@ -412,9 +413,9 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
                 new JpaSmsTransactionService(dao, event -> { }, transactionManager));
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
         };
         return new SmsSendService(new SmsSendValidator(),

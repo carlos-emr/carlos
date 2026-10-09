@@ -19,20 +19,23 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.sms.dao;
+package io.github.carlos_emr.carlos.sms.service;
 
-import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
-import io.github.carlos_emr.carlos.sms.model.SmsConfig;
+/**
+ * The clinic's SMS provider cannot send yet: a stored credential cannot be read (for example after the encryption
+ * key changed), or a credential or the sender number it requires is missing. Nothing is sent or recorded; an
+ * administrator fixes it in Administration &gt; SMS. The message names the reason only, never a value.
+ *
+ * @since 2026-10-08
+ */
+public class SmsProviderNotReadyException extends IllegalStateException {
+    private static final long serialVersionUID = 1L;
 
-import java.util.Optional;
+    SmsProviderNotReadyException(String reason) {
+        super(reason);
+    }
 
-/** Access to the SMS settings row ({@code sms_config}). */
-public interface SmsConfigDao extends AbstractDao<SmsConfig> {
-    /**
-     * @return the settings row ({@link SmsConfig#SINGLETON_ID}), or empty while nothing has been saved
-     */
-    Optional<SmsConfig> findCurrent();
-
-    /** Serializes provider selection changes and admission; call before any ordinary config read. */
-    Optional<SmsConfig> findCurrentForUpdate();
+    SmsProviderNotReadyException(String reason, Throwable cause) {
+        super(reason, cause);
+    }
 }

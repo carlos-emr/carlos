@@ -19,20 +19,11 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.sms.dao;
+package io.github.carlos_emr.carlos.sms.service;
 
-import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
-import io.github.carlos_emr.carlos.sms.model.SmsConfig;
-
-import java.util.Optional;
-
-/** Access to the SMS settings row ({@code sms_config}). */
-public interface SmsConfigDao extends AbstractDao<SmsConfig> {
-    /**
-     * @return the settings row ({@link SmsConfig#SINGLETON_ID}), or empty while nothing has been saved
-     */
-    Optional<SmsConfig> findCurrent();
-
-    /** Serializes provider selection changes and admission; call before any ordinary config read. */
-    Optional<SmsConfig> findCurrentForUpdate();
+/** Admission refused because the enabled provider selection changed before the message was recorded. */
+public final class SmsProviderSelectionChangedException extends RuntimeException {
+    public SmsProviderSelectionChangedException() {
+        super("SMS settings changed before the message could be queued. Review the settings and try again.");
+    }
 }
