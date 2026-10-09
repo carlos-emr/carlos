@@ -99,7 +99,8 @@ function makeWorkflow({ prime }) {
       if (response.status() >= 400) consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: UPDATE });
     });
     await s.step('session A\'s stale save is answered normally, not by a server error', async () => {
-      h.assert(outcome.status < 400,
+      // A deliberate 409 Conflict is the refusal the header calls correct; only other 4xx/5xx answers are the defect.
+      h.assert(outcome.status < 400 || outcome.status === 409,
         `Session A's stale save answered HTTP ${outcome.status}: its form carried an empty demographicExt id, so DemographicUpdate2Action `
         + 'INSERTed a second demographicExt row that session B\'s save had already created (uk_demo_ext violation) and the whole save rolled back. '
         + `Afterwards phone ${outcome.phone === phoneB ? 'was kept' : 'was reverted'}, city ${outcome.city === cityA ? 'was stored' : 'was not stored'}.`);

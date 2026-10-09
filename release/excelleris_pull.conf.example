@@ -104,6 +104,15 @@ max_upload_attempts = 24
 # Optional PEM bundle for a CARLOS served under a private or internal CA.
 # ca_file = /etc/carlos-excelleris/clinic-ca.pem
 
+# Only for an EMR on this same host (base_url on localhost, 127.0.0.1 or ::1)
+# whose certificate cannot verify: self-signed for another name, or expired.
+# The Mule bridge accepted any certificate there; this accepts exactly one,
+# by fingerprint, and refuses any other before sending anything. Get it with:
+#   openssl s_client -connect localhost:8443 </dev/null 2>/dev/null \
+#     | openssl x509 -noout -fingerprint -sha256
+# Cannot be combined with ca_file.
+# pinned_cert_sha256 = AB:CD:...:EF
+
 [paths]
 # Private working directory; the tool creates inbox/, done/, failed/ under it
 # with mode 0700. Lab results live here, so keep it on local encrypted storage

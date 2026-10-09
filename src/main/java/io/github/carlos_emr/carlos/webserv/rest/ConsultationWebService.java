@@ -119,6 +119,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistT
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -674,13 +675,30 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Reads a provider-number filter value as text. Provider numbers are string identifiers whose
+     * leading zeros are significant ({@code "000001"} is not {@code "1"}), so the value is never
+     * routed through {@code asInt()}. Absent, JSON-null, blank and the legacy {@code 0} "any MRP"
+     * sentinel all map to null (no filter).
+     */
+    private static String readProviderNo(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String value = node.asText().trim();
+        if (value.isEmpty() || "0".equals(value)) {
+            return null;
+        }
+        return value;
+    }
+
     private ConsultationRequestSearchFilter convertRequestJSON(ObjectNode json) {
         ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
 
         filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
-        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setMrpNo(readProviderNo(json.get("mrpNo")));
         // Issue #3976: same Consultant filter as the Consultations list page (specialist specId).
         filter.setConsultantId(json.get("consultantId") != null ? json.get("consultantId").asInt() : null);
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
@@ -712,7 +730,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
         filter.setAppointmentEndDate(convertJSONDate(json.get("appointmentEndDate") != null ? json.get("appointmentEndDate").asText() : null));
         filter.setAppointmentStartDate(convertJSONDate(json.get("appointmentStartDate") != null ? json.get("appointmentStartDate").asText() : null));
         filter.setDemographicNo(json.get("demographicNo") != null ? json.get("demographicNo").asInt() : null);
-        filter.setMrpNo(json.get("mrpNo") != null ? json.get("mrpNo").asInt() : null);
+        filter.setMrpNo(readProviderNo(json.get("mrpNo")));
         filter.setNumToReturn(json.get("numToReturn") != null ? json.get("numToReturn").asInt() : null);
         filter.setReferralEndDate(convertJSONDate(json.get("referralEndDate") != null ? json.get("referralEndDate").asText() : null));
         filter.setReferralStartDate(convertJSONDate(json.get("referralStartDate") != null ? json.get("referralStartDate").asText() : null));

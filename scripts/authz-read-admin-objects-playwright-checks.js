@@ -12,7 +12,8 @@
  * splits edit/export for _eform w from delete for _admin.eform w.)
  *
  * Asserted: the Setup* routes of the measurement configuration, the eForm generator / visual editor
- * and the Administration panel refuse these logins with the application's own 403 (a 403 counts only
+ * and the Administration panel refuse these logins with the application's own 403 (admin/ViewAdmin is exempt
+ * for the doctor while its role holds _admin.flowsheet, which that gate accepts; a 403 counts only
  * when it carries the application's response header, so a WAF block does not; pinned, with the
  * full-privilege login serving the same URLs as the control; the generator/editor's HTTP 500 is
  * listed by the last step); and, in the LAST step, every page below must be refused to a login
@@ -54,11 +55,15 @@ async function workflow(s) {
   // Gates that answer HTTP 5xx (the generic error page) instead of a refusal: nothing was served, so the
   // pinning steps let them through and the LAST step lists them (a deliberate refusal is a 403).
   const errorGates = [];
+  // Login/route pairs the role matrix authorizes, so they are not pinned as refusals: the seeded doctor role holds
+  // _admin.flowsheet r, which ViewAdmin2Action accepts (the Administration index gate does not list it).
+  const authorized = new Set();
   const get = (who, route) => probe(who === 'full' ? s.context : sessions[who].context, urlFor(config, route));
 
   await s.step('doctor, nurse and Field Note Admin logins hold the objects this check assumes and sign in', async () => {
     const doctor = fixture.rolePrivileges('doctor');
     const nurse = fixture.rolePrivileges('nurse');
+    if (doctor.some(entry => /^_admin\.flowsheet:/.test(entry))) authorized.add('doctor admin/ViewAdmin');
     h.assert(!doctor.some(entry => /^_admin\.(eform|fieldnote):/.test(entry)), 'doctor now holds _admin.eform or _admin.fieldnote');
     h.assert(doctor.includes('_eform:w'), 'doctor no longer holds _eform w');
     h.assert(!nurse.some(entry => /^_admin(\.measurements)?:/.test(entry)) && nurse.includes('_eChart:x'),
@@ -79,6 +84,7 @@ async function workflow(s) {
     const wrong = [];
     for (const who of ['doctor', 'nurse']) {
       for (const route of [...MEASUREMENT_SETUP, ...ADMIN_ONLY]) {
+        if (authorized.has(`${who} ${route}`)) continue;
         const result = await get(who, route);
         // An explicit application refusal (403 / securityError), not merely "not served": a 404 or login bounce would pass otherwise.
         if (result.status >= 500 && /^Error Page/i.test(result.lead || '')) errorGates.push(`${who} ${route} -> ${result.status}`);
@@ -92,6 +98,7 @@ async function workflow(s) {
     const wrong = [];
     for (const who of ['doctor', 'nurse']) {
       for (const route of [...MEASUREMENT_SETUP, ...ADMIN_ONLY]) {
+        if (authorized.has(`${who} ${route}`)) continue;
         const result = await probe(sessions[who].context, urlFor(config, route), { method: 'HEAD' });
         // classify() cannot judge HEAD (empty body reads as 'empty'), so check the refusal itself; a GET-only route may answer 405.
         if (result.status >= 500 && errorGates.some(gate => gate.startsWith(`${who} ${route} ->`))) continue; // the last step lists this route's GET error page

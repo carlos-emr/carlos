@@ -165,6 +165,8 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 import email.utils
+import hmac
+import ipaddress
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Callable, Optional
@@ -325,6 +327,9 @@ class Config:
     server_public_key: str  # base64 X.509 SubjectPublicKeyInfo DER, from the Key Manager page
     carlos_timeout: int
     carlos_ca_file: Optional[Path]  # for a CARLOS behind a private CA; None = system store
+    # SHA-256 of the one EMR certificate accepted on a loopback base_url, in place
+    # of CA, expiry and hostname checks; None = normal verification.
+    carlos_pinned_cert_sha256: Optional[bytes]
     carlos_flavour: str  # FLAVOUR_CARLOS or FLAVOUR_OSCAR19: selects routes and CSRF
     max_upload_attempts: int  # transient upload failures tolerated before a file goes to failed/
     # [paths]
@@ -365,6 +370,10 @@ class Config:
         out = {}
         for field in dataclasses.fields(self):
             value = getattr(self, field.name)
+            if field.name == "carlos_pinned_cert_sha256" and value is not None:
+                # A fingerprint is public (anyone can read it off the server),
+                # and printing it lets an operator compare it with openssl's.
+                value = format_fingerprint(value)
             out[field.name] = "********" if field.name in hidden else str(value)
         return out
 
@@ -647,6 +656,17 @@ def load_config(path: Path) -> Config:
             raise ConfigError(f"[excelleris] client_cert_file not found: {client_cert_file}")
         _require_private_file(client_key_file, "[excelleris] client_key_file")
 
+    pinned = parse_pinned_fingerprint(optional("carlos", "pinned_cert_sha256", ""))
+    if pinned is not None:
+        if not is_loopback_url(carlos_base_url):
+            raise ConfigError(
+                "[carlos] pinned_cert_sha256 is only accepted when base_url is localhost, "
+                "127.0.0.1 or ::1; an EMR on another host needs a certificate that verifies "
+                "(use ca_file for a private CA)"
+            )
+        if optional("carlos", "ca_file", ""):
+            raise ConfigError("[carlos] pinned_cert_sha256 cannot be combined with ca_file")
+
     def ca_file(section: str) -> Optional[Path]:
         """Optional PEM bundle to trust in addition to the system store."""
         raw = optional(section, "ca_file", "")
@@ -692,6 +712,7 @@ def load_config(path: Path) -> Config:
         server_public_key=server_public_key,
         carlos_timeout=positive_int("carlos", "timeout_seconds", "120", 5),
         carlos_ca_file=ca_file("carlos"),
+        carlos_pinned_cert_sha256=pinned,
         carlos_flavour=flavour,
         max_upload_attempts=positive_int("carlos", "max_upload_attempts", "24", 1),
         state_dir=Path(need("paths", "state_dir")),
@@ -1156,6 +1177,96 @@ def load_pem_certificates(data: bytes) -> list:
     return [x509.load_pem_x509_certificate(block) for block in blocks]
 
 
+def parse_pinned_fingerprint(raw: str) -> Optional[bytes]:
+    """``[carlos] pinned_cert_sha256`` as 32 bytes, or None when unset.
+
+    Accepts the form ``openssl x509 -noout -fingerprint -sha256`` prints
+    (``sha256 Fingerprint=AB:CD:...``), or the bare hex with or without
+    colons or spaces, in either case.
+    """
+    text = raw.strip()
+    if not text:
+        return None
+    if "=" in text:
+        text = text.split("=", 1)[1]
+    hexdigits = re.sub(r"[\s:]", "", text)
+    if not re.fullmatch(r"[0-9A-Fa-f]{64}", hexdigits):
+        raise ConfigError(
+            "[carlos] pinned_cert_sha256 must be a SHA-256 fingerprint: 64 hex digits, "
+            "colons optional (openssl x509 -noout -fingerprint -sha256 -in cert.pem)"
+        )
+    return bytes.fromhex(hexdigits)
+
+
+def format_fingerprint(digest: bytes) -> str:
+    """32 bytes in openssl's colon-separated upper-case form."""
+    return ":".join(f"{b:02X}" for b in digest)
+
+
+def is_loopback_url(url: str) -> bool:
+    """True when the URL's host is localhost or a loopback address.
+
+    The pinned-certificate mode is limited to these: with no hostname or CA
+    check, a pin is only as safe as the route to the host, and loopback never
+    leaves the machine.
+    """
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+class _PinnedSSLSocket(ssl.SSLSocket):
+    """Accepts exactly one server certificate, checked during the handshake.
+
+    ``check_hostname`` and chain verification are off in the context that
+    uses this class, so the certificate's issuer, expiry and names are not
+    looked at; instead its SHA-256 must equal the configured pin. The check
+    runs inside ``do_handshake``, which ``wrap_socket`` calls before the
+    socket is handed back, so a mismatch closes the connection before a
+    single byte of the request (credentials or lab results) is written.
+    """
+
+    _pin: bytes = b""
+
+    def do_handshake(self, block=False):  # noqa: D401
+        super().do_handshake(block)
+        der = self.getpeercert(binary_form=True)
+        got = hashlib.sha256(der).digest() if der else b""
+        if not hmac.compare_digest(got, self._pin):
+            raise ssl.SSLCertVerificationError(
+                "EMR certificate does not match [carlos] pinned_cert_sha256 "
+                f"(server presented {format_fingerprint(got) if got else 'no certificate'})"
+            )
+
+
+def pinned_certificate_context(pin: bytes) -> ssl.SSLContext:
+    """A client context that trusts one certificate by its SHA-256 alone.
+
+    For an OSCAR or CARLOS reached on loopback whose certificate cannot pass
+    normal verification (self-signed for another name, or expired): the Mule
+    bridge accepted any certificate there; this accepts only the one pinned.
+    TLS 1.2 stays the floor.
+    """
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    ctx.sslsocket_class = type("_PinnedSocket", (_PinnedSSLSocket,), {"_pin": pin})
+    return ctx
+
+
+def carlos_ssl_context(cfg: "Config") -> ssl.SSLContext:
+    """The TLS context for every EMR request: pinned when configured,
+    otherwise full verification with the optional extra CA bundle."""
+    if cfg.carlos_pinned_cert_sha256 is not None:
+        return pinned_certificate_context(cfg.carlos_pinned_cert_sha256)
+    return server_verifying_context(cfg.carlos_ca_file)
+
+
 def server_verifying_context(ca_file: Optional[Path] = None) -> ssl.SSLContext:
     """A context that verifies the peer (no "-k"), optionally trusting one
     extra PEM bundle on top of the system store for sites behind a private CA.
@@ -1318,7 +1429,7 @@ class ExcellerisSession:
         log.info("excelleris: pull returned %d bytes", len(resp.body))
         return resp.body
 
-    def ack(self, positive: bool) -> None:
+    def ack(self, positive: bool, empty_reply_ok: bool = False) -> None:
         """Acknowledge the pull. A positive ack tells Excelleris to stop
         offering these results; a negative one keeps them pending.
 
@@ -1330,12 +1441,20 @@ class ExcellerisSession:
         raised so the operator hears about it: after a failed positive ack
         Excelleris will resend, which CARLOS will refuse as a duplicate only if
         the resent file is byte-identical.
+
+        ``empty_reply_ok`` also accepts an empty body, for the negative ack that
+        closes an empty pull: Excelleris' Ontario test host answers that one
+        with an empty 200, and with nothing delivered there is nothing for the
+        reply to confirm.
         """
         value = "Positive" if positive else "Negative"
         resp = self._get({"Page": "HL7", "ACK": value}, f"ack {value}")
         if resp.status != 200:
             raise StepError("excelleris ack", f"{value} ack rejected (HTTP {resp.status})")
         body = resp.text().strip()
+        if not body and empty_reply_ok:
+            log.info("excelleris: %s acknowledgment sent (empty reply)", value.lower())
+            return
         try:
             root = ET.fromstring(body) if body else None
         except ET.ParseError:
@@ -2469,7 +2588,15 @@ def pull_step(
                     raise StepError("excelleris pull", detail)
                 if not summary.has_results:
                     log.info("excelleris: no results pending")
-                    session.ack(False)
+                    # The normal quiet run. Nothing was delivered, so this
+                    # negative ack has nothing to confirm or keep pending; it
+                    # only closes the query as the guide asks. An empty reply
+                    # is accepted (the Ontario test host sends one); anything
+                    # else odd is reported but does not fail the run.
+                    try:
+                        session.ack(False, empty_reply_ok=True)
+                    except StepError as ack_exc:
+                        log.warning("excelleris: negative ack after an empty pull: %s", ack_exc)
                     return None
                 try:
                     stored = archive.save_inbox(run_id, body)
@@ -2532,12 +2659,21 @@ def upload_step(
     failures: list[str] = []
     rate_limited = False
     envelope = LabUploadEnvelope(cfg.client_private_key, cfg.server_public_key)
-    transport = make_transport(
-        cfg.carlos_timeout, server_verifying_context(cfg.carlos_ca_file), False
-    )
+    if cfg.carlos_pinned_cert_sha256 is not None:
+        log.info(
+            "EMR certificate pinned by SHA-256 (%s); CA, expiry and hostname not checked",
+            format_fingerprint(cfg.carlos_pinned_cert_sha256),
+        )
+    transport = make_transport(cfg.carlos_timeout, carlos_ssl_context(cfg), False)
     try:
         with CarlosSession(cfg, transport, envelope) as session:
-            if opts.dry_run:
+            if opts.dry_run and session.session_less:
+                # Nothing was sent to the EMR: there is no login to prove.
+                log.info(
+                    "dry run: %s not contacted (no login configured); skipping upload",
+                    cfg.carlos_flavour,
+                )
+            elif opts.dry_run:
                 log.info(
                     "dry run: %s login%s verified; skipping upload",
                     cfg.carlos_flavour,
@@ -2840,7 +2976,7 @@ def check_config(cfg: Config) -> int:
         # here rather than on the first scheduled run.
         try:
             cert.ssl_context(cfg.excelleris_ca_file)
-            server_verifying_context(cfg.carlos_ca_file)
+            carlos_ssl_context(cfg)
         except ssl.SSLError as exc:
             raise ConfigError(f"ca_file / certificate could not be loaded: {exc}") from exc
     for key, value in cfg.masked().items():

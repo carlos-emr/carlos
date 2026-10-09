@@ -36,7 +36,15 @@ async function workflow(s) {
     .map(([id, provider, action, content, contentId, ip, data]) => ({ id, provider, action, content, contentId, ip, data }));
   const failedWhere = `action='failed' AND content='login' AND contentId=${q(username)}`;
   const providerWhere = `provider_no=${q(fixture.providerNo)}`;
-  const settle = () => new Promise(resolve => setTimeout(resolve, 2500));
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  // LogAction.addLog commits on a background executor: poll until the expected row is visible, then wait a
+  // beat more so a late duplicate is counted too. Returns the rows after the settle (possibly none on timeout).
+  const rowsAfterWrite = async (where, timeout = 15000) => {
+    const deadline = Date.now() + timeout;
+    while (!rowsOf(where).length && Date.now() < deadline) await sleep(250);
+    await sleep(1500);
+    return rowsOf(where);
+  };
   const context = await h.newContext(s.context.browser(), config);
   context.on('page', page => h.wireStrictPage(page, 'audit-log-session', recorder));
   s.cleanup(() => context.close());
@@ -46,8 +54,7 @@ async function workflow(s) {
     const { page, outcome } = await submitLoginForm(context, config, { username, password: wrong, pin: config.testPin });
     h.assert(outcome === 'failed', `The wrong password was not refused as a failed login (${outcome})`);
     await page.close();
-    await settle();
-    const failed = rowsOf(failedWhere);
+    const failed = await rowsAfterWrite(failedWhere);
     h.assert(failed.length === 1, `The refused login wrote ${failed.length} failed/login rows, expected 1`);
     expect(Boolean(failed[0].ip) && failed[0].ip !== '~NULL~', 'The failed/login row carries no client address');
     expect(!phiLeaks([{ action: 'failed', content: 'login', contentId: failed[0].contentId, data: failed[0].data }], [wrong, config.testPassword]).length,
@@ -57,8 +64,7 @@ async function workflow(s) {
   let schedule;
   await s.step('the right credentials sign in (log in rows observed)', async () => {
     schedule = await h.login(context, { ...config, testUser: username }, recorder, { label: 'audit-log-session-login' });
-    await settle();
-    const ins = rowsOf(`${providerWhere} AND action='log in'`);
+    const ins = await rowsAfterWrite(`${providerWhere} AND action='log in'`);
     h.assert(ins.length >= 1, 'The sign-in wrote no log in row');
     expect(ins.length === 1, `One sign-in wrote ${ins.length} log in rows (${ins.map(r => `contentId ${r.contentId === '~NULL~' ? 'empty' : 'set'}`).join(' + ')}), expected 1`);
     expect(ins.every(r => r.content === 'login' && Boolean(r.ip) && r.ip !== '~NULL~'), 'A log in row lacks the login content type or the client address');
@@ -69,8 +75,7 @@ async function workflow(s) {
     const before = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM log'));
     await schedule.locator('#logoutButton').click();
     await schedule.waitForURL(/\/index|\/logout/, { timeout: 30000 });
-    await settle();
-    const outs = rowsOf(`${providerWhere} AND action='log out' AND id>${before}`);
+    const outs = await rowsAfterWrite(`${providerWhere} AND action='log out' AND id>${before}`);
     expect(outs.length === 1, `Logging out wrote ${outs.length} log out rows, expected 1`);
     expect(outs.every(r => r.content === 'login' && Boolean(r.ip) && r.ip !== '~NULL~'), 'The log out row lacks the login content type or the client address');
   });
