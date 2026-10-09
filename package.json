@@ -154,6 +154,8 @@
     "test:consultation-list-filters-playwright": "node scripts/consultation-list-filters-playwright-checks.js",
     "test:consultation-nullable-fields-playwright": "node scripts/consultation-nullable-fields-playwright-checks.js",
     "test:demographic-add-playwright": "node scripts/demographic-add-playwright-checks.js",
+    "test:demo-data-integrity-playwright": "node scripts/demo-data-integrity-playwright-checks.js",
+    "test:demo-data-strict-load": "bash scripts/check-demo-data-strict-load.sh",
     "test:demographic-master-crud-smoke": "node scripts/demographic-master-crud-smoke.js",
     "test:drugref-update-playwright": "node scripts/drugref-update-playwright-checks.js",
     "test:patient-list-by-appointment-export-playwright": "node scripts/patient-list-by-appointment-export-playwright-checks.js",
