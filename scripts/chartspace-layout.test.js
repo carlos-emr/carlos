@@ -55,3 +55,23 @@ test('normalizeLayout keeps ids that collide with Object.prototype members', () 
     ['constructor', 'toString', 'a']);
   assert.deepEqual(out, { top: ['constructor', 'toString'], right: ['a'], hidden: [] });
 });
+
+test('chartSpace.jsp keeps the presentation contract', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const jsp = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/chartspace/chartSpace.jsp'), 'utf8');
+  assert.equal(jsp.split('<fmt:setBundle basename="oscarResources"/>').length - 1, 1);
+  assert.ok(jsp.includes('<%@ taglib uri="carlos" prefix="carlos" %>'));
+  ['<e:', 'Encode.', '<c:out'].forEach((s) => assert.ok(!jsp.includes(s), s));
+  assert.ok(!/(src|href)="[^"]*\.jsp"/.test(jsp));
+  const ctx = '${pageContext.request.contextPath}';
+  assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/css/bootstrap.min.css'));
+  assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'));
+  const order = ['chartspace-layout.js', 'chartspace-allergies.js', 'chartspace.js']
+    .map((f) => jsp.indexOf('/js/chartspace/' + f));
+  assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));
+  ['cs-top', 'cs-right', 'cs-hidden-toggle', 'cs-hidden-panel']
+    .forEach((id) => assert.ok(jsp.includes('id="' + id + '"'), id));
+  assert.ok(jsp.includes('<html lang="${pageContext.request.locale.language}">'));
+});

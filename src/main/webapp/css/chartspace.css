@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/* ChartSpace page shell (#4349). Grid tracks use minmax(0,1fr) and children
+   min-width:0 so long text can never force horizontal scroll. */
+.cs-page { padding: 1rem; background: #f8f9fa; }
+.cs-header { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.cs-title { font-size: 1.25rem; margin: 0; }
+
+.cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; }
+.cs-layout > * { min-width: 0; }
+@media (min-width: 1460px) { .cs-layout { grid-template-columns: minmax(0, 1fr) 360px; } }
+@media (max-width: 767.98px) { .cs-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.cs-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.cs-top > *, .cs-right > *, .cs-hidden-body > * { min-width: 0; }
+.cs-right, .cs-hidden-body { display: flex; flex-direction: column; gap: 1rem; }
+
+.cs-block { background: #fff; border: 1px solid #ced4da; border-radius: .5rem; padding: .75rem 1rem; overflow-wrap: anywhere; }
+.cs-block-title { font-size: 1rem; margin: 0 0 .5rem; }
+
+.cs-hidden-panel { margin-top: 1rem; background: #fff; border: 1px solid #6c757d; border-radius: .5rem; padding: .75rem 1rem; }
+.cs-hidden-panel[hidden] { display: none; }
+.cs-hidden-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+
+.cs-state { display: flex; gap: .5rem; align-items: flex-start; margin: 0; overflow-wrap: anywhere; }
+.cs-icon { flex: none; font-weight: 700; }
+.cs-icon-empty::before { content: "\2205"; }
+.cs-icon-no-access::before { content: "\26D4"; }
+.cs-icon-error::before { content: "\26A0"; }
+.cs-state-no-access, .cs-state-error { font-weight: 600; }
+
+.cs-allergy-list { list-style: none; margin: 0; padding: 0; }
+.cs-allergy { display: flex; flex-wrap: wrap; gap: .25rem .75rem; padding: .35rem 0; border-bottom: 1px solid #e9ecef; overflow-wrap: anywhere; }
+.cs-allergy > * { min-width: 0; overflow-wrap: anywhere; }
+.cs-allergy-name { font-weight: 600; }
+.cs-sev { padding: 0 .4rem; border-radius: .25rem; border: 1px solid currentColor; font-size: .875rem; }
+.cs-sev-severe { color: #842029; background: #f8d7da; }
+.cs-sev-moderate { color: #664d03; background: #fff3cd; }
+.cs-sev-mild { color: #0a3622; background: #d1e7dd; }
+.cs-sev-none, .cs-sev-unknown { color: #41464b; background: #e2e3e5; }
+
+#cs-hidden-toggle .cs-hidden-flag { margin-left: .35rem; font-weight: 700; }
+
+:focus-visible { outline: 3px solid #0b5ed7; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
