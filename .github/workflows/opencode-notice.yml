@@ -1,0 +1,39 @@
+# Metadata-only availability notice; never check out or execute a PR head.
+name: CARLOS OpenCode Availability
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+permissions: {}
+concurrency:
+  group: carlos-opencode-notice-${{ github.event.pull_request.number }}
+  queue: max
+  cancel-in-progress: false
+jobs:
+  notice:
+    # Read trusted controller/PR metadata and post the one-time availability note.
+    permissions:
+      contents: read
+      pull-requests: write
+    if: >-
+      github.repository == 'carlos-emr/carlos' &&
+      github.event.pull_request.user.type == 'User' && vars.OPENCODE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out trusted default-branch notifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.3'
+          package-manager-cache: false
+      - name: Notify eligible PR authors once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPENCODE_ENABLED: ${{ vars.OPENCODE_ENABLED }}
+          OPENCODE_ALLOWED_USERS: ${{ vars.OPENCODE_ALLOWED_USERS }}
+          OPENCODE_MODEL_ALLOWED_USERS: ${{ vars.OPENCODE_MODEL_ALLOWED_USERS }}
+        run: node scripts/opencode/controller.cjs notice

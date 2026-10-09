@@ -1,0 +1,39 @@
+# Trusted metadata-only reporter. Never download artifacts or check out a task head.
+name: CARLOS OpenCode Result
+on:
+  workflow_run:
+    workflows: [CARLOS OpenCode]
+    types: [completed]
+permissions: {}
+jobs:
+  report:
+    # Read trusted run/controller metadata and update the command's issue comment.
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    concurrency:
+      group: carlos-opencode-status-${{ github.event.workflow_run.id }}
+      queue: max
+      cancel-in-progress: false
+    if: >-
+      github.repository == 'carlos-emr/carlos' &&
+      github.event.workflow_run.event == 'issue_comment' &&
+      contains(fromJSON('["failure","cancelled","timed_out","action_required","stale"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out default-branch reporter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.23.3'
+          package-manager-cache: false
+      - name: Report failure or cancellation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/opencode/controller.cjs report
