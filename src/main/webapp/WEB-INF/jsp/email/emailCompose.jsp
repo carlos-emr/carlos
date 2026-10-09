@@ -5,9 +5,10 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  emailAttachmentList, isEmailEncrypted, isEmailAttachmentEncrypted, and emailLog.
+  footerEmail, emailAttachmentList, isEmailEncrypted,
+  isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
-  isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
+  footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
   @since 2023-12-21
 --%>
 
@@ -62,6 +63,8 @@
     <fmt:message key="email.compose.heading.message" var="emailComposeMessageLabel"/>
     <fmt:message key="email.compose.placeholder.message" var="emailComposeMessagePlaceholder"/>
     <fmt:message key="email.compose.msg.encryptedMessageNotice" var="emailComposeEncryptedMessageNotice"/>
+    <fmt:message key="email.compose.footer.heading" var="emailComposeFooterLabel"/>
+    <fmt:message key="email.compose.footer.help" var="emailComposeFooterHelp"/>
     <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
     <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
     <fmt:message key="email.compose.modal.disableEncryption.title" var="emailComposeDisableEncryptionTitle"/>
@@ -594,6 +597,31 @@
                     </div>
                 </div>
 
+                <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
+                     stays unencrypted when encryption is on (it follows the secure-message notice and is
+                     never inside the encrypted PDF), and it is never written to the chart note. The value
+                     is seeded server-side as footerEmail, formatted HTML: the eForm's footer, else empty;
+                     a resend or failed-send retry seeds the footer it had. Staff change it for this email
+                     in the shared Edit footer window (footerEditorModal.jspf); the card shows it cleaned. --%>
+                <div class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0" id="footerEmailLabel">${emailComposeFooterLabel}</h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="footerEmailEdit"
+                                data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                                data-footer-editor-target="footerEmail" data-footer-editor-preview="footerEmailPreview"
+                                aria-describedby="footerEmailHelp">
+                            <fmt:message key="email.footerEditor.open"/></button>
+                    </div>
+                    <div class="card-body">
+                        <input type="hidden" name="footerEmail" id="footerEmail" value="<carlos:encode value='${footerEmail}' context='htmlAttribute'/>"/>
+                        <div id="footerEmailPreview" class="footer-editor-mail" aria-labelledby="footerEmailLabel"
+                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
+                    </div>
+                    <div class="card-footer text-danger" id="footerEmailHelp">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
+                    </div>
+                </div>
+
                 <%-- Confirmation gate shown when the provider turns encryption OFF. Disabling encryption
                      sends the message and any attachments as unencrypted plain text, so require an explicit
                      acknowledgement before applying it; dismissing/cancelling reverts the toggle to ON
@@ -889,7 +917,10 @@
 
     document.addEventListener("keydown", function (event) {
         const targetTag = event.target.tagName.toLowerCase();
-        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button") {
+        // Enter must not submit the form from a single-line field. Multi-line places keep it: the
+        // message textarea and the Edit footer window's editor (contenteditable, issue #3981).
+        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button"
+                && !event.target.isContentEditable) {
             event.preventDefault();
         }
     });
@@ -1211,5 +1242,8 @@ function toggleInternalTextArea() {
 }
 
 </script>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeThisEmail"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyThisEmail"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>
 </html>

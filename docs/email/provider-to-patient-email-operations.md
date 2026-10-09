@@ -92,6 +92,81 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Email Footer
+
+The compose screen has a **Footer** card below the message. Use it for text the
+clinic wants at the bottom of every patient email: a signature, a booking link,
+or a line saying the mailbox is not checked for urgent issues. **Edit footer**
+opens the footer window; what is applied there is used for this email only.
+
+- **Formatting.** The window offers bold, italic, links and line breaks, and
+  nothing else. Links may only point to `https:` web addresses or `mailto:`
+  email addresses. Pasted text keeps no formatting. The window previews the
+  formatted version (with the clinic logo, when one is set) and the plain-text
+  version. The server cleans the footer against the same allow-list (jsoup in
+  `EmailFooterHtml`) before it is stored or sent; the browser's cleaning
+  (DOMPurify) only keeps the preview honest.
+- **Two versions in every email with a footer.** The email goes out as
+  `multipart/alternative`: a plain-text version (the message, one blank line,
+  then the footer's text, with each link's address written out after its text)
+  and a formatted (HTML) version. Mail apps show the formatted one; simple ones
+  show the text. This is the same for SMTP and SendGrid senders. The message
+  itself is never formatted: nothing in it is read as formatting, and its line
+  breaks and spacing are kept in both versions (some mail apps still turn web
+  addresses into links, as they do in plain text). An email without a footer is
+  plain text only, as before.
+- **Clinic logo.** An administrator can upload one logo on **Admin > Configure
+  Email** (PNG or JPEG, at most 100 KB and 600 x 200 pixels). It shows above the
+  footer in the formatted version, only in emails that have a footer. CARLOS
+  re-saves the picture before storing it, which drops anything else the file
+  carried (camera data, comments). The logo travels inside each email (an
+  inline `cid:` part), never as a link: nothing is hosted, and opening the email
+  tells no web server anything. A replaced or removed logo keeps its row in
+  `emailFooterLogo`; uploads and removals are in the audit log
+  (`emailFooterLogo`).
+- **Unencrypted, even with encryption on.** With encryption on, the message goes
+  inside the password-protected PDF and the email itself carries a fixed notice.
+  The footer (and logo) come after that notice, in the email itself. They are
+  never put inside the PDF. Anyone who can see the email can read the footer, so
+  it must not contain patient information. The compose screen says this under
+  the card.
+- **Not charted.** With the chart option "Chart as new note in patient's
+  chart", the chart note has the message but not the footer. The "[Sent on ... by ...]" line is unchanged.
+- **Kept with the email.** `emailLog.footer` stores the cleaned, formatted
+  footer as it was sent, apart from the message. The outbound archive copy is the
+  exact message that was sent, so it includes both versions and the logo. In
+  **Admin > Manage Emails**, "Copy and Open as New Email to Patient" fills in the
+  footer that was sent. A failed send that is retried from the same window keeps
+  the footer. Emails sent before footers existed have no footer.
+- **Limits.** 2,000 characters, counted on the plain-text version, so formatting
+  does not count. The formatted footer may take at most 10,000 characters of
+  HTML. A longer footer sent another way is refused, never cut. A plain-text
+  footer from an eForm longer than 2,000 characters is cut to 2,000 when the
+  eForm is saved, before the compose screen shows it.
+
+The compose screen fills in the footer the eForm sends, in a field named
+`footerEmail` (the same way an eForm can send `bodyEmail` for the message). An
+eForm's footer is plain text: its line breaks are kept and nothing in it is read
+as formatting. Otherwise the footer starts empty. Changing the sending account
+never changes the footer.
+
+**Web application firewall.** The footer is posted as HTML in `footerEmail`.
+The CARLOS ModSecurity setup keeps its cross-site scripting rules on for this
+field (`ClinicalProseWafExclusionRegressionTest` pins that). The footer's
+allowed tags (`b`, `strong`, `i`, `em`, `br`, `p`, `div`, `a href="https:..."`)
+do not match those rules at the default paranoia level 1. A clinic that raises
+the paranoia level may see footer posts refused; check the ModSecurity audit log
+before adding any exclusion.
+
+**Upgrade note.** The footer migration widens `property.value` from
+`VARCHAR(2000)` to `TEXT`, so the clinic footer and each user's own footer can
+be stored there as formatted HTML. It also adds an ordinary index on
+`property (name, provider_no)`, which those footer lookups use; MariaDB builds it
+without blocking reads or writes. No index or key covers `property.value`.
+MariaDB rebuilds the `property` table for the widening; on a typical clinic it
+takes seconds, during which writes to `property` wait. Run the upgrade outside
+clinic hours on a very large installation.
+
 ## Local Development
 
 Local development must not send real patient email.
@@ -317,6 +392,9 @@ is not the same as true end-to-end encrypted email.
 Password-protected PDFs reduce exposure for attachments or message PDFs, but the
 password clue and surrounding email body remain normal email content. Choose
 subjects, body text, and password clues accordingly.
+
+The footer and the clinic logo are always normal email content, even when the
+message is encrypted. Never put patient information in a footer.
 
 ## Known Gaps and Related Work
 

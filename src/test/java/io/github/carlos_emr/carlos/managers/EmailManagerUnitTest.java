@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
@@ -64,6 +66,8 @@ import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -94,6 +98,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     private EmailConsentResolver emailConsentResolver;
     private EmailSenderFactory emailSenderFactory;
     private EmailSender emailSender;
+    private EmailFooterLogoService footerLogoService;
     private LoggedInInfo loggedInInfo;
     private String originalKey;
 
@@ -109,6 +114,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         emailConsentResolver = mock(EmailConsentResolver.class);
         emailSenderFactory = mock(EmailSenderFactory.class);
         emailSender = mock(EmailSender.class);
+        footerLogoService = mock(EmailFooterLogoService.class);
         loggedInInfo = new LoggedInInfo();
         initializeEmailManager(emailConsentResolver);
         when(securityInfoManager.hasPrivilege(
@@ -402,12 +408,81 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(emailSenderFactory, emailSender);
     }
 
+    @Test
+    @DisplayName("should log the footer apart from the body and send both")
+    void shouldStoreFooterApartFromBody_whenSendAccepted() throws Exception {
+        EmailData emailData = emailData();
+        emailData.setFooter("<b>Riverside Clinic</b> footer<script>x()</script>");
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        when(emailSenderFactory.create(any(), any(), sent.capture())).thenReturn(emailSender);
+        EmailInlineImage logo = new EmailInlineImage("clinic-logo-1@carlos-emr", "image/png", new byte[] {1});
+        when(footerLogoService.inlineLogo()).thenReturn(logo);
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.SUCCESS);
+        // The chart note is built from the body, so the body must stay footer-free.
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        // The log keeps the cleaned, formatted footer that was sent.
+        assertThat(emailLog.getFooter()).isEqualTo("<b>Riverside Clinic</b> footer");
+        assertThat(sent.getValue().getTransmittedBody()).isEqualTo("Body\n\nRiverside Clinic footer");
+        assertThat(sent.getValue().getFooterLogo()).isSameAs(logo);
+        assertThat(sent.getValue().getTransmittedHtml()).contains("cid:clinic-logo-1@carlos-emr");
+    }
+
+    @Test
+    @DisplayName("should fail the send before writing any log row when the clinic logo cannot be read")
+    void shouldFailBeforeLogging_whenLogoLookupFails() {
+        EmailData emailData = emailData();
+        emailData.setFooter("<b>Riverside Clinic</b>");
+        when(footerLogoService.inlineLogo()).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
+                .isInstanceOf(IllegalStateException.class);
+
+        // Nothing is left PENDING: no row was written and nothing reached a sender.
+        verify(emailLogDao, never()).persist(any());
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
+    @Test
+    @DisplayName("should not look up the clinic logo for an email without a footer")
+    void shouldSkipLogo_whenNoFooter() throws Exception {
+        when(emailConsentResolver.resolve(loggedInInfo, 123))
+                .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        when(emailSenderFactory.create(any(), any(), sent.capture())).thenReturn(emailSender);
+
+        emailManager.sendEmail(loggedInInfo, emailData());
+
+        verifyNoInteractions(footerLogoService);
+        assertThat(sent.getValue().getTransmittedHtml()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep the footer on the failed log when the sender account is missing")
+    void shouldStoreFooterOnFailedLog_whenSenderConfigurationMissing() {
+        EmailData emailData = emailData();
+        emailData.setSenderConfigId(99);
+        emailData.setFooter("<i>Riverside Clinic footer</i>");
+
+        EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+        assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        assertThat(emailLog.getFooter()).isEqualTo("<i>Riverside Clinic footer</i>");
+        verifyNoInteractions(emailSenderFactory, emailSender);
+    }
+
     private void initializeEmailManager(EmailConsentResolver resolver) {
         emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "demographicManager", demographicManager);
         injectDependency(emailManager, "providerManager", providerManager);
+        injectDependency(emailManager, "footerLogoService", footerLogoService);
     }
 
     private void useImpliedConsentRecord(boolean optout) {

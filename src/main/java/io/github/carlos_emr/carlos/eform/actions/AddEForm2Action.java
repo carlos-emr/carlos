@@ -769,6 +769,7 @@ public class AddEForm2Action extends ActionSupport {
         session.setAttribute("bodyEmail", settings.bodyEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("emailPatientChartOption", settings.emailPatientChartOption()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        session.setAttribute("footerEmail", settings.footerEmail()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
     }
 
     /**
@@ -797,6 +798,7 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("bodyEmail", settings.bodyEmail());
         request.setAttribute("encryptedMessageEmail", settings.encryptedMessageEmail());
         request.setAttribute("emailPatientChartOption", settings.emailPatientChartOption());
+        request.setAttribute("footerEmail", settings.footerEmail());
     }
 
     private void attachToEForm(LoggedInInfo loggedInInfo, String[] attachedEForms, String[] attachedDocuments, String[] attachedLabs, String[] attachedHRMDocuments, String[] attachedForms, String fdid, String demographic_no, String providerNo) {

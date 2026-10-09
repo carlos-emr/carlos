@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -311,7 +312,7 @@ public class ManageEmails2Action extends ActionSupport {
      * portal password email goes to {@code /email/portalDelivery}, and a patient portal
      * invitation to the patient's {@code /demographic/portalManage} page.
      *
-     * Email data including encryption settings, chart display options, and additional
+     * Email data including the footer, encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
      * resend instead of reusing the original email's password values.
@@ -464,6 +465,9 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // The footer that was sent (issue #3981): this is a copy. A log written before footers
+        // existed has none.
+        request.setAttribute("footerEmail", EmailFooterHtml.clean(emailLog.getFooter()));
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

@@ -442,6 +442,45 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(request.getAttribute("isPendingEmailResend")).isNull();
     }
 
+    @Test
+    @DisplayName("should fill in the footer that was sent when copying an email to resend")
+    void shouldPrefillSentFooter_whenCopyingEmailForResend() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog failed = pendingEmailLog();
+        failed.setStatus(EmailLog.EmailStatus.FAILED);
+        failed.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("message")).isEqualTo("body");
+        assertThat(request.getAttribute("footerEmail"))
+                .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should fill in an empty footer when copying an email logged before footers existed")
+    void shouldPrefillEmptyFooter_whenCopyingLegacyEmailWithoutFooter() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog legacy = pendingEmailLog();
+        legacy.setStatus(EmailLog.EmailStatus.FAILED);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(legacy);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("");
+    }
+
     /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
     private void stubComposeLookups(LoggedInInfo loggedInInfo) {
         when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "OPT_IN", "email.consent.status.optIn"});
