@@ -38,7 +38,7 @@ import java.util.TreeSet;
  * claim. {@link PatientPortalStaffContext} rejects malformed and unknown permission names, but it
  * cannot prove that a provider actually holds a recognized permission; this resolver can.
  *
- * <p>The temptation this class exists to remove is a caller writing {@code Set.of(all five
+ * <p>The temptation this class exists to remove is a caller writing {@code Set.of(all supported
  * constants)} because it is convenient — which compiles, works, and silently makes the portal's
  * per-action authorization decorative. Actions still gate themselves with their own {@code
  * hasPrivilege} check; this decides what the portal is told, and the two must not drift.
@@ -51,6 +51,7 @@ import java.util.TreeSet;
  *   <li>{@code _portal.account.unlock} → {@code portal.account.unlock}
  *   <li>{@code _portal.secret} → {@code portal.secret.manage}
  *   <li>{@code _portal.contact.review} → {@code portal.contact.review}
+ *   <li>{@code _admin} → {@code portal.email.audit.read}
  * </ul>
  *
  * <p><b>The portal's permissions are resource-scoped, not level-scoped.</b> One permission gates
@@ -75,6 +76,9 @@ public class PortalStaffContextResolver {
     public static final String OBJECT_SECRET = "_portal.secret";
     public static final String OBJECT_CONTACT_REVIEW = "_portal.contact.review";
 
+    /** Clinic-wide email history is an administrator READ operation. */
+    public static final String OBJECT_EMAIL_AUDIT = "_admin";
+
     private static final Map<String, String> PERMISSION_BY_OBJECT =
             Map.of(
                     OBJECT_INVITE,
@@ -86,7 +90,9 @@ public class PortalStaffContextResolver {
                     OBJECT_SECRET,
                     PatientPortalStaffContext.PERMISSION_SECRET_MANAGE,
                     OBJECT_CONTACT_REVIEW,
-                    PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW);
+                    PatientPortalStaffContext.PERMISSION_CONTACT_REVIEW,
+                    OBJECT_EMAIL_AUDIT,
+                    PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ);
 
     private static final String NO_PRIVILEGE = "missing required sec object (%s r)";
     private static final String OR_READ = " r or ";

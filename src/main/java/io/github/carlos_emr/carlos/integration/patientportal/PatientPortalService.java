@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -172,6 +173,56 @@ public class PatientPortalService implements Closeable {
         this.settings = settings;
         this.exchange = exchange;
         this.assertionSigner = assertionSigner;
+    }
+
+    /** Reads saved attempts using only the administrator read attestation and fixed audit endpoint. */
+    public PortalEmailFooterAuditPage listEmailFooterAttempts(LocalDate date, int limit, String before,
+            PatientPortalStaffContext staff) {
+        if (staff == null || !staff.permissions().equals(Set.of(
+                PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ))) {
+            throw new PortalRequestPreparationException("portal footer history requires a scoped admin read context");
+        }
+        if (date == null || date.getYear() < 1 || date.getYear() > 9999 || limit < 1 || limit > 100
+                || (before != null && !PortalEmailFooterAuditPage.validCursor(before))) {
+            throw new PortalRequestPreparationException("portal footer history query is invalid");
+        }
+        // Only validated fixed-alphabet query values; no caller-selected path or String.format %s.
+        String endpoint = "/internal/carlos/email-footer-attempts";
+        String path = endpoint + "?date=" + date + "&limit=" + limit
+                + (before == null ? "" : "&before=" + before);
+        PatientPortalHttpResponse response;
+        try {
+            response = exchange.send(buildRequest(GET, path, null, staff));
+        } catch (PortalResponseTooLargeException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history exceeds size limit"));
+        } catch (PortalResponseDecodingException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history is not valid UTF-8"));
+        } catch (IOException e) {
+            throw PatientPortalException.ofTransportFailure(endpoint, e);
+        }
+        if (!response.isSuccess()) {
+            throw PatientPortalException.ofStatus(response.statusCode(), endpoint, safeDetail(response.body()));
+        }
+        try {
+            if (response.statusCode() != OK) throw new PortalContractException(UNEXPECTED_SUCCESS_STATUS);
+            if (response.body() == null || response.body().getBytes(StandardCharsets.UTF_8).length
+                    > PortalEmailFooterAuditPage.MAX_PAGE_BYTES) {
+                throw new PortalContractException("portal footer history exceeds size limit");
+            }
+            JsonNode payload;
+            try {
+                payload = objectMapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                        .readTree(response.body());
+            } catch (JsonProcessingException e) {
+                // Parser exceptions can contain remote text; retain only a fixed diagnostic.
+                throw new PortalContractException("portal footer history is not valid JSON");
+            }
+            return PortalEmailFooterAuditPage.fromJson(payload, date, limit, before, settings.clinicId());
+        } catch (PortalContractException e) {
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), endpoint, e);
+        }
     }
 
     /** Releases the pooled connections held by the transport, when it owns any. */
