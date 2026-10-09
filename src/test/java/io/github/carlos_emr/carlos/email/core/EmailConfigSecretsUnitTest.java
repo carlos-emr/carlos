@@ -32,6 +32,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -186,5 +189,79 @@ class EmailConfigSecretsUnitTest {
         assertThatThrownBy(() -> EmailConfigSecrets.decryptSecret("{ENC}not-valid-ciphertext"))
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("Unable to decrypt email transport credentials");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"host\":\"smtp.example.test\",\"password\":\"secret\"}",
+            "{\"api_key\":\"key\"}",
+            "{\"password\":12345}"})
+    @DisplayName("should classify plaintext credentials as plaintext")
+    void shouldReportPlaintext_forUnencryptedCredential(String configDetails) {
+        assertThat(EmailConfigSecrets.transportSecretState(configDetails))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.PLAINTEXT);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {
+            "   ",
+            "{\"host\":\"127.0.0.1\",\"port\":\"25\"}",
+            "{\"host\":\"127.0.0.1\",\"password\":\"\"}",
+            "{\"password\":null}"})
+    @DisplayName("should classify a relay without credentials as holding none")
+    void shouldReportNone_forRelayWithoutCredentials(String configDetails) {
+        assertThat(EmailConfigSecrets.transportSecretState(configDetails))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.NONE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not json", "[\"password\"]"})
+    @DisplayName("should classify a value that is not a JSON object as unparseable")
+    void shouldReportUnparseable_forNonObjectValue(String configDetails) {
+        assertThat(EmailConfigSecrets.transportSecretState(configDetails))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.UNPARSEABLE);
+    }
+
+    @Test
+    @DisplayName("should classify an encrypted credential as encrypted and decryptable with its key")
+    void shouldReportEncryptedAndDecryptable_withOriginalKey() throws Exception {
+        String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
+
+        assertThat(EmailConfigSecrets.transportSecretState(encrypted))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.ENCRYPTED);
+        assertThat(EmailConfigSecrets.encryptedSecretsDecrypt(encrypted)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should classify only the named field when asked about one credential")
+    void shouldReportOneField_whenFieldNamed() throws Exception {
+        String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
+        String details = "{\"api_key\":\"key\"," + encrypted.substring(encrypted.indexOf('{') + 1);
+
+        assertThat(EmailConfigSecrets.transportSecretState(details))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.ENCRYPTED);
+        assertThat(EmailConfigSecrets.transportSecretState(details, "api_key"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.PLAINTEXT);
+        assertThat(EmailConfigSecrets.transportSecretState(details, "password"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.ENCRYPTED);
+        assertThat(EmailConfigSecrets.transportSecretState(encrypted, "api_key"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.NONE);
+    }
+
+    @Test
+    @DisplayName("should report an encrypted credential as undecryptable after the key is replaced")
+    void shouldReportUndecryptable_afterKeyReplaced() throws Exception {
+        String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
+        EncryptionKeyTestSupport.seedFreshKey();
+
+        assertThat(EmailConfigSecrets.encryptedSecretsDecrypt(encrypted)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should treat plaintext and credential-free values as decryptable")
+    void shouldReportDecryptable_forPlaintextOrNone() {
+        assertThat(EmailConfigSecrets.encryptedSecretsDecrypt("{\"password\":\"plain\"}")).isTrue();
+        assertThat(EmailConfigSecrets.encryptedSecretsDecrypt("{\"host\":\"127.0.0.1\"}")).isTrue();
     }
 }

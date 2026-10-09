@@ -92,6 +92,88 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Credential Encryption Key
+
+Sender accounts that authenticate (an SMTP password, or a provider API key such
+as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
+it at rest with the application key `encryption.util.secret.key`, the same key
+fax credentials use. A plaintext row inserted by hand is encrypted the first
+time a send through it gets past the consent check, unless an old credential
+on the row cannot be read (see below). An unauthenticated `LOCAL` relay never
+uses a secret and is never affected; a secret left on a `LOCAL` row is reported
+once so it can be removed.
+
+**Where the key comes from.** A packaged (Debian) install gets its key from
+`carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
+If no key is set at startup, CARLOS generates one and appends it to
+`<context>.properties` in the Tomcat user's home directory (for example
+`~/carlos.properties`), which it reads after the override properties file, so a
+key there takes precedence. On a packaged install that directory is not writable,
+so CARLOS refuses to start instead. It also refuses to start with an invalid key.
+A running server therefore always has a key. That makes the key itself the thing
+to protect:
+
+- **Back it up** with the rest of the server's configuration. Everything
+  encrypted with it, email and fax credentials alike, can only be decrypted with
+  that exact key.
+- **Never replace it** on a server that has been running. A new key does not
+  decrypt what the old one encrypted.
+- **If it is lost**, CARLOS may start with a newly generated key, written to the
+  home-directory file above, and the old credentials stop working. Remove the
+  generated key line from that file, restore the original key where it was
+  configured, and restart (on a packaged install, see README.Debian for restoring
+  `/etc/carlos-emr`). Any credential entered while the generated
+  key was in use then stops working in turn, so re-enter it. If the original
+  cannot be recovered, keep the new key and re-enter every account's password or
+  API key.
+
+**What a send does** before it opens any connection:
+
+| Sender account | Result |
+|---|---|
+| Encrypted credentials that decrypt with the current key | Sent. |
+| Encrypted credentials that do **not** decrypt (the key was changed or regenerated, or no key is available) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| A leftover credential the account's transport never reads (an old password on an API account, an old API key on an SMTP account) that does not decrypt | Sent on the transport's own credential, with one WARN per account asking for the leftover to be removed. The stored row is left exactly as it is: nothing in it is encrypted while it holds a value the current key cannot read. With no key available, a leftover never decides the send, and the transport's own credential is handled by the rows above and below. |
+| The same, while the transport's own credential is still plaintext (the leftover keeps it from being encrypted) and `email.credentials.require_encryption_key` is `true`, `yes` or `on` | Refused with "Email sender account holds an old credential the server's current encryption key cannot read. Contact your administrator." An ERROR names the account id and says to clear or re-enter the old credential on that sender account. With the setting off, the row above applies: sent, with the WARN saying the credential stays unencrypted. |
+| Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
+| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured. Contact your administrator." |
+
+Every refusal is written to the audit log as
+`EmailManager.sendEmail.refusedCredentialKey`, with a reason: `keyMismatch` (the
+current key cannot read the credentials), `keyMissing` (the credentials are
+encrypted and no key is available), `keyRequired` (plaintext credentials
+refused under the enforcement setting) or `unreadableLeftover` (a plaintext
+credential an unreadable leftover keeps from being encrypted, refused under
+the enforcement setting). Logs name the account id, the setting and the
+credential's field name (`password` or `api_key`) only. They never contain the
+credential, the configuration JSON or the key.
+
+At startup CARLOS logs whether the enforcement setting is on. That line is
+logged at INFO, and the default log level is WARN, so it does not appear unless
+you set `LOG_VERBOSITY=info`. A value CARLOS does not recognise is logged at
+WARN, so that warning appears at the default level; enforcement is then off.
+
+### Rollout
+
+1. On every server, confirm which `encryption.util.secret.key` CARLOS uses, and
+   back it up. On a packaged install it is in `/etc/carlos-emr/carlos.properties`.
+   Otherwise check the override properties file and also `<context>.properties`
+   in the Tomcat user's home directory: a key there, such as one CARLOS
+   generated, takes precedence. Do not generate or paste in a new one on a
+   server that is already running.
+2. Send a non-PHI test message from each credentialed account, to a test
+   patient whose consent allows it. Each plaintext row is encrypted on that
+   first send; a send that consent blocks encrypts nothing.
+3. Optionally set `email.credentials.require_encryption_key=true` and restart.
+   With Startup in place, the only sends this refuses are from an account
+   whose credential stays plaintext because an old credential beside it cannot
+   be read (see the table above); clear or re-enter that old credential (its
+   field in `emailConfig.configDetails`; no screen edits it). Before
+   turning it on, look for "stays unencrypted" warnings from step 2: those
+   accounts will be refused until their old credential is cleared. It is
+   also a guard for deployments or tools that run CARLOS code without Startup,
+   and against a future change to key creation.
+
 ## Local Development
 
 Local development must not send real patient email.
@@ -333,6 +415,11 @@ subjects, body text, and password clues accordingly.
 - Email transport secrets and PDF password exposure:
   [issue #3112](https://github.com/carlos-emr/carlos/issues/3112) /
   [PR #3130](https://github.com/carlos-emr/carlos/pull/3130).
+- Require the encryption key for credentialed email:
+  [issue #3673](https://github.com/carlos-emr/carlos/issues/3673) /
+  [PR #3924](https://github.com/carlos-emr/carlos/pull/3924). Whether Startup
+  should generate a key at all when encrypted data exists is
+  [issue #3939](https://github.com/carlos-emr/carlos/issues/3939).
 - Temp PDF cleanup:
   [issue #3114](https://github.com/carlos-emr/carlos/issues/3114).
 - Single message field:

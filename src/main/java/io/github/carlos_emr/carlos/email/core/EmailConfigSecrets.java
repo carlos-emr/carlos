@@ -119,6 +119,125 @@ public final class EmailConfigSecrets {
         return changed ? configObject.toString() : configDetailsJson;
     }
 
+    /** What a {@code configDetails} value holds in its credential fields. */
+    public enum TransportSecretState {
+        /** No non-empty password or API key (or, asked about one field, that field is empty). */
+        NONE,
+        /** Every credential is still plaintext. */
+        PLAINTEXT,
+        /** At least one credential carries the {@code {ENC}} marker. */
+        ENCRYPTED,
+        /** The value is not a JSON object, so it cannot be shown to hold no credential. */
+        UNPARSEABLE
+    }
+
+    /**
+     * Classifies the credential fields (an SMTP password or a provider API key) of a
+     * {@code configDetails} value without decrypting anything.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @return the state of its credential fields; never null
+     * @since 2026-09-24
+     */
+    public static TransportSecretState transportSecretState(String configDetailsJson) {
+        return transportSecretState(configDetailsJson, SECRET_FIELDS);
+    }
+
+    /**
+     * As {@link #transportSecretState(String)}, for the one credential a transport reads: an SMTP
+     * transport reads {@code password} and an API transport reads {@code api_key}.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @param field the credential field the transport reads
+     * @return the state of that field; never null
+     * @since 2026-10-05
+     */
+    public static TransportSecretState transportSecretState(String configDetailsJson, String field) {
+        return transportSecretState(configDetailsJson, List.of(field));
+    }
+
+    private static TransportSecretState transportSecretState(String configDetailsJson, List<String> fields) {
+        if (configDetailsJson == null || configDetailsJson.isBlank()) {
+            return TransportSecretState.NONE;
+        }
+        JsonNode root;
+        try {
+            root = OBJECT_MAPPER.readTree(configDetailsJson);
+        } catch (Exception e) {
+            return TransportSecretState.UNPARSEABLE;
+        }
+        if (root == null || !root.isObject()) {
+            return TransportSecretState.UNPARSEABLE;
+        }
+        TransportSecretState state = TransportSecretState.NONE;
+        for (String field : fields) {
+            JsonNode value = root.get(field);
+            if (value == null || value.isNull() || (value.isValueNode() && value.asText().isEmpty())) {
+                continue;
+            }
+            if (value.isValueNode() && EncryptionUtils.isEncrypted(value.asText())) {
+                return TransportSecretState.ENCRYPTED;
+            }
+            state = TransportSecretState.PLAINTEXT;
+        }
+        return state;
+    }
+
+    /**
+     * Reports whether every encrypted credential in a {@code configDetails} value decrypts with
+     * the current key. False means the credentials were encrypted under a different key, which is
+     * what a lost key replaced by a newly generated one leaves behind. Plaintext and empty fields
+     * pass. Nothing decrypted is returned or kept.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @return false only when an {@code {ENC}} credential cannot be decrypted
+     * @since 2026-09-24
+     */
+    public static boolean encryptedSecretsDecrypt(String configDetailsJson) {
+        return encryptedSecretsDecrypt(configDetailsJson, SECRET_FIELDS);
+    }
+
+    /**
+     * As {@link #encryptedSecretsDecrypt(String)}, for the one credential a transport reads: an SMTP
+     * transport reads {@code password} and an API transport reads {@code api_key}. A credential the
+     * transport never reads cannot stop its mail, so it is not tested here.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @param field the credential field the transport reads
+     * @return false only when that field holds an {@code {ENC}} value that cannot be decrypted
+     * @since 2026-09-28
+     */
+    public static boolean encryptedSecretDecrypts(String configDetailsJson, String field) {
+        return encryptedSecretsDecrypt(configDetailsJson, List.of(field));
+    }
+
+    private static boolean encryptedSecretsDecrypt(String configDetailsJson, List<String> fields) {
+        if (configDetailsJson == null || configDetailsJson.isBlank()) {
+            return true;
+        }
+        JsonNode root;
+        try {
+            root = OBJECT_MAPPER.readTree(configDetailsJson);
+        } catch (Exception e) {
+            return true; // nothing encrypted can be found in it; the sender reports the bad value
+        }
+        if (root == null || !root.isObject()) {
+            return true;
+        }
+        try {
+            for (String field : fields) {
+                JsonNode value = root.get(field);
+                if (value != null && value.isValueNode() && !value.asText().isEmpty()
+                        && EncryptionUtils.isEncrypted(value.asText())) {
+                    decryptSecret(value.asText());
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static String encryptSecret(String plaintext) throws EmailSendingException {
         try {
             return EncryptionUtils.encrypt(plaintext);
