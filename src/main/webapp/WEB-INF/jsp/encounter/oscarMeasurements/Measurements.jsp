@@ -138,7 +138,23 @@
 
             parentChanged = false;
 
+            // One Submit saves once (issues #4410, #4225): a double click or double Enter used to send
+            // two posts that could both be stored. A second Submit while a save is out is ignored; the
+            // button comes back after validation errors or a failure so a retry is not suppressed.
+            var measurementSaveInFlight = false;
+
+            function setMeasurementSaving(saving) {
+                measurementSaveInFlight = saving;
+                var submit = document.getElementById('measurementSubmit');
+                if (submit) {
+                    submit.disabled = saving;
+                }
+            }
+
             function check() {
+                if (measurementSaveInFlight) {
+                    return;
+                }
                 var ret = true;
 
                 if (parentChanged) {
@@ -159,6 +175,7 @@
 
                     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
                     var csrfToken = csrfEl ? csrfEl.value : '';
+                    setMeasurementSaving(true);
                     fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/encounter/Measurements?ajax=true&skipCreateNote=true', {
                         method: 'POST',
                         credentials: 'same-origin',
@@ -182,6 +199,7 @@
                         errorsList.innerHTML = '';
                         
                         if (data.errors && data.errors.length > 0) {
+                            setMeasurementSaving(false);
                             for (let x = 0; x < data.errors.length; x++) {
                                 const li = document.createElement('li');
                                 li.textContent = data.errors[x];
@@ -198,6 +216,7 @@
                         }
                     })
                     .catch(error => {
+                        setMeasurementSaving(false);
                         console.error('Error submitting form:', error);
                         const errorsList = document.getElementById('errors_list');
                         const errorDiv = document.getElementById('errorDiv');
@@ -372,7 +391,7 @@
                                                     <td><input type="button" name="Button" class="btn btn-secondary"
                                                                value="<fmt:message key="global.btnCancel"/>"
                                                                onClick="window.close()"></td>
-                                                    <td><input type="button" name="Button" class="btn btn-primary"
+                                                    <td><input type="button" name="Button" id="measurementSubmit" class="btn btn-primary"
                                                                value="<fmt:message key="global.btnSubmit"/>"
                                                                onclick="check();"/></td>
                                                 </tr>

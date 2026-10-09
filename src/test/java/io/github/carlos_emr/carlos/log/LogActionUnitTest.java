@@ -5,6 +5,7 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,10 @@ import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +52,85 @@ class LogActionUnitTest {
                         && "123".equals(log.getContentId())));
     }
 
+    private static final String NOTE_TEXT_WITH_PHI = "Jane Roe reports chest pain\nIssues\nHypertension\n";
+
+    /**
+     * The unparsable value must reach neither a message nor an attached exception (a
+     * {@code NumberFormatException} message is the input itself); the rejected-executor warning of the
+     * synchronous test path is unrelated and carries no input.
+     */
+    private static void assertThatNothingEchoesThePhi(LogCapture capture) {
+        assertThat(capture.events()).anyMatch(event -> event.getLevel() == Level.ERROR);
+        assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR && event.getThrown() != null);
+        assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                || event.getMessage().getFormattedMessage().contains("chest pain")
+                || (event.getThrown() != null && String.valueOf(event.getThrown().getMessage()).contains("chest pain")));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSaveRowWithoutPatientAndNotLogInput_whenDemographicNoIsNotNumeric() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", NOTE_TEXT_WITH_PHI);
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    log.getDemographicId() == null && "501".equals(log.getContentId())));
+            assertThatNothingEchoesThePhi(capture);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSaveRowWithoutPatientAndNotLogInput_whenLoggedInInfoDemographicNoIsNotNumeric() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+        LoggedInInfo info = mock(LoggedInInfo.class);
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog(info, "read", "note", "501", NOTE_TEXT_WITH_PHI, "data");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    log.getDemographicId() == null && "data".equals(log.getData())));
+            assertThatNothingEchoesThePhi(capture);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldRecordPatientAndData_whenDemographicNoIsNumericWithWhitespace() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", " 101 ", "note body");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                    Integer.valueOf(101).equals(log.getDemographicId()) && "note body".equals(log.getData())));
+            assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldLeavePatientUnset_whenDemographicNoIsBlank() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "note", "501", "127.0.0.1", "  ", "data");
+
+            verify(oscarLogDao).persist(argThat((OscarLog log) -> log.getDemographicId() == null));
+            assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+        }
+    }
+
     @Test
     @Tag("create")
     void shouldPropagatePersistenceFailure_fromStrictAudit() {
@@ -82,6 +164,25 @@ class LogActionUnitTest {
                 .doesNotThrowAnyException();
 
         verify(oscarLogDao).persist(any());
+    }
+
+    @Test
+    @Tag("create")
+    void shouldNotLogAuditedData_whenPersistenceFails() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "Jane Roe 4034-chart", "chest-pain-501", "127.0.0.1", "101", NOTE_TEXT_WITH_PHI);
+
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("action=read"));
+            assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                    || event.getMessage().getFormattedMessage().contains("chest pain")
+                    || event.getMessage().getFormattedMessage().contains("chest-pain-501")
+                    || event.getMessage().getFormattedMessage().contains("101"));
+        }
     }
 
     private static LoggedInInfo loggedInInfo() {

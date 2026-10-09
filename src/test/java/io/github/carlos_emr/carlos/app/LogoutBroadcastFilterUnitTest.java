@@ -1109,6 +1109,26 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should log a client abort below ERROR when the script cannot be written")
+    void shouldNotLogError_whenClientAbortsScriptWrite() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        ClientAbortingResponse response = new ClientAbortingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(42);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).noneSatisfy(event ->
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR));
+            assertThat(response.getHeader("Content-Length")).isNull();
+        }
+    }
+
+    @Test
     @DisplayName("should log error when writer and output stream append paths fail")
     void shouldLogError_whenWriterAndOutputStreamAppendPathsFail() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
@@ -1419,6 +1439,18 @@ class LogoutBroadcastFilterUnitTest {
         @Override
         public void flushBuffer() throws IOException {
             throw new IOException("flush failed");
+        }
+    }
+
+    /** The flush fails the way it does when the browser has gone away (#4438). */
+    private static class ClientAbortingResponse extends HttpServletResponseWrapper {
+        ClientAbortingResponse() {
+            super(new MockHttpServletResponse());
+        }
+
+        @Override
+        public void flushBuffer() throws IOException {
+            throw new org.apache.catalina.connector.ClientAbortException("Broken pipe");
         }
     }
 

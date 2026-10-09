@@ -171,9 +171,13 @@ async function workflow(s) {
         }
       }
       h.assert(smoker.flat().some((t, i) => num(t) > num(nonSmoker.flat()[i])), 'Switching to current smoker changed no risk value');
+      // #4398: an age outside the table is refused and named, no longer silently clamped to 30.
       await page.locator('#cAge').fill('20');
       await page.locator('input.btn[value="Calculate"]').click();
-      h.assert(await page.locator('#cAge').inputValue() === '30', 'An age below the table (20) was not clamped to 30');
+      const refused = await page.locator('#riskInputRefused').textContent().catch(() => '');
+      h.assert(/covers ages 30 to 75 years; it does not apply to a patient aged 20/.test(refused || '')
+        && /Nothing has been calculated/.test(refused || ''), 'An age below the table (20) was not refused with the calculator\'s range');
+      h.assert(await page.locator('#cAge').inputValue() === '20', 'The refused age was changed instead of left for correction');
     } finally {
       await page.close().catch(() => {});
     }

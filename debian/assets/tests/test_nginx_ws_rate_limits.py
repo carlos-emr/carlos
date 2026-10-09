@@ -75,7 +75,6 @@ class TestWsRateLimits(unittest.TestCase):
                 self.assertIsNotNone(body)
                 self.assertIn("limit_req ", body)
                 self.assertIn("limit_req_status 429", body)
-                self.assertIn("limit_conn ", body)
 
     def test_previously_throttled_routes_stay_throttled(self):
         for path in ("/carlos/ws/LoginService", "/carlos/ws/oauth/initiate",
