@@ -236,10 +236,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     String prnStr="";
                     if(prn) { prnStr="prn"; }
 
-                drugName=drugName.replace("'", "\\'");
-                drugName=drugName.replace("\"","\\\"");
-                byte[] drugNameBytes = drugName.getBytes("ISO-8859-1");
-                drugName= new String(drugNameBytes, "UTF-8");
+                // drugName stays the raw stored name; each output below encodes it for its own context
+                // (htmlAttribute, javaScriptAttribute, javaScriptBlock). The former hand-escaping of quotes and
+                // the ISO-8859-1 -> UTF-8 re-decode put backslashes and replacement characters into the card,
+                // which a save then persisted into the prescription (#3952).
                 String fieldSetId = "set_" + rand;
 %>
 <%-- i18n variable declarations for this prescription card --%>
@@ -270,8 +270,9 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgRefillDurationError" var="i18nRefillDurationError"/>
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
-<fieldset style="margin-top:2px;" id="<%=fieldSetId%>">
-    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(<%=fieldSetId%>, <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
+<%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
+<fieldset style="margin-top:2px;" id="<%=fieldSetId%>" data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>">
+    <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(this.closest('fieldset'), <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
 
@@ -279,6 +280,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
         <label style="width:101px;flex-shrink:0;" title="<carlos:encode value='<%= ATC %>' context="htmlAttribute"/>" >${i18nName}:</label>
         <input type="hidden" name="atcCode" value="<carlos:encode value='<%= ATCcode %>' context="htmlAttribute"/>" />
+        <input type="hidden" name="draftRevision_<%=rand%>" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
         <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"<%} else{%> value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"  onchange="changeDrugName('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');" <%}%> TITLE="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
     </div>
 
@@ -704,7 +706,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>'));
+            document.getElementById('drugName_'+'<%=rand%>').value='<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>';
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -756,33 +758,26 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             checkIfInactive('<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;
-            //oscarLog("isDiscon "+isDiscontinuedLatest);
-            //pause(1000);
-            var archR='<carlos:encode value='<%= archivedReason %>' context="javaScript"/>';
-            if(isDiscontinuedLatest && archR!="represcribed"){
-               var archD='<carlos:encode value='<%= archivedDate %>' context="javaScript"/>';
-               //oscarLog("in js discon "+archR+"--"+archD);
-
-                    if(confirm('This drug was discontinued on <carlos:encode value='<%= archivedDate %>' context="javaScript"/> because of <carlos:encode value='<%= archivedReason %>' context="javaScript"/> are you sure you want to continue it?')==true){
-                        //do nothing
-                    }
-                    else{
-                        document.getElementById('<%=fieldSetId%>').remove();
-                        //call java class to delete it from stash pool.
-                        var randId='<%=rand%>';
-                        deletePrescribe(randId);
-                    }
+            var keepStagedRx = true;
+            var archR='<carlos:encode value='<%= archivedReason %>' context="javaScriptBlock"/>';
+            if (isDiscontinuedLatest && archR !== "represcribed") {
+                var archD='<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"/>';
+                if (!confirm('This drug was discontinued on ' + archD + ' because of ' + archR
+                        + ' are you sure you want to continue it?')) {
+                    keepStagedRx = false;
+                    // Keep the draft visible until its removal succeeds, just like the card X.
+                    removePrescribingDrug(document.getElementById('<%=fieldSetId%>'), <%=DrugReferenceId%>);
+                }
             }
             var listRxDrugSize=<%=listRxDrugs.size()%>;
             //oscarLog("listRxDrugsSize="+listRxDrugSize);
             counterRx++;
             //oscarLog("counterRx="+counterRx);
-           var gcn_val="<%=gcnCode%>";
-           if(gcn_val === "0"){
-               document.getElementById('drugName_<%=rand%>').focus();
-           } else if(counterRx==listRxDrugSize){
-               //oscarLog("counterRx="+counterRx+"--listRxDrugSize="+listRxDrugSize);
-               document.getElementById('instructions_<%=rand%>').focus();
+           var gcn_val="<carlos:encode value='<%= gcnCode %>' context="javaScriptBlock"/>";
+           if (keepStagedRx) {
+               var focusInput = gcn_val === "0" ? document.getElementById('drugName_<%=rand%>')
+                       : counterRx === listRxDrugSize ? document.getElementById('instructions_<%=rand%>') : null;
+               if (focusInput) focusInput.focus();
            }
         </script>
                 <%}%>

@@ -69,7 +69,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -202,13 +206,17 @@ async function searchByName(searchPage, keyword) {
 }
 
 async function createDemographic(searchPage) {
-  const createLink = searchPage.locator('a', { hasText: /Create Demographic/i }).first();
-  if (!await createLink.count()) {
-    throw new Error('Could not find Create Demographic link after no-results search');
+  // The search landing page has a link; search results use a CSRF-protected
+  // POST form for the same action. Exercise the control on the actual page.
+  const createControl = searchPage.locator('.createNew a, .createNew button').filter({
+    hasText: /Create Demographic/i,
+  }).first();
+  if (!await createControl.count()) {
+    throw new Error('Could not find Create Demographic control after no-results search');
   }
   await Promise.all([
     searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    createLink.click(),
+    createControl.click(),
   ]);
   await searchPage.waitForTimeout(1000);
   if (!await expectNoErrorPage(searchPage, 'open create demographic form')) return null;

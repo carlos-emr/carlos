@@ -47,9 +47,6 @@ class JspEncodingRegressionTest {
     private static final String SAFE_TEXTAREA_RENDER_PATTERN =
             "out\\.println\\(\\s*SafeEncode\\.forHtml\\(\\s*aline\\s*\\)\\s*\\);";
     private static final String RAW_TEXTAREA_RENDER_PATTERN = "out\\.println\\(\\s*aline\\s*\\);";
-    /** Matches the {@code ((String) allProviders.get(p))} scriptlet fragment CopyFavorites2.jsp repeats. */
-    private static final String ALL_PROVIDERS_ENTRY_PATTERN =
-            "\\(\\(String\\)\\s*allProviders\\.get\\(p\\)\\)";
 
     @Test
     void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
@@ -183,7 +180,9 @@ class JspEncodingRegressionTest {
                 .doesNotContain("request.getParameter(\"curUser\")");
         assertThat(documentReportJsp)
                 .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
-                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                .containsPattern("var\\s+parent\\s*=\\s*window\\.opener")
+                .containsPattern("parent\\s*&&\\s*!parent\\.closed")
+                .containsPattern("parent\\.URLs\\s*&&\\s*Object\\.prototype\\.hasOwnProperty\\.call\\(\\s*parent\\.URLs")
                 // Gate forwards the validated lowercased function token; the JSP must prefer it so a
                 // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
                 .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")
@@ -373,31 +372,23 @@ class JspEncodingRegressionTest {
                 .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*f\\.getCustomName\\(\\)\\s*%>\"")
                 .doesNotContainPattern("<textarea[^>]*name=\"fldSpecial<%= i%>\"[^>]*>\\s*<%=\\s*s\\.trim\\(\\)\\s*%>");
 
+        // The copy page is release #3908's checkbox design: it lists the chosen provider's shared
+        // favourites read-only and posts only ids and checkboxes, so the stored text is output only.
         assertThat(copyFavoritesJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .containsPattern(carlosEncodePattern("providerNo", "htmlAttribute"))
-                .containsPattern(carlosEncodePattern("copyProviderNo", "htmlAttribute"))
-                .containsPattern(carlosEncodePattern(ALL_PROVIDERS_ENTRY_PATTERN, "htmlAttribute"))
-                .containsPattern(carlosEncodePattern(
-                        "providerDao\\.getProvider" + ALL_PROVIDERS_ENTRY_PATTERN + "\\.getFormattedName\\(\\)",
-                        "html"))
-                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*providerNo\\s*%>\"")
-                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*copyProviderNo\\s*%>\"")
-                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*" + ALL_PROVIDERS_ENTRY_PATTERN + "\\s*%>\"")
-                .doesNotContainPattern(
-                        ">\\s*<%=\\s*providerDao\\.getProvider" + ALL_PROVIDERS_ENTRY_PATTERN
-                                + "\\.getFormattedName\\(\\)\\s*%>")
-                // The same page renders the favorites list a second time through JSTL, and EL
-                // output is not auto-escaped in JSP, so these carry the identical stored-XSS risk
-                // as the scriptlet block above.
-                .contains("value=\"${carlos:forHtmlAttribute(fav.favoriteName)}\"")
+                .containsPattern(carlosEncodePattern("sharedProviderNo", "htmlAttribute"))
+                .contains("<carlos:encode value='<%= sharedProvider.getFormattedName() %>'/>")
+                // EL output is not auto-escaped in JSP, so every favourite field is encoded.
+                .contains("<carlos:encode value=\"${fav.favoriteName}\"/>")
                 .contains("value=\"${carlos:forHtmlAttribute(fav.id)}\"")
-                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMin)}\"")
-                .contains("value=\"${carlos:forHtmlAttribute(fav.takeMax)}\"")
-                .contains("${carlos:forHtmlContent(fav.bn)}")
+                .contains("<carlos:encode value=\"${isCustom ? fav.customName : fav.bn}\"/>")
                 .contains("${carlos:forHtmlContent(fav.gn)}")
-                .doesNotContainPattern("value\\s*=\\s*\"\\$\\{fav\\.(favoriteName|id|takeMin|takeMax)\\}\"")
-                .doesNotContainPattern("<b>(Brand|Generic) Name:</b>\\s*\\$\\{fav\\.(bn|gn)\\}");
+                .contains("<carlos:encode value=\"${fav.takeMin}\"/>")
+                .contains("<carlos:encode value=\"${fav.takeMax}\"/>")
+                .contains("<carlos:encode value=\"${fav.special}\"/>")
+                .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*sharedProviderNo\\s*%>\"")
+                .doesNotContainPattern("<input[^>]*value\\s*=\\s*\"\\$\\{fav\\.")
+                .doesNotContainPattern("</b>\\s*\\$\\{fav\\.");
     }
 
     /**
@@ -790,7 +781,8 @@ class JspEncodingRegressionTest {
                 .containsPattern(carlosEncodePattern("String\\.valueOf\\(drug\\.getRxDate\\(\\)\\)", "html"));
 
         assertThat(previewJsp)
-                .contains("encodedOutLine.append(SafeEncode.forHtmlContent(outLineSegments[segment]));")
+                // RxPrescriptionData.fullOutLineToHtml encodes each ';'-separated segment (release #3908).
+                .contains("RxPrescriptionData.fullOutLineToHtml(rawOutLine)")
                 .contains("<%=fullOutLineHtml%>")
                 .doesNotContain("<%=fullOutLine%>")
                 .containsPattern(carlosEncodePattern("strRxNoNewLines\\.toString\\(\\)", "htmlAttribute"))
@@ -849,14 +841,12 @@ class JspEncodingRegressionTest {
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .containsPattern("value\\s*=\\s*\"" + carlosEncodePattern("comment", "htmlAttribute") + "\"")
                 .containsPattern("var\\s+archR\\s*=\\s*'"
-                        + carlosEncodePattern("archivedReason", "javaScript") + "'")
+                        + carlosEncodePattern("archivedReason", "javaScriptBlock") + "'")
                 .containsPattern("var\\s+archD\\s*=\\s*'"
-                        + carlosEncodePattern("archivedDate", "javaScript") + "'")
-                // The confirmation text interpolates both values into one JavaScript string literal.
-                .containsPattern("discontinued on "
-                        + carlosEncodePattern("archivedDate", "javaScript")
-                        + " because of "
-                        + carlosEncodePattern("archivedReason", "javaScript"))
+                        + carlosEncodePattern("archivedDate", "javaScriptBlock") + "'")
+                // The confirmation text reuses the encoded variables rather than re-emitting the
+                // stored values, so each value has exactly one sink.
+                .containsPattern("discontinued on '\\s*\\+\\s*archD\\s*\\+\\s*' because of '\\s*\\+\\s*archR")
                 .doesNotContainPattern("value\\s*=\\s*\"<%=\\s*comment\\s*%>\"")
                 // The negative lookbehind keeps these from matching the scriptlet inside a
                 // <carlos:encode value='<%= ... %>'/> wrapper: only a bare sink should fail.

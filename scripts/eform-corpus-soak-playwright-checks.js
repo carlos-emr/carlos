@@ -50,8 +50,10 @@
  *
  * USAGE
  *   EFORM_CORPUS_DIR=/path/to/zips npm run test:eform-corpus-soak
+ *   EFORM_CORPUS_SKIP_IMPORT=1 reuses forms already imported into this same test database, for
+ *   example when comparing two installed package builds; leave unset for the first run.
  *
- * Each *.zip in EFORM_CORPUS_DIR is imported, opened for EFORM_CORPUS_DEMOGRAPHIC (default 1),
+ * By default each *.zip in EFORM_CORPUS_DIR is imported, opened for EFORM_CORPUS_DEMOGRAPHIC (default 1),
  * saved, and downloaded as a PDF. Results are written to <EFORM_CORPUS_OUT>/corpus-soak.json
  * alongside each PDF, so the PDFs can be opened and inspected — which is the point. A clean
  * completeness gate does not mean the page is correct; a blank background and a letter printed as
@@ -62,6 +64,9 @@ const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const crypto = require('node:crypto');
+const proof = require('./lib/eform-corpus-import-proof');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
 // Shared eForm Playwright helpers. gotoApp/appUrl are the repository's guarded navigation path:
 // validateBaseUrl restricts the host to loopback unless explicitly overridden, and appUrl rejects a
 // non-root-relative path. Using them instead of raw page.goto() is what keeps this script — which
@@ -80,9 +85,11 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   corpusDir: process.env.EFORM_CORPUS_DIR || '',
+  skipImport: process.env.EFORM_CORPUS_SKIP_IMPORT === '1',
   outDir: process.env.EFORM_CORPUS_OUT || '/tmp/eform-corpus-soak',
   demographicNo: process.env.EFORM_CORPUS_DEMOGRAPHIC || '1',
   renderTimeoutMs: Number(process.env.EFORM_CORPUS_RENDER_TIMEOUT_MS || 120000),
+  networkIdleTimeoutMs: Number(process.env.EFORM_CORPUS_NETWORK_IDLE_TIMEOUT_MS || 10000),
 };
 
 /**
@@ -154,7 +161,7 @@ function renderVisualSample(results, outDir, sampleSize) {
   }
   console.log(`\nvisual check — ${picked.length} randomly picked of ${rendered.length} rendered:`);
   for (const result of picked) {
-    const safe = String(result.form).replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+    const safe = result.pdfFile.slice(0, -4);
     console.log(`  ${path.join(outDir, `${safe}.pdf`)}\t${result.form}`);
   }
 
@@ -162,7 +169,7 @@ function renderVisualSample(results, outDir, sampleSize) {
   fs.mkdirSync(sampleDir, { recursive: true });
   const images = [];
   for (const result of picked) {
-    const safeName = String(result.form).replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+    const safeName = result.pdfFile.slice(0, -4);
     const pdf = path.join(outDir, `${safeName}.pdf`);
     if (!fs.existsSync(pdf)) continue;
     const stem = path.join(sampleDir, safeName);
@@ -196,7 +203,12 @@ function launchOptions() {
     console.error(`No .zip packages found in ${config.corpusDir}`);
     process.exit(2);
   }
-  fs.mkdirSync(config.outDir, { recursive: true });
+  // Never overwrite evidence or silently replay an interrupted import run.
+  fs.mkdirSync(config.outDir, { recursive: false, mode: 0o700 });
+  const packages = zips.map(zip => ({ zip, formName: packageFormName(path.join(config.corpusDir, zip)),
+    sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(config.corpusDir, zip))).digest('hex') }));
+  proof.validatePackages(packages);
+  const imports = new Map();
 
   const browser = await chromium.launch(launchOptions());
   const results = [];
@@ -220,56 +232,69 @@ function launchOptions() {
     await page.fill('input[name="username"]', config.testUser);
     await page.fill('input[name="password"]', config.testPassword);
     await page.fill('input[name="pin"]', config.testPin);
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded'),
-      page.click('button[type="submit"], input[type="submit"]'),
-    ]);
-    await page.waitForLoadState('networkidle').catch(() => {});
+    await clickAndAwaitReload(page, 'button[type="submit"], input[type="submit"]', {
+      label: 'corpus login',
+    });
 
-    // --- import every package through the production ZIP importer ---
-    const importer = await context.newPage();
-    for (const zip of zips) {
-      // Go straight to the import partial rather than the manager page: on the manager the partial
-      // lives in a collapsed accordion, so its submit button is present but never visible.
-      await gotoApp(importer, config.baseUrl, '/eform/partials/import');
-      await importer.waitForLoadState('networkidle').catch(() => {});
-      await importer.locator('#zippedForm').setInputFiles(path.join(config.corpusDir, zip));
-      await Promise.all([
-        importer.waitForLoadState('domcontentloaded').catch(() => {}),
-        importer.locator('input[type="submit"][name="subm"]').click(),
-      ]);
-      await importer.waitForTimeout(2500);
-      console.log(`imported ${zip}`);
-    }
-    await importer.close();
-
-    // --- render each imported form ---
     const manager = await context.newPage();
-    await gotoApp(manager, config.baseUrl, '/eform/efmformmanager');
-    await manager.waitForLoadState('networkidle').catch(() => {});
+    async function managerRows() {
+      await gotoApp(manager, config.baseUrl, '/eform/efmformmanager');
+      await manager.locator('#eformTbl').waitFor({ state: 'attached' });
+      const rows = await manager.locator('#eformTbl tbody tr').evaluateAll(elements => elements.filter(row => !row.querySelector('td.dataTables_empty')).map(row => ({
+        name: row.querySelector('td:nth-child(2)')?.getAttribute('title'),
+        href: row.querySelector('a[href*="efmformmanageredit?fid="]')?.getAttribute('href'),
+      })));
+      return proof.managerRows(rows, config.baseUrl);
+    }
+    let before = await managerRows();
+    // Reject all existing names before the first upload, not after a partial corpus import.
+    proof.preflight(packages, before, config.skipImport);
+    const importer = await context.newPage();
+    try {
+      for (let index = 0; index < packages.length; index++) {
+        const item = packages[index];
+        const pending = { package: item.zip, sha256: item.sha256, form: item.formName,
+          mode: config.skipImport ? 'explicit-reuse' : 'production-import' };
+        if (config.skipImport) {
+          const fid = proof.existingId(before, item.formName);
+          imports.set(item.zip, fid);
+          proof.receipt(config.outDir, `${index}-reused`, { ...pending, fid });
+          continue;
+        }
+        await gotoApp(importer, config.baseUrl, '/eform/partials/import');
+        const uploadedBytes = fs.readFileSync(path.join(config.corpusDir, item.zip));
+        if (crypto.createHash('sha256').update(uploadedBytes).digest('hex') !== item.sha256) {
+          throw new Error('ZIP changed after corpus preflight: ' + item.zip);
+        }
+        await importer.locator('#zippedForm').setInputFiles({ name: item.zip, mimeType: 'application/zip', buffer: uploadedBytes });
+        // Durable intent before POST; an interrupted/unknown outcome is never retried automatically.
+        proof.receipt(config.outDir, `${index}-pending`, pending);
+        const [response] = await Promise.all([
+          importer.waitForResponse(r => r.request().method() === 'POST'
+            && new URL(r.url()).origin === config.baseUrl.origin
+            && new URL(r.url()).pathname === new URL(appUrl(config.baseUrl, '/eform/manageEForm')).pathname),
+          importer.locator('input[type="submit"][name="subm"]').click(),
+        ]);
+        const body = await response.text();
+        const after = await managerRows();
+        const fid = proof.importedId(before, after, item.formName, response.status(), body);
+        proof.receipt(config.outDir, `${index}-imported`, { ...pending, fid, status: response.status() });
+        imports.set(item.zip, fid);
+        before = after;
+        console.log(`imported ${item.zip} as fid=${fid}`);
+      }
+    } finally { await importer.close(); }
 
+    // Render only the pinned ID proven for this exact ZIP, never a substring/name fallback.
     for (const zip of zips) {
-      const formName = packageFormName(path.join(config.corpusDir, zip));
+      const formName = packages.find(item => item.zip === zip).formName;
       const result = {
         package: zip, form: formName, fid: null, fdid: null,
         pdfBytes: 0, outcome: '', httpErrors: [], consoleErrors: [], renderIssues: [],
       };
-      if (!formName) {
-        result.outcome = 'SKIPPED: no form.name in eform.properties';
-        results.push(result);
-        console.log(JSON.stringify(result));
-        continue;
-      }
-      try {
-        const row = manager.locator('#eformTbl tbody tr').filter({ hasText: formName }).first();
-        const href = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-        result.fid = new URL(href, config.baseUrl).searchParams.get('fid');
-      } catch (error) {
-        result.outcome = `NOT IMPORTED: ${error.message.split('\n')[0].slice(0, 120)}`;
-        results.push(result);
-        console.log(JSON.stringify(result));
-        continue;
-      }
+      result.fid = imports.get(zip);
+      if (!proof.positiveId(result.fid)) throw new Error('No proven import ID for ' + zip);
+      result.zipSha256 = packages.find(item => item.zip === zip).sha256;
 
       const form = await context.newPage();
       form.on('console', (m) => {
@@ -286,16 +311,28 @@ function launchOptions() {
         await gotoApp(form, config.baseUrl,
             `/eform/efmformadd_data?fid=${encodeURIComponent(result.fid)}`
             + `&demographic_no=${encodeURIComponent(config.demographicNo)}`);
-        await form.waitForLoadState('networkidle').catch(() => {});
+        await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
         await form.evaluate(() => {
           const subject = document.getElementById('remote_eform_subject');
           if (subject) subject.value = 'corpus soak';
         });
+        // A published form can require a clinic decision before the browser permits its Save
+        // button to submit. Without this check the harness waits two minutes for a PDF from a form
+        // that never saved, then misreports the form's own validation as a Carlos render failure.
+        const invalidInputs = await form.locator('input:invalid, select:invalid, textarea:invalid')
+          .evaluateAll((elements) => elements.map((element) => element.name || element.id || element.tagName)
+            .filter(Boolean).slice(0, 8));
+        if (invalidInputs.length) {
+          throw new Error(`FORM REQUIRES INPUT: ${invalidInputs.join(', ')}`);
+        }
+        // Wait for the actual Save navigation: some authored Submit buttons delay
+        // form.submit() by two seconds. An already-fired DOMContentLoaded does not
+        // wait for that save and would let Download create a second pending submit.
         await Promise.all([
-          form.waitForLoadState('domcontentloaded'),
+          form.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
           form.click('#remoteSubmitButton'),
         ]);
-        await form.waitForLoadState('networkidle').catch(() => {});
+        await form.waitForLoadState('networkidle', { timeout: config.networkIdleTimeoutMs }).catch(() => {});
         result.fdid = await form.locator('#fdid').inputValue().catch(() => null);
 
         await form.click('#remoteDownloadButton');
@@ -309,17 +346,20 @@ function launchOptions() {
           result.renderIssues = await form.locator('.missing-content-card .card-body > ul > li').allTextContents();
         } else {
           const pdf = Buffer.from(capturedPdf, 'base64');
-          const safeName = formName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60);
+          const safeName = `${result.fid}_${formName.replace(/[^A-Za-z0-9]+/g, '_').slice(0, 60)}`;
+          result.pdfFile = `${safeName}.pdf`;
           // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- basename is sanitized to [A-Za-z0-9_] above and written under the configured output directory
           fs.writeFileSync(path.join(config.outDir, `${safeName}.pdf`), pdf);
           result.pdfBytes = pdf.length;
           result.outcome = pdf.subarray(0, 5).toString('latin1') === '%PDF-' ? 'PDF OK' : 'NOT A PDF';
         }
       } catch (error) {
-        result.outcome = `NO PDF: ${error.message.split('\n')[0].slice(0, 120)}`;
+        const message = error.message.split('\n')[0].slice(0, 120);
+        result.outcome = message.startsWith('FORM REQUIRES INPUT:') ? message : `NO PDF: ${message}`;
       } finally {
         await form.close().catch(() => {});
       }
+      proof.receipt(config.outDir, `render-${result.fid}`, result);
       results.push(result);
       console.log(JSON.stringify(result));
     }
@@ -332,6 +372,12 @@ function launchOptions() {
   const ok = results.filter((r) => r.outcome === 'PDF OK').length;
   console.log(`\ncorpus soak: ${ok}/${results.length} rendered — PDFs in ${config.outDir}`);
   console.log('Open them. A clean render gate does not mean the page is correct.');
+
+  const failures = results.filter(proof.failedOutcome);
+  if (results.length !== packages.length || failures.length) {
+    console.error(`FAIL corpus: ${failures.length} unexpected outcome(s); inspect corpus-soak.json`);
+    process.exitCode = 1;
+  }
 
   const sample = renderVisualSample(results, config.outDir, Number(process.env.EFORM_CORPUS_VISUAL_SAMPLE || 6));
   if (sample.length) {

@@ -32,7 +32,11 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the pharmacy links)
- * Optional: PRESCRIPTION_SCRIPT_ID (default 45; must have drugs rows),
+ * The check reprints the demo patient's own prescription and flips that patient's pharmacy links. The application stamps the audit
+ * columns while it does (the script's reprint log and lastUpdateDate, each link's addDate); they are snapshotted first and written
+ * back exactly in the cleanup (lib/demo-timestamp-restore.js), where only the link status was restored before.
+ * Optional: PRESCRIPTION_SCRIPT_ID (defaults to the newest owned script with owned drug rows;
+ *   an unusable explicit fixture is rejected before browser launch),
  *   PRESCRIPTION_DEMOGRAPHIC_NO (default 1), CHROME_PATH,
  *   RX_PREVIEW_SCREENSHOT_DIR (default /tmp).
  */
@@ -42,6 +46,11 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { randomBytes } = require('node:crypto');
+const h = require('./lib/playwright-harness');
+const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
+const demoAudit = require('./lib/demo-timestamp-restore');
+const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 const {
   assert,
   assertNotErrorPage,
@@ -49,7 +58,9 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -63,12 +74,19 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.RX_PREVIEW_SCREENSHOT_DIR || '/tmp',
 };
-const scriptId = process.env.PRESCRIPTION_SCRIPT_ID || '45';
+let requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
 const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
-assert(/^\d+$/.test(scriptId), `PRESCRIPTION_SCRIPT_ID must be numeric, got ${scriptId}`);
+if (requestedScriptId) {
+  assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0,
+    'PRESCRIPTION_SCRIPT_ID must be a positive integer prescription identifier');
+  assert(Number(requestedScriptId) <= 999999999,
+    'PRESCRIPTION_SCRIPT_ID exceeds the current Reprint route limit of 999999999; choose a supported fixture.');
+  requestedScriptId = String(Number(requestedScriptId));
+}
+let scriptId = requestedScriptId || null;
 assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
 
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = h.validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -86,6 +104,41 @@ function cleanupMysqlDefaults() {
     mysqlDefaults = null;
   }
 }
+/**
+ * Adapted from Michael Yingbull's PR #3753 (7a1f1f3): fail before launching the browser
+ * when the supplied fixture cannot appear in Reprint, or pick a usable fixture automatically.
+ * Both the prescription header and its drug row must belong to the requested patient, matching
+ * the current server's ownership checks. An unrelated patient's drug row is not a usable join.
+ */
+function resolvePrescriptionScriptId() {
+  const latestQuery = `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+    + `WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} `
+    + 'AND p.script_no BETWEEN 1 AND 999999999';
+  if (requestedScriptId) {
+    const owner = sql(`SELECT demographic_no FROM prescription WHERE script_no=${requestedScriptId}`);
+    let reason;
+    if (!owner || owner === 'NULL') reason = 'does not identify an existing prescription';
+    else if (Number(owner) !== Number(demographicNo)) reason = 'does not belong to the requested demographic';
+    else if (Number(sql(`SELECT COUNT(*) FROM drugs WHERE script_no=${requestedScriptId} AND demographic_no=${demographicNo}`)) === 0) {
+      reason = 'has no drug rows owned by the requested demographic';
+    }
+    if (reason) {
+      const suggestion = sql(latestQuery);
+      throw new Error(`PRESCRIPTION_SCRIPT_ID=${requestedScriptId} ${reason}. `
+        + `The Reprint panel requires a prescription with drug rows for demographic ${demographicNo}. `
+        + (suggestion && suggestion !== 'NULL'
+          ? `Use PRESCRIPTION_SCRIPT_ID=${suggestion}, or leave it unset to select one automatically.`
+          : 'No usable prescription exists for this demographic; create an owned fixture first.'));
+    }
+    return requestedScriptId;
+  }
+  const selected = sql(latestQuery);
+  assert(selected && selected !== 'NULL',
+    `No prescription with owned drug rows supported by Reprint exists for demographic ${demographicNo} `
+    + '(script_no 1–999999999); create an owned fixture first.');
+  return selected;
+}
+
 function sql(query) {
   assert(mysqlDefaults, 'MySQL defaults file has not been initialized');
   return execFileSync('mysql', [
@@ -93,6 +146,12 @@ function sql(query) {
     '-h', mysqlHost, '-u', mysqlUser, mysqlDatabase, '-N', '-B', '-e', query,
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
+
+// sql() as the rows()/execute() client lib/demo-timestamp-restore.js takes.
+const auditSql = {
+  rows: (query) => { const out = sql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { sql(query); },
+};
 
 // The pharmacy unlink is staged through the table's own soft-delete model
 // (DemographicPharmacy.ACTIVE='1' / INACTIVE='0') rather than DELETE+re-
@@ -120,23 +179,165 @@ async function assertPreviewRenders(hostFrame, label) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`${label}: preview did not render (#signature missing) at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 400)}`);
+    // Rendered prescription text contains clinical details and must not enter diagnostic logs.
+    throw new Error(`${label}: preview did not render (#signature missing)`);
   }
   return frame.url();
 }
 
+// Module scope so the SIGINT/SIGTERM handler (issue #3600) reaches the same state
+// the finally block cleans up: a finally does not run when the process is killed.
+let browser = null;
+// The demo patient's prescription and pharmacy-link audit columns as they were before the run (see the header).
+let auditBefore = null;
+let stagedLinkIds = null;
+let foreignPatient = null;
+const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
+
+// Restores the staged pharmacy links, closes the browser, removes the owned foreign
+// patient and its prescription rows, then drops the cleartext MySQL password file.
+// Safe to call before any of that exists and safe to call twice.
+let cleanupRunPromise = null;
+function cleanupRun() {
+  // Memoised: the finally block and a signal share one run, so a signal during the
+  // async teardown cannot start a second concurrent browser close / row delete.
+  if (!cleanupRunPromise) cleanupRunPromise = cleanupRunOnce();
+  return cleanupRunPromise;
+}
+
+async function cleanupRunOnce() {
+  try {
+    restorePharmacy(stagedLinkIds);
+  } catch (restoreError) {
+    console.error(`FAIL failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
+    process.exitCode = 1;
+  }
+  try {
+    // After the status is back: the flips and the reprints moved audit columns the check does not own (the link's addDate is
+    // ON UPDATE CURRENT_TIMESTAMP), and this puts them back exactly. Attempted even when the status restore failed.
+    if (auditBefore) demoAudit.restore(auditSql, auditBefore);
+  } catch (auditError) {
+    console.error(`FAIL failed to restore the demo prescription and pharmacy-link audit columns: ${auditError.message}`);
+    process.exitCode = 1;
+  }
+  try {
+    await cleanupOwnedWorkflow({
+      browser,
+      sql: { value: sql, execute: sql, dispose() {} }, patient: foreignPatient, marker: foreignMarker,
+      cleanups: foreignPatient ? [() => sql(`DELETE FROM drugs WHERE demographic_no=${foreignPatient};
+        DELETE FROM prescription WHERE demographic_no=${foreignPatient};
+        DELETE FROM DigitalSignature WHERE demographicId=${foreignPatient}`)] : [],
+    });
+  } catch (cleanupError) {
+    console.error(`FAIL owned preview fixture cleanup: ${cleanupError.message}`);
+    process.exitCode = 1;
+  }
+  cleanupMysqlDefaults();
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRun);
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  initMysqlDefaults();
-  let stagedLinkIds = null;
   try {
+    initMysqlDefaults();
+    scriptId = resolvePrescriptionScriptId();
+    auditBefore = demoAudit.snapshot(auditSql, demographicNo);
+    browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
     stagedLinkIds = stageNoPharmacy();
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
     await schedulePage.close();
+
+    // Own a complete foreign-patient prescription, so an ownership refusal cannot pass merely
+    // because the requested script has no drugs. Create its medication through the prescribing UI.
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'the test login has no provider');
+    foreignPatient = sql(`INSERT INTO demographic
+      (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+       provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (${h.sqlString(foreignMarker)},'Preview','1980','01','02','F','AC',
+        ${h.sqlString(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
+    assert(/^[1-9]\d*$/.test(foreignPatient), 'the foreign patient fixture was not created');
+    const foreignPage = await openRx({ context, config }, foreignPatient);
+    wirePage(foreignPage, 'rx-foreign-fixture', recorder);
+    await stageCustomDrug(foreignPage, foreignMarker);
+    const [foreignSave] = await Promise.all([
+      foreignPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url())),
+      foreignPage.locator('#saveOnlyButton').click(),
+    ]);
+    assert(foreignSave.ok(), 'the foreign prescription fixture was not saved');
+    const foreignScript = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no
+      WHERE p.demographic_no=${foreignPatient} AND d.demographic_no=${foreignPatient}
+        AND d.customName=${h.sqlString(foreignMarker)}`);
+    assert(/^[1-9]\d*$/.test(foreignScript), 'the foreign fixture has no saved prescription and drug');
+    const ownPreview = await context.request.get(
+      `${config.baseUrl}/rx/ViewPreview2?demographicNo=${foreignPatient}&scriptId=${foreignScript}`);
+    assert(ownPreview.ok() && (await ownPreview.text()).includes(foreignMarker),
+      'the foreign fixture must render for its actual patient before testing its ownership gate');
+    await foreignPage.close();
+
+    // Save And Print also has two requests. Hold its preview while a second window reprints
+    // the older saved fixture; the new print and its signature target must keep the saved ID.
+    const savedPage = await openRx({ context, config }, foreignPatient);
+    wirePage(savedPage, 'rx-save-print-race', recorder);
+    const savedMarker = `${foreignMarker}-new`;
+    await stageCustomDrug(savedPage, savedMarker);
+    const olderPage = await openRx({ context, config }, foreignPatient);
+    wirePage(olderPage, 'rx-save-print-older', recorder);
+    await olderPage.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+    let releaseSavedView;
+    const savedViewGate = new Promise(resolve => { releaseSavedView = resolve; });
+    let receivedSavedView;
+    const savedViewReceived = new Promise(resolve => { receivedSavedView = resolve; });
+    const savedViewRoute = '**/rx/viewScript*';
+    await savedPage.route(savedViewRoute, async route => {
+      if (route.request().method() === 'POST') {
+        receivedSavedView();
+        await savedViewGate;
+      }
+      await route.continue();
+    });
+    try {
+      const savedResponse = savedPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/WriteScript\?[^#]*parameterValue=updateSaveAllDrugs/.test(response.url()));
+      await savedPage.locator('#saveButton').click();
+      assert((await savedResponse).ok(), 'Save And Print did not save its owned prescription');
+      await Promise.race([savedViewReceived, savedPage.waitForTimeout(15000).then(() => {
+        throw new Error('Save And Print did not reach its delayed preview handoff');
+      })]);
+      const savedScript = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no
+        WHERE p.demographic_no=${foreignPatient} AND d.demographic_no=${foreignPatient}
+          AND d.customName=${h.sqlString(savedMarker)}`);
+      assert(/^[1-9]\d*$/.test(savedScript), 'Save And Print did not persist exactly one owned script');
+      const olderView = olderPage.waitForResponse(response => response.request().method() === 'POST'
+        && /\/rx\/viewScript\?/.test(response.url()));
+      await olderPage.locator(`#reprint a[onclick*="reprint2('${foreignScript}')"]`).first().click();
+      const olderViewResponse = await olderView;
+      assert(olderViewResponse.ok(), 'the interleaved older reprint was refused');
+      releaseSavedView();
+      let savedHost = null;
+      for (let attempt = 0; attempt < 30 && !savedHost; attempt += 1) {
+        savedHost = savedPage.frames().find(frame => frame.url().includes('/rx/viewScript'));
+        if (!savedHost) await savedPage.waitForTimeout(1000);
+      }
+      assert(savedHost, 'Save And Print did not open its delayed preview');
+      const savedPreviewUrl = await assertPreviewRenders(savedHost, 'saved prescription after another reprint');
+      assert(new URL(savedPreviewUrl).searchParams.get('scriptId') === savedScript,
+        'Save And Print was retargeted by a newer same-patient reprint');
+      const savedPreview = savedHost.childFrames().find(frame => frame.url().includes('/rx/ViewPreview2'));
+      assert((await savedPreview.locator('input[name="rx_no_newlines"]').inputValue()).includes(savedMarker),
+        'Save And Print displayed the older reprint medication');
+      assert(await savedHost.evaluate(() => String(faxScriptNo)) === savedScript,
+        'Save And Print selected another prescription for fax');
+    } finally {
+      releaseSavedView();
+      await savedPage.unroute(savedViewRoute);
+      await savedPage.close();
+      await olderPage.close();
+    }
 
     // User path: the patient's Rx module, the Reprint panel, the script row.
     const rxPage = await context.newPage();
@@ -185,23 +386,105 @@ async function assertPreviewRenders(hostFrame, label) {
     await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
 
+    // Explicit saved-script previews must refuse invalid/foreign identities even while a
+    // valid same-patient reprint is open; neither may silently render the current workspace.
+    for (const [candidate, expectedStatus] of [['bad', 400], ['', 400], [foreignScript, 404]]) {
+      const response = await context.request.get(
+        `${config.baseUrl}/rx/ViewPreview2?demographicNo=${demographicNo}&scriptId=${encodeURIComponent(candidate)}`);
+      assert(response.status() === expectedStatus, 'explicit invalid or foreign prescription preview was not refused');
+    }
+
+    // Replacing this patient's reprint workspace must not retarget an already-open preview.
+    const originalPreview = nullPage.frames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
+    const originalText = await originalPreview.locator('input[name="rx_no_newlines"]').inputValue();
+    const originalUrl = originalPreview.url();
+    const originalPreviewUrl = new URL(originalUrl);
+    assert(originalPreviewUrl.origin === config.baseUrl.origin
+      && originalPreviewUrl.pathname === `${config.baseUrl.pathname}/rx/ViewPreview2`,
+    'saved preview URL did not stay on the configured application preview route');
+    const alternateCandidates = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} GROUP BY p.script_no HAVING SHA2(GROUP_CONCAT(COALESCE(d.special,'') ORDER BY d.drugid),256) <> (SELECT SHA2(GROUP_CONCAT(COALESCE(special,'') ORDER BY drugid),256) FROM drugs WHERE script_no=${scriptId} AND demographic_no=${demographicNo}) ORDER BY p.script_no`).split(/\r?\n/).filter((id) => /^\d+$/.test(id));
+    const reprintLinks = await rxPage.locator('#reprint a[onclick*="reprint2("]').evaluateAll((links) =>
+      links.map((link) => (link.getAttribute('onclick').match(/reprint2\('(\d+)'\)/) || [])[1]));
+    const alternateScript = alternateCandidates.find((id) => reprintLinks.includes(id));
+    assert(alternateScript, 'preview identity coverage requires two visible prescriptions with different drug text');
+    // Pause A between the real reprint-staging POST and its separate viewScript POST. Another
+    // window stages B in that gap; A's response must still use A for drugs, notes and fax.
+    const delayedPage = await context.newPage();
+    wirePage(delayedPage, 'rx-delayed-reprint', recorder);
+    await gotoApp(delayedPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+    await delayedPage.waitForLoadState('networkidle');
+    await delayedPage.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+    let releaseView;
+    const viewGate = new Promise(resolve => { releaseView = resolve; });
+    let receivedView;
+    const viewReceived = new Promise(resolve => { receivedView = resolve; });
+    const viewRoute = '**/rx/viewScript*';
+    await delayedPage.route(viewRoute, async route => {
+      const request = route.request();
+      if (request.method() === 'POST' && new URL(request.url()).searchParams.get('scriptId') === scriptId) {
+        receivedView();
+        await viewGate;
+      }
+      await route.continue();
+    });
+    await delayedPage.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first().click();
+    await Promise.race([viewReceived, delayedPage.waitForTimeout(15000).then(() => {
+      throw new Error('reprint A did not reach the delayed preview handoff');
+    })]);
+    try {
+      await rxPage.locator('#carlosModalCloseBtn').click();
+      await rxPage.locator('#carlosModal').waitFor({ state: 'hidden' });
+      await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
+      let alternateHost = null;
+      for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
+        alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')
+          && new URL(frame.url()).searchParams.get('scriptId') === alternateScript);
+        if (!alternateHost) await rxPage.waitForTimeout(1000);
+      }
+      assert(alternateHost, 'alternate reprint did not load');
+      await assertPreviewRenders(alternateHost, 'alternate reprint');
+      const alternatePreview = alternateHost.childFrames().find((frame) => frame.url().includes('/rx/ViewPreview2'));
+      assert(await alternatePreview.locator('input[name="rx_no_newlines"]').inputValue() !== originalText,
+        'preview identity coverage requires saved prescriptions with different drug text');
+      releaseView();
+      let delayedHost = null;
+      for (let attempt = 0; attempt < 30 && !delayedHost; attempt += 1) {
+        delayedHost = delayedPage.frames().find(frame => frame.url().includes('/rx/viewScript')
+          && new URL(frame.url()).searchParams.get('scriptId') === scriptId);
+        if (!delayedHost) await delayedPage.waitForTimeout(1000);
+      }
+      assert(delayedHost, 'delayed reprint A did not render');
+      const delayedPreviewUrl = await assertPreviewRenders(delayedHost, 'delayed reprint A');
+      assert(new URL(delayedPreviewUrl).searchParams.get('scriptId') === scriptId,
+        'reprint A preview was retargeted to a later same-patient reprint');
+      const delayedPreview = delayedHost.childFrames().find(frame => frame.url().includes('/rx/ViewPreview2'));
+      assert(await delayedPreview.locator('input[name="rx_no_newlines"]').inputValue() === originalText,
+        'delayed reprint A displayed the drugs from a later same-patient reprint');
+      assert(await delayedHost.evaluate(() => String(faxScriptNo)) === scriptId,
+        'delayed reprint A selected a different prescription for fax');
+    } finally {
+      releaseView();
+      await delayedPage.unroute(viewRoute);
+    }
+    const pinnedPage = await context.newPage();
+    wirePage(pinnedPage, 'rx-pinned-preview', recorder);
+    await gotoApp(pinnedPage, config.baseUrl,
+      `/rx/ViewPreview2${originalPreviewUrl.search}`, 'networkidle');
+    assert(await pinnedPage.locator('input[name="rx_no_newlines"]').inputValue() === originalText,
+      'an older preview changed drugs after a newer same-patient reprint');
+
     const fatal500s = recorder.badResponses.filter((r) => r.status >= 500);
     assert(fatal500s.length === 0, `preview flow produced 5xx responses: ${JSON.stringify(fatal500s)}`);
 
     await context.close();
-    console.log(`PASS rx preview renders for script ${scriptId} with no-pharmacy and "null" pharmacyId`);
+    console.log(`PASS rx preview pharmacy handling, patient ownership, and saved-script identity for script ${scriptId}`);
   } catch (error) {
     console.error('FAIL rx preview pharmacyId Playwright check');
     console.error(error.stack || error.message);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    try {
-      restorePharmacy(stagedLinkIds);
-    } catch (restoreError) {
-      console.error(`WARN failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
-    }
-    cleanupMysqlDefaults();
-    await browser.close();
+    await cleanupRun();
+    signalHandlers.dispose();
   }
 })();

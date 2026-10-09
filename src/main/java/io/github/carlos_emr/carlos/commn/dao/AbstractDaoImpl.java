@@ -46,6 +46,8 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -234,11 +236,62 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
-     * You can only remove attached instances.
+     * Removes an entity, whether or not it is attached to the current persistence context.
+     *
+     * <p>Many callers load an entity with one DAO call and delete it with another, so the instance
+     * they pass here was read in an earlier transaction and is detached. Hibernate 7 rejects
+     * {@code EntityManager.remove()} on a detached instance ({@code DetachedObjectException}), which
+     * silently broke those deletes (issue #4129). A detached instance is therefore re-read by its
+     * identifier inside this transaction and the managed copy is removed. The detached instance's
+     * field values are deliberately not merged back: a delete needs only the key, and merging could
+     * write stale or caller-modified state, or resurrect a row that has already been deleted.</p>
+     *
+     * <p>If the row is already gone (deleted concurrently), there is nothing to remove and the call
+     * is a no-op. A new, never-persisted instance (no identifier) is passed straight through, which
+     * JPA defines as a no-op too.</p>
+     *
+     * @param o the entity to remove; attached or detached
      */
     @Override
     public void remove(AbstractModel<?> o) {
-        entityManager.remove(o);
+        Object managed = managedInstanceForRemoval(o);
+        if (managed != null) {
+            entityManager.remove(managed);
+        }
+    }
+
+    /**
+     * Returns the instance {@link #remove(AbstractModel)} should hand to
+     * {@code EntityManager.remove()}: the argument itself when it is managed or new, otherwise the
+     * managed copy loaded by identifier, or {@code null} when that row no longer exists.
+     */
+    private Object managedInstanceForRemoval(AbstractModel<?> o) {
+        if (o == null || entityManager.contains(o)) {
+            // null keeps the JPA IllegalArgumentException contract for callers that pass nothing.
+            return o;
+        }
+        // Read the identifier from the JPA mapping (embedded/composite keys included) rather than
+        // trusting each model's hand-written getId().
+        Object id = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(o);
+        if (id == null) {
+            return o;
+        }
+        Class<?> entityClass = entityClassOf(o);
+        Object managed = entityManager.find(entityClass, id);
+        if (managed == null) {
+            BATCH_LOGGER.debug("remove: {} row already deleted; nothing to remove", entityClass.getSimpleName());
+        }
+        return managed;
+    }
+
+    /**
+     * The entity class to look a detached instance up by. A detached, uninitialized lazy proxy cannot
+     * be initialized (its session is gone), so its declared persistent class is used instead of its
+     * runtime class; {@code find()} on that class still returns the concrete subclass.
+     */
+    private static Class<?> entityClassOf(Object o) {
+        LazyInitializer lazyInitializer = HibernateProxy.extractLazyInitializer(o);
+        return lazyInitializer != null ? lazyInitializer.getPersistentClass() : o.getClass();
     }
 
     // SUPPORTS for the same reason as batchPersist: batchRemove owns its EntityManager and per-chunk

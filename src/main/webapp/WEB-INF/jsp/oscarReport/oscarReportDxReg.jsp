@@ -20,6 +20,10 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%-- Disease Registry report and spreadsheet export controls. Preserves the selected
+     provider_no (provider, group or *) after searches and status changes.
+     Parameters: provider_no selects a provider, a group (_grp_ prefix), or all providers (*).
+     @since 2026-10-02 --%>
 <%--
   Page role: Renders `oscarReportDxReg.jsp` for the reporting workflow.
   Keep request setup in the paired action and use CARLOS encoding helpers
@@ -29,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -131,7 +136,10 @@
     <%
         ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
         String curUser_no = (String) session.getAttribute("user");
-        String mygroupno = providerPreference.getMyGroupNo();
+        String mygroupno = request.getParameter("provider_no");
+        boolean useProviderPreference = mygroupno == null || mygroupno.isBlank();
+        if (useProviderPreference && providerPreference != null) mygroupno = providerPreference.getMyGroupNo();
+        if (mygroupno == null || mygroupno.isBlank()) mygroupno = "*";
         pageContext.setAttribute("mygroupno", mygroupno);
         String radiostatus = (String) session.getAttribute("radiovaluestatus");
         if (radiostatus == null || radiostatus.isEmpty()) {
@@ -161,11 +169,12 @@
             <form action="${pageContext.request.contextPath}/report/DxresearchReport?method=addSearchCode" method="post" accept-charset="UTF-8">
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
-                    <select name="quicklistname" class="sel">
+                    <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
                         <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                            <option value="${quickLists.quickListName}" ${quickLists.lastUsed}>
-                                ${quickLists.quickListName}
+                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed}>
+                                ${carlos:forHtml(quickLists.quickListName)}
                             </option>
                         </c:forEach>
                     </select>
@@ -234,7 +243,7 @@
 
 
                 <select id="provider_no" name="provider_no" class="sel">
-                    <option value="*"><fmt:message key="report.reportindex.formAllProviders"/></option>
+                    <option value="*" <%= "*".equals(mygroupno) ? "selected" : "" %>><fmt:message key="report.reportindex.formAllProviders"/></option>
 
                     <option disabled>___________</option>
 
@@ -257,7 +266,8 @@
                             for (MyGroup g : myGroupDao.searchmygroupno()) {
 
                         %>
-                        <option value="<%="_grp_"+g.getId().getMyGroupNo()%>" <%=mygroupno.equals(g.getId().getMyGroupNo()) ? "selected" : ""%>><%=g.getId().getMyGroupNo()%>
+                        <option value="<%="_grp_"+g.getId().getMyGroupNo()%>" <%=(mygroupno.equals("_grp_" + g.getId().getMyGroupNo())
+                                || (useProviderPreference && mygroupno.equals(g.getId().getMyGroupNo()))) ? "selected" : ""%>><%=g.getId().getMyGroupNo()%>
                         </option>
                         <%
                             }

@@ -83,8 +83,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * names written as string literals near a {@code hasPrivilege(} call. It does not
  * resolve constants (for example {@code FORM_SECURITY_OBJECT}), literals more than
  * 400 characters into a call, comma-separated object lists such as
- * {@code "_admin,_admin.consult"}, or gates expressed in JSP {@code <security:oscarSec>}
- * tags. A green run therefore means "no literal-named gate is unreachable", not
+ * {@code "_admin,_admin.consult"}, names built at run time from a literal stem such as
+ * {@code "_queue." + queueId} (the stem is skipped), or gates expressed in JSP
+ * {@code <security:oscarSec>} tags. A green run therefore means "no literal-named gate is unreachable", not
  * "every gate is reachable". Widening the scan is welcome; until then, do not read
  * a pass as clearance for a gate you added indirectly.</p>
  *
@@ -145,7 +146,12 @@ class SecurityObjectSeedContractUnitTest {
             "_dashboardDrilldown",
             "_dashboardManager",
             "_team_access_privacy",
-            "_team_billing_only");
+            "_team_billing_only",
+            // Never seeded. Gated only through a <security:oscarSec> JSP tag (invisible to this
+            // scan) until release/2026.08 #3985 moved the merge search's check into Java; reached
+            // only in CAISI mode with outside-domain search disabled. Surfaced, not introduced, by
+            // the 2026.08.0-alpha19 forward-merge.
+            "_search.outofdomain");
 
     @ParameterizedTest(name = "{0} province schema")
     @ValueSource(strings = {"on", "bc"})
@@ -257,7 +263,12 @@ class SecurityObjectSeedContractUnitTest {
                         }
                         Matcher matcher = PRIVILEGE_CALL.matcher(content);
                         while (matcher.find()) {
-                            referenced.add(matcher.group(1));
+                            String object = matcher.group(1);
+                            // A literal ending in '.' is the stem of a name built at run time
+                            // ("_queue." + queueId), not an object of its own.
+                            if (!object.endsWith(".")) {
+                                referenced.add(object);
+                            }
                         }
                     });
         } catch (IOException e) {

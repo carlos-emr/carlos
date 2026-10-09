@@ -5,12 +5,20 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.OAuthData;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 
 import jakarta.ws.rs.core.Response;
 
 import java.util.Map;
+import java.util.function.Supplier;
+
+import org.apache.cxf.message.Exchange;
+import org.apache.cxf.message.ExchangeImpl;
+import org.apache.cxf.message.Message;
+import org.apache.cxf.message.MessageImpl;
+import org.apache.cxf.transport.http.AbstractHTTPDestination;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -33,6 +41,77 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 class AuthorizeResourceUnitTest {
 
+    @ParameterizedTest
+    @CsvSource(value = {"NULL,false", "true,true", "false,false"}, nullValues = "NULL")
+    @DisplayName("should tell the consent page whether the listed scopes are enforced")
+    void shouldFlagScopeEnforcement_whenShowingConsent(String flag, boolean expectedEnforced) throws Exception {
+        // #4419: the page says what limits the app; the restricted legacy access is the default.
+        CarlosProperties props = CarlosProperties.getInstance();
+        String previous = props.getProperty(OAuthScopeEnforcement.PROPERTY, null);
+        try {
+            if (flag == null) {
+                props.remove(OAuthScopeEnforcement.PROPERTY);
+            } else {
+                props.setProperty(OAuthScopeEnforcement.PROPERTY, flag);
+            }
+            OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+            when(provider.getRequestToken("request-token")).thenReturn(requestToken("request-token"));
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+            request.setContextPath("/carlos");
+            AuthorizeResource resource = resource(request, new MockHttpServletResponse(), provider);
+
+            resource.showConsent("request-token");
+
+            assertThat(((OAuthData) request.getAttribute("oauthData")).isScopesEnforced())
+                    .isEqualTo(expectedEnforced);
+        } finally {
+            if (previous == null) {
+                props.remove(OAuthScopeEnforcement.PROPERTY);
+            } else {
+                props.setProperty(OAuthScopeEnforcement.PROPERTY, previous);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"NULL,true", "restricted,true", "full,false"}, nullValues = "NULL")
+    @DisplayName("should tell the consent page which legacy access applies when enforcement is off")
+    void shouldFlagLegacyAccess_whenEnforcementOff(String legacyAccess, boolean expectedRestricted) throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        String previousFlag = props.getProperty(OAuthScopeEnforcement.PROPERTY, null);
+        String previousAccess = props.getProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, null);
+        try {
+            props.setProperty(OAuthScopeEnforcement.PROPERTY, "false");
+            if (legacyAccess == null) {
+                props.remove(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY);
+            } else {
+                props.setProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, legacyAccess);
+            }
+            OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+            when(provider.getRequestToken("request-token")).thenReturn(requestToken("request-token"));
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+            request.setContextPath("/carlos");
+            AuthorizeResource resource = resource(request, new MockHttpServletResponse(), provider);
+
+            resource.showConsent("request-token");
+
+            OAuthData data = (OAuthData) request.getAttribute("oauthData");
+            assertThat(data.isScopesEnforced()).isFalse();
+            assertThat(data.isLegacyRestricted()).isEqualTo(expectedRestricted);
+        } finally {
+            restore(props, OAuthScopeEnforcement.PROPERTY, previousFlag);
+            restore(props, OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, previousAccess);
+        }
+    }
+
+    private static void restore(CarlosProperties props, String key, String value) {
+        if (value == null) {
+            props.remove(key);
+        } else {
+            props.setProperty(key, value);
+        }
+    }
+
     @Test
     @DisplayName("should stage nonce without binding provider on GET")
     void shouldStageNonce_whenShowingConsent() throws Exception {
@@ -52,6 +131,50 @@ class AuthorizeResourceUnitTest {
         assertThat(request.getSession().getAttribute("oauth.authorize.nonce.request-token"))
                 .isEqualTo(data.getAuthenticityToken());
         verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should tell CXF the forwarded consent page is already the response")
+    void shouldMarkResponseWritten_whenConsentPageForwarded() throws Exception {
+        // Issue #3446: showConsent is a void JAX-RS method that forwards to a JSP. The filter
+        // chain's response wrappers keep that output uncommitted, so CXF finished the void call
+        // as 204 with Content-Length 0 and the consent page reached the browser empty.
+        // AbstractHTTPDestination.flushHeaders leaves the response alone when the exchange
+        // carries REQUEST_REDIRECTED.
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        when(provider.getRequestToken("request-token")).thenReturn(requestToken("request-token"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AuthorizeResource resource = resource(request, response, provider);
+        Exchange exchange = new ExchangeImpl();
+        Message message = new MessageImpl();
+        message.setExchange(exchange);
+        ReflectionTestUtils.setField(resource, "currentMessage", (Supplier<Message>) () -> message);
+
+        resource.showConsent("request-token");
+
+        assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
+        assertThat(exchange.get(AbstractHTTPDestination.REQUEST_REDIRECTED)).isEqualTo(Boolean.TRUE);
+    }
+
+    @Test
+    @DisplayName("should leave the CXF exchange alone when the request token is unknown")
+    void shouldNotMarkResponseWritten_whenRequestTokenUnknown() throws Exception {
+        // The 400 is an ordinary error response, which CXF must finish as usual.
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AuthorizeResource resource = resource(request, response, provider);
+        Exchange exchange = new ExchangeImpl();
+        Message message = new MessageImpl();
+        message.setExchange(exchange);
+        ReflectionTestUtils.setField(resource, "currentMessage", (Supplier<Message>) () -> message);
+
+        resource.showConsent("unknown-token");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(exchange.get(AbstractHTTPDestination.REQUEST_REDIRECTED)).isNull();
     }
 
     @Test

@@ -62,6 +62,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
@@ -92,3 +93,18 @@
 <div id="notCPP">
 
 </div>
+
+<%-- This leaves the OCEAN toolbar accessible but not taking up prime real estate.
+     Matches OSCAR19's newCaseManagementView.jsp exactly: a static sibling right after
+     #notCPP, present from initial page load (no AJAX-load race), gated on the
+     echart_show_ocean admin toggle (default "on" when unset, same as OSCAR19's
+     echartPreferencesMap.getOrDefault("echart_show_ocean", true)). --%>
+<%
+    SystemPreferencesDao caseManagementViewSystemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
+    SystemPreferences echartShowOceanPref = caseManagementViewSystemPreferencesDao.findPreferenceByName(SystemPreferences.ECHART_PREFERENCE_KEYS.echart_show_ocean);
+    boolean echartShowOcean = echartShowOceanPref == null || echartShowOceanPref.getValueAsBoolean();
+    if (echartShowOcean) {
+%>
+<div id="ocean_placeholder" style="display:none">
+</div>
+<% } %>

@@ -59,6 +59,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -84,17 +86,6 @@
         <%
 	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
-            // "****" is the unchanged-PIN sentinel rendered by securityupdatesecurity.jsp. Anything
-            // else is a real new PIN and is stored as a salted hash; a blank submission clears the
-            // PIN. Legacy Misc.encryptPIN storage is read-only now - existing values are still
-            // accepted at login and migrated there, but nothing writes that format any more.
-            String submittedPin = request.getParameter("pin");
-            boolean isPinSubmitted = submittedPin != null && !"****".equals(submittedPin);
-            String sPin = null;
-            if (isPinSubmitted && !submittedPin.isEmpty()) {
-                sPin = securityManager.encodePin(submittedPin);
-            }
-
             int rowsAffected = 0;
 
             // Must stay aligned with the Login2Action username pattern and security.user_name
@@ -104,8 +95,13 @@
             String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
             boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
 
+            String newPassword = request.getParameter("password");
+            String passwordError = SecurityUpdatePasswordValidator.validate(newPassword,
+                    request.getParameter("conPassword"), CarlosProperties.getInstance());
             Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            if (s != null && isUserNameValid) {
+            // Validate before changing any fields on the managed entity: a rejected
+            // password must not partially apply a rename, PIN, or account-flag edit.
+            if (s != null && isUserNameValid && passwordError == null) {
                 s.setUserName(newUserName);
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
@@ -113,12 +109,21 @@
                 s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
                 s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
 
-                if (request.getParameter("password") == null || !"*********".equals(request.getParameter("password"))) {
-    		s.setPassword(securityManager.encodePassword(request.getParameter("password")));
+                if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(newPassword)) {
+                    s.setPassword(securityManager.encodePassword(newPassword));
                     s.setPasswordUpdateDate(new java.util.Date());
                 }
 
-                if (isPinSubmitted) {
+                // "****" is the unchanged-PIN sentinel rendered by securityupdatesecurity.jsp, and a
+                // null PIN means the control was omitted or disabled (for example while switching the
+                // account to MFA, #4305): both preserve the stored PIN and its update date. Anything
+                // else is a real new PIN and is stored as a salted hash; a blank submission clears the
+                // PIN. Legacy Misc.encryptPIN storage is read-only now - existing values are still
+                // accepted at login and migrated there, but nothing writes that format any more.
+                // Hashing happens only here, after validation, so a rejected edit hashes nothing.
+                String submittedPin = request.getParameter("pin");
+                if (submittedPin != null && !"****".equals(submittedPin)) {
+                    String sPin = submittedPin.isEmpty() ? null : securityManager.encodePin(submittedPin);
                     s.setPin(sPin);
                     s.setPinUpdateDate(sPin == null ? null : new java.util.Date());
                 }
@@ -153,6 +158,10 @@
         } else if (!isUserNameValid) {
         %>
         <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
+        <%
+        } else if (passwordError != null) {
+        %>
+        <h1><fmt:message key="<%=passwordError%>"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></h1>
         <%
         } else {
         %>

@@ -121,6 +121,18 @@
         <action name="admin/BillingSettings" class="io.github.carlos_emr.carlos.admin.web.BillingSettings2Action">
             <result name="success">/WEB-INF/jsp/admin/billingSettings.jsp</result>
         </action>
+        <action name="admin/EchartDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action">
+            <result name="success">/WEB-INF/jsp/admin/echartDisplaySettings.jsp</result>
+        </action>
+        <!-- Inline preview of PDFs embedded in HL7 lab results (#3977). -->
+        <action name="admin/LabDisplaySettings" class="io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action">
+            <result name="success">/WEB-INF/jsp/admin/labDisplaySettings.jsp</result>
+        </action>
+        <!-- Provider Linking Rules (issue #3971): GET-only view gate plus a POST-only save. -->
+        <action name="admin/providerLinkingRules" class="io.github.carlos_emr.carlos.admin.web.ProviderLinkingRules2Action">
+            <result name="success">/WEB-INF/jsp/admin/providerLinkingRules.jsp</result>
+        </action>
+        <action name="admin/saveProviderLinkingRules" class="io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action"/>
         <action name="admin/ResourceBaseUrl" class="io.github.carlos_emr.carlos.admin.web.ResourceBaseUrl2Action">
             <result name="success">/WEB-INF/jsp/admin/resourcebaseurl.jsp</result>
         </action>
@@ -203,9 +215,6 @@
         </action>
         <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
             <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>
-        </action>
-        <action name="admin/ViewDbConnection" class="io.github.carlos_emr.carlos.admin.gate.ViewDbConnection2Action">
-            <result name="success">/WEB-INF/jsp/admin/dbconnection.jsp</result>
         </action>
         <action name="admin/ViewEformReportTool" class="io.github.carlos_emr.carlos.admin.gate.ViewEformReportTool2Action">
             <result name="success">/WEB-INF/jsp/admin/eformReportTool/eformReportTool.jsp</result>

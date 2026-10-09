@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.PasswordPolicy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
@@ -172,18 +173,6 @@ public final class Login2Action extends ActionSupport {
      * authentication or database outage must not be reported to auditors as bad-password traffic.</p>
      */
     private static final String AUDIT_REASON_AUTH_PROVIDER_ERROR = "auth_provider_error";
-    /** Default for {@code password_min_length} when the property is absent or malformed. */
-    private static final int DEFAULT_POLICY_MIN_LENGTH = 8;
-    /** Default for {@code password_min_groups} when the property is absent or malformed. */
-    private static final int DEFAULT_POLICY_MIN_GROUPS = 3;
-    /** Default for {@code password_group_lower_chars} when the property is absent. */
-    private static final String DEFAULT_POLICY_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz";
-    /** Default for {@code password_group_upper_chars} when the property is absent. */
-    private static final String DEFAULT_POLICY_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    /** Default for {@code password_group_digits} when the property is absent. */
-    private static final String DEFAULT_POLICY_DIGIT_CHARS = "0123456789";
-    /** Default for {@code password_group_special} when the property is absent. */
-    private static final String DEFAULT_POLICY_SPECIAL_CHARS = "! @#$%^&*()_+|~-=`{}[]\\:\";'<>?,./";
     private static final Pattern OAUTH_TOKEN_ID_PATTERN =
             Pattern.compile("[A-Za-z0-9._~\\-]{1,200}");
 
@@ -1790,31 +1779,10 @@ public final class Login2Action extends ActionSupport {
      * @return validation result containing the display message and audit reason when rejected
      */
     private PasswordPolicyResult validatePasswordPolicy(String newPassword) {
-        CarlosProperties properties = CarlosProperties.getInstance();
-        if (Boolean.parseBoolean(properties.getProperty("IGNORE_PASSWORD_REQUIREMENTS"))) {
-            return PasswordPolicyResult.valid();
-        }
-
-        int minLength = intProperty(properties, "password_min_length", DEFAULT_POLICY_MIN_LENGTH);
-        if (newPassword == null || newPassword.length() < minLength) {
-            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordLengthError") + " "
-                    + minLength + " " + message("password.policy.violation.msgSymbols"),
-                    "password_policy_min_length");
-        }
-
-        int minGroups = intProperty(properties, "password_min_groups", DEFAULT_POLICY_MIN_GROUPS);
-        int groupsUsed = countPasswordGroups(newPassword,
-                properties.getProperty("password_group_lower_chars", DEFAULT_POLICY_LOWER_CHARS),
-                properties.getProperty("password_group_upper_chars", DEFAULT_POLICY_UPPER_CHARS),
-                properties.getProperty("password_group_digits", DEFAULT_POLICY_DIGIT_CHARS),
-                properties.getProperty("password_group_special", DEFAULT_POLICY_SPECIAL_CHARS));
-        if (groupsUsed < minGroups) {
-            return PasswordPolicyResult.invalid(message("password.policy.violation.msgPasswordStrengthError") + " "
-                    + minGroups + " " + message("password.policy.violation.msgPasswordGroups"),
-                    "password_policy_min_groups");
-        }
-
-        return PasswordPolicyResult.valid();
+        PasswordPolicy.Validation validation = PasswordPolicy.validate(newPassword, CarlosProperties.getInstance());
+        if (validation.isValid()) return PasswordPolicyResult.valid();
+        return PasswordPolicyResult.invalid(message(validation.messageKey()) + " " + validation.minimum()
+                + " " + message(validation.unitMessageKey()), validation.auditReason());
     }
 
     /**
@@ -1846,68 +1814,7 @@ public final class Login2Action extends ActionSupport {
      */
     static int countPasswordGroups(String password, String lowerChars, String upperChars, String digitChars,
                                    String specialChars) {
-        if (password == null || password.isEmpty()) {
-            return 0;
-        }
-
-        boolean lower = false;
-        boolean upper = false;
-        boolean digit = false;
-        boolean special = false;
-        for (int i = 0; i < password.length(); i++) {
-            char ch = password.charAt(i);
-            if (!lower && containsChar(lowerChars, ch)) {
-                lower = true;
-            }
-            if (!upper && containsChar(upperChars, ch)) {
-                upper = true;
-            }
-            if (!digit && containsChar(digitChars, ch)) {
-                digit = true;
-            }
-            if (!special && containsChar(specialChars, ch)) {
-                special = true;
-            }
-        }
-
-        int groups = 0;
-        if (lower) {
-            groups++;
-        }
-        if (upper) {
-            groups++;
-        }
-        if (digit) {
-            groups++;
-        }
-        if (special) {
-            groups++;
-        }
-        return groups;
-    }
-
-    private static boolean containsChar(String chars, char ch) {
-        return chars != null && chars.indexOf(ch) >= 0;
-    }
-
-    /**
-     * Reads an integer password-policy property with a safe fallback.
-     *
-     * <p>Misconfigured policy values should not make password changes impossible. Invalid values
-     * are logged for operators and the conservative application default remains in force.</p>
-     */
-    private static int intProperty(CarlosProperties properties, String key, int defaultValue) {
-        String value = properties.getProperty(key);
-        if (value == null) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid integer property {}={}, using default {}", key, LogSafe.sanitize(value), // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                    defaultValue);
-            return defaultValue;
-        }
+        return PasswordPolicy.countGroups(password, lowerChars, upperChars, digitChars, specialChars);
     }
 
     /**

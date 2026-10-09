@@ -40,6 +40,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -67,6 +68,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private MeasurementDao measurementDao;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -102,6 +106,106 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         cal.setTime(today);
         cal.add(Calendar.DAY_OF_MONTH, 7);
         nextWeek = cal.getTime();
+    }
+
+    @Test
+    void shouldCompareNumericBounds_whenReadingHasTwoDigitsAndAfternoonTimestamp() {
+        Date entered = java.sql.Timestamp.valueOf("2026-03-04 14:30:12");
+        createAndPersistWithCreateDate(DEMO_NO, "A1C", "10", today, entered);
+
+        assertThat(measurementDao.findByDemoNoDateTypeMeasuringInstrAndDataField(
+                DEMO_NO, entered, "A1C", "", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "11", "9")).hasSize(1);
+        assertThat(measurementDao.findByDemoNoDateTypeAndDataField(
+                DEMO_NO, entered, "A1C", "9", "1")).isEmpty();
+    }
+
+    @Test
+    void shouldPreserveClinicalValuesAndExtensions_whenCorrectingLabPatient() {
+        Measurement measurement = createMeasurement(DEMO_NO, "GLU", "5.4", today);
+        measurement.setComments("retain annotation");
+        entityManager.persist(measurement);
+        MeasurementsExt source = new MeasurementsExt();
+        source.setMeasurementId(measurement.getId());
+        source.setKeyVal("lab_no");
+        source.setVal("9834000");
+        entityManager.persist(source);
+        entityManager.flush();
+
+        measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2);
+        entityManager.flush();
+        entityManager.clear();
+        Measurement corrected = entityManager.find(Measurement.class, measurement.getId());
+        assertThat(corrected.getDemographicId()).isEqualTo(DEMO_NO_2);
+        assertThat(corrected.getDataField()).isEqualTo("5.4");
+        assertThat(corrected.getComments()).isEqualTo("retain annotation");
+        assertThat(corrected.getDateObserved().getTime()).isEqualTo(today.getTime());
+        assertThat(corrected.getProviderNo()).isEqualTo(PROVIDER_NO);
+        assertThat(measurementDao.findByValue("lab_no", "9834000"))
+                .extracting(Measurement::getId).containsExactly(measurement.getId());
+    }
+
+    @Test
+    void shouldRejectWrongSource_whenCorrectingLabPatient() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(measurement.getDemographicId()).isEqualTo(DEMO_NO);
+    }
+
+    @Test
+    void shouldRejectInvalidPatientAndDetachedRecord_whenCorrectingLabPatient() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        entityManager.detach(measurement);
+        assertThatThrownBy(() -> measurementDao.reassignLabPatient(measurement, "9834000", DEMO_NO_2))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldContinueRejectingClinicalValueEdits_whenMeasurementExists() {
+        Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+        measurement.setDataField("999");
+        assertThatThrownBy(() -> entityManager.flush()).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void shouldRestoreOriginalPatient_whenLaterMatchingWorkRollsBack() {
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        Integer id = tx.execute(status -> {
+            Measurement measurement = createAndPersist(DEMO_NO, "GLU", "5.4", today);
+            MeasurementsExt source = new MeasurementsExt();
+            source.setMeasurementId(measurement.getId());
+            source.setKeyVal("lab_no");
+            source.setVal("9834001");
+            entityManager.persist(source);
+            return measurement.getId();
+        });
+        try {
+            assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+                Measurement measurement = entityManager.find(Measurement.class, id);
+                measurementDao.reassignLabPatient(measurement, "9834001", DEMO_NO_2);
+                entityManager.flush();
+                assertThat(measurement.getDemographicId()).isEqualTo(DEMO_NO_2);
+                throw new IllegalStateException("injected failure after patient correction");
+            })).isInstanceOf(IllegalStateException.class)
+                    .hasMessage("injected failure after patient correction");
+            tx.executeWithoutResult(status -> {
+                Measurement original = entityManager.find(Measurement.class, id);
+                assertThat(original.getDemographicId()).isEqualTo(DEMO_NO);
+                assertThat(original.getDataField()).isEqualTo("5.4");
+            });
+        } finally {
+            tx.executeWithoutResult(status -> {
+                entityManager.createQuery("delete from MeasurementsExt where measurementId=:id")
+                        .setParameter("id", id).executeUpdate();
+                entityManager.createQuery("delete from Measurement where id=:id")
+                        .setParameter("id", id).executeUpdate();
+            });
+        }
     }
 
     private Measurement createMeasurement(int demoNo, String type, String dataField, Date dateObserved) {
@@ -981,6 +1085,51 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).containsKeys("BP", "WT");
+        }
+    }
+
+    // ========================================================================
+    // findDistinctMeasuringInstructionsByTypes
+    // ========================================================================
+
+    @Nested
+    @DisplayName("findDistinctMeasuringInstructionsByTypes")
+    @Tag("read")
+    class FindDistinctMeasuringInstructionsByTypes {
+
+        @Test
+        @DisplayName("should return each stored instruction of the type once, including legacy ones")
+        void shouldReturnDistinctInstructions_forType() {
+            // Given: AACP readings saved before and after its instruction changed, plus another type
+            Measurement legacy = createMeasurement(DEMO_NO, "AACP", "Yes", lastWeek);
+            legacy.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacy);
+            Measurement legacyAgain = createMeasurement(DEMO_NO_2, "AACP", "No", lastWeek);
+            legacyAgain.setMeasuringInstruction("Yes/No");
+            entityManager.persist(legacyAgain);
+            Measurement current = createMeasurement(DEMO_NO, "AACP", "Provided", today);
+            current.setMeasuringInstruction("Provided/Revised/Reviewed");
+            entityManager.persist(current);
+            Measurement other = createMeasurement(DEMO_NO, "SKST", "Yes", today);
+            other.setMeasuringInstruction("Smoking status");
+            entityManager.persist(other);
+            entityManager.flush();
+
+            // When
+            Map<String, List<String>> result = measurementDao.findDistinctMeasuringInstructionsByTypes(
+                    List.of("AACP", "SKST", "NOPE"));
+
+            // Then: one query answers every type; a type without readings has no entry
+            assertThat(result).containsOnlyKeys("AACP", "SKST");
+            assertThat(result.get("AACP")).containsExactlyInAnyOrder("Yes/No", "Provided/Revised/Reviewed");
+            assertThat(result.get("SKST")).containsExactly("Smoking status");
+        }
+
+        @Test
+        @DisplayName("should return an empty map for no types or types without readings")
+        void shouldReturnEmpty_whenTypesHaveNoReadings() {
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of())).isEmpty();
+            assertThat(measurementDao.findDistinctMeasuringInstructionsByTypes(List.of("NOPE"))).isEmpty();
         }
     }
 }

@@ -25,6 +25,8 @@
 	<bean id="dataSource" class="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource" destroy-method="close">
 		<property name="driverClassName" value="${db_driver}" />
 		<property name="url" value="${db_uri}${db_name}" />
+		<!-- Null in ordinary WARs; explicit operator URL/driver options retain precedence. -->
+		<property name="defaultUseInformationSchema" value="${db_default_use_information_schema:}" />
 		<property name="defaultAutoCommit" value="true" />
 
 		<property name="username" value="${db_username}" />

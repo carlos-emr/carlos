@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.lab.ca.all.util;
 
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,7 @@ public class LabVersionComparator {
     public String isLabDuplicate(String currentSegmentID) {
         // Get the HL7 body for the current lab and remove the first line
         String currentLabBody = ((ExcellerisOntarioHandler) handlerMap.get(currentSegmentID)).getHl7Body();
-        String currentLabHash = DigestUtils.sha256Hex(removeFirstLine(currentLabBody));
+        byte[] currentLabHash = DigestUtils.sha256(removeFirstLine(currentLabBody));
 
         int currentLabIndex = labVersionIds.indexOf(currentSegmentID);
 
@@ -59,8 +60,9 @@ public class LabVersionComparator {
                 .filter(i -> {
                     // Get the HL7 body for the previous lab version and remove the first line
                     String labBody = ((ExcellerisOntarioHandler) handlerMap.get(labVersionIds.get(i))).getHl7Body();
-                    String labHash = DigestUtils.sha256Hex(removeFirstLine(labBody));
-                    return labHash.equals(currentLabHash);
+                    byte[] labHash = DigestUtils.sha256(removeFirstLine(labBody));
+                    // Compare the same SHA-256 content digests directly, without a hex-string timing warning.
+                    return MessageDigest.isEqual(labHash, currentLabHash);
                 })
                 .findFirst();
         

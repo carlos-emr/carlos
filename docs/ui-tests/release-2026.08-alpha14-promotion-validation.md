@@ -1,0 +1,456 @@
+# Release 2026.08.0-alpha14 promotion validation
+
+Review baseline: `release/2026.08` at `ba7b1822e1` (the head the promotion PR #3928 was cut
+from) compared with tag `2026.08.0-alpha13`, on 2026-09-25, plus the review-fixes branch
+`claude/release-2026.08-alpha14-review-fixes` (PR #3929) that carries the repairs below.
+The promotion PR is refreshed from `release/2026.08` once #3929 lands.
+The additional 2026-09-26 review below follows the release through `6ab26ca8b1`,
+compares the promotion with `main`, and rechecks the existing #3929 repairs.
+
+## Confirmed findings and repairs
+
+| Finding | Evidence | Repair and regression coverage |
+| --- | --- | --- |
+| Health Tracker rejects a malformed blood pressure with the literal key `error.bloodPressure` | `HealthTrackerMeasurementPersister` emitted a key that exists in no bundle; Struts `getText` returns the key itself | Use the existing `errors.bloodPressure` key (present in en/es/fr/pl/pt_BR) |
+| Health Tracker prevention popover prints `Entered by: null` | `HealthTrackerPage.jspf` wrapped `String.valueOf(hdata.get("provider_name"))`, which `SafeEncode` does not coalesce, and `PreventionData` leaves the name null for provider `-1` | Coalesce through `StringUtils.noNull` as the measurement rows already do |
+| Measurement delete endpoint accepted GET | `EctDeleteData2Action` (the Health Tracker's delete target, also posted to by the history pages) had no HTTP-method gate; CSRFGuard protects POST/PUT/DELETE/PATCH only, so a link or image in a logged-in session could tombstone and delete a measurement | Refuse non-POST with 405 before any lookup; unit test drives a GET and verifies no DAO interaction; registered in the mutator GET-rejection contract manifest |
+| Two annotation-viewer messages were hard-coded English | `documentAnnotate.js` page-load failure and unconfirmed-save status bypassed `cfg.i18n` | New keys `faxAnnotateViewer.status.pageLoadFailed` and `faxAnnotateViewer.alert.saveUnconfirmed` in all five bundles, exposed through the JSP `i18n` block |
+| Annotation viewer locked Save after a failure that never left the browser | The single `.catch` marked the save uncertain for every failure, including a font or CSRF-token bootstrap failure before any request, disabling both Save buttons until a reload that discards the marks | The body is built first and the save counts as sent from the moment `fetch()` starts, because `fetch()` can reject after the server accepted the POST. Only a failure before that keeps Save enabled. The `annotate-document` check covers both sides |
+| eForm Image Library delete returned an unmapped `error` result | `DelImage2Action` returned `ERROR` for a blank name, a path-validation failure or an IO failure, but `struts-eform.xml` maps only `success`, so the operator got a Struts "No result defined" page | Report 400/500 on the response and return `NONE`, per the direct-response contract |
+| Incoming-document page actions ran on GET and for read-only users | `incomingDocs.jsp` called `IncomingDocUtil.doPagesAction` (rotate, delete page, delete PDF, extract) for any request with `pdfAction`. The page is reached through the `_edoc` read gate and CSRFGuard does not check GET, so a link could change a queued fax, and a read-only user could do so with a CSRF-valid POST. Found by the existing `incoming-pdf-extraction` check, which expected 405 | GET with `pdfAction` answers 405 with `Allow: POST`. A page action also needs `_edoc` write, the right `addIncomingDocument` requires, and answers 403 otherwise. The check now also lowers the test login's `_edoc` grants to read for one CSRF-valid POST and requires 403 with the file unchanged |
+| Incoming-document page operations could overwrite another queued document | Rotate, rotate-all, delete-page and extract wrote their working copy to a fixed `"T" + name` file in the queue directory, and extraction wrote `<name>E<pages>.pdf` with a plain `FileOutputStream`, so a queued document with either name was silently replaced. A failed extraction also left the source read-only. Present since before alpha13; found when the `incoming-pdf-extraction` check first got past its GET step | A unique `.tmp` scratch file per operation (hidden from the `*.pdf` listing; numeric scratch names older than 24 hours are eligible for bounded cleanup on listing or the next operation, with file locks protecting work still in progress), `CREATE_NEW` for the extract with a visible error on a name clash, clean-up that never removes a file the call did not create, the source and its permissions left untouched during preparation and its exact permissions applied before replacement, a deleted page filed in the recycle directory before the queue document is replaced, under a name no older entry holds, and removed again if the replacement fails, with the recycle directory created, required and written only while the recycle bin is on, and one move instead of delete-then-rename for rotate. Seven new `IncomingDocUtilUnitTest` cases; the browser check's collision, cancel, bounds, extract, rotate and delete steps pass on the packaged install |
+| Annotation viewer left late pages blank after a jump to the end | Unloaded pages were 200px placeholders, so each page that loaded pushed the ones after it out of the lazy loader's window with no scroll event to bring them back; the first paint also requested nine renders for two visible pages. Present since before alpha13; found by the `annotate-document` check's multipage step | Placeholders reserve a letter-shaped box at the current zoom's render width, and the loader re-runs after each image loads. The first paint now requests two renders and the last page of a ten-page fax loads after `End` |
+| A repaired install kept a stale restart veto | A configure that holds the EMR back writes `/run/carlos-emr/.start-vetoed`, and neither `carlos-ctl finish-install` path cleared it after a successful repair, so a later DrugRef-only transaction could still decline to restart a stopped EMR | Clear the veto after the hand-run start succeeds and once the boot repair has queued the start; keep it when either fails |
+| The legacy renderer could keep running through the renderer consolidation | The move off the pre-alpha14 names stopped `carlos-emr-chromedriver.service` only once its unit file was gone. A bare `dpkg -i --auto-deconfigure` leaves the unit file and driver in place, so the old home was deleted under a live driver that still held the port | Stop the old unit whenever it is active. If it is still active after the stop, keep its home, leave the new render browser down rather than contend for the port, and print how to finish with `dpkg-reconfigure`. The upgrade test confirms the old unit inactive, the new one active and the old home gone |
+| Packaging metadata | `debian/control` accepted debhelper 13.6, but before 13.14.1 `dh_installsystemd` does not scan `usr/lib/systemd/system`, where the render browser unit is staged, so an older toolchain would build a package that never enables the renderer. The `postrm` purge note omitted the retained `carlos-render` account, and `install-deb.md` listed `openjdk-25-jre-headless` under `universe` instead of `main` | Raise the floor to `debhelper (>= 13.14.1~)` with the reason recorded beside it, name the account, and correct the component |
+| Email senders threw an unchecked exception on a NULL configuration row | `readTree(null)` in the SMTP, local SMTP and SendGrid senders raised `IllegalArgumentException`; only `IOException` was caught, so a NULL `emailConfig.configDetails` (allowed by the schema and preserved by V1.0.23.1) escaped the `EmailSendingException` contract | Guard the JSON before parsing and raise the checked exception the callers handle |
+
+Two repairs made during this review were withdrawn after the packaged install contradicted
+them, and neither ships:
+
+- Changing `getBooleanProperty("health_tracker", "true")` to `"false"` inverted the switch. The
+  second argument is the value to match, not a default, so the shipped `health_tracker=false`
+  showed the Health Tracker entry. `echart-navbar-modules` caught it. The original call already
+  leaves the tracker off when the property is absent, and a comment now records that.
+- Restoring `tabindex` 6 and 16-25 in `ChartNotes.jsp` undid a deliberate change. The header
+  localisation commit moved the template search and Save to natural keyboard order, and
+  `encounter-header-i18n` asserts it. The note textarea (7), the encounter time fields (11-14)
+  and the issue autocomplete (100) still carry positive values. Converting them is follow-up
+  work for the next train.
+
+## Review scope
+
+Four review passes covered the 46 commits since `2026.08.0-alpha13`: Debian packaging (renderer
+consolidation, transitional package, restart trigger, postinst/postrm, units, carlos-ctl);
+the Ocean toolbar, Health Tracker, consult-specialist, `rosterEnrolledTo` and email-config
+changes with their migrations; the browser-facing JS/JSP changes (annotations, appointment
+typeahead, chart header localisation, inbox acknowledge, HRM sign-off, eForm/RTL editor, ported
+upstream fixes, document extraction); and the server-side hardening (MCEDT/WSS4J series,
+PathNet upload, HRM statement retirement, Java 25, dependency updates, Semgrep rules).
+
+No published Flyway migration differs from alpha13. `V1.0.23.1` is numbered below `V1.0.29`
+and `V1.0.30` (against the migration README's own rule) but sits above alpha13's high-water
+mark (`on/V1.0.23`, `common/V1.0.22`), so a tagged alpha13 -> alpha14 upgrade applies all
+three in order; only a development database migrated in the two-hour window between #3782
+and #3816 on `release/2026.08` can have the lower-numbered migration missing.
+`flyway repair` repairs schema-history metadata; it does not execute that missing SQL,
+and the packaged runner does not enable out-of-order migration. Recreate a disposable
+development database from the alpha13 baseline and migrate in order. A database whose
+data must be retained needs a separately reviewed migration recovery, not a blanket
+`repair`. Do not repeat the numbering pattern.
+
+Items reviewed and left unchanged, to be verified against a live system rather than in code:
+the MCEDT `EncryptedKey` bound of 20 per response (MCEDT limits a download request to a
+handful of resources; a multi-file download against the ministry gateway is the only proof);
+CXF spill files after large downloads; runtime JasperReports compilation on JDK 25 (Rourke and
+label printing); PDFBox 3.0.8 rejecting OpenType CFF2 fonts in incoming documents; the RTL
+editor's save gate on a clinic-customised `form_html` that never calls `Start()`.
+
+## New browser checks
+
+- `ocean-display-settings`: Administration > eChart Display Settings round trip. Saves the
+  Ocean switch off and on through the panel, asserts the `SystemPreferences` row and the
+  `OceanSetting` singleton, proves the encounter drops and restores `#ocean_placeholder`, and
+  that a GET carrying the save intent answers 405 without changing the preference. Restores
+  the pre-existing rows in its cleanup.
+- `hrm-retired-statement`: the retired HRM confidentiality-statement operations answer 410 on
+  GET and on a POST carrying the session's CSRF token (so it reaches the action), the report listing served by the same action still answers, and the
+  Administration panel no longer links the removed page.
+- `clinic-demo-name`: Flyway `V1.0.29` is recorded as applied, no clinic row still carries the
+  upstream placeholder name, and Administration > Clinic shows the stored name exactly.
+
+## Package build and install
+
+The three packages were built with `dpkg-buildpackage -us -uc -b` in an Ubuntu 26.04 (resolute)
+container with OpenJDK 25, Maven 3.9 and debhelper 13.31. The version was stamped the way the
+release workflow stamps it: `pom.xml` at `2026.08.0-alpha14` with SCM tag `2026.08.0-alpha14`, and
+a single changelog stanza `2026.08.0~alpha14`. The build was repeated after each repair batch;
+the last build is from the review-fixes branch head.
+
+| Package | Architecture |
+| --- | --- |
+| `carlos-emr_2026.08.0~alpha14` | amd64 (EMR, bundled Chromium renderer, carlos-ctl) |
+| `carlos-emr-drugref_2026.08.0~alpha14` | all |
+| `carlos-emr-eform-renderer_2026.08.0~alpha14` | all (empty transitional package) |
+
+Lintian reports no errors. It reports four warnings: three `debian-changelog-line-too-long` from
+the local validation stamp (the release workflow writes a shorter line), and one
+`possible-bashism-in-maintainer-script` that points at Python source inside a postinst heredoc,
+which is a false positive.
+
+Install on a fresh Ubuntu 26.04 systemd container, following
+[`deb-install-validation.md`](deb-install-validation.md):
+
+- `apt-get install` of the three local packages with the preseeded answers completed, and
+  `carlos-ctl check` reported "All checks passed" (front door, HSTS, WAF blocking, DrugRef
+  lookup, 26 Flyway migrations, renderer, TLS).
+- The mandatory first-login password reset through the browser succeeded.
+- A same-version reinstall of each rebuilt package set ran the `carlos-emr-restart` trigger once
+  at the end of the transaction, redeployed the application a single time, left
+  `NRestarts=0`, and passed `carlos-ctl check` again.
+- The About page and `carlos-build.properties` report `2026.08.0-alpha14 (carlos-emr-deb
+  2026.08.0~alpha14)`.
+
+Environment notes: the container needs `fonts-liberation` for the annotation check's late-font
+scenarios (the check now says so). The Docker host has no IPv6 stack; carlos-ctl emits the
+`[::]` listeners only when the kernel has one, and the front door came up on IPv4 alone.
+
+## Browser suite
+
+`scripts/run-playwright-suite.js` ran all 150 manifest entries through the packaged front door
+(`https://127.0.0.1/carlos`), twice. Neither run restarted the application.
+
+| Run | Passed | Failed | Skipped |
+| --- | --- | --- | --- |
+| First build | 131 | 11 | 8 |
+| After the repairs | 130 | 12 | 8 |
+
+Every failure was re-run on its own and classified:
+
+- **Product defects, fixed here:** `incoming-pdf-extraction` (GET mutations, read-only users,
+  and the queue overwrite behind it), `echart-navbar-modules` (the inverted Health Tracker switch
+  this review had introduced), and `encounter-header-i18n` (the withdrawn `tabindex` restore).
+- **Check defects, fixed here:** `document-upload`, `rh-form-workflow` (navbar overlay, reload
+  beacon, form-entry timing and the STRICT `sql_mode` probe), `eform-admin` (a JSP scriptlet in
+  its fixture), `ocean-display-settings` (a stale page), and `annotate-document` (outside the
+  manifest; it now names its font prerequisite).
+- **Environment or fixture, not a defect:**
+  - `demographic-edit-update` needs `DEMOGRAPHIC_EDIT_SEARCH` and
+    `DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO`, and passes with them.
+  - `rx-fax-reprint-represcribe` and `about-licence` failed because the run was given the build
+    tag in the wrong format. Both pass with the About page's actual tag.
+  - `hrm-window` needs `CHROME_BIN`.
+  - `patient-messenger-context`, `echart-note-editor`, `csrf-xhr-token` and
+    `consultation-signature-fallback` hit a note lock left by an earlier check whose browser
+    closed without its unload beacon. The chart then showed the "edit this note in another
+    window" prompt. All four pass or skip on their own.
+  - `surface-audit:edoc-surface` passed on re-run.
+  - `o19-migrated-smoke` needs an imported OSCAR 19 fixture.
+- **Pre-existing, recorded, not changed:**
+  - `episode-lifecycle`: the seeded `doctor` role holds `o` on `_newCasemgmt.episode`, the same
+    as in alpha13, so the Episode module is hidden.
+  - `inboxhub-filters` (subsequently repaired in the additional review below): earlier checks acknowledged the newest version of two lab chains
+    (170, 172) while older versions (169, 44) stayed filed. The labs query collapses each
+    chain to its newest version within the result set it is building. "All" therefore shows
+    170 and 172, and "Filed" shows 169 and 44, so the filters no longer partition "All". The
+    count query does not collapse versions, which is why the total reads 11 against three
+    rows. The same code shipped in alpha13; it is worth an issue, but it is not a release
+    regression.
+
+The eight skips need fixtures the packaged demo data does not carry: long documents, the eForm
+corpus, referral data, BC billing and inactive drugs.
+
+Custom Playwright work beyond the manifest:
+
+- **Probes:** navbar overlay geometry, note-lock release on navigate and close, the annotation
+  viewer's lazy loading and placeholder layout, and the Health Tracker entry's source.
+- **New checks:** `ocean-display-settings`, `hrm-retired-statement` and `clinic-demo-name`.
+- **New steps:** `incoming-pdf-extraction` gained its read-only step, and `annotate-document`
+  gained its pre-send and post-send save-failure steps.
+
+## Upgrade path
+
+The published `2026.08.0~alpha13` packages were checked against their release `.sha256`
+files and installed on a fresh Ubuntu 26.04 systemd container. The first-login reset was
+completed in the browser, and `scripts/deb-upgrade-baseline.sh` captured the state. The final
+alpha14 packages were then installed over them with `apt-get install --no-remove`, and
+`scripts/deb-upgrade-verify.sh` compared the result. The run was made twice: once with the
+packages the full suite ran on, and once with the final packages built from the branch head.
+Both passed.
+
+- **Migrations:** Flyway went from 23 to 26 applied, 0 failed. Exactly `1.0.23.1`, `1.0.29`
+  and `1.0.30` were added, and no earlier history row disappeared.
+- **Preserved:** the operator's password hash and reset flag, `carlos-emr.env`,
+  `carlos.properties`, `backup.env`, the TLS certificate, province, time zone and database
+  name, the row counts of every clinical table sampled, and every stored document file.
+- **Build tag:** moved from `2026.08.0-alpha13` to `2026.08.0-alpha14 (carlos-emr-deb
+  2026.08.0~alpha14)`.
+- **Renderer consolidation:** `render-browser.env` moved to `renderer.env`, and the old
+  `/var/lib/carlos-emr/render` home was removed. `carlos-emr-chromedriver.service` is
+  inactive and `carlos-emr-render-browser.service` is active.
+- **Runtime and health:** the JVM is OpenJDK 25, `carlos-ctl check` passes, and
+  `NRestarts=0`.
+- **Browser checks after the upgrade:** `login`, `application-health`, `clinic-demo-name`,
+  `ocean-display-settings`, `hrm-retired-statement`, `health-tracker`,
+  `incoming-pdf-extraction` (all nine steps) and `echart-navbar-modules` all pass.
+
+Two more runs, with the final packages, tried to force the case where the legacy driver refuses
+to stop: a `RefuseManualStop=yes` drop-in on `carlos-emr-chromedriver.service` before upgrading,
+once through `apt-get install` of all three packages and once through `dpkg -i
+--auto-deconfigure` of `carlos-emr` alone. In both, the alpha13 renderer package's own
+maintainer script stopped the driver while it was being upgraded or deconfigured, before the new
+postinst ran. Both ended with the old unit inactive, the old home removed, the new render
+browser active and `carlos-ctl check` passing. The `dpkg-reconfigure` recovery also ran cleanly.
+The kept-home branch therefore guards a case these paths do not reach;
+`scripts/debian-build.test.js` pins it. The `--auto-deconfigure` run leaves the old renderer and
+DrugRef packages to be upgraded separately, as `install-deb.md` describes.
+
+The final packages were also reinstalled over the test host. `incoming-pdf-extraction`,
+`application-health`, `ocean-display-settings`, `echart-navbar-modules`,
+`encounter-header-i18n`, `health-tracker`, `hrm-retired-statement` and `document-upload` pass,
+and no scratch file is left in the incoming-document tree.
+
+The upgrade log carries one expected line, "Failed to stop carlos-emr-render-browser.service:
+Unit … not loaded." It comes from debhelper's stop-on-upgrade snippet for a unit that alpha13
+did not have under its new name; the snippet ends in `|| true`. The Ubuntu `nginx` package also
+fails its own first start on a host without IPv6, because its default site listens on `[::]`.
+The alpha13 and alpha14 installs both continue past it, and the CARLOS front door comes up.
+
+## Additional promotion review, 2026-09-26
+
+This pass reviewed the full pending release promotion and the existing #3929 changes,
+including the later PDF-writer, disabled-recycle-directory and fax-preview-containment
+repairs. The review looked for wrong-patient results, lost or silently omitted data,
+partial-success reporting, authorization boundaries, migration ordering, compatibility
+entry points, and package upgrade/recovery failures. The four Copilot summary-only
+observations were checked separately: stale test instructions, the blood-pressure message
+key, absent versus SQL NULL Ocean preferences, and preservation of exact PDF permissions.
+
+Additional confirmed repairs:
+
+| Finding | Repair and evidence |
+| --- | --- |
+| Crashed incoming-PDF rewrites leave hidden files containing document data | Reap only recognized numeric scratch names older than 24 hours, with bounded cleanup and file locks protecting live work. Browser coverage distinguishes an aged file from fresh and unrelated files; Java tests cover ownership and locking. |
+| Preparing a PDF replacement could alter the original permissions before success | Prepare privately, preserve the original throughout the operation, and apply its exact mode to the completed replacement before publishing. Rechecked alongside the later writer-close and disabled-recycle-directory fixes. |
+| Inbox post-query filtering discarded lab versions and conflated accession numbers | Remove the second accession-only filtering pass after pagination. `inbox-lab-versions` tests real versioned lab rows across All/New/Filed/Acknowledged partitions. |
+| Selecting an older lab row could open and acknowledge the newest report instead | Inbox links explicitly retain the selected version with `showLatest=false`; browser checks compare the selected report and acknowledgment identity, while preserving explicit latest-version requests. |
+| Malformed SMTP/SendGrid settings escaped the checked failure contract or exposed parser detail | Validate JSON shape, required text fields and port range through a shared helper; return credential-free `EmailSendingException` messages. Transport unit tests and the live MariaDB TEXT/NULL/long-JSON schema check pass. |
+| Health Tracker could report success when measurement rows persisted but the progress note failed | Display a localized warning after note persistence failure. A browser test injects a database failure and verifies the measurements remain, no note is reported as saved, and the warning is visible. |
+| A service dependency could start the new renderer after stopping the old renderer failed | A persistent marker also gates the new systemd unit. The disposable-VM fault test uses a legacy service with `RefuseManualStop=yes`, verifies the new renderer stays down, and verifies reconfiguration recovers. |
+| Java 25's shared delay scheduler retained the stopped CARLOS webapp class loader | Packaged Tomcat shutdown exposed `ForkJoinPool.commonPool-delayScheduler` retaining the CARLOS loader. Shutdown now detaches only this exact bootstrap-loaded JDK thread's context loader when it belongs to the stopping webapp. It never stops the shared scheduler. Tests use the real scheduler, verify subsequent scheduling still works, and preserve other applications' loaders and ordinary similarly named threads. |
+| The promoted WAR still contained FreeMarker 2.3.34, affected by CVE-2026-84939 | Pin the transitive dependency to 2.3.35 and regenerate its integrity lock. An isolated probe reproduced locale-derived `../` storage paths on 2.3.34 and passed on 2.3.35. Regression tests exercise malformed language, country and variant components, and normal French-Canadian template rendering with the previous compatibility setting. |
+| A stale chart session could delete a lock explicitly transferred to another session | A two-session browser probe against package `.7` reproduced the loss of the new owner's lock. Release now atomically matches provider, patient, note and authenticated session in the database DELETE. Five real Hibernate/H2 cases cover transferred ownership, unrelated locks, repeated release and missing session identities; the committed chart lifecycle harness drives the explicit takeover and both releases. |
+
+The dependency review checked all three open Dependabot alerts. The two `image-size`
+alerts affect the default branch, but this release already locks 2.0.4, beyond the fixed
+2.0.3 threshold. FreeMarker was still vulnerable in the release WAR. The upgrade follows
+[Apache's advisory](https://lists.apache.org/thread/hrd7o2ylwkkswdyhyzllgqt0f80kyd5y)
+and [2.3.35 release notes](https://freemarker.apache.org/docs/versions_2_3_35.html).
+
+The validation itself exposed gaps that are now covered in `scripts/`:
+
+- Chart tests await their authenticated, non-forced note-lock release before browser teardown.
+  `echart-lock-lifecycle` separately proves normal page closure releases the lock, so test
+  cleanup cannot conceal a broken application unload handler.
+- The navigation audit dismisses a previous chart hover menu before clicking unrelated links.
+  The full audit then opened 34 module links successfully using normal browser clicks.
+- `ocean-display-settings` explicitly tests a stored SQL NULL value in both the admin switch
+  and the rendered chart, in addition to on/off saves and GET rejection.
+- The legacy fax inbox harness now calls the `documentUpdateAjax` route used by the current
+  inbox. It asserts the JSON patient identity, actual patient/document link, generated note,
+  provider routing, retirement of the unclaimed routing to status X, and final filed status F.
+
+### Package and browser evidence for this pass
+
+The clean `2026.08.0~alpha14+pr3929.4` DEBs were built at `388e721926`, installed into
+`carlos-val`, and verified against the compiled LabDataController, IncomingDocUtil and
+Fax2Action bytes. Package identity was checked inside the WAR and through the application.
+The later `1ca4180f98` and `410e94bb3d` commits change unused imports and a unit assertion,
+respectively. `carlos-ctl check` passed, including all 29 applied migrations, DrugRef,
+renderer and front-door checks. The earlier build that reused debhelper stamps was rejected
+when byte/identity checks detected a stale WAR; subsequent builds used a clean packaging run.
+
+The subsequent `.6` packages at `aa73aa6a93` include the Java 25 shutdown repair and
+FreeMarker 2.3.35. Verification compared the four affected packaged classes with the tested
+build, required exactly one FreeMarker JAR at 2.3.35, and checked the Debian build identity.
+Lintian reported zero errors and the existing Python-heredoc warning. Installation finished
+with a clean `dpkg --audit` and all `carlos-ctl check` checks passing. Twelve focused browser
+checks passed, including all 34 navbar links, PDF mutation failures, lab-version identity,
+Health Tracker note failure, locale rendering, CSRF, Ocean SQL NULL, and chart-lock lifecycle.
+
+The actual packaged Tomcat startup/shutdown harness reproduced the CARLOS scheduler leak
+before the repair and passed afterward. Three separate, pre-existing DrugRef shutdown
+warnings remain visible: its JDBC driver, MySQL cleanup thread and Hikari housekeeper.
+They are reported separately from CARLOS; this result does not claim a warning-free DrugRef
+redeploy. Sonar's class-name-comparison finding was subsequently addressed by resolving the
+package-private scheduler through the bootstrap loader and comparing Class identity. The
+ten affected Java tests, Checkstyle and WAR verification passed again after that adjustment.
+
+During `.6` unpacking, the VM's backing disk exhausted the host filesystem and QEMU paused.
+After temporarily relocating two older package archives and trimming unused guest blocks,
+the VM resumed in place and the same apt transaction completed. The archives were restored
+with their original ownership and matching SHA256 hashes; 19,411 older build files were
+verified after the temporary storage recovery. Future installs require host backing-store
+headroom as well as guest free space. Final follow-up package results are recorded on #3929.
+
+The 157-entry browser manifest was exercised sequentially through the packaged HTTPS front
+door, with targeted reruns after fixing test defects and supplying missing demo fixtures.
+At that stage, results by check were **155 pass, one prerequisite failure, one province-specific skip**.
+The prerequisite failure is `o19-migrated-smoke`, because this VM has no imported OSCAR19
+target or break-glass migration credentials. `billing-bc-associations` requires a BC schema;
+this VM is an Ontario installation. Those paths were unverified at that stage; the later
+isolated migration and province validation below supersedes those limitations.
+
+Outside the manifest, the native RTL browser check, full document-annotation harness,
+MariaDB email schema check, prescription DrugRef harness and local fax inbox lifecycle all
+passed. The local fax run used an owned synthetic inbound document and removed its patient,
+document, note and routing fixtures afterward. It does not establish live SRFax send/receive
+or scheduler de-duplication: no live development account was supplied.
+
+The script regression suite passed **1,019 tests** with one worker. Final full Maven `verify`
+reported **13,325 tests, zero failures, zero errors, 51 skips**, with Checkstyle and WAR
+packaging also passing. This includes the real Java 25 scheduler and FreeMarker locale regression tests and
+supersedes the earlier localized-property encoding failure, which was corrected with ASCII
+escaping. Mockito's JVM attachment requires running this suite outside the agent sandbox;
+Checkstyle needed a 2 GiB Maven heap. Debian Python checks passed 1,689 tests; package
+completion and Debian Node checks also passed.
+
+Resource and fixture controls mattered to interpreting the results. The VM was stopped for
+compilation and packaging, and only one local validation task ran at a time. Browser testing
+used two guest CPUs and 6 GiB RAM, with temporary application limits of 150% CPU, 3 GiB memory
+high and 3,500 MiB maximum. The inherited 25% CPU and 1.75 GiB memory-high limits had caused
+heavy throttling and misleading timeouts. Host/guest memory and disk headroom were monitored,
+and the existing resource watchdog remained enabled.
+
+Chart searches were narrowed to the intended synthetic patient: a broad `FAKE-` search can
+fall back to another patient on the first results page. Patient 1 also has over 2,000 active
+eForms, so exhausting that chart's pagination within a short smoke-test limit was not a
+valid small-fixture assumption. Optional module flags, episode privileges, three marked
+export appointments and the temporarily absent provider stamp were supplied explicitly for
+their checks, with original values retained for restoration.
+
+### Final serial-suite follow-up
+
+The `.7` full run completed with 149 passes, five failures and two skips. Four failures
+were chart consumers encountering locks left by earlier checks; the other failure was the
+missing OSCAR19 target, while document pagination and BC billing lacked their fixtures.
+Lock acquisition times traced the initial leaked locks to the calculator, document-pagination
+and chart-print checks. Their teardown now awaits authenticated release, including the short
+period when printing suppresses download-triggered pagehide release. Chart popups opened by
+navigation audits are also released before closure, scoped to the popup being closed. This
+is test teardown; the normal-close browser assertion still runs before any helper cleanup.
+
+Investigating that interaction exposed the separate production stale-session race described
+above. The fix uses one conditional DELETE, so a cached lock object or a takeover between a
+read and a delete cannot remove the new session's lock. The focused Java run passed 86 tests
+and the full script regression run passed 1,021 tests. Full Maven verification then passed
+13,330 tests with zero failures/errors and 51 skips, including Checkstyle and WAR packaging.
+Follow-up package, browser and migration results are recorded on #3929.
+
+### Session destruction and final harness review
+
+The `.8` full Ontario run completed with 152 passes and two failures. The lab-requisition
+check inspected a popup before its destination controls were ready and left its chart lock
+behind when Chromium closed; the later patient-messenger check then encountered that lock.
+The lock timestamp matched the failed lab check. Waiting for the actual destination controls
+and awaiting authenticated teardown fixed the sequence: all ten related checks passed,
+including patient-messenger, and no chart locks remained. The separate signature-fallback
+check also passed. These reruns establish cumulative coverage, not a claim that the original
+full run passed unchanged.
+
+The optional eForm fax-preview check passed protected POST preparation, cross-session read
+and cancellation refusals, successful owner cancellation and replay rejection. Email schema,
+native rich text letter measurements, all 105 document-annotation assertions, prescription
+DrugRef and the owned local fax-inbox lifecycle passed on `.8` as well.
+
+The final code review found the same ownership race in session destruction: selecting locks
+by session and subsequently deleting by ID can delete a lock transferred between those two
+operations. It also logged each entire lock through reflective `toString()`, exposing the
+raw session identifier, patient number and IP address. A regression reproduced all three
+disclosures before the change. Session destruction now performs one DELETE constrained by
+the destroyed session ID and logs only the count removed. The Hibernate test preserves a
+transferred lock despite an older persistence context retaining the original ownership,
+while removing the other locks still owned by the expired session. Missing/blank identities
+are refused. All 12 focused logging, MFA-cleanup and database tests passed. The browser lock
+lifecycle now also verifies the completed logout POST with an open chart while suppressing
+the chart beacon, so its assertion specifically exercises server-side session cleanup.
+
+The subsequent full Maven verification passed 13,332 tests with zero failures/errors and
+51 skips, plus Checkstyle and WAR packaging. All 1,021 script regressions also passed
+with one worker. The VM remained shut down throughout.
+
+Installed `.9` validation passed application health, build identity, lab requisition links
+and patient-messenger. The expanded chart-lock test then passed all five scenarios, including
+server-side logout cleanup with the client beacon suppressed. Its first attempt navigated
+away before the logout page auto-submitted; the assertion now waits for the completed POST
+and settled index redirect. No production rebuild was needed for that harness correction.
+
+### Installed migration and province validation
+
+The `.9` package applied all 29 Ontario and 25 BC Flyway migrations to separate disposable
+schemas. The Ontario rehearsal used the authentic OSCAR19 RC1 database scripts at upstream
+commit `a7900d569d3faf741993e5e1da8c14021bbefede` with synthetic records. Preflight refused an
+enabled LDAP setting; after selecting the fixture's local authentication, all 518 source
+table digests agreed. The importer refused missing document references and the installed
+service guard prevented application startup until those references were repaired in the
+owned document tree. Resume completed with 1,117 verification checks passing and 29 explicitly
+uncompared checks (tables lacking primary keys or deliberately transformed data), with no
+content-mismatch acknowledgment. Backup was explicitly skipped for this disposable target;
+this exercise does not establish backup/restore integration coverage.
+
+The migrated browser harness passed nine checks, including forced password resets, patient
+search, notes, appointments, prescriptions, labs and archived vendor data. The day-schedule
+check skipped because the source fixture's program differs from the day view's program.
+Six additional SQL checks confirmed accented text, charset repair and preservation of the
+imported password hashes after browser cleanup. BC browser validation passed rejection,
+creation/reopening, editing and deletion of owned service-code associations. Original
+configuration checksums, directory metadata, backup configuration and database counts were
+verified on restoration; only the recorded rehearsal schemas/accounts were removed.
+
+The rehearsal exposed a misleading resume message: a previously skipped or acknowledged
+failed backup was reported as an existing snapshot. Resume now repeats the warning that no
+pre-import snapshot was recorded, without attempting a late backup. Two regression tests
+failed against the old message; those cases and the successful-backup control now pass.
+The complete Debian Python suite passed 1,692 tests (19 skips).
+
+
+### Final PDF failure-path and browser-sequence review
+
+The `.10` full Ontario run completed with **153 passes, one failure and no harness skips**.
+The only failure was `health-care-team`: the test observed the committed removal in SQL and
+navigated away before the AJAX response arrived, aborting its own request. The harness now
+waits for the removed row to disappear before checking persistence and reopening. All three
+workflow steps pass with a real removal response deliberately delayed by 750 ms after the
+server write. The lab-requisition, patient-messenger, chart-lock lifecycle and login checks
+all passed in the full run.
+
+The additional PDF review found that extraction logged and swallowed writer-close errors,
+then published its scratch output over the original even if finalization had failed. It
+also created the extracted PDF with the process default mode, broadening a restricted
+source's access. The strengthened browser check reproduced the latter on installed `.10`.
+Six Java regressions failed against the old implementation: either writer failing on close,
+a lost cleanup diagnostic after an earlier write failure, and three restrictive source modes.
+
+Extraction now creates its exclusive output privately, closes every resource, and aborts
+publication when finalization fails. An earlier write failure remains the primary exception,
+with cleanup failures attached. Regressions confirm preservation of the original and cleanup
+of owned outputs when either writer fails. Both completed PDFs receive the exact source mode. Browser artifact inspection now requires a complete classic PDF
+trailer and a valid cross-reference offset before calling `pdfinfo`, which can otherwise
+repair truncated output and exit successfully. The browser also verifies mode `0400` on
+both outputs of a restricted extraction. Final package and installed-browser follow-up is
+recorded in the review status comment on #3929.
+
+Full Maven verification of these changes passed **13,338 tests**, with zero failures/errors
+and 51 skips, plus Checkstyle and WAR packaging. All **1,025 Node regressions** passed with
+one worker. The VM remained shut down throughout compilation and these host checks.
+
+Installed `.11` passed all ten PDF workflow steps, including exact `0400` permissions on
+both extracted and remaining PDFs, and all three health-care-team steps. The additional
+About check exposed an intermittent self-closing menu race: Playwright can reject the click
+when the menu closes itself, even with `noWaitAfter`. The popup helper now accepts only the
+explicit `closesOpener` case, an actually closed opener, and the specific target-closed
+error; it still requires a real popup and validates its contents. Five regression cases
+cover the expected closure, absent popup, unrelated error, still-open opener and missing
+opt-in. Two cases failed before the repair. All **1,030 Node regressions** now pass, and
+the installed About/calculator/licence workflow passes all four steps. This is a harness-only
+follow-up; `.11` still contains the verified production build from `59cd1f643b`.

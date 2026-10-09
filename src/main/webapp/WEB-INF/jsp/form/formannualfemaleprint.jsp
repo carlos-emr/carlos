@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -60,8 +61,8 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key='encounter.formFemaleAnnualPrint.title'/></title>
 
-        <link rel="stylesheet" type="text/css" href="annualStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/annualStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 
@@ -92,15 +93,15 @@
     <BODY class="printAnnual" topmargin="0" leftmargin="0" rightmargin="0">
 
     <input type="hidden" name="demographic_no"
-           value="<%= props.getProperty("demographic_no", "0") %>"/>
+           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
     <input type="hidden" name="ID"
-           value="<%= props.getProperty("ID", "0") %>"/>
+           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
     <input type="hidden" name="provider_no"
            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="formCreated"
-           value="<%= props.getProperty("formCreated", "") %>"/>
+           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
     <input type="hidden" name="formEdited"
-           value="<%= props.getProperty("formEdited", "") %>"/>
+           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formEdited", "")) %>"/>
     <input type="hidden" name="provNo"
            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
 
@@ -118,12 +119,12 @@
         <tr>
             <td><big><i><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAnnualFemaleHealthReview'/></b></i></big>
             </td>
-            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgName'/>:</b> <%= props.getProperty("pName", "") %>
+            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgName'/>:</b> <%= SafeEncode.forHtml(props.getProperty("pName", "")) %>
             </td>
-            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAge'/>:</b> <%= props.getProperty("age", "") %>
+            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAge'/>:</b> <%= SafeEncode.forHtml(props.getProperty("age", "")) %>
             </td>
             <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgDate'/></b><small>(yyyy/mm/dd)</small>:
-                <%=props.getProperty("formDate", "") %>
+                <%= SafeEncode.forHtml(props.getProperty("formDate", "")) %>
             </td>
         </tr>
     </table>
@@ -136,13 +137,13 @@
                     </tr>
                     <tr>
                         <td valign="top" width="30%"
-                            style="height: 480px;"><%= props.getProperty("currentConcerns", "") %>
+                            style="height: 480px;"><%= SafeEncode.forHtml(props.getProperty("currentConcerns", "")) %>
                         </td>
                     </tr>
                     <tr>
                         <td align="center"><fmt:message key='encounter.formFemaleAnnualPrint.msgSeeChart'/><br>
-                            <%= checkMarks(props.getProperty("currentConcernsNo", "")) %> &nbsp;<fmt:message key='encounter.formFemaleAnnualPrint.msgNo'/>&nbsp;&nbsp;&nbsp;
-                            <%= checkMarks(props.getProperty("currentConcernsYes", "")) %>
+                            <%= checkMarks(request.getContextPath(), props.getProperty("currentConcernsNo", "")) %> &nbsp;<fmt:message key='encounter.formFemaleAnnualPrint.msgNo'/>&nbsp;&nbsp;&nbsp;
+                            <%= checkMarks(request.getContextPath(), props.getProperty("currentConcernsYes", "")) %>
                             &nbsp;<fmt:message key='encounter.formFemaleAnnualPrint.msgyes'/></td>
                     </tr>
                 </table>
@@ -158,93 +159,93 @@
                         <td colspan="2"><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAbN'/></b></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("headN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("headN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("headAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("headAbN", "")) %>
                         </td>
                         <td align="left" nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgHeadNeck'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("head", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("head", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("respN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("respN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("respAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("respAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgResp'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("resp", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("resp", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("cardioN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("cardioN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("cardioAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("cardioAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgCardio'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("cardio", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("cardio", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("giN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("giN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("giAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("giAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgGI'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("gi", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("gi", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("guN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("guN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("guAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("guAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgGU'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("gu", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("gu", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("skinN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("skinN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("skinAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("skinAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgSkin'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("skin", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("skin", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("mskN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("mskN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("mskAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("mskAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.MSK'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("msk", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("msk", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("endocrinN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("endocrinN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("endocrinAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("endocrinAbN", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgEndocrin'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("endocrin", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("endocrin", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top"><%= checkMarks(props.getProperty("otherN", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("otherN", "")) %>
                         </td>
-                        <td valign="top"><%= checkMarks(props.getProperty("otherAbN", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("otherAbN", "")) %>
                         </td>
                         <td valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgOther'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("other", "") %>
+                        <td style="text-align: left;"><%= SafeEncode.forHtml(props.getProperty("other", "")) %>
                         </td>
                     </tr>
 
@@ -257,26 +258,26 @@
                     <tr>
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
-                        <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgGTPAL'/>&nbsp; <%= checkMarks(props.getProperty("noGtpalRevisions", "")) %>
-                            <fmt:message key='encounter.formFemaleAnnualPrint.msgNo'/> <%= checkMarks(props.getProperty("yesGtpalRevisions", "")) %>
+                        <td style="white-space: nowrap;"><fmt:message key='encounter.formFemaleAnnualPrint.msgGTPAL'/>&nbsp; <%= checkMarks(request.getContextPath(), props.getProperty("noGtpalRevisions", "")) %>
+                            <fmt:message key='encounter.formFemaleAnnualPrint.msgNo'/> <%= checkMarks(request.getContextPath(), props.getProperty("yesGtpalRevisions", "")) %>
                             <fmt:message key='encounter.formFemaleAnnualPrint.msgyes'/><br>
-                            <%= checkMarks(props.getProperty("frontSheet", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgFrontSheet'/></td>
+                            <%= checkMarks(request.getContextPath(), props.getProperty("frontSheet", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgFrontSheet'/></td>
                     </tr>
                     <tr>
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgLMP'/><small>(yyyy/mm/dd)</small>:
-                            <%= props.getProperty("lmp", "") %><br>
-                            <fmt:message key='encounter.formFemaleAnnualPrint.msgMenopause'/>: <%= props.getProperty("menopause", "") %>
+                            <%= SafeEncode.forHtml(props.getProperty("lmp", "")) %><br>
+                            <fmt:message key='encounter.formFemaleAnnualPrint.msgMenopause'/>: <%= SafeEncode.forHtml(props.getProperty("menopause", "")) %>
                             /<fmt:message key='encounter.formFemaleAnnualPrint.msgMenopauseUnit'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("papSmearsN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("papSmearsN", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("papSmearsAbN", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("papSmearsAbN", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgPreviousPaoSmears'/>:
-                            <%= props.getProperty("papSmears", "") %>
+                            <%= SafeEncode.forHtml(props.getProperty("papSmears", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -293,29 +294,29 @@
                     </tr>
                     <tr>
                         <td>&nbsp;</td>
-                        <td><%= checkMarks(props.getProperty("drugs", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("drugs", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgDrugs'/></td>
                         <td>&nbsp;</td>
-                        <td align="right"><%= checkMarks(props.getProperty("medSheet", "")) %>
+                        <td style="text-align: right;"><%= checkMarks(request.getContextPath(), props.getProperty("medSheet", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgMedSheet'/></td>
                     </tr>
                     <tr>
                         <td>&nbsp;</td>
-                        <td><%= checkMarks(props.getProperty("allergies", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("allergies", "")) %>
                         </td>
                         <td colspan="2" nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgAllergies'/></td>
-                        <td align="right"><%= checkMarks(props.getProperty("frontSheet1", "")) %>
+                        <td style="text-align: right;"><%= checkMarks(request.getContextPath(), props.getProperty("frontSheet1", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgFrontSheet'/></td>
                     </tr>
                     <tr>
                         <td>&nbsp;</td>
-                        <td><%= checkMarks(props.getProperty("familyHistory", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("familyHistory", "")) %>
                         </td>
                         <td colspan="2"><fmt:message key='encounter.formFemaleAnnualPrint.msgFamilyHist'/></td>
-                        <td align="right"><%= checkMarks(props.getProperty("frontSheet2", "")) %>
+                        <td style="text-align: right;"><%= checkMarks(request.getContextPath(), props.getProperty("frontSheet2", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgFrontSheet'/></td>
                     </tr>
@@ -337,122 +338,122 @@
                         <td>&nbsp;</td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("smokingNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("smokingNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("smokingYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("smokingYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgSmoking'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("smoking", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("smoking", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("alcoholNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("alcoholNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("alcoholYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("alcoholYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgAlcohol'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("alcohol", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("alcohol", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("otcNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("otcNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("otcYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("otcYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgIllicitDrugs'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("otc", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("otc", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("exerciseNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("exerciseNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("exerciseYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("exerciseYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgExercise'/></td>
-                        <td align="right"><%= props.getProperty("exercise", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("exercise", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("nutritionNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("nutritionNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("nutritionYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("nutritionYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgNutrition'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("nutrition", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("nutrition", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("dentalNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("dentalNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("dentalYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("dentalYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgDentalHygiene'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("dental", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("dental", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top"><%= checkMarks(props.getProperty("relationshipNo", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("relationshipNo", "")) %>
                         </td>
-                        <td valign="top"><%= checkMarks(props.getProperty("relationshipYes", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("relationshipYes", "")) %>
                         </td>
                         <td valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgRelationshipIssues'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("relationship", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("relationship", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("sexualityNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("sexualityNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("sexualityYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("sexualityYes", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgSexualityRisks'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("sexuality", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("sexuality", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("occupationalNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("occupationalNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("occupationalYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("occupationalYes", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgOccupationalRisks'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("occupational", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("occupational", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("drivingNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("drivingNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("drivingYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("drivingYes", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgDrivingSafety'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("driving", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("driving", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("travelNo", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("travelNo", "")) %>
                         </td>
-                        <td><%= checkMarks(props.getProperty("travelYes", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("travelYes", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgForeignTravel'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("travel", "") %>
+                        <td style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("travel", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td valign="top"><%= checkMarks(props.getProperty("otherNo", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("otherNo", "")) %>
                         </td>
-                        <td valign="top"><%= checkMarks(props.getProperty("otherYes", "")) %>
+                        <td style="vertical-align: top;"><%= checkMarks(request.getContextPath(), props.getProperty("otherYes", "")) %>
                         </td>
                         <td nowrap="true" valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgOther'/>:
                         </td>
-                        <td rowspan="3" align="right"><%= props.getProperty("otherLifestyle", "") %>
+                        <td rowspan="3" style="text-align: right;"><%= SafeEncode.forHtml(props.getProperty("otherLifestyle", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -466,50 +467,50 @@
                         <td>&nbsp;</td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("mammogram", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("mammogram", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgMammogram'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("breast", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("breast", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBreastSelfTest'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("pap", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("pap", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgPapSmear'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("femaleImmunization", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleImmunization", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgImmunization'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("precontraceptive", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("precontraceptive", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgprecontraceptive'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("femaleCardiac", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleCardiac", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgCardiacRisk'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("osteoporosis", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("osteoporosis", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgOsteoporosis'/></td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("femaleOther1c", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleOther1c", "")) %>
                         </td>
-                        <td><%= props.getProperty("femaleOther1", "") %>
+                        <td><%= SafeEncode.forHtml(props.getProperty("femaleOther1", "")) %>
                         </td>
                     </tr>
                     <tr>
-                        <td><%= checkMarks(props.getProperty("femaleOther2c", "")) %>
+                        <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleOther2c", "")) %>
                         </td>
-                        <td><%= props.getProperty("femaleOther2", "") %>
+                        <td><%= SafeEncode.forHtml(props.getProperty("femaleOther2", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -522,27 +523,27 @@
         </tr>
         <tr>
             <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgVitals'/>: </b></td>
-            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= props.getProperty("bprTop", "") %>/
-                <%= props.getProperty("bprBottom", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgR'/></td>
+            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= SafeEncode.forHtml(props.getProperty("bprTop", "")) %>/
+                <%= SafeEncode.forHtml(props.getProperty("bprBottom", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgR'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgPulse'/>:
             </td>
-            <td><%= props.getProperty("pulse", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgPulseUnit'/></td>
+            <td><%= SafeEncode.forHtml(props.getProperty("pulse", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgPulseUnit'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgHeight'/>:
             </td>
-            <td><%= props.getProperty("height", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgHeightUnit'/></td>
-            <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgWeight'/>: <%= props.getProperty("weight", "") %>
+            <td><%= SafeEncode.forHtml(props.getProperty("height", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgHeightUnit'/></td>
+            <td style="text-align: right;"><fmt:message key='encounter.formFemaleAnnualPrint.msgWeight'/>: <%= SafeEncode.forHtml(props.getProperty("weight", "")) %>
                 <fmt:message key='encounter.formFemaleAnnualPrint.msgWeightUnit'/></td>
         <tr>
             <td>&nbsp;</td>
-            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= props.getProperty("bplTop", "") %>/
-                <%= props.getProperty("bplBottom", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgL'/></td>
+            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= SafeEncode.forHtml(props.getProperty("bplTop", "")) %>/
+                <%= SafeEncode.forHtml(props.getProperty("bplBottom", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgL'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgRhythm'/>:
             </td>
-            <td><%= props.getProperty("rhythm", "") %>
+            <td><%= SafeEncode.forHtml(props.getProperty("rhythm", "")) %>
             </td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgUrineDipstick'/>:
             </td>
-            <td><%= props.getProperty("urine", "") %>
+            <td><%= SafeEncode.forHtml(props.getProperty("urine", "")) %>
             </td>
         </tr>
     </table>
@@ -554,7 +555,7 @@
                         <td><b> <fmt:message key='encounter.formFemaleAnnualPrint.msgPhysicalSigns'/>: </b></td>
                     </tr>
                     <tr>
-                        <td class="physicalSigns"><%= props.getProperty("physicalSigns", "") %>
+                        <td class="physicalSigns"><%= SafeEncode.forHtml(props.getProperty("physicalSigns", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -569,7 +570,7 @@
                         <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAssessment'/></b></td>
                     </tr>
                     <tr>
-                        <td align="center" class="assessmentPlan"><%= props.getProperty("assessment", "") %>
+                        <td style="text-align: center;" class="assessmentPlan"><%= SafeEncode.forHtml(props.getProperty("assessment", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -580,14 +581,14 @@
                         <td align="center"><b><fmt:message key='encounter.formFemaleAnnualPrint.msgPlan'/></b></td>
                     </tr>
                     <tr>
-                        <td align="center" class="assessmentPlan"><%= props.getProperty("plan", "") %>
+                        <td style="text-align: center;" class="assessmentPlan"><%= SafeEncode.forHtml(props.getProperty("plan", "")) %>
                         </td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td colspan="2" align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgSignature'/>: <%= props.getProperty("signature", "") %>
+            <td colspan="2" style="text-align: right;"><fmt:message key='encounter.formFemaleAnnualPrint.msgSignature'/>: <%= SafeEncode.forHtml(props.getProperty("signature", "")) %>
             </td>
         </tr>
     </table>
@@ -607,10 +608,16 @@
     </body>
 </html>
 
-<%! String checkMarks(String val) {
-    String ret = "<img src='graphics/notChecked.gif'>";
+<%!
+/*
+ * A JSP declaration cannot see the implicit request, so the context path is
+ * passed in. The images live under /form/graphics; a bare relative path here
+ * resolved against this page's <base>, which is the context root, and 404ed.
+ */
+String checkMarks(String contextPath, String val) {
+    String ret = "<img src='" + contextPath + "/form/graphics/notChecked.gif'>";
     if (val.equalsIgnoreCase("checked='checked'")) {
-        ret = "<img src='graphics/checkmark.gif'>";
+        ret = "<img src='" + contextPath + "/form/graphics/checkmark.gif'>";
     }
     return ret;
 }

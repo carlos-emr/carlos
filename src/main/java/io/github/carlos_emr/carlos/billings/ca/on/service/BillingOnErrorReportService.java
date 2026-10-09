@@ -23,12 +23,16 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -68,6 +72,31 @@ public class BillingOnErrorReportService {
         return retval;
     }
 
+    /**
+     * Reads the stored fee in whichever form the row carries. OSCAR 19 stored the
+     * claims error report's fee field verbatim: the six-digit implied-cents value
+     * of the T record ({@code 003370} for $33.70), and rows imported from an
+     * OSCAR 19 database still hold that form. CARLOS persists the amount in dollars
+     * ({@code 33.70}), never as bare digits, so a digit-only value is unambiguous.
+     * Both must render as the same money on the rejected-claims page.
+     */
+    static void applyStoredFee(BillingErrorReportDto obj, String stored) {
+        String value = stored == null ? "" : stored.trim();
+        try {
+            if (value.matches("[0-9]{1,6}")) {
+                obj.setFeeStoredCents(value);
+            } else {
+                obj.setFee(stored);
+            }
+        } catch (BillingValidationException unreadable) {
+            // Leave the fee unset so the row renders as "N/A" (as OSCAR 19 did)
+            // instead of one garbage legacy value hiding the whole page.
+            MiscUtils.getLogger().warn("Rejected-claim fee unreadable for billingNo={}",
+                    LogSafe.sanitize(obj.getBilling_no()));
+            obj.setFeeMoney(null);
+        }
+    }
+
     private void toReportData(List<BillingErrorReportDto> retval, BillingONEAReport r) {
         BillingErrorReportDto obj = null;
         obj = new BillingErrorReportDto();
@@ -85,7 +114,7 @@ public class BillingOnErrorReportService {
         obj.setAdmitted_date(ConversionUtils.toDateString(r.getAdmittedDate()));
         obj.setClaim_error(r.getClaimError());
         obj.setCode(r.getCode());
-        obj.setFee(r.getFee());
+        applyStoredFee(obj, r.getFee());
         obj.setUnit(r.getUnit());
         obj.setCode_date(ConversionUtils.toDateString(r.getCodeDate()));
         obj.setDx(r.getDx());
@@ -113,7 +142,12 @@ public class BillingOnErrorReportService {
 
     /** Delete every imported row that belongs to the provider/process-date/billing tuple carried by the DTO. */
     public boolean deleteErrorReport(BillingErrorReportDto val) {
-        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date()), Integer.parseInt(val.getBilling_no()));
+        // Imports carry yyyyMMdd; DTOs returned to report screens carry yyyy-MM-dd.
+        String processDate = val.getProcess_date();
+        Date parsedProcessDate = processDate != null && processDate.length() == 8
+                ? ConversionUtils.fromDateString(processDate, "yyyyMMdd")
+                : ConversionUtils.fromDateString(processDate);
+        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), parsedProcessDate, Integer.parseInt(val.getBilling_no()));
         for (BillingONEAReport b : bs) {
             billingONEARReportDao.remove(b.getId());
         }
@@ -129,7 +163,7 @@ public class BillingOnErrorReportService {
         b.setProcessDate(ConversionUtils.fromDateString(val.getProcess_date(), "yyyyMMdd"));
         b.setHin(val.getHin());
         b.setVersion(val.getVer());
-        b.setDob(ConversionUtils.fromDateString(val.getDob()));
+        b.setDob(ConversionUtils.fromDateString(val.getDob(), "yyyyMMdd"));
         b.setBillingNo(Integer.parseInt(val.getBilling_no()));
         b.setRefNo(val.getRef_no());
         b.setFacility(val.getFacility());

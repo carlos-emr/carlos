@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.email.core;
 
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.any;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +40,11 @@ public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {
         when(passwords.generatePassphrase()).thenReturn("velvet-orbit-123-cabin-river-456");
         registerMock(EmailPdfPasswordService.class, passwords);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
+        // Develop's send path re-reads each attachment's owner (release #4425); these tests are
+        // about other behaviour, so ownership always holds.
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
+        registerMock(AttachmentOwnershipService.class, ownership);
     }
 
     @AfterEach

@@ -35,20 +35,16 @@
  *      reload - does not leak tickler A's stale note/revision/noteId into
  *      tickler B's (still noteless) dialog.
  *
- * ticklerDemoMain.jsp (the schedule-view popup the fix's PR description
- * calls out as previously missing the pre-open reset) is NOT used as the
- * driver page here: as of this writing it throws an unrelated, pre-existing
- * org.hibernate.LazyInitializationException on the lazy Tickler.comments
- * collection (ticklerDemoMain.jsp line ~978, untouched by the note-dialog
- * fix) whenever a demographic has any tickler, producing a generic
- * "CARLOS Error: 0" page instead of the tickler list - the same reason
- * tickler-crud-playwright-checks.js's openDemoTicklerList() targets
- * ViewTicklerMain instead of ViewTicklerDemoMain despite its name. Both
- * pages share the same resetTicklerNoteFields()/applyTicklerNoteFields()
- * functions from js/ticklerNoteDialog.js, so exercising them through
- * ticklerMain.jsp still covers the shared logic this fix introduced; it
- * just cannot exercise ticklerDemoMain.jsp's own reset-call wiring
- * specifically until that unrelated Hibernate session issue is fixed.
+ * The dialog is exercised through ViewTicklerMain. The separate tickler-demo-main
+ * check covers the patient tickler page; both use the shared note dialog helpers.
+ * Cleanup is limited to this run's stamped ticklers, notes and their links.
+ *
+ * Note links are found by tickler_no alone, and the demo dataset carries tickler
+ * note links whose ticklers it does not ship (#4409). A fresh tickler that reuses
+ * such a tickler_no opens with that stale note, so this check skips any created
+ * tickler with a link older than the run and creates another one. The skipped
+ * ticklers are still this run's and are removed; the inherited links are left as
+ * found.
  *
  * Defaults are for the local devcontainer:
  *   npm run test:tickler-note-dialog-playwright
@@ -66,10 +62,16 @@
  */
 
 const { chromium } = require('playwright');
+const {
+  cleanupTicklerFixture,
+  createTicklerWithoutInheritedNoteLink,
+  readNoteLinkFloor,
+} = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -83,19 +85,17 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_NOTE_${Date.now()}`;
-const messageA = `${stamp}_A note round-trip check`;
-const messageB = `${stamp}_B stale-data leak check`;
+// Upper bound on fixture ticklers skipped for inherited note links. The demo data has
+// links on three ticklers it does not ship, so a handful of attempts is always enough.
+const MAX_FIXTURE_ATTEMPTS = 10;
 const firstNoteText = `${stamp} first note text`;
 const secondNoteText = `${stamp} second note text (edited)`;
-
-// casemgmt_note_link.table_name value identifying a tickler-linked note (see
-// CaseManagementNoteLink.TICKLER in the Java model).
-const NOTE_LINK_TABLE_TICKLER = 10;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
-let createdTicklerIds = [];
+// Set before the first tickler is created; until then the run owns no rows to clean.
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -108,7 +108,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -181,36 +185,10 @@ function assert(condition, message) {
 }
 
 function cleanupTicklerRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
-}
-
-function purgeDanglingTicklerNoteLinks() {
-  // Filtered demo snapshots (and any hand-pruned dev database) can carry
-  // casemgmt_note_link rows whose TICKLER table_id no longer exists in the
-  // tickler table. Ticklers created by this test then REUSE those
-  // auto-increment ids and "inherit" the orphaned notes, which reads exactly
-  // like the stale-data leak this script exists to detect. Those links are
-  // unreachable garbage (their tickler is gone; the app only soft-deletes
-  // ticklers, so this state never arises from the UI) - purge them so the
-  // fresh-tickler-has-a-blank-dialog premise holds. Links of existing
-  // ticklers are untouched.
-  sql(`DELETE FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id NOT IN (SELECT tickler_no FROM tickler)`);
-}
-
-function cleanupNoteRows() {
-  if (createdTicklerIds.length === 0) {
+  if (linkIdFloor === null) {
     return;
   }
-  const ids = createdTicklerIds.map((id) => Number(id)).join(',');
-  const noteIdSubquery = `SELECT note_id FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id IN (${ids})`;
-  // ticklerSaveNote() also links every saved note to the system "TicklerNote"
-  // issue via casemgmt_issue_notes, which FKs to casemgmt_note.note_id and
-  // must be cleared first.
-  sql(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${noteIdSubquery})`);
-  sql(`DELETE FROM casemgmt_note WHERE note_id IN (${noteIdSubquery})`);
-  sql(`DELETE FROM casemgmt_note_link WHERE table_name = ${NOTE_LINK_TABLE_TICKLER} AND table_id IN (${ids})`);
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, noteTexts: [firstNoteText, secondNoteText], linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -300,6 +278,25 @@ async function createTickler(context, message) {
   return row.id;
 }
 
+/**
+ * Create a tickler whose tickler_no carries no note link from before this run, so its
+ * note dialog must open blank. Each attempt gets its own message (A1, A2, ...): the
+ * list filter matches substrings, and a skipped tickler must never match the one
+ * under test.
+ */
+function createNotelessTickler(context, label, purpose) {
+  return createTicklerWithoutInheritedNoteLink({
+    sql,
+    linkIdFloor,
+    maxAttempts: MAX_FIXTURE_ATTEMPTS,
+    log: (text) => console.log(`SKIP fixture ${label}: ${text}`),
+    create: async (attempt) => {
+      const message = `${stamp}_${label}${attempt} ${purpose}`;
+      return { id: await createTickler(context, message), message };
+    },
+  });
+}
+
 async function openTicklerList(page) {
   await gotoApp(page, '/tickler/ViewTicklerMain', 'domcontentloaded', { demoview: demographicNo, ticklerview: 'A' });
   await waitForTicklerListReady(page);
@@ -378,13 +375,24 @@ async function closeDialogIfOpen(page) {
   }
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupTicklerRows();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
-  cleanupTicklerRows();
-  purgeDanglingTicklerNoteLinks();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -398,9 +406,8 @@ async function closeDialogIfOpen(page) {
     await login(loginPage);
     await loginPage.close().catch(() => {});
 
-    const ticklerAId = await createTickler(context, messageA);
-    const ticklerBId = await createTickler(context, messageB);
-    createdTicklerIds = [ticklerAId, ticklerBId];
+    const { id: ticklerAId, message: messageA } = await createNotelessTickler(context, 'A', 'note round-trip check');
+    const { id: ticklerBId, message: messageB } = await createNotelessTickler(context, 'B', 'stale-data leak check');
 
     const page = await context.newPage();
     wirePage(page, 'tickler-main');
@@ -459,11 +466,13 @@ async function closeDialogIfOpen(page) {
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
-    cleanupNoteRows();
     cleanupTicklerRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
+  signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler note dialog checks: ${error.stack || error.message}`);
   process.exit(1);

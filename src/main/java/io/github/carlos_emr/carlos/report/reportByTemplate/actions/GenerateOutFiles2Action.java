@@ -51,6 +51,8 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
+import java.util.regex.Pattern;
 import java.util.List;
 
 /**
@@ -62,6 +64,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
+    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?");
     private final SecurityInfoManager securityInfoManager;
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -141,14 +144,12 @@ public class GenerateOutFiles2Action extends ActionSupport {
             try (HSSFWorkbook wb = new HSSFWorkbook()) {
                 HSSFSheet sheet = wb.createSheet("OSCAR_Report");
                 for (int x = 0; x < data.length; x++) {
-                    HSSFRow row = sheet.createRow((short) x);
+                    HSSFRow row = sheet.createRow(x);
                     for (int y = 0; y < data[x].length; y++) {
-                        try {
-                            double d = Double.parseDouble(data[x][y]);
-                            row.createCell((short) y).setCellValue(d);
-                        } catch (Exception e) {
-                            row.createCell((short) y).setCellValue(data[x][y]);
-                        }
+                        var cell = row.createCell(y);
+                        Double numeric = x == 0 ? null : exactSpreadsheetNumber(data[x][y]);
+                        if (numeric == null) cell.setCellValue(data[x][y]);
+                        else cell.setCellValue(numeric);
                     }
                 }
                 wb.write(response.getOutputStream());
@@ -159,6 +160,20 @@ public class GenerateOutFiles2Action extends ActionSupport {
             return NONE;
         }
         return SUCCESS;
+    }
+
+    /**
+     * Keeps ordinary report numbers usable in calculations, while preserving ambiguous
+     * identifiers and values beyond Excel's 15-digit precision as text. CSV has no type
+     * metadata, so only canonical decimal notation is eligible for numeric conversion.
+     */
+    private static Double exactSpreadsheetNumber(String value) {
+        // At most 15 digits plus a sign and decimal separator; bound parsing work too.
+        if (value.length() > 17 || !CANONICAL_DECIMAL.matcher(value).matches()) return null;
+        BigDecimal decimal = new BigDecimal(value);
+        if (decimal.precision() > 15 || (decimal.signum() == 0 && value.startsWith("-"))) return null;
+        double number = decimal.doubleValue();
+        return Double.isFinite(number) && BigDecimal.valueOf(number).compareTo(decimal) == 0 ? number : null;
     }
 
     /**

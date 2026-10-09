@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.security.MfaActions2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
 
 
 <%!
@@ -71,7 +72,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/checkPassword.js.jsp"></script>
         <title><fmt:message key="admin.securityupdatesecurity.title"/></title>
-        <link rel="stylesheet" type="text/css" href="bcArStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/bcArStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -108,6 +109,17 @@
                 }
                 if (document.updatearecord.password.value == "") {
                     alert('<fmt:message key="admin.securityrecord.formPassword"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    setfocus('password');
+                    return false;
+                }
+                // Keep the full entered value; report the limit instead of silently truncating it.
+                if (document.updatearecord.password.value.length > <%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>) {
+                    alert('<fmt:message key="admin.securityupdate.msgPasswordTooLong"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message>');
+                    setfocus('password');
+                    return false;
+                }
+                if (new TextEncoder().encode(document.updatearecord.password.value).length > <%=SecurityUpdatePasswordValidator.MAX_PASSWORD_BYTES%>) {
+                    alert('<fmt:message key="admin.securityupdate.msgPasswordEncodingTooLong"/>');
                     setfocus('password');
                     return false;
                 }
@@ -254,16 +266,17 @@
                                value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formPassword"/>:
+                    <td align="right" nowrap><label for="password"><fmt:message key="admin.securityrecord.formPassword"/>:</label>
                     </td>
-                    <td><input type="password" name="password" value="*********" maxlength="15"> <font
-                            size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
-                        <%=op.getProperty("password_min_length")%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</font></td>
+                    <td><input type="password" id="password" name="password" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"> <span
+                            style="font-size: x-small">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                        <%=org.owasp.encoder.Encode.forHtml(op.getProperty("password_min_length"))%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</span>
+                        <div id="passwordLengthHelp"><fmt:message key="admin.securityupdate.msgMaximumCharacters"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></div></td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
+                    <td align="right"><label for="conPassword"><fmt:message key="admin.securityrecord.formConfirm"/>:</label>
                     </td>
-                    <td><input type="password" name="conPassword" value="*********" maxlength="15"></td>
+                    <td><input type="password" id="conPassword" name="conPassword" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"></td>
                 </tr>
                 <tr>
                     <td>

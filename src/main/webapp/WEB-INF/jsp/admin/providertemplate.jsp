@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
@@ -92,6 +93,10 @@
                 <!--Body content-->
 
                 <h3><fmt:message key="admin.providertemplate.msgTitle"/></h3>
+
+                <c:if test="${not empty requestScope.resultMsg}">
+                    <p id="template-result" role="status"><c:out value="${requestScope.resultMsg}"/></p>
+                </c:if>
 
                 <div class="card card-body bg-body-tertiary">
                     <form name="edittemplate" method="post" action="${pageContext.request.contextPath}/admin/ProviderTemplate" class="d-flex flex-wrap align-items-center gap-2">

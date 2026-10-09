@@ -58,12 +58,32 @@ retirement semantics, and failure investigation.
 their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
 are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
 
-`V1.0.32__add_sms_consent.sql` seeds the dedicated `sms_communication_consent` consent type and the
-`sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
-columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
-type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
-configured until it is activated, and then for each patient until their consent is recorded.
-See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
+`V1.0.32__add_nrtf_tuning_fork_measurement_type.sql` seeds the NRTF measurement type
+("Neurological exam: 128Hz tuning fork D1") used by the diabetes flowsheets for OntarioMD
+DE16.066; the insert is existence-guarded because `measurementType.type` is not unique.
+`V1.0.33__aacp_provided_revised_reviewed_validation.sql` moves the Asthma Action Plan (AACP)
+measurement type from Yes/No/NA to a Provided/Revised/Reviewed validation (OntarioMD DE16.098).
+`V1.0.42__tickler_docs.sql` creates `ticklerdocs`, the multi-attachment tickler store behind the
+shared attachment picker (#3984), with the standard `lastUpdateUser` / `lastUpdateDate` audit pair,
+and backfills it idempotently from `tickler_link` (creator and creation date preserved, lab source
+kept in `lab_type`); `tickler_link` stays read-only for one release.
+
+`V1.0.43__consultation_eform_lab_sources.sql` preserves the lab source in consultation request,
+response and eForm attachments (#4024). It backfills only sources uniquely routed to the parent
+patient; ambiguous legacy rows remain unresolved and require confirmation before printing.
+These unpublished migrations were renumbered from V1.0.37/V1.0.38 after the release reached
+V1.0.41. Apply V1.0.42 and then V1.0.43 with normal Flyway ordering; no `outOfOrder` is needed.
+
+`V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
+entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
+clinic name.
+`V1.0.52__enforce_provider_signature_identity.sql` repairs exact duplicate provider
+signature rows for assigned providers and enforces the mapped provider identity.
+Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures,
+provider numbers that differ in bytes but compare equal under the column collation, a
+`providerExt` with columns beyond `provider_no` and `signature`, and a site index already named
+`providerExt_provider_no_uq` that is not the provider identity all fail before source changes.
+See the parent README for preparation and recovery instructions.
 
 `V1.0.57__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
 consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires
@@ -76,37 +96,95 @@ because deleted rows legitimately repeat and MariaDB has no partial index.
 It was merged as `V1.0.33` (#3917) and then renumbered to `V1.0.57`, above the highest version on
 both develop and `release/2026.08`: a lower number never runs on an already-migrated database.
 
-`V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
-used by the patient portal client and grants them to `admin` only.
-Versions up to `V1.0.53` are not free: `release/2026.08` holds them and they arrive with that
-forward-merge.
-
-`V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
-(state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
-password.
-
-`V1.0.43__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
+`V1.0.58__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
 attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
-sequence got. It never stores the invitation code.
+sequence got. It never stores the invitation code. It was merged as `V1.0.43` (#3856) and then
+renumbered to `V1.0.58` (#4440), above the highest version on both develop and `release/2026.08`:
+that line has its own, different `V1.0.43`, and a lower number never runs on an already-migrated
+database. It runs before `V1.0.63`, which seeds the `_portal.*` objects; that is harmless, because
+`secObjPrivilege` has no foreign key, the new table has none to `emailLog`, and `V1.0.63` is all
+`INSERT IGNORE`.
 
 `V1.0.59__add_sms_config.sql` adds `sms_config`, the settings saved from Administration > SMS
 (provider, sending and scheduler switches, sender number, and the encrypted webhook secret and
 provider credentials). It seeds no row, so the `sms.*` properties keep applying until an
 administrator saves the page. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#configuration-and-validation).
-It took `V1.0.59`, above develop, `release/2026.08` and #4440's `V1.0.58`; its number is checked
-again at merge time.
 
-`V1.0.54__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
+`V1.0.62__add_sms_consent.sql` (merged as `V1.0.32`) seeds the dedicated `sms_communication_consent` consent type and the
+`sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
+columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
+type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
+configured until it is activated, and then for each patient until their consent is recorded.
+See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
+
+`V1.0.63__patient_portal_security_objects.sql` (merged as `V1.0.41`) seeds the `_portal.*` security
+objects used by the patient portal client. It grants all of them to `admin`, and read-only
+`_portal.account` and full `_portal.secret` to the doctor, locum, psychiatrist and nursing roles.
+
+`V1.0.64__portal_email_delivery.sql` (merged as `V1.0.42`) adds the portal password lifecycle columns
+to `emailLog` (state, opaque source reference, secret ID, original portal origin and clinic). It
+never stores a password.
+
+`V1.0.65__activate_sms_consent.sql` (merged as `V1.0.54`) replaces the seeded draft description of the SMS consent type
 with its approved wording (#3848) and, in the same statement, switches the type on where the
 `sms_communication` property still points at it. A clinic's own wording is left alone, and a clinic
-that turned SMS consent off by deleting, clearing or repointing that property keeps it off. Its
-number is set when it merges: it must be above the highest version on both develop and
-`release/2026.08`.
+that turned SMS consent off by deleting, clearing or repointing that property keeps it off.
+
+`V1.0.62`–`V1.0.65` were merged as `V1.0.32`, `V1.0.41`, `V1.0.42` and `V1.0.54` and renumbered,
+in that order, at the 2026.08.0-alpha19 forward-merge, because `release/2026.08` had published
+different files under those numbers. See `../README.md`.
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.54`
-(also the highest shared one), `common/V1.0.43` (portal invite delivery) is in use, and
-`release/2026.08` holds versions up to `V1.0.53`, so the next free version for ANY location is
-`V1.0.55` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.65`
+(also the highest shared one), so the next free version for ANY location is `V1.0.66`; `V1.0.60` and
+`V1.0.61` are held by open draft pull requests that must renumber above it (see `../README.md`).
+Consult every active branch inventory before assigning a version. Never edit a published migration
+or silently enable out-of-order application during promotion.
+
+Messenger membership coordination (PR #3986, issue #3964) adds
+`common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
+in version order; if their merge order changes after a release, renumber the still-unreleased
+migration before shipping it. The coordination table contains no clinical data and does not
+rewrite legacy memberships. All application instances must run the serialized
+membership writer before relying on cross-instance duplicate prevention.
+
+## V1.0.39 — Automatic MRP routing provenance
+
+PR #4000 adds nullable `mrpDemographicNo` to `HRMDocumentToProvider` and
+`providerLabRouting`. Existing rows remain independent (`NULL`); new automatic MRP and
+forwarded access can then be revoked safely when a patient match is corrected or removed.
+The two `ADD COLUMN IF NOT EXISTS` statements can be retried after interrupted DDL.
+Deploy the migrations present in the release in version order. V1.0.39 has no dependency on
+the attachment migrations now numbered V1.0.42/V1.0.43. Its original SQL header describes the
+planned merge order; that comment is retained to preserve the migration checksum. The release
+ordering here supersedes it.
+
+## V1.0.45 — Consultation request list indexes
+
+Issue #3976 adds Consultant and Provider (MRP) filters to the Consultations list.
+`V1.0.45__consultation_request_indexes.sql` adds idempotent `CREATE INDEX IF NOT EXISTS`
+secondary indexes on `consultationRequests` for `(status, referalDate)`,
+`(status, appointmentDate)`, `(specId)` and `(serviceId)`; V1.0.3 already covers
+`(demographicNo)` and `(sendTo, status)`. Schema-only, no data change, online InnoDB index adds.
+
+## V1.0.40 — Complete lab labels
+
+Widen `hl7TextInfo.label` from `VARCHAR(255)` to nullable `TEXT`. PATHL7 panels and
+labels merged from earlier report versions can exceed 255 characters, rejecting the entire
+import under strict SQL mode. Existing labels (including empty and NULL values) are retained.
+The widening can be rerun safely. Apply before deploying the application; shared Ontario/BC
+schema paths both require it. Verify in a disposable database with
+`scripts/lab-label-migration-check.sql` from the repository root.
+
+## V1.0.41 — Rich Text Letter signature-stamp inputs on upgraded installs
+
+Adds the hidden `user_id`, `user_ohip_no` and `doctor_provider_no` inputs to the canonical Rich Text
+Letter's `form_html`, which `editControl2.js` reads to stamp a letter with the signer's
+`consult_sig_<provider_no>.png`. The same edit ships as
+`updates/update-2026-09-20-rtl-provider-stamp-fields.sql`, but that script is only replayed by the
+demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, so a letter seeded by
+an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
+`scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
+already-patched rows, and can be rerun safely.

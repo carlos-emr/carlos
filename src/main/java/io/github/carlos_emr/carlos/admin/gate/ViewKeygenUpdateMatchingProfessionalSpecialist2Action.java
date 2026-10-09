@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,6 +42,13 @@ public final class ViewKeygenUpdateMatchingProfessionalSpecialist2Action extends
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return NONE;
         }
 
         return SUCCESS;

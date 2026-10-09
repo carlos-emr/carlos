@@ -124,14 +124,17 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Database
 
-- [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
-      columns on `emailLog`), `V1.0.43` (invitation delivery table and default grant) and
-      `develop`'s `V1.0.54` (approved SMS consent wording), the highest version.
-- [ ] The staging database is treated as disposable. It is at `V1.0.54` without the migrations
-      `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
-      cannot be upgraded once those migrations reach `develop`: rebuild it instead. Rebuild it too
-      if it ran this branch's `V1.0.43` before 5 Oct 2026 (an `INT` `email_log_id` and an extra
-      doctor grant): that file's checksum has changed, so Flyway validation refuses it.
+- [ ] Flyway applied `V1.0.57` (one live consent per type), `V1.0.58` (invitation delivery
+      table and default grant), `V1.0.63` (portal security objects), `V1.0.64` (portal email
+      delivery columns on `emailLog`) and `V1.0.65` (approved SMS consent wording), the highest
+      version.
+- [ ] The staging database is treated as disposable. A database migrated before the
+      2026.08.0-alpha19 forward-merge lacks the migrations `release/2026.08` holds below its
+      high-water mark, and CARLOS runs Flyway without `outOfOrder`, so it cannot be upgraded:
+      rebuild it instead. The same applies if it ran the portal and SMS migrations under their old
+      numbers (`V1.0.41`, `V1.0.42`, `V1.0.43` and `V1.0.54`, now `V1.0.63`, `V1.0.64`, `V1.0.58`
+      and `V1.0.65`): Flyway validation then reports applied versions that no longer exist. A copy run before 5 Oct 2026 also differs (an `INT` `email_log_id` and an extra doctor
+      grant).
 
 ### Email
 
@@ -145,8 +148,8 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
-`V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
+`V1.0.58` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
+`V1.0.63`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
 `_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.

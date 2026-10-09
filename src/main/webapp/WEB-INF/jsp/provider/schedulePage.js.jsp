@@ -601,7 +601,7 @@ var warningText = document.createElement("span");
 warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
 var changePasswordLink = document.createElement("a");
 changePasswordLink.className = "btn btn-sm btn-warning";
-changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
+changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewProviderChangePassword";
 changePasswordLink.textContent = '${carlos:forJavaScript(changePasswordLabel)}';
 warning.appendChild(warningText);
 warning.appendChild(changePasswordLink);

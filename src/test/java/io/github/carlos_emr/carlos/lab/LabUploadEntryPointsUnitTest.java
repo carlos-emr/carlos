@@ -1,0 +1,434 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.lab;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
+import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action;
+import io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt.Outcome;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.PublicKey;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+/** Checks rejection and routing rollback at the signed-feed and manual-form entry points.
+ * @since 2026-09-25
+ */
+@Tag("unit")
+@Tag("lab")
+class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
+    @TempDir Path root;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private FileUploadCheckDao dao;
+    private MessageHandler handler;
+    private RecordingTransactionManager transactions;
+    private String signedFeedResult;
+
+    @BeforeEach
+    void setUpUpload() {
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+        LoggedInInfo info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_lab"), eq("w"), isNull())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, security);
+        transactions = new RecordingTransactionManager();
+        registerMock(PlatformTransactionManager.class, transactions);
+        dao = mock(FileUploadCheckDao.class);
+        doAnswer(invocation -> {
+            invocation.<io.github.carlos_emr.carlos.commn.model.FileUploadCheck>getArgument(0).setId(1);
+            return null;
+        }).when(dao).persist(any());
+        registerMock(FileUploadCheckDao.class, dao);
+        handler = mock(MessageHandler.class);
+    }
+
+    @Test
+    void shouldRollBackAndReportFailure_whenSignedFeedParserRejects() throws Exception {
+        Path saved = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("outcome")).isEqualTo("upload failed");
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(saved).doesNotExist();
+    }
+
+    @Test
+    void shouldReportServerFailureInsteadOfDuplicate_whenSignedFeedLookupFails() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("synthetic failure"));
+        Path saved = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("outcome")).isEqualTo("exception");
+        verifyNoInteractions(handler);
+        assertThat(saved).doesNotExist();
+    }
+
+    @Test
+    void shouldReportConflictWithoutParsing_whenSignedFeedIsDuplicate() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
+        Path saved = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(handler);
+        // The duplicate's decrypted copy is not left in DOCUMENT_DIR.
+        assertThat(saved).doesNotExist();
+    }
+
+    @Test
+    void shouldAcceptRetry_whenFirstSignedFeedUploadFailedReadingTheLab() throws Exception {
+        // #4086: the first attempt fails after its checksum was recorded (e.g. DOCUMENT_DIR briefly
+        // unavailable). The checksum must roll back so the sender's retry is stored, not answered 409.
+        java.util.Set<String> committed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        java.util.Set<String> pending = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        doAnswer(invocation -> {
+            io.github.carlos_emr.carlos.commn.model.FileUploadCheck row = invocation.getArgument(0);
+            row.setId(1);
+            pending.add(row.getMd5sum());
+            return null;
+        }).when(dao).persist(any());
+        when(dao.findByMd5Sum(anyString())).thenAnswer(invocation ->
+                committed.contains(invocation.<String>getArgument(0))
+                        ? List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()) : List.of());
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString()))
+                .thenThrow(new IllegalStateException("document folder unavailable"))
+                .thenAnswer(invocation -> {
+                    committed.addAll(pending);
+                    return "synthetic audit";
+                });
+
+        Path first = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(first).doesNotExist();
+
+        response = new MockHttpServletResponse();
+        pending.clear();
+        Path retry = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
+        assertThat(retry).exists();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isEqualTo(1);
+    }
+
+    @Test
+    void shouldKeepSavedFile_whenSignedFeedIsStored() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of());
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("synthetic audit");
+        Path saved = runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("audit")).isEqualTo("synthetic audit");
+        assertThat(saved).exists();
+        // Not sendError(200): errorpage.jsp turns any status below 400 into 500, so a delivered
+        // lab would reach the sender as a failure. The result view renders the outcome instead.
+        assertThat(response.getErrorMessage()).isNull();
+        assertThat(signedFeedResult).isEqualTo("success");
+    }
+
+    @Test
+    void shouldAnswerErrorsThroughSendError_whenSignedFeedUsesHttpResponseCodes() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
+        runSignedFeed(true);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getErrorMessage()).isEqualTo("uploaded previously");
+        assertThat(signedFeedResult).isNull();
+    }
+
+    @Test
+    void shouldRemoveDecryptedCopy_whenSignedFeedSignatureFails() throws Exception {
+        Path saved = runSignedFeed(false);
+        assertThat(response.getStatus()).isEqualTo(406);
+        verifyNoInteractions(handler, dao);
+        assertThat(saved).doesNotExist();
+    }
+
+    @Test
+    void shouldRollBackManualSubmission_whenParserReturnsNoLabNumber() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
+    }
+
+    @Test
+    void shouldRollBackManualSubmission_whenProviderRoutingFails() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(true);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualTransactionCannotStart() throws Exception {
+        transactions.failBegin = true;
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualLookupFailsBeforeParsing() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("synthetic lookup failure"));
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualCommitIsRolledBack() throws Exception {
+        transactions.rollBackOnCommit = true;
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "manage", true);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportStoredLab_whenAfterCommitCallbackFails() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    throw new IllegalStateException("synthetic completion failure");
+                }
+            });
+            return "success";
+        });
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldRedirectManualSubmission_whenLabAndRoutingCommit() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none");
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(action.getActionMessages()).isEmpty();
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldKeepSessionIdOutOfRedirect_whenContainerSupportsUrlRewriting() throws Exception {
+        response = new MockHttpServletResponse() {
+            @Override
+            public String encodeRedirectURL(String url) {
+                return url.replace("?", ";jsessionid=SYNTHETIC-SESSION?");
+            }
+        };
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        runManualForm(false, "none");
+        assertThat(response.getHeader("Location")).doesNotContain("jsessionid", "SYNTHETIC-SESSION");
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldRedirectWithDuplicateNotice_whenManualFileIsAlreadyRecorded() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(
+                List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
+        SubmitLabByForm2Action action = runManualForm(false, "none", false);
+        verifyNoInteractions(handler);
+        verify(dao, never()).persist(any());
+        assertThat(action.getActionMessages()).isEmpty();
+        assertManualRedirect(Outcome.ALREADY_RECORDED);
+    }
+
+    @Test
+    void shouldRedirectWithUncertainty_whenManualCommitAcknowledgementFails() throws Exception {
+        transactions.failCommit = true;
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.UNKNOWN);
+    }
+
+    @Test
+    void shouldAllowRetry_whenPreviousManualParseWasRejected() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn(null, "success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action rejected = runManualForm(false);
+        assertThat(rejected.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        response.reset();
+        SubmitLabByForm2Action retried = runManualForm(false, "none");
+        assertThat(retried.getActionErrors()).isEmpty();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isEqualTo(1);
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    private void assertManualRedirect(Outcome outcome) {
+        assertThat(response.getStatus()).isEqualTo(303);
+        String location = response.getHeader("Location");
+        assertThat(location).startsWith("/carlos/oscarMDS/ViewCreateLab?submission=");
+        String receipt = java.net.URI.create(location).getQuery().substring("submission=".length());
+        assertThat(ManualLabSubmissionReceipt
+                .consume(request.getSession(), receipt)).isEqualTo(outcome);
+    }
+
+    /** Runs the signed feed on a saved copy in {@code root} (standing in for DOCUMENT_DIR) and returns that copy. */
+    private Path runSignedFeed(boolean signatureValid) throws Exception {
+        Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
+        request.setParameter("service", "synthetic");
+        request.setParameter("key", "test");
+        request.setParameter("signature", "test");
+        request.setParameter("use_http_response_code", "true");
+        PublicKey key = mock(PublicKey.class);
+        try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class);
+                MockedStatic<Utilities> utilities = mockStatic(Utilities.class);
+                MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class);
+                MockedStatic<LabUpload2Action> feed = mockStatic(LabUpload2Action.class)) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            paths.when(() -> PathValidationUtils.validateUpload(any(File.class))).thenReturn(file.toFile());
+            InputStream encrypted = spy(new java.io.ByteArrayInputStream("SYNTHETIC".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile())).thenReturn(encrypted);
+            paths.when(() -> PathValidationUtils.validateExistingDocumentPath(file.toString())).thenReturn(file.toFile());
+            paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(root.toFile());
+            paths.when(() -> PathValidationUtils.validateExistingPath(file.toFile(), root.toFile())).thenReturn(file.toFile());
+            utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(file.toString());
+            handlers.when(() -> HandlerClassFactory.getHandler("CML")).thenReturn(handler);
+            feed.when(() -> LabUpload2Action.getClientInfo("synthetic")).thenReturn(new ArrayList<>(List.of(key, "CML")));
+            feed.when(() -> LabUpload2Action.decryptMessage(any(InputStream.class), eq("test"), eq(key)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+            feed.when(() -> LabUpload2Action.validateSignature(key, "test", file.toFile())).thenReturn(signatureValid);
+            LabUpload2Action action = new LabUpload2Action();
+            action.setImportFile(file.toFile());
+            signedFeedResult = action.execute();
+            paths.verify(() -> PathValidationUtils.openValidatedUploadInputStream(file.toFile()));
+            verify(encrypted, atLeastOnce()).close();
+        }
+        return file;
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {
+        return runManualForm(failRouting, "manage", failRouting);
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult) throws Exception {
+        return runManualForm(failRouting, expectedResult, true);
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult, boolean expectRouting)
+            throws Exception {
+        Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
+        request.setMethod("POST");
+        request.setContextPath("/carlos");
+        request.setParameter("labname", "CML");
+        request.setParameter("lab_req_date", "2026-09-25 12:00");
+        request.setParameter("dob", "2000-01-01");
+        request.setParameter("test_num", "0");
+        try (MockedStatic<ServletActionContext> context = mockStatic(ServletActionContext.class);
+                MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class);
+                MockedStatic<Utilities> utilities = mockStatic(Utilities.class);
+                MockedStatic<HandlerClassFactory> handlers = mockStatic(HandlerClassFactory.class);
+                MockedStatic<CMLLabHL7Generator> generator = mockStatic(CMLLabHL7Generator.class);
+                MockedConstruction<ProviderLabRouting> routers = mockConstruction(ProviderLabRouting.class, (router, ignored) -> {
+                    if (failRouting) doAnswer(invocation -> {
+                        assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                        throw new IllegalStateException("synthetic routing failure");
+                    }).when(router).routeMagic(anyInt(), anyString(), anyString());
+                })) {
+            context.when(ServletActionContext::getRequest).thenReturn(request);
+            context.when(ServletActionContext::getResponse).thenReturn(response);
+            CarlosProperties config = mock(CarlosProperties.class);
+            properties.when(CarlosProperties::getInstance).thenReturn(config);
+            when(config.getProperty("DOCUMENT_DIR")).thenReturn(root.toString());
+            paths.when(() -> PathValidationUtils.validateExistingPath(eq(file.toString()), any(File.class))).thenReturn(file.toFile());
+            utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(file.toString());
+            handlers.when(() -> HandlerClassFactory.getHandler("CML")).thenReturn(handler);
+            generator.when(() -> CMLLabHL7Generator.generate(any())).thenReturn("MSH|SYNTHETIC");
+            SubmitLabByForm2Action action = new SubmitLabByForm2Action() {
+                @Override public String getText(String key) { return key; }
+            };
+            assertThat(action.saveManage()).isEqualTo(expectedResult);
+            if ("manage".equals(expectedResult)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.getHeader("Location")).isNull();
+            }
+            if (expectRouting) {
+                assertThat(routers.constructed()).hasSize(1);
+                verify(routers.constructed().getFirst()).routeMagic(42, "999998", "HL7");
+            } else {
+                assertThat(routers.constructed()).isEmpty();
+            }
+            return action;
+        }
+    }
+}

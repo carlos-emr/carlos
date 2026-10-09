@@ -176,8 +176,10 @@ public class HRMResultsData {
             lbData.resultStatus = hrmReport.getResultStatus();
 
             String duplicateKey = hrmReport.getSendingFacilityId() + ':' + hrmReport.getSendingFacilityReportNo() + ':' + hrmReport.getDeliverToUserId();
-            String[] patientName = lbData.patientName.split(",");
-            if (lbData.healthNumber.contains(hinSearch) || patientName[0].contains(lastNameSearch) || patientName[1].contains(firstNameSearch)) {
+            String[] patientName = Objects.toString(lbData.patientName, "").split(",", 2);
+            String givenName = patientName.length > 1 ? patientName[1] : "";
+            if (Objects.toString(lbData.healthNumber, "").contains(hinSearch)
+                    || patientName[0].contains(lastNameSearch) || givenName.contains(firstNameSearch)) {
                 // if no duplicate
                 if (!labResults.containsKey(duplicateKey)) {
                     labResults.put(duplicateKey, lbData);

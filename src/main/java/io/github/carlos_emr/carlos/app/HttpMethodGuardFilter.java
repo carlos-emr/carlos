@@ -99,7 +99,10 @@ public class HttpMethodGuardFilter implements Filter {
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
-            "reprocessbill",          // BillingReProcessBill2Action
+            // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
+            // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action
+            // answers 405 to any non-POST request that carries a save parameter (billCheck or billingmasterNo),
+            // so a filter-level block would only break those links (#4343).
             // moveMOHFiles is dual-purpose: GET renders the file listing,
             // POST archives selected files. The action self-gates POST when
             // the `mohFile` mutation-intent parameter is present, so we don't
@@ -379,7 +382,7 @@ public class HttpMethodGuardFilter implements Filter {
         String uri = httpRequest.getRequestURI();
         if (uri.indexOf('\0') >= 0) {
             LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
-                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+                    LogSafe.sanitize(uri.replace('\0', '?')), LogSafe.sanitize(httpRequest.getRemoteAddr()));
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
             return;
         }

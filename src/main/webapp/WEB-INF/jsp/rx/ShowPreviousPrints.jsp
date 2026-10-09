@@ -35,6 +35,7 @@
 
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -57,13 +58,18 @@
     }
 %>
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty RxSessionBean}">
     <c:redirect url="error.html"/>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        RxSessionBean bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        RxSessionBean bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -75,7 +81,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Prescription Print History</title>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -83,7 +89,7 @@
 
     </head>
     <%
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
         String scriptNo = request.getParameter("scriptNo");
         //load prescription
         RxPrescriptionData.Prescription[] prescribedDrugs = patient.getPrescribedDrugScripts();
@@ -159,9 +165,9 @@
                                                     }
                                             %>
                                             <tr>
-                                                <td width="50%" valign="top" nowrap="nowrap"><carlos:encode value='<%= drp %>' context="html"/>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><carlos:encode value='<%= drp %>' context="html"/>
                                                 </td>
-                                                <td width="50%" valign="top" nowrap="nowrap"><carlos:encode value='<%= providerName %>' context="html"/>
+                                                <td style="width: 50%; vertical-align: top; white-space: nowrap;"><carlos:encode value='<%= providerName %>' context="html"/>
                                                 </td>
                                             </tr>
                                             <%

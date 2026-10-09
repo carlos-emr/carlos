@@ -145,7 +145,7 @@ public class PapReport implements PreventionReport {
                 bonusEl.add(Calendar.MONTH, -42);
                 Date bonusStartDate = bonusEl.getTime();
 
-                if (prevDate != null && !dateIsRefused && bonusStartDate.before(prevDate) && asofDate.after(prevDate)) {
+                if (prevDate != null && !dateIsRefused && bonusStartDate.before(prevDate) && !asofDate.before(prevDate)) {
                     prd.bonusStatus = "Y";
                     prd.billStatus = "Y";
                     done++;
@@ -243,7 +243,7 @@ public class PapReport implements PreventionReport {
                 log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
-            if (prevDate != null && prevDate.before(asOfDate)) {
+            if (prevDate != null && !prevDate.after(asOfDate)) {
                 noFutureItems.add(h);
             }
         }

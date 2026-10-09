@@ -30,16 +30,23 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   EFORM_TEST_PATTERN_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   EFORM_TEST_PATTERN_SCREENSHOT_DIR=/tmp
  *   EFORM_TEST_PATTERN_HTML=/path/to/test-pattern.html
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). The
+ * application's Delete only marks a saved instance and an imported template removed (status 0), so the check used to leave one
+ * template, two instances and 95 values behind, the instances on DEMO patient 1. After the UI cleanup it now deletes the instances
+ * and their values by the patient's key and the template by its unique name, and the patient, and asserts each gone.
  */
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNotErrorPage,
@@ -80,7 +87,8 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  demographicNo: process.env.EFORM_TEST_PATTERN_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.EFORM_TEST_PATTERN_SCREENSHOT_DIR || '/tmp',
   fixtureHtmlPath: process.env.EFORM_TEST_PATTERN_HTML || path.join(__dirname, 'fixtures/eform/test-pattern.html'),
 };
@@ -94,7 +102,6 @@ let bgImageName = defaultBgImageName;
 
 function validateConfig() {
   config.baseUrl = validateDestructiveTestBaseUrl(config.rawBaseUrl);
-  assert(/^\d+$/.test(config.demographicNo), `EFORM_TEST_PATTERN_DEMOGRAPHIC_NO must be numeric, got ${config.demographicNo}`);
   const resolvedFixture = path.resolve(config.fixtureHtmlPath); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local developer-only fixture path; existence is checked before upload
   assert(fs.existsSync(resolvedFixture), `Test pattern fixture does not exist: ${resolvedFixture}`);
   config.fixtureHtmlPath = resolvedFixture;
@@ -480,7 +487,6 @@ async function fillPattern(page, expected) {
   await page.locator('#test_pattern_only_one_alpha').click();
   await page.locator('#test_pattern_only_one_bravo').click();
   await page.locator('#test_pattern_button_element').click();
-  await page.locator('#subject').fill(expected.subject);
   await page.locator('#test_pattern_hidden_persisted').evaluate((element, value) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- value is generated inside this local regression test and passed as a Playwright argument, not interpolated into executable code
     element.value = value;
     element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -657,7 +663,8 @@ function formatDiagnostic(value) {
 
 function cleanupArtifactFiles(artifactPaths) {
   for (const artifactPath of artifactPaths) {
-    fs.rmSync(artifactPath, { force: true });
+    // screenshot() returns null when screenshots are disabled; there is no file to remove then.
+    if (artifactPath) fs.rmSync(artifactPath, { force: true });
   }
   artifactPaths.clear();
 }
@@ -862,9 +869,18 @@ async function cleanupUploadedImage(context, imageName) {
   let browser = null;
   const savedFdidsToCleanup = new Set();
   const artifactPaths = new Set();
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  let ownedPatient = null;
 
   try {
     validateConfig();
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
     runtimeFixture = createRuntimeFixture(bgImageName);
     config.fixtureHtmlPath = runtimeFixture.htmlPath;
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -965,7 +981,26 @@ async function cleanupUploadedImage(context, imageName) {
       fs.rmSync(runtimeFixture.tempDir, { recursive: true, force: true });
     }
     if (browser) {
-      await browser.close();
+      await browser.close().catch(() => {});
+    }
+    try {
+      // The imported template by its unique name, then the instances, their values and the patient by the patient's key.
+      // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
     }
     if (cleanupErrors.length) {
       for (const cleanupError of cleanupErrors) {

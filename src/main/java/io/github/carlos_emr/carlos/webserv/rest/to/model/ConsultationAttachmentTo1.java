@@ -40,6 +40,7 @@ public class ConsultationAttachmentTo1 implements Serializable {
 
     private int documentNo;
     private String documentType;
+    private String labType;
     private String documentTypeDisplay;
     private boolean attached;
     private String displayName;
@@ -67,6 +68,11 @@ public class ConsultationAttachmentTo1 implements Serializable {
     public void setDocumentNo(int documentNo) {
         this.documentNo = documentNo;
     }
+
+    /** Optional for legacy clients; required when a lab number exists in multiple sources. */
+    public String getLabType() { return labType; }
+
+    public void setLabType(String labType) { this.labType = labType; }
 
     public String getDocumentType() {
         return documentType;

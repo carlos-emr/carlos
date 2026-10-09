@@ -37,6 +37,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 
 public interface ScheduleDateDao extends AbstractDao<ScheduleDate> {
+    /** Returns the active day with highest priority (manual c before generated b/a), newest ID for ties. */
     ScheduleDate findByProviderNoAndDate(String providerNo, Date date);
 
     List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2);

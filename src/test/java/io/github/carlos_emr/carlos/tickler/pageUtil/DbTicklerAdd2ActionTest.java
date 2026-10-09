@@ -42,9 +42,15 @@ class DbTicklerAdd2ActionTest extends CarlosWebTestBase {
     @Mock
     private TicklerManager ticklerManager;
 
+    // Release's tickler attachments (#3984) are verified through this service; the test adds none.
+    @Mock
+    private io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService ticklerAttachmentService;
+
     @BeforeEach
     void setUpAction() {
         replaceSpringUtilsBean(TicklerManager.class, ticklerManager);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class,
+                ticklerAttachmentService);
         mockRequest.setContextPath("/carlos");
         mockRequest.setMethod("POST");
     }
@@ -62,6 +68,8 @@ class DbTicklerAdd2ActionTest extends CarlosWebTestBase {
         mockRequest.addParameter("user_no", "spoofed");
         mockRequest.addParameter("task_assigned_to", "999997");
         mockRequest.addParameter("ticklerMessage", "call back about the lab result");
+        // A service date is required since release #4047 (TicklerFormDate).
+        mockRequest.addParameter("xml_appointment_date", "2026-10-01");
 
         String result = new DbTicklerAdd2Action().execute();
 

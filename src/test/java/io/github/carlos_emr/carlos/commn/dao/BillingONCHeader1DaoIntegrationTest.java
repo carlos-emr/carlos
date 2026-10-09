@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -148,6 +150,31 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(item);
         entityManager.flush();
         return item;
+    }
+
+    @Test
+    @Tag("query")
+    void shouldIncludeUnpaidItems_whenServiceAndPaymentFiltersAreAbsent() {
+        BillingONCHeader1 first = createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+        BillingONItem firstItem = createAndPersistItem(first.getId(), "A007A", "250", today);
+        BillingONCHeader1 second = createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+        BillingONItem secondItem = createAndPersistItem(second.getId(), "K030A", "493", today);
+        // An unrelated provider's item must still be excluded.
+        BillingONCHeader1 other = createAndPersist(DEMO_NO, "999002", "B", today);
+        createAndPersistItem(other.getId(), "A007A", "250", today);
+        entityManager.clear();
+
+        List<Object[]> allItems = billingONCHeader1Dao.findByMagic2(List.of("HCP"), "B", PROVIDER_NO,
+                today, today, DEMO_NO, null, null, null, null, null, null);
+        assertThat(allItems).extracting(row -> ((BillingONItem) row[1]).getId())
+                .containsExactlyInAnyOrder(firstItem.getId(), secondItem.getId());
+        assertThat(allItems).allSatisfy(row ->
+                assertThat(((BillingONCHeader1) row[0]).getPaid()).isEqualByComparingTo(BigDecimal.ZERO));
+
+        List<Object[]> filtered = billingONCHeader1Dao.findByMagic2(List.of("HCP"), "B", PROVIDER_NO,
+                today, today, DEMO_NO, List.of("K030A"), null, null, null, null, null);
+        assertThat(filtered).extracting(row -> ((BillingONItem) row[1]).getId())
+                .containsExactly(secondItem.getId());
     }
 
     // ========================================================================
@@ -812,6 +839,60 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
     @DisplayName("findByProviderStatusAndDateRange")
     @Tag("search")
     class FindByProviderStatusAndDateRange {
+
+        @Test
+        void shouldIncludeBothBounds_whenSelectingClaimsForExport() {
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", lastWeek);
+            BillingONCHeader1 start = createAndPersist(DEMO_NO, PROVIDER_NO, "O", yesterday);
+            BillingONCHeader1 middle = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            BillingONCHeader1 end = createAndPersist(DEMO_NO, PROVIDER_NO, "O", nextWeek);
+            Calendar after = Calendar.getInstance();
+            after.setTime(nextWeek);
+            after.add(Calendar.DAY_OF_MONTH, 1);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", after.getTime());
+
+            assertThat(billingONCHeader1Dao.findByProviderStatusAndDateRange(
+                    PROVIDER_NO, List.of("O"), new DateRange(yesterday, nextWeek)))
+                    .extracting(BillingONCHeader1::getId)
+                    .containsExactly(start.getId(), middle.getId(), end.getId());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"HCP", "WCB", "RMB"})
+        void shouldIncludeSingleLeapDay_withoutChangingProviderStatusOrPayProgramFilters(String payProgram) throws Exception {
+            Date leapDay = DATE_FMT.parse("2004-02-29");
+            BillingONCHeader1 included = createAndPersist(DEMO_NO, PROVIDER_NO, "O", leapDay);
+            included.setPayProgram(payProgram);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", DATE_FMT.parse("2004-02-28"));
+            createAndPersist(DEMO_NO, PROVIDER_NO, "O", DATE_FMT.parse("2004-03-01"));
+            createAndPersist(DEMO_NO, "999002", "O", leapDay);
+            createAndPersist(DEMO_NO, PROVIDER_NO, "S", leapDay);
+            BillingONCHeader1 privateClaim = createAndPersist(DEMO_NO, PROVIDER_NO, "O", leapDay);
+            privateClaim.setPayProgram("PAT");
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(billingONCHeader1Dao.findByProviderStatusAndDateRange(
+                    PROVIDER_NO, List.of("O"), new DateRange(leapDay, leapDay)))
+                    .extracting(BillingONCHeader1::getId).containsExactly(included.getId());
+        }
+
+        @Test
+        void shouldKeepPresentBoundInclusive_whenOtherBoundIsUnbounded() {
+            BillingONCHeader1 before = createAndPersist(DEMO_NO, PROVIDER_NO, "O", yesterday);
+            BillingONCHeader1 boundary = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            BillingONCHeader1 after = createAndPersist(DEMO_NO, PROVIDER_NO, "O", nextWeek);
+
+            assertThat(billingONCHeader1Dao.findByProviderStatusAndDateRange(
+                    PROVIDER_NO, List.of("O"), new DateRange(null, today)))
+                    .extracting(BillingONCHeader1::getId).containsExactly(before.getId(), boundary.getId());
+            assertThat(billingONCHeader1Dao.findByProviderStatusAndDateRange(
+                    PROVIDER_NO, List.of("O"), new DateRange(today, null)))
+                    .extracting(BillingONCHeader1::getId).containsExactly(boundary.getId(), after.getId());
+            assertThat(billingONCHeader1Dao.findByProviderStatusAndDateRange(
+                    PROVIDER_NO, List.of("O"), new DateRange(null, null)))
+                    .extracting(BillingONCHeader1::getId).containsExactly(before.getId(), boundary.getId(), after.getId());
+        }
 
         @Test
         @DisplayName("should find billings by provider, status, and date range")

@@ -6,6 +6,8 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -42,8 +44,8 @@ import static org.mockito.Mockito.when;
 class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
 
     @Test
-    @DisplayName("should default encryption on when the session flag is missing")
-    void shouldDefaultEncryptionOn_whenSessionFlagMissing() throws Exception {
+    @DisplayName("should default encryption on when the eForm save sent no encryption flag")
+    void shouldDefaultEncryptionOn_whenSaveSentNoEncryptionFlag() throws Exception {
         MockHttpServletRequest request = prepareComposer(null);
 
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
@@ -110,6 +112,21 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
 
+        if (encryptionFlag == null) {
+            // The draft as the eForm save builds it from a request that sends no encryption flag.
+            MockHttpServletRequest save = new MockHttpServletRequest("POST", "/eform/addEForm");
+            if (bodyEmail != null) {
+                save.setParameter("bodyEmail", bodyEmail);
+            }
+            if (encryptedMessageEmail != null) {
+                save.setParameter("encryptedMessageEmail", encryptedMessageEmail);
+            }
+            String key = EmailComposeStaging.stage(request.getSession(), null,
+                    EmailAttachmentSettings.of(save, null, "123", null, null, null, null, null));
+            request.setParameter(EmailComposeStaging.DRAFT_PARAMETER, key);
+        } else {
+            EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        }
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);

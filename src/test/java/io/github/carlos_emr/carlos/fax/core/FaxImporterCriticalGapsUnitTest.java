@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -600,42 +601,14 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /**
-     * Tests for atomic move failure recovery (Priority 9).
-     *
-     * <p><strong>Critical Risk:</strong> Atomic move failures could leave temp files containing
-     * PHI on disk indefinitely, violating HIPAA/PIPEDA requirements. Proper cleanup in finally
-     * blocks is essential for regulatory compliance.</p>
-     */
-    /**
-     * Atomic move failure recovery tests for importFromIncoming().
-     *
-     * <p>These tests exercise the importFromIncoming() pipeline which moves files from the
-     * incoming directory to DOCUMENT_DIR and registers them in the EMR. They require:</p>
-     * <ol>
-     *   <li><strong>EDocUtil static mock:</strong> EDocUtil is a final class with static methods
-     *       (addDocumentSQL). It CAN be mocked with {@code Mockito.mockStatic(EDocUtil.class)},
-     *       but requires careful lifecycle management in {@code @BeforeEach/@AfterEach}.</li>
-     *   <li><strong>DOCUMENT_DIR static final field:</strong> FaxImporter.DOCUMENT_DIR is initialized
-     *       at class load time via {@code CarlosProperties.getInstance().getDocumentDirectory()}.
-     *       The CarlosProperties mock must be active BEFORE FaxImporter is first loaded by the JVM,
-     *       which is not feasible in a unit test since FaxImporter is already loaded by setUp().
-     *       Options: (a) refactor DOCUMENT_DIR to be an instance field set via @PostConstruct,
-     *       (b) use a real temp directory as DOCUMENT_DIR in an integration test context.</li>
-     * </ol>
-     *
-     * <p>Recommended approach: Convert to integration test with Spring test context that
-     * configures DOCUMENT_DIR via properties, or refactor FaxImporter to inject DOCUMENT_DIR
-     * as an instance field.</p>
-     */
+    /** Verifies that a failed destination move preserves the incoming PDF for retry. */
     @Nested
     @DisplayName("Atomic Move Failure Recovery Tests (Priority 9)")
     @Tag("atomicity")
-    @Disabled("Requires EDocUtil static mock (Mockito mockStatic) and DOCUMENT_DIR setup. " +
-              "DOCUMENT_DIR is a static final field initialized at class load time from " +
-              "CarlosProperties — cannot be overridden in unit tests. Convert to integration " +
-              "test or refactor FaxImporter.DOCUMENT_DIR to an instance field to enable.")
     class AtomicMoveFailureTests {
+
+        @TempDir
+        Path workspace;
 
         private Method importFromIncomingMethod;
 
@@ -647,6 +620,11 @@ class FaxImporterCriticalGapsUnitTest extends CarlosUnitTestBase {
          */
         @BeforeEach
         void setUpImportMethod() throws Exception {
+            // An existing file cannot be used as the destination directory. Failure happens
+            // before EDocUtil persistence, so no static mock or application path is needed.
+            Path invalidDirectory = Files.createFile(workspace.resolve("not-a-directory"));
+            faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
+                    providerLabRoutingDao, faxProviderClientFactory, invalidDirectory.toString());
             importFromIncomingMethod = FaxImporter.class.getDeclaredMethod("importFromIncoming",
                     Path.class, FaxConfig.class, FaxJob.class);
             importFromIncomingMethod.setAccessible(true);

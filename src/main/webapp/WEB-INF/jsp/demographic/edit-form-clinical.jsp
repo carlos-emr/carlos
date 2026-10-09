@@ -1404,6 +1404,9 @@
                                                                 <fmt:message key="demographic.demographiceditdemographic.printAndLabels"/>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
+                                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                                                    <li><a class="dropdown-item" href="<%=request.getContextPath()%>/report/ViewGenerateLetters?demo=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>" target="_blank" rel="noopener"><fmt:message key="report.GenerateLetters.title"/></a></li>
+                                                                </security:oscarSec>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>
