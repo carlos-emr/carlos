@@ -38,7 +38,9 @@
 #                                   [--input FILE] [--show-messages]
 #
 #   --since       start of the window (default: $CARLOS_LOG_AUDIT_SINCE, else
-#                 the current boot). deb-docker-validation.sh writes
+#                 the current boot, for the journal and for catalina's own
+#                 log alike: the boot starts at the first journal entry of
+#                 `journalctl -b`). deb-docker-validation.sh writes
 #                 CARLOS_LOG_AUDIT_SINCE into /root/suite-env.sh.
 #   --baseline    tab-separated "regex<TAB>reason" lines; a signature matching
 #                 a regex is reported as known, not failed. Default
@@ -83,6 +85,14 @@ fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# The start of the current boot as local 'YYYY-MM-DD HH:MM:SS', or nothing when the journal cannot say.
+boot_start_iso() {
+  local first
+  first="$(journalctl --no-pager -q -b -o short-unix 2>/dev/null | head -n 1 | cut -d. -f1 || true)"
+  case "$first" in ''|*[!0-9]*) return 1 ;; esac
+  date -d "@$first" '+%Y-%m-%d %H:%M:%S'
+}
+
 # 1. Collect the window's lines.
 if [ -n "$INPUT" ]; then
   cat "$INPUT" > "$work/app.log"
@@ -96,7 +106,17 @@ else
   # Keep SEVERE lines at or after --since (compared as ISO text).
   if [ -d "$CATALINA_DIR" ]; then
     since_iso=""
-    [ -n "$SINCE" ] && since_iso="$(date -d "$SINCE" '+%Y-%m-%d %H:%M:%S')"
+    if [ -n "$SINCE" ]; then
+      since_iso="$(date -d "$SINCE" '+%Y-%m-%d %H:%M:%S')"
+    else
+      # The journal side above is already limited to this boot (`-b`). Catalina's logs are daily files that
+      # outlive a boot, so without a lower bound an earlier boot's SEVERE lines would be reported as this
+      # window's. The first entry of the boot is the same instant `journalctl -b` starts from.
+      since_iso="$(boot_start_iso || true)"
+      if [ -z "$since_iso" ]; then
+        echo "deb-server-log-audit: warning: could not find the start of the current boot; catalina logs are not bounded (pass --since)" >&2
+      fi
+    fi
     for f in "$CATALINA_DIR"/catalina.*.log; do
       [ -e "$f" ] || continue
       awk -v since="$since_iso" '

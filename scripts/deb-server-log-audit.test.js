@@ -20,6 +20,15 @@ function tmp(t) {
   return dir;
 }
 
+// A baseline entry's first column is a regular expression by contract: the audit script greps with it. These tests
+// compile the checked-in baseline to prove what it explains. The pattern comes from the repository's own
+// scripts/lib/server-log-baseline.tsv, never from a request or from a log line, so nobody can steer it into a
+// catastrophic pattern; every other construction in this file goes through here so the exception is stated once.
+function baselinePattern(source) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+  return new RegExp(source);
+}
+
 function audit(t, lines, { baseline = '# none\n', args = [] } = {}) {
   const dir = tmp(t);
   const input = path.join(dir, 'app.log');
@@ -110,7 +119,7 @@ test('should explain every shipped baseline entry with an issue, a recorded find
     assert.equal(fields.length, 2, `baseline entry must be "regex<TAB>reason": ${entry}`);
     const [regex, reason] = fields;
     assert.ok(regex.startsWith('^'), `baseline regex must be anchored: ${regex}`);
-    assert.doesNotThrow(() => new RegExp(regex), `baseline regex does not compile: ${regex}`);
+    assert.doesNotThrow(() => baselinePattern(regex), `baseline regex does not compile: ${regex}`);
     const finding = reason.match(/app-findings-log\.md finding (\d+)/);
     const file = reason.match(/\b((?:scripts|docs)\/[\w./-]+\.(?:js|sh|md))\b/);
     assert.ok(/#\d{3,}/.test(reason) || finding || file, `baseline reason cites nothing: ${reason}`);
@@ -148,7 +157,7 @@ test('should match every shipped baseline entry against a signature a packaged i
   const signatures = fs.readFileSync(SIGNATURES, 'utf8').split('\n').filter((line) => line.trim() && !line.startsWith('#'));
   const entries = fs.readFileSync(BASELINE, 'utf8').split('\n').filter((line) => line.trim() && !line.startsWith('#'));
   for (const entry of entries) {
-    const regex = new RegExp(entry.split('\t')[0]);
+    const regex = baselinePattern(entry.split('\t')[0]);
     assert.ok(signatures.some((signature) => regex.test(signature)), `baseline entry matches no recorded signature: ${entry.split('\t')[0]}`);
   }
   // Still unexplained on that run, recorded or not (the flowsheet one is finding
@@ -159,7 +168,7 @@ test('should match every shipped baseline entry against a signature a packaged i
     'ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/eform/addEForm status=500 @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.NullPointerException',
   ]) {
     assert.ok(signatures.includes(open), `fixture lost an unexplained signature: ${open}`);
-    assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(open)), `baseline swallows an unexplained defect: ${open}`);
+    assert.ok(!entries.some((entry) => baselinePattern(entry.split('\t')[0]).test(open)), `baseline swallows an unexplained defect: ${open}`);
   }
 });
 
@@ -192,7 +201,51 @@ test('should pin every shipped baseline entry that names no frame and no excepti
   }
   // A JSP include failure the page swallows reaches only catalina's log.
   const catalinaInclude = 'SEVERE org.apache.catalina.core.ApplicationDispatcher.invoke';
-  assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(catalinaInclude)),
+  assert.ok(!entries.some((entry) => baselinePattern(entry.split('\t')[0]).test(catalinaInclude)),
     'the baseline must not explain catalina include failures wholesale');
 });
 
+// The journal side of the default window is `journalctl -b`; catalina's daily logs outlive a boot, so the
+// catalina side needs the same lower bound or an earlier boot's SEVERE lines are reported as this boot's.
+function auditWithStubJournal(t, { bootEpoch }) {
+  const dir = tmp(t);
+  const bin = path.join(dir, 'bin');
+  const catalina = path.join(dir, 'catalina');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(catalina);
+  fs.writeFileSync(path.join(catalina, 'catalina.2026-10-07.log'),
+    '07-Oct-2026 23:00:00.000 SEVERE [main] com.example.EarlierBootFailure.run an earlier boot failed\n');
+  fs.writeFileSync(path.join(catalina, 'catalina.2026-10-08.log'),
+    '08-Oct-2026 13:00:00.000 SEVERE [main] com.example.ThisBootFailure.run this boot failed\n');
+  const first = bootEpoch === null ? '' : `${bootEpoch}.123456 host kernel: first entry of the boot`;
+  fs.writeFileSync(path.join(bin, 'journalctl'), [
+    '#!/bin/sh',
+    'case "$*" in',
+    `  *short-unix*) printf '%s\\n' '${first}' ;;`,
+    '  *) : ;;',
+    'esac',
+    '',
+  ].join('\n'), { mode: 0o755 });
+  const base = path.join(dir, 'baseline.tsv');
+  fs.writeFileSync(base, '# none\n');
+  const result = spawnSync('bash', [SCRIPT, '--baseline', base, '--catalina-dir', catalina],
+    { encoding: 'utf8', env: { ...process.env, TZ: 'UTC', PATH: `${bin}:${process.env.PATH}`, CARLOS_LOG_AUDIT_SINCE: '' } });
+  return { status: result.status, out: result.stdout, err: result.stderr };
+}
+
+test('should bound catalina SEVERE lines to the current boot when no window is given', (t) => {
+  const bootEpoch = Date.UTC(2026, 9, 8, 12, 0, 0) / 1000;
+  const r = auditWithStubJournal(t, { bootEpoch });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.match(r.out, /SEVERE com\.example\.ThisBootFailure\.run/);
+  assert.doesNotMatch(r.out, /EarlierBootFailure/);
+  assert.equal(r.err, '', 'a boot start the journal can state needs no warning');
+});
+
+test('should say so, and audit every catalina log, when the journal cannot name the start of the boot', (t) => {
+  const r = auditWithStubJournal(t, { bootEpoch: null });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.match(r.err, /could not find the start of the current boot; catalina logs are not bounded/);
+  assert.match(r.out, /EarlierBootFailure/);
+  assert.match(r.out, /ThisBootFailure/);
+});

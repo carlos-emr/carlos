@@ -421,7 +421,7 @@ async function workflow(s) {
       const relative = nested ? nested.relative : null;
       for (const filename of FILENAME_LITERAL) await probe(target, target.url(filename), `filename=${filename}`, { mustReach: false });
       const plain = [...FILENAME_PLAIN];
-      if (relative) plain.unshift(relative, relative.replace('/', '%2f'), relative.replace('/', '%5c'));
+      if (relative) plain.unshift(relative, relative.replaceAll('/', '%2f'), relative.replaceAll('/', '%5c'));
       for (const filename of plain) await probe(target, target.url(filename), `filename=${filename}`, { mustReach: true });
       await probe(target, target.bare, 'no filename', { mustReach: true });
       if (target.key) {

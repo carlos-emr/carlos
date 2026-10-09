@@ -53,6 +53,7 @@
 #   shell         interactive shell in the container
 #   down          remove the container (the image is kept)
 #   print-preseed print the debconf preseed this run would use
+#   print-suite-province  print the --province the suite would filter on
 #   cgroup-mode   print how the host's cgroup hierarchy would be mounted
 #
 # Environment:
@@ -355,9 +356,16 @@ first_login_reset() {
 
 # The environment block of runbook section 6, with the build tag read from the
 # installed WAR so the About-page assertion is exact for THIS package.
+# The --province the suite filters on for the installed province. `other` installs the Ontario migrations
+# (runbook section 2), so it takes the Ontario-compatible checks: leaving it empty would run every
+# province-specific check, the BC billing ones included, against a schema they cannot use.
+suite_province() {
+  case "$CARLOS_PROVINCE" in on|other) printf ON ;; bc) printf BC ;; esac
+}
+
 write_suite_env() {
-  local suite_province=''
-  case "$CARLOS_PROVINCE" in on) suite_province=ON ;; bc) suite_province=BC ;; esac
+  local suite_province
+  suite_province="$(suite_province)"
   in_container "
     set -e
     props=/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties
@@ -470,6 +478,7 @@ main() {
     shell) require_disposable; docker exec -it "$CONTAINER" bash ;;
     down) require_disposable; docker rm -f "$CONTAINER" >/dev/null && say "removed $CONTAINER" ;;
     print-preseed) preseed ;;
+    print-suite-province) suite_province; echo ;;
     cgroup-mode) cgroup_mode ;;
     -h|--help|help|'') usage ;;
     *) usage >&2; exit 2 ;;

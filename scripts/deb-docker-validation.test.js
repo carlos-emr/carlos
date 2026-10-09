@@ -56,6 +56,17 @@ test('should preseed the runbook answers for the selected province', (t) => {
   assert.match(noDemo.stdout, /^carlos-emr carlos-emr\/install-demo-data boolean false$/m);
 });
 
+test('should filter the suite on the province the package installs, and on Ontario for the other alias', (t) => {
+  const box = sandbox(t);
+  // `other` applies the Ontario migrations (runbook section 2): it must not leave the filter empty, which would run
+  // every BC-only check against a schema without its tables.
+  for (const [province, expected] of [['on', 'ON'], ['bc', 'BC'], ['other', 'ON']]) {
+    const r = run(['print-suite-province'], { ...box.env, CARLOS_PROVINCE: province });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout.trim(), expected, `CARLOS_PROVINCE=${province}`);
+  }
+});
+
 test('should reject a province or demo-data value the package does not offer', (t) => {
   const box = sandbox(t);
   const province = run(['print-preseed'], { ...box.env, CARLOS_PROVINCE: 'qc' });
