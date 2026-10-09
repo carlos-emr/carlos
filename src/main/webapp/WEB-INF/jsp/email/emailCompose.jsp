@@ -19,6 +19,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
 <%@ page import="io.github.carlos_emr.carlos.email.core.EmailFooterHtml" %>
@@ -320,6 +321,7 @@
 
             <form id="emailComposeForm" class="email-compose-form" action="${carlos:forHtmlAttribute(emailSendAction)}" method="post"
                   onsubmit="return validateEmailForm()" novalidate>
+                <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
                 <input type="hidden" name="demographicId" value="${carlos:forHtmlAttribute(demographicId)}"/>
                 <input type="hidden" name="fdid" value="${carlos:forHtmlAttribute(fdid)}"/>
                 <input type="hidden" name="fid" id="fid" value="${carlos:forHtmlAttribute(fid)}"/>
