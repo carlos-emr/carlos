@@ -221,4 +221,42 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/program")).hasSize(0);
         }
     }
+    private void currentFooterProvider() {
+        var provider=new Provider("100","FAKE Endpoint","doctor","U","","Fixture");
+        when(mockLoggedInInfo.getLoggedInProvider()).thenReturn(provider);
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_pref"),eq("u"),org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(true);
+    }
+    @Test void shouldReturnForbidden_forLegacyFooterWithoutEmailWritePermission() {
+        currentFooterProvider();
+        var properties=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
+        var response=request().path("/persona/updatePreference").post("{\"key\":\"email_footer\",\"value\":\"FAKE Personal\"}");
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(properties);
+    }
+    @Test void shouldRequirePost_forLegacyFooterUpdate() {
+        var properties=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
+        var response=request().path("/persona/updatePreference").get();
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeaderString("Allow")).contains("POST");
+        org.mockito.Mockito.verifyNoInteractions(properties);
+    }
+    @Test void shouldUseAuthenticatedOwner_forAuthorizedLegacyFooterPost() {
+        currentFooterProvider();
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(true);
+        var properties=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class);
+        var footer=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class,footer);
+        when(properties.getProp("100","email_footer")).thenReturn(new io.github.carlos_emr.carlos.commn.model.UserProperty());
+        var response=request().path("/persona/updatePreference").post("{\"key\":\"email_footer\",\"value\":\"FAKE Personal\",\"providerNo\":\"202\"}");
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(responseJson(response).at("/status").asText()).isEqualTo("SUCCESS");
+        org.mockito.Mockito.verify(footer).saveOwnFooter("100","FAKE Personal");
+        org.mockito.Mockito.verify(properties,org.mockito.Mockito.never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
 }

@@ -109,7 +109,7 @@ class PersonalEmailFooterMariaDbIntegrationTest {
     @Test void shouldNotBlockAnotherOwner_andKeepClinicAndOtherPersonalOnClear()throws Exception {
         assertIndependentOwnerSaves(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
-    @Test void shouldNotBlockAnotherOwner_inReadCommitted_andKeepClinicAndOtherPersonalOnClear()throws Exception {
+    @Test void shouldNotBlockAnotherOwner_withReadCommittedAndKeepClinicAndOtherPersonalOnClear()throws Exception {
         assertIndependentOwnerSaves(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
     private void assertIndependentOwnerSaves(int isolation)throws Exception {
