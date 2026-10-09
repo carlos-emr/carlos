@@ -191,7 +191,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(clinic.snapshot()).thenAnswer(invocation -> current.get());
         injectDependency(emailManager, "clinicFooterService", clinic);
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
-        doAnswer(invocation -> { injectDependency(invocation.getArgument(0), "id", 88); return null; })
+        doAnswer(invocation -> { injectDependency(invocation.getArgument(0), "id", 88);
+            return null;
+        })
                 .when(emailLogDao).persist(any(EmailLog.class));
         var capturedMime = new java.util.concurrent.atomic.AtomicReference<byte[]>();
         var mail = new org.springframework.mail.javamail.JavaMailSenderImpl() {

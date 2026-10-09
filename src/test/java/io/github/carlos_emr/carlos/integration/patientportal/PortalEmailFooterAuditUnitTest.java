@@ -51,11 +51,19 @@ class PortalEmailFooterAuditUnitTest {
     private static final String TEXT = "FAKE Original Clinic <script>alert('literal')</script>";
 
     private ObjectNode page() {
-        ObjectNode page = JSON.createObjectNode();page.put("date", DATE.toString());page.putNull("next_before");
+        ObjectNode page = JSON.createObjectNode();
+        page.put("date", DATE.toString());
+        page.putNull("next_before");
         ObjectNode a = page.putArray("attempts").addObject();
-        a.put("attempt_id", ID);a.put("kind", "mfa");a.put("prepared_at", "2026-10-09T01:00:00.123456Z");
-        a.put("status", "prepared");a.putNull("status_at");a.put("clinic_id", "clinic-a");
-        a.put("revision", "a".repeat(64));a.put("footer_text", TEXT);a.putNull("logo_sha256");
+        a.put("attempt_id", ID);
+        a.put("kind", "mfa");
+        a.put("prepared_at", "2026-10-09T01:00:00.123456Z");
+        a.put("status", "prepared");
+        a.putNull("status_at");
+        a.put("clinic_id", "clinic-a");
+        a.put("revision", "a".repeat(64));
+        a.put("footer_text", TEXT);
+        a.putNull("logo_sha256");
         return page;
     }
     private ObjectNode attempt(ObjectNode page) { return (ObjectNode)page.get("attempts").get(0); }
@@ -87,14 +95,20 @@ class PortalEmailFooterAuditUnitTest {
         for (String kind : List.of("mfa", "password_reset", "contact_change", "email_change_confirmation",
                 "email_change_requested", "booking_prompt", "booking_prompt_update")) {
             for (String status : List.of("accepted", "failed", "unknown")) {
-                var p = page();var a = attempt(p);a.put("kind",kind);a.put("status",status);
-                a.put("status_at","2026-10-09T01:00:01.123456Z");a.put("logo_sha256","b".repeat(64));
+                var p = page();
+                var a = attempt(p);
+                a.put("kind",kind);
+                a.put("status",status);
+                a.put("status_at","2026-10-09T01:00:01.123456Z");
+                a.put("logo_sha256","b".repeat(64));
                 assertThat(parse(p).attempts().get(0).status()).isEqualTo(status);
             }
         }
     }
     @Test void shouldPreserveEarlierRecordedOutcome_afterWallClockCorrection() {
-        var p=page();var a=attempt(p);a.put("status","accepted");
+        var p=page();
+        var a=attempt(p);
+        a.put("status","accepted");
         a.put("status_at","2026-10-09T00:59:59.123456Z");
         var saved=parse(p).attempts().get(0);
         assertThat(saved.statusAt()).isBefore(saved.preparedAt());
@@ -113,41 +127,57 @@ class PortalEmailFooterAuditUnitTest {
                 a->a.put("footer_text","\u200b"),a->a.put("footer_text",String.valueOf((char)0xd800)),
                 a->a.put("recipient","fake@example.test"),a->a.remove("logo_sha256"));
         for (Consumer<ObjectNode> mutation : invalid) {
-            var p=page();mutation.accept(attempt(p));
+            var p=page();
+            mutation.accept(attempt(p));
             assertThatThrownBy(()->parse(p)).isInstanceOf(PortalContractException.class);
         }
     }
     @Test void shouldRefuseWrongDatesOrderCursorAndExtraPageData() {
-        var wrongDate=page();wrongDate.put("date","2026-10-08");assertThatThrownBy(()->parse(wrongDate)).isInstanceOf(PortalContractException.class);
-        var wrongNext=page();wrongNext.put("next_before",OLDER);
+        var wrongDate=page();
+        wrongDate.put("date","2026-10-08");
+        assertThatThrownBy(()->parse(wrongDate)).isInstanceOf(PortalContractException.class);
+        var wrongNext=page();
+        wrongNext.put("next_before",OLDER);
         assertThatThrownBy(()->parse(wrongNext)).isInstanceOf(PortalContractException.class);
-        var duplicate=page();((com.fasterxml.jackson.databind.node.ArrayNode)duplicate.get("attempts")).add(attempt(duplicate).deepCopy());
+        var duplicate=page();
+        ((com.fasterxml.jackson.databind.node.ArrayNode)duplicate.get("attempts")).add(attempt(duplicate).deepCopy());
         assertThatThrownBy(()->parse(duplicate)).isInstanceOf(PortalContractException.class);
         assertThatThrownBy(()->PortalEmailFooterAuditPage.fromJson(page(),DATE,50,ID,"clinic-a")).isInstanceOf(PortalContractException.class);
-        var extra=page();extra.put("html","<b>untrusted</b>");
+        var extra=page();
+        extra.put("html","<b>untrusted</b>");
         assertThatThrownBy(()->parse(extra)).isInstanceOf(PortalContractException.class);
-        var tooMany=page();assertThatThrownBy(()->PortalEmailFooterAuditPage.fromJson(tooMany,DATE,0,null,"clinic-a")).isInstanceOf(PortalContractException.class);
+        var tooMany=page();
+        assertThatThrownBy(()->PortalEmailFooterAuditPage.fromJson(tooMany,DATE,0,null,"clinic-a")).isInstanceOf(PortalContractException.class);
     }
     @Test void shouldSendOnlySignedAdminRead_andBindExactValidatedQuery() throws Exception {
         AtomicReference<ClassicHttpRequest> request = new AtomicReference<>();
-        var svc = service(r->{request.set(r);return new PatientPortalHttpResponse(200,page().toString());});
+        var svc = service(r->{request.set(r);
+            return new PatientPortalHttpResponse(200,page().toString());
+        });
         var result=svc.listEmailFooterAttempts(DATE,50,null,staff());
         assertThat(result.attempts()).hasSize(1);
-        var first=request.get();assertThat(first.getMethod()).isEqualTo("GET");
+        var first=request.get();
+        assertThat(first.getMethod()).isEqualTo("GET");
         assertThat(first.getRequestUri()).isEqualTo("/internal/carlos/email-footer-attempts?date=2026-10-09&limit=50");
         assertThat(first.getFirstHeader("Authorization").getValue()).isEqualTo("Bearer "+TOKEN);
         String assertion=first.getFirstHeader(PortalStaffAssertionSigner.HEADER).getValue();
         var claims=JSON.readTree(Base64.getUrlDecoder().decode(assertion.split("\\.")[0]));
         assertThat(claims.get("permissions").toString()).isEqualTo("[\"portal.email.audit.read\"]");
         assertThat(first.getEntity()).isNull();
-        var response=page();response.putArray("attempts");
-        var secondService=service(r->{request.set(r);return new PatientPortalHttpResponse(200,response.toString());});
+        var response=page();
+        response.putArray("attempts");
+        var secondService=service(r->{request.set(r);
+            return new PatientPortalHttpResponse(200,response.toString());
+        });
         secondService.listEmailFooterAttempts(DATE,50,ID,staff());
         var secondClaims=JSON.readTree(Base64.getUrlDecoder().decode(request.get().getFirstHeader(PortalStaffAssertionSigner.HEADER).getValue().split("\\.")[0]));
         assertThat(secondClaims.get("request_hash")).isNotEqualTo(claims.get("request_hash"));
     }
     @Test void shouldRefuseForgedQueryOrOtherPermissions_beforeTransport() {
-        AtomicInteger calls=new AtomicInteger();var svc=service(r->{calls.incrementAndGet();return new PatientPortalHttpResponse(200,"{}");});
+        AtomicInteger calls=new AtomicInteger();
+        var svc=service(r->{calls.incrementAndGet();
+            return new PatientPortalHttpResponse(200,"{}");
+        });
         assertThatThrownBy(()->svc.listEmailFooterAttempts(DATE,50,"../../other",staff())).isInstanceOf(PortalRequestPreparationException.class);
         assertThatThrownBy(()->svc.listEmailFooterAttempts(DATE,101,null,staff())).isInstanceOf(PortalRequestPreparationException.class);
         var other=new PatientPortalStaffContext("999998","Dr FAKE",Set.of(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE));
@@ -164,14 +194,21 @@ class PortalEmailFooterAuditUnitTest {
         }
     }
     @Test void shouldRequireActualAdminRead_beforeClientLookup_andAttestOnlyAudit() {
-        SecurityInfoManager security=mock(SecurityInfoManager.class);LoggedInInfo user=mock(LoggedInInfo.class);
+        SecurityInfoManager security=mock(SecurityInfoManager.class);
+        LoggedInInfo user=mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
-        AtomicInteger lookups=new AtomicInteger();AtomicReference<PatientPortalStaffContext> scope=new AtomicReference<>();
+        AtomicInteger lookups=new AtomicInteger();
+        AtomicReference<PatientPortalStaffContext> scope=new AtomicReference<>();
         var client=mock(PatientPortalService.class);
-        when(client.listEmailFooterAttempts(eq(DATE),eq(50),isNull(),any())).thenAnswer(i->{scope.set(i.getArgument(3));return parse(page());});
-        var reader=new PortalEmailFooterAuditService(security,()->{lookups.incrementAndGet();return client;});
+        when(client.listEmailFooterAttempts(eq(DATE),eq(50),isNull(),any())).thenAnswer(i->{scope.set(i.getArgument(3));
+            return parse(page());
+        });
+        var reader=new PortalEmailFooterAuditService(security,()->{lookups.incrementAndGet();
+            return client;
+        });
         assertThatThrownBy(()->reader.read(user,DATE,null)).isInstanceOf(SecurityException.class);
-        assertThat(lookups).hasValue(0);verifyNoInteractions(client);
+        assertThat(lookups).hasValue(0);
+        verifyNoInteractions(client);
         when(security.hasPrivilege(user,"_admin",SecurityInfoManager.READ,null)).thenReturn(true);
         assertThat(reader.read(user,DATE,null).attempts()).hasSize(1);
         assertThat(scope.get().permissions()).containsExactly(PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ);
