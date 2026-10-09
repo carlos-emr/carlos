@@ -150,6 +150,21 @@
       ]
     },
     {
+      "name": "allergy-save-retry",
+      "script": "scripts/allergy-save-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ALLERGY_DEMOGRAPHIC_NO"
+      ]
+    },
+    {
       "name": "allergy-add-penicillin",
       "script": "scripts/allergy-add-penicillin-playwright-checks.js",
       "tiers": [

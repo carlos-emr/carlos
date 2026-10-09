@@ -101,6 +101,16 @@ class RxAllergyCsrfJspRegressionTest {
     }
 
     @Test
+    @DisplayName("add-allergy form should carry a single-save token for idempotent retries (#3488)")
+    void shouldCarrySaveToken_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+
+        assertThat(form.select("input[name=saveToken]")).as("one-save token").hasSize(1);
+        // rx-allergy-dialog.js is the one submit handler; a second inline one would post twice.
+        assertThat(readAddReactionJsp()).doesNotContain("addEventListener(\"submit\"");
+    }
+
+    @Test
     @DisplayName("allergy form should carry an alert region for a save the server did not confirm")
     void shouldRenderSaveStatusAlert_whenAddReactionFormIsRendered() throws IOException {
         Element form = addAllergyForm();
