@@ -87,6 +87,24 @@ public final class SmsProviderSettings {
         return Optional.ofNullable(credentials.get(name));
     }
 
+    /** Settings are equal when they hold the same values, so a change made during a send can be noticed. */
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof SmsProviderSettings that)) {
+            return false;
+        }
+        return providerType == that.providerType && Objects.equals(senderNumber, that.senderNumber)
+                && credentials.equals(that.credentials);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(providerType, senderNumber, credentials);
+    }
+
     @Override
     public String toString() {
         return "SmsProviderSettings[" + providerType + ", redacted]";
