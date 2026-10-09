@@ -9,13 +9,18 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.eform.actions.AddEForm2Action;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.IssuedPreview;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -32,8 +37,11 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -966,6 +974,50 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     new MockHttpServletResponse(), "compose");
 
             assertThat(rendered.getAttribute("footerEmail")).isEqualTo("");
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
+    }
+
+    @Test
+    @DisplayName("should carry the eForm's footer from the eForm save to the email screen")
+    void shouldCarryEFormFooter_fromEFormSaveToCompose() throws Exception {
+        // Drives the eForm save's own staging, not a hand-seeded session, so a change to how the
+        // eForm hands its fields to the email screen (for example #4127's staging snapshot) can't
+        // drop the footer without this failing. It reaches AddEForm2Action.addEmailAttachmentsToSession
+        // by reflection: if that method is renamed or replaced, point this lookup at the new
+        // eForm-to-email staging call instead of deleting the test.
+        ComposeMocks mocks = registerComposeMocks();
+        when(mocks.emailComposeManager().getAllSenderAccounts())
+                .thenReturn(List.of(senderAccount("clinic@example.org")));
+        registerMock(EformDataManager.class, mock(EformDataManager.class));
+        registerMock(DocumentAttachmentManager.class, mock(DocumentAttachmentManager.class));
+        registerMock(EmailManager.class, mock(EmailManager.class));
+        MockHttpServletRequest eFormSave = new MockHttpServletRequest("POST", "/eform/addEForm");
+        eFormSave.setParameter("footerEmail", "FAKE Riverside Clinic\nCall 555-0100");
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(eFormSave, "4001", "123",
+                new String[0], new String[0], new String[0], new String[0], new String[0]);
+        Method stage = AddEForm2Action.class.getDeclaredMethod("addEmailAttachmentsToSession",
+                HttpServletRequest.class, EmailAttachmentSettings.class);
+        stage.setAccessible(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        // The email screen opens in the same session the eForm save staged into.
+        request.setSession(eFormSave.getSession());
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(eFormSave);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            try {
+                stage.invoke(new AddEForm2Action(), eFormSave, settings);
+            } catch (InvocationTargetException e) {
+                throw (e.getCause() instanceof Exception cause) ? cause : e;
+            }
+
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("FAKE Riverside Clinic<br>Call 555-0100");
         } finally {
             composeSubmissionStateService.clear(request.getSession().getId());
         }
