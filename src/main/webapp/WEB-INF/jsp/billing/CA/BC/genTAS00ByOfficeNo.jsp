@@ -161,7 +161,7 @@
         <tr>
             <td width="5%" height="16"><a
                     <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
+                    href="#" onclick="popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
             </a>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;

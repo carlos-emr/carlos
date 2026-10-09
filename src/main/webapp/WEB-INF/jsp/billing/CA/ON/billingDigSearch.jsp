@@ -126,7 +126,7 @@
             <c:forEach var="__row" items="${digSearchModel.rows}">
             <tr>
                 <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>')"><carlos:encode value="${__row.code}" context="html"/>
+                        href="#" onclick="CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>'); return false;"><carlos:encode value="${__row.code}" context="html"/>
                 </a></td>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
                                              name="<carlos:encode value='${__row.code}' context='htmlAttribute'/>"

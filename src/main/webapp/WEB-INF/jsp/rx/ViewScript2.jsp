@@ -1689,7 +1689,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>');">
+                                                    href="#" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>'); return false;">
 						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%

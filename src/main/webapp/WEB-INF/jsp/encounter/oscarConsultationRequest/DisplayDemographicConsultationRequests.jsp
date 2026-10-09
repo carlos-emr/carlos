@@ -222,7 +222,7 @@
                     + "&teamVar=" + SafeEncode.forUriComponent(team);
             %>
             <a class="btn btn-primary btn-sm"
-               href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= newConsultUrl %>' context="javaScriptAttribute"/>')">
+               href="#" onclick="popupConsultation(700,960,'<carlos:encode value='<%= newConsultUrl %>' context="javaScriptAttribute"/>'); return false;">
                 <i class="fa-solid fa-plus me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultChoice.btnNewCon"/>
             </a>
             <input type="button" class="btn btn-secondary btn-sm"
@@ -296,14 +296,14 @@
                     <% } %>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                    <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
+                    <a href="#" onclick="popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>'); return false;">
                         <carlos:encode value='<%= patient %>' context="html"/>
                     </a>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getFormattedName()) : "" %></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                    <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
+                    <a href="#" onclick="popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>'); return false;">
                         <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>
                     </a>
                 </td>

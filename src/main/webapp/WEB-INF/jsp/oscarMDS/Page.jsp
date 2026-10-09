@@ -322,22 +322,22 @@
 
                         <td>
                             <% if (result.isMDS()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="#" onclick="parent.reportWindow('<%=request.getContextPath()%>/oscarMDS/ViewSegmentDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&providerNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo))%>&searchProviderNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo))%>&status=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(status))%>'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isCML()) { %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="#" onclick="parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&providerNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo))%>&searchProviderNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo))%>&status=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(status))%>'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else if (result.isHL7TEXT()) {
                                 String categoryType = result.getDiscipline();
 
                                 if ("REF_I12".equals(categoryType)) {
                             %>
-                            <a href="javascript:parent.popupConsultation('<%=segmentID%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="#" onclick="parent.popupConsultation('<%=SafeEncode.forJavaScriptAttribute(segmentID)%>'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="#" onclick="parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                                 }
@@ -368,10 +368,10 @@
                                     duplicateLabIds.append(duplicateLabId);
                                 }
                             %>
-                            <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020)"><%=labRead%><%=result.getPatientName()%>
+                            <a href="#" onclick="reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&providerNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo))%>&searchProviderNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo))%>&status=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(status))%>&demoName=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(result.getPatientName()))%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else {%>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>
+                            <a href="#" onclick="parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(segmentID))%>&providerNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(providerNo))%>&searchProviderNo=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(searchProviderNo))%>&status=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(status))%>'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScriptAttribute"/>
                             </a>
                             <% }%>
                         </td>

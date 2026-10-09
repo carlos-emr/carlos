@@ -1605,7 +1605,7 @@ input[id^='acklabel_']{
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
-                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
+                                                                            <a href="#" onclick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow'); return false;">
                                                                                 <% } %>
                                                                                 <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                             </a>
@@ -2318,10 +2318,10 @@ input[id^='acklabel_']{
 
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="#" onclick="popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en'); return false;">
                         info</a>
                     <%} %>
                 </td>
@@ -2355,11 +2355,11 @@ input[id^='acklabel_']{
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;
                     <%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="#" onclick="popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en'); return false;">
                         info</a>
                     <%} %></td>
                 <td style="text-align:right">
@@ -2410,10 +2410,10 @@ input[id^='acklabel_']{
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="#" onclick="popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en'); return false;">
                         info</a>
                     <%} %></td>
                 <% if (handler.getOBXResult(j, k).length() > 20) {
@@ -2486,10 +2486,10 @@ input[id^='acklabel_']{
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8")%>')"></a><%
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8")%>'); return false;"></a><%
                                    			}else if(! handler.getMsgType().equals("MEDITECH") ) {%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                         <%}%>
                         <%if(isVIHARtf){
@@ -2526,7 +2526,7 @@ input[id^='acklabel_']{
 
                     <% if(handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount>1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))){%>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"></a><%
+                        href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>'); return false;"></a><%
                                    			} else {
 
 
@@ -2539,7 +2539,7 @@ input[id^='acklabel_']{
                 </a>
 
                     <% if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="#" onclick="popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en'); return false;">
                         info</a>
                     <%} %>
 

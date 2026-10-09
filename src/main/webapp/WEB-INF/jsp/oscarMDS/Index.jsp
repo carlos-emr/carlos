@@ -155,8 +155,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
-                                       value="<fmt:message key="oscar                                       
-MDS.index.btnSearch"/>"
+                                       value="<fmt:message key="oscarMDS.index.btnSearch"/>"
                                        onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch?providerNo=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
@@ -168,15 +167,15 @@ MDS.index.btnSearch"/>"
 
                             <td align="right" valign="top">
                                                      <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
-           <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');"
+           <a href="#" onclick="parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>'); return false;"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/ViewInsideLabUpload')"
+                                <a href="#" onclick="popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/ViewInsideLabUpload'); return false;"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>
                                 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
-                                <a href="javascript:popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments')"
+                                <a href="#" onclick="popupStart(600,500,'${pageContext.servletContext.contextPath}/documentManager/ViewHtml5AddDocuments'); return false;"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
                                 <% } else { %>
-                                <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/ViewDocumentUploader')"
+                                <a href="#" onclick="popupStart(800,1000,'${pageContext.servletContext.contextPath}/documentManager/ViewDocumentUploader'); return false;"
                                    style="color: #FFFFFF; "><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 
                                 <%--    Soon:         	<a href="javascript:void(0)" style="color:white;" class="dialog-link" id="/documentManager/ViewDocumentUploader" >
@@ -184,16 +183,16 @@ MDS.index.btnSearch"/>"
                                                 </a> --%>
                                 <% } %>
 
-                                <a href="javascript:popupStart(700,1100,'${pageContext.servletContext.contextPath}/documentManager/inboxManage?method=getDocumentsInQueues')"
+                                <a href="#" onclick="popupStart(700,1100,'${pageContext.servletContext.contextPath}/documentManager/inboxManage?method=getDocumentsInQueues'); return false;"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 
-                                <a href="javascript:popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/ViewIncomingDocs')"
+                                <a href="#" onclick="popupStart(800,1200,'${pageContext.servletContext.contextPath}/documentManager/ViewIncomingDocs'); return false;"
                                    style="color: #FFFFFF;"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
-                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/ViewCreateLab')"
+                                <a href="#" onclick="popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/ViewCreateLab'); return false;"
                                    style="color: #FFFFFF;"><fmt:message key="global.createLab"/></a>
-                                <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement')"
+                                <a href="#" onclick="popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement'); return false;"
                                    style="color: #FFFFFF;">HRM Status/Upload</a>
                                 <% } %>
                             </td>

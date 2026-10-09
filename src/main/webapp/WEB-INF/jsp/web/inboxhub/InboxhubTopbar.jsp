@@ -77,8 +77,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
 <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
 
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
+<a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/documentManager/ViewIncomingDocs',800,1200); return false;" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
+<a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000); return false;" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <%-- A scriptlet, deliberately, matching oscarMDS/Index.jsp. The previous
      ${CarlosProperties.getInstance()...} EL test looked identical but never
      worked: <%@ page import %> exposes a class to scriptlets, not to EL, so EL
@@ -87,10 +87,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
      the MDS inbox honoured the property, two entry points serving different
      uploaders on one install. --%>
 <% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
-    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500); return false;" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 <% } else { %>
-    <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
+    <a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/documentManager/ViewDocumentUploader',800,1000); return false;" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
 <% } %>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/ViewInsideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ViewCreateLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(carlos:forUriComponent(providerNo))}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
+<a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/lab/CA/ALL/ViewInsideLabUpload',800,1000); return false;" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
+<a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/oscarMDS/ViewCreateLab',800,1000); return false;" class="nav-link"><fmt:message key="global.createLab" /></a>
+<a href="#" onclick="reportWindow('${carlos:forJavaScriptAttribute(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(providerNo))}',800,1000); return false;" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

@@ -134,7 +134,7 @@
                         <td width="3%"><input type="checkbox" name="chkSetId"
                                               value="<%=id%>"/></td>
                         <td width="70%"><a
-                                href="javascript:popupImmunizationSet(768,1024,'encounter/immunization/config/ImmunizationSetDisplay?setId=<%=id%>')">
+                                href="#" onclick="popupImmunizationSet(768,1024,'encounter/immunization/config/ImmunizationSetDisplay?setId=<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(id))%>'); return false;">
                             <%=name%>
                         </a></td>
                         <td align="center"><%=createDate%>
