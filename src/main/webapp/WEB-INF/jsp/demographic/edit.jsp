@@ -1108,7 +1108,6 @@
                                     href='<%= request.getContextPath() %>/demographic/DemographicApptHistory?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
-
                         <%
                             // wLReadonly already computed in preamble
                             WaitingList wL = WaitingList.getInstance();
@@ -1126,6 +1125,24 @@
                     </table>
                     <table border=0 cellspacing=0 width="100%">
                         <%}%>
+                        <%-- Patient SMS history (#3839); the action re-checks _sms and _demographic for this patient.
+                             It sits after the waiting-list row so that link stays under the appointment heading. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_sms" rights="r">
+                            <tr class="Header">
+                                <td style="font-weight: bold"><fmt:message key="sms.history.section"/></td>
+                            </tr>
+                            <tr id="sms_hx">
+                                <td>
+                                    <c:set var="__encSmsHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encSmsHistoryUrl" value="${pageContext.request.contextPath}/sms/ViewSmsHistory?demographic_no=${__encSmsHistoryDemoNo}" />
+                                    <%-- A real link (new tab without JavaScript), opened as a pop-up when JavaScript runs. --%>
+                                    <a href="<carlos:encode value='${__encSmsHistoryUrl}' context='htmlAttribute'/>" target="_blank" rel="noopener"
+                                       onClick="popupPage(600,1500,'<carlos:encode value='${__encSmsHistoryUrl}' context="javaScriptAttribute"/>'); return false;">
+                                        <fmt:message key="sms.history.title"/></a>
+                                </td>
+                            </tr>
+                        </security:oscarSec>
+
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
                             <tr class="Header">
                                 <td style="font-weight: bold"><fmt:message key="admin.admin.billing"/></td>
