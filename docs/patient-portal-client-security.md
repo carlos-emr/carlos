@@ -365,3 +365,40 @@ the wrong hostname receive no HTTP requests. It also verifies successful pinned
 connections during key overlap, rejection of untrusted chains even with matching
 pins, and rejection of a genuine certificate appended behind an impostor leaf.
 Settings and transport construction tests reject absent pins before any connection.
+
+## Booking prompt API draft (#3849)
+
+`PatientPortalService` can create, list, and withdraw the portal's fixed-vocabulary booking prompts.
+`portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
+`POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`
+(withdraw also takes `promptId`).
+Every request checks patient-record access and the patient's booking privilege; list requires read,
+and create/withdraw require write. Create also requires `_portal.account` read and checks for an
+active account before requesting a prompt. The CSRFGuard filter protects every POST, including list.
+
+Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
+an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
+with `created=false` on a retry, without another notification. The staff action distinguishes those
+outcomes with HTTP 201/200 and the same `created` flag. A confirmed retry records the prompt ID as
+`create.confirmed`, allowing an earlier `create.unconfirmed` audit to be followed by a known result.
+The portal response does not echo `operation_id`; the client verifies patient scope and the supplied
+prompt fields, while the portal owns operation-ID matching.
+
+List returns the portal's latest 100 prompts, including read/unread and notice timestamps. Withdrawal
+first verifies the selected prompt belongs to the patient's list, then checks the returned prompt ID,
+patient, and withdrawn state. An ID omitted from that bounded list is refused. Provider attribution
+is optional; the action omits it until the staff UI has a server-verified provider selector, and never
+accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
+turn that change into a retryable failure.
+
+`V1.0.60` seeds `_portal.booking_prompt` and grants it (full) to `admin`, `receptionist`, `doctor`,
+`locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
+`_portal.booking_prompt` row keeps the clinic's own setting. Until the booking eligibility change
+(#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
+create one, because that role has no `_portal.account` read. Every request also needs `_demographic`
+read, which the baseline does not give `admin`, so a user whose only role is `admin` is refused.
+
+This draft provides the Java API, permission mapping, action contract and default roles. The staff
+controls on the appointment and master-record screens and their English catalog keys remain required
+before #3849 is complete. Offered-slot selection, atomic appointment creation, the polling system
+principal, and decline/expiry ticklers belong to #3850.

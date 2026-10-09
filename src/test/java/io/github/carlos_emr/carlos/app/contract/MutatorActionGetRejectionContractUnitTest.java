@@ -261,6 +261,10 @@ class MutatorActionGetRejectionContractUnitTest {
             // route on this class mutates and the method check runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
                     "_portal.invite", "w"),
+            // Booking prompts: create and withdraw mutate; list is a read but is POST-only too, so
+            // the method check runs before authorization for every route on this class.
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action",
+                    "_portal.booking_prompt", "w"),
             // Clears a lockout or disables an account. Unconditional for the same reason: the panel
             // read lives in PortalPanel2Action, so nothing on this class is a view route. The
             // declared object is the account one; the unlock route gates on the narrower

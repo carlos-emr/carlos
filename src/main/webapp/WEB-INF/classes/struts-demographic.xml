@@ -51,6 +51,7 @@
           directly and returns NONE, so a named result would resolve to a JSP forward and append
           HTML to the response body.
         -->
+        <action name="demographic/portalBookingPrompt" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action"/>
         <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
         <action name="demographic/portalAccount" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action"/>
         <action name="demographic/portalPanel" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action"/>

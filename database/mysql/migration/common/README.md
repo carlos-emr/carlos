@@ -96,6 +96,10 @@ that turned SMS consent off by deleting, clearing or repointing that property ke
 number is set when it merges: it must be above the highest version on both develop and
 `release/2026.08`.
 
+`V1.0.60__portal_booking_prompt_security_object.sql` seeds `_portal.booking_prompt` (#3849) and
+grants it to admin, receptionist and the doctor and nursing roles, keeping any row a clinic already
+set.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
