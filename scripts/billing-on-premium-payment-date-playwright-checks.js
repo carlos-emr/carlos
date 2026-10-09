@@ -117,7 +117,9 @@ async function workflow(s) {
     { tag: 'ra-29', paid: '20040629', amount: '31.31' },
     { tag: 'ra-30', paid: '20040630', amount: '77.77' },
   ].map(row => ({ ...row, filename: `${marker}-${row.tag}` }));
-  const ownsRaDetail = `${ownsRa} AND filename LIKE ${h.sqlString(`${marker}-ra-%`)}`;
+  // Its own ownership key: `ownsRa` above lists the premium fixtures' filenames, which these two are not among.
+  h.assert(raFixtures.every(row => row.filename.length <= 30), 'An RA fixture filename exceeds raheader.filename (varchar(30))');
+  const ownsRaDetail = `payable=${h.sqlString(marker)} AND filename LIKE ${h.sqlString(`${marker}-ra-%`)}`;
   s.cleanup(() => {
     const ids = sql.rows(`SELECT raheader_no FROM raheader WHERE ${ownsRaDetail}`).map(row => Number(row[0]));
     for (const id of ids) {

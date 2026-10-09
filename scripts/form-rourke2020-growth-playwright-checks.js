@@ -28,7 +28,7 @@
 //   measurements   (Rourke) the weights and lengths saved in the measurement dialog are stored in `measurements` and
 //                  imported into the form;
 //   headcirc       (Rourke) head circumference has a measurement dialog too;
-//   measuredate    (Rourke) the dialog files the local date of the observation by default (finding 152);
+//   measuredate    (Rourke) the dialog files the local date of the observation by default (finding 152, fixed by #4443: a regression check now);
 //   save        Save stores one new row holding every typed value and the saving provider;
 //   redisplay   the window Save was pressed in redisplays the saved record (the right record, not an error page);
 //   reopen      a fresh chart's saved-form entry opens the saved record;
@@ -272,7 +272,6 @@ function validatePin(env = process.env) {
  */
 const PINNED = Object.freeze({
   'rourke2020.headcirc': 'Rourke 2020: head circumference can be saved to measurements from the form like weight and length',
-  'rourke2020.measuredate': 'Rourke 2020: the measurement dialog files the local date of the observation by default',
   'rourke2020.printnull': 'Rourke 2020: the printed form leaves an empty visit date blank',
   'rourke2020.printsex': 'Rourke 2020: the printed form marks the sex of the patient, and only that',
   'rourke2020.printgestation': 'Rourke 2020: the printed gestational age is the weeks from the start of pregnancy to the birth',
@@ -291,7 +290,6 @@ const PINNED = Object.freeze({
  */
 const KNOWN = Object.freeze({
   'rourke2020.headcirc': claims.ASSERTION_ONLY,
-  'rourke2020.measuredate': claims.ASSERTION_ONLY,
   'rourke2020.printnull': claims.ASSERTION_ONLY,
   'rourke2020.printsex': claims.ASSERTION_ONLY,
   'rourke2020.printgestation': claims.ASSERTION_ONLY,

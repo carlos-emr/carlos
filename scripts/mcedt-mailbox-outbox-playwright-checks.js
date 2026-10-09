@@ -46,7 +46,7 @@
  *     because a script stops at its first failing step; everything above runs first.
  *
  * TWO MORE FINDINGS, each pinned by its own manifest entry running this script with MCEDT_PIN (a script stops at
- * its first failing step, so one run cannot pin three defects; the precedent is oauth-rest-surfaces-scope-list):
+ * its first failing step, so one run cannot pin three defects; the precedent is allergy-add-penicillin-shortcut-id):
  *   - MCEDT_PIN=short-name (mcedt-mailbox-outbox-short-name), finding 217: ActionUtils.isOHIPFile reads
  *     filename.substring(0, 2), so Add of a ONE-character name ("x") answers HTTP 500 instead of the refusal every
  *     other non-claim name gets. Runs the menu, a two-character control ("ab" is refused with the message), then the pin

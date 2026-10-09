@@ -2654,3 +2654,39 @@ one of the login's programs (`PROGRAM_DOMAIN_RESTRICTION`), so `schedule-quick-s
 refuses a blank Canadian postal code, so `browser-surface` stores one; and `lib/owned-patient.js` finds a consultation request's
 extension and archive rows through the request, so the removal has to run before a check deletes the request itself.
 
+
+### Re-validation on the 2026.09.0~snapshot26 package (2026-10-09, after merging `release/2026.08`)
+
+`release/2026.08` had moved from the alpha19 candidate to `0c43d2f862` (11 commits, among them fixes for findings 140, 150, 152, 173,
+176 and 214). The head was packaged unstamped (`dpkg-buildpackage -us -uc -b -nc` in the `carlos-builder` image, the DrugRef WAR built for the alpha19
+package, since `debian/drugref.pin` did not change, `carlos-ctl` 1.1.2 from `debian/carlos-ctl.pin`) as `2026.09.0~snapshot26`, and
+installed over the running alpha19 with `dpkg -i` so the container, its database and the demo dataset were kept. Flyway applied no
+migration; `carlos-ctl check` reported "All checks passed". The checks ran from the merged PR tree copied into the container.
+
+| Entry | Before (alpha19) | On snapshot26 | Finding |
+|---|---|---|---|
+| `eform-email-two-windows` | known-fail | **passes** | 140, fixed by #4444 |
+| `billing-on-premium-payment-date` | known-fail | **passes** | 173, fixed by #4442 |
+| `flowsheet-patient-customization` | known-fail | **passes** | 176, fixed by #4459 |
+| `form-rourke2020-growth-measure-date` | known-fail | **passes** | 152, fixed by #4443 |
+| `oauth-rest-surfaces` (the pinned scope step, from the pre-merge script) | known-fail | **passes** | 150, fixed by #4461 |
+| `oauth-rest-surfaces-scope-list` (the pinned `%20` step, from the pre-merge script) | known-fail | **passes** | 214, fixed by #4461 |
+| `allergy-add-penicillin`, `allergy-add-penicillin-shortcut-id` | known-fail | still known-fail | 178, 215 (#4446 and #4455 did not fix them) |
+| `admin-api-keygen`, `patient-photo-upload`, `lab-manual-entry-cumulative`, `double-submit-eform`, `audit-log-chart-read` | known-fail | still known-fail | 163, 156, 149, 168, 141 |
+| `pathnet-status` | known-fail on BC | skipped: this is the Ontario install | 165, not re-run |
+| `rx-unique-medication-list` (new in the release, for #4420 / finding 151) | not present | fails at its precondition | needs `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` in carlos.properties, which the install does not set |
+
+The five fixed findings' pins and the OAuth `scope-list` entry were removed from the manifest, and their log rows are now `fixed`. The
+release's own `oauth-rest-surfaces` replaced the pre-merge script (it covers the access modes and scope enforcement of #4461), so the
+`OAUTH_PIN` mechanism and its `package.json` script are gone. The `%20` scope list is exercised by that script in its `scoped` mode only.
+
+**Harness defects the residue audit found in this round** (not application defects; repaired and re-run to "no residue"):
+
+- `billing-on-premium-payment-date` left two `raheader` and two `radetail` rows per run. Its finding-173 section keyed its cleanup on
+  the premium fixtures' filename list, which the base's merged change had narrowed; the two RA fixtures are no longer in it. They now
+  have their own ownership key and a filename-length assertion. The four rows two earlier runs left were removed by key.
+- `lab-upload`, `lab-upload-rollback` (which reuses the upload workflow) and `lab-upload-signed-feed` left one `providerLabRoutingLock`
+  row per filed lab: the upload path writes it and no cleanup removed it. The cleanups now delete it by lab number; the four orphan rows
+  were removed.
+
+Re-run after the fixes, each alone under `--residue-audit`: "no residue" for all four checks.

@@ -5,12 +5,11 @@ const test = require('node:test');
 const { spawnSync } = require('node:child_process');
 
 /*
- * Ten checks run one script under several manifest entries and pick the finding a run pins with an
- * environment variable (ALLERGY_PIN, MCEDT_PIN, OAUTH_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, and the claim lists
+ * Several checks run one script under several manifest entries and pick the finding a run pins with an
+ * environment variable (ALLERGY_PIN, MCEDT_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, and the claim lists
  * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT, CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT and CONSULT_CONFIG_ONLY / CONSULT_CONFIG_EXCEPT). A bad value is an error of the RUN, so it is
- * judged when the check runs and never when the module is required: oauth-rest-surfaces.test.js requires
- * the module only for its OAuth signer, and a stray OAUTH_PIN in whoever's shell runs the meta-tests must
- * not fail that. Each case runs in a child process because the variable is read once, at load.
+ * judged when the check runs and never when the module is required: a stray pin variable in the shell of
+ * whoever runs the meta-tests must not fail a test that only requires the module. Each case runs in a child process because the variable is read once, at load.
  *
  * Only the pin is deferred. A check's other environment variables keep their own validation: the allergy check still
  * validates DRUGREF_TEST_DATABASE (and BASE_URL and MYSQL_HOST) when its module loads, so
@@ -21,8 +20,6 @@ const CASES = [
     run: 'main({ cancellation: { throwIfCancelled() {}, run: (body) => body() } })' },
   { script: 'mcedt-mailbox-outbox-playwright-checks.js', variable: 'MCEDT_PIN', label: 'Mcedt', good: ['', 'short-name', 'plaintext'],
     run: 'workflow({})' },
-  { script: 'oauth-rest-surfaces-playwright-checks.js', variable: 'OAUTH_PIN', label: 'Oauth', good: ['', 'scope-list'],
-    run: 'main({})' },
   { script: 'echart-note-verify-appointment-status-playwright-checks.js', variable: 'ECHART_VERIFY_PIN', label: 'EchartVerify', good: ['', 'archive', 'billing'],
     run: 'workflow({})' },
   { script: 'echart-issues-filter-playwright-checks.js', variable: 'ECHART_ISSUES_PIN', label: 'EchartIssues',
