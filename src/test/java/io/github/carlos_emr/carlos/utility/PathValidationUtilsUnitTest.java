@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,6 +44,8 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for PathValidationUtils security utility class.
@@ -1532,6 +1536,7 @@ class PathValidationUtilsUnitTest {
                                 .doesNotContain("FAKE-IMPORT-FOLDER")
                                 .doesNotContain(tempDir.toRealPath().toString()));
                 assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+                assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.ERROR);
             }
         }
 
@@ -1547,6 +1552,7 @@ class PathValidationUtilsUnitTest {
                 assertThat(logs.messages())
                         .contains("test file is not a file: " + PathValidationUtils.logReference(directory.getCanonicalPath()))
                         .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
+                assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.WARN);
             }
         }
 
@@ -1564,6 +1570,7 @@ class PathValidationUtilsUnitTest {
                         .allSatisfy(message -> assertThat(message)
                                 .doesNotContain("FAKE-PATIENT-NAME")
                                 .doesNotContain(tempDir.toRealPath().toString()));
+                assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.WARN);
             }
         }
 
@@ -1574,6 +1581,8 @@ class PathValidationUtilsUnitTest {
             String unresolvable = tempDir.resolve("FAKE-PATIENT-NAME") + "\0";
 
             try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThat(LogManager.getLogger(PathValidationUtils.class).isDebugEnabled())
+                        .as("scoped capture enables DEBUG for the logger under test").isTrue();
                 assertThatThrownBy(() -> PathValidationUtils.validateConfiguredDirectory(unresolvable, "test dir"))
                         .isInstanceOf(SecurityException.class)
                         .hasMessage("Error validating configured directory")
@@ -1583,6 +1592,42 @@ class PathValidationUtilsUnitTest {
                         .contains("Error validating test dir (IOException)")
                         .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
                 assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+                assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.ERROR, Level.DEBUG);
+                assertThat(logs.events().get(1).getMessage().getFormattedMessage())
+                        .startsWith("Path validation failure trace:")
+                        .contains("java.io.IOException", "at ", "PathValidationUtils.java:")
+                        .doesNotContain(tempDir.toString());
+            }
+        }
+
+        @Test
+        @DisplayName("should retain exception types and code locations at DEBUG without exception messages")
+        void shouldLogTraceWithoutMessages_whenFailureHasCauseAndSuppressedException() throws IOException {
+            String fakePath = tempDir.resolve("FAKE-PATIENT-NAME.pdf").toString();
+            IOException failure = new IOException("FAKE-FAILURE-MESSAGE " + fakePath,
+                    new java.io.FileNotFoundException("FAKE-CAUSE-MESSAGE " + fakePath));
+            failure.addSuppressed(new IOException("FAKE-SUPPRESSED-MESSAGE " + fakePath));
+            File file = mock(File.class);
+            when(file.getCanonicalFile()).thenThrow(failure);
+
+            try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThat(LogManager.getLogger(PathValidationUtils.class).isDebugEnabled())
+                        .as("scoped capture enables DEBUG for the logger under test").isTrue();
+                assertThatThrownBy(() -> PathValidationUtils.resolveTrustedPath(file, "test file"))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessage("Error resolving trusted path")
+                        .hasCause(failure);
+
+                assertThat(logs.events()).extracting(LogEvent::getLevel).containsExactly(Level.ERROR, Level.DEBUG);
+                assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+                assertThat(logs.messages().get(0)).isEqualTo("Error resolving test file (IOException)");
+                assertThat(logs.messages().get(1))
+                        .startsWith("Path validation failure trace:")
+                        .contains("java.io.IOException", "Caused by: java.io.FileNotFoundException",
+                                "Suppressed: java.io.IOException", "at ", "PathValidationUtilsUnitTest.java:");
+                assertThat(logs.messages()).allSatisfy(message -> assertThat(message)
+                        .doesNotContain(fakePath, tempDir.toString(), "FAKE-PATIENT-NAME",
+                                "FAKE-FAILURE-MESSAGE", "FAKE-CAUSE-MESSAGE", "FAKE-SUPPRESSED-MESSAGE"));
             }
         }
     }

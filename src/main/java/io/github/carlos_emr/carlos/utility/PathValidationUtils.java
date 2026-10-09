@@ -98,9 +98,12 @@ public final class PathValidationUtils {
 
     /**
      * What this class's log lines name a path by, never the path itself: the first 12 hex digits of
-     * the SHA-256 of the canonical path (a directory's name can be a patient's import folder). For a
-     * known path: {@code printf '%s' "$(realpath -m -- "$path")" | sha256sum | cut -c1-12}. The
-     * field label logged beside it says which setting or argument the path came from.
+     * the SHA-256 of the canonical path where available (a directory's name can be a patient's
+     * import folder). If a temp root cannot be resolved, its reference uses the raw configured
+     * base string instead, without an appended subdirectory such as {@code work}. This method
+     * hashes the supplied string; it does not canonicalize it. For a known canonical path:
+     * {@code printf '%s' "$(realpath -m -- "$path")" | sha256sum | cut -c1-12}. The field label
+     * logged beside it says which setting or argument the path came from.
      */
     static String logReference(String path) {
         return path == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(path).substring(0, 12);
