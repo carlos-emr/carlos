@@ -558,12 +558,24 @@ async function runPrescriptionSignatureCheck(context) {
         } else if (uploadedSignatureId) {
           console.warn('Created signature retained: enable PRESCRIPTION_SIGNATURE_CLEANUP with local MYSQL settings for full teardown');
         }
-        if (auditBefore) demoAudit.restore(auditSql, auditBefore);
       } catch (error) {
         findings.push({
           label: 'prescription-signature:restore',
           type: 'restore-error',
           text: 'Could not completely restore the prescription signature fixture',
+        });
+      }
+    }
+    // Attempted on its own, after the association is cleared (which stamps the row again) and whether or not the signature
+    // delete above threw: a failed delete must not leave the demo prescription's lastUpdateDate and reprint log stamped.
+    if (auditBefore) {
+      try {
+        demoAudit.restore(auditSql, auditBefore);
+      } catch (error) {
+        findings.push({
+          label: 'prescription-signature:audit-restore',
+          type: 'restore-error',
+          text: 'Could not write back the demo prescription\'s audit columns',
         });
       }
     }
