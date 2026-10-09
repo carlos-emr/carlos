@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.service;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -86,6 +87,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -107,6 +109,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
     private final AtomicBoolean auditFailure = new AtomicBoolean();
     private final AtomicInteger sends = new AtomicInteger();
     private final AtomicInteger lookups = new AtomicInteger();
+    private final AtomicReference<SmsProviderSendResultDto> sendAnswer = new AtomicReference<>();
     private final List<Object> committedEvents = new CopyOnWriteArrayList<>();
     private Connection admin;
     private SessionFactory factory;
@@ -211,6 +214,7 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         auditFailure.set(false);
         sends.set(0);
         lookups.set(0);
+        sendAnswer.set(null);
         committedEvents.clear();
         try (var s = admin.createStatement()) {
             for (String table : List.of("sms_transaction", "sms_config", "SystemPreferences", "sms_provider_rate_limit")) {
@@ -331,6 +335,8 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         worker().processDueMessages(1);
         assertThat(stored(old)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
                 .containsExactly(SmsStatus.FAILED, "QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE");
+        assertThat(stored(old).getErrorMessage()).isEqualTo(
+                "SMS stale send status lookup was unavailable; marked failed for manual review.");
         assertThat(lookups.get()).isZero();
         assertThat(sends.get()).isZero();
         worker().processDueMessages(1);
@@ -621,6 +627,57 @@ class SmsProviderRetirementMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldReleaseWorkerClaimWithoutDispatch_whenSendingIsTurnedOffDuringPermit() {
+        save(SmsProviderType.STUB, true);
+        SmsTransaction row = admit(SmsProviderType.STUB);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, clients,
+                new SmsRetryCalculator(), type -> {
+                    save(SmsProviderType.STUB, false);
+                    return true;
+                }, command -> CONSENT, new SmsDefaultProviderResolver(config), config);
+
+        assertThat(worker.processDueMessages(2)).isZero();
+
+        assertThat(stored(row)).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                SmsTransaction::getErrorCode).containsExactly(SmsStatus.QUEUED, 0, null);
+        assertThat(sends.get()).isZero();
+        assertThat(worker.processDueMessages(2)).isZero();
+        assertThat(sends.get()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetireOldBacklogAndKeepNextAttempt_whenProviderFailureStopsSending(boolean uncertain) throws Exception {
+        save(SmsProviderType.CLOUDLI, true);
+        SmsTransaction old = admit(SmsProviderType.CLOUDLI);
+        try (var statement = admin.prepareStatement("UPDATE `" + schema
+                + "`.sms_transaction SET next_attempt_at='2099-01-01' WHERE id=?")) {
+            statement.setLong(1, old.getId());
+            assertThat(statement.executeUpdate()).isEqualTo(1);
+        }
+        save(SmsProviderType.STUB, true);
+        SmsTransaction first = admit(SmsProviderType.STUB);
+        SmsTransaction next = admit(SmsProviderType.STUB);
+        sendAnswer.set(uncertain ? SmsProviderSendResultDto.uncertain("FAKE_TIMEOUT")
+                : SmsProviderSendResultDto.failed(SmsProviderErrorCode.ACCOUNT_LIMIT));
+
+        assertThat(worker().processDueMessages(2)).isEqualTo(1);
+
+        assertThat(sends.get()).isEqualTo(1);
+        assertThat(stored(first)).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount,
+                SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage).containsExactly(
+                        uncertain ? SmsStatus.SENDING : SmsStatus.QUEUED, 1,
+                        uncertain ? "FAKE_TIMEOUT" : "ACCOUNT_LIMIT",
+                        uncertain ? SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE
+                                : SmsProviderErrorCode.ACCOUNT_LIMIT.message());
+        assertThat(stored(next)).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(stored(old)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+        assertThat(lookups.get()).isZero();
+    }
+
+    @Test
     void shouldAllowInitialAdminStubTest_whenOtherProviderIsSelectedAndSendingOff() {
         save(SmsProviderType.CLOUDLI, false);
         SmsSendService direct = new SmsSendService(new io.github.carlos_emr.carlos.sms.validator.SmsSendValidator(),
@@ -667,7 +724,8 @@ class SmsProviderRetirementMariaDbIntegrationTest {
             public SmsProviderSendResultDto send(SmsSendCommand command, String reference, SmsProviderSettings settings) {
                 assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
                 sends.incrementAndGet();
-                return SmsProviderSendResultDto.accepted("FAKE_" + reference, SmsStatus.SENT);
+                SmsProviderSendResultDto answer = sendAnswer.get();
+                return answer == null ? SmsProviderSendResultDto.accepted("FAKE_" + reference, SmsStatus.SENT) : answer;
             }
         };
     }
