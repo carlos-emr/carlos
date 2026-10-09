@@ -28,6 +28,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -58,9 +59,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EFormBrowserRenderPageServlet request from : {}", remoteAddress);
+            logger.debug("EFormBrowserRenderPageServlet request from : {}", LogSafe.sanitize(remoteAddress));
             if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormBrowserRenderPageServlet from address : {}", remoteAddress);
+                logger.warn("Unauthorised request made to EFormBrowserRenderPageServlet from address : {}", LogSafe.sanitize(remoteAddress));
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }

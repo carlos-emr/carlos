@@ -171,7 +171,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                     return;
                 }
             } catch (Exception e) {
-                logger.error("Could not render client image id {}", clientId, e);
+                logger.error("Could not render client image id {}", LogSafe.sanitize(clientId), e);
             }
         }
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -314,7 +314,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         if (!canRenderStoredSignature(session, signatureMetadata)) {
             logger.warn("Denied stored signature render: provider={} moduleType={} demographicNo={}",
-                    provider.getProviderNo(), signatureMetadata.getModuleType(), signatureMetadata.getDemographicId());
+                    LogSafe.sanitize(provider.getProviderNo()), LogSafe.sanitizeObject(signatureMetadata.getModuleType()),
+                    LogSafe.sanitizeObject(signatureMetadata.getDemographicId()));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

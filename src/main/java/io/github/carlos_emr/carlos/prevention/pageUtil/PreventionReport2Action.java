@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -144,7 +145,7 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("patientSet", patientSet);
         request.setAttribute("prevention", prevention);
 
-        log.debug("setting prevention type to " + prevention);
+        log.debug("setting prevention type to {}", LogSafe.sanitize(prevention));
 
         return SUCCESS;
     }

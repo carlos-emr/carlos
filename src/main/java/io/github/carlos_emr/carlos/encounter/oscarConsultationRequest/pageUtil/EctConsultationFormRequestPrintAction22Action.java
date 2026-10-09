@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -208,6 +209,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // stream was created but never added to the cleanup list, leaking one file
                 // descriptor per attached eForm on every print (see attached-forms site below
                 // for the matching leak).
+                // The renderer chose this path itself (eForm ids are already narrowed to this request's
+                // patient by retainOwned and gated by the _eform privilege); no request text names it.
+                // nosemgrep: carlos.httpservlet-path-traversal -- server-generated renderer output, not a request-chosen path
                 InputStream attachedFormStream = Files.newInputStream(attachedForm);
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
@@ -233,7 +237,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     } else if (doc.isPDF()) {
                         alist.add(path + doc.getFileName());
                     } else {
-                        logger.error("EctConsultationFormRequestPrintAction: " + doc.getType() + " is marked as printable but no means have been established to print it.");
+                        logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.",
+                                LogSafe.sanitizeObject(doc.getType()));
                     }
                 }
             }
@@ -244,7 +249,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                 // Defense-in-depth: verify temp file is in an allowed temp directory
                 if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                    logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
                     tempLabPDF.delete();
                     throw new SecurityException("Temp file created outside allowed temp directory");
                 }
