@@ -84,11 +84,11 @@ public class EmailComposeManager {
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param emailLogId Integer the unique identifier of the email log entry to retrieve
      * @return EmailLog the email log entry containing the original email data
-     * @throws RuntimeException if the user lacks the required _email READ privilege
+     * @throws SecurityException if the user lacks the required _email READ privilege
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);

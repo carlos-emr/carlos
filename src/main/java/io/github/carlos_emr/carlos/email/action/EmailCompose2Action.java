@@ -16,8 +16,10 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -280,9 +282,16 @@ public class EmailCompose2Action extends ActionSupport {
                         request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
             }
         } catch (PDFGenerationException | RuntimeException e) {
-            logger.error(e.getMessage(), e);
+            // The exception's text can name a file or repeat document content, so neither the log nor
+            // the page gets it: the log has its class and a reference, the page a fixed message with
+            // the same reference for staff to quote.
+            String reference = EmailFailureMessage.newReference();
+            // exceptionTrace gives the types and code locations, never a message.
+            logger.error("Unable to prepare eForm email attachments; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
             restoreDraft.run();
-            return emailComposeError(request, "This eForm (and attachments, if applicable) could not be emailed. \\n\\n" + e.getMessage());
+            return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.EFORM_ATTACHMENTS_KEY, reference));
         }
 
         // Set request attributes for JSP (from the draft and computed values)
@@ -365,8 +374,8 @@ public class EmailCompose2Action extends ActionSupport {
      * </ul>
      *
      * @param request HttpServletRequest the HTTP servlet request to store the error message
-     * @param errorMessage String the error message to display to the user, typically includes
-     *                     the specific exception message from PDFGenerationException
+     * @param errorMessage String the error message to display to the user: fixed or bundle text,
+     *                     never an exception's own message
      * @return String the Struts2 result name "eFormError" which maps to the error display page
      * @see io.github.carlos_emr.carlos.utility.PDFGenerationException
      */
