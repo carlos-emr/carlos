@@ -167,10 +167,15 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
+    boolean waitingListEnabled = oscarProps != null
+            && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"));
+    ProviderPreference waitingListPreference = (ProviderPreference) session.getAttribute(
+            io.github.carlos_emr.carlos.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
+    List<WaitingListName> activeWaitingListNames = waitingListEnabled && waitingListPreference != null
+            && waitingListPreference.getMyGroupNo() != null
+            ? waitingListNameDao.findCurrentByGroup(waitingListPreference.getMyGroupNo())
+            : Collections.emptyList();
+    String wLReadonly = activeWaitingListNames.isEmpty() ? "readonly" : "";
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -1069,11 +1074,6 @@
                         </tr>
 
                         <%
-                            // wLReadonly already computed in preamble
-                            WaitingList wL = WaitingList.getInstance();
-                            if (!wL.getFound()) {
-                                wLReadonly = "readonly";
-                            }
                             if (wLReadonly.equals("")) {
                         %>
                         <tr>

@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
+import io.github.carlos_emr.carlos.waitinglist.util.WaitingListAccess;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -70,6 +71,13 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
 
         if (listId == null || demographicNo == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        // The confirmation may arrive after a list or the provider's group changes.
+        if (!WaitingListAccess.isAvailable(loggedInInfo, listId)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "The selected waiting list is no longer available. Reload the form and choose an active list.");
             return NONE;
         }
 

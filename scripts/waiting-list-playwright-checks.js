@@ -52,9 +52,16 @@ async function saveMasterRecord(master) {
   await h.assertNotErrorPage(master, 'the Master Record after Update Record');
 }
 
+/**
+ * Verify waiting-list availability, exact text, history and protected removal
+ * through the real Master Record workflow using only owned fixture rows.
+ * @param {object} s Authenticated workflow session with SQL and cleanup helpers.
+ * @returns {Promise<void>} Resolves after every UI and database assertion passes.
+ */
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   let listId;
+  const listName = `${marker} <b>LIST</b> "&`;
   const currentRows = () => sql.rows(`SELECT note, DATE(onListSince), position FROM waitingList
     WHERE listID=${listId} AND demographic_no=${patient} AND is_history='N' ORDER BY id`);
   const rowCount = (history) => sql.value(`SELECT COUNT(*) FROM waitingList WHERE listID=${listId}
@@ -65,7 +72,7 @@ async function workflow(s) {
     sql.execute(`DELETE FROM waitingList WHERE listID=${listId} AND demographic_no=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM waitingList WHERE listID=${listId}`) === '0',
       'Owned waiting-list rows were not removed');
-    sql.execute(`DELETE FROM waitingListName WHERE ID=${listId} AND name=${h.sqlString(marker)}`);
+    sql.execute(`DELETE FROM waitingListName WHERE ID=${listId} AND name=${h.sqlString(listName)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM waitingListName WHERE ID=${listId}`) === '0',
       'The owned waiting-list name was not removed');
   });
@@ -76,7 +83,7 @@ async function workflow(s) {
     const group = sql.value(`SELECT COALESCE(myGroupNo, '') FROM ProviderPreference WHERE providerNo=${h.sqlString(provider)}`);
     if (group === '') throw new h.SkipCheck('The test login has no schedule group preference (ProviderPreference.myGroupNo), so the Master Record lists no waiting lists');
     listId = sql.value(`INSERT INTO waitingListName (name, group_no, provider_no, create_date, is_history)
-      VALUES (${h.sqlString(marker)}, ${h.sqlString(group)}, ${h.sqlString(provider)}, NOW(), 'N'); SELECT LAST_INSERT_ID()`);
+      VALUES (${h.sqlString(listName)}, ${h.sqlString(group)}, ${h.sqlString(provider)}, NOW(), 'N'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(listId), 'The waiting-list name fixture was not created');
     // The Master Record was rendered before the name existed; it decides both the
     // Waiting List link and the editable note at render time.
@@ -86,7 +93,8 @@ async function workflow(s) {
     await openEditForm(s.master);
     const option = s.master.locator(`${LIST_SELECT} option[value="${listId}"]`);
     h.assert(await option.count() === 1, 'The Master Record waiting-list select does not offer the seeded list');
-    h.assert((await option.textContent()).trim() === marker, 'The seeded list is offered under another name');
+    h.assert((await option.textContent()).trim() === listName, 'The seeded list is offered under another name');
+    h.assert(await option.locator('b').count() === 0, 'List name markup created an option child element');
     // Both are gated by the same wLReadonly flag; report both at once.
     const problems = [];
     if (await s.master.locator(MASTER_LINK).count() !== 1) problems.push('shows no Waiting List link');
@@ -97,9 +105,52 @@ async function workflow(s) {
       + 'edit.jsp and its fragments set wLReadonly whenever DEMOGRAPHIC_WAITING_LIST=true)');
   });
 
-  const firstNote = `${marker} first note from the Master Record`;
+  await s.step('stale archived, moved and out-of-group lists are refused before either write action changes data', async () => {
+    const form = s.master.locator('form[name="updatedelete"]');
+    const fields = await form.evaluate(element => Object.fromEntries(new FormData(element)));
+    h.assert(fields['CSRF-TOKEN'], 'The stale-submit probe needs the real form CSRF token');
+    const originalGroup = sql.value(`SELECT myGroupNo FROM ProviderPreference WHERE providerNo=${h.sqlString(provider)}`);
+    const otherGroup = `PW${marker.slice(-6)}`;
+    const beforePatient = sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`);
+    const beforeRows = sql.rows(`SELECT id, note, is_history FROM waitingList WHERE listID=${listId} AND demographic_no=${patient} ORDER BY id`);
+    const cases = [
+      {name: 'archived list', change: `UPDATE waitingListName SET is_history='Y' WHERE ID=${listId}`},
+      {name: 'moved list', change: `UPDATE waitingListName SET group_no=${h.sqlString(otherGroup)} WHERE ID=${listId}`},
+      {name: 'changed provider group', change: `UPDATE ProviderPreference SET myGroupNo=${h.sqlString(otherGroup)} WHERE providerNo=${h.sqlString(provider)}`},
+    ];
+    for (const scenario of cases) {
+      try {
+        sql.execute(scenario.change);
+        const update = await s.context.request.post(h.appUrl(s.config.baseUrl, '/demographic/DemographicUpdate'), {
+          form: {...fields, first_name: 'Stale submission', postal: 'K1A 0B1', list_id: listId,
+            waiting_list_note: `${marker} stale`, waiting_list_referral_date: '2026-03-04'}, maxRedirects: 0,
+        });
+        h.assert(update.status() === 409, `${scenario.name}: DemographicUpdate answered ${update.status()} instead of 409`);
+        h.assert(sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`) === beforePatient,
+          `${scenario.name}: rejected update changed the patient record`);
+        const confirmation = await s.context.request.post(h.appUrl(s.config.baseUrl, '/waitinglist/Add2WaitingList'), {
+          form: {'CSRF-TOKEN': fields['CSRF-TOKEN'], listId, demographicNo: patient,
+            waitingListNote: `${marker} stale confirmation`, onListSince: '2026-03-04'}, maxRedirects: 0,
+        });
+        h.assert(confirmation.status() === 409, `${scenario.name}: confirmation answered ${confirmation.status()} instead of 409`);
+        h.assert(JSON.stringify(sql.rows(`SELECT id, note, is_history FROM waitingList WHERE listID=${listId}
+          AND demographic_no=${patient} ORDER BY id`)) === JSON.stringify(beforeRows),
+        `${scenario.name}: a stale submission changed waiting-list rows`);
+      } finally {
+        sql.execute(`UPDATE waitingListName SET is_history='N', group_no=${h.sqlString(originalGroup)} WHERE ID=${listId};
+          UPDATE ProviderPreference SET myGroupNo=${h.sqlString(originalGroup)} WHERE providerNo=${h.sqlString(provider)}`);
+        h.assert(sql.value(`SELECT myGroupNo FROM ProviderPreference WHERE providerNo=${h.sqlString(provider)}`) === originalGroup,
+          'Provider group was not restored after the stale-submit probe');
+      }
+    }
+  });
+
+  const firstNote = `${marker} first "quoted" note & detail`;
   const secondNote = `${marker} note edited again`;
   await s.step('Update Record with a list, note and date adds the patient to the list', async () => {
+    // The generic synthetic patient has no postal code; satisfy the real form's
+    // Canadian address validation before submitting this owned patient's update.
+    await s.master.locator('form[name="updatedelete"] input[name="postal"]').fill('K1A 0B1');
     await s.master.locator(LIST_SELECT).selectOption(listId);
     await s.master.locator(NOTE_INPUT).first().fill(firstNote);
     await s.master.locator(DATE_INPUT).first().fill('2026-03-04');
@@ -112,6 +163,37 @@ async function workflow(s) {
     h.assert(await s.master.locator(LIST_SELECT).inputValue() === listId, 'The reopened edit form lost the selected list');
     h.assert(await s.master.locator(NOTE_INPUT).first().inputValue() === firstNote, 'The reopened edit form lost the note');
     h.assert((await s.master.locator(DATE_INPUT).first().inputValue()).startsWith('2026-03-04'), 'The reopened edit form lost the date');
+  });
+
+  await s.step('a stale existing association rejects note edits, while an explicit no-list selection saves demographics only', async () => {
+    const fields = await s.master.locator('form[name="updatedelete"]')
+      .evaluate(element => Object.fromEntries(new FormData(element)));
+    h.assert(fields['CSRF-TOKEN'], 'The existing-association probe needs the real form CSRF token');
+    const before = JSON.stringify(currentRows());
+    const beforePatient = sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`);
+    const route = h.appUrl(s.config.baseUrl, '/demographic/DemographicUpdate');
+    try {
+      sql.execute(`UPDATE waitingListName SET is_history='Y' WHERE ID=${listId}`);
+      const rejected = await s.context.request.post(route, {
+        form: {...fields, list_id: listId, first_name: 'Rejected stale edit', waiting_list_note: `${marker} changed while stale`},
+        maxRedirects: 0,
+      });
+      h.assert(rejected.status() === 409, 'An unchanged stale list ID silently accepted edited waiting-list fields');
+      h.assert(JSON.stringify(currentRows()) === before, 'The stale existing association changed');
+      h.assert(sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`) === beforePatient,
+        'The refused combined edit partially saved patient data');
+      const saved = await s.context.request.post(route, {
+        form: {...fields, list_id: '0', first_name: 'Demographic-only edit'}, maxRedirects: 0,
+      });
+      h.assert(saved.status() === 302, `Demographic-only save returned HTTP ${saved.status()}`);
+      h.assert(sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`) === 'Demographic-only edit',
+        'No-list selection prevented an ordinary demographic change');
+      h.assert(JSON.stringify(currentRows()) === before, 'Demographic-only save changed the unavailable waiting-list entry');
+    } finally {
+      sql.execute(`UPDATE waitingListName SET is_history='N' WHERE ID=${listId}`);
+    }
+    await s.master.reload({waitUntil: 'domcontentloaded'});
+    await openEditForm(s.master);
   });
 
   await s.step('editing the note through Update Record keeps one current row and the old one as history', async () => {
@@ -140,7 +222,7 @@ async function workflow(s) {
     const row = ownedRow();
     h.assert(await row.count() === 1, 'The patient waiting-list page does not list the owned entry exactly once');
     const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
-    h.assert(cells[0] === marker && cells[1] === '1' && cells[2] === secondNote && cells[3].startsWith('2026-03-04'),
+    h.assert(cells[0] === listName && cells[1] === '1' && cells[2] === secondNote && cells[3].startsWith('2026-03-04'),
       'The patient waiting-list row does not show the list, position 1, the edited note and the date of request');
   });
 
