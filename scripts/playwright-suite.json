@@ -8431,6 +8431,51 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and a throwaway provider login (lib/throwaway-login-fixture.js) with a copy of the test provider's program_provider and provider_default_program rows so the same chart opens for it. The saved note, its link/extension rows, both providers' drafts, every note lock of the patient, eChart and the throwaway are removed by key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "echart-note-verify-appointment-status",
+      "script": "scripts/echart-note-verify-appointment-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ECHART_VERIFY_PIN"
+      ],
+      "notes": "Verify & Sign on a chart note, the appointment status letters it sets, and the note's Encounter Date and encounter type, on an owned FAKE patient with two owned appointments on today's day sheet (To Do 't' and Here 'H', free slots in the provider's hours) opened through the day sheet's E link. Steps: the day sheet shows both with the icons of their stored statuses (the icon the application draws is '<second letter><icon of the first letter>', read from appointment_status) and an E link each; a chart opened from the Master Record carries appointmentNo 0 and Sign & Save there signs the note (signature line, signing provider, no appointment) and leaves both appointments and their archive rows byte-for-byte (a digest taken before and after; a control in the next step proves the digest moves when an appointment is signed); Sign & Save from the To Do appointment's chart signs the note for it and the status becomes tS, and the day sheet shows Sstarbill.gif titled 'To Do/Signed' with the status link carrying currentstatus=tS; Verify & Sign (#signVerifyImg) from the same chart writes a signed note ending with the 'Verified and Signed on' line (not the plain Signed line) and the status becomes tV (V takes S's place), with Vstarbill.gif and 'To Do/Verified' on the day sheet; Verify & Sign from the Here appointment (never signed) makes HV with Vhere.gif and 'Here/Verified'; after those charts a chart from the Master Record again carries no appointment and signs without touching either; a back-dated Encounter Date picked in the calendar (flatpickr) and saved with Save is stored exactly as shown, as is one on a note signed with Sign & Save, and reopening the chart lists every note in Encounter Date order, oldest first, with the two back-dated notes (written last) first and each showing its date; a future day picked in the calendar is stopped in the browser with the alert 'Observation date must be in the past', posts no save and writes no note; a future Encounter Date that reaches the server (the posted date is rewritten in flight to tomorrow, because the browser only refuses days after today; picking today before noon posts a time later today) is stored as the current time; the encounter type picked in the combo box (email encounter with client) is stored and shown when the chart is reopened. LAST and pinned to finding 223: Save rolls the future date back and shows the clinician nothing, where encounter.futureDate.Msg ('Observation Date set in future, rolled back to current time') is meant to be shown (no alert, not in the save response, not on the chart page); it is the last step because a script stops at its first failing step. Expected: every step above passes and this one fails. Finding 224 has its own entry running the same script with ECHART_VERIFY_PIN=archive (echart-note-verify-appointment-status-archive), so no pin hides another. The packaged default ENABLE_EDIT_APPT_STATUS=yes is assumed (the legacy icon names lts.gif/ltv.gif are not accepted; appointment-status-editing pins the default). Not covered: Sign Save & Bill (echart-note-sign-bill), the group-note encounter types (they need group notes enabled), and a time later today picked through the calendar (the posted date is rewritten instead so the step is the same at any hour).",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 223,
+        "step": "the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back"
+      }
+    },
+    {
+      "name": "echart-note-verify-appointment-status-archive",
+      "script": "scripts/echart-note-verify-appointment-status-playwright-checks.js",
+      "envSet": {
+        "ECHART_VERIFY_PIN": "archive"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ECHART_VERIFY_PIN"
+      ],
+      "notes": "The archive half of Sign & Save on the appointment status, pinned to finding 224: the day sheet control, Sign & Save from the To Do appointment's chart (status 't' becomes 'tS'), then the pin: the appointmentArchive row that save writes holds 'tS', the status it was given, so the status it replaced ('t') is in no archive row. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive before they change the appointment; CaseManagementManagerImpl.saveCaseManagementNote changes the status first. Runs only the steps this finding needs (the default entry is echart-note-verify-appointment-status). Expected: the pin fails and nothing else.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 224,
+        "step": "the appointment archive row Sign & Save writes holds the status the appointment had before, not the one it was given"
+      }
+    },
+    {
       "name": "inbox-file-forward",
       "script": "scripts/inbox-file-forward-playwright-checks.js",
       "tiers": [
