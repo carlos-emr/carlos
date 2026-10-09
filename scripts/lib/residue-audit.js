@@ -21,15 +21,22 @@
  *      check's manifest `mutates` names are shared by every check; there is no marker to find.
  *      Residue is a DIFFERENCE from the baseline taken at the start of the run.
  *
- *   3. Rows added anywhere. A table with no marker column (form_boolean_value, formRourke2020 and the
- *      other form tables, providerLabRoutingLock, patientLabRouting, measurementsExt) is invisible to
- *      the marker audit, and so was a lock row 34 earlier runs leaked. The baseline therefore also
- *      holds an exact row count of EVERY base table of the database, and the audit reports each table
- *      that has more rows than it had, minus ROW_GROWTH_ALLOWED: the few tables that legitimately
- *      grow on every run (the audit trail itself), each with its reason. Counting 434 tables takes
- *      about a tenth of a second on the packaged install. A table that shrank is not reported: the
- *      audit looks for what a run left behind, and it cannot tell a check that removed a demo row
- *      from the clinic's own purge.
+ *   3. Rows added or removed anywhere. A table with no marker column (form_boolean_value,
+ *      formRourke2020 and the other form tables, providerLabRoutingLock, patientLabRouting,
+ *      measurementsExt) is invisible to the marker audit, and so was a lock row 34 earlier runs
+ *      leaked. The baseline therefore also holds an exact row count of EVERY base table of the
+ *      database, and the audit reports each table that has more rows than it had ("rows added"),
+ *      minus ROW_GROWTH_ALLOWED: the few tables that legitimately grow on every run (the audit
+ *      trail itself), each with its reason; and each table that has FEWER ("rows removed"), with no
+ *      allow-list, because nothing in the install shrinks a table behind a run's back (it has no
+ *      purge job) and a check that deletes rows it does not own does more harm than one that leaves
+ *      its own: acknowledging a demo lab deleted the demo's provider-0 routing row for it (the
+ *      application removes those on acknowledge) and lab-acknowledge never put it back. Counting
+ *      434 tables takes 0.4 to 0.7 s on the packaged install.
+ *      A count diff is NET: a delete and an insert in the same table cancel out, so a check that
+ *      removes one demo row and leaks one of its own in that table reads clean.
+ *      The audit also needs the install to itself: another session driving the application while a
+ *      run is audited adds or removes rows that the audit reads as that run's residue.
  *
  * WHAT IS REPORTED. Table and count, never a row. fax_config and property hold credentials and
  * may hold PHI, so the state tables are compared by SHA-256 digest computed inside MariaDB: the
@@ -107,9 +114,10 @@ const STATE_TABLES = Object.freeze([
 const PROPERTY_TABLE = Object.freeze({ table: 'property', key: 'id' });
 
 /**
- * Tables that gain rows on every run by design, and so are left out of the row-count diff. Each entry says why; add one only
- * when the growth is the application's own record of the run and no check can be expected to remove it. Growth anywhere else
- * is a check that did not clean up (or an application write the check did not know about), and is reported.
+ * Tables that gain rows on every run by design, and so are left out of the row-count diff's "rows added". Each entry says why;
+ * add one only when the growth is the application's own record of the run and no check can be expected to remove it. Growth
+ * anywhere else is a check that did not clean up (or an application write the check did not know about), and is reported.
+ * There is deliberately no such list for "rows removed": no table shrinks on its own on this install.
  */
 const ROW_GROWTH_ALLOWED = Object.freeze([
   Object.freeze({ table: 'log', reason: 'the audit trail: every page a check opens appends a row, and the application never removes one' }),
@@ -118,6 +126,8 @@ const ROW_GROWTH_ALLOWED = Object.freeze([
 
 /** Marks a residue entry that comes from the row-count diff (rows added to a table) rather than a marker or a state difference. */
 const ROWS_ADDED = 'rows added';
+/** Marks a residue entry of the row-count diff for a table that has fewer rows than at the baseline. */
+const ROWS_REMOVED = 'rows removed';
 
 /** Tables per counting statement, so the statement stays far below the client's argument and 30 s limits whatever the schema grows to. */
 const ROW_COUNT_BATCH = 100;
@@ -146,7 +156,9 @@ function likeContains(prefix) {
  *
  * Grammar: a table name; `property:<name>` or `UserProperty:<name>` (rows of the property table
  * with that name); or `file:<label>` for something on disk. fax_config and encounterForm are
- * audited on every run whether listed or not, so listing them only documents the check.
+ * audited on every run whether listed or not, so listing them only documents the check; so does
+ * listing a ROW_GROWTH_ALLOWED table such as `log`. Any other table is `notDiffed`: the row-count
+ * diff still sees rows added or removed, but not a row that was changed in place.
  *
  * @returns {{ propertyNames: string[], audited: string[], notDiffed: string[] }} `notDiffed` are
  *   entries the audit cannot compare (other tables, files): the runner says so rather than let a
@@ -162,7 +174,10 @@ function parseMutates(mutates) {
     const property = typeof entry === 'string' ? PROPERTY_ENTRY.exec(entry) : null;
     if (property) {
       if (!propertyNames.includes(property[1])) propertyNames.push(property[1]);
-    } else if (typeof entry === 'string' && STATE_TABLES.some((state) => state.table === entry)) {
+    } else if (typeof entry === 'string' && (STATE_TABLES.some((state) => state.table === entry)
+        || ROW_GROWTH_ALLOWED.some((allowed) => allowed.table === entry))) {
+      // A state table is diffed row by row; an allow-listed table (the audit trail) is accounted for by the row-count diff,
+      // which says how much it grew. Listing either only documents the check.
       audited.push(entry);
     } else if (typeof entry === 'string' && (IDENTIFIER.test(entry) || FILE_ENTRY.test(entry))) {
       notDiffed.push(entry);
@@ -271,26 +286,32 @@ function countRows(sql) {
 }
 
 /**
- * The tables that have more rows in `after` than in `before`, as residue entries `{ table, count, kind }` in table order,
- * and the allow-listed tables that grew, apart. A table that is not in `before` (created during the run) counts from zero;
- * one that shrank, or vanished, is not growth.
+ * The tables whose row count differs between `before` and `after`: those with more rows ("rows added", minus the allow-listed
+ * ones, which are returned apart) and those with fewer ("rows removed", never exempt), as residue entries
+ * `{ table, count, kind }` in table order. A table that is not in `before` (created during the run) counts from zero; one that
+ * is gone from `after` has lost every row it had.
+ *
+ * It is a NET count: a delete and an insert in the same table cancel out.
  *
  * @param {Object<string, number>} before  row counts at the baseline
  * @param {Object<string, number>} after  row counts now
  * @param {{table: string}[]} [allowed]  tables whose growth is expected (default ROW_GROWTH_ALLOWED)
- * @returns {{ grown: {table: string, count: number, kind: string}[], allowedGrowth: {table: string, count: number}[] }}
+ * @returns {{ changed: {table: string, count: number, kind: string}[], allowedGrowth: {table: string, count: number}[] }}
  */
-function rowGrowth(before, after, allowed = ROW_GROWTH_ALLOWED) {
+function rowChanges(before, after, allowed = ROW_GROWTH_ALLOWED) {
   const expected = new Set(allowed.map((entry) => entry.table));
-  const grown = [];
+  const changed = [];
   const allowedGrowth = [];
-  for (const table of Object.keys(after).sort()) {
-    const count = after[table] - (before[table] || 0);
-    if (count <= 0) continue;
-    if (expected.has(table)) allowedGrowth.push({ table, count });
-    else grown.push({ table, count, kind: ROWS_ADDED });
+  for (const table of [...new Set([...Object.keys(before), ...Object.keys(after)])].sort()) {
+    const difference = (after[table] || 0) - (before[table] || 0);
+    if (difference > 0) {
+      if (expected.has(table)) allowedGrowth.push({ table, count: difference });
+      else changed.push({ table, count: difference, kind: ROWS_ADDED });
+    } else if (difference < 0) {
+      changed.push({ table, count: -difference, kind: ROWS_REMOVED });
+    }
   }
-  return { grown, allowedGrowth };
+  return { changed, allowedGrowth };
 }
 
 function stateSpecs(propertyNames) {
@@ -346,7 +367,7 @@ function countDifferences(before, after) {
  *   `absent` are audited tables this install does not have (billingmaster is British Columbia
  *   only); `notDiffed` are `mutates` entries no comparison covers; `allowedGrowth` are the
  *   ROW_GROWTH_ALLOWED tables that grew, said so a reader can see what the allow-list absorbed.
- *   Entries of `residue` with a `kind` come from the row-count diff (the count is rows added).
+ *   Entries of `residue` with a `kind` come from the row-count diff (the count is rows added or removed).
  * @throws when a table is present but lacks a column the audit reads, because a silently shrunk
  *   audit is worse than none.
  */
@@ -386,12 +407,13 @@ function auditResidueDetailed({ sql, since }) {
     if (count > 0) residue.push({ table: spec.table, count });
   }
 
-  // Rows added to ANY table, marker column or not. A baseline taken before this audit existed carries no counts: nothing to compare.
+  // Rows added to or removed from ANY table, marker column or not. A baseline taken before this audit existed carries no counts:
+  // nothing to compare.
   let allowedGrowth = [];
   if (since && since.rowCounts) {
-    const growth = rowGrowth(since.rowCounts, countRows(sql));
-    residue.push(...growth.grown);
-    allowedGrowth = growth.allowedGrowth;
+    const differences = rowChanges(since.rowCounts, countRows(sql));
+    residue.push(...differences.changed);
+    allowedGrowth = differences.allowedGrowth;
   }
 
   return { residue, absent, notDiffed: since && since.notDiffed ? [...since.notDiffed] : [], allowedGrowth };
@@ -406,7 +428,7 @@ function auditResidue(options) {
   return auditResidueDetailed(options).residue;
 }
 
-/** One residue entry as the runner words it: `<table> <count>`, with `(rows added)` for an entry of the row-count diff. */
+/** One residue entry as the runner words it: `<table> <count>`, with `(rows added)` or `(rows removed)` for the row-count diff. */
 function describeResidue({ table, count, kind }) {
   return `${table} ${count}${kind ? ` (${kind})` : ''}`;
 }
@@ -418,7 +440,7 @@ function formatResidue(residue) {
 }
 
 module.exports = {
-  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, ROWS_ADDED, ROW_GROWTH_ALLOWED, STATE_TABLES,
+  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, ROWS_ADDED, ROWS_REMOVED, ROW_GROWTH_ALLOWED, STATE_TABLES,
   auditResidue, auditResidueDetailed, captureBaseline, countRows, describeResidue, formatResidue, likePrefix, parseMutates,
-  requiredSchema, rowGrowth,
+  requiredSchema, rowChanges,
 };

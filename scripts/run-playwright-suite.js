@@ -58,13 +58,17 @@
  *     the runner takes a baseline of fax_config, the encounterForm registrations and the
  *     property rows the selected checks' manifest `mutates` names BEFORE the first check, and
  *     audits AFTER the last (scripts/lib/residue-audit.js): marker-named fixture rows that
- *     survive, any difference from the baseline, and any table that has MORE ROWS than the baseline's
- *     exact count of every base table (so a table with no marker column cannot leak unseen; only the
- *     tables that grow on every run, ROW_GROWTH_ALLOWED, are exempt and are named in a line of their
- *     own). It prints `residue: <table> <count>` per table (`<count> (rows added)` for the row-count
- *     diff), never a row, and exits non-zero on residue; a clean audit prints
+ *     survive, any difference from the baseline, and any table that has MORE or FEWER ROWS than the
+ *     baseline's exact count of every base table (so a table with no marker column cannot leak
+ *     unseen, and a check cannot delete rows it does not own unseen; only the tables that grow on
+ *     every run, ROW_GROWTH_ALLOWED, are exempt from "more", and are named in a line of their own;
+ *     the diff is net, so a delete and an insert in one table cancel out). It prints
+ *     `residue: <table> <count>` per table (`<count> (rows added)` or `(rows removed)` for the
+ *     row-count diff), never a row, and exits non-zero on residue; a clean audit prints
  *     `residue audit: no residue`. It needs MYSQL_* like a database-asserting check, and a run
  *     that cannot take its baseline stops before any check starts rather than pass unaudited.
+ *     It also needs the install to itself: another session using the application during an audited
+ *     run adds and removes rows that are read as that run's residue.
  *
  * Usage:
  *   node scripts/run-playwright-suite.js --tier smoke
@@ -593,7 +597,11 @@ function finishResidueAudit(audit, out) {
   for (const line of formatResidue(report.residue)) out.log(line);
   // Say what the audit did NOT cover, so a clean verdict is not read as wider than it is.
   if (report.absent.length) out.log(`residue audit: not installed here: ${report.absent.join(', ')}`);
-  if (report.notDiffed.length) out.log(`residue audit: not diffed: ${report.notDiffed.join(', ')}`);
+  // A table named in `mutates` is still counted (rows added or removed); only a row changed in place goes unseen. A file is not covered at all.
+  const notDiffedFiles = report.notDiffed.filter((entry) => entry.startsWith('file:'));
+  const notDiffedTables = report.notDiffed.filter((entry) => !entry.startsWith('file:'));
+  if (notDiffedTables.length) out.log(`residue audit: not diffed: ${notDiffedTables.join(', ')} (only rows added or removed are counted)`);
+  if (notDiffedFiles.length) out.log(`residue audit: not diffed: ${notDiffedFiles.join(', ')} (files are not covered)`);
   // The tables that grow on every run by design are not residue, but a reader should see how much the allow-list absorbed.
   if ((report.allowedGrowth || []).length) {
     out.log(`residue audit: rows added to tables that grow on every run (not residue): ${report.allowedGrowth.map(({ table, count }) => `${table} ${count}`).join(', ')}`);

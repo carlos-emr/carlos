@@ -25,6 +25,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { auditProbe, phiLeaks, incomplete, label } = require('./lib/audit-log-helpers');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const q = h.sqlString;
 
@@ -46,6 +47,8 @@ async function workflow(s) {
   const description = `${marker} audit document`;
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-doc-'));
   let documentNo = null;
+  // The upload files a chart note for the document ("Document ... created"), a note link and a routing lock (lib/document-residue.js).
+  const mark = markDocumentResidue(sql);
   const rows = () => sql.rows(`SELECT d.document_no, d.docfilename FROM document d JOIN ctl_document c ON c.document_no=d.document_no
     WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc=${q(description)}`);
   s.cleanup(() => {
@@ -54,6 +57,7 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${no}; DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
       sql.execute(`DELETE FROM log WHERE content IN ('document','Document') AND (contentId=${q(no)} OR data=${q(`doc_no=${no}`)})`);
+      removeDocumentResidue(sql, mark, [no]);
       files.add(file);
     }
     for (const file of files) {

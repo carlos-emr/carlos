@@ -188,7 +188,7 @@ async function workflow(s) {
   const labs = {}; // key -> { accession, labNo, date, tests }
   const claimed = [];
   const uploaded = []; // the upload file names of the 'seconds' entry, so cleanup can find a file whose lab never stored
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-flowsheet-'));
+  let workDir = null; // the 'seconds' entry's temporary directory; made after the cleanup that removes it is registered
   // What the control steps read, kept for the pinned steps: a pinned step is then a judgment on a value in hand and
   // cannot fail for want of a page, a row or a lab, which the runner would read as the known defect.
   const filed = {}; // lab key -> its A1C measurement (step 3)
@@ -221,7 +221,7 @@ async function workflow(s) {
       if (lab.labNo) labNos.push(lab.labNo);
     }
     removeOwnedHl7Labs(sql, labNos);
-    fs.rmSync(workDir, { recursive: true, force: true });
+    if (workDir) fs.rmSync(workDir, { recursive: true, force: true });
     // An upload that failed before a lab was stored leaves its checksum row and archive without any lab row to find them by;
     // the run's unique upload name still identifies both.
     for (const fileName of uploaded) {
@@ -366,7 +366,11 @@ async function workflow(s) {
     await registry.locator('[name="xml_research1"]').fill('250');
     const results = await s.popup(registry, registry.locator('[name="codeSearch"]'), 'lab-flowsheet-dx-search');
     await results.locator('input[name="searchCodes"][value="250"]').check();
+    // Confirm returns the code to the registry and closes the search window; the Add click must wait for that close, or it can
+    // land while the registry page is still being handed the code (as dx-registry-status-update waits).
+    const closed = results.waitForEvent('close');
     await results.locator('[name="confirm"]').click();
+    await closed;
     h.assert(await registry.locator('[name="xml_research1"]').inputValue() === '250', 'Diagnosis search did not return code 250 to the entry form');
     await ui.clickAndAwaitReload(registry, registry.locator('[name="codeAdd"]'));
     await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient} AND dxresearch_code='250' AND status='A'`, '1',
@@ -483,6 +487,7 @@ async function workflow(s) {
       const lab = claim('upload', null, [a1cTest(values.within)]);
       const fileName = `lab-flowsheet-upload-${lab.accession}.hl7`;
       uploaded.push(fileName);
+      workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-flowsheet-'));
       const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
       fs.writeFileSync(filePath, Buffer.from(cmlUploadHl7({ accession: lab.accession, last: s.marker, test: lab.tests[0],
         observed: `${UPLOAD_TIME.date}${UPLOAD_TIME.time}` }), 'latin1'));

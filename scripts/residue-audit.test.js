@@ -14,8 +14,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, ROWS_ADDED, ROW_GROWTH_ALLOWED, STATE_TABLES, auditResidue, auditResidueDetailed,
-  captureBaseline, countRows, describeResidue, formatResidue, likePrefix, parseMutates, requiredSchema, rowGrowth,
+  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, ROWS_ADDED, ROWS_REMOVED, ROW_GROWTH_ALLOWED, STATE_TABLES, auditResidue, auditResidueDetailed,
+  captureBaseline, countRows, describeResidue, formatResidue, likePrefix, parseMutates, requiredSchema, rowChanges,
 } = require('./lib/residue-audit');
 const { parseArguments, main } = require('./run-playwright-suite');
 const { EXIT_FAIL, EXIT_PASS } = require('./lib/playwright-harness');
@@ -225,6 +225,8 @@ test('shouldSplitMutates_intoPropertyNamesAndTheRest', () => {
     audited: ['fax_config'],
     notDiffed: ['scheduledate', 'file:eform-images'],
   });
+  // The audit trail is accounted for by the row-count diff (its growth is said), so listing it is documentation, not a gap.
+  assert.deepEqual(parseMutates(['log', 'scheduledate']), { propertyNames: [], audited: ['log'], notDiffed: ['scheduledate'] });
   assert.deepEqual(parseMutates(undefined), { propertyNames: [], audited: [], notDiffed: [] });
   assert.throws(() => parseMutates(['fax config']), /not a valid mutates entry/);
   assert.throws(() => parseMutates(['property:']), /not a valid mutates entry/);
@@ -240,6 +242,8 @@ test('shouldFormatResidueLines_asTableThenCount', () => {
 
 test('shouldSayRowsAdded_forAnEntryOfTheRowCountDiff', () => {
   assert.equal(describeResidue({ table: 'providerLabRoutingLock', count: 3, kind: ROWS_ADDED }), 'providerLabRoutingLock 3 (rows added)');
+  assert.equal(describeResidue({ table: 'providerLabRouting', count: 1, kind: ROWS_REMOVED }), 'providerLabRouting 1 (rows removed)');
+  assert.deepEqual(formatResidue([{ table: 'providerLabRouting', count: 1, kind: ROWS_REMOVED }]), ['residue: providerLabRouting 1 (rows removed)']);
   assert.equal(describeResidue({ table: 'tickler', count: 1 }), 'tickler 1');
   assert.deepEqual(formatResidue([{ table: 'formRourke2020', count: 2, kind: ROWS_ADDED }]), ['residue: formRourke2020 2 (rows added)']);
 });
@@ -296,16 +300,48 @@ test('shouldGiveEveryAllowedTableAReason_andAllowOnlyTheAuditTrails', () => {
   assert.ok(Object.isFrozen(ROW_GROWTH_ALLOWED), 'the allow-list is not edited at run time');
 });
 
-test('shouldNotReportATableThatShrankOrVanished_butCountOneCreatedDuringTheRunFromZero', () => {
-  const growth = rowGrowth({ a: 5, b: 5, c: 5 }, { a: 4, b: 5, d: 2 });
-  assert.deepEqual(growth.grown, [{ table: 'd', count: 2, kind: ROWS_ADDED }], 'a (shrank), b (same), c (gone) are not residue; d is new');
+test('shouldReportATableThatShrank_orVanished_andCountOneCreatedDuringTheRunFromZero', () => {
+  // Deleting rows a check does not own is worse than leaving its own: the demo's routing row for lab 22 was lost that way.
+  const growth = rowChanges({ a: 5, b: 5, c: 5 }, { a: 4, b: 5, d: 2 });
+  assert.deepEqual(growth.changed, [
+    { table: 'a', count: 1, kind: ROWS_REMOVED },
+    { table: 'c', count: 5, kind: ROWS_REMOVED },
+    { table: 'd', count: 2, kind: ROWS_ADDED },
+  ], 'a lost a row, c is gone with its five, d is new; b is unchanged and is not reported');
   assert.deepEqual(growth.allowedGrowth, []);
 });
 
+test('shouldNeverExemptARemovedRow_evenInATableWhoseGrowthIsAllowed', () => {
+  const growth = rowChanges({ log: 100, hash_audit: 10 }, { log: 99, hash_audit: 14 });
+  assert.deepEqual(growth.changed, [{ table: 'log', count: 1, kind: ROWS_REMOVED }],
+    'nothing purges the audit trail on this install, so a shorter log is a check that deleted audit rows');
+  assert.deepEqual(growth.allowedGrowth, [{ table: 'hash_audit', count: 4 }]);
+});
+
 test('shouldHonourAnAllowListGiven_whenDiffingCounts', () => {
-  const growth = rowGrowth({ x: 1, y: 1 }, { x: 4, y: 3 }, [{ table: 'x' }]);
-  assert.deepEqual(growth.grown, [{ table: 'y', count: 2, kind: ROWS_ADDED }]);
+  const growth = rowChanges({ x: 1, y: 1 }, { x: 4, y: 3 }, [{ table: 'x' }]);
+  assert.deepEqual(growth.changed, [{ table: 'y', count: 2, kind: ROWS_ADDED }]);
   assert.deepEqual(growth.allowedGrowth, [{ table: 'x', count: 3 }]);
+});
+
+test('shouldReportARowTheRunDeleted_throughTheWholeAudit', () => {
+  // The case that happened: acknowledging a demo lab deletes the demo's provider-0 routing row for it, and the check restored
+  // only the row it had added. The table has a marker column nowhere, so only the count sees it.
+  const rowCounts = { ...COUNTS, providerLabRouting: 175, table_modification: 0 };
+  const sql = fakeSql({ rowCounts });
+  const baseline = captureBaseline({ sql });
+  rowCounts.providerLabRouting -= 1;
+  rowCounts.table_modification += 1;
+  assert.deepEqual(auditResidue({ sql, since: baseline }), [
+    { table: 'providerLabRouting', count: 1, kind: ROWS_REMOVED },
+    { table: 'table_modification', count: 1, kind: ROWS_ADDED },
+  ]);
+});
+
+test('shouldReportNothing_forATableWhoseCountIsUnchanged_sinceTheDiffIsNet', () => {
+  // A count diff is net: one row deleted and one inserted in the same table read as no change. Pinned so the audit is not
+  // read as proof that no foreign row was touched.
+  assert.deepEqual(rowChanges({ patientLabRouting: 25 }, { patientLabRouting: 25 }), { changed: [], allowedGrowth: [] });
 });
 
 test('shouldCountEveryBaseTable_inStatementsOfAHundred_quotingAnyName', () => {
@@ -456,6 +492,16 @@ test('shouldSayWhatTheAllowListAbsorbed_andNameRowsAdded', () => {
   assert.match(leaked.text, /^residue: providerLabRoutingLock 3 \(rows added\)$/m);
   assert.match(leaked.text, /FAIL\s+residue-audit/);
   assert.doesNotMatch(leaked.text, /rows added to tables that grow/);
+});
+
+test('shouldSayWhatTheAuditCannotSee_forTablesAndFilesNamedInMutates', () => {
+  const { text } = runnerWith([check('a')], {
+    residueAudit: auditDouble({ residue: [], absent: [], notDiffed: ['scheduledate', 'file:eform-images'], allowedGrowth: [] }),
+  });
+  assert.match(text, /^residue audit: not diffed: scheduledate \(only rows added or removed are counted\)$/m,
+    'a table is still counted for rows added and removed');
+  assert.match(text, /^residue audit: not diffed: file:eform-images \(files are not covered\)$/m, 'a file is not covered at all');
+  assert.doesNotMatch(text, /not diffed: scheduledate, file/, 'tables and files are said apart');
 });
 
 test('shouldPrintNoResidue_andPass_whenTheAuditIsClean', () => {

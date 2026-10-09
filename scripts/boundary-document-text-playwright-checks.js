@@ -16,6 +16,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const q = h.sqlString;
 
@@ -43,6 +44,8 @@ async function workflow(s) {
   const T = b.TOKENS;
   const column = b.columnLength(sql, 'document', 'docdesc');
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-doc-'));
+  // Each upload files a chart note for its document and a note link (lib/document-residue.js); neither carries the description.
+  const mark = markDocumentResidue(sql);
   const rows = () => sql.rows(`SELECT d.document_no, d.docfilename FROM document d JOIN ctl_document c ON c.document_no=d.document_no
     WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker}%`)}`);
   s.cleanup(() => {
@@ -50,6 +53,7 @@ async function workflow(s) {
     for (const [no, file] of rows()) {
       h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
       sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
+      removeDocumentResidue(sql, mark, [no]);
       files.add(file);
     }
     for (const file of files) {
