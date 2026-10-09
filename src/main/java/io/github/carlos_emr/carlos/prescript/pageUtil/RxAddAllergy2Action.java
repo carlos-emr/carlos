@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -134,8 +135,8 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
-			// this can be overwritten with the conditions further down this code block
-			allergy.setRegionalIdentifier(id);
+        // regionalIdentifier is exported as a DIN (CDS export, REST), so it is set only from a resolved
+        // brand lookup below; the DrugRef search id stays in drugrefId and is never passed off as a DIN.
         allergy.setDescription(name);
         allergy.setTypeCode(Integer.parseInt(type));
         allergy.setReaction(description);
@@ -170,15 +171,27 @@ public final class RxAddAllergy2Action extends ActionSupport {
             }
 
 
-            if (! "0".equals(type) && ! id.isEmpty() && ! "0".equals(id)){
-            RxDrugData drugData = new RxDrugData();
-            try {
-                RxDrugData.DrugMonograph f = drugData.getDrug(id);
-                allergy.setRegionalIdentifier(f.regionalIdentifier);
-	                allergy.setAtc(f.getAtc());
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+        // DrugRef's getDrug resolves only a brand-product search id (category 13) to a DIN and ATC
+        // code. The ids of ingredient (14), generic (11/12) and class (8/10) results are not drug
+        // codes, so asking for them always fails (#4435). Those allergens are checked by DrugRef
+        // from their type and name, and need no stored identifier, so they are not looked up.
+        if (BRAND_TYPE.equals(type)) {
+            if (!id.isEmpty() && !"0".equals(id)) {
+                try {
+                    RxDrugData.DrugMonograph f = new RxDrugData().getDrug(id);
+                    if (StringUtils.isNotBlank(f.regionalIdentifier)) {
+                        allergy.setRegionalIdentifier(f.regionalIdentifier);
+                    }
+                    allergy.setAtc(f.getAtc());
+                } catch (Exception e) {
+                    MiscUtils.getLogger().warn("Allergy saved without DrugRef identifiers: lookup failed ({})", e.getClass().getSimpleName());
+                }
             }
+            // The allergy is still saved (the clinician's record must not be lost), but the user
+            // is told whenever a brand allergen ends up without an ATC code, including when no id
+            // was submitted so no lookup could be tried (e.g. editing a legacy allergy that has
+            // no drugref_id): it may not be checkable against prescriptions.
+            identifiersUnresolved = StringUtils.isBlank(allergy.getAtc());
         }
 
         allergy.setDemographicNo(patient.getDemographicNo());
@@ -211,6 +224,19 @@ public final class RxAddAllergy2Action extends ActionSupport {
     }
 
     private int demographicNo;
+
+    /** DrugRef search category of a branded product, the only allergen type with a drug-code id. */
+    private static final String BRAND_TYPE = "13";
+
+    private boolean identifiersUnresolved;
+
+    /**
+     * Whether a brand allergen was saved without its DrugRef identifiers, so the redirect target
+     * can warn that it may not be checked against prescriptions. Read-only; never request-bound.
+     */
+    public boolean isIdentifiersUnresolved() {
+        return identifiersUnresolved;
+    }
 
     /** Whether {@code formValue} is a well-formed demographic number equal to {@code demographicNo}. */
     private static boolean isSamePatient(String formValue, int demographicNo) {
