@@ -357,33 +357,57 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should log archive when archived allergy belongs to the session patient")
+    @DisplayName("should amend the active allergy and log ADD and ARCHIVE when it belongs to the session patient")
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(true);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient).deleteAllergy(42);
+        verify(mockRxPatient).amendActiveAllergy(any(), any(), eq(42));
+        // The replacement is added only through the conditional amendment, never on its own.
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
+                any(String.class), any(String.class), eq("123"), any(String.class)));
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
                 eq("42"), any(String.class), eq("123"), isNull()));
     }
 
     @Test
-    @DisplayName("should only audit archival when the previously validated allergy was archived")
-    void shouldNotAuditArchive_whenArchiveFailsAfterValidation() throws Exception {
+    @DisplayName("should refuse with 409 and write nothing when the allergy being amended is already archived (issue #4410)")
+    void shouldRefuseAmendment_whenOriginalAllergyIsAlreadyArchived() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        Allergy archived = new Allergy();
+        archived.setArchived(true);
+        when(mockRxPatient.getAllergy(42)).thenReturn(archived);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).amendActiveAllergy(any(), any(), anyInt());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should refuse with 409 and audit nothing when another session archives the original first (issue #4410)")
+    void shouldRefuseAmendment_whenOriginalIsArchivedConcurrently() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(false);
 
-        action.execute();
+        String result = action.execute();
 
-        logActionMock.verify(() -> LogAction.addLog(
-                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
-                any(String.class), any(String.class), any(String.class), any()), never());
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        logActionMock.verifyNoInteractions();
     }
 
     @ParameterizedTest
