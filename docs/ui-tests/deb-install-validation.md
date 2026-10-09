@@ -2690,3 +2690,13 @@ release's own `oauth-rest-surfaces` replaced the pre-merge script (it covers the
   were removed.
 
 Re-run after the fixes, each alone under `--residue-audit`: "no residue" for all four checks.
+
+Two more harness notes from the review round that followed, both on the same snapshot26 install:
+
+- `get-reject-rourke-form` left 434 `form_boolean_value` rows per save (the Rourke form writes its ticked boxes there, keyed by the
+  record's id, and the check deleted only the `formRourke2017` row). The cleanup now removes them first; the 868 orphans two runs had
+  left were removed, and a re-run reports "no residue".
+- `clinical-forms-save-reopen-vascular-tracker-script` reports `failed-elsewhere` on about one run in four instead of `known-fail`:
+  a console error "Failed to load resource ... 400" from the Save that finding 254 refuses sometimes lands inside the window in
+  which the check reads the page's problems. It does so with the old wait and with the wait for the Save navigation that
+  CodeRabbit asked for (4 runs each, 1 of 4 failed elsewhere in each), so it predates that change. It is not fixed here.
