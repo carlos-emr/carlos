@@ -4186,6 +4186,21 @@
       "fixtures": "Owned patient; a marker Drools guideline (dxcodes icd9:2700 AND sex F) mapped to the test provider; one dxresearch row on the owned patient; all deleted by marker or owned id."
     },
     {
+      "name": "eform-email-attachment-binding",
+      "script": "scripts/eform-email-attachment-binding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Regression coverage for #4425: an email's prepared attachments are staged under its own window's one-time key, bound to that window's patient. A composer whose patient number is changed before Send, and a replay of a sent composer's POST, are refused with nothing delivered or logged; a Manage Emails resend window keeps its own patient's eForm while another patient's eForm email is composed, and each window sends its own patient's eForm. Skips unless BASE_URL is loopback (the SMTP sink binds the runner's loopback).",
+      "fixtures": "The workflow's FAKE patient X, a second owned FAKE patient Y, an owned eForm template and an owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink; nothing leaves the host. Cleanup removes the owned email logs, attachments, chart notes, eForm instances, template, sender and patient Y and asserts each is gone. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "eform-groups",
       "script": "scripts/eform-groups-playwright-checks.js",
       "tiers": [
