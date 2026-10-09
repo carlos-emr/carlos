@@ -7,8 +7,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Objects;
+import java.util.ResourceBundle;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,6 +126,8 @@ public class EmailCompose2Action extends ActionSupport {
     public static final String EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE =
             "This email compose window could not be prepared. "
                     + "Please close other open email compose windows and try again.";
+    /** Bundle key for the message shown when an eForm's email attachments could not be prepared. */
+    static final String ATTACHMENTS_NOT_PREPARED_KEY = "email.compose.msg.attachmentsNotPrepared";
     /** Query parameter carrying the opaque id of a prepared compose view. */
     public static final String EMAIL_COMPOSE_VIEW_PARAM = "composeView";
     /**
@@ -300,7 +305,7 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
             logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());
-            return emailComposeError(request, "This eForm and its attachments could not be prepared for email. Please reopen the compose window and try again.");
+            return emailComposeError(request, getLocalizedMessage(ATTACHMENTS_NOT_PREPARED_KEY));
         }
 
         // The compose screen now has a single "Message" field (issue #3118). Seed it from the
@@ -669,6 +674,16 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /** Shows the expired page. It changes nothing, so it is safe from both prepare and view. */
+    /** The bundle text for {@code messageKey} in the reader's language, or in English if it has none. */
+    private String getLocalizedMessage(String messageKey) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(messageKey);
+        } catch (MissingResourceException e) {
+            logger.warn("Missing localized email compose message {}; using English", messageKey);
+            return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(messageKey);
+        }
+    }
+
     private String composeExpired() {
         request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         return COMPOSE_EXPIRED_RESULT;

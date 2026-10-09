@@ -33,11 +33,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.http.HttpSession;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
@@ -242,6 +245,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.addPreferredLocale(Locale.CANADA_FRENCH);
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "123");
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "OPT_IN", "email.consent.status.optIn"});
@@ -270,7 +274,35 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("eFormError");
             assertThat(ownedDirectory.get()).isNotNull();
             assertThat(Files.exists(ownedDirectory.get())).isFalse();
+            // Worded from the bundle in the reader's language (here French), never the error's own text.
+            assertThat(request.getAttribute("errorMessage")).isEqualTo("Cet eForm et ses pi\u00e8ces jointes "
+                    + "n\u2019ont pas pu \u00eatre pr\u00e9par\u00e9s pour l\u2019envoi par courriel. Veuillez rouvrir "
+                    + "la fen\u00eatre de r\u00e9daction et r\u00e9essayer.");
         }
+    }
+
+    @Test
+    @DisplayName("attachments-not-prepared message should be translated in every shipped locale")
+    void shouldTranslateAttachmentsNotPreparedMessage_inEveryLocale() throws Exception {
+        String key = EmailCompose2Action.ATTACHMENTS_NOT_PREPARED_KEY;
+        Properties english = loadBundle("en");
+        assertThat(english.getProperty(key)).isEqualTo("This eForm and its attachments could not be prepared for "
+                + "email. Please reopen the compose window and try again.");
+        for (String locale : List.of("fr", "es", "pl", "pt_BR")) {
+            String text = loadBundle(locale).getProperty(key);
+            assertThat(text).as("oscarResources_%s.properties defines %s", locale, key).isNotBlank();
+            assertThat(text).as("oscarResources_%s.properties translates %s", locale, key)
+                    .isNotEqualTo(english.getProperty(key));
+        }
+    }
+
+    private static Properties loadBundle(String locale) throws IOException {
+        Properties bundle = new Properties();
+        Path bundlePath = Path.of("src/main/resources/oscarResources_" + locale + ".properties");
+        try (var reader = Files.newBufferedReader(bundlePath, StandardCharsets.UTF_8)) {
+            bundle.load(reader);
+        }
+        return bundle;
     }
 
     @Test
