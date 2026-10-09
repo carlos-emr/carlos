@@ -36,6 +36,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -52,6 +54,7 @@ import java.util.function.BooleanSupplier;
 @Service
 public class SmsConfigViewModelAssembler {
     static final String SYSTEM_TEST_ENABLED_PROPERTY = "sms.systemTest.enabled";
+    private static final String PROVIDER_NOT_READY = "sms.config.error.providerNotReady";
     private static final Set<String> RESULT_CODES =
             Set.of("saved", "testSent", "testQueued", "testBlocked", "testInvalid", "testFailed");
 
@@ -103,6 +106,7 @@ public class SmsConfigViewModelAssembler {
             // The page still opens, so the administrator can enter the credentials again and save.
             messageKeys.add("sms.config.error.credentialsUnreadable");
         }
+        addReadinessWarning(providerType, messageKeys);
         boolean schedulerRunning = scheduler.isRunning();
         List<SmsConfigViewModel.CredentialField> credentialFields = credentialFields(providerType, stored.orElse(null));
         return new SmsConfigViewModel(
@@ -114,6 +118,7 @@ public class SmsConfigViewModelAssembler {
                 stored.map(SmsConfig::getSenderNumber).orElse(""),
                 stored.map(SmsConfig::hasWebhookSecret).orElse(false),
                 credentialFields,
+                credentialGroups(stored.orElse(null)),
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
@@ -145,6 +150,9 @@ public class SmsConfigViewModelAssembler {
                 : page.providerType();
         List<SmsConfigViewModel.CredentialField> credentialFields =
                 credentialFields(SmsProviderType.valueOf(providerType), configService.current().orElse(null));
+        List<String> messageKeys = new ArrayList<>(page.errorKeys());
+        messageKeys.remove(PROVIDER_NOT_READY);
+        addReadinessWarning(SmsProviderType.valueOf(providerType), messageKeys);
         return new SmsConfigViewModel(
                 providerType,
                 page.providerOptions(),
@@ -154,12 +162,24 @@ public class SmsConfigViewModelAssembler {
                 submitted.senderNumber() == null ? "" : submitted.senderNumber(),
                 page.webhookSecretSet(),
                 credentialFields,
+                page.credentialGroups(),
                 page.stored(),
                 page.systemTestEnabled(),
                 "",
-                page.errorKeys(),
+                messageKeys,
                 submitted.expectedVersion() == null ? "" : String.valueOf(submitted.expectedVersion())
         );
+    }
+
+    private void addReadinessWarning(SmsProviderType providerType, List<String> messageKeys) {
+        if (!configService.providerReady(providerType) && !messageKeys.contains(PROVIDER_NOT_READY)) {
+            messageKeys.add(PROVIDER_NOT_READY);
+        }
+    }
+
+    private Map<String, List<SmsConfigViewModel.CredentialField>> credentialGroups(SmsConfig stored) {
+        return providerClients.registeredProviderTypes().stream().collect(Collectors.toUnmodifiableMap(
+                Enum::name, type -> credentialFields(type, stored)));
     }
 
     /**

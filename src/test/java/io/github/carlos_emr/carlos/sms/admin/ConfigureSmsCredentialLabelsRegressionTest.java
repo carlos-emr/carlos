@@ -57,6 +57,17 @@ class ConfigureSmsCredentialLabelsRegressionTest {
                 .doesNotContain("<carlos:encode value=\"${field.name}\"/></label>");
     }
 
+    @Test
+    void shouldScopeCredentialGroups_toTheirProviders() throws IOException {
+        String jsp = Files.readString(CONFIGURE_SMS_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("${smsConfig.credentialGroups[credentialProvider]}")
+                .contains("name=\"credential.<carlos:encode value='${credentialProvider}'")
+                .contains("group.disabled = !selected;")
+                .contains("group.hidden = !selected;")
+                .doesNotContain("name=\"credential.<carlos:encode value='${field.name}'");
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty("maven.multiModuleProjectDirectory", System.getProperty("user.dir")));
     }

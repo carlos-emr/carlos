@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
@@ -58,7 +60,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,7 +108,11 @@ class SmsProviderSwapUnitTest {
     void shouldShowAndCheckNewProvidersNeeds_whenClinicChoosesIt() {
         SmsConfigViewModelAssembler page = new SmsConfigViewModelAssembler(configService, clients, activeProvider,
                 mock(SmsQueueScheduler.class));
-        assertThat(page.assemble(null, List.of()).credentialFields()).as("the stub needs none").isEmpty();
+        SmsConfigViewModel initial = page.assemble(null, List.of());
+        assertThat(initial.credentialFields()).as("the stub needs none").isEmpty();
+        assertThat(initial.credentialGroups()).containsOnlyKeys("STUB", "CLOUDLI");
+        assertThat(initial.credentialGroups().get("CLOUDLI"))
+                .extracting(SmsConfigViewModel.CredentialField::name).containsExactly("api_user", "api_password");
 
         SmsConfigUpdateDto bare = settings(SmsProviderType.CLOUDLI, true, "", Map.of());
         List<String> errors = validate(bare);
@@ -126,6 +131,7 @@ class SmsProviderSwapUnitTest {
         assertThat(saved.credentialFields()).extracting(SmsConfigViewModel.CredentialField::set)
                 .containsExactly(true, true);
         assertThat(saved.toString()).doesNotContain("fake-password");
+        assertThat(saved.errorKeys()).doesNotContain("sms.config.error.providerNotReady");
     }
 
     @Test
@@ -255,17 +261,20 @@ class SmsProviderSwapUnitTest {
         save(completeFakeSettings());
         SmsTransaction queued = transactions.addQueued(
                 SmsSendCommand.patientMessage(124, "416-555-3434", "FAKE", "999998"), SmsProviderType.STUB, CONSENTED);
-        AtomicInteger reads = new AtomicInteger();
-        // The run starts with CLOUDLI active; by the time it reaches the stub's rows the clinic has chosen STUB.
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(transactions, clients, new SmsRetryCalculator(),
-                providerType -> true, command -> CONSENTED,
-                () -> reads.getAndIncrement() == 0 ? SmsProviderType.CLOUDLI : SmsProviderType.STUB,
-                configService::readyProviderSettings);
+        SmsTransaction active = transactions.addQueued(
+                SmsSendCommand.patientMessage(125, "416-555-5656", "FAKE active", "999998"),
+                SmsProviderType.CLOUDLI, CONSENTED);
+        transactions.afterProviderResult(row -> {
+            if (row == active) {
+                save(settings(SmsProviderType.STUB, true, "", Map.of()));
+            }
+        });
+        SmsQueueProcessingService worker = worker();
 
         worker.processDueMessages(10);
 
         assertThat(queued.getStatus()).as("left for the next run, which sends it").isEqualTo(SmsStatus.QUEUED);
-        assertThat(reads.get()).isGreaterThan(1);
+        assertThat(active.getStatus()).isEqualTo(SmsStatus.SENT);
     }
 
     @Test
@@ -276,12 +285,12 @@ class SmsProviderSwapUnitTest {
                 SmsSendCommand.patientMessage(124, "416-555-3434", "FAKE one", "999998"), SmsProviderType.STUB, CONSENTED);
         SmsTransaction second = transactions.addQueued(
                 SmsSendCommand.patientMessage(125, "416-555-5656", "FAKE two", "999998"), SmsProviderType.STUB, CONSENTED);
-        AtomicInteger reads = new AtomicInteger();
-        // Reads: run start, the CLOUDLI drain's one claim, VOIPMS's first row, STUB's first row; then STUB is chosen.
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(transactions, clients, new SmsRetryCalculator(),
-                providerType -> true, command -> CONSENTED,
-                () -> reads.getAndIncrement() < 4 ? SmsProviderType.CLOUDLI : SmsProviderType.STUB,
-                configService::readyProviderSettings);
+        transactions.afterProviderResult(row -> {
+            if (row == first) {
+                save(settings(SmsProviderType.STUB, true, "", Map.of()));
+            }
+        });
+        SmsQueueProcessingService worker = worker();
 
         worker.processDueMessages(10);
 
@@ -312,12 +321,12 @@ class SmsProviderSwapUnitTest {
         SmsTransaction second = transactions.addQueued(
                 SmsSendCommand.patientMessage(125, "416-555-5656", "FAKE two", "999998"), SmsProviderType.CLOUDLI,
                 CONSENTED);
-        AtomicInteger reads = new AtomicInteger();
-        // CLOUDLI is active for the run's start and its first send; then the clinic chooses STUB.
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(transactions, clients, new SmsRetryCalculator(),
-                providerType -> true, command -> CONSENTED,
-                () -> reads.getAndIncrement() < 2 ? SmsProviderType.CLOUDLI : SmsProviderType.STUB,
-                configService::readyProviderSettings);
+        transactions.afterProviderResult(row -> {
+            if (row == first) {
+                save(settings(SmsProviderType.STUB, true, "", Map.of()));
+            }
+        });
+        SmsQueueProcessingService worker = worker();
 
         assertThat(worker.processDueMessages(10)).isEqualTo(1);
 
@@ -354,6 +363,191 @@ class SmsProviderSwapUnitTest {
                 Map.of(FakeSecondProviderClient.TOKEN_HEADER, "callback-secret"), "callback-secret"))
                 .get().extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus)
                 .containsExactly(SmsProviderType.CLOUDLI, SmsStatus.DELIVERED);
+    }
+
+    @Test
+    void shouldReleaseQueueClaim_whenProviderChangesAfterClaim() {
+        save(completeFakeSettings());
+        SmsTransaction row = queueFakeText();
+        transactions.afterNextQueueClaim(() -> save(settings(SmsProviderType.STUB, true, "", Map.of())));
+
+        assertThat(worker().processDueMessages(10)).isZero();
+
+        assertUnsentAndReleased(row);
+    }
+
+    @Test
+    void shouldReleaseQueueClaim_whenCredentialsChangeAfterClaim() {
+        save(completeFakeSettings());
+        SmsTransaction row = queueFakeText();
+        transactions.afterNextQueueClaim(this::rotateFakeCredentials);
+
+        assertThat(worker().processDueMessages(10)).isZero();
+        assertUnsentAndReleased(row);
+        assertThat(worker().processDueMessages(10)).isEqualTo(1);
+        assertThat(fake.settingsSeen.get(0).credential("api_password")).contains("fake-rotated-password");
+    }
+
+    @Test
+    void shouldReleaseDirectClaim_whenProviderChangesAfterClaim() {
+        save(completeFakeSettings());
+        transactions.afterNextMarkSending(() -> save(settings(SmsProviderType.STUB, true, "", Map.of())));
+
+        SmsSendResultDto result = sendService().send(fakeCommand());
+
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertUnsentAndReleased(transactions.transactions().get(0));
+    }
+
+    @Test
+    void shouldReleaseDirectClaim_whenCredentialsChangeAfterClaim() {
+        save(completeFakeSettings());
+        transactions.afterNextMarkSending(this::rotateFakeCredentials);
+
+        SmsSendResultDto result = sendService().send(fakeCommand());
+
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertUnsentAndReleased(transactions.transactions().get(0));
+    }
+
+    @Test
+    void shouldReleaseQueueClaim_whenSettingsBecomeUnreadableAfterClaim() {
+        save(completeFakeSettings());
+        SmsTransaction row = queueFakeText();
+        transactions.afterNextQueueClaim(() -> org.springframework.test.util.ReflectionTestUtils.setField(
+                savedRow.get(), "credentialsJson", "{FAKE malformed"));
+
+        assertThat(worker().processDueMessages(10)).isZero();
+        assertUnsentAndReleased(row);
+    }
+
+    @Test
+    void shouldReleaseDirectClaim_whenSettingsBecomeUnreadableAfterClaim() {
+        save(completeFakeSettings());
+        transactions.afterNextMarkSending(() -> org.springframework.test.util.ReflectionTestUtils.setField(
+                savedRow.get(), "credentialsJson", "{FAKE malformed"));
+
+        assertThat(sendService().send(fakeCommand()).status()).isEqualTo(SmsStatus.QUEUED);
+        assertUnsentAndReleased(transactions.transactions().get(0));
+    }
+
+    @Test
+    void shouldPreserveSendingState_whenReleaseLosesRaceAfterSettingsChange() {
+        save(completeFakeSettings());
+        SmsTransactionService recorder = org.mockito.Mockito.spy(transactions);
+        doAnswer(invocation -> invocation.getArgument(0)).when(recorder).releaseClaim(any(), any());
+        SmsSendService send = new SmsSendService(new SmsSendValidator(), command -> CONSENTED, clients, recorder,
+                providerType -> {
+                    rotateFakeCredentials();
+                    return true;
+                }, activeProvider, configService);
+
+        SmsSendResultDto result = send.send(fakeCommand());
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
+        assertThat(result.accepted()).isFalse();
+        assertThat(fake.settingsSeen).isEmpty();
+    }
+
+    @Test
+    void shouldPropagateReleaseFailure_whenSettingsChangeBeforeDirectSend() {
+        save(completeFakeSettings());
+        SmsTransactionService recorder = org.mockito.Mockito.spy(transactions);
+        org.mockito.Mockito.doThrow(new IllegalStateException("FAKE release failure"))
+                .when(recorder).releaseClaim(any(), any());
+        SmsSendService send = new SmsSendService(new SmsSendValidator(), command -> CONSENTED, clients, recorder,
+                providerType -> {
+                    rotateFakeCredentials();
+                    return true;
+                }, activeProvider, configService);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> send.send(fakeCommand()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SMS provider settings changed before dispatch");
+        assertThat(fake.settingsSeen).isEmpty();
+        assertThat(transactions.transactions().get(0).getStatus()).isEqualTo(SmsStatus.SENDING);
+        org.mockito.Mockito.verify(recorder).releaseClaim(any(), any());
+    }
+
+    @Test
+    void shouldFailQueuedSystemTest_withDistinctReasonWhenStubIsInactive() {
+        SmsTransaction test = transactions.addQueued(new SmsSendCommand(null, "416-555-1212",
+                SmsRecipientPhoneType.CELL, "FAKE system test", SmsMessagePurpose.SYSTEM_TEST,
+                "999998", 1, null), SmsProviderType.STUB, CONSENTED);
+        save(completeFakeSettings());
+
+        assertThat(worker().processDueMessages(10)).isZero();
+
+        assertThat(test.getStatus()).isEqualTo(SmsStatus.FAILED);
+        assertThat(test.getErrorCode()).isEqualTo("QUEUE_SYSTEM_TEST_NOT_ACTIVE");
+        assertThat(test.getErrorMessage()).contains("Send test");
+        assertThat(stub.sends).isZero();
+    }
+
+    @Test
+    void shouldBackOffFaultyInactiveRow_andFailNextHealthyRow() {
+        SmsTransaction first = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
+        SmsTransaction second = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
+        save(completeFakeSettings());
+        SmsTransactionService recorder = org.mockito.Mockito.spy(transactions);
+        doAnswer(invocation -> {
+            if (invocation.getArgument(0) == first) {
+                throw new IllegalStateException("FAKE failed write");
+            }
+            return invocation.callRealMethod();
+        }).when(recorder).markProviderResult(any(), any());
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, clients, new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED, activeProvider, configService);
+        Instant before = Instant.now();
+
+        assertThat(worker.processDueMessages(10)).isZero();
+        assertThat(worker.processDueMessages(10)).isZero();
+
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(first.getAttemptCount()).isZero();
+        assertThat(first.getNextAttemptAt().toInstant()).isAfterOrEqualTo(before.plus(Duration.ofMinutes(5)));
+        assertThat(second.getStatus()).isEqualTo(SmsStatus.FAILED);
+    }
+
+    @Test
+    void shouldStopInactiveFailures_afterTwoFailedWritesInRun() {
+        SmsTransaction first = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
+        SmsTransaction second = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
+        SmsTransaction third = transactions.addQueued(fakeCommand(), SmsProviderType.STUB, CONSENTED);
+        save(completeFakeSettings());
+        SmsTransactionService recorder = org.mockito.Mockito.spy(transactions);
+        org.mockito.Mockito.doThrow(new IllegalStateException("FAKE failed write"))
+                .when(recorder).markProviderResult(any(), any());
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, clients, new SmsRetryCalculator(),
+                providerType -> true, command -> CONSENTED, activeProvider, configService);
+
+        assertThat(worker.processDueMessages(10)).isZero();
+
+        assertThat(first.getNextAttemptAt()).isAfter(new Date());
+        assertThat(second.getNextAttemptAt()).isAfter(new Date());
+        assertThat(third.getAttemptCount()).isZero();
+        assertThat(third.getStatus()).isEqualTo(SmsStatus.QUEUED);
+        org.mockito.Mockito.verify(recorder, org.mockito.Mockito.times(2)).markProviderResult(any(), any());
+    }
+
+    private void assertUnsentAndReleased(SmsTransaction row) {
+        assertThat(row.getStatus()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(row.getAttemptCount()).isZero();
+        assertThat(fake.settingsSeen).isEmpty();
+        assertThat(stub.sends).isZero();
+    }
+
+    private SmsTransaction queueFakeText() {
+        return transactions.addQueued(fakeCommand(), SmsProviderType.CLOUDLI, CONSENTED);
+    }
+
+    private SmsSendCommand fakeCommand() {
+        return SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE", "999998");
+    }
+
+    private void rotateFakeCredentials() {
+        save(settings(SmsProviderType.CLOUDLI, true, SENDER,
+                Map.of("api_user", "fake-user", "api_password", "fake-rotated-password")));
     }
 
     private SmsSendService sendService() {

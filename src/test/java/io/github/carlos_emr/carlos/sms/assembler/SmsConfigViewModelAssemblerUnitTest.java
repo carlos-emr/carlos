@@ -59,6 +59,7 @@ class SmsConfigViewModelAssemblerUnitTest {
     @BeforeEach
     void seedEncryptionKey() throws Exception {
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
+        when(configService.providerReady(org.mockito.ArgumentMatchers.any())).thenReturn(true);
     }
 
     @AfterEach
@@ -223,6 +224,35 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.providerType()).isEqualTo("STUB");
         assertThat(model.credentialFields())
                 .containsExactly(new SmsConfigViewModel.CredentialField("field_one", "sms.test.fieldOne", true, false));
+    }
+
+    @Test
+    void shouldShowReadinessError_whenSavedProviderIsNotReady() {
+        when(configService.current()).thenReturn(Optional.of(new SmsConfig()));
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        SmsConfigViewModel page = assembler().assemble(null, List.of());
+
+        assertThat(page.enabled()).isTrue();
+        assertThat(page.errorKeys()).containsExactly("sms.config.error.providerNotReady");
+    }
+
+    @Test
+    void shouldShowReadinessError_whenPropertyProviderIsNotReady() {
+        when(configService.current()).thenReturn(Optional.empty());
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        assertThat(assembler().assemble(null, List.of()).errorKeys())
+                .containsExactly("sms.config.error.providerNotReady");
+    }
+
+    @Test
+    void shouldShowReadinessErrorOnce_whenValidationAlreadyIncludedIt() {
+        when(configService.current()).thenReturn(Optional.empty());
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        assertThat(assembler().assemble(null, List.of("sms.config.error.providerNotReady")).errorKeys())
+                .containsExactly("sms.config.error.providerNotReady");
     }
 
     private SmsConfigViewModelAssembler assembler() {

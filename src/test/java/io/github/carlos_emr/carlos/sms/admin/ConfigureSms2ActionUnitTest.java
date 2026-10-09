@@ -157,6 +157,46 @@ class ConfigureSms2ActionUnitTest {
         verifyNoInteractions(sendService);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "credential.CLOUDLI.field_two", "credential.VOIPMS.field_two", "credential.field_two",
+            "credential.UNKNOWN.field_two", "credential.STUB.unknown"
+    })
+    void shouldRefuseSave_whenTypedCredentialDoesNotBelongToSelectedProvider(String parameter) throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter(parameter, FIELD_INPUT);
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", false)));
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
+
+        assertThat(action().execute()).isEqualTo("success");
+
+        verify(configService, never()).save(any(), any());
+        verify(assembler).assembleRejected(any(), eq(List.of(ConfigureSms2Action.CREDENTIAL_PROVIDER_MISMATCH_ERROR)));
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    void shouldSaveSelectedProviderOnly_whenOtherProvidersSubmitBlankCredentials() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter("credential.STUB.field_two", FIELD_INPUT);
+        request.setParameter("credential.CLOUDLI.field_two", "");
+        request.setParameter("credential.VOIPMS.field_two", " ");
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", false)));
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
+
+        assertThat(action().execute()).isEqualTo("none");
+
+        ArgumentCaptor<SmsConfigUpdateDto> update = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
+        verify(configService).save(update.capture(), any());
+        assertThat(update.getValue().credentials()).containsExactlyEntriesOf(Map.of("field_two", FIELD_INPUT));
+    }
+
     @Test
     @DisplayName("saving needs _admin.sms write")
     void shouldDenySave_withoutAdminSmsWrite() {
@@ -179,7 +219,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("enabled", "true");
         request.setParameter("senderNumber", "416-555-1212");
         request.setParameter("webhookSecret", "webhook-value");
-        request.setParameter("credential.field_two", FIELD_INPUT);
+        request.setParameter("credential.STUB.field_two", FIELD_INPUT);
         request.setParameter("version", "4");
         when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
                 new SmsCredentialField("field_two", "sms.test.fieldTwo", false)));

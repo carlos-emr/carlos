@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Date;
 import java.util.IdentityHashMap;
@@ -71,12 +73,17 @@ public class SmsQueueProcessingService {
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE =
             "SMS not sent: its SMS provider is no longer the one chosen in Administration > SMS; send it again.";
 
+    private static final String QUEUE_SYSTEM_TEST_NOT_ACTIVE_CODE = "QUEUE_SYSTEM_TEST_NOT_ACTIVE";
+    private static final String QUEUE_SYSTEM_TEST_NOT_ACTIVE_MESSAGE =
+            "SMS system test not sent: the test provider is not active; use Send test in Administration > SMS again.";
+    private static final Duration INACTIVE_FAILURE_DELAY = Duration.ofMinutes(5);
+
     private final SmsTransactionService transactionRecorder;
     private final SmsProviderClientResolver providerResolver;
     private final SmsRetryCalculator retryPolicy;
     private final SmsSendRateLimitService rateLimiter;
     private final SmsConsentService consentService;
-    /** The clinic's active provider, read at the start of each run and again before each row is claimed. */
+    /** The clinic's active provider, checked before claims and again just before dispatch. */
     private final Supplier<SmsProviderType> activeProvider;
     private final Function<SmsProviderType, SmsProviderSettings> providerSettings;
 
@@ -204,6 +211,7 @@ public class SmsQueueProcessingService {
      * Each run fails at most {@code limit} of them, apart from the active provider's send batch.
      */
     private void failInactiveProvider(SmsProviderType providerType, int limit) {
+        int writeFailures = 0;
         for (int handled = 0; handled < limit; handled++) {
             // Read again before each row: the clinic may have chosen this provider since the run started, and
             // its new texts must then be sent, not failed.
@@ -217,13 +225,16 @@ public class SmsQueueProcessingService {
             }
             SmsTransaction claimed = transactions.get(0);
             try {
+                boolean systemTest = claimed.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST;
                 transactionRecorder.markProviderResult(claimed, SmsProviderSendResultDto.failed(
-                        QUEUE_PROVIDER_NOT_ACTIVE_CODE, QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE));
+                        systemTest ? QUEUE_SYSTEM_TEST_NOT_ACTIVE_CODE : QUEUE_PROVIDER_NOT_ACTIVE_CODE,
+                        systemTest ? QUEUE_SYSTEM_TEST_NOT_ACTIVE_MESSAGE : QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE));
             } catch (RuntimeException e) {
                 // Nothing was sent, so the claim goes back rather than leaving the row for stale recovery, which
                 // would report an unknown outcome.
                 try {
-                    SmsTransaction released = transactionRecorder.releaseClaim(claimed, new Date());
+                    SmsTransaction released = transactionRecorder.releaseClaim(claimed,
+                            Date.from(Instant.now().plus(INACTIVE_FAILURE_DELAY)));
                     LOGGER.warn("SMS transaction {} of inactive provider {} could not be failed; nothing was sent; the"
                                     + " claim {};{}", claimed.getId(), providerType,
                             released != null && released.getStatus() == SmsStatus.QUEUED
@@ -238,7 +249,10 @@ public class SmsQueueProcessingService {
                             + " was sent; stale recovery reconciles it;{}", claimed.getId(), providerType,
                             LogSafe.exceptionTrace(releaseFailure));
                 }
-                return;
+                // Back off the faulty row and let a healthy row proceed. Two failed writes suggest an outage.
+                if (++writeFailures >= 2) {
+                    return;
+                }
             }
         }
     }
@@ -284,7 +298,8 @@ public class SmsQueueProcessingService {
                     // A write failure is unlikely to be about one row, and an unusable permit is handled like a
                     // failed consent check: stop rather than work through the rest of the queue one row at a time.
                     shouldContinue = outcome != DispatchOutcome.WRITE_FAILED
-                            && outcome != DispatchOutcome.CONSENT_UNUSABLE;
+                            && outcome != DispatchOutcome.CONSENT_UNUSABLE
+                            && outcome != DispatchOutcome.SETTINGS_CHANGED;
                 }
             }
         }
@@ -363,6 +378,20 @@ public class SmsQueueProcessingService {
             handBackAfterWriteFailure(recorded, e);
             return DispatchOutcome.WRITE_FAILED;
         }
+        // Recheck after the permit wait and all claim writes. A swap or re-save must not let the rest of
+        // this run keep using the settings it read at startup. No lock is held across the provider call.
+        SmsProviderType providerType = recorded.getProviderType();
+        if (currentActiveProvider() != providerType || !settings.equals(loadSettings(providerType))) {
+            try {
+                transactionRecorder.releaseClaim(recorded, new Date());
+                LOGGER.info("SMS dispatch stopped: provider or settings changed or could not be read; claim release"
+                        + " requested; nothing was sent.");
+            } catch (RuntimeException e) {
+                LOGGER.warn("SMS dispatch stopped before sending, but its claim could not be handed back;{}",
+                        LogSafe.exceptionTrace(e));
+            }
+            return DispatchOutcome.SETTINGS_CHANGED;
+        }
         processTransaction(recorded, settings);
         return DispatchOutcome.SENT;
     }
@@ -420,7 +449,9 @@ public class SmsQueueProcessingService {
          * The permit named no consent state: nothing sent, the row is backed off like a failed consent check,
          * and draining stops for this run.
          */
-        CONSENT_UNUSABLE
+        CONSENT_UNUSABLE,
+        /** Provider/settings changed or became unreadable: claim release requested, and draining stops. */
+        SETTINGS_CHANGED
     }
 
     /**

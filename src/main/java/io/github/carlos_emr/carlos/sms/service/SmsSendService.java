@@ -181,6 +181,20 @@ public class SmsSendService {
             return releaseClaimAfterFailure(transaction, "claim renewal", e);
         }
 
+        if (forcedProvider == null) {
+            boolean settingsCurrent;
+            try {
+                settingsCurrent = providerSelector.configuredDefault() == providerType
+                        && (configService == null || settings.equals(configService.readyProviderSettings(providerType)));
+            } catch (RuntimeException e) {
+                return releaseClaimAfterFailure(transaction, "provider settings recheck", e);
+            }
+            if (!settingsCurrent) {
+                return releaseClaimAfterFailure(transaction, "provider settings change",
+                        new IllegalStateException("SMS provider settings changed before dispatch"));
+            }
+        }
+
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(providerType);

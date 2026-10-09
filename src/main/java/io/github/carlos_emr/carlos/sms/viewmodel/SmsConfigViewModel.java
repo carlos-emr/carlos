@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.sms.viewmodel;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * SMS settings for {@code admin/configureSms.jsp}. Secrets appear only as "set" flags; their values
@@ -35,6 +36,7 @@ import java.util.List;
  * @param senderNumber      the E.164 sender number, or empty
  * @param webhookSecretSet  whether a webhook secret is stored
  * @param credentialFields  the selected provider's credential fields and whether each is stored
+ * @param credentialGroups credential fields for every installed provider; secrets never reach the page
  * @param stored            whether settings have been saved; false means the properties still apply
  * @param systemTestEnabled whether {@code sms.systemTest.enabled} lets the system test send
  * @param resultKey         message key for the last action's result, or empty
@@ -45,13 +47,15 @@ import java.util.List;
  */
 public record SmsConfigViewModel(String providerType, List<String> providerOptions, boolean enabled,
                                  boolean schedulerEnabled, boolean schedulerRunning, String senderNumber,
-                                 boolean webhookSecretSet, List<CredentialField> credentialFields, boolean stored,
+                                 boolean webhookSecretSet, List<CredentialField> credentialFields,
+                                 Map<String, List<CredentialField>> credentialGroups, boolean stored,
                                  boolean systemTestEnabled, String resultKey, List<String> errorKeys,
                                  String version) {
 
     public SmsConfigViewModel {
         providerOptions = providerOptions == null ? List.of() : List.copyOf(providerOptions);
         credentialFields = credentialFields == null ? List.of() : List.copyOf(credentialFields);
+        credentialGroups = credentialGroups == null ? Map.of() : Map.copyOf(credentialGroups);
         errorKeys = errorKeys == null ? List.of() : List.copyOf(errorKeys);
         version = version == null ? "" : version;
     }
