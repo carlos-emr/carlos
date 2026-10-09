@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.admin.gate;
 
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -42,6 +43,7 @@ class ViewConfigureEmail2ActionUnitTest {
 
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final EmailFooterLogoService logoService = mock(EmailFooterLogoService.class);
+    private final ClinicEmailFooterService clinicFooters = mock(ClinicEmailFooterService.class);
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servletActionContext;
 
@@ -51,6 +53,7 @@ class ViewConfigureEmail2ActionUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+        when(clinicFooters.clinicFooter()).thenReturn("FAKE Clinic");
     }
 
     @AfterEach
@@ -91,7 +94,7 @@ class ViewConfigureEmail2ActionUnitTest {
         assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin)");
-        verifyNoInteractions(logoService);
+        verifyNoInteractions(logoService, clinicFooters);
     }
 
     private void allowAdminRead() {
@@ -99,6 +102,6 @@ class ViewConfigureEmail2ActionUnitTest {
     }
 
     private ViewConfigureEmail2Action action() {
-        return new ViewConfigureEmail2Action(securityInfoManager, logoService);
+        return new ViewConfigureEmail2Action(securityInfoManager, logoService, clinicFooters);
     }
 }

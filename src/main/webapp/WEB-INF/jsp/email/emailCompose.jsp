@@ -21,6 +21,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailFooterHtml" %>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
 <%
     // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
@@ -597,12 +598,7 @@
                     </div>
                 </div>
 
-                <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
-                     stays unencrypted when encryption is on (it follows the secure-message notice and is
-                     never inside the encrypted PDF), and it is never written to the chart note. The value
-                     is seeded server-side as footerEmail, formatted HTML: the eForm's footer, else empty;
-                     a resend or failed-send retry seeds the footer it had. Staff change it for this email
-                     in the shared Edit footer window (footerEditorModal.jspf); the card shows it cleaned. --%>
+                <%-- Personal text is optional; the trusted clinic snapshot below is read-only. --%>
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0" id="footerEmailLabel">${emailComposeFooterLabel}</h5>
@@ -614,11 +610,25 @@
                     </div>
                     <div class="card-body">
                         <input type="hidden" name="footerEmail" id="footerEmail" value="<carlos:encode value='${footerEmail}' context='htmlAttribute'/>"/>
-                        <div id="footerEmailPreview" class="footer-editor-mail" aria-labelledby="footerEmailLabel"
-                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
+                        <div id="footerEmailPreview" class="footer-editor-mail" style="white-space: pre-wrap;" aria-labelledby="footerEmailLabel"
+                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText(EmailFooterHtml.clean((String) request.getAttribute("footerEmail")))) %></div>
                     </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
+                    </div>
+                </div>
+                <div class="card shadow-sm rounded mt-3 mb-3" id="clinicFooterCard">
+                    <div class="card-body">
+                        <h5><fmt:message key="email.compose.footer.clinicHeading"/></h5>
+                        <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
+                        <c:if test="${not empty clinicFooterLogoPreview}">
+                            <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt="" style="max-width: 600px; height: auto;"/>
+                        </c:if>
+                        <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
+                             data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+                        <c:if test="${clinicFooterMissing}">
+                            <p class="alert alert-warning mt-2"><fmt:message key="email.compose.footer.clinicRequired"/></p>
+                        </c:if>
                     </div>
                 </div>
 
@@ -757,7 +767,7 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
+                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery or clinicFooterMissing ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
@@ -1242,6 +1252,7 @@ function toggleInternalTextArea() {
 }
 
 </script>
+<c:set var="footerEditorPersonalOnly" value="${true}"/>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeThisEmail"/>
 <c:set var="footerEditorApplyKey" value="email.footerEditor.applyThisEmail"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>

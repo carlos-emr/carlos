@@ -337,7 +337,8 @@ public class EmailCompose2Action extends ActionSupport {
                             demographicId,
                             staged.fdid(),
                             isTrue(staged.openEFormAfterEmail()),
-                            isTrue(staged.deleteEFormAfterEmail())),
+                            isTrue(staged.deleteEFormAfterEmail())).withClinicFooter(
+                                    SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot()),
                     workingDirectory,
                     view);
         } catch (RuntimeException e) {
@@ -427,6 +428,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
         request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail()));
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, context.clinicFooter());
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
         request.setAttribute("fdid", context.fdid());

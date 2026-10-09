@@ -147,6 +147,106 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             return null;
     }
 
+    @Override
+    public List<UserProperty> findClinicEmailFooter() {
+        return entityManager.createQuery("select p from UserProperty p where p.name = :name "
+                + "and (p.providerNo is null or p.providerNo = '') order by p.id", UserProperty.class)
+                .setParameter("name", "email_footer_clinic_default").getResultList();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<UserProperty> findClinicEmailFooterForUpdate() {
+        // A locking read sees the winner, or strict MariaDB snapshot isolation refuses the
+        // transaction. Neither an earlier snapshot nor a cached entity may overwrite the winner.
+        try {
+            // Scalar native rows bypass Hibernate's first-level cache and refresh loaders, which
+            // can reread an earlier repeatable-read view even after a locking entity query.
+            @SuppressWarnings("unchecked")
+            List<Object[]> values = entityManager.createNativeQuery(
+                    "SELECT `id`, `provider_no`, `value` FROM `property` WHERE `name` = :name "
+                            + "AND (`provider_no` IS NULL OR `provider_no` = '') ORDER BY `id` FOR UPDATE")
+                    .setParameter("name", "email_footer_clinic_default").getResultList();
+            return values.stream().map(value -> {
+                UserProperty row = new UserProperty();
+                row.setId(Math.toIntExact(((Number) value[0]).longValue()));
+                row.setProviderNo((String) value[1]);
+                row.setName("email_footer_clinic_default");
+                row.setValue((String) value[2]);
+                return row; // Fresh detached snapshots; permitted writes use scoped current UPDATE/DELETE.
+            }).toList();
+        } catch (jakarta.persistence.PersistenceException failure) {
+            // MariaDB 11.8 defaults to snapshot isolation: SQL 1020 aborts a transaction whose
+            // locking read no longer fits its read view. Give the admin action the established
+            // optimistic-conflict outcome; never retry in this already-aborted transaction.
+            Throwable cause = failure;
+            for (int depth = 0; cause != null && depth < 16; depth++, cause = cause.getCause()) {
+                if (cause instanceof java.sql.SQLException sql && sql.getErrorCode() == 1020) {
+                    throw new jakarta.persistence.OptimisticLockException(
+                            "Clinic email footer settings changed concurrently", failure);
+                }
+            }
+            throw failure;
+        }
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void updateClinicEmailFooter(UserProperty current, String value) {
+        if (current == null || current.getId() == null || current.getId() <= 0
+                || !"email_footer_clinic_default".equals(current.getName())
+                || (current.getProviderNo() != null && !current.getProviderNo().isEmpty())) {
+            throw new IllegalArgumentException("A locked clinic footer row is required");
+        }
+        int changed = entityManager.createNativeQuery(
+                "UPDATE `property` SET `value` = :value WHERE `id` = :id AND `name` = :name "
+                        + "AND (`provider_no` IS NULL OR `provider_no` = '')")
+                .setParameter("id", current.getId()).setParameter("name", "email_footer_clinic_default")
+                .setParameter("value", value).executeUpdate();
+        if (changed != 1) throw new jakarta.persistence.OptimisticLockException(
+                "Clinic email footer settings changed concurrently");
+        // Only this row may have been loaded before the locking scalar read. Keep that
+        // managed instance coherent so a later caller flush cannot restore cached text.
+        UserProperty managed = entityManager.find(UserProperty.class, current.getId());
+        if (managed != null) {
+            managed.setProviderNo(current.getProviderNo());
+            managed.setName("email_footer_clinic_default");
+            managed.setValue(value);
+        }
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void deleteClinicEmailFooter(Integer id) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("A locked clinic footer row is required");
+        int removed = entityManager.createNativeQuery(
+                "DELETE FROM `property` WHERE `id` = :id AND `name` = :name "
+                        + "AND (`provider_no` IS NULL OR `provider_no` = '')")
+                .setParameter("id", id).setParameter("name", "email_footer_clinic_default").executeUpdate();
+        if (removed != 1) throw new jakarta.persistence.OptimisticLockException(
+                "Clinic email footer settings changed concurrently");
+        // Detach only a previously cached target, never clear unrelated caller entities.
+        UserProperty managed = entityManager.find(UserProperty.class, id);
+        if (managed != null) entityManager.detach(managed);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void lockClinicEmailFooterSettings() {
+        // A durable row exists before the first property does. No property gap lock is assumed.
+        var clinics = entityManager.createQuery("select c.id from Clinic c order by c.id", Integer.class)
+                .setMaxResults(1).getResultList();
+        if (clinics.isEmpty()) {
+            throw new IllegalStateException("Clinic configuration is missing");
+        }
+        entityManager.find(io.github.carlos_emr.carlos.commn.model.Clinic.class, clinics.get(0),
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
     public List<UserProperty> getDemographicProperties(String providerNo) {
         Query query = entityManager.createQuery("select p from UserProperty p where p.providerNo = ?1");
         query.setParameter(1, providerNo);

@@ -25,10 +25,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.LogoRejectedException;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.Rejection;
@@ -44,6 +47,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import org.apache.struts2.dispatcher.multipart.MultiPartRequestWrapper;
+import org.apache.struts2.interceptor.ValidationWorkflowAware;
 
 /**
  * Saves or removes the clinic's email footer logo from Configure Email (issue #3981).
@@ -56,17 +61,21 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
  *
  * @since 2026-10-08
  */
-public class SaveClinicEmailLogo2Action extends ActionSupport implements UploadedFilesAware {
+public class SaveClinicEmailLogo2Action extends ActionSupport implements UploadedFilesAware, ValidationWorkflowAware {
 
     static final String ACTION_PARAM = "logoAction";
     static final String FILE_PARAM = "logoFile";
     private static final String PAGE = "/admin/ViewConfigureEmail";
     private static final String AUDIT_CONTENT = "emailFooterLogo";
+    private static final Set<String> SIZE_ERROR_KEYS = Set.of(
+            "struts.messages.upload.error.FileUploadSizeException",
+            "struts.messages.upload.error.FileUploadByteCountLimitException");
     private static final Logger logger = MiscUtils.getLogger();
 
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterLogoService logoService;
     private File logoFile;
+    private boolean uploadFailed;
 
     /** Used by Struts, which needs a no-argument constructor. */
     public SaveClinicEmailLogo2Action() {
@@ -95,6 +104,9 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String action = request.getParameter(ACTION_PARAM);
         if ("upload".equals(action)) {
+            if (uploadFailed) {
+                return backToPage(request, response, "logoError=" + Rejection.UPLOAD_FAILED.name());
+            }
             if (logoFile == null) {
                 return backToPage(request, response, "logoError=" + Rejection.EMPTY.name());
             }
@@ -102,13 +114,20 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
             if (logoFile.length() > EmailFooterLogoService.MAX_BYTES) {
                 return backToPage(request, response, "logoError=" + Rejection.TOO_BIG.name());
             }
-            byte[] upload = Files.readAllBytes(logoFile.toPath());
+            byte[] upload;
             try {
-                logoService.replace(upload, providerNo);
+                upload = Files.readAllBytes(logoFile.toPath());
+            } catch (IOException e) {
+                logger.warn("Clinic email logo upload could not be read; cause={}", e.getClass().getSimpleName());
+                return backToPage(request, response, "logoError=" + Rejection.UPLOAD_FAILED.name());
+            }
+            EmailFooterLogo saved;
+            try {
+                saved = logoService.replace(upload, providerNo);
             } catch (LogoRejectedException e) {
                 return backToPage(request, response, "logoError=" + e.reason().name());
             }
-            LogAction.addLog(providerNo, "update", AUDIT_CONTENT, "", request.getRemoteAddr());
+            LogAction.addLog(providerNo, "update", AUDIT_CONTENT, String.valueOf(saved.getId()), request.getRemoteAddr());
             return backToPage(request, response, "logoSaved=true");
         }
         if ("remove".equals(action)) {
@@ -133,6 +152,41 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         return NONE;
     }
 
+    /**
+     * Struts can reject multipart data before execute runs. Only known size failures use the
+     * size message; malformed requests and upload-parser faults use the server-failure message.
+     * Error keys and metadata are checked without reading the uploaded content or matching
+     * translated error strings.
+     *
+     * @return a fixed Struts result name
+     */
+    @Override
+    public String getInputResultName() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        while (request instanceof HttpServletRequestWrapper wrapper) {
+            if (request instanceof MultiPartRequestWrapper multipart) {
+                if (multipart.hasErrors()) {
+                    return !multipart.getErrors().isEmpty() && multipart.getErrors().stream()
+                            .allMatch(error -> SIZE_ERROR_KEYS.contains(error.getTextKey()))
+                            ? "uploadTooBig" : INPUT;
+                }
+                UploadedFile[] files = multipart.getFiles(FILE_PARAM);
+                if (!hasActionErrors() && getFieldErrors().keySet().stream().allMatch(FILE_PARAM::equals)
+                        && files != null) {
+                    for (UploadedFile file : files) {
+                        Long length = file.length();
+                        if (length != null && length > EmailFooterLogoService.MAX_BYTES) {
+                            return "uploadTooBig";
+                        }
+                    }
+                }
+                return INPUT;
+            }
+            request = (HttpServletRequest) wrapper.getRequest();
+        }
+        return INPUT;
+    }
+
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles == null) {
@@ -140,14 +194,15 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         }
         for (UploadedFile uploaded : uploadedFiles) {
             if (FILE_PARAM.equals(uploaded.getInputName())) {
-                // Runs during Struts binding, before execute(): a refused upload stays null, which
-                // execute() reports as no file rather than an error page.
+                // Runs during Struts binding; preserve a server fault for the result page.
                 try {
                     this.logoFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    this.uploadFailed = false;
                 } catch (SecurityException e) {
                     // Not the administrator's doing (the server's upload folder): say so in the log.
                     logger.warn("Clinic email logo upload refused: the uploaded file is not in an allowed upload folder");
                     this.logoFile = null;
+                    this.uploadFailed = true;
                 }
                 return;
             }

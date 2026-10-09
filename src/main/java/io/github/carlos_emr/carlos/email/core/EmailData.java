@@ -64,7 +64,14 @@ public class EmailData {
     private String[] recipients;
     private String subject;
     private String body;
+    private ClinicEmailFooterSnapshot clinicFooterSnapshot;
+    private boolean footerFrozen;
+    private String sentPersonalFooter;
+    private String frozenFooterHtml;
+
     private String footer = "";
+    // Derived state; absent in older objects and rebuilt safely on the first read.
+    private transient String sentFooter;
     private EmailInlineImage footerLogo;
     private String encryptedMessage = "";
     private String password;
@@ -256,7 +263,7 @@ public class EmailData {
      * @since 2026-09-29
      */
     public String getFooter() {
-        return footer;
+        return footer != null ? footer : "";
     }
 
     /**
@@ -268,7 +275,58 @@ public class EmailData {
      * @since 2026-09-29
      */
     public void setFooter(String footer) {
+        requireUnfrozenFooter();
         this.footer = footer != null ? footer : "";
+        this.sentFooter = EmailFooterHtml.clean(this.footer);
+    }
+
+    /** Binds trusted authoring-time clinic content; HTTP footer fields only set personal text. */
+    public void setClinicFooterSnapshot(ClinicEmailFooterSnapshot snapshot) {
+        requireUnfrozenFooter();
+        this.clinicFooterSnapshot = snapshot;
+        this.sentFooter = null;
+    }
+
+    public ClinicEmailFooterSnapshot getClinicFooterSnapshot() {
+        return clinicFooterSnapshot;
+    }
+
+    /** Freeze the combined sanitized snapshot and reject a value the existing BLOB cannot store. */
+    public void freezeFooter(ClinicEmailFooterSnapshot snapshot) {
+        if (footerFrozen && clinicFooterSnapshot.equals(snapshot)) {
+            return;
+        }
+        requireUnfrozenFooter();
+        if (snapshot == null || snapshot.html().isEmpty()) {
+            throw new IllegalStateException("Clinic email footer is required");
+        }
+        String personal = EmailFooterHtml.clean(footer);
+        if (personal.length() > EmailFooterHtml.MAX_HTML_LENGTH
+                || EmailFooterHtml.visibleLength(personal) > FOOTER_MAX_LENGTH) {
+            throw new IllegalArgumentException("Personal email footer is too long");
+        }
+        String combined = personal.isEmpty() ? snapshot.html()
+                : "<div>" + personal + "</div><br><div>" + snapshot.html() + "</div>";
+        combined = EmailFooterHtml.clean(combined);
+        int bytes = combined.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        // EmailLog stores Base64 in a BLOB whose maximum is 65,535 bytes.
+        if (4L * ((bytes + 2L) / 3L) > 65_535) {
+            throw new IllegalArgumentException("Combined email footers exceed storage capacity");
+        }
+        clinicFooterSnapshot = snapshot;
+        sentFooter = combined;
+        frozenFooterHtml = combined;
+        footerLogo = snapshot.logo();
+        sentPersonalFooter = personal;
+        footerFrozen = true;
+    }
+
+    public boolean isFooterFrozen() { return footerFrozen; }
+
+    private void requireUnfrozenFooter() {
+        if (footerFrozen) {
+            throw new IllegalStateException("Sent email footers are immutable");
+        }
     }
 
     /**
@@ -304,6 +362,10 @@ public class EmailData {
         if (sentFooter.isEmpty()) {
             return null;
         }
+        if (footerFrozen) {
+            return EmailFooterHtml.toHtmlDocument(body, sentPersonalFooter,
+                    clinicFooterSnapshot.html(), footerLogo == null ? null : footerLogo.contentId());
+        }
         return EmailFooterHtml.toHtmlDocument(body, sentFooter, footerLogo == null ? null : footerLogo.contentId());
     }
 
@@ -316,7 +378,13 @@ public class EmailData {
      * @since 2026-09-29
      */
     public String getSentFooter() {
-        return EmailFooterHtml.clean(footer);
+        if (footerFrozen) {
+            return frozenFooterHtml;
+        }
+        if (sentFooter == null) {
+            sentFooter = EmailFooterHtml.clean(footer);
+        }
+        return sentFooter;
     }
 
     /**
@@ -325,7 +393,7 @@ public class EmailData {
      * @since 2026-10-08
      */
     public EmailInlineImage getFooterLogo() {
-        return getSentFooter().isEmpty() ? null : footerLogo;
+        return footerFrozen ? clinicFooterSnapshot.logo() : getSentFooter().isEmpty() ? null : footerLogo;
     }
 
     /**
@@ -333,6 +401,7 @@ public class EmailData {
      * @since 2026-10-08
      */
     public void setFooterLogo(EmailInlineImage footerLogo) {
+        requireUnfrozenFooter();
         this.footerLogo = footerLogo;
     }
 

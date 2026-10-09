@@ -68,6 +68,8 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         // written. The test never ran in CI, so the missing registration went unnoticed.
         pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
 
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailManager.class, emailManager);
@@ -443,8 +445,8 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fill in the footer that was sent when copying an email to resend")
-    void shouldPrefillSentFooter_whenCopyingEmailForResend() {
+    @DisplayName("should keep historical combined footers out of a new resend's personal field")
+    void shouldNotPromoteHistoricalFooter_whenCopyingEmailForResend() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
@@ -459,8 +461,9 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
 
         assertThat(request.getAttribute("message")).isEqualTo("body");
-        assertThat(request.getAttribute("footerEmail"))
-                .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("");
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Mandatory Clinic");
+        assertThat(failed.getFooter()).isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
     }
 
     @Test

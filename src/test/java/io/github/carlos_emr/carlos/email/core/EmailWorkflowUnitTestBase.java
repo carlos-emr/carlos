@@ -37,6 +37,7 @@ public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {
         when(passwords.generatePassphrase()).thenReturn("velvet-orbit-123-cabin-river-456");
         registerMock(EmailPdfPasswordService.class, passwords);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
+        registerMock(ClinicEmailFooterService.class, ConfiguredClinicFooterFixture.service());
     }
 
     @AfterEach

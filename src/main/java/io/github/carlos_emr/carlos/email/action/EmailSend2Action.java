@@ -320,8 +320,11 @@ public class EmailSend2Action extends ActionSupport {
                 attachment.setFilePath(owned.toString());
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(request, loggedInInfo, owned));
             }
+            var clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
+            var retryContext = previous.context().withClinicFooter(clinic);
+            io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
             var state = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
-                    request, emailPdfPasswordService, attachments, previous.context(), retryDirectory);
+                    request, emailPdfPasswordService, attachments, retryContext, retryDirectory);
             retryDirectory = null; // The cache now owns the replacement files.
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD, state.emailPDFPassword());
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD_CLUE, state.emailPDFPasswordClue());
@@ -603,16 +606,19 @@ public class EmailSend2Action extends ActionSupport {
         // Refused before it is parsed: no footer within the limits posts more than this.
         if (footer.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
         }
         String cleaned = EmailFooterHtml.clean(footer);
         if (EmailFooterHtml.visibleLength(cleaned) > EmailData.FOOTER_MAX_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailData.FOOTER_MAX_LENGTH + " characters");
+                    getText("email.compose.footer.errorTextLength",
+                            List.of(String.valueOf(EmailData.FOOTER_MAX_LENGTH))));
         }
         if (cleaned.length() > EmailFooterHtml.MAX_HTML_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
         }
     }
 
@@ -737,6 +743,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setBody(body);
         // Sent below the body in clear, even when encryption is on; never charted (issue #3981).
         emailData.setFooter(request.getParameter(PARAM_FOOTER_EMAIL));
+        emailData.setClinicFooterSnapshot(context.clinicFooter());
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);

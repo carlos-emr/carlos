@@ -60,10 +60,25 @@
                 }
             }
             if (tail === null) {
-                return html.substring(0, end).trim();
+                return stripEmptyHead(html.substring(0, end).trim());
             }
             end -= tail.length;
         }
+    }
+    function stripEmptyHead(html) {
+        var start = 0;
+        while (start < html.length) {
+            if (/\s/.test(html.charAt(start))) {
+                start++;
+                continue;
+            }
+            var head = EMPTY_TAILS.find(function (candidate) { return html.startsWith(candidate, start); });
+            if (!head) {
+                break;
+            }
+            start += head.length;
+        }
+        return html.substring(start);
     }
     var BLOCKS = {P: true, DIV: true};
 
@@ -84,7 +99,8 @@
         // Added for this call only, so any other use of DOMPurify on the page is unaffected.
         window.DOMPurify.addHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
         try {
-            return stripEmptyTail(window.DOMPurify.sanitize(html, ALLOWED));
+            var value = stripEmptyTail(window.DOMPurify.sanitize(html, ALLOWED));
+            return textFromCleanedHtml(value) === '' ? '' : value;
         } finally {
             window.DOMPurify.removeHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
         }
@@ -92,8 +108,13 @@
 
     // The plain-text version, as EmailFooterHtml.toPlainText builds it on the server.
     function toText(html) {
+        return textFromCleanedHtml(clean(html));
+    }
+
+    // Already cleaned by the caller: keep visible-empty detection out of a clean/toText recursion.
+    function textFromCleanedHtml(html) {
         var holder = document.createElement('div');
-        holder.innerHTML = clean(html); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized just above
+        holder.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- callers pass only DOMPurify-sanitized footer
         var out = '';
         function startLine() {
             if (out.length && out.charAt(out.length - 1) !== '\n') {
@@ -103,7 +124,7 @@
         function walk(node) {
             node.childNodes.forEach(function (child) {
                 if (child.nodeType === Node.TEXT_NODE) {
-                    out += child.textContent.replace(/\s+/g, ' ').replace(/\u00A0/g, ' ');
+                    out += child.textContent.replace(/[ \t\r\n\f]+/g, ' ').replace(/\u00A0/g, ' ');
                 } else if (child.nodeName === 'BR') {
                     out += '\n';
                 } else {
@@ -148,7 +169,11 @@
             preview.classList.toggle('fst-italic', !text);
             return;
         }
-        var html = clean(target.value);
+        renderFormattedPreview(target.value, preview);
+    }
+
+    function renderFormattedPreview(value, preview) {
+        var html = clean(value);
         if (html) {
             preview.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
             preview.classList.remove('text-muted', 'fst-italic');
@@ -377,5 +402,12 @@
             renderPreview(document.getElementById(opener.getAttribute('data-footer-editor-target')),
                 document.getElementById(opener.getAttribute('data-footer-editor-preview')));
         });
+        // Read-only clinic cards have no editor opener. Keep their server-escaped plain text
+        // when DOMPurify is unavailable, and otherwise show the same cleaned formatting as send.
+        if (window.DOMPurify) {
+            document.querySelectorAll('[data-footer-html]').forEach(function (preview) {
+                renderFormattedPreview(preview.getAttribute('data-footer-html'), preview);
+            });
+        }
     });
 })();

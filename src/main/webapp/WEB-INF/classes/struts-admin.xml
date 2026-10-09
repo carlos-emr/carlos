@@ -196,13 +196,15 @@
         <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
             <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
         </action>
+        <action name="admin/saveClinicEmailFooter" class="io.github.carlos_emr.carlos.email.admin.SaveClinicEmailFooter2Action"/>
         <!-- The clinic's email footer logo (issue #3981). The action checks the picture itself (PNG or
              JPEG, 100 KB, 600 x 200); the interceptor only stops an upload too large to be one. -->
         <action name="admin/saveClinicEmailLogo" class="io.github.carlos_emr.carlos.email.admin.SaveClinicEmailLogo2Action">
             <interceptor-ref name="carlosDefaultStack">
                 <param name="actionFileUpload.maximumSize">1048576</param>
             </interceptor-ref>
-            <result name="input" type="redirect">/admin/ViewConfigureEmail?logoError=TOO_BIG</result>
+            <result name="input" type="redirect">/admin/ViewConfigureEmail?logoError=UPLOAD_FAILED</result>
+            <result name="uploadTooBig" type="redirect">/admin/ViewConfigureEmail?logoError=TOO_BIG</result>
         </action>
         <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
             <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>

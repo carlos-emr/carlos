@@ -434,12 +434,14 @@ public class ManageEmails2Action extends ActionSupport {
             return resendComposeUnavailable(workingDirectory);
         }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot clinic;
         try {
+            clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
-                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)).withClinicFooter(clinic),
                     workingDirectory);
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
@@ -465,9 +467,10 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
-        // The footer that was sent (issue #3981): this is a copy. A log written before footers
-        // existed has none.
-        request.setAttribute("footerEmail", EmailFooterHtml.clean(emailLog.getFooter()));
+        // A resend is a new email. Its historical combined footer remains audit-only;
+        // the new optional personal text starts blank and the trusted clinic preview is current.
+        request.setAttribute("footerEmail", "");
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

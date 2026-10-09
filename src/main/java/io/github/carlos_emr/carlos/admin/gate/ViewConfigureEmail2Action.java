@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -39,16 +40,20 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterLogoService logoService;
+    private final ClinicEmailFooterService clinicFooters;
 
     /** Used by Struts, which needs a no-argument constructor. */
     public ViewConfigureEmail2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class),
+                SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
     // Package-private for tests.
-    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService) {
+    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService,
+            ClinicEmailFooterService clinicFooters) {
         this.securityInfoManager = securityInfoManager;
         this.logoService = logoService;
+        this.clinicFooters = clinicFooters;
     }
 
     @Override
@@ -60,6 +65,11 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        String clinicFooter = clinicFooters.clinicFooter();
+        request.setAttribute("clinicFooter", clinicFooter);
+        request.setAttribute("clinicFooterMissing", clinicFooter.isEmpty());
+        request.setAttribute("clinicFooterFingerprint",
+                io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
         EmailFooterLogo logo = logoService.currentLogo();
         request.setAttribute("clinicLogoSet", logo != null);
         if (logo != null) {

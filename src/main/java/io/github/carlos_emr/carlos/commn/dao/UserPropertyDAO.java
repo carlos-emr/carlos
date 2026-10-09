@@ -55,6 +55,24 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
 
     UserProperty getProp(String name);
 
+    /** Clinic-only footer rows, oldest first; provider properties cannot override these. */
+    List<UserProperty> findClinicEmailFooter();
+
+    /**
+     * Fresh detached snapshots from a locking scalar read after the durable clinic mutex.
+     * Strict snapshot conflicts abort instead of returning an earlier transaction view.
+     */
+    List<UserProperty> findClinicEmailFooterForUpdate();
+
+    /** Update the already locked canonical clinic row through a current write, never a snapshot merge. */
+    void updateClinicEmailFooter(UserProperty current, String value);
+
+    /** Delete an already locked duplicate clinic row through a scoped current write. */
+    void deleteClinicEmailFooter(Integer id);
+
+    /** Serialize clinic footer saves, including the first save, on the existing clinic row. */
+    void lockClinicEmailFooterSettings();
+
     List<UserProperty> getDemographicProperties(String providerNo);
 
     Map<String, String> getProviderPropertiesAsMap(String providerNo);

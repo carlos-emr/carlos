@@ -1,4 +1,5 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -84,6 +85,39 @@
         </div>
     </div>
 
+    <div class="card shadow-sm rounded mt-4" id="clinicFooterCard">
+        <div class="card-body">
+            <h3><fmt:message key="admin.configureEmail.footer.policyHeading"/></h3>
+            <p><fmt:message key="admin.configureEmail.footer.policyHelp"/></p>
+            <c:if test="${clinicFooterMissing}">
+                <p class="alert alert-warning"><fmt:message key="email.compose.footer.clinicRequired"/></p>
+            </c:if>
+            <c:if test="${not empty param.clinicFooterOutcome}">
+                <p class="alert alert-info" role="status">
+                    <c:choose>
+                        <c:when test="${param.clinicFooterOutcome eq 'saved'}"><fmt:message key="admin.configureEmail.footer.policySaved"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'unchanged'}"><fmt:message key="admin.configureEmail.footer.policyUnchanged"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'stale'}"><fmt:message key="admin.configureEmail.footer.policyStale"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'conflict'}"><fmt:message key="admin.configureEmail.footer.policyConflict"/></c:when>
+                        <c:otherwise><fmt:message key="admin.configureEmail.footer.policyInvalid"/></c:otherwise>
+                    </c:choose>
+                </p>
+            </c:if>
+            <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
+                 data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
+                <form action="${ctx}/admin/saveClinicEmailFooter" method="post" id="clinicFooterForm" class="mt-3">
+                    <input type="hidden" name="clinicFooter" id="clinicFooter" value="${carlos:forHtmlAttribute(clinicFooter)}"/>
+                    <input type="hidden" name="clinicFooterFingerprint" value="${carlos:forHtmlAttribute(clinicFooterFingerprint)}"/>
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                            data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview">
+                        <fmt:message key="email.footerEditor.open"/></button>
+                    <button type="submit" class="btn btn-primary"><fmt:message key="admin.configureEmail.footer.policySave"/></button>
+                </form>
+            </security:oscarSec>
+        </div>
+    </div>
+
     <%-- The clinic's email footer logo (issue #3981): shown above the footer in patient emails and
          carried inside each email. Only _admin writers get the form; everyone else sees the logo. --%>
     <div class="card shadow-sm rounded mt-4 mb-5" id="clinicLogoCard">
@@ -109,6 +143,9 @@
                 </c:when>
                 <c:when test="${param.logoError eq 'TOO_LARGE'}">
                     <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooLarge"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'UPLOAD_FAILED'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorUploadFailed"/></div>
                 </c:when>
                 <c:when test="${param.logoError eq 'COPY_TOO_BIG'}">
                     <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorCopyTooBig"/></div>
@@ -148,4 +185,8 @@
         </div>
     </div>
 </div>
+<script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyClinic"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>

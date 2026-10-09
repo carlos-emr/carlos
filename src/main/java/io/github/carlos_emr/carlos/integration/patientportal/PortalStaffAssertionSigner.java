@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -123,8 +124,22 @@ final class PortalStaffAssertionSigner {
         ArrayNode permissions = payload.putArray("permissions");
         staff.sortedPermissions().forEach(permissions::add);
 
+        return signPayload(payload);
+    }
+
+    /** Signs only the fixed footer protocol, under an audience distinct from staff permissions. */
+    String signEmailFooter(PatientPortalSettings settings, String nonce, ClinicEmailFooterSnapshot footer) {
+        ObjectNode payload = PortalClinicEmailFooterProtocol.payload(objectMapper, settings, nonce, footer,
+                clock.instant().getEpochSecond());
+        return signPayload(payload);
+    }
+
+    private String signPayload(ObjectNode payload) {
         try {
             byte[] encodedPayload = objectMapper.writeValueAsBytes(payload);
+            if (encodedPayload.length > PortalClinicEmailFooterProtocol.MAX_PAYLOAD_BYTES) {
+                throw new PatientPortalConfigurationException("portal assertion exceeds its size limit");
+            }
             Signature signature = Signature.getInstance(ALGORITHM);
             signature.initSign(privateKey);
             signature.update(encodedPayload);

@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.SendOutcome;
 import io.github.carlos_emr.carlos.utility.OutboundEmailArchiveException;
 import io.github.carlos_emr.carlos.email.core.EmailData;
-import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
@@ -152,7 +152,7 @@ public class EmailManager {
     @Autowired
     private PatientPortalInviteDeliveryDao inviteDeliveries;
     @Autowired
-    private EmailFooterLogoService footerLogoService;
+    private ClinicEmailFooterService clinicFooterService;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -261,6 +261,22 @@ public class EmailManager {
             }
 
             sanitizeEmailFields(emailData);
+            var clinic = clinicFooterService.snapshot();
+            var shownClinic = emailData.getClinicFooterSnapshot();
+            if (shownClinic != null && !shownClinic.equals(clinic)) {
+                return EmailSendResult.failed(createFailedEmailLog(emailData,
+                        footerPolicyMessage(loggedInInfo, "email.compose.footer.clinicChanged")), false);
+            }
+            if (clinic.html().isEmpty()) {
+                return EmailSendResult.failed(createFailedEmailLog(emailData,
+                        footerPolicyMessage(loggedInInfo, "email.compose.footer.clinicRequired")), false);
+            }
+            try {
+                emailData.freezeFooter(clinic);
+            } catch (IllegalArgumentException e) {
+                return EmailSendResult.failed(createFailedEmailLog(emailData,
+                        footerPolicyMessage(loggedInInfo, "email.compose.footer.combinedTooLong")), false);
+            }
             boolean portalPassword = emailData.getIsEncrypted()
                     && PortalEmailDeliveryService.isEnabled();
             if (portalPassword) {
@@ -272,13 +288,6 @@ public class EmailManager {
                 logger.warn("Email send failed before transport: sender configuration is missing or inactive; senderConfigId={}",
                         emailData.getSenderConfigId());
                 return EmailSendResult.failed(createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR), false);
-            }
-            // The clinic logo travels above the footer (issue #3981); an email without a footer
-            // stays plain text, so it is looked up only for one with a footer. Looked up before the
-            // log row is written: a failed lookup fails the send outright rather than leaving a
-            // PENDING row behind, and both paths' senders then read it from emailData.
-            if (!emailData.getSentFooter().isEmpty()) {
-                emailData.setFooterLogo(footerLogoService.inlineLogo());
             }
             EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
             EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
@@ -357,6 +366,11 @@ public class EmailManager {
             emailData.setPassword("");
             emailData.setPasswordClue("");
         }
+    }
+
+    private static String footerPolicyMessage(LoggedInInfo user, String key) {
+        java.util.Locale locale = user.getLocale() == null ? java.util.Locale.ENGLISH : user.getLocale();
+        return java.util.ResourceBundle.getBundle("oscarResources", locale).getString(key);
     }
 
     /** Clears the durable invitation body even when a synchronous failure precedes the dispatch gate. */
@@ -441,27 +455,21 @@ public class EmailManager {
     /**
      * Replaces each value the caller named in the archived copy, and marks the artifact as redacted.
      *
-     * <p>The archive otherwise keeps the exact bytes sent. A one-time credential that stays usable after
-     * the send (a patient portal invitation code) must not live on in a permanent patient document, so
-     * that copy keeps everything but the value. Fails closed: a value that cannot be found verbatim in
-     * the prepared message (a transfer encoding split it, say) stops the send rather than archive it.
+     * <p>A usable one-time portal credential must not remain in a permanent patient document.
+     * Redaction decodes each plain/HTML alternative and verifies its archived replacement before
+     * transport. The transmitted message stays unchanged; the archived copy may be re-encoded.
+     * Missing credentials in any alternative refuse preparation before transport.
      */
     private void redactArchive(OutboundEmailArchiveDto archiveRequest, List<String> values)
             throws EmailSendingException {
-        // ISO-8859-1 maps each byte to one char and back, so matching and replacing is byte-exact.
-        String artifact = new String(archiveRequest.getArtifactBytes(), StandardCharsets.ISO_8859_1);
-        for (String value : values) {
-            String needle = new String(value.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
-            if (value.isEmpty() || !artifact.contains(needle)) {
-                // Said plainly, since the caller sees only a refused send: were a transfer encoding ever
-                // to split the value, every such email would fail here the same way.
-                logger.warn("Outbound email not sent: a value the archive must not keep was not found in the "
-                        + "prepared message");
-                throw new EmailSendingException(SEND_FAILURE_MESSAGE);
-            }
-            artifact = artifact.replace(needle, ARCHIVE_REDACTION);
+        try {
+            archiveRequest.setArtifactBytes(io.github.carlos_emr.carlos.email.archive.EmailArchiveRedactor.redact(
+                    archiveRequest.getArtifactType(), archiveRequest.getArtifactBytes(), values));
+        } catch (Exception e) {
+            logger.warn("Outbound email not sent: archived message text could not be prepared; cause={}",
+                    e.getClass().getSimpleName());
+            throw new EmailSendingException(SEND_FAILURE_MESSAGE);
         }
-        archiveRequest.setArtifactBytes(artifact.getBytes(StandardCharsets.ISO_8859_1));
         archiveRequest.setArtifactType(archiveRequest.getArtifactType() + OutboundEmailArchive.REDACTED_SUFFIX);
     }
 
@@ -853,6 +861,13 @@ public class EmailManager {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
+        if (!emailData.isFooterFrozen()) {
+            var clinic = clinicFooterService.snapshot();
+            if (emailData.getClinicFooterSnapshot() != null && !emailData.getClinicFooterSnapshot().equals(clinic)) {
+                throw new IllegalStateException("Clinic footer changed since the draft was prepared");
+            }
+            emailData.freezeFooter(clinic);
+        }
         EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.PENDING);
         // The footer is logged apart from the body: the chart note is built from the body alone.
         emailLog.setFooter(emailData.getSentFooter());
@@ -1599,6 +1614,8 @@ public class EmailManager {
                     getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
                     getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
                     result.getIsEncrypted(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+            emailStatusResult.setSentFooterText(
+                    io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText(result.getFooter()));
             emailStatusResult.applyConsentSnapshot(result);
             emailStatusResult.setResolvable(isManuallyResolvable(result));
             emailStatusResult.setPortalPasswordPending(result.isPortalDeliveryUnresolved());

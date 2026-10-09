@@ -82,6 +82,8 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
