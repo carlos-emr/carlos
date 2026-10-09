@@ -22,7 +22,7 @@ const CASES = [
     run: 'workflow({})' },
   { script: 'oauth-rest-surfaces-playwright-checks.js', variable: 'OAUTH_PIN', label: 'Oauth', good: ['', 'scope-list'],
     run: 'main({})' },
-  { script: 'echart-note-verify-appointment-status-playwright-checks.js', variable: 'ECHART_VERIFY_PIN', label: 'EchartVerify', good: ['', 'archive'],
+  { script: 'echart-note-verify-appointment-status-playwright-checks.js', variable: 'ECHART_VERIFY_PIN', label: 'EchartVerify', good: ['', 'archive', 'billing'],
     run: 'workflow({})' },
   { script: 'echart-issues-filter-playwright-checks.js', variable: 'ECHART_ISSUES_PIN', label: 'EchartIssues',
     good: ['', 'editor', 'heading', 'resolve', 'panel'], run: 'workflow({})' },

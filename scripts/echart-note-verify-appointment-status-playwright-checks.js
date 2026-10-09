@@ -57,12 +57,21 @@
  *      message only appears after Sign & Save has saved and signed the note. A script stops at its first failing
  *      step, so the pinned step is the last one.
  *
- * ECHART_VERIFY_PIN=archive (entry echart-note-verify-appointment-status-archive) runs steps 1 and 4 and then
- * the pin of finding 224: the appointmentArchive row a chart sign writes holds the status the appointment was
- * given, not the one it replaced (the other writers archive first).
+ * ECHART_VERIFY_PIN selects a variant that pins a different finding (a script stops at its first failing step):
+ *   - archive (entry echart-note-verify-appointment-status-archive) runs step 1 and step 4, then asserts that an
+ *     appointmentArchive row exists for the signed appointment, then pins finding 224: that row holds the status the
+ *     appointment was given (tS), not the one it replaced (t). The writers that archive (the appointment edit, the
+ *     status link, the legacy encounter save) do so before they change the row.
+ *   - billing (entry echart-note-verify-appointment-status-billing) runs step 1, bills the To Do appointment
+ *     through the Ontario billing UI (the day sheet's B link > OHIP form > Next > Save, with an owned billing
+ *     physician and a synthetic HIN), asserts the claim was saved and the appointment is Billed (B), then pins
+ *     finding 228: an appointmentArchive row keeps the status the bill save replaced (t). The bill save
+ *     (BillingOnLookupService.updateApptStatus) archives nothing.
  *
  * Fixtures: the workflow's owned FAKE patient; two appointment rows (marker in the reason); the notes written
- * through the chart. Cleanup deletes, by the patient key, every note (with its link, extension and issue
+ * through the chart; in the billing variant also an owned billing physician (createBillingFixture), a synthetic
+ * HIN on the patient and the claim the browser saves (removed by key, with its items, ext, payment and audit
+ * rows, before the physician). Cleanup deletes, by the patient key, every note (with its link, extension and issue
  * rows), draft, note lock and eChart row of the patient, the appointment rows and their archive rows, and
  * asserts them all gone. No clinic-wide state is changed.
  *
@@ -75,6 +84,8 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
+const g = require('./lib/gap-billing-support');
+const { createBillingFixture } = require('./billing-on-ohip-simulation-report-playwright-checks');
 
 const TIMEOUT = 30000;
 const NOTE = 'textarea[name="caseNote_note"]';
@@ -91,17 +102,19 @@ const LEGACY_ICONS = { tS: 'lts.gif', tV: 'ltv.gif', HV: 'hv.gif' };
 const STEP = {
   told: 'the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back',
   archive: 'the appointment archive row Sign & Save writes holds the status the appointment had before, not the one it was given',
+  billing: 'the appointment archive keeps the status the Ontario bill save replaced',
 };
 
 // ECHART_VERIFY_PIN selects which finding the run pins, because a script stops at its first failing step and so
 // cannot pin two defects in one run. Unset: the full flow, pinned (last) to finding 223 (Save rolls a future
 // Encounter Date back without the message). `archive` (entry echart-note-verify-appointment-status-archive): the
-// day sheet control, Sign & Save from the To Do appointment, then finding 224. The variant runs only the steps its
-// finding needs.
+// day sheet control, Sign & Save from the To Do appointment, then finding 224. `billing` (entry
+// echart-note-verify-appointment-status-billing): the day sheet control, an Ontario OHIP bill saved from the To
+// Do appointment, then finding 228. The variants run only the steps their finding needs.
 const PIN = (process.env.ECHART_VERIFY_PIN || '').trim();
-/** ECHART_VERIFY_PIN must be unset or archive. Judged when the check runs (workflow), never when the module is required. */
+/** ECHART_VERIFY_PIN must be unset, archive or billing. Judged when the check runs (workflow), never when the module is required. */
 function validatePin(value = PIN) {
-  if (!['', 'archive'].includes(value)) throw new Error(`ECHART_VERIFY_PIN must be unset or archive, not ${value}`);
+  if (!['', 'archive', 'billing'].includes(value)) throw new Error(`ECHART_VERIFY_PIN must be unset, archive or billing, not ${value}`);
 }
 
 /** English bundle text for a key, read from the source tree (the same file the application's tests use). */
@@ -205,8 +218,20 @@ async function workflow(s) {
   appointments.todo = todo.id;
   appointments.here = here.id;
 
+  // The billing variant bills the To Do appointment through the Ontario UI: an owned billing physician and a
+  // synthetic HIN on the patient, and the claim the browser saves removed (registered after the physician so it
+  // runs before the physician is deleted).
+  let owned = null;
+  if (PIN === 'billing') {
+    owned = createBillingFixture(s);
+    g.registerOwnedBillCleanup(s);
+    g.scheduleFee(sql, 'A007A');
+  }
+
   // ---- Database helpers ------------------------------------------------------------------------
   const statusOf = id => sql.value(`SELECT status FROM appointment WHERE appointment_no=${id}`);
+  /** The status each appointmentArchive row of an appointment holds, oldest first. */
+  const archivedStatuses = id => sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${id} ORDER BY id`).map(([status]) => status);
   /** One digest of every column a note could change on the patient's appointments, plus their archive rows. */
   const appointmentsFingerprint = () => sql.value(`SELECT CONCAT(
     (SELECT COALESCE(MD5(GROUP_CONCAT(CONCAT_WS('|', appointment_no, status, provider_no, appointment_date, start_time,
@@ -352,6 +377,38 @@ async function workflow(s) {
     }
   });
 
+  if (PIN === 'billing') {
+    // Pinned to finding 228. The appointment edit, the status link and the chart's legacy encounter save archive the
+    // appointment BEFORE changing its status; the Ontario bill save (BillingOnSave2Action >
+    // BillingClaimSubmissionService.updateApptStatus > BillingOnLookupService.updateApptStatus) sets Billed and
+    // merges with no archive row at all.
+    await s.step('an Ontario OHIP bill saved from the To Do appointment writes the claim and marks the appointment Billed (B)', async () => {
+      await reloadDaySheet();
+      const form = await g.openBillForm(s, appointments.todo);
+      await g.chooseBillingPhysician(form, owned.providerNo);
+      await form.locator('input[name="serviceCode0"]').fill('A007A');
+      await form.locator('input[name="dxCode"]').fill('250');
+      await g.nextToReview(form);
+      const [response] = await Promise.all([
+        form.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/billing/CA/ON/BillingONSave'), { timeout: TIMEOUT }),
+        form.locator('form[name="titlesearch"] input[type="submit"][value="Save"]').click(),
+      ]);
+      h.assert(response.status() === 200, `The bill save answered HTTP ${response.status()}`);
+      const headers = g.headersOf(sql, patient, ['appointment_no', 'provider_no']);
+      h.assert(headers.length === 1 && headers[0].appointment_no === appointments.todo && headers[0].provider_no === owned.providerNo,
+        `The save did not write exactly one claim for the appointment and the owned billing physician (${headers.length} header(s))`);
+      h.assert(g.itemsOf(sql, headers[0].id).some(item => item.service_code === 'A007A'), 'The claim does not carry the typed service code');
+      await expectValue(sql, `SELECT status FROM appointment WHERE appointment_no=${appointments.todo}`, 'B',
+        `The bill save did not mark the appointment Billed (its status is ${statusOf(appointments.todo)})`);
+      await form.close().catch(() => {});
+    });
+    await s.step(STEP.billing, async () => {
+      const rows = archivedStatuses(appointments.todo);
+      h.assert(rows.includes('t'), `The appointment archive holds [${rows.join(', ')}] for an appointment that was t and became B: the status it replaced is in no archive row`);
+    });
+    return;
+  }
+
   if (full) {
     await s.step('a chart opened from the Master Record carries no appointment', async () => {
       const chart = await s.chart();
@@ -391,17 +448,16 @@ async function workflow(s) {
     h.assert(appointmentsFingerprint() !== before, 'The appointment digest did not change when an appointment was signed');
   });
 
-  if (!full) {
+  if (PIN === 'archive') {
     // Pinned to finding 224. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive the
     // appointment BEFORE changing it, so the archive row is the version being replaced; the chart's Sign path
     // (CaseManagementManagerImpl.saveCaseManagementNote) sets the new status first and archives afterwards.
-    const archivedStatuses = () => sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`).map(([status]) => status);
     await s.step('Sign & Save from the To Do appointment writes an appointmentArchive row for it', async () => {
-      await expectValue(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${appointments.todo}`, '1',
-        'Sign & Save did not write exactly one appointmentArchive row for the appointment (the pin below judges what that row holds)');
+      await expectValue(sql, `SELECT IF(COUNT(*) >= 1, 'yes', 'no') FROM appointmentArchive WHERE appointment_no=${appointments.todo}`, 'yes',
+        'Sign & Save did not write an appointmentArchive row for the appointment (the pin below judges what that row holds)');
     });
     await s.step(STEP.archive, async () => {
-      const rows = archivedStatuses();
+      const rows = archivedStatuses(appointments.todo);
       h.assert(rows.includes('t'), `The appointment archive holds [${rows.join(', ')}] for an appointment that was t and became tS: the status it replaced is in no archive row`);
     });
     return;

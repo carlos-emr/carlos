@@ -8476,6 +8476,30 @@
       }
     },
     {
+      "name": "echart-note-verify-appointment-status-billing",
+      "script": "scripts/echart-note-verify-appointment-status-playwright-checks.js",
+      "envSet": {
+        "ECHART_VERIFY_PIN": "billing"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "ECHART_VERIFY_PIN"
+      ],
+      "notes": "The Ontario billing half of the appointment status archive, pinned to finding 228: the day sheet control, then an Ontario OHIP bill saved from the owned To Do appointment through the UI (the day sheet's B link, the OHIP bill form with an owned billing physician and a synthetic HIN on the patient, service code A007A, diagnostic code 250, Next, Save), asserting exactly one claim for the appointment and the owned physician, the typed code on its item and the appointment now Billed ('B'); then the pin: an appointmentArchive row keeps the status the bill save replaced ('t'). BillingOnLookupService.updateApptStatus sets the status and merges with no archive, so the archive is empty. The writers that archive do it before the change. Runs only the steps this finding needs (the default entry is echart-note-verify-appointment-status). Expected: the pin fails and nothing else. Nothing reaches a ministry system: Save only writes the local claim.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) with a synthetic HIN, two owned appointments for it (the marker in the reason), an owned billing physician (createBillingFixture: a provider row cloned from the test provider with the marker as last name, a unique OHIP number and billing group, and its providersite rows), and the claim the browser saves. Cleanup deletes the claim with its items, ext, payment, transaction and audit snapshot rows (registerOwnedBillCleanup) before the physician, then the appointment and appointmentArchive rows by the patient key, and asserts all of them gone. No clinic-wide state is changed.",
+      "expectedFailure": {
+        "finding": 228,
+        "step": "the appointment archive keeps the status the Ontario bill save replaced"
+      }
+    },
+    {
       "name": "echart-issues-filter",
       "script": "scripts/echart-issues-filter-playwright-checks.js",
       "tiers": [
