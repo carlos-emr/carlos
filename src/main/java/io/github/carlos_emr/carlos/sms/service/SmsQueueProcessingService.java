@@ -76,7 +76,7 @@ public class SmsQueueProcessingService {
             "SMS not sent: its SMS provider is no longer the one chosen in Administration > SMS; send it again.";
     private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE = "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED";
     private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE =
-            "SMS system test not sent: the SMS provider was changed before it went out; send a new test.";
+            "SMS system test not sent: its provider is not active; use Send test in Administration > SMS again.";
     /**
      * How long a former provider's row waits after it could not be marked failed, so a row whose write keeps
      * failing doesn't head the queue and hold up the others on every run.
