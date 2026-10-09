@@ -78,6 +78,63 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
+`1.1.2` tag was not yet published) and installed fresh into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`,
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` per section 4). It **PASS**es 4/4 steps through
+`:443`, and `export-content-chart-print-sections` passes 9/9, alongside
+`echart-navbar-modules`, `echart-print`, `drug-search`, `rx-med-history`,
+`double-submit-consultation` and nine other `rx-*` checks. With the pre-fix
+`RxPrescriptionData` and `PrescriptionManagerImpl` swapped into the installed webapp, the new
+check **FAILS** on the E-Chart panel (a renewal and two overlapping copies each listed twice)
+and the chart-print check **FAILS** on the date-only renewal. With only the pre-fix
+`PrescriptionManagerImpl` swapped in, the panel and consultation steps pass and the REST
+summary step **FAILS**, so each half of the fix is guarded.
+
+`billing-on-ra-payment-date-playwright-checks.js` (issue #4430) was added on 2026-10-08. It
+was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch and
+installed fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean,
+`EXPECT_FRONT_DOOR=true`). The WARs were compiled on the host with the `debian/rules` Maven flags
+and packaged in an Ubuntu 26.04 container through `CARLOS_WAR`/`DRUGREF_WAR` (DrugRef from its
+pinned revision). carlos-ctl 1.1.2 was not yet published, so it was built from the pin's
+fallback commit, with a `1.1.2` changelog stanza stamped in the throwaway worktree.
+Result: **PASS**, all three steps through `:443`. `billing-on-premium-payment-date`,
+`billing-on-ra-import`, `billing-on-payment-status` and `billing-on-ohip-simulation-report`
+also passed. With the pre-fix `RaDetailDaoImpl.class` (exclusive `paymentDate < ?2`) swapped
+into the installed webapp, the new check **FAILS**: the RA paid on June 30 is missing from the
+report. `gap-billing-ra-premium-settle35` failed at its third step, as its manifest entry says it
+does on 2026.08. Note for later checks: `billing-on-premium-payment-date` leaves one `raheader`
+row behind. Its `<marker>-inactive` filename is 31 characters, `raheader.filename` is
+`varchar(30)`, and its cleanup matches the untruncated name.
+
+`allergy-stale-amend-refused-playwright-checks.js` and
+`prevention-submit-once-playwright-checks.js` (issue #4410) were added on 2026-10-08. They were
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch (DrugRef
+from its pinned ref; carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit and
+stamped 1.1.2 locally, because the 1.1.2 tag the `Depends` floor names was not yet published).
+The packages were installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Both new checks **PASS** through `:443`,
+and so do `concurrency-allergy-amend` and `double-submit-chart-adds`, the two #4410
+reproductions:
+
+- A stale amendment is answered 409, keeps the typed entries and shows the alert. Two
+  amendments raced at the same moment answered 302 and 409.
+- Every prevention mode stores one row. The slow-response re-click sends two POSTs and the
+  submission token stores one.
+- Every measurement mode now sends one POST. Before the fix, a dblclick sent two, and on the
+  first run that stored two readings.
+
+`allergy-injected-form-csrf`, `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+`allergy-rx-alert`, `prevention-add-data`, `prevention-lifecycle`, `prevention-brand-picker`,
+`echart-prevention-row-links`, `measurement-group-entry` and `csrf-runtime-forms` also pass.
+`audit-log-chart-modules` and `audit-log-vitals` still fail, and only on their #4172 items:
+prevention and vitals writes leave no audit row, and allergy/prescription rows carry clinical
+text or a `Drug` dump. Issue #4410 leaves those to #4172. Precompiled JSPs are not shipped, so
+a JSP hot-swapped into an installed webapp keeps serving the class Tomcat already compiled.
+Validate JSP changes from a rebuilt package, or delete that class and restart.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -565,6 +622,18 @@ The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
 there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
 suite; the check runs as root and decrypts the `.pgp` download with it.
 
+`rx-unique-medication-list-playwright-checks.js` (#4420) reads a new
+consultation's Current Medications, which the form fills from the chart only
+when `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true`. The package ships `false`,
+and the form's "Import active medications" button takes a different path
+(`getActiveMedications`), so turn the property on for the suite:
+
+```bash
+lxc exec carlos-test -- sed -i \
+    's/^CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false/CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true/' \
+    /etc/carlos-emr/carlos.properties
+```
+
 Restart once after loading so nothing serves from a pre-load cache:
 
 ```bash
@@ -653,6 +722,10 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 # The extended lab-upload-rollback and lab-upload-signed-feed checks also need CREATE/DROP TRIGGER
 # privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# With the journal unit named, those two checks also read the server log for their injected failure and
+# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset, that half
+# is skipped with a notice. Needs a user who can read the journal (root in the VM).
+export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of

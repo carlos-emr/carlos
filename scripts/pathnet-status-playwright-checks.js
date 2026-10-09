@@ -63,7 +63,7 @@ async function workflow(s) {
       INSERT INTO hl7_obr(pid_id,result_status,diagnostic_service_sect_id,
         requested_date_time,observation_date_time,specimen_received_date_time,results_report_status_change)
         VALUES(${id},${h.sqlString(status)},'CHEM',NOW(),NOW(),NOW(),NOW());
-      INSERT INTO patientLabRouting(lab_no,lab_type,demographic_no) VALUES(${id},'BCP',${patient});
+      INSERT INTO patientLabRouting(lab_no,lab_type,demographic_no,created) VALUES(${id},'BCP',${patient},NOW());
       INSERT INTO providerLabRouting(lab_no,lab_type,provider_no,status)
         VALUES(${id},'BCP',${h.sqlString(provider)},'U')`);
   }
