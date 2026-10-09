@@ -28,6 +28,14 @@
  * asked for, keyed on that role name. Nothing else holds the role, so no seeded login gains or
  * loses a right; cleanup() removes the logins first, then the role and its privilege rows, and
  * asserts them gone. WRITE_RESTRICTED_PRIVILEGES is that write-restricted role.
+ *
+ * A check of the multi-facility login (login-facility-chooser) needs facilities of its own: addFacility()
+ * writes a Facility row named after the run marker, joinFacility() gives one login a provider_facility row
+ * (the rows the chooser lists and the single-facility skip reads), and addFacilityMessage() writes the
+ * facility_message row the schedule banner shows. Nothing else holds them, so no seeded login gains or
+ * loses a facility; cleanup() removes the logins first (provider_facility goes with the provider), then the
+ * messages, then the facilities, and asserts each gone. A facility another provider joined during the run is
+ * not deleted from under that provider: cleanup refuses and says so.
  */
 const { randomInt } = require('node:crypto');
 const fs = require('node:fs');
@@ -66,6 +74,8 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
   const logins = [];
   const locks = [];
   const roles = [];
+  const facilities = [];
+  const facilityMessages = [];
   let sequence = 0;
 
   function unusedProviderNo() {
@@ -127,6 +137,31 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       DELETE FROM secRole WHERE role_name=${role} AND description=${sqlString(marker)}`);
     assert(sql.value(`SELECT (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${role})
       + (SELECT COUNT(*) FROM secRole WHERE role_name=${role})`) === '0', 'The custom role rows were not all removed');
+  }
+
+  function removeFacilityMessage(message) {
+    // A message whose INSERT failed after it was registered has no id yet; its text (it carries the run marker and the
+    // caller's label) is then the key.
+    const where = message.id ? `id=${sqlString(message.id)}` : `message=${sqlString(message.text)}`;
+    assert(sql.value(`SELECT COUNT(*) FROM facility_message WHERE ${where} AND message<>${sqlString(message.text)}`) === '0',
+      'A facility message of the run changed; refusing to delete it');
+    sql.execute(`DELETE FROM facility_message WHERE ${where} AND message=${sqlString(message.text)}`);
+    assert(sql.value(`SELECT COUNT(*) FROM facility_message WHERE ${where}`) === '0', 'A facility message of the run was not removed');
+  }
+
+  function removeFacility(facility) {
+    // The name is unique and carries the run marker: it finds a facility whose INSERT failed after it was registered.
+    const id = facility.id || sql.value(`SELECT IFNULL(MAX(id),'') FROM Facility WHERE name=${sqlString(facility.name)}`);
+    if (!id) return;
+    // The logins are removed first, and with them their provider_facility rows. Anyone else in the facility
+    // joined it during the run (the application adds a provider with no facility to the first one by name):
+    // that is not ours to delete from under them.
+    assert(sql.value(`SELECT COUNT(*) FROM provider_facility WHERE facility_id=${sqlString(id)}`) === '0',
+      'A provider still belongs to the run\'s facility; refusing to delete it');
+    assert(sql.value(`SELECT COUNT(*) FROM Facility WHERE id=${sqlString(id)} AND name<>${sqlString(facility.name)}`) === '0',
+      'The run\'s facility changed; refusing to delete it');
+    sql.execute(`DELETE FROM Facility WHERE id=${sqlString(id)} AND name=${sqlString(facility.name)} AND description=${sqlString(marker)}`);
+    assert(sql.value(`SELECT COUNT(*) FROM Facility WHERE id=${sqlString(id)}`) === '0', 'The run\'s facility was not removed');
   }
 
   return {
@@ -254,13 +289,81 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
         AND objectName IN (${sqlString(`_demographic$${demographicNo}`)},${sqlString(`_eChart$${demographicNo}`)})`);
     },
 
-    /** Delete every owned row and prove it; safe after an addLogin() or addRole() that failed midway. */
+    /**
+     * Create a facility of the run: a Facility row named `<marker>-<label>` (label one letter or digit), enabled,
+     * described by the run marker, every other column at its neutral value. A facility another login is not a member
+     * of is how a check proves a chooser lists exactly the member's own. Returns {id, name}.
+     */
+    addFacility(label) {
+      assert(/^[A-Za-z0-9]{1,4}$/.test(String(label)), 'addFacility needs a short alphanumeric label');
+      const name = `${marker}-${label}`;
+      assert(sql.value(`SELECT COUNT(*) FROM Facility WHERE name=${sqlString(name)}`) === '0', 'The run\'s facility name is already in use');
+      const facility = { id: null, name };
+      // Clone the configuration columns of an existing enabled facility (never its members, its programs or any clinical
+      // data), as the facility-selection check does: the columns follow the schema, so a NOT NULL column a later migration
+      // adds is copied rather than failing this INSERT.
+      const source = sql.value(`SELECT IFNULL(MIN(id),'') FROM Facility WHERE disabled=0 AND description<>${sqlString(marker)}`);
+      assert(/^[1-9]\d*$/.test(source), 'The install has no enabled facility to copy a facility row from');
+      const columns = sql.rows(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
+        AND TABLE_NAME='Facility' AND COLUMN_NAME NOT IN ('id','name','description','lastUpdated','disabled') ORDER BY ORDINAL_POSITION`).flat();
+      assert(columns.length > 10 && columns.every(column => /^[A-Za-z][A-Za-z0-9_]*$/.test(column)), 'Unexpected Facility schema');
+      const fields = columns.map(column => `\`${column}\``).join(',');
+      // Registered before the INSERT so cleanup() covers a half-built facility (the name is the key until the id is known).
+      facilities.push(facility);
+      facility.id = sql.value(`INSERT INTO Facility (name,description,lastUpdated,disabled,${fields})
+        SELECT ${sqlString(name)},${sqlString(marker)},NOW(),0,${fields} FROM Facility WHERE id=${source}; SELECT LAST_INSERT_ID()`);
+      assert(/^[1-9]\d*$/.test(facility.id), 'The run\'s facility row was not created');
+      return { id: facility.id, name };
+    },
+
+    /** Give a login a provider_facility row for a facility of this run; removeLogin() deletes it with the provider. */
+    joinFacility(login, facility) {
+      assert(logins.includes(login), 'joinFacility needs a login created by this fixture');
+      assert(facilities.some(owned => owned.id === facility.id), 'joinFacility needs a facility created by this fixture');
+      sql.execute(`INSERT INTO provider_facility (provider_no,facility_id) VALUES (${sqlString(login.providerNo)},${sqlString(facility.id)})`);
+      assert(sql.value(`SELECT COUNT(*) FROM provider_facility WHERE provider_no=${sqlString(login.providerNo)}
+        AND facility_id=${sqlString(facility.id)}`) === '1', 'The login did not join the facility');
+    },
+
+    /**
+     * The facility ids the login belongs to (provider_facility), ascending: what the chooser is meant to list and
+     * what decides whether a login is asked at all (more than one).
+     */
+    facilityIdsOf(login) {
+      assert(logins.includes(login), 'facilityIdsOf needs a login created by this fixture');
+      return sql.rows(`SELECT facility_id FROM provider_facility WHERE provider_no=${sqlString(login.providerNo)}
+        ORDER BY facility_id`).map(row => row[0]);
+    },
+
+    /**
+     * Write the banner message of a facility of this run (facility_message): shown on the schedule of a login whose
+     * current facility it is, while it has not expired. `text` is shown verbatim, so it should carry the marker.
+     * `expired` writes one whose expiry is yesterday, which no banner shows. The facility name is stored as the
+     * message editor stores it. Returns the row id.
+     */
+    addFacilityMessage(facility, text, { expired = false } = {}) {
+      assert(facilities.some(owned => owned.id === facility.id), 'addFacilityMessage needs a facility created by this fixture');
+      assert(typeof text === 'string' && text.includes(marker), 'A facility message must carry the run marker');
+      const message = { id: null, text };
+      facilityMessages.push(message);
+      message.id = sql.value(`INSERT INTO facility_message (message,creation_date,expiry_date,facility_id,facility_name,programId)
+        VALUES (${sqlString(text)},NOW(),DATE_${expired ? 'SUB' : 'ADD'}(NOW(),INTERVAL 1 DAY),${sqlString(facility.id)},
+        ${sqlString(facility.name)},NULL); SELECT LAST_INSERT_ID()`);
+      assert(/^[1-9]\d*$/.test(message.id), 'The facility message row was not created');
+      return message.id;
+    },
+
+    /** Delete every owned row and prove it; safe after an addLogin(), addRole() or addFacility() that failed midway. */
     cleanup() {
       for (const login of logins.slice().reverse()) removeLogin(login);
       logins.length = 0;
       locks.length = 0;
       for (const roleName of roles.slice().reverse()) removeRole(roleName);
       roles.length = 0;
+      for (const message of facilityMessages.slice().reverse()) removeFacilityMessage(message);
+      facilityMessages.length = 0;
+      for (const facility of facilities.slice().reverse()) removeFacility(facility);
+      facilities.length = 0;
     },
   };
 }

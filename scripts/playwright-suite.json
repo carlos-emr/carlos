@@ -10653,6 +10653,29 @@
         "finding": 262,
         "step": "a result uploaded with an observation time that has no seconds is filed as a measurement observed at that time"
       }
+    },
+    {
+      "name": "login-facility-chooser",
+      "script": "scripts/login-facility-chooser-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "The multi-facility login, driven through the login form as a throwaway provider who belongs to two enabled facilities (coverage plan: login-facility-chooser). Steps: the login is sent to /select_facility straight after its password and the chooser lists exactly its two facilities (by id and name; a third facility it is not in is absent); a typed Schedule URL and a typed chart URL are each redirected to the chooser by the application (HTTP 302) and a browser that follows lands on the chooser, not on the Schedule, the chart, an error page or a blank page; the chooser stage audits no facility; Logout (/logoutPage, as the Schedule's logout button does; the chooser has no logout control of its own) ends the session, writes one log out row, and the Schedule URL then goes to the logout page and not the chooser; a second sign-in that presses facility A's button reaches the Schedule and writes exactly one log in row with contentId facilityId=<A> and the client address; controls prove the same typed Schedule and chart URLs are served after the pick (so the redirects were the pending choice) and that the stylesheet and script the chooser links are real files; A's banner shows A's live message and not B's, not C's (a facility the login is not in) and not A's expired one; a third sign-in picking B shows B's message only and audits facilityId=<B> once; a one-facility login (facility B) reaches the Schedule without requesting /select_facility, audits facilityId=<B> once, is served the chart and sees only B's banner message; every owned row is removed and asserted gone, and Administration > Facilities (the reader of the facility cache) then lists none of the run's facilities. LAST AND PINNED to finding 265: the chooser page's own stylesheet (/css/caisi_css.css) and script (/js/global.js), linked by caisi_html_top.jspf, are answered HTTP 302 to /select_facility while the choice is pending (LoginFilter.PENDING_FACILITY_SELECTION_URLS lists neither), so the browser refuses the chooser's HTML as a stylesheet and a script and the page renders unstyled with two console errors on every multi-facility sign-in. Every step before the pin passes today; the other steps assert the page's browser signals (console, failed requests, bad responses) of the throwaway logins' pages except those two blocked files, which only the pinned step judges. Expected: the pin fails and everything else passes.",
+      "fixtures": "Two throwaway logins with the seeded doctor role in the test login's programs (own provider rows 800000-899999, a copy of the test login's credential; authzReadFixture), three Facility rows named after the run marker (A and B enabled and joined by the logins, C joined by nobody; cloned from an existing facility's configuration columns), provider_facility rows (two-facility login: A and B; one-facility login: B), four facility_message rows (A live, A expired, B live, C live) and the run's owned FAKE patient for the chart URL. The Facility rows are visible in Administration > Facilities while the run lasts; no existing facility, property, flag or clinic-wide row is read for update or changed. Cleanup removes the messages, facilities, logins, their provider_facility, preference and audit rows by key and asserts each gone; the facility cache is not populated by login, so nothing stale remains.",
+      "expectedFailure": {
+        "finding": 265,
+        "step": "the chooser page's own stylesheet and script are served to a login that has not chosen a facility"
+      }
     }
   ]
 }
