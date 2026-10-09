@@ -656,7 +656,7 @@ class SmsQueueProcessingServiceUnitTest {
                 return super.markProviderResult(transaction, result);
             }
         };
-        Instant before = Instant.now();
+        Instant before = Instant.ofEpochMilli(System.currentTimeMillis());
 
         voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5);
 
@@ -681,7 +681,7 @@ class SmsQueueProcessingServiceUnitTest {
         };
 
         Date thirdDueAt = third.getNextAttemptAt();
-        Instant before = Instant.now();
+        Instant before = Instant.ofEpochMilli(System.currentTimeMillis());
 
         voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5);
 
