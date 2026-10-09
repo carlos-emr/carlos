@@ -67,11 +67,27 @@
     }
     var BLOCKS = {P: true, DIV: true};
 
+    // As on the server: a link address with control or invisible formatting characters loses its
+    // address, so the address a reader sees is the one the link goes to.
+    var HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}\uFFFD]/u;
+
+    function dropHiddenCharacterAddresses(node, data) {
+        if (data.attrName === 'href' && HIDDEN_CHARACTERS.test(data.attrValue)) {
+            data.keepAttr = false;
+        }
+    }
+
     function clean(html) {
         if (!window.DOMPurify || !html) {
             return '';
         }
-        return stripEmptyTail(window.DOMPurify.sanitize(html, ALLOWED));
+        // Added for this call only, so any other use of DOMPurify on the page is unaffected.
+        window.DOMPurify.addHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
+        try {
+            return stripEmptyTail(window.DOMPurify.sanitize(html, ALLOWED));
+        } finally {
+            window.DOMPurify.removeHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
+        }
     }
 
     // The plain-text version, as EmailFooterHtml.toPlainText builds it on the server.
@@ -263,7 +279,9 @@
             if (address && !/^[a-z][a-z0-9+.-]*:/i.test(address)) {
                 address = (address.indexOf('@') > 0 && address.indexOf('/') < 0 ? 'mailto:' : 'https://') + address;
             }
-            if (!/^(?:https:\/\/[^\s]+|mailto:[^\s@]+@[^\s@]+)$/i.test(address)) {
+            // Hidden characters (often carried over when copying) would be dropped on save, so the
+            // address is refused here with the same message instead of losing its link later.
+            if (!/^(?:https:\/\/[^\s]+|mailto:[^\s@]+@[^\s@]+)$/i.test(address) || HIDDEN_CHARACTERS.test(address)) {
                 show(linkError, true);
                 return;
             }

@@ -68,6 +68,12 @@ class EmailFooterEditorJspRegressionTest {
                 .contains("ALLOW_DATA_ATTR: false")
                 .contains("ALLOW_ARIA_ATTR: false")
                 .contains("ALLOWED_URI_REGEXP: /^(?:https:|mailto:)/i")
+                // Link addresses with hidden characters lose their address, as on the server, and the
+                // link box refuses them with its usual message.
+                .contains("var HIDDEN_CHARACTERS = /[\\p{Cc}\\p{Cf}\\uFFFD]/u;")
+                .contains("window.DOMPurify.addHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);")
+                .contains("window.DOMPurify.removeHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);")
+                .contains("|| HIDDEN_CHARACTERS.test(address)) {")
                 // Without DOMPurify nothing is put into the page as HTML, and editing is switched off.
                 .contains("if (!window.DOMPurify || !html) {")
                 .contains("opener.disabled = true;")

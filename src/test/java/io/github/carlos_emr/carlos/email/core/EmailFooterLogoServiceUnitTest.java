@@ -175,6 +175,40 @@ class EmailFooterLogoServiceUnitTest {
         }
 
         @Test
+        @DisplayName("should accept an ordinary progressive JPEG")
+        void shouldAcceptJpeg_whenProgressive() throws IOException {
+            byte[] upload = progressiveJpeg(image("jpeg", 120, 40, BufferedImage.TYPE_INT_RGB));
+            assertThat(EmailFooterLogoService.jpegScanCount(upload))
+                    .isGreaterThan(1).isLessThanOrEqualTo(EmailFooterLogoService.MAX_JPEG_SCANS);
+
+            assertThat(EmailFooterLogoService.prepare(upload).contentType()).isEqualTo("image/jpeg");
+        }
+
+        @Test
+        @DisplayName("should refuse a JPEG with more scans than allowed, and accept one at the limit")
+        void shouldRefuse_whenJpegHasTooManyScans() throws IOException {
+            // The extra scan markers sit in a comment segment: building a real many-scan JPEG here
+            // would be far more work, and the count reads the raw bytes the same way.
+            byte[] jpeg = image("jpeg", 60, 20, BufferedImage.TYPE_INT_RGB);
+            int ownScans = EmailFooterLogoService.jpegScanCount(jpeg);
+            byte[] atLimit = withJpegSegment(jpeg, (byte) 0xFE, scanMarkers(EmailFooterLogoService.MAX_JPEG_SCANS - ownScans));
+            byte[] overLimit = withJpegSegment(jpeg, (byte) 0xFE, scanMarkers(EmailFooterLogoService.MAX_JPEG_SCANS - ownScans + 1));
+            assertThat(EmailFooterLogoService.jpegScanCount(atLimit)).isEqualTo(EmailFooterLogoService.MAX_JPEG_SCANS);
+
+            assertThat(EmailFooterLogoService.prepare(atLimit).contentType()).isEqualTo("image/jpeg");
+            assertRefused(overLimit, Rejection.NOT_AN_IMAGE);
+        }
+
+        private byte[] scanMarkers(int count) {
+            byte[] markers = new byte[2 * count];
+            for (int i = 0; i < markers.length; i += 2) {
+                markers[i] = (byte) 0xFF;
+                markers[i + 1] = (byte) 0xDA;
+            }
+            return markers;
+        }
+
+        @Test
         @DisplayName("should refuse other formats, other files and damaged pictures")
         void shouldRefuse_whenNotPngOrJpeg() throws IOException {
             assertRefused(image("gif", 20, 20, BufferedImage.TYPE_INT_RGB), Rejection.NOT_AN_IMAGE);
@@ -304,14 +338,34 @@ class EmailFooterLogoServiceUnitTest {
 
     /** A JPEG with an APP1 "Exif" segment inserted straight after its start-of-image marker. */
     private static byte[] withJpegExif(byte[] jpeg, String payload) {
-        byte[] body = ("Exif\0\0" + payload).getBytes(StandardCharsets.ISO_8859_1);
+        return withJpegSegment(jpeg, (byte) 0xE1, ("Exif\0\0" + payload).getBytes(StandardCharsets.ISO_8859_1));
+    }
+
+    /** A JPEG with a segment (marker 0xFF {@code marker}) inserted straight after its start-of-image marker. */
+    private static byte[] withJpegSegment(byte[] jpeg, byte marker, byte[] body) {
         ByteBuffer segment = ByteBuffer.allocate(4 + body.length)
-                .put((byte) 0xFF).put((byte) 0xE1).putShort((short) (body.length + 2)).put(body);
+                .put((byte) 0xFF).put(marker).putShort((short) (body.length + 2)).put(body);
         byte[] out = new byte[jpeg.length + segment.capacity()];
         System.arraycopy(jpeg, 0, out, 0, 2);
         System.arraycopy(segment.array(), 0, out, 2, segment.capacity());
         System.arraycopy(jpeg, 2, out, 2 + segment.capacity(), jpeg.length - 2);
         return out;
+    }
+
+    /** The same picture saved again as a progressive JPEG, which has several scans. */
+    private static byte[] progressiveJpeg(byte[] jpeg) throws IOException {
+        BufferedImage picture = ImageIO.read(new ByteArrayInputStream(jpeg));
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ImageOutputStream output = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(output);
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setProgressiveMode(ImageWriteParam.MODE_DEFAULT);
+            writer.write(null, new IIOImage(picture, null, null), param);
+        } finally {
+            writer.dispose();
+        }
+        return out.toByteArray();
     }
 
     private static byte[] jpeg(BufferedImage image, float quality) throws IOException {
