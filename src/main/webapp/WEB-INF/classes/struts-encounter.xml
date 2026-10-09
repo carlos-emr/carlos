@@ -731,5 +731,7 @@
             <result name="success">/WEB-INF/jsp/chartspace/chartSpace.jsp</result>
         </action>
 
+        <action name="encounter/chartspace/allergies" class="chartSpaceAllergies2Action"/>
+
     </package>
 </struts>
