@@ -47,6 +47,22 @@ import java.util.*;
 public interface DocumentAttachmentManager {
 
     /**
+     * Request attribute holding the {@link ConsultAttachmentWarning}s for a consult: the
+     * attachments a render left out, or (on the fax cover page and after a save) the ones whose
+     * target is no longer available.
+     */
+    String ATTACHMENT_WARNINGS_ATTRIBUTE = "attachmentWarnings";
+
+    /**
+     * Request attribute that lets {@link #renderConsultationFormWithAttachments} leave out an
+     * attachment that fails to render, recording a warning instead. Only a caller that shows
+     * those warnings to the user may set it (the on-screen print preview). Without it, a failed
+     * attachment fails the whole render, so a printed or faxed consult is never silently missing
+     * content.
+     */
+    String ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE = "allowSkippedConsultAttachments";
+
+    /**
      * Retrieves all attachments associated with a specific consultation request.
      *
      * <p>This method returns a list of document identifiers that are currently attached to
@@ -111,6 +127,11 @@ public interface DocumentAttachmentManager {
      * <p>This method associates one or more documents with a specific consultation request,
      * allowing healthcare providers to include relevant medical records, laboratory results,
      * imaging reports, and other clinical information as part of the referral process.</p>
+     *
+     * <p>The submitted ids replace the consultation's attachments of this type, so an attachment
+     * left out is detached. The exception is an attachment whose target is no longer available
+     * (see {@link #getUnavailableConsultAttachmentWarnings(Integer)}): the form cannot list it, so
+     * it stays attached and later renders keep warning about it.</p>
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param documentType DocumentType the type of documents being attached
@@ -254,12 +275,32 @@ public interface DocumentAttachmentManager {
      * supporting documentation. This consolidated PDF is suitable for specialist referrals,
      * e-referral system transmission, or archival purposes.</p>
      *
+     * <p>An attachment that fails to render (including a stored PDF that cannot be opened) fails
+     * the whole render, unless the request carries {@link #ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE};
+     * then it is left out. Either way it is added to the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE}
+     * list as {@link ConsultAttachmentWarning.Reason#NOT_RENDERED}, so a caller that fails can
+     * name it. Documents, labs and eForms whose target no longer exists, was deleted or belongs to
+     * another patient are always left out, with an {@link ConsultAttachmentWarning.Reason#UNAVAILABLE}
+     * warning.</p>
+     *
      * @param request HttpServletRequest the HTTP request containing consultation parameters
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments
-     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process
+     * @throws PDFGenerationException if an error occurs during the PDF rendering or concatenation process,
+     *         including an attachment that fails to render when skipping is not allowed
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException;
+
+    /**
+     * Lists, without rendering anything, the warnings for attachments a consultation lists whose
+     * target no longer exists, was deleted, or does not belong to its patient. These are the attachments a
+     * render leaves out, so a screen shown before the render (the fax cover page) can name them.
+     *
+     * @param requestId the consultation request id
+     * @return one {@link ConsultAttachmentWarning.Reason#UNAVAILABLE} warning per unavailable
+     *         attachment, naming its type and id; empty when there are none
+     */
+    public List<ConsultAttachmentWarning> getUnavailableConsultAttachmentWarnings(Integer requestId);
 
     /**
      * Renders an electronic form (eForm) along with all its associated attachments as a single PDF.

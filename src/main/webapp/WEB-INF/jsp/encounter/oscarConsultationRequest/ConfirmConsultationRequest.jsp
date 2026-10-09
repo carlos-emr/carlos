@@ -54,6 +54,10 @@
         transType = request.getParameter("transType");
     }
     String isPreview = (String) request.getAttribute("isPreviewReady");
+    // With a warning to read, the page stays open until staff close it.
+    Object attachmentWarningsAttribute = request.getAttribute("attachmentWarnings");
+    boolean hasAttachmentWarnings = attachmentWarningsAttribute instanceof java.util.Collection
+            && !((java.util.Collection<?>) attachmentWarningsAttribute).isEmpty();
     String fallbackDemographicNo = request.getParameter("demographicNo");
     if (fallbackDemographicNo == null || fallbackDemographicNo.trim().isEmpty()) {
         fallbackDemographicNo = request.getParameter("de");
@@ -107,13 +111,30 @@
                 </div>
             <% } %>
 
+            <%-- Attachments the consult lists that no longer exist, or now belong to another patient,
+                 are left out of the fax or print. Staff are told which, here as in the preview. --%>
+            <c:if test="${ not empty attachmentWarnings }">
+                <div id="consult-attachment-warnings" class="alert alert-warning py-2 px-3 mb-3 text-start" role="alert" style="font-size:0.85rem;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
+                    <ul class="mb-0">
+                        <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
+                            <%-- Type and id only, worded from the bundle; see ConsultAttachmentWarning. --%>
+                            <c:set var="attachmentTypeLabel"><fmt:message key="${ attachmentWarning.typeLabelKey }"/></c:set>
+                            <c:set var="attachmentWarningText"><fmt:message key="${ attachmentWarning.messageKey }"><fmt:param value="${ attachmentTypeLabel }"/><fmt:param value="${ attachmentWarning.id }"/></fmt:message></c:set>
+                            <li><carlos:encode value="${ attachmentWarningText }"/></li>
+                        </c:forEach>
+                    </ul>
+                </div>
+            </c:if>
+
             <%=WebUtils.popInfoMessagesAsHtml(session)%>
 
             <% if ("true".equals(isPreview)) { %>
                 <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
             <% } %>
 
-            <% if (!"true".equals(isPreview)) { %>
+            <% if (!"true".equals(isPreview) && !hasAttachmentWarnings) { %>
                 <p class="text-muted mb-3" style="font-size:0.85rem;">
                     <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
                     <br>
@@ -159,6 +180,11 @@
             const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF);
+                return;
+            }
+
+            if (<%= hasAttachmentWarnings %>) {
+                // Leave the attachment warning on screen; the Close button still works.
                 return;
             }
 
