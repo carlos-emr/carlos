@@ -1,7 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
+const claims = require('./lib/form-claims');
 const check = require('./form-rourke2020-growth-playwright-checks');
+
+const ROOT = path.join(__dirname, '..');
+const read = relative => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
 /*
  * The tables and helpers of form-rourke2020-growth. The browser flow is proved live; what can drift without a browser is
@@ -78,7 +84,7 @@ test('shouldKeepTheSweepAwayFromTheCellsSaveValidates', () => {
   for (const name of ['p1_ht1w', 'p4_bmi48m', 'p3_wt9m', 'p2_hc4m', 'c_length', 'c_headCirc', 'c_birthWeight', 'p1_date1w', 'c_startOfGestation', 'c_pName']) {
     assert.ok(check.MEASURE_OR_DATE.test(name), `${name} would be typed by the sweep`);
   }
-  for (const name of ['p1_pNutrition1w', 'p3_immunization', 'c_birthRemarks', 'c_famHistory']) assert.ok(!check.MEASURE_OR_DATE.test(name), `${name} is left out of the sweep`);
+  for (const name of ['p2_development2m', 'p3_immunization', 'c_birthRemarks', 'c_famHistory']) assert.ok(!check.MEASURE_OR_DATE.test(name), `${name} is left out of the sweep`);
 });
 
 test('shouldTypeTheGrowthFormsRowsInRange_withTheBirthDateOnlyOnTheChartsDobLine', () => {
@@ -97,4 +103,89 @@ test('shouldLabelEveryPinnedPair_asTheRunPrintsIt', () => {
     const [key, concern] = claim.split('.');
     assert.equal(label, check.generatedLabel(key, concern), `${claim} is pinned under another wording than the run prints`);
   }
+});
+
+/* ---- the print boxes and the notes, proved against the templates the check reads ---- */
+
+/** The textField of a Jasper template whose expression is $P{name}: its x, y, width and height. */
+function boxOf(jrxml, name) {
+  const element = new RegExp(`<element kind="textField"[^>]*?\\sx="(\\d+)"\\s+(?:positionType="\\w+"\\s+)?y="(\\d+)"[^>]*?width="(\\d+)"\\s+height="(\\d+)"[^>]*>\\s*<expression><!\\[CDATA\\[\\$P\\{${name}\\}\\]\\]>`).exec(jrxml);
+  assert.ok(element, `page1.jrxml places no text field for ${name}`);
+  return { x: Number(element[1]), y: Number(element[2]), width: Number(element[3]), height: Number(element[4]) };
+}
+
+test('shouldMeasureThePrintBoxesOnThePageTheTemplateDeclares', () => {
+  const page1 = read('src/main/resources/oscar/form/rourke2020/page1.jrxml');
+  const page = /<jasperReport[^>]*pageWidth="(\d+)"\s+pageHeight="(\d+)"/.exec(page1);
+  assert.deepEqual({ width: Number(page[1]), height: Number(page[2]) }, check.PRINT_PAGE);
+  assert.deepEqual(check.PRINT_BOXES.male, boxOf(page1, 'c_male'));
+  assert.deepEqual(check.PRINT_BOXES.female, boxOf(page1, 'c_female'));
+  assert.deepEqual(check.PRINT_BOXES.gestationalAge, boxOf(page1, 'c_gestationalAge'));
+});
+
+test('shouldCallTheNotesTheTemplateDeclaresAndNeverPlaces_onPageIIOfTheForm', () => {
+  const page2 = read('src/main/resources/oscar/form/rourke2020/page2.jrxml');
+  const jsp = read('src/main/webapp/WEB-INF/jsp/form/formRourke2020p2.jsp');
+  const fields = check.rourkeFields(MARKER, DOB);
+  assert.equal(check.ROURKE_NOTES.length, 7);
+  for (const name of check.ROURKE_NOTES) {
+    assert.match(page2, new RegExp(`<parameter name="${name}"`), `${name} is not declared in page2.jrxml`);
+    assert.ok(!page2.includes(`$P{${name}}`), `${name} is placed in page2.jrxml, so it is no longer a note the print drops`);
+    assert.match(jsp, new RegExp(`<textarea[^>]*name="${name}"`), `formRourke2020p2.jsp has no note box ${name}`);
+    const field = fields.find(item => item.name === name);
+    assert.ok(field, `${name} is not typed`);
+    assert.equal(field.page, 1, `${name} is on page II of the form`);
+  }
+});
+
+test('shouldHaveAStepLabelForEveryConcern_andPinTheTitlesOnTheirOwnPairs', () => {
+  for (const form of check.claimForms) {
+    for (const concern of form.concerns) assert.match(check.generatedLabel(form.key, concern), /^[A-Z][^:]*: \S/, `${form.key}.${concern} has no label`);
+  }
+  assert.equal(check.stepLabel('rourke2020', 'graphtitle'), check.PINNED['rourke2020.graphtitle']);
+  assert.equal(check.stepLabel('growth036', 'title'), check.PINNED['growth036.title']);
+  assert.ok(check.claimForms.find(form => form.key === 'rourke2020').concerns.includes('graphtitle'));
+  assert.ok(check.claimForms.find(form => form.key === 'growth036').concerns.includes('title'));
+});
+
+/* ---- what each pinned judgment reads, on synthetic page I words ---- */
+
+const word = (text, x, y, width = 9, height = 17) => ({ text, xMin: x, yMin: y, xMax: x + width, yMax: y + height });
+const BOX = check.PRINT_BOXES;
+
+test('shouldMarkTheOwnSexOnly_whereTheTemplatePlacesTheBoxes', () => {
+  // As the application prints a girl today: x in both boxes (finding 246). Other x words on the page do not count.
+  const girlToday = [word('x', BOX.male.x, 160.8), word('x', BOX.female.x, 160.8), word('x', 400, 900)];
+  assert.deepEqual(check.sexMarks(girlToday), { male: 1, female: 1 });
+  assert.deepEqual(check.sexMarks([word('X', BOX.female.x, 160.8), word('x', 400, 900)]), { male: 0, female: 1 });
+  assert.deepEqual(check.sexMarks([word('x', BOX.male.x + 3, 161)]), { male: 1, female: 0 });
+  assert.deepEqual(check.sexMarks([word('xx', BOX.female.x, 161)]), { male: 0, female: 0 }, 'a word that is not a lone mark is not a mark');
+  assert.deepEqual(check.sexMarks([]), { male: 0, female: 0 });
+});
+
+test('shouldReadTheGestationalAgeFromItsOwnBox_notFromTheFirstWeeksOnThePage', () => {
+  const inBox = [word('39', BOX.gestationalAge.x, 192, 18, 15), word('weeks', BOX.gestationalAge.x + 24, 192, 45, 15)];
+  const elsewhere = [word('12', 700, 600), word('weeks', 740, 600)];
+  assert.equal(check.printedGestation([...elsewhere, ...inBox]), '39 weeks');
+  assert.equal(check.printedGestation([...inBox].reverse()), '39 weeks', 'left to right whatever the order of the words');
+  assert.equal(check.printedGestation(elsewhere), '', 'a blank cell is blank although another cell says weeks');
+});
+
+test('shouldJudgeTheMeasurementDate_andNeverBlameTheDialogForARunThatCannotTell', () => {
+  const filed = { expected: '2026-10-10', utc: '2026-10-09', offered: '2026-10-09', stored: '2026-10-09', clockMoved: false };
+  assert.throws(() => check.judgeMeasureDate(filed, 'Pacific/Kiritimati'), error => !(error instanceof claims.Precondition) && /it uses the UTC date/.test(error.message));
+  assert.doesNotThrow(() => check.judgeMeasureDate({ ...filed, offered: '2026-10-10', stored: '2026-10-10' }, 'Pacific/Kiritimati'));
+  // The two dates are the same day: nothing can be said about the dialog, in either direction.
+  for (const same of [{ ...filed, expected: filed.utc }, { ...filed, expected: filed.utc, stored: filed.utc }]) {
+    assert.throws(() => check.judgeMeasureDate(same, 'Pacific/Kiritimati'), error => error instanceof claims.Precondition);
+  }
+  assert.throws(() => check.judgeMeasureDate({ ...filed, clockMoved: true }, 'Pacific/Kiritimati'), error => error instanceof claims.Precondition);
+  // A precondition reads as a failure elsewhere, never under the pinned label.
+  const outcome = claims.outcomeOf((() => { try { check.judgeMeasureDate({ ...filed, expected: filed.utc }, 'Pacific/Kiritimati'); } catch (error) { return error; } return null; })(), []);
+  assert.equal(claims.claimFailure(outcome, 'pinned').label, 'pinned (precondition)');
+});
+
+test('shouldFormatTheUtcDateOfAnInstant', () => {
+  assert.equal(check.utcDate(new Date(Date.UTC(2026, 9, 9, 23, 59, 59))), '2026-10-09');
+  assert.equal(check.utcDate(new Date(Date.UTC(2026, 9, 10, 0, 0, 0))), '2026-10-10');
 });

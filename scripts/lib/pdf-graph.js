@@ -94,10 +94,63 @@ function pageCount(pdf) {
   });
 }
 
+/** The document title pdfinfo reports ('' when the PDF carries none): what a browser's PDF viewer shows as the window title. */
+function pdfTitle(pdf) {
+  return withTempFile(pdf, 'in.pdf', file => {
+    const out = execFileSync('pdfinfo', ['-enc', 'UTF-8', file], { encoding: 'utf8', timeout: TOOL_TIMEOUT });
+    const found = /^Title:[ \t]*(.*)$/m.exec(out);
+    return found ? found[1].trim() : '';
+  });
+}
+
 /** The text of one page (1-based) in reading order, from the bytes. */
 function pageText(pdf, page) {
   return execFileSync('pdftotext', ['-f', String(page), '-l', String(page), '-enc', 'UTF-8', '-', '-'],
     { input: pdf, encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 16 * 1024 * 1024 });
+}
+
+const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+
+/**
+ * The words of one page (1-based) with the box each occupies, from `pdftotext -bbox`. The box is in the page's own units
+ * measured from the TOP left corner, which for a Jasper page of pixels is the template's own x and y.
+ *
+ * @param {Buffer} pdf
+ * @param {number} page
+ * @returns {{width: number, height: number, words: Array<{text: string, xMin: number, yMin: number, xMax: number, yMax: number}>}}
+ */
+function pageWords(pdf, page) {
+  const html = execFileSync('pdftotext', ['-bbox', '-f', String(page), '-l', String(page), '-enc', 'UTF-8', '-', '-'],
+    { input: pdf, encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 16 * 1024 * 1024 });
+  const size = /<page width="([\d.]+)" height="([\d.]+)"/.exec(html);
+  if (!size) throw new Error('pdftotext -bbox reported no page');
+  const words = [];
+  const word = /<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([^<]*)<\/word>/g;
+  let match;
+  while ((match = word.exec(html)) !== null) {
+    words.push({
+      text: match[5].replace(/&(?:amp|lt|gt|quot|#39);/g, entity => ENTITIES[entity]),
+      xMin: Number(match[1]), yMin: Number(match[2]), xMax: Number(match[3]), yMax: Number(match[4]),
+    });
+  }
+  return { width: Number(size[1]), height: Number(size[2]), words };
+}
+
+/**
+ * The words whose centre lies inside a box (x, y, width, height from the top left), grown by `slack` on every side, left to right.
+ *
+ * @param {Array<{text: string, xMin: number, yMin: number, xMax: number, yMax: number}>} words  pageWords().words
+ * @param {{x: number, y: number, width: number, height: number}} box
+ * @param {number} [slack]
+ */
+function wordsIn(words, box, slack = 0) {
+  return words
+    .filter(word => {
+      const cx = (word.xMin + word.xMax) / 2;
+      const cy = (word.yMin + word.yMax) / 2;
+      return cx >= box.x - slack && cx <= box.x + box.width + slack && cy >= box.y - slack && cy <= box.y + box.height + slack;
+    })
+    .sort((a, b) => a.xMin - b.xMin);
 }
 
 /**
@@ -116,4 +169,4 @@ function renderPng(pdf, { page = 1, dpi = 40 } = {}) {
   });
 }
 
-module.exports = { PNG_SIGNATURE, contentStreams, isPng, pageCount, pageText, plottedPoints, renderPng };
+module.exports = { PNG_SIGNATURE, contentStreams, isPng, pageCount, pageText, pageWords, pdfTitle, plottedPoints, renderPng, wordsIn };

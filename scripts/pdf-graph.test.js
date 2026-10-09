@@ -24,7 +24,7 @@ function pageContent(template, points) {
 }
 
 /** A valid one-or-more page PDF whose page content streams are the given texts, plus a template stream full of curves. */
-function buildPdf(pageTexts) {
+function buildPdf(pageTexts, { title } = {}) {
   const objects = [];
   const count = pageTexts.length;
   const pageIds = pageTexts.map((_, i) => 3 + i * 2);
@@ -37,6 +37,8 @@ function buildPdf(pageTexts) {
   });
   // The template's own stream: text and many curves, never part of the count.
   objects[3 + count * 2] = { stream: Buffer.from(`BT\n/F1 6 Tf\n(percentile)Tj\nET\n${circle(5, 5).repeat(10)}`, 'latin1') };
+  const infoId = objects.length;
+  if (title !== undefined) objects[infoId] = `<< /Title (${title}) >>`;
   const chunks = [Buffer.from('%PDF-1.4\n', 'latin1')];
   const offsets = [];
   let length = chunks[0].length;
@@ -54,7 +56,7 @@ function buildPdf(pageTexts) {
   }
   const xref = [`xref\n0 ${objects.length}\n0000000000 65535 f \n`];
   for (let id = 1; id < objects.length; id++) xref.push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
-  chunks.push(Buffer.from(`${xref.join('')}trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${length}\n%%EOF\n`, 'latin1'));
+  chunks.push(Buffer.from(`${xref.join('')}trailer\n<< /Size ${objects.length} /Root 1 0 R${title !== undefined ? ` /Info ${infoId} 0 R` : ''} >>\nstartxref\n${length}\n%%EOF\n`, 'latin1'));
   return Buffer.concat(chunks);
 }
 
@@ -94,4 +96,27 @@ test('shouldCountPagesAndDrawAPng_whenPopplerIsInstalled', { skip: poppler ? fal
   assert.equal(pdfGraph.pageCount(pdf), 2);
   const png = pdfGraph.renderPng(pdf, { page: 1, dpi: 20 });
   assert.equal(pdfGraph.isPng(png), true);
+});
+
+test('shouldReadTheTitleTheViewerShows_andAnEmptyOneWhenThereIsNone', { skip: poppler ? false : 'Poppler is not installed' }, () => {
+  assert.equal(pdfGraph.pdfTitle(buildPdf([pageContent(1, [])], { title: 'Baby Growth Graph1' })), 'Baby Growth Graph1');
+  assert.equal(pdfGraph.pdfTitle(buildPdf([pageContent(1, [])])), '');
+});
+
+test('shouldPlaceEachWordInItsBox_andSelectTheWordsInsideABox', { skip: poppler ? false : 'Poppler is not installed' }, () => {
+  // Helvetica 12 at (50, 150) and (120, 150) on a 200 x 200 page; PDF y runs up, pdftotext -bbox measures from the top.
+  const page = 'BT\n/F1 12 Tf\n1 0 0 1 50 150 Tm\n(x)Tj\n1 0 0 1 120 150 Tm\n(39 weeks)Tj\n1 0 0 1 50 40 Tm\n(low)Tj\nET\n';
+  const { width, height, words } = pdfGraph.pageWords(buildPdf([page]), 1);
+  assert.deepEqual([width, height], [200, 200]);
+  const mark = words.find(word => word.text === 'x');
+  assert.ok(mark, 'the x is found');
+  assert.ok(Math.abs(mark.xMin - 50) < 1.5, `x starts near 50, not ${mark.xMin}`);
+  assert.ok(mark.yMin > 35 && mark.yMin < 50, `the top of the x is near 200-150-9=41, not ${mark.yMin}`);
+  const upperLeft = pdfGraph.wordsIn(words, { x: 45, y: 35, width: 20, height: 20 });
+  assert.deepEqual(upperLeft.map(word => word.text), ['x']);
+  assert.deepEqual(pdfGraph.wordsIn(words, { x: 115, y: 35, width: 80, height: 20 }).map(word => word.text), ['39', 'weeks']);
+  assert.deepEqual(pdfGraph.wordsIn(words, { x: 45, y: 100, width: 20, height: 20 }), [], 'nothing lies in an empty box');
+  // Slack widens the box on every side.
+  assert.deepEqual(pdfGraph.wordsIn(words, { x: 60, y: 35, width: 20, height: 20 }), []);
+  assert.deepEqual(pdfGraph.wordsIn(words, { x: 60, y: 35, width: 20, height: 20 }, 12).map(word => word.text), ['x']);
 });
