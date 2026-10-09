@@ -162,7 +162,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     ArrayList<String> measurements = new ArrayList(measurementLs);
     long startTimeToGetM = System.currentTimeMillis();
 
-    mi.getMeasurements(measurements);
+    // Decision support reads every item, hidden ones included: a ds_rules file and the item
+    // recommendations still cover an item a customization hides, and without its readings an
+    // up-to-date hidden item would be reported as never recorded (#4433). Display uses the
+    // visible list.
+    mi.getMeasurements(new ArrayList<String>(mFlowsheet.getMeasurementList()));
 
     try {
         mFlowsheet.getMessages(mi);

@@ -143,7 +143,7 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     @Override
     public List<RaDetail> getRaDetailByDate(Date startDate, Date endDate, Locale locale) {
-        Query query = entityManager.createQuery("SELECT rad from RaHeader rah, RaDetail rad WHERE rah.paymentDate >= ?1 and rah.paymentDate < ?2 and rah.id = rad.raHeaderNo order by rad.raHeaderNo, rad.billingNo, rad.serviceCode");
+        Query query = entityManager.createQuery("SELECT rad from RaHeader rah, RaDetail rad WHERE rah.paymentDate >= ?1 and rah.paymentDate <= ?2 and rah.id = rad.raHeaderNo order by rad.raHeaderNo, rad.billingNo, rad.serviceCode");
         String startDateStr = DateUtils.format("yyyyMMdd", startDate, locale);
         query.setParameter(1, startDateStr);
         String endDateStr = DateUtils.format("yyyyMMdd", endDate, locale);
@@ -157,7 +157,7 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     @Override
     public List<RaDetail> getRaDetailByDate(Provider p, Date startDate, Date endDate, Locale locale) {
-        Query query = entityManager.createQuery("SELECT rad from RaHeader rah, RaDetail rad WHERE rah.paymentDate >= ?1 and rah.paymentDate < ?2 and rah.id = rad.raHeaderNo and rad.providerOhipNo = ?3 order by rad.raHeaderNo, rad.billingNo, rad.serviceCode");
+        Query query = entityManager.createQuery("SELECT rad from RaHeader rah, RaDetail rad WHERE rah.paymentDate >= ?1 and rah.paymentDate <= ?2 and rah.id = rad.raHeaderNo and rad.providerOhipNo = ?3 order by rad.raHeaderNo, rad.billingNo, rad.serviceCode");
         String startDateStr = DateUtils.format("yyyyMMdd", startDate, locale);
         query.setParameter(1, startDateStr);
         String endDateStr = DateUtils.format("yyyyMMdd", endDate, locale);

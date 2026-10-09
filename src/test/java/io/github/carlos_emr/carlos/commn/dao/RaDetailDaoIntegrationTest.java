@@ -455,6 +455,63 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    // --- getRaDetailByDate end-date boundary tests (issue #4430) ---
+
+    private RaDetail persistRaDetailPaidOn(String paymentDate, String ohipNo) throws Exception {
+        RaHeader header = new RaHeader();
+        EntityDataGenerator.generateTestDataForModelClass(header);
+        header.setPaymentDate(paymentDate);
+        raHeaderDao.persist(header);
+
+        RaDetail detail = new RaDetail();
+        EntityDataGenerator.generateTestDataForModelClass(detail);
+        detail.setRaHeaderNo(header.getId());
+        detail.setBillingNo(101);
+        detail.setProviderOhipNo(ohipNo);
+        dao.persist(detail);
+        return detail;
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should include an RA paid on the last day of the range, for all providers")
+    void shouldIncludeRaDetail_paidOnRangeEndDate() throws Exception {
+        RaDetail beforeStart = persistRaDetailPaidOn("20260930", "101");
+        RaDetail onStart = persistRaDetailPaidOn("20261001", "101");
+        RaDetail onEnd = persistRaDetailPaidOn("20261031", "202");
+        RaDetail afterEnd = persistRaDetailPaidOn("20261101", "101");
+        hibernateTemplate.flush();
+
+        Date startDate = new Date(dfm.parse("20261001").getTime());
+        Date endDate = new Date(dfm.parse("20261031").getTime());
+
+        List<RaDetail> result = dao.getRaDetailByDate(startDate, endDate, Locale.getDefault());
+
+        assertThat(result).containsExactlyInAnyOrder(onStart, onEnd)
+                .doesNotContain(beforeStart, afterEnd);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should include an RA paid on the last day of the range, for one provider")
+    void shouldIncludeRaDetail_paidOnRangeEndDateForProvider() throws Exception {
+        Provider provider = new Provider();
+        provider.setOhipNo("101");
+
+        RaDetail onEnd = persistRaDetailPaidOn("20261031", "101");
+        RaDetail onEndOtherProvider = persistRaDetailPaidOn("20261031", "202");
+        RaDetail afterEnd = persistRaDetailPaidOn("20261101", "101");
+        hibernateTemplate.flush();
+
+        Date startDate = new Date(dfm.parse("20261001").getTime());
+        Date endDate = new Date(dfm.parse("20261031").getTime());
+
+        List<RaDetail> result = dao.getRaDetailByDate(provider, startDate, endDate, Locale.getDefault());
+
+        assertThat(result).containsExactly(onEnd)
+                .doesNotContain(onEndOtherProvider, afterEnd);
+    }
+
     // --- getRaDetailByClaimNo test ---
 
     @Test

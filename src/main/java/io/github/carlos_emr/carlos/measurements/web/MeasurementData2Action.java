@@ -446,6 +446,11 @@ public class MeasurementData2Action extends ActionSupport {
      * Retrieves all measurement data of a specific type for a demographic.
      * Request object contains the demographic number and measurement type to be searched.
      *
+     * <p>Each measurement also carries {@code dateObservedLocal} (yyyy-MM-dd), the observation
+     * date in the server's time zone. {@link #saveMeasurement} parses the date-only value the
+     * modal posts in that same zone, so the client must not re-derive the calendar day from the
+     * epoch-millisecond {@code dateObserved} using its own zone (issue #4421).
+     *
      * @return JSON object containing measurement data
      */
     public String getMeasurementsByType() throws NumberFormatException, IOException {
@@ -457,8 +462,16 @@ public class MeasurementData2Action extends ActionSupport {
         if (measurements.isEmpty()) {
             json.put("-1", "No Results Found");
         } else {
+            SimpleDateFormat dateOnly = new SimpleDateFormat("yyyy-MM-dd");
             for (Measurement measurement : measurements) {
-                json.set(String.valueOf(measurement.getId()), objectMapper.valueToTree(measurement));
+                ObjectNode measurementJson = objectMapper.valueToTree(measurement);
+                Date dateObserved = measurement.getDateObserved();
+                if (dateObserved == null) {
+                    measurementJson.putNull("dateObservedLocal");
+                } else {
+                    measurementJson.put("dateObservedLocal", dateOnly.format(dateObserved));
+                }
+                json.set(String.valueOf(measurement.getId()), measurementJson);
             }
         }
 
