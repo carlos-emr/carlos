@@ -84,6 +84,9 @@ const SAVE = '#saveImg';
 /** The CARLOS encounter types offered by noteIssueList.jsp's combo box (group types need group notes enabled). */
 const ENCOUNTER_TYPE = 'email encounter with client';
 
+/** The icons ApptStatusData draws for the signed and verified statuses when status editing is off (aStatus/aImageName). */
+const LEGACY_ICONS = { tS: 'lts.gif', tV: 'ltv.gif', HV: 'hv.gif' };
+
 /** The step labels the manifest's expectedFailure entries name; one place, so the script and the manifest agree. */
 const STEP = {
   told: 'the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back',
@@ -115,8 +118,10 @@ const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * The E link stores the appointment number in the session with a fire-and-forget fetch
  * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession) whose body nothing reads, and
  * Chromium reports that request as ERR_ABORTED when the day sheet is reloaded, which this check does after
- * every chart. That is the browser abandoning an unread response, not an application failure (the number is
- * proven stored by the chart carrying the appointment). Excuse exactly those entries and nothing else.
+ * every chart. That is the browser abandoning an unread response, not an application failure. This check does
+ * not depend on the session copy of the appointment number (the E link's own URL carries appointmentNo=, which
+ * is what the chart reads), so the aborted request is excused here, not asserted. Excuse exactly those entries
+ * (fetch, ERR_ABORTED, that path) and nothing else.
  */
 function excuseStoreAppointmentAborts(recorder) {
   for (let i = recorder.requestFailures.length - 1; i >= 0; i--) {
@@ -134,10 +139,11 @@ async function workflow(s) {
   const { sql, patient, marker, provider, config, schedule } = s;
   const q = h.sqlString;
   const signedLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigned');
-  const verifiedLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig');
   const byLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigBy');
-  const pastDateMessage = bundleMessage('encounter.pastObservationDateError.msg');
-  const futureDateMessage = bundleMessage('encounter.futureDate.Msg');
+  // Only the full flow judges these texts; the archive variant does not read them.
+  const verifiedLabel = full ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
+  const pastDateMessage = full ? bundleMessage('encounter.pastObservationDateError.msg') : null;
+  const futureDateMessage = full ? bundleMessage('encounter.futureDate.Msg') : null;
 
   // ---- Fixtures --------------------------------------------------------------------------------
   const appointments = {};
@@ -260,6 +266,13 @@ async function workflow(s) {
   async function assertDaySheetShows(id, status) {
     const shown = await daySheetStatus(id);
     const expected = expectedIcon(status);
+    // With ENABLE_EDIT_APPT_STATUS off the day sheet draws the legacy tables of ApptStatusData (lts.gif for tS),
+    // not appointment_status, which these assertions do not describe: skip with the reason rather than fail. Any
+    // other icon is judged below.
+    if (shown.image !== expected.file && shown.image === LEGACY_ICONS[status]) {
+      throw new h.SkipCheck(`The day sheet draws the legacy icon ${shown.image} for status ${status}: appointment status editing `
+        + '(ENABLE_EDIT_APPT_STATUS) is off on this install, and the status icons asserted here are the editable ones');
+    }
     h.assert(shown.current === status, `The day sheet's status link for appointment ${id} carries status ${shown.current}, the row holds ${status}`);
     h.assert(shown.image === expected.file,
       `The day sheet draws ${shown.image} for status ${status}, expected ${expected.file}`);
@@ -382,8 +395,13 @@ async function workflow(s) {
     // Pinned to finding 224. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive the
     // appointment BEFORE changing it, so the archive row is the version being replaced; the chart's Sign path
     // (CaseManagementManagerImpl.saveCaseManagementNote) sets the new status first and archives afterwards.
+    const archivedStatuses = () => sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`).map(([status]) => status);
+    await s.step('Sign & Save from the To Do appointment writes an appointmentArchive row for it', async () => {
+      await expectValue(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${appointments.todo}`, '1',
+        'Sign & Save did not write exactly one appointmentArchive row for the appointment (the pin below judges what that row holds)');
+    });
     await s.step(STEP.archive, async () => {
-      const rows = sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`).map(([status]) => status);
+      const rows = archivedStatuses();
       h.assert(rows.includes('t'), `The appointment archive holds [${rows.join(', ')}] for an appointment that was t and became tS: the status it replaced is in no archive row`);
     });
     return;
