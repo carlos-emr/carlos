@@ -1341,7 +1341,9 @@ CSRFGuard logs no request path and sees every CARLOS user as anonymous, so the
 audit cannot tell a deliberate CSRF probe from a page that lost its token; that
 shows up as the check that drives the page failing. Every baseline entry must
 match a signature in `scripts/fixtures/server-log-signatures-2026.08.txt` (the
-2026.08.0~alpha19 run), and the test also pins that the defects still
+signatures the 2026.08.0~alpha19 run printed, plus any added later and marked "Added with"
+in the file: one, for the path-in-name Delete Selected refusal that `mcedt-mailbox-outbox`
+provokes on the same alpha19 install), and the test also pins that the defects still
 unexplained on that run stay unexplained. Never add a baseline entry to make an
 audit pass: an unexplained ERROR is a finding first.
 
@@ -2423,7 +2425,7 @@ now takes no screenshot when it is unset.
 | 6 | Existing findings or failures known before this run: 54 (`report-daysheet-labs`), 103 (`clinical-forms-save-reopen`), `gap-provider-schedule-reason-privacy`, `contact-lifecycle`, `admin-jobs`, and `eform-groups`, which now fails on the 302 that #4130's POST/redirect/GET returns rather than on the 405/403 its note describes |
 | 5 | Seed and demo-data differences from the devcontainer database: `episode-lifecycle` and `record-access` (`_newCasemgmt.episode` is `o` for doctor in the Flyway seed, `x` in `development.sql`), `form-print-pdf` (Lab Req 2007 is not in the Forms menu), `popup-opener-master-record` (the fixture patient has no postal code, so Update Record is refused), `tickler-note-dialog` (finding 143) |
 | 3 | Fixtures this environment lacks: `eform-corpus-soak`, `o19-migrated-smoke`, `encounter-legacy-note-soft-wrap` (CAISI) |
-| 3 | Browser and front door: `double-submit-eform` (Chromium 154 blocks a `beforeunload` prompt without a user gesture), `export-content-eform-export-zip` (Chromium names the download "download" although `Content-Disposition` is valid), `gap-provider-messenger-write-to-encounter` (the WAF answers 403 for `msgId=2147483648`) |
+| 3 | Browser and front door: `double-submit-eform` (the check armed its unsaved-changes prompt with a `beforeunload` handler that removes itself while it runs, `{ once: true }`, and Chromium 154 shows no prompt for such a handler and logs a missing user gesture although the page had one; fixed in the check, which now disarms the handler from a timer), `export-content-eform-export-zip` (under the POSIX locale of the container, `LANG` unset, Chromium cannot map a UTF-8 name to the locale charset and names any download whose `filename*=` holds a non-ASCII letter "download" although `Content-Disposition` is valid; the old assertion depended on the runner's locale, and the check now asserts the header), `gap-provider-messenger-write-to-encounter` (the WAF answers 403 for `msgId=2147483648`) |
 | 1 | Stale against the delta, fixed here: `gap-clinical-calculators-coronary` (#4398 refuses ages outside 30 to 75 instead of clamping); it passes |
 | 1 | Not analysed: `boundary-demographic-search` (the sort form's keyword field timed out) |
 
