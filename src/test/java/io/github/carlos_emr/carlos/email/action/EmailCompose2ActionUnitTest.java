@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -149,6 +150,46 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(windowA.getAttribute("fid")).isEqualTo("40001");
         // Window B's draft is untouched and opens B's own compose.
         assertShowsWindow(prepare(keyB[0]), "10002", "20002", true, "B");
+    }
+
+    @Test
+    @DisplayName("should stage each window's attachments under its own key, bound to its own patient")
+    void shouldStageEachWindowsAttachments_underItsOwnPatientBoundKey() throws Exception {
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenReturn(file("A"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20002"), any())).thenReturn(file("B"));
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        String keyB = EmailComposeStaging.stage(session, "40002", draft("10002", "20002", true, "B"));
+
+        // Window A composes, then window B composes while A is still open (#4425).
+        MockHttpServletRequest windowA = prepare(keyA);
+        MockHttpServletRequest windowB = prepare(keyB);
+
+        String attachmentsA = (String) windowA.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE);
+        String attachmentsB = (String) windowB.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE);
+        assertThat(EmailAttachmentStaging.isKey(attachmentsA)).isTrue();
+        assertThat(attachmentsA).isNotEqualTo(attachmentsB);
+        assertThat(session.getAttribute("emailAttachmentList")).as("no session-wide list").isNull();
+        assertThat((List<?>) windowA.getAttribute("emailAttachmentList"))
+                .extracting(attachment -> ((EmailAttachment) attachment).getFileName()).containsExactly("FAKE-A.pdf");
+
+        EmailAttachmentStaging.Prepared stagedA = EmailAttachmentStaging.take(session, attachmentsA);
+        assertThat(stagedA.demographicNo()).isEqualTo(10001);
+        assertThat(stagedA.attachments()).extracting(EmailAttachment::getFileName).containsExactly("FAKE-A.pdf");
+        EmailAttachmentStaging.Prepared stagedB = EmailAttachmentStaging.take(session, attachmentsB);
+        assertThat(stagedB.demographicNo()).isEqualTo(10002);
+        assertThat(stagedB.attachments()).extracting(EmailAttachment::getFileName).containsExactly("FAKE-B.pdf");
+    }
+
+    @Test
+    @DisplayName("should clear the session-wide attachment list an older version left behind")
+    void shouldClearLegacyAttachmentList_whenComposing() throws Exception {
+        session.setAttribute("emailAttachmentList", file("OLD"));
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+
+        MockHttpServletRequest request = prepare(keyA);
+
+        assertThat(session.getAttribute("emailAttachmentList")).isNull();
+        assertThat((List<?>) request.getAttribute("emailAttachmentList")).isEmpty();
     }
 
     @Test

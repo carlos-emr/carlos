@@ -227,6 +227,11 @@ async function workflow(s) {
     await waitClosed(popup, 'Group Cancel');
     const rows = ownedRows(`appointment_no IN (${groupIds.join(',')})`);
     h.assert(rows.length === 2 && rows.every(r => r.status === 'C'), 'Group Cancel did not cancel both appointments');
+    // lastupdateuser is varchar(6) and records the acting provider number. The page once wrote the display name here, which
+    // a permissive server cut to six characters and a strict one refused (the cancel then failed with HTTP 500).
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no IN (${groupIds.map(Number).join(',')})
+      AND lastupdateuser=${h.sqlString(fixture.providerNo)}`) === '2',
+    'Group Cancel did not record the acting provider number as the last update user');
   });
 
   await s.step('Group Delete asks first, then removes and archives both appointments', async () => {
