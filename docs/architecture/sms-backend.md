@@ -12,7 +12,9 @@ This module provides persistence, consent checks, queueing, provider adapters an
 | `SmsTransaction` | One logical SMS system-of-record entry, including retries; not one row per network attempt. |
 | `applyIfVersionMatches` | Applies a worker update only if its claimed version is still current; preserves a newer webhook or worker update. |
 
-There is one active SMS backend per clinic, chosen in Administration > SMS (or `sms.provider.default` while nothing is saved), and new messages use it. Every row retains its selected backend, so changing the active one does not reroute already queued work: the queue worker sends only through the active backend, and then fails the due rows of any other with `QUEUE_PROVIDER_NOT_ACTIVE` for staff to resend, because that backend's credentials were cleared when the clinic left it. Failing them has a per-run limit of its own, so a backlog never holds up the active backend's texts. If a failure write fails, its unsent claim is returned with a five-minute delay and the worker tries the next row; two failed writes end that provider's cleanup for the run. The active backend is read again before every row is claimed: sending stops when the clinic chooses another backend during a run, and texts for a backend chosen during the run are left to be sent, not failed. After claim renewal, both the worker and direct send check the active backend and its settings again immediately before dispatch. A changed or unreadable configuration returns the unsent claim to the queue without spending an attempt, and the worker stops draining for that run. This is a final check, not a lock across the provider call: a configuration save after that check cannot cancel a dispatch already starting. Stale `SENDING` rows of a former backend are still looked up, with no settings. If the active backend cannot be determined (an invalid `sms.provider.default`), a run sends and fails nothing. Keep the resolver and per-backend limiter for this reason; per-message user routing and speculative adapter frameworks are unnecessary at this stage.
+There is one active SMS backend per clinic, chosen in Administration > SMS (or `sms.provider.default` while nothing is saved), and new messages use it. Every row retains its selected backend. A provider change records a durable retirement boundary with the settings: old queued rows, including future retries, remain retired even if that provider is selected again before cleanup. The worker materializes their failures in bounded batches for staff to review and resend; new rows admitted after reactivation remain eligible. One failed cleanup write is skipped for that run, and two stop that provider's cleanup batch. An inactive queued STUB system test has its own reason asking the administrator to use Send test again.
+
+The worker checks the active provider before claiming each row. After claim renewal, both the worker and direct send coherently check the sending switch, active provider, settings and retirement boundary immediately before dispatch. Changed or unreadable settings return an unsent eligible claim to the queue; a retired unsent claim is failed, and the worker stops draining for that run. No lock spans the provider call, so a configuration save after this final check cannot cancel a dispatch already starting. Recovery reloads settings per message; a retired uncertain `SENDING` row requires manual reconciliation without querying a new account or automatically retrying. If the active backend cannot be determined, a run sends and fails nothing. Keep the resolver and per-backend limiter; per-message user routing and speculative adapter frameworks are unnecessary at this stage. See [durable provider retirement](#durable-provider-retirement) for locking, deployment and rollback requirements.
 
 Business classes follow [the layer naming policy](layer-names.md): configuration and client selection use `Resolver`; multi-step queue, webhook and transaction operations use `Service`; the write-only body audit uses `Persister`; retry timing uses `Calculator`. `SmsQueueScheduler` and `LoggingSmsSendFailureListener` describe their executor and Spring event-listener lifecycle rather than introducing another business layer.
 
@@ -25,7 +27,7 @@ All adapters implement `send(command, clientReferenceId, settings)`. There is no
 Everything that differs between providers lives behind `SmsProviderClient`; the send, queue, settings and callback code never names one. A new provider is a Spring bean implementing that interface plus its name in `SmsProviderType` (stored on every row, so it is the one shared line; `VOIPMS` is already listed). `SmsProviderSwapUnitTest` proves this with a fake second provider registered as `CLOUDLI`. The provider supplies:
 
 - `send(command, clientReferenceId, settings)` and, where the provider can, `lookupMessageStatus(clientReferenceId, providerMessageId, settings)`. The recipient always arrives in E.164 form (`+14165550123`); the provider converts it to its own format. `settings` (`SmsProviderSettings`) carries the clinic's sender number and this provider's credentials, and only the active provider gets them. A provider missing a value it needs answers a definite failure without contacting the SMS provider.
-- `credentialFields()`: each `SmsCredentialField` has a name (stored under it, posted as `credential.<name>`), a label message key the provider adds to all five bundles, and whether it is required before sending can be switched on. `requiresSenderNumber()` does the same for the sender number.
+- `credentialFields()`: each `SmsCredentialField` has a name (stored under it, posted as `credential.<PROVIDER>.<name>`), a label message key the provider adds to all five bundles, and whether it is required before sending can be switched on. `requiresSenderNumber()` does the same for the sender number.
 - `sendRateLimit()`: how many texts per window (`SmsSendRateLimit`); the default is five per five seconds.
 - `validateCallback`, `parseInboundWebhook` and `parseDeliveryWebhook` for its callbacks.
 
@@ -148,3 +150,46 @@ The history view (#3839) and the settings page (#3836) are the first actions to 
 - Carrier-level integration tests and operational rollout validation, including how the chosen provider handles UCS-2 text within its limits.
 
 Record diagnostics are redacted. Full body retrieval goes through authorization and a committed audit record. These code boundaries do not replace database access controls or the production data policy above.
+
+## Durable provider retirement
+
+After a provider change in Administration > SMS, texts admitted under the retired selection remain
+retired even if the clinic selects that provider again before any worker runs. CARLOS stores a
+monotonic transaction-ID boundary for each provider in the existing InnoDB `SystemPreferences`
+table, under `sms.provider.retiredThrough.<PROVIDER>`, together with `sms.provider.retirement.v1`.
+The complete registry is initialized on the first save with this version of CARLOS. Missing legacy
+state means no tracked earlier retirement; partial, duplicate, negative, or malformed registry state
+blocks admission and dispatch. Retirements before the upgrade cannot be reconstructed from the old
+configuration row.
+
+Admission, settings changes, claims, renewal, and returning an unsent claim acquire the existing STUB
+rate-limit row as a database mutex before configuration, retirement preferences, or message rows.
+Its atomic upsert and lock do not consume a permit or reset its window. Every retirement reads the
+highest committed outbound ID with a current locking read and commits its boundary with the settings
+and audit. Provider calls and the separate rate-limit permit transaction occur after this lock is
+released. A final coherent check includes the sending switch, current provider and settings, and
+retirement boundary. This check cannot cancel a dispatch already starting when a later save commits.
+
+Retired queued rows, including future retries, are failed in bounded worker batches for staff to
+review and resend. New rows for a reselected provider are above its retirement boundary. With sending
+or the scheduler disabled, failure display waits until a worker runs; retirement already prevents
+sending on resume. An unsent claim returned after retirement is failed rather than requeued. Cleanup
+writes each row in its own transaction; one failed write is skipped for that run so a healthy row can
+proceed, and two failed writes stop that provider's cleanup batch.
+
+Swapping does not proactively change rows already SENDING: an external send may already have started.
+Its normal outcome/version guards and callback reconciliation still apply. Status recovery reloads
+settings for each lookup. Retired uncertain sends require manual reconciliation without an external
+lookup through the newly selected account and without an automatic retry. Existing stale-recovery
+version races can discard a late synchronous result; adapter timeouts must stay below the stale-send
+threshold. Same-provider account changes still need the conservative account-identity policy described
+above before a real adapter ships.
+
+Deploy this protocol with all older workers and admissions quiesced; mixed binaries cannot enforce
+its boundary. Quiesce admissions and in-flight workers again across a downgrade. Keep sending and
+workers disabled unless all retired queued/definitely-unsent rows have been materialized as terminal
+failures and every retired uncertain `SENDING` row has been reconciled or materialized for manual
+review so older recovery cannot query a different account and retry it. A manual-review failure does
+not establish that the external send never occurred. Preserved keys alone cannot protect an older
+binary. Keep the retirement keys and monotonic SMS IDs; deleting the registry or resetting IDs is
+incompatible with this protocol's guarantees.

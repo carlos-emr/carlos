@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.dao;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
@@ -81,6 +82,13 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     @Override
     @Transactional
     public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit) {
+        return claimDueOutboundQueue(providerType, claimAt, limit, 0L);
+    }
+
+    @Override
+    @Transactional
+    public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit,
+                                                    long retiredThrough) {
         if (providerType == null || claimAt == null) {
             return List.of();
         }
@@ -93,6 +101,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                         + "WHERE t.direction = :direction "
                         + "AND t.providerType = :providerType "
                         + "AND t.status = :status "
+                        + "AND t.id > :retiredThrough "
                         + "AND (t.nextAttemptAt IS NULL OR t.nextAttemptAt <= :claimAt) "
                         + "ORDER BY t.createdAt ASC",
                 SmsTransaction.class
@@ -101,6 +110,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUS, SmsStatus.QUEUED);
         query.setParameter("claimAt", claimAt);
+        query.setParameter("retiredThrough", retiredThrough);
         query.setMaxResults(safeLimit(limit));
         lockSkippingRowsHeldElsewhere(query);
 
@@ -112,6 +122,29 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             transaction.assignClaimToken(claimToken);
         }
         return due;
+    }
+
+    @Override
+    @Transactional
+    public List<SmsTransaction> findRetiredQueuedForUpdate(SmsProviderType providerType, long retiredThrough,
+                                                          boolean inactive, Date now, List<Long> excludedIds) {
+        TypedQuery<SmsTransaction> query = entityManager.createQuery(
+                "SELECT t FROM SmsTransaction t WHERE t.direction = :direction AND t.providerType = :provider "
+                        + "AND t.status = :status AND t.id NOT IN :excluded "
+                        + "AND (t.id <= :retiredThrough OR (:inactive = true AND t.messagePurpose = :systemTest "
+                        + "AND (t.nextAttemptAt IS NULL OR t.nextAttemptAt <= :now))) ORDER BY t.id ASC",
+                SmsTransaction.class);
+        query.setParameter("direction", SmsDirection.OUTBOUND);
+        query.setParameter("provider", providerType);
+        query.setParameter("status", SmsStatus.QUEUED);
+        query.setParameter("excluded", excludedIds.isEmpty() ? List.of(-1L) : excludedIds);
+        query.setParameter("retiredThrough", retiredThrough);
+        query.setParameter("inactive", inactive);
+        query.setParameter("systemTest", SmsMessagePurpose.SYSTEM_TEST);
+        query.setParameter("now", now);
+        query.setMaxResults(1);
+        lockSkippingRowsHeldElsewhere(query);
+        return query.getResultList();
     }
 
     @Override

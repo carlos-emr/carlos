@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
@@ -35,6 +37,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -85,13 +88,26 @@ public class SmsConfigService {
     private final SmsProviderClientResolver providerClients;
     private final ApplicationEventPublisher eventPublisher;
     private final SmsConfigAuditRecorder auditRecorder;
+    private final SmsProviderRetirementService retirementService;
 
     public SmsConfigService(SmsConfigDao smsConfigDao, SmsProviderClientResolver providerClients,
                             ApplicationEventPublisher eventPublisher, SmsConfigAuditRecorder auditRecorder) {
+        this(smsConfigDao, providerClients, eventPublisher, auditRecorder, null);
+    }
+
+    @Autowired
+    public SmsConfigService(SmsConfigDao smsConfigDao, SmsProviderClientResolver providerClients,
+                            ApplicationEventPublisher eventPublisher, SmsConfigAuditRecorder auditRecorder,
+                            SmsProviderRetirementService retirementService) {
         this.smsConfigDao = smsConfigDao;
         this.providerClients = providerClients;
         this.eventPublisher = eventPublisher;
         this.auditRecorder = auditRecorder;
+        this.retirementService = retirementService;
+    }
+
+    boolean retirementTrackingEnabled() {
+        return retirementService != null;
     }
 
     /** @return the saved settings, or empty while nothing has been saved */
@@ -247,6 +263,40 @@ public class SmsConfigService {
     }
 
     /**
+     * Reloads status-lookup settings for each message. A retired account's outcome is unknown: a new
+     * account cannot establish that it never received the old send, even after a switch away and back.
+     * Empty therefore requires manual reconciliation, without making an external lookup.
+     */
+    @Transactional
+    public Optional<SmsProviderSettings> statusLookupSettings(
+            SmsTransaction transaction) {
+        if (retirementService != null) {
+            retirementService.lockSelection();
+            if (retirementService.retired(transaction)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(providerSettings(transaction.getProviderType()));
+    }
+
+    /** A coherent final dispatch decision; its transaction commits before the external provider call. */
+    @Transactional
+    public Optional<SmsProviderSettings> dispatchSettings(
+            SmsTransaction transaction) {
+        if (retirementService == null) {
+            return sendingEnabled() ? Optional.of(readyProviderSettings(transaction.getProviderType()))
+                    : Optional.empty();
+        }
+        Optional<SmsConfig> selected = retirementService.lockSelection();
+        if (!retirementService.admissionAllowed(selected, transaction.getProviderType(),
+                SmsMessagePurpose.PATIENT_MESSAGE)
+                || retirementService.retired(transaction)) {
+            return Optional.empty();
+        }
+        return Optional.of(readyProviderSettings(transaction.getProviderType()));
+    }
+
+    /**
      * Saves validated settings (see {@code SmsConfigValidator}), creating the row the first time.
      * <p>
      * The save is refused unless the stored version is the one the page showed
@@ -262,12 +312,16 @@ public class SmsConfigService {
      */
     @Transactional
     public SmsConfig save(SmsConfigUpdateDto update, String updatedByProviderNo) {
-        Optional<SmsConfig> existing = smsConfigDao.findCurrent();
+        Optional<SmsConfig> existing = retirementService == null ? smsConfigDao.findCurrent()
+                : retirementService.lockSelection();
         if (!Objects.equals(existing.map(SmsConfig::getVersion).orElse(null), update.expectedVersion())) {
             throw new SmsConfigConflictException();
         }
         SmsConfig config = existing.orElseGet(SmsConfig::new);
         Snapshot before = Snapshot.of(config, existing.isPresent());
+        if (retirementService != null) {
+            retirementService.recordSelection(config.getProviderType(), update.providerType(), existing.isEmpty());
+        }
         if (existing.isPresent() && config.getProviderType() != update.providerType()) {
             config.clearCredentials();
         }
