@@ -271,6 +271,11 @@ async function workflow(s) {
     h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
       'Clear Photo in the first photo manager deleted the photo of the patient whose manager was opened second '
       + '(ClientImage acts on the session-wide clientId)');
+  });
+
+  // The other half of the same behaviour, in its own step so the pinned one above holds only what finding 156
+  // breaks: the first manager's Clear Photo must also reach the first patient.
+  await s.step('Clear Photo in the first photo manager clears the first patient photo', async () => {
     await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0',
       'Clear Photo in the first manager did not clear the first patient photo');
     await managerB.close();

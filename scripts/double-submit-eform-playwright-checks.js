@@ -79,6 +79,25 @@ async function workflow(s) {
     showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
     VALUES(${q(formName)},'','dbl fixture',CURDATE(),CURTIME(),${q(provider)},1,${q(html)},0,0,'',0,1); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(fid), 'The eForm template fixture was not created');
+  // The demo database ships EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids
+  // 247-1063 that no eform_data row owns any more, because the eForm instances were pruned and the id counter
+  // restarted below them. An instance saved at one of those ids inherits the stale attachments, and a login that
+  // cannot read those object types is then refused with 403 ("no permission to use one or more selected
+  // attachments") BEFORE the eForm is stored: a fixture artefact that production never meets (ids are not reused),
+  // and not the failure the Add to Documents step below pins. Move the counter past them with an owned row
+  // inserted at an explicit id and deleted again, which is all an AUTO_INCREMENT column needs.
+  const staleAttachmentHigh = Number(sql.value('SELECT COALESCE(MAX(fdid),0) FROM EFormDocs'));
+  const nextInstanceId = Number(sql.value(`SELECT AUTO_INCREMENT FROM information_schema.tables
+    WHERE table_schema=DATABASE() AND table_name='eform_data'`));
+  if (nextInstanceId <= staleAttachmentHigh) {
+    const seed = staleAttachmentHigh + 1;
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${seed}`) === '0', 'The eForm instance id used to move the id counter is occupied');
+    sql.execute(`INSERT INTO eform_data(fdid,fid,form_name,subject,demographic_no,status,form_date,form_time,form_provider,form_data,
+      showLatestFormOnly,patient_independent,roleType)
+      VALUES(${seed},${fid},${q(formName)},${q(`${marker}-IDSEED`)},${patient},1,CURDATE(),CURTIME(),${q(provider)},'',0,0,'')`);
+    sql.execute(`DELETE FROM eform_data WHERE fdid=${seed} AND form_name=${q(formName)} AND demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${seed}`) === '0', 'The eForm instance used to move the id counter was not removed');
+  }
   const chart = await s.chart();
   const v = verdicts('eform-submit');
   // The Add eForm list stays open all run: unloading it throws on a null window.opener (known defect,
@@ -122,9 +141,15 @@ async function workflow(s) {
       await sleep(300);
       forgiveAbortedSecondRequest(s.recorder, since, /\/eform\//);
       if (mode.key === 'replay') {
-        h.assert(responses.some(response => response.status() === 409), 'Reload did not reject the consumed submission');
+        // Statuses and the owned-row count ride in the messages (no body text: it is the form's own answer): a
+        // replay that fails here is either a lost response (the reload cancelled the first POST in flight, a
+        // timing artefact) or a second save, and the two read differently only by these numbers.
+        h.assert(responses.some(response => response.status() === 409),
+          `Reload did not reject the consumed submission (AddEForm responses seen: [${responses.map(response => response.status()).join(', ')}]; owned rows: ${count})`);
         const conflict = responses.find(response => response.status() === 409);
-        h.assert((await conflict.text()).includes('Check the patient'), 'Replay did not explain how to check the saved eForm');
+        const conflictText = await conflict.text().catch(error => `<body unavailable: ${String(error.message).split('\n')[0]}>`);
+        h.assert(conflictText.includes('Check the patient'),
+          `Replay did not explain how to check the saved eForm (HTTP 409 body of ${conflictText.length} characters)`);
         // This exact, asserted conflict is the expected result of the deliberately replayed POST.
         consumeExpectedFailure(s.recorder, failures, { status: 409, path: /\/eform\/addEForm$/ });
       }
@@ -137,15 +162,16 @@ async function workflow(s) {
         maxRedirects: 0,
       });
       h.assert(repeated.status() === 409 && (await repeated.text()).includes('Check the patient'),
-        'Server accepted a repeated eForm POST or omitted recovery guidance');
+        `Server accepted a repeated eForm POST or omitted recovery guidance (HTTP ${repeated.status()})`);
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)} AND d.subject=${q(subject)}
         AND v.var_name='note' AND v.var_value='double submit'`) === '1', 'Clinical field was lost or duplicated');
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)}
         AND v.var_name='carlosEformSubmission'`) === '0', 'Submission identity was stored as clinical form data');
-      h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
-        AND form_name=${q(formName)} AND subject=${q(subject)}`) === '1', 'Direct replay created a duplicate');
+      const afterReplay = sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+        AND form_name=${q(formName)} AND subject=${q(subject)}`);
+      h.assert(afterReplay === '1', `Direct replay created a duplicate (owned rows: ${afterReplay})`);
       if (mode.key === 'slowResubmit') h.assert(posts.seen.length === 1, 'Toolbar remained active while saving');
       form.off('request', capture);
       form.off('response', captureResponse);
@@ -253,12 +279,10 @@ async function workflow(s) {
     const login = fixture.addLogin(role);
     const subject = `${marker}-NOEDOC`;
     const restricted = await signIn(s, login);
-    if (process.env.DS_DEBUG_DELAY) await sleep(Number(process.env.DS_DEBUG_DELAY) * 1000);
     try {
       const page = await restricted.context.newPage();
       await h.gotoApp(page, s.config.baseUrl, `/eform/efmformadd_data?fid=${fid}&demographic_no=${patient}`);
       await page.locator('#remoteSaveEdocumentButton').waitFor({ state: 'visible' });
-      // NETIDLE-WAIT
       await page.locator('#remote_eform_subject').fill(subject);
       await page.locator('#note').fill('no document rights');
       const [response] = await Promise.all([
@@ -266,12 +290,6 @@ async function workflow(s) {
         page.locator('#remoteSaveEdocumentButton').click(),
       ]);
       noEdoc = { status: response.status(), text: await response.text() };
-      console.log('DEBUG-FIELDS', JSON.stringify([...new URLSearchParams(response.request().postData() || '').entries()].map(([k, v]) => `${k}=${String(v).slice(0, 30)}`)));
-      console.log('DEBUG', noEdoc.status);
-      if (noEdoc.status !== 409) {
-        console.log('DEBUG-PRIV', JSON.stringify(sql.rows(`SELECT roleUserGroup, objectName, privilege, priority FROM secObjPrivilege WHERE roleUserGroup IN (${q(role)},${q(login.providerNo)}) OR objectName LIKE '%$${patient}'`)));
-        console.log('DEBUG-ROLE', JSON.stringify(sql.rows(`SELECT provider_no, role_name, activeyn FROM secUserRole WHERE provider_no=${q(login.providerNo)}`)));
-      }
       await page.close();
     } finally {
       await restricted.context.close();

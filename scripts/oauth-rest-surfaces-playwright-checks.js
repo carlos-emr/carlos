@@ -50,9 +50,16 @@
  *      whose scope is outside it (/ws/services/allergies/active needs allergy.read) must be
  *      refused with the application's 403 and return no data. Shipped, the interceptor
  *      enforces scopes only when oauth.scope.enforcement.enabled is set and no packaged
- *      carlos.properties sets it, so the call is served. This is the one labelled step of the
- *      script; the steps before it are unlabelled, so a failure in them is never mistaken for
- *      the known failure.
+ *      carlos.properties sets it, so the call is served. Only the scope control and this
+ *      step are labelled (step 7 replaces both in the scope-list run); the steps before them are
+ *      unlabelled, so a failure in them is never mistaken for the known failure.
+ *   7. A scope LIST is stored as a list (pinned to app-findings-log.md finding 214, selected by
+ *      OAUTH_PIN=scope-list: the manifest entry oauth-rest-surfaces-scope-list runs this script
+ *      with steps 1-5 and this step in place of step 6, because a script stops at its first failing
+ *      step and so cannot pin two findings in one run). A signed POST to /ws/oauth/initiate for
+ *      `scope=demographic.read%20provider.read` (the encoding RFC 5849 requires for a space) must
+ *      store the request token with the two scopes; OAuth1ParamParser decodes only `+`, so the
+ *      stored value is the one string "demographic.read%20provider.read", which is no known scope.
  *
  * FIXTURE. The check inserts one ServiceClient row with a unique name, key and
  * secret, because the Administration > REST Clients page never shows a client's
@@ -103,6 +110,12 @@ const SCOPE_STEP = 'a token approved for demographic.read is refused at an endpo
 // would stop working the moment enforcement is switched on, taking this check's handshake with it
 // before the pinned step could pass.
 const REQUESTED_SCOPES = 'demographic.read';
+// OAUTH_PIN selects which finding the last step pins: unset pins finding 150 (the default entry),
+// `scope-list` pins finding 214 (the entry oauth-rest-surfaces-scope-list).
+const OAUTH_PIN = (process.env.OAUTH_PIN || '').trim();
+if (OAUTH_PIN !== '' && OAUTH_PIN !== 'scope-list') throw new Error(`OAUTH_PIN must be unset or scope-list, not ${OAUTH_PIN}`);
+const SCOPE_LIST = 'demographic.read provider.read';
+const SCOPE_LIST_STEP = 'a request for two scopes is stored as two scopes';
 
 /** RFC 3986 percent-encoding, as OAuth 1.0a section 3.6 requires. */
 function pct(value) {
@@ -405,6 +418,32 @@ async function main(state = {}) {
       + '</s:Body></s:Envelope>',
   });
   await expectStatus(r, [400, 401], 'unauthenticated SOAP getDemographic');
+
+  if (OAUTH_PIN === 'scope-list') {
+    // 7. A scope list survives the request token (finding 214).
+    await step(SCOPE_LIST_STEP, async () => {
+      const listUrl = app(`/ws/oauth/initiate?scope=${pct(SCOPE_LIST)}`);
+      const listed = await anon.post(listUrl, {
+        headers: {
+          Authorization: oauthHeader({
+            method: 'POST', url: listUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
+          }),
+        },
+      });
+      const status = listed.status();
+      const body = await listed.text();
+      assert(!isWafPage(status, body), 'the front door, not the application, answered the two-scope initiate');
+      const issued = formFields(body).oauth_token;
+      assert(status === 200 && issued,
+        `a signed /ws/oauth/initiate for the two scopes ${SCOPE_LIST} answered HTTP ${status} and issued no request token`);
+      const recorded = sql.value(`SELECT scopes FROM ServiceRequestToken WHERE tokenId=${sqlString(issued)}`);
+      assert(recorded === SCOPE_LIST,
+        `the request token for the two scopes ${SCOPE_LIST} records "${recorded}", not those two scopes `
+        + '(OAuth1ParamParser leaves the %20 of the query string in the stored scope)');
+    });
+    assertStrictPage(recorder);
+    return { surfaces: 4, handshake: 'oob' };
+  }
 
   // 6. Scopes bind the access token (finding 150).
   // Control, in its own step: the token the provider approved records exactly that one scope, so

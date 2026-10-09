@@ -162,12 +162,40 @@
       "timeoutSec": 300,
       "env": [
         "ALLERGY_DEMOGRAPHIC_NO",
-        "CARLOS_LOG_JOURNAL_UNIT"
+        "CARLOS_LOG_JOURNAL_UNIT",
+        "ALLERGY_PIN",
+        "DRUGREF_TEST_DATABASE"
       ],
-      "notes": "Adds a Penicillins allergy through the allergy page, checks the chart and amends it (archive plus replacement). Last, pinned to app-findings-log.md finding 178: both the added allergy and its amendment must carry a regional_identifier and an atc, and RxAddAllergy2Action must log no ERROR in the run's window of the server journal (CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP after its row assertions). The script is a runCheck script whose only labelled step is the pinned one.",
+      "notes": "Adds a Penicillins allergy through the allergy page, checks the chart and amends it (archive plus replacement). Last, pinned to app-findings-log.md finding 178: both the added allergy and its amendment must carry a regional_identifier and an atc, and RxAddAllergy2Action must log no ERROR in the run's window of the server journal (CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP after its row assertions). On the packaged install the identifiers are empty and no ERROR is logged: the Penicillin shortcut's DrugRef id does not name the class (finding 215, pinned by allergy-add-penicillin-shortcut-id), so DrugRef returns a record without them instead of failing. The script is a runCheck script whose only labelled step is the pinned one.",
       "expectedFailure": {
         "finding": 178,
         "step": "the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error"
+      }
+    },
+    {
+      "name": "allergy-add-penicillin-shortcut-id",
+      "script": "scripts/allergy-add-penicillin-playwright-checks.js",
+      "envSet": {
+        "ALLERGY_PIN": "shortcut-id"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "ALLERGY_DEMOGRAPHIC_NO",
+        "CARLOS_LOG_JOURNAL_UNIT",
+        "ALLERGY_PIN",
+        "DRUGREF_TEST_DATABASE"
+      ],
+      "notes": "The same script as allergy-add-penicillin, selected by ALLERGY_PIN=shortcut-id (envSet): the add, chart and amend stages run as there, then the last step is for app-findings-log.md finding 215 instead of finding 178. The DrugRef id the Penicillin shortcut posts (the form's ID field, which the saved allergy and its amendment echo) must be the PENICILLINS drug class, category 10, in the installed DrugRef database (DRUGREF_TEST_DATABASE, default drugref2). ChooseAllergy2.jsp and ShowAllergies2.jsp hard-code 44452, which the packaged DrugRef holds as a multivitamin brand, so the allergy is filed under another product (the class is 41472). Adds and removes its own allergies rows.",
+      "expectedFailure": {
+        "finding": 215,
+        "step": "the Penicillin shortcut files the allergy under the PENICILLINS drug class id"
       }
     },
     {
@@ -223,12 +251,37 @@
       ],
       "timeoutSec": 240,
       "env": [
-        "OAUTH_DEMOGRAPHIC_NO"
+        "OAUTH_DEMOGRAPHIC_NO",
+        "OAUTH_PIN"
       ],
       "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens. Last, pinned to app-findings-log.md finding 150: a token the provider approved for demographic.read, calling /ws/services/allergies/active (needs allergy.read), must get the application's 403 and no data; it is served while oauth.scope.enforcement.enabled is unset, as shipped. The script labels only its last two steps (the scope control and the pinned one); a failure anywhere earlier is failed-elsewhere. It requests ONE scope on purpose: a list is sent as scope=a%20b, which the parameter parser stores undecoded (finding 214), so a list would break the handshake once enforcement is on.",
       "expectedFailure": {
         "finding": 150,
         "step": "a token approved for demographic.read is refused at an endpoint outside that scope, with no data"
+      }
+    },
+    {
+      "name": "oauth-rest-surfaces-scope-list",
+      "script": "scripts/oauth-rest-surfaces-playwright-checks.js",
+      "envSet": {
+        "OAUTH_PIN": "scope-list"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "OAUTH_DEMOGRAPHIC_NO",
+        "OAUTH_PIN"
+      ],
+      "notes": "The same script as oauth-rest-surfaces, selected by OAUTH_PIN=scope-list (envSet), so that two findings are pinned without one hiding the other: the handshake and the fail-closed steps run as there, then the last step is for app-findings-log.md finding 214 instead of finding 150. A signed POST to /ws/oauth/initiate for scope=demographic.read%20provider.read (RFC 5849 section 3.6 encodes a space as %20) must store the request token with the two scopes; OAuth1ParamParser decodes only '+', so the stored value is the single string demographic.read%20provider.read, which is no known scope (with enforcement on, the same request is answered 400 invalid_scope). Seeds and removes its own ServiceClient and tokens; the extra request token is removed with the client's.",
+      "expectedFailure": {
+        "finding": 214,
+        "step": "a request for two scopes is stored as two scopes"
       }
     },
     {
@@ -5811,9 +5864,8 @@
       ],
       "timeoutSec": 480,
       "env": [],
-      "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone.",
-      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action answers every post-commit RuntimeException with eform.submitUnavailable, HTTP 409). Runs about 60 s; the POST-replay step was seen failing once in Task 4 with its message lost and has not failed in later runs (see the Task 15 report)."
-      ,
+      "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone. At the start it may insert one owned eform_data row at an explicit id above the demo database's stale EFormDocs ids and delete it again, which moves the table's id counter past them (the counter is not restored; it only ever rises).",
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action answers every post-commit RuntimeException with eform.submitUnavailable, HTTP 409). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count.",
       "expectedFailure": {
         "finding": 168,
         "step": "a failed Add to Documents is not answered with the replay refusal"

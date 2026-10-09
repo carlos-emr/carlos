@@ -19,7 +19,8 @@
  *
  *   1. opens /rx/showAllergy for the patient and clicks the "Penicillin"
  *      shortcut button; the reaction form must load into the page for
- *      PENICILLINS (drug class, TYPECODE 10, drugref id 44452);
+ *      PENICILLINS (drug class, TYPECODE 10, and the DrugRef id the shortcut carries,
+ *      which the saved row must echo; whether that id names the class is step 7);
  *   2. fills reaction, severity, onset, life stage and start date and
  *      submits "Add Allergy"; the page must return to the allergy list with
  *      PENICILLINS listed;
@@ -47,13 +48,23 @@
  *      CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP (never PASS) after its other
  *      assertions, because the no-ERROR half cannot be judged.
  *
+ *   7. (Pinned to app-findings-log.md finding 215, selected by ALLERGY_PIN=shortcut-id: the manifest
+ *      entry allergy-add-penicillin-shortcut-id runs this script with steps 1-5 and this step in place
+ *      of step 6, because a script stops at its first failing step and cannot pin two findings in one
+ *      run.) The DrugRef id the Penicillin shortcut posts must be the PENICILLINS drug class in the
+ *      installed DrugRef (category 10). The shortcut hard-codes 44452 (ChooseAllergy2.jsp,
+ *      ShowAllergies2.jsp), which the packaged DrugRef holds as another product, so the allergy is
+ *      filed under that product's id and gets none of the class's identifiers (finding 178 is the
+ *      missing-identifiers symptom of the same row).
+ *
  * Both allergy rows (the original and the amendment) are deleted in a finally.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  * Optional: ALLERGY_DEMOGRAPHIC_NO (1), CARLOS_LOG_JOURNAL_UNIT (the systemd unit whose journal holds the
- * server log, for step 6).
+ * server log, for step 6), ALLERGY_PIN (unset: step 6; shortcut-id: step 7), DRUGREF_TEST_DATABASE
+ * (the DrugRef database step 7 reads, default drugref2).
  */
 
 const { chromium } = require('playwright');
@@ -88,6 +99,12 @@ const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
+// ALLERGY_PIN selects which finding the last step pins: unset pins finding 178 (the default entry),
+// `shortcut-id` pins finding 215 (the entry allergy-add-penicillin-shortcut-id).
+const ALLERGY_PIN = (process.env.ALLERGY_PIN || '').trim();
+if (ALLERGY_PIN !== '' && ALLERGY_PIN !== 'shortcut-id') throw new Error(`ALLERGY_PIN must be unset or shortcut-id, not ${ALLERGY_PIN}`);
+const drugrefDatabase = process.env.DRUGREF_TEST_DATABASE || 'drugref2';
+if (!/^[A-Za-z0-9_]+$/.test(drugrefDatabase)) throw new Error('DRUGREF_TEST_DATABASE must be a plain database name');
 assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
 const reactionMarker = `PW_ALLERGY_${Date.now()}`;
 const reactionText = `${reactionMarker} rash`;
@@ -160,9 +177,11 @@ function runCleanup() {
 }
 
 /**
- * The label of the pinned step. It is the one labelled step of this script: the stages before it
- * are unlabelled, so a failure in them is reported as a failure elsewhere, never as the known one.
+ * The labels of the pinned steps. A run labels exactly one of them (step 6 by default, step 7 under
+ * ALLERGY_PIN=shortcut-id): the stages before it are unlabelled, so a failure in them is reported as a
+ * failure elsewhere, never as the known one.
  */
+const SHORTCUT_ID_STEP = 'the Penicillin shortcut files the allergy under the PENICILLINS drug class id';
 const IDENTIFIER_STEP = 'the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error';
 
 /** Runs one labelled step, tagging a failure with its label for the suite runner (markFailedStep). */
@@ -239,7 +258,9 @@ async function main({ cancellation }) {
     await form.waitFor({ state: 'visible', timeout: 30000 });
     assert((await form.locator('input[name="name"]').inputValue()) === 'PENICILLINS', 'reaction form is not for PENICILLINS');
     assert((await form.locator('input[name="type"]').inputValue()) === '10', 'PENICILLINS shortcut did not carry the drug-class type code');
-    assert((await form.locator('input[name="ID"]').inputValue()) === '44452', 'PENICILLINS shortcut did not carry its drugref id');
+    // The id is whatever the shortcut posts: step 7 (finding 215) is the one place that judges whether it is the class.
+    const shortcutId = await form.locator('input[name="ID"]').inputValue();
+    assert(/^[1-9]\d*$/.test(shortcutId), 'PENICILLINS shortcut did not carry a drugref id');
     assert((await form.locator('input[name="formDemographicNo"]').inputValue()) === demographicNo, 'reaction form is not bound to the patient');
 
     cancellation.throwIfCancelled();
@@ -271,7 +292,7 @@ async function main({ cancellation }) {
     assert(row, 'allergies row was not created');
     assert(row.description === 'PENICILLINS', `saved description was ${row.description}`);
     assert(row.typeCode === '10', `saved TYPECODE was ${row.typeCode}`);
-    assert(row.drugrefId === '44452', `saved drugref_id was ${row.drugrefId}`);
+    assert(row.drugrefId === shortcutId, `saved drugref_id was ${row.drugrefId}, not the ${shortcutId} the form carried`);
     assert(row.severity === '3' && row.onset === '1' && row.lifeStage === 'A', `saved severity/onset/lifeStage were ${row.severity}/${row.onset}/${row.lifeStage}`);
     assert(row.startDate.startsWith('2024-01-15'), `saved start_date was ${row.startDate}`);
     assert(row.archived === '0', 'new allergy was saved archived');
@@ -336,7 +357,7 @@ async function main({ cancellation }) {
     assert(replacement, 'the amend wrote no replacement allergies row');
     assert(replacement.id !== row.id,
       'the amend overwrote the original row instead of archiving it and adding a replacement');
-    assert(replacement.description === 'PENICILLINS' && replacement.drugrefId === '44452',
+    assert(replacement.description === 'PENICILLINS' && replacement.drugrefId === shortcutId,
       `the replacement row lost the drug identity: ${replacement.description}/${replacement.drugrefId}`);
     assert(replacement.severity === '1', `the replacement kept severity ${replacement.severity} instead of the corrected 1`);
     assert(replacement.archived === '0', 'the replacement row was written already archived');
@@ -357,6 +378,18 @@ async function main({ cancellation }) {
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
+
+    if (ALLERGY_PIN === 'shortcut-id') {
+      // 7. The shortcut's DrugRef id is the class (finding 215). Pinned: holds only what the finding breaks.
+      await runStep(cancellation, SHORTCUT_ID_STEP, async () => {
+        const named = sql(`SELECT CONCAT(category,'|',name) FROM \`${drugrefDatabase}\`.cd_drug_search WHERE id=${Number(shortcutId)}`);
+        assert(named === '10|PENICILLINS',
+          `the Penicillin shortcut files the allergy under DrugRef id ${shortcutId}, which ${drugrefDatabase} holds as `
+          + `${named === '' ? 'no row at all' : `a row of category ${named.split('|')[0]}`}, not the PENICILLINS drug class (category 10)`);
+      });
+      console.log(`Penicillins allergy ${row.id} added for demographic ${demographicNo}, shown in the eChart, and amended to ${replacement.id} with the original archived`);
+      return;
+    }
 
     // 6. Both identifiers, on the added allergy and on its amendment, and no logged error (finding 178).
     // Pinned: holds only what the finding breaks. The rows are read again here, after the amend archived
