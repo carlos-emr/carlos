@@ -238,6 +238,19 @@ bytes through the real plan/ALTER/copy path, asserts byte-identity and P7's
 agreement, and re-runs the copy with the clause stripped to show the
 truncation it guards against.
 
+It also checks unique keys during the copy (#4100). It builds `demographicExt`
+from this tree's migrations (the V1 baseline, then V1.0.54's per-patient key
+that leaves out `excludeIndicator`) and stages rows the way OSCAR 19
+writes them, with no unique key and a new row for each edit. It then copies
+through `o19import.make_etl_query`, the executor P4 uses. Rows the key
+allows (NULL patients, repeated exclusions) must all land. One edited
+value must stop the copy with ERROR 1062, without echoing the value and
+without writing anything. The control repeats the copy under the pre-fix
+`UNIQUE_CHECKS=0` session and reports the result. On MariaDB 11.8.6 (Ubuntu
+26.04) it **stored 0 of 8 rows and reported success**.
+`tests/test_etl_unique_keys.py` runs in CI and keeps this check from going
+vacuous.
+
 ## Building the rehearsal fixture
 
 ```bash

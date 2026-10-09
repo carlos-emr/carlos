@@ -13,10 +13,18 @@
 # carlos release.
 tag=1.1.2
 #
+# 1.1.2 carries two carlos-ctl fixes this package relies on: import-o19
+# holds the database-ownership lock for the whole import (#3678, which the
+# Depends floor in debian/control requires), and the bulk copy keeps
+# UNIQUE_CHECKS on, so a duplicate unique key stops the copy with ERROR 1062
+# (value redacted) before the table is checkpointed, instead of MariaDB
+# storing no rows and reporting success (#4100).
+#
 # Until that tag is PUBLISHED, CI (debian-python-tests.yml,
 # script-regressions.yml) checks out this commit of carlos-emr/carlos-ctl
 # instead, so the contract tests run against the CLI this release will pin
-# before the CLI release exists. The release build never uses it
+# before the CLI release exists. It is carlos-ctl main after both fixes
+# merged. The release build never uses it
 # (debian/fetch-carlos-ctl.sh downloads the tag's published asset or
 # fails). Drop the line, or leave it: once the tag exists it is not read.
-fallback=9ad4938898f2baf7a1eecb4f22dfda1c3b32c7e9
+fallback=dec20b977218639d5c8484e892f105b91935cd74

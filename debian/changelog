@@ -7,6 +7,13 @@ carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
     but apt now removes the old package instead of upgrading it: run that
     upgrade without --no-remove. A transitional copy already installed owns
     no files and can stay or be removed.
+  * Ships carlos-ctl 1.1.2 (debian/carlos-ctl.pin). The OSCAR 19 import
+    keeps unique keys enforced during the bulk copy. A clinic row that
+    collides with a CARLOS unique key now stops the copy with ERROR 1062,
+    and the conflicting value is withheld. Before, MariaDB 11.8 could store
+    none of the table's rows and report success (#4100). The known case is
+    demographicExt edit history; see docs/o19-import-deb.md,
+    Troubleshooting.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
 
