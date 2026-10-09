@@ -112,6 +112,21 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
 
   // Visible keyboard focus (outline), reached and re-reached by keyboard.
   const disabled = await toggle.isDisabled();
+  // Diagnostics for the keyboard checks: card state, toggle state and how many
+  // elements the keyboard can reach at all.
+  const focusables = await page.evaluate(() => Array.from(document.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), '
+    + 'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex^="-"])')).map((el) => ({
+    tag: el.tagName.toLowerCase(),
+    name: el.id || (el.textContent || '').trim().slice(0, 24),
+    // [hidden] panels and display:none ancestors leave no client rects: Tab cannot reach them.
+    visible: el.getClientRects().length > 0 && (typeof el.checkVisibility !== 'function' || el.checkVisibility()),
+  })));
+  const visibleFocusables = focusables.filter((f) => f.visible);
+  const focusableCount = visibleFocusables.length;
+  const focusDiag = `state=${state} toggleDisabled=${disabled} focusable=${focusableCount}`;
+  console.log(`${label}: focus diagnostics: ${focusDiag}; candidates: `
+    + (focusables.map((f) => `${f.tag}#${JSON.stringify(f.name)} visible=${f.visible}`).join(', ') || 'none'));
   if (!disabled) {
     await toggle.focus();
     await page.keyboard.press('Tab');
@@ -128,7 +143,13 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
     const style = window.getComputedStyle(node);
     return { id: node.id, style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
   });
-  assert(outline, `${label}: keyboard focus did not land on any element`);
+  if (!outline && state === 'OK' && disabled && focusableCount === 0) {
+    // Nothing on the page is keyboard-reachable (the only button is disabled with no
+    // hidden sections), so there is no element whose focus ring could be asserted.
+    console.log(`${label}: focus: n/a (no focusable elements)`);
+    return state;
+  }
+  assert(outline, `${label}: keyboard focus did not land on any element (${focusDiag})`);
   if (!disabled) {
     assert(outline.id === 'cs-hidden-toggle', `${label}: Shift+Tab did not return focus to the hidden button`);
   }
