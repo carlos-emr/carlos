@@ -46,7 +46,7 @@ function unusedNumber(sql, column) {
 }
 
 /**
- * Removes every row an uploaded or form-created HL7 lab writes (routing, measurements, the
+ * Removes every row an uploaded or form-created HL7 lab writes (routing and its lock, measurements, the
  * message and its checksum) for the given lab numbers, plus the archived upload file named by
  * each of the lab's fileUploadCheck rows, and asserts nothing remains. A checksum row whose
  * filename is not an archive name the uploader generates is still deleted, but its file is not
@@ -70,7 +70,9 @@ function removeOwnedHl7Labs(sql, labNos) {
     sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
       DELETE FROM measurements WHERE id IN (${ids})`);
   }
+  // providerLabRoutingLock is the row ProviderLabRoutingDaoImpl inserts when it routes a lab (one per lab number).
   sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+    DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
     DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
     DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
     DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
@@ -78,6 +80,7 @@ function removeOwnedHl7Labs(sql, labNos) {
   removeArchiveFiles(archives);
   h.assert(sql.value(`SELECT
       (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
+    + (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list}))
     + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
     + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no IN (${list}))
     + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))

@@ -5,8 +5,8 @@ const test = require('node:test');
 const { spawnSync } = require('node:child_process');
 
 /*
- * Eight checks run one script under several manifest entries and pick the finding a run pins with an
- * environment variable (ALLERGY_PIN, MCEDT_PIN, OAUTH_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, and the claim lists
+ * Nine checks run one script under several manifest entries and pick the finding a run pins with an
+ * environment variable (ALLERGY_PIN, MCEDT_PIN, OAUTH_PIN, ECHART_VERIFY_PIN, ECHART_ISSUES_PIN, LAB_FLOWSHEET_PIN, and the claim lists
  * FORM_CATALOG_ONLY / FORM_CATALOG_EXCEPT, ROURKE_GROWTH_ONLY / ROURKE_GROWTH_EXCEPT and CLINICAL_FORMS_ONLY / CLINICAL_FORMS_EXCEPT). A bad value is an error of the RUN, so it is
  * judged when the check runs and never when the module is required: oauth-rest-surfaces.test.js requires
  * the module only for its OAuth signer, and a stray OAUTH_PIN in whoever's shell runs the meta-tests must
@@ -27,6 +27,8 @@ const CASES = [
     run: 'workflow({})' },
   { script: 'echart-issues-filter-playwright-checks.js', variable: 'ECHART_ISSUES_PIN', label: 'EchartIssues',
     good: ['', 'editor', 'heading', 'resolve', 'panel'], run: 'workflow({})' },
+  { script: 'lab-to-flowsheet-playwright-checks.js', variable: 'LAB_FLOWSHEET_PIN', label: 'LabFlowsheet',
+    good: ['', 'value', 'fraction', 'time'], run: 'workflow({})' },
   // The two table-driven form checks select the (form, concern) pairs a run asserts with a pair of variables
   // (lib/form-claims.js); each variable is judged on its own, so each has its own case.
   { script: 'form-catalog-smoke-playwright-checks.js', variable: 'FORM_CATALOG_ONLY', label: 'FormCatalogOnly',

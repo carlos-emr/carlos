@@ -62,16 +62,17 @@ async function openLabMenuItem(s, chart, name, label) {
 /**
  * Inbox ▸ Create Lab: opens the form as a clinician does, types the lab and its tests and submits it
  * (one confirm). Returns the Create Lab popup and the Inbox page it was opened from, both still open,
- * once the form reports success.
+ * once the form reports success. Every test is dated `date` (default DATE) at `time` (default 09:00)
+ * unless it carries a `time` of its own.
  */
-async function submitCreateLab(s, { accession, tests, label }) {
+async function submitCreateLab(s, { accession, tests, label, date = DATE, time = '09:00' }) {
   const { recorder } = s;
   const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
     { context: s.context, recorder, label: `${label}-inbox`, timeout: TIMEOUT });
   const form = await s.popup(inbox, inbox.locator('a[href*="oscarMDS/ViewCreateLab"]').first(), `${label}-create`);
   await form.locator('#labname').selectOption('CML');
   await form.locator('#accession').fill(accession);
-  await form.locator('#lab_req_date').fill(`${DATE} 08:30`);
+  await form.locator('#lab_req_date').fill(`${date} 08:30`);
   await form.locator('#lastname').fill(s.marker);
   await form.locator('#firstname').fill('Workflow');
   await form.locator('#sex').selectOption('F');
@@ -81,7 +82,7 @@ async function submitCreateLab(s, { accession, tests, label }) {
     await form.getByRole('link', { name: 'Add Test' }).click();
     const field = (name) => form.locator(`[id="test_${index}.${name}"]`);
     await field('valDate').waitFor({ state: 'visible', timeout: TIMEOUT });
-    await field('valDate').fill(`${DATE} 09:00`);
+    await field('valDate').fill(`${date} ${test.time || time}`);
     await field('code').fill(test.code);
     await field('lab_test_name').fill(test.name);
     await field('codeVal').fill(test.value);
@@ -325,4 +326,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('lab-manual-entry-cumulative', workflow, { contextOptions: { locale: 'en-US' } });
-module.exports = { workflow };
+module.exports = { workflow, submitCreateLab };
