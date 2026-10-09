@@ -11,12 +11,13 @@
 // department link; EnableConRequestResponse stores both flags and toggles the "Referring Doctor"
 // service. Fixtures: FAKE- patient (runWorkflow), FAKE- specialist, institution, department and
 // a sentinel service seeded by SQL; the UI-created service. Cleanup deletes only owned rows.
-// GLOBAL: the request/response flags and the Referring Doctor service are snapshotted and
-// restored exactly, so this check must run with EXCLUSIVE=1.
+// GLOBAL: the request/response flags, the Referring Doctor service and the legacy specialistsJavascript
+// script the service writes regenerate are snapshotted and restored exactly (lib/consult-config-state.js),
+// so this check must run with EXCLUSIVE=1.
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { REFERRING, removeScriptBlocks, restoreSwitch, scriptLinesFor, snapshotSwitch } = require('./lib/consult-config-state');
+const { REFERRING, restoreSwitch, snapshotSwitch } = require('./lib/consult-config-state');
 const { insertId } = h;
 
 async function openNewConsultation(s, label) {
@@ -51,16 +52,11 @@ async function workflow(s) {
   s.cleanup(() => restoreSwitch(sql, before));
   const ownedServices = `serviceDesc IN (${h.sqlString(serviceName)},${h.sqlString(sentinelName)})`;
   s.cleanup(() => {
-    // The Add, Delete and Update actions regenerate the legacy specialistsJavascript script from the services as
-    // they stand, so it names the owned services until they are dropped from it (lib/consult-config-state.js).
-    const owned = sql.rows(`SELECT serviceId FROM consultationServices WHERE ${ownedServices}`).map(row => row[0]);
     sql.execute(`DELETE FROM serviceSpecialists WHERE serviceId IN
       (SELECT serviceId FROM consultationServices WHERE ${ownedServices});
       DELETE FROM consultationServices WHERE ${ownedServices}`);
-    removeScriptBlocks(sql, owned);
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationServices WHERE ${ownedServices}`) === '0',
       'Owned consultation services were not removed');
-    h.assert(scriptLinesFor(sql, owned) === 0, 'The legacy consultation script still names an owned service');
   });
   const sentinel = insertId(sql, `INSERT INTO consultationServices(serviceDesc,active)
     VALUES(${h.sqlString(sentinelName)},'1')`, 'sentinel service');

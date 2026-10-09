@@ -242,6 +242,7 @@ const SUITES = [
     variables: { only: 'CONSULT_CONFIG_ONLY', except: 'CONSULT_CONFIG_EXCEPT' },
     labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
     generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
+    knownOf(suite, key, concern) { return suite.module.knownProblem(key, concern); },
   },
 ];
 
