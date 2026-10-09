@@ -773,6 +773,14 @@
                                                    onclick="addSulfonamideAllergy();" value="Sulfa"/>
                                         </td>
                                     </tr>
+                                    <%-- Set by RxAddAllergy2Action when a brand allergen was saved without its DrugRef
+                                         identifiers (#4435). Only the literal "true" shows it; no request text is echoed. --%>
+                                    <c:if test="${param.identifiersUnresolved eq 'true'}">
+                                    <tr>
+                                        <td><div id="allergyIdentifiersNotice" class="allergyRequestStatus" role="alert">
+                                            <fmt:message key="rx.showAllergies.identifiersUnresolved"/></div></td>
+                                    </tr>
+                                    </c:if>
                                     <tr>
                                         <%-- Filled by rx-allergy-dialog.js when a dialogue request fails;
                                              present from load so the alert is announced reliably. --%>
