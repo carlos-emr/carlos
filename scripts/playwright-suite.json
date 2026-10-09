@@ -388,6 +388,26 @@
       "notes": "Generates actual claim files in a single-day service-date window, asserting downloaded service dates, zero/paid claim items and billed state; also verifies regeneration, locking and owned-file cleanup."
     },
     {
+      "name": "billing-on-provider-group-validation",
+      "script": "scripts/billing-on-provider-group-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "OHIP_DISK_DIR"
+      ],
+      "notes": "A short all-digit provider group number (123) is normalized to 0123 for the disk name, batch counter and HEB header; an un-normalizable value (12345) is rejected for the selected provider and for All Providers without database or file mutations, naming the provider; an unrelated invalid group does not block a valid provider. Uses owned fixtures on a disposable Ontario deployment."
+    },
+    {
       "name": "billing-on-submit",
       "script": "scripts/billing-on-submit-playwright-checks.js",
       "tiers": [

@@ -36,6 +36,12 @@ class BillingOnDiskConcurrencyUnitTest {
     void shouldRejectOverlappingOperation_beforeReadingOrChangingBillingState(boolean regenerate) throws Exception {
         var providers = mock(ProviderDao.class);
         var prep = mock(BillingDiskCreationService.class);
+        // The selected provider resolves (a group member, so the solo path is a
+        // no-op); an unresolvable provider is now reported, not silently skipped.
+        var selected = new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto();
+        selected.setProviderNo("999998");
+        selected.setBillingGroupNo("1234");
+        when(prep.getProviderObj("999998")).thenReturn(selected);
         var loader = mock(BillingOnDiskLoader.class);
         when(loader.getDiskCreateDate("1")).thenReturn("2026-09-26");
         var entered = new CountDownLatch(1);
