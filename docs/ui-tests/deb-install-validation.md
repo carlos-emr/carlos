@@ -2444,6 +2444,18 @@ image classes, all `UnsatisfiedLinkError: libharfbuzz.so.0` from the headless JD
 those nine classes pass (92 tests) once `libharfbuzz0b`, `libfreetype6`, `fontconfig`
 and `fonts-dejavu-core` are installed in the build container.
 
+### Dashboard Assign Tickler date and time (2026-10-08, issue #4423)
+
+`dashboard-display-playwright-checks.js` now asserts, in the Assign Tickler modal, that the Service Date and
+Time pickers start (`.flatpickr-input`), that a date the server refuses (`31/12/2030`, set directly so the picker
+cannot normalize it) raises an alert saying "Nothing was saved" and naming the service date, and that the picker's
+`2030-12-31` is stored as entered. Run against a `2026.08.0~alpha19` package built from the fix branch (WAR
+without DrugRef or the eForm renderer) and installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl finish-install` was needed, as in the Docker note above; `carlos-ctl check` clean): **PASS** through
+`:443`. With the pre-fix `drilldownDisplayController.js` swapped into the installed webapp the check **FAILS**
+("pickers did not start"). Tomcat caches static files for longer than a few seconds, so wait before re-running
+after replacing one.
+
 ### Rx fax pharmacy fixture validation (2026-10-08, issue #3607)
 
 `release/2026.08` at `17c363e3` was packaged in an `ubuntu:26.04` container
