@@ -69,3 +69,5 @@ ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.j
 ERROR actions.ManageDocument2Action (ManageDocument2Action.java:985) @IncomingDocumentMutationLock.acquire :: java.nio.file.NoSuchFileException
 ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:676) @QueueDaoImpl$$SpringCGLIB$$0.addNewQueue :: org.springframework.transaction.UnexpectedRollbackException
 ERROR ON.labValuesGraph_jsp (labValuesGraph_jsp.java:524)
+# Added with scripts/mcedt-mailbox-outbox-playwright-checks.js: printed by the audit on the same alpha19 install when that check refuses a Delete Selected list with a path in it.
+ERROR mailbox.Upload2Action (Upload2Action.java:351) @PathValidationUtils.validateStrictFileName :: io.github.carlos_emr.carlos.utility.FileValidationException

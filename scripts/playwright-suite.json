@@ -8644,6 +8644,117 @@
       "fixtures": "Five throwaway logins (doctor, nurse, receptionist, and two holding a custom secRole the check creates, FAKEPW<hex>R1 with exactly _report r and FAKEPW<hex>R2 with exactly _admin.reporting r; own provider rows, lib/authz-read-fixture.js) and FAKE marker files written into server directories the application serves from: the EDT inbox (ONEDT_INBOX), DOCUMENT_DIR (an OBEC-shaped file, a stored-document-named file and a nested file in a marker sub-directory), the OHIP claim disk (OHIP_DISK_DIR / HOME_DIR, an OHIP-shaped file and a nested file) and, where the installed properties give the service a readable one, backup_path and LOGGING_PATH (never overwriting: a file that already exists fails the seed, and a file is removed only while it still holds the bytes the run wrote). Cleanup removes every file and sub-directory it created and asserts them gone, then the logins and the two roles with their privilege rows; the residue audit does not diff files, so list the directories after a run. A crash between the seed and the cleanup leaves marker files in those directories. It writes into directories every document and billing check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). It never changes a property and never restarts the service."
     },
     {
+      "name": "mcedt-mailbox-outbox",
+      "script": "scripts/mcedt-mailbox-outbox-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_PROPERTIES_FILE",
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "MCEDT_PIN",
+        "MYSQL_PASSWORD",
+        "OHIP_DISK_DIR",
+        "ONEDT_OUTBOX",
+        "TEST_PASSWORD",
+        "TEST_PIN"
+      ],
+      "mutates": [
+        "UserProperty:mcedt_account_password",
+        "file:mcedt-outbox"
+      ],
+      "notes": "The LOCAL half of the Ontario MCEDT mailbox (Administration > Billing > MCEDT Mailbox, /mcedt/kaimcedt; mcedt.mailbox.enabled=true, the packaged default) with no transport to the Ministry: Upload & Submit, Upload new files, Download new files, the Sent and Download tabs, Re-Submit, Check Connection and the older MCEDT Interface page (/mcedt/mcedt, which lists the Ministry's mailbox on load) are never reached, and a step asserts the browser's own traffic touched no service route and never left the application's origin. Steps: the Ontario install, the paths (ONEDT_OUTBOX and the billing region from the environment or CARLOS_PROPERTIES_FILE; any other billregion SKIPs with the reason); the mailbox opens through the Administration shell with its four tabs and the Upload tab's Add, Delete Selected and Submit (Submit is inspected, never clicked); an OHIP diskette is generated for an owned provider the way billing-on-group-disk-zero-total does; Add writes the fixture claim file to the outbox byte for byte (bytes that are not UTF-8) and lists it once; Add refuses a non-claim name, a month letter beyond L, ../, a leading /, a sub-directory and a hidden name with the application's message and writes nothing (..\\ and C: are blocked by the front door and counted as application not reached); Delete Selected removes only the ticked file (an OBEC-shaped bystander and a file beside the outbox survive) and refuses a list with a path in it; Change Password creates the property and the second change replaces it in the same row, and neither the page nor any response echoes the typed text (the stored value is not judged here: finding 189 pins it); controls with a valid token for Delete, Add and Change Password, then GET and a tokenless POST of each pass h.assertRefused (the application's own 403/405, never the front door's page) and change neither the outbox, the directory beside it nor the property; a doctor (holds _billing, not _admin.billing) is refused on all four routes and all three mutators, and a login holding _admin.billing r only is served the pages and refused all three mutators with a valid token. LAST and pinned to finding 216: the generated claim file is copied into ONEDT_OUTBOX byte for byte, listed once, and reopening does not duplicate it. ActionUtils reads <outbox>/.timestamp and writes <parent>/outbox.timestamp, so the copy window is empty and the file is never staged; every open logs an ERROR with a NullPointerException (ActionUtils.java:374). It is the last step because a script stops at its first failing step. Expected: every step above passes and this one fails. Two more findings have their own entries running the same script (MCEDT_PIN, envSet), so no pin hides another: mcedt-mailbox-outbox-short-name (217) and mcedt-mailbox-outbox-plaintext (189). An exported MCEDT_PIN redirects the default entry. Not covered: the Ministry transport itself (Upload & Submit, Download, Sent, Re-Submit), which is never driven.",
+      "expectedFailure": {
+        "finding": 216,
+        "step": "the generated OHIP claim file is copied to ONEDT_OUTBOX byte for byte and listed once, and reopening does not duplicate it"
+      },
+      "fixtures": "Clinic-wide state, restored however the run ends (failure, timeout, Ctrl-C): (1) the MCEDT account password, the property row mcedt_account_password. It is never read or printed: the clinic's own rows are PARKED (renamed to mcedt_account_password.parked-<run marker>) before anything, the run's Change Password creates and replaces its own FAKE-valued row, and cleanup deletes that row and renames the parked ones back, then proves the rows are as found by a SHA-256 digest computed inside MariaDB; a run killed without cleanup leaves the credential under the parked name (the next run refuses to start and prints the UPDATE that puts it back). (2) the EDT outbox (ONEDT_OUTBOX): its listing (name, size, SHA-256 of every entry, hidden ones too) and its two timestamp files (<outbox>/.timestamp and <parent>/outbox.timestamp, which the Upload tab creates on every open, finding 216) are snapshotted and cleanup removes only the files the run caused (while they still hold the bytes it knows) and fails unless the directory is exactly as found. Owned rows and files: the billing-on-group-disk-zero-total fixture (three providers with a unique billing group, two claims, one disk, its claim file on the OHIP_DISK_DIR disk), two throwaway logins (doctor and a custom role holding _admin.billing r only) removed before the last step, an OBEC-shaped marker file in the outbox, a marker file beside it, and the files Add writes (all FAKE-PW<hex> or marker-shaped names). The application's own lock inode OHIP_DISK_DIR/.carlos-ohip-disk.lock appears on the first diskette generation and is left, as billing-on-group-disk-zero-total leaves it. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "mcedt-mailbox-outbox-short-name",
+      "script": "scripts/mcedt-mailbox-outbox-playwright-checks.js",
+      "envSet": {
+        "MCEDT_PIN": "short-name"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CARLOS_PROPERTIES_FILE",
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "MCEDT_PIN",
+        "MYSQL_PASSWORD",
+        "OHIP_DISK_DIR",
+        "ONEDT_OUTBOX",
+        "TEST_PASSWORD",
+        "TEST_PIN"
+      ],
+      "mutates": [
+        "UserProperty:mcedt_account_password",
+        "file:mcedt-outbox"
+      ],
+      "notes": "The same script as mcedt-mailbox-outbox, selected by MCEDT_PIN=short-name (envSet), so that three findings are pinned without one hiding another. It runs the setup and the mailbox-menu step, then a control (Add of the two-character name ab is refused with the application's message, HTTP 200), then pins app-findings-log.md finding 217: Add of a ONE-character name (x) must be refused with the same message, not answered with a server error. ActionUtils.isOHIPFile reads filename.substring(0, 2) before anything else, so the name throws a StringIndexOutOfBoundsException (journal: ActionUtils.java:270 from Upload2Action.addUpload:364) and the application answers HTTP 500. Nothing is written either way. The request is sent with a valid token through the browser context (no UI file named x is chosen); no service route is reached.",
+      "expectedFailure": {
+        "finding": 217,
+        "step": "Add refuses a one-character name with the application's message, not a server error"
+      },
+      "fixtures": "Clinic-wide state, restored however the run ends (failure, timeout, Ctrl-C): (1) the MCEDT account password, the property row mcedt_account_password. It is never read or printed: the clinic's own rows are PARKED (renamed to mcedt_account_password.parked-<run marker>) before anything, the run's Change Password creates and replaces its own FAKE-valued row, and cleanup deletes that row and renames the parked ones back, then proves the rows are as found by a SHA-256 digest computed inside MariaDB; a run killed without cleanup leaves the credential under the parked name (the next run refuses to start and prints the UPDATE that puts it back). (2) the EDT outbox (ONEDT_OUTBOX): its listing (name, size, SHA-256 of every entry, hidden ones too) and its two timestamp files (<outbox>/.timestamp and <parent>/outbox.timestamp, which the Upload tab creates on every open, finding 216) are snapshotted and cleanup removes only the files the run caused (while they still hold the bytes it knows) and fails unless the directory is exactly as found. Owned rows and files: the billing-on-group-disk-zero-total fixture (three providers with a unique billing group, two claims, one disk, its claim file on the OHIP_DISK_DIR disk), two throwaway logins (doctor and a custom role holding _admin.billing r only) removed before the last step, an OBEC-shaped marker file in the outbox, a marker file beside it, and the files Add writes (all FAKE-PW<hex> or marker-shaped names). The application's own lock inode OHIP_DISK_DIR/.carlos-ohip-disk.lock appears on the first diskette generation and is left, as billing-on-group-disk-zero-total leaves it. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "mcedt-mailbox-outbox-plaintext",
+      "script": "scripts/mcedt-mailbox-outbox-playwright-checks.js",
+      "envSet": {
+        "MCEDT_PIN": "plaintext"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CARLOS_PROPERTIES_FILE",
+        "GROUP_DISK_DEMOGRAPHIC_NO",
+        "GROUP_DISK_PAID_CODE",
+        "GROUP_DISK_SERVICE_DATE",
+        "GROUP_DISK_TEMPLATE_PROVIDER",
+        "MCEDT_PIN",
+        "MYSQL_PASSWORD",
+        "OHIP_DISK_DIR",
+        "ONEDT_OUTBOX",
+        "TEST_PASSWORD",
+        "TEST_PIN"
+      ],
+      "mutates": [
+        "UserProperty:mcedt_account_password",
+        "file:mcedt-outbox"
+      ],
+      "notes": "The same script as mcedt-mailbox-outbox, selected by MCEDT_PIN=plaintext (envSet). It runs the setup, the mailbox-menu step and the Change Password step (two changes through Administration > MCEDT Mailbox > Change Password: the first creates the property row, the second replaces its value in the same row; no page or response echoes the typed text), then pins app-findings-log.md finding 189: the stored mcedt_account_password must not be the text that was typed. User2Action.changePassword saves the posted password as given, so the property holds it in plaintext (SELECT ... WHERE name='mcedt_account_password' AND value=<typed> is 1). A credential for a provincial claims service has to be reversibly encrypted at rest, as the fax passwords are. The Change Password step does not judge the stored value, so it keeps passing once the credential is encrypted. The typed text is a FAKE marker string; the clinic's own credential is parked and restored and never read.",
+      "expectedFailure": {
+        "finding": 189,
+        "step": "the stored MCEDT password is not the text that was typed"
+      },
+      "fixtures": "Clinic-wide state, restored however the run ends (failure, timeout, Ctrl-C): (1) the MCEDT account password, the property row mcedt_account_password. It is never read or printed: the clinic's own rows are PARKED (renamed to mcedt_account_password.parked-<run marker>) before anything, the run's Change Password creates and replaces its own FAKE-valued row, and cleanup deletes that row and renames the parked ones back, then proves the rows are as found by a SHA-256 digest computed inside MariaDB; a run killed without cleanup leaves the credential under the parked name (the next run refuses to start and prints the UPDATE that puts it back). (2) the EDT outbox (ONEDT_OUTBOX): its listing (name, size, SHA-256 of every entry, hidden ones too) and its two timestamp files (<outbox>/.timestamp and <parent>/outbox.timestamp, which the Upload tab creates on every open, finding 216) are snapshotted and cleanup removes only the files the run caused (while they still hold the bytes it knows) and fails unless the directory is exactly as found. Owned rows and files: the billing-on-group-disk-zero-total fixture (three providers with a unique billing group, two claims, one disk, its claim file on the OHIP_DISK_DIR disk), two throwaway logins (doctor and a custom role holding _admin.billing r only) removed before the last step, an OBEC-shaped marker file in the outbox, a marker file beside it, and the files Add writes (all FAKE-PW<hex> or marker-shaped names). The application's own lock inode OHIP_DISK_DIR/.carlos-ohip-disk.lock appears on the first diskette generation and is left, as billing-on-group-disk-zero-total leaves it. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "phi-in-error-pages",
       "script": "scripts/phi-in-error-pages-playwright-checks.js",
       "tiers": [
