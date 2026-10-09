@@ -70,7 +70,14 @@ public final class UserActivityFilter implements Filter {
         boolean redirectToLogout = false;
         if (request instanceof HttpServletRequest) {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
-
+            // This exact servlet authenticates a derived bearer token, not a staff session.
+            // Leave every method to its own GET-only/authentication checks without creating
+            // a session through the browser LoggedInInfo lookup below.
+            if ("/ws/portal/email-footer".equals(httpRequest.getServletPath())
+                    && httpRequest.getPathInfo() == null) {
+                chain.doFilter(request, response);
+                return;
+            }
 
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(httpRequest);
             Long now = (new Date()).getTime();
