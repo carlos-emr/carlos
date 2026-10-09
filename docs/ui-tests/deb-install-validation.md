@@ -646,14 +646,18 @@ it does not approve omitted content to obtain a PDF.
 > `security`, `tickler`, `casemgmt_note`, `billing_on_cheader1`, `billingmaster`,
 > `eform_data` and `document`, and the roles a check makes for itself (`secRole` and
 > `secObjPrivilege` rows named `FAKEPW...`). It also takes an exact row count of every base table
-> before the first check and reports each table that has more rows after the last, which is
-> how a table with no marker column (`form_boolean_value`, `formRourke2020` and the other form
-> tables, `providerLabRoutingLock`, `patientLabRouting`, `measurementsExt`) is covered; only
-> tables that grow on every run by design (`log`, `hash_audit`, listed with their reasons in
-> `scripts/lib/residue-audit.js`) are exempt, and the audit says how many rows they gained. It prints
-> `residue: <table> <count>` (never a row; `<count> (rows added)` for a table the row-count diff
-> found) and exits non-zero, or `residue audit: no residue`. A run that cannot take its baseline
-> stops before any check starts.
+> before the first check and reports each table that has more rows after the last (`rows added`,
+> which is how a table with no marker column such as `form_boolean_value`, `formRourke2020`,
+> `providerLabRoutingLock`, `patientLabRouting` or `measurementsExt` is covered) and each that has
+> fewer (`rows removed`: a check deleted rows it did not own). Only tables that grow on every run by
+> design (`log`, `hash_audit`, listed with their reasons in `scripts/lib/residue-audit.js`) are exempt
+> from `rows added`, and the audit says how many rows they gained; nothing is exempt from `rows
+> removed`. The count is net, so a delete and an insert in one table cancel out. It prints
+> `residue: <table> <count>` (never a row; `<count> (rows added)` or `<count> (rows removed)` for the
+> row-count diff) and exits non-zero, or `residue audit: no residue`. A run that cannot take its
+> baseline stops before any check starts. **The install must be used by the audited run alone**: another
+> session driving the application meanwhile adds and removes rows that the audit reads as the run's
+> residue.
 
 Environment contract (one block, exported before every script):
 
@@ -2461,3 +2465,25 @@ Row Display tooltips), 150 (OAuth scopes unenforced on the newly published API),
 in the evening), 153 (a BC bill's provider blanked on save), 154 (Dashboard tickler dates
 refused) and 168 (a failure after an eForm is stored reported as a duplicate submission).
 The other fifteen are low. `xss-poison-note-history` covers 148 and fails as it should.
+
+### Harness damage found by the shrink-aware residue audit (2026-10-09)
+
+`--residue-audit` now reports a table that has FEWER rows after a run as well as one that has more (`rows removed`), and a
+comparison of the demo artifact (`demo-additive-on.sql.gz`, loaded into a scratch schema) with the live database found the
+damage below on the Ontario validation install. It is damage the Playwright harness did to a disposable install, not an
+application finding; each item was repaired from the artifact or by owned key, and the check that caused it was fixed.
+
+| What was wrong | Cause | Repair |
+|---|---|---|
+| The demo's `providerLabRouting` row for HL7 lab 22 (id 24, provider `0`, status `N`, comment "Lab unlinked from incorrect demographic number: 1", timestamp 2023-09-01 21:19:22) was gone: 171 HL7 routing rows against the artifact's 172. A `table_modification` row (type `delete`) recorded it, and the demo has none. | `lab-acknowledge` acknowledged demo lab 22 (four runs, 2026-10-08 20:03 to 20:29); the application deletes the provider-0 routing rows of a lab on acknowledge (`CommonLabResultData:619-629`) and the check restored only the row it had added. | The row re-inserted exactly as the artifact has it (all 176 routing rows now equal the artifact's, compared column by column); the `table_modification` row removed and its counter reset. `lab-acknowledge` now copies the demo lab into a lab of its own and acknowledges the copy, removing it and everything the review wrote for it. |
+| 9 `providerLabRoutingLock` rows on lab numbers 22, 24, 29, 31, 33, 35, 54, 63 and 82 (and 3 more, 94, 97 and 125, made by this round's audit runs before the checks were fixed). The demo artifact has no lock rows, and every timestamp is after the install's first `log` row (2026-10-08 12:12:25). | The lock is keyed by the number alone. Checks that route an owned document write it for the document's number, which the demo's HL7 labs also use (document numbers 22 and up, labs 1 to 172); lab 22's is the acknowledge above. | Removed by key. `detached-delete-forward-favourites`, `document-upload`, `inbox-file-forward`, `audit-log-document-read` and the stored-document mutation fixture (`stored-document-mutations`) now remove the lock rows written after a mark taken before the check wrote anything (`scripts/lib/document-residue.js`). |
+| 4 chart notes "Document ... created at ... by doctor ..." (provider -1) with their `casemgmt_note_link` rows, 6 `queue_document_link` rows for documents that no longer exist (the artifact has 2) and 9 `carlos-upload-probe-*.pdf` files in `DOCUMENT_DIR`. | Uploading a document through the UI files the note, its link and the Inbox queue link; `document-upload` and `audit-log-document-read` deleted the document rows and nothing else. | Removed by key and by file name. The two checks now remove them (and `document-upload` its uploaded files). |
+
+| 15 `patientLabRouting` rows (`DOC`, document numbers 65 to 80, patients that no longer exist, created 2026-10-08 20:04 to 23:14) and 3 `ctl_document` rows for documents 4953 to 4955 (module `providers` 999998 and `demographic` 2147483647, the harness's missing-patient number). None is in the artifact and no document with those numbers exists. | Left by earlier runs of document checks whose cleanup missed them; each of the 36 document-related checks audited this round now leaves nothing of the kind, so the source is a version of a check that has since changed. | Removed by key (id above the artifact's highest, document numbers that do not exist). |
+| 1 `DigitalSignature` row (the provider's signature image, 235 KB) and 2 more "Document ... created" notes with their links. | `consult-attachment-ownership` (saving a consultation stores the signature; deleting the request keeps it) and `boundary-document-text` (UI uploads). | Removed by key; both checks now remove them. |
+
+Found and left alone, because they belong to checks outside the list this round covered: the archived Social History notes 594 and
+655 ("... Playwright Social History <stamp>", written by `echart`) with their `casemgmt_issue_notes` rows, the
+`update_date` of the demo notes 27 and 28 that those runs moved, and the demo draft `casemgmt_tmpsave` 280278 (patient 1), which
+a chart open consumed. Every other table of the artifact that differs from the live data differs because the demo's name
+sanitization and date shifts are applied after the artifact loads.
