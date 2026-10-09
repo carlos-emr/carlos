@@ -1402,8 +1402,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             // Acquire the session mutex only after releasing the bean monitor: opening Rx takes
             // these locks in the opposite order while removing persisted drafts.
             RxReprintWorkspace.clearIfSame(request.getSession(), bean.getDemographicNo(), previousReprint);
-            String accept = request.getHeader("Accept");
-            if (accept != null && accept.contains("application/json")) {
+            if (acceptsJson(request)) {
                 // The separate print request must carry the script saved by THIS request. Reading
                 // the live stash or latest reprint afterward can select another window's script.
                 response.setContentType("application/json");
@@ -1413,6 +1412,14 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
         return result;
+    }
+
+    // FindSecBugs SERVLET_HEADER: Accept only picks a JSON reply or the page flow for this same client;
+    // the save and its privilege checks have already run and nothing they decide depends on it.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Accept selects the reply representation for the same client only; no authorization or data selection depends on it")
+    private static boolean acceptsJson(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains("application/json");
     }
 
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")

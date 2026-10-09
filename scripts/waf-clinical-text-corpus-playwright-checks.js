@@ -957,8 +957,11 @@ function rows(s, ctx) {
         // What the page posted is the editor's HTML with & " < > ' escaped to entities by saveRTL(); undo that,
         // drop the editor's line tags, then undo the editor's own text escaping (the second pair of passes), to
         // compare with what was typed, so the proof is "the typed corpus survived", not "something was stored".
-        const plain = postedLetter.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-          .replace(/<\/?(?:div|p|br)\s*\/?>/gi, '\n').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        // Each pass decodes in one sweep, so it never re-reads an '&' it has just produced; the second
+        // pass is the editor's own layer of escaping, not a re-decode of the first pass's output.
+        const decode = (text, entities) => text.replace(/&(?:#39|quot|lt|gt|amp|nbsp);/g, (entity) => entities[entity] ?? entity);
+        const plain = decode(decode(postedLetter, { '&#39;': "'", '&quot;': '"', '&lt;': '<', '&gt;': '>', '&amp;': '&' })
+          .replace(/<\/?(?:div|p|br)\s*\/?>/gi, '\n'), { '&nbsp;': ' ', '&lt;': '<', '&gt;': '>', '&amp;': '&' });
         const lost = values.Letter.split('\n').filter((line) => !plain.includes(line));
         if (lost.length) return `the editor did not keep ${lost.length} typed line(s), so the posted Letter is not the corpus`;
         const deadline = Date.now() + POLL_MS;

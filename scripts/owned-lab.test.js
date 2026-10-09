@@ -84,7 +84,7 @@ test('shouldRemoveByTheOwnedLabNumber_andTheModificationFloor', () => {
   assert.match(removal, /DELETE FROM table_modification WHERE id > 700 AND table_name='providerLabRouting'\s+AND modification_type='delete' AND \(resultSet LIKE '%<lab_no>5001<\/lab_no>%'\)/,
     'the row the application files for the provider-0 routing row it deletes: above the floor, and naming the owned lab in its XML');
   assert.match(removal, /DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN \(5001\)/);
-  assert.match(removal, new RegExp(`DELETE FROM providerLabRoutingLock WHERE lab_no IN \\(5001\\) AND ${LOCK_NOT_SHARED.replace(/[()$.]/g, '\\$&')}`),
+  assert.match(removal, new RegExp(`DELETE FROM providerLabRoutingLock WHERE lab_no IN \\(5001\\) AND ${LOCK_NOT_SHARED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
     'the lock is left alone while another lab type routes that number');
   assert.match(removal, /DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN \(5001\)/);
   assert.match(removal, /DELETE FROM hl7TextInfo WHERE lab_no IN \(5001\) AND accessionNum='ACKDEADBEEF01'/,

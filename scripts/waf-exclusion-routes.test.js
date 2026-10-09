@@ -127,7 +127,13 @@ function expandRoutePattern(pattern, limit = 256) {
 // ---------------------------------------------------------------------------------------------
 
 function withoutXmlComments(xml) {
-  return xml.replace(/<!--[\s\S]*?-->/g, '');
+  // Strip until nothing changes, so a comment that only appears once an inner one is removed goes too.
+  let previous;
+  do {
+    previous = xml;
+    xml = xml.replace(/<!--[\s\S]*?-->/g, '');
+  } while (xml !== previous);
+  return xml;
 }
 
 /**
