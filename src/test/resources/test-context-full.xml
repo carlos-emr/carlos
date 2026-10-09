@@ -637,6 +637,8 @@
     <!-- EmailManager attaches the clinic email footer logo (issue #3981). The real service, over the
          scanned EmailFooterLogoDao: the context has no logo, so emails carry none. -->
     <bean id="emailFooterLogoService" class="io.github.carlos_emr.carlos.email.core.EmailFooterLogoService" autowire="constructor" />
+    <!-- Real mandatory clinic service required by EmailManager; generic DAO tests do not send email. -->
+    <bean id="clinicEmailFooterService" class="io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService" autowire="constructor" />
     <!-- EmailManager's portal path is off by default and exercised by unit tests; its real
          collaborator would need a live portal client, so the context only needs the type. -->
     <bean id="portalEmailDelivery" class="io.github.carlos_emr.carlos.test.mocks.MockBeanFactory">

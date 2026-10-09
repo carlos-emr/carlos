@@ -184,6 +184,7 @@
             </security:oscarSec>
         </div>
     </div>
+    <%@ include file="/WEB-INF/jsp/admin/portalFooterAudit.jspf" %>
 </div>
 <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>

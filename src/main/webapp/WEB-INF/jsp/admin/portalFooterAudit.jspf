@@ -1,0 +1,49 @@
+<%-- Saved Portal snapshots only: escaped plaintext, no remote HTML or image. --%>
+<c:if test="${portalFooterAuditEnabled}">
+    <div class="card shadow-sm rounded mt-4 mb-5">
+        <div class="card-body">
+            <details id="portalFooterHistory">
+                <summary><fmt:message key="admin.configureEmail.portalFooter.heading"/></summary>
+                <p class="mt-3"><fmt:message key="admin.configureEmail.portalFooter.help"/></p>
+                <form action="${ctx}/admin/ViewConfigureEmail" method="get" class="d-flex gap-2 mb-3">
+                    <label for="portalFooterDate"><fmt:message key="admin.configureEmail.portalFooter.date"/></label>
+                    <input id="portalFooterDate" name="portalFooterDate" type="date" value="${carlos:forHtmlAttribute(portalFooterDate)}" required/>
+                    <button type="submit" class="btn btn-outline-primary"><fmt:message key="admin.configureEmail.portalFooter.show"/></button>
+                </form>
+                <c:choose>
+                    <c:when test="${portalFooterAuditError eq 'invalid'}">
+                        <p role="alert"><fmt:message key="admin.configureEmail.portalFooter.invalid"/></p>
+                    </c:when>
+                    <c:when test="${not empty portalFooterAuditError}">
+                        <p role="alert"><fmt:message key="admin.configureEmail.portalFooter.unavailable"/></p>
+                    </c:when>
+                    <c:when test="${empty portalFooterAudit.attempts}">
+                        <p><fmt:message key="admin.configureEmail.portalFooter.empty"/></p>
+                    </c:when>
+                    <c:otherwise>
+                        <c:forEach var="attempt" items="${portalFooterAudit.attempts}">
+                            <details class="portal-footer-attempt border rounded p-2 mb-2">
+                                <summary>
+                                    <c:out value="${attempt.preparedAt}"/> —
+                                    <fmt:message key="admin.configureEmail.portalFooter.kind.${attempt.kind}"/> —
+                                    <fmt:message key="admin.configureEmail.portalFooter.status.${attempt.status}"/>
+                                </summary>
+                                <c:if test="${not empty attempt.statusAt}">
+                                    <p><fmt:message key="admin.configureEmail.portalFooter.statusTime"/> <c:out value="${attempt.statusAt}"/></p>
+                                </c:if>
+                                <pre class="mt-2" style="white-space:pre-wrap;"><c:out value="${attempt.footerText}"/></pre>
+                            </details>
+                        </c:forEach>
+                        <c:if test="${not empty portalFooterAudit.nextBefore}">
+                            <c:url var="portalFooterNext" value="/admin/ViewConfigureEmail">
+                                <c:param name="portalFooterDate" value="${portalFooterDate}"/>
+                                <c:param name="portalFooterBefore" value="${portalFooterAudit.nextBefore}"/>
+                            </c:url>
+                            <a href="${carlos:forHtmlAttribute(portalFooterNext)}"><fmt:message key="admin.configureEmail.portalFooter.next"/></a>
+                        </c:if>
+                    </c:otherwise>
+                </c:choose>
+            </details>
+        </div>
+    </div>
+</c:if>
