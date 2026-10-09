@@ -56,4 +56,29 @@ function takeProblems(recorder, labels, mark, leave) {
   return taken;
 }
 
-module.exports = { markProblems, takeProblems };
+/**
+ * Take a form's pending problems for the concern that has just ended, reporting each only once per form.
+ *
+ * A problem that recurs on every page of a form (a missing stylesheet) belongs to the first concern that met it, so
+ * later concerns do not report it again: `seen` holds what the form's earlier concerns reported, and is updated.
+ * With `judge: false` the entries are taken out of the recorder (so the run-wide judgement does not trip on them) but
+ * are neither reported nor remembered. That is for a concern judged on its own assertion alone, such as the catalogue's
+ * `bare` run on a patient with NULL contact columns: the 500 it exists to pin is its assertion, and a problem the page
+ * raises besides (the stylesheet that is missing for every patient) must stay unseen so that the concern which owns it
+ * still meets it when it runs.
+ *
+ * @param {object} recorder  harness recorder (createRecorder())
+ * @param {string[]} labels  the form's page labels
+ * @param {Set<string>} seen  descriptions the form's earlier concerns reported
+ * @param {{judge?: boolean}} [options]
+ * @returns {string[]} the descriptions to report with the concern
+ */
+function settleProblems(recorder, labels, seen, { judge = true } = {}) {
+  const taken = takeProblems(recorder, labels);
+  if (!judge) return [];
+  const fresh = taken.filter((problem) => !seen.has(problem));
+  fresh.forEach((problem) => seen.add(problem));
+  return fresh;
+}
+
+module.exports = { markProblems, settleProblems, takeProblems };

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const claims = require('./lib/form-claims');
-const { markProblems, takeProblems } = require('./lib/form-problems');
+const { markProblems, settleProblems, takeProblems } = require('./lib/form-problems');
 const manifest = require('./playwright-suite.json');
 
 /*
@@ -96,6 +96,31 @@ test('shouldLeaveAProblemInTheRecorder_whenAnotherConcernOwnsIt', () => {
   const taken = takeProblems(recorder, ['reopen-X'], undefined, (text) => /docuemtn/.test(text));
   assert.deepEqual(taken, ['uncaught TypeError: something else']);
   assert.deepEqual(recorder.pageErrors.map((entry) => entry.text), ['ReferenceError: docuemtn is not defined']);
+});
+
+test('shouldKeepTheProblemsOfAnAssertionOnlyConcernAwayFromTheConcernThatOwnsThem', () => {
+  // Finding 241's `bare` run opens Position Hazard before the fixture is completed. Once 241 is fixed the form opens and
+  // its missing stylesheet (finding 235) is raised there too; the `open` concern that runs later must still meet it.
+  const css = { label: 'form-PH', status: 404, resourceType: 'stylesheet', url: 'https://h/carlos/form/positionHazardStyle.css' };
+  const recorder = recorderWith([['badResponses', css]]);
+  const seen = new Set();
+  assert.deepEqual(settleProblems(recorder, ['form-PH'], seen, { judge: false }), [], 'the bare run reports no problem');
+  assert.equal(seen.size, 0, 'and does not remember it, so the open concern is not told it was already reported');
+  assert.equal(recorder.badResponses.length, 0, 'but it is out of the recorder, so the run-wide judgement cannot trip on it');
+  recorder.badResponses.push({ ...css });
+  assert.deepEqual(settleProblems(recorder, ['form-PH'], seen), ['HTTP 404 on stylesheet https://h/carlos/form/positionHazardStyle.css']);
+  recorder.badResponses.push({ ...css });
+  assert.deepEqual(settleProblems(recorder, ['form-PH'], seen), [], 'a later concern does not repeat what an earlier one reported');
+});
+
+test('shouldHaveTheFirstConcernReportAProblem_whenItIsJudgedOnItsProblemsToo', () => {
+  // The behaviour the assertion-only option exists to avoid: reporting the stylesheet on the bare run hid it from `open`.
+  const css = { label: 'form-PH', status: 404, resourceType: 'stylesheet', url: 'https://h/carlos/form/positionHazardStyle.css' };
+  const recorder = recorderWith([['badResponses', css]]);
+  const seen = new Set();
+  assert.equal(settleProblems(recorder, ['form-PH'], seen).length, 1);
+  recorder.badResponses.push({ ...css });
+  assert.deepEqual(settleProblems(recorder, ['form-PH'], seen), []);
 });
 
 test('shouldExcuseARequestTheBrowserAbandoned_butNotOneThatFailedOnItsOwn', () => {
@@ -232,6 +257,27 @@ for (const suite of SUITES) {
     }
   });
 }
+
+test('shouldNeverPinAStepThatIsADemotedLabel_inAnyManifestEntry', () => {
+  // claimFailure reports a precondition, an unreached concern, stray browser problems and a missing outcome under
+  // `<label> (reason)` precisely so that no pin can name it; a manifest step that ends that way would turn a real
+  // failure elsewhere into a "known failure".
+  const demotions = /\((?:precondition|not reached|other browser problems|no outcome)\)$/;
+  const pinned = manifest.checks.filter((check) => check.expectedFailure);
+  assert.ok(pinned.length > 20, 'the manifest pins more than a handful of steps');
+  for (const check of pinned) {
+    assert.doesNotMatch(check.expectedFailure.step, demotions, `${check.name} pins a demoted label`);
+  }
+  // And the reasons listed above are exactly the ones claimFailure can produce.
+  const labels = [
+    claims.claimFailure(undefined, 'L'),
+    claims.claimFailure(claims.blockedOutcome('x'), 'L'),
+    claims.claimFailure(claims.outcomeOf(new claims.Precondition('p'), []), 'L'),
+    claims.claimFailure(claims.outcomeOf(null, ['uncaught B']), 'L', /A/),
+  ].map((failure) => failure.label);
+  assert.deepEqual(labels, ['L (no outcome)', 'L (not reached)', 'L (precondition)', 'L (other browser problems)']);
+  for (const label of labels) assert.match(label, demotions);
+});
 
 test('shouldAssertEveryPalliativeCarePair_whateverTheCallersShellExports', () => {
   const { spawnSync } = require('node:child_process');

@@ -87,7 +87,9 @@ const FORMS = [
     idColumn: 'ID', provider: true, confirm: true, prose: 'r_refComments', fields: [], printOn: 'saved',
     chain: [{ link: 'Assessment', prose: 'a_assComments' }, { link: 'Outcome', prose: 'o_outComments' }],
     print: { button: 'Print', kind: 'popup', pathname: '/form/formmhoutcomeprint' },
-    known: { problems: /docuemtn is not defined/ } },
+    // problems: the typo that every page of the form throws (237). opener: the note-lock beacon the chart sends as it is
+    // reloaded by an Assessment Save (242), so a different E-Chart problem after that is fixed does not read as pinned.
+    known: { problems: /docuemtn is not defined/, opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
   // The shipped registration points at the Struts 1 route SetupForm.do, which the chart opens as a raw URL and the
   // application answers 404 (finding 103). That row only opens, so its pin is the open step and nothing downstream of
   // the open can hold it up; the form behind it is VT2.
@@ -484,9 +486,12 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     chart.off('framenavigated', reloaded);
     await attempt(entry, 'opener', 'Saving a page leaves the E-Chart that opened the form alone', async () => {
       // The reload's note-lock beacon is reported a moment after the navigation it belongs to.
-      await chart.waitForLoadState('load');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      if (entry.chartReloads) await waitForNavbars(chart, 20000);
+      // Waiting for the chart to settle is not the test; only the reload count below is.
+      await claims.asPrecondition(async () => {
+        await chart.waitForLoadState('load');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (entry.chartReloads) await waitForNavbars(chart, 20000);
+      }, 'the E-Chart settling after the Saves');
       h.assert(!entry.chartReloads, `Saving a page reloaded the E-Chart that opened the form (${entry.chartReloads} reload${entry.chartReloads === 1 ? '' : 's'} during the three Saves)`);
     }, ['redisplay'], ['echart'], entry.chartMark);
   }
@@ -521,6 +526,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     const { form } = entry;
     let page;
     setSex(form.sex || 'F');
+    // A multi-page form's reopen shows its last page's text, so it is not judged (not reached) when the chain did not pass.
     await attempt(entry, 'reopen', 'reopening from the E-Chart restores the saved values', async () => {
       const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
       if (foldSavedForms) h.assert(!await link.isVisible(),
@@ -545,7 +551,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       h.assert(again.get('demographic_no') === patient && again.get('formId') === entry.id,
         'Expanding the cached list opened a different patient or saved record');
       await assertShown(page, form, entry.text, 'The reopened form from the cached list');
-    }, ['save'], [`reopen-${form.key}`]);
+    }, ['save', 'chain'], [`reopen-${form.key}`]);
     entry.reopened = page;
   }
 

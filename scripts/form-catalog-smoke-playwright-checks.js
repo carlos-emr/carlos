@@ -43,7 +43,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const claims = require('./lib/form-claims');
-const { takeProblems } = require('./lib/form-problems');
+const { settleProblems } = require('./lib/form-problems');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { pdfText } = require('./form-print-pdf-playwright-checks');
@@ -284,7 +284,7 @@ async function workflow(s, { select = validatePin() } = {}) {
    * Save is answered by a redirect to the redisplay, so when Save succeeded the problems that follow it (the
    * redisplay's 404, say) are left for the redisplay concern to take.
    */
-  async function conclude(entry, concern, body, { carry = false } = {}) {
+  async function conclude(entry, concern, body, { carry = false, assertionOnly = false } = {}) {
     let error;
     try {
       await body();
@@ -292,11 +292,9 @@ async function workflow(s, { select = validatePin() } = {}) {
       error = caught;
     }
     let problems = [];
-    if (error || !carry) {
-      // A problem that recurs on every page of the form (a missing stylesheet) belongs to the concern that first met it.
-      problems = takeProblems(s.recorder, labelsOf(entry.form)).filter(problem => !entry.seen.has(problem));
-      problems.forEach(problem => entry.seen.add(problem));
-    }
+    // A problem that recurs on every page of the form (a missing stylesheet) belongs to the concern that first met it.
+    // An assertion-only concern (`bare`) is judged on its own assertion: its page problems are dropped, not reported.
+    if (error || !carry) problems = settleProblems(s.recorder, labelsOf(entry.form), entry.seen, { judge: !assertionOnly });
     record(entry, concern, claims.outcomeOf(error, problems));
   }
   function record(entry, concern, outcome) {
@@ -389,7 +387,9 @@ async function workflow(s, { select = validatePin() } = {}) {
 
   // ---- Phase 0: the bare concern, before the fixture is completed ----
   for (const entry of entries.filter(item => item.form.bare)) {
-    await conclude(entry, 'bare', () => openFromMenu(entry));
+    // Judged on the open alone (the 500 of finding 241 against a rendered form): what else the page raises, the missing
+    // Position Hazard stylesheet (235) for one, is the `open` concern's to meet once the fixture is complete.
+    await conclude(entry, 'bare', () => openFromMenu(entry), { assertionOnly: true });
     await closeAll(entry);
   }
 
