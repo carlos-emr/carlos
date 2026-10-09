@@ -85,11 +85,13 @@ function buildReplay(captured, { origin, token = null, overrides = {}, query = {
   const url = new URL(`${captured.path}${urlQuery.toString() ? `?${urlQuery}` : ''}`, origin).toString();
   const headers = {};
   for (const name of KEPT_HEADERS) {
+    // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- name iterates KEPT_HEADERS, a fixed list of header names; headers is a local object handed to this check's own request
     if (captured.headers && captured.headers[name] !== undefined) headers[name] = captured.headers[name];
   }
   // The body parameter is the carrier for a form the page submitted with one, and the fallback
   // for a form body that had none; a header-only page keeps its token in the header alone.
   const bodyCarrier = carriers.body || (!carriers.header && !carriers.query && kind !== 'json' && kind !== 'raw');
+  // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- TOKEN_HEADER is a module constant; headers is a local object handed to this check's own request
   if (token && carriers.header) headers[TOKEN_HEADER] = token;
   if (token && !carriers.header && !bodyCarrier && !carriers.query) headers[TOKEN_HEADER] = token;
   if (kind === 'json' || kind === 'raw') {

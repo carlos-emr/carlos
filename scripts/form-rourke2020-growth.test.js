@@ -109,6 +109,7 @@ test('shouldLabelEveryPinnedPair_asTheRunPrintsIt', () => {
 
 /** The textField of a Jasper template whose expression is $P{name}: its x, y, width and height. */
 function boxOf(jrxml, name) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- name is a print-parameter name this test passes from its own fixed list
   const element = new RegExp(`<element kind="textField"[^>]*?\\sx="(\\d+)"\\s+(?:positionType="\\w+"\\s+)?y="(\\d+)"[^>]*?width="(\\d+)"\\s+height="(\\d+)"[^>]*>\\s*<expression><!\\[CDATA\\[\\$P\\{${name}\\}\\]\\]>`).exec(jrxml);
   assert.ok(element, `page1.jrxml places no text field for ${name}`);
   return { x: Number(element[1]), y: Number(element[2]), width: Number(element[3]), height: Number(element[4]) };

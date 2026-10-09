@@ -262,6 +262,7 @@ async function workflow(s) {
   h.assert(signatureName, 'The test provider has no signature name');
   /** The signature line the application appends, as the stored note's last line. */
   const signatureLine = body => body.replace(/\s+$/, '').split('\n').pop();
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- every interpolated value goes through escapeRegExp
   const signatureShape = label => new RegExp(`^\\[${escapeRegExp(label)} \\d{2}-[A-Z][a-z]{2}-\\d{4} \\d{1,2}:\\d{2} ${escapeRegExp(byLabel)} ${escapeRegExp(signatureName)}\\]$`);
 
   // ---- Page helpers ----------------------------------------------------------------------------

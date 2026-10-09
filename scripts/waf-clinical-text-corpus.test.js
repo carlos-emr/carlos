@@ -241,6 +241,7 @@ function afterCrsExemptions(file) {
 function argumentNames(arg, sample) {
   const regex = /^\/(.*)\/$/.exec(arg);
   if (!regex) return arg === sample;
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- the pattern is an argument written in this repository's own WAF exclusion rule files, never request data
   try { return new RegExp(regex[1]).test(sample); } catch { return false; }
 }
 
@@ -255,6 +256,7 @@ function argumentNames(arg, sample) {
 function familiesUnhooked(route, sample, { rules = before, exemptions = afterCrsExemptions(AFTER_CRS) } = {}) {
   const families = new Set();
   for (const rule of rules.values()) {
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- rule.route comes from this repository's own WAF exclusion rule files, never request data
     if (!new RegExp(`^${rule.route}$`).test(route)) continue;
     for (const [arg, tags] of rule.removals) {
       if (!argumentNames(arg, sample)) continue;

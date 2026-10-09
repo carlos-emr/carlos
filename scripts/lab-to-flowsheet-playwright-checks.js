@@ -150,6 +150,7 @@ function a1cItemTitle(html) {
 function linksToLab(html, labNo) {
   const number = String(labNo).replace(/\D/g, '');
   if (!number) return false;
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- number holds digits only: every other character was removed from the lab number earlier in this function
   return new RegExp(`(?:ViewLabDisplay|labDisplay|CMLDisplay)\\w*(?:\\.jsp)?\\?[^'"\\s]*segmentID=${number}(?!\\d)`).test(String(html || ''));
 }
 

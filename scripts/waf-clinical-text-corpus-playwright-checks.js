@@ -428,6 +428,7 @@ function rows(s, ctx) {
   function replayListSearch(captured, term) {
     const params = replayParams(captured.params, { [SEARCH]: term }, { keepEmpty: true });
     const headers = {};
+    // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- name iterates a fixed list of three header names; headers is a local object handed to this check's own request
     for (const name of ['accept', 'referer', 'x-requested-with']) if (captured.headers[name] !== undefined) headers[name] = captured.headers[name];
     return s.context.request.get(new URL(`${captured.path}?${params}`, baseUrl.origin).toString(), { headers, maxRedirects: 0, failOnStatusCode: false });
   }

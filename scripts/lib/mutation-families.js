@@ -517,7 +517,9 @@ function rxSave(s) {
       for (const name of new Set(captured.body.keys())) {
         if (!name.endsWith(`_${this.card}`)) continue;
         const renamed = `${name.slice(0, -this.card.length)}${card}`;
+        // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- name is a form-field name from the request this check captured from the application's own page; overrides is a local map read only by this check's replay
         overrides[name] = null;
+        // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- renamed is built from a form-field name this check captured from the application's own page; overrides is a local map read only by this check's replay
         overrides[renamed] = captured.body.getAll(name).map((value) => (name.startsWith('drugName_') ? prefix + tag : value));
       }
       if (captured.body.has('randomId')) overrides.randomId = card;
@@ -525,6 +527,7 @@ function rxSave(s) {
       // Each card carries the stash revision it was rendered from (STALE_RX_STASH otherwise): the
       // new card's own, as its page holds it.
       const revision = rx.locator(`input[name="draftRevision_${card}"]`).first();
+      // nosemgrep: javascript.express.security.audit.remote-property-injection.remote-property-injection -- the key is built from the staged card number this check read from its own page; overrides is a local map read only by this check's replay
       if (await revision.count()) overrides[`draftRevision_${card}`] = await revision.inputValue();
       return { overrides };
     },

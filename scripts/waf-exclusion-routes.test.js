@@ -161,6 +161,7 @@ function wildcardMatches(actionPath, candidate) {
   if (!actionPath.includes('*')) return actionPath === candidate;
   const source = actionPath.split('**').map((part) => part.split('*')
     .map((piece) => piece.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')).join('.*');
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- the source is built from this repository's own exclusion route list with the regex metacharacters escaped earlier in this function
   return new RegExp(`^${source}$`).test(candidate);
 }
 

@@ -308,6 +308,7 @@ test('shouldNotBaselineTheFaxImporterError_nowThatTheCheckRestoresTheRow', () =>
   const baseline = fs.readFileSync(path.join(__dirname, 'lib', 'server-log-baseline.tsv'), 'utf8');
   const entries = baseline.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
   const signature = 'ERROR core.FaxImporter (FaxImporter.java:406)';
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- entry is a pattern from this repository's own checked-in server-log baseline, never request data
   assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(signature)),
     'the baseline explains the FaxImporter ERROR again');
   assert.doesNotMatch(baseline, /fax-configure-playwright-checks\.js saves/);

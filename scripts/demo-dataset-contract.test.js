@@ -119,6 +119,7 @@ function escapeRegExp(text) {
  * ordered by `defaultColumns` (the table's declared order, used when the statement lists none).
  */
 function insertedRows(sql, table, defaultColumns) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- table comes from this repository's own demo dataset and goes through escapeRegExp
   const start = new RegExp(`(?:^|[;\\n])[ \\t]*INSERT(?:[ \\t]+IGNORE)?[ \\t]+INTO[ \\t]+\`?${escapeRegExp(table)}(?![A-Za-z0-9_$])\`?[ \\t]*`, 'g');
   const out = [];
   let match;
@@ -570,6 +571,7 @@ test('shouldMatchSecObjPrivilege_acrossSeedsAndDemoData', { skip: !BASH_AVAILABL
 /** First column of `CREATE TABLE <table>` in the baseline schema (the key the link rows refer to). */
 function keyColumnOf(table) {
   const schema = fs.readFileSync(BASELINE_SCHEMA, 'utf8');
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- table comes from this repository's own baseline schema and goes through escapeRegExp
   const create = new RegExp(`CREATE TABLE \`${escapeRegExp(table)}\` \\(\\s*\`(\\w+)\``).exec(schema);
   assert.ok(create, `the baseline schema has no CREATE TABLE ${table}`);
   return create[1];

@@ -151,6 +151,7 @@ function removeProbeFiles(names) {
   for (const name of names) {
     // Only a name that is a bare file name ending in this run's probe name: no other document is touched.
     if (name !== path.basename(name) || !name.endsWith(probeName)) continue;
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a bare file name (equal to its own basename, checked in the condition above) taken from the document store listing this check just made
     const target = path.join(store, name);
     if (fs.existsSync(target)) fs.unlinkSync(target);
     assert(!fs.existsSync(target), `The uploaded probe file ${name} was not removed from the document store`);

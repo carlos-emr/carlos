@@ -126,6 +126,7 @@ function selectLocation(server, uri) {
   if (longest && longest.modifier === '^~') return longest;
   for (const location of server.locations) {
     if (location.modifier !== '~' && location.modifier !== '~*') continue;
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- the pattern is a location from this repository's own checked-in nginx configuration, never request data
     const regex = new RegExp(location.pattern, location.modifier === '~*' ? 'i' : '');
     if (regex.test(uri)) return location;
   }
