@@ -21,6 +21,7 @@
     "test:page-script-repairs-playwright": "node scripts/page-script-repairs-playwright-checks.js",
     "test:playwright-smoke": "node scripts/run-playwright-suite.js --tier smoke",
     "test:playwright-list": "node scripts/run-playwright-suite.js --list",
+    "test:chartspace-playwright": "node scripts/chartspace-playwright-checks.js",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
     "test:csrfguard-client-browser": "node scripts/csrfguard-client-browser-check.js",
     "test:consult-attachment-ownership-playwright": "node scripts/consult-attachment-ownership-playwright-checks.js",

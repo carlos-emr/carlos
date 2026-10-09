@@ -7677,6 +7677,22 @@
       ],
       "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
       "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
+    },
+    {
+      "name": "chartspace",
+      "script": "scripts/chartspace-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CHARTSPACE_DEMOGRAPHIC_NO"
+      ],
+      "fixtures": "Read-only on an existing FAKE- demo patient (CHARTSPACE_DEMOGRAPHIC_NO, default 2); no fixtures, no writes."
     }
   ]
 }
