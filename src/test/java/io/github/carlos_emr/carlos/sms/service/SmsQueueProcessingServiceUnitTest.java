@@ -1,7 +1,9 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
@@ -641,6 +643,70 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
+    @DisplayName("a former provider's row that cannot be failed waits a few minutes, and the next row is still failed")
+    void shouldDeferRowAndFailNext_whenOneInactiveRowCannotBeFailed() {
+        SmsTransaction stuckRow = queuedTransaction();
+        SmsTransaction nextRow = queuedTransaction(3L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stuckRow, nextRow)) {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto result) {
+                if (transaction == stuckRow) {
+                    throw new IllegalStateException("row cannot be written");
+                }
+                return super.markProviderResult(transaction, result);
+            }
+        };
+        Instant before = Instant.now();
+
+        voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5);
+
+        assertThat(stuckRow.getStatus()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(stuckRow.getNextAttemptAt().toInstant())
+                .isAfterOrEqualTo(before.plus(SmsQueueProcessingService.INACTIVE_PROVIDER_RETRY_DELAY));
+        assertThat(nextRow).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
+    }
+
+    @Test
+    @DisplayName("a second former-provider row that cannot be failed ends that work for the run")
+    void shouldStopFailingInactiveRows_whenTwoWritesFailInOneRun() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = queuedTransaction(3L);
+        SmsTransaction third = queuedTransaction(4L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second, third)) {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto result) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+
+        Date thirdDueAt = third.getNextAttemptAt();
+        Instant before = Instant.now();
+
+        voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5);
+
+        assertThat(List.of(first, second)).allSatisfy(row -> assertThat(row.getNextAttemptAt().toInstant())
+                .isAfterOrEqualTo(before.plus(SmsQueueProcessingService.INACTIVE_PROVIDER_RETRY_DELAY)));
+        assertThat(third).extracting(SmsTransaction::getStatus, SmsTransaction::getNextAttemptAt)
+                .as("never claimed").containsExactly(SmsStatus.QUEUED, thirdDueAt);
+    }
+
+    @Test
+    @DisplayName("a held system test of the former provider is failed with its own reason, not as a patient's text")
+    void shouldFailSystemTestWithOwnReason_whenProviderChangedBeforeItWentOut() {
+        SmsTransaction systemTest = SmsTransaction.outboundAttempt(new SmsSendCommand(null, "416-555-1212",
+                SmsRecipientPhoneType.CELL, SmsSendService.SYSTEM_TEST_BODY, SmsMessagePurpose.SYSTEM_TEST,
+                "999998", null, null), SmsProviderType.STUB);
+        assignId(systemTest, 5L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(systemTest));
+
+        voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5);
+
+        assertThat(systemTest).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED");
+    }
+
+    @Test
     @DisplayName("a consent recheck failure backs the row off and the run goes on")
     void shouldContinueRun_whenConsentRecheckFails() {
         SmsTransaction stubRow = queuedTransaction();
@@ -990,11 +1056,15 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     private static SmsTransaction queuedTransaction() {
+        return queuedTransaction(1L);
+    }
+
+    private static SmsTransaction queuedTransaction(long id) {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
-        assignId(transaction, 1L);
+        assignId(transaction, id);
         transaction.recordConsentDecision(CONSENTED);
         return transaction;
     }

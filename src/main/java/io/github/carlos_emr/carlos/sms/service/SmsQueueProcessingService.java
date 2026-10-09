@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -70,6 +71,14 @@ public class SmsQueueProcessingService {
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_CODE = "QUEUE_PROVIDER_NOT_ACTIVE";
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE =
             "SMS not sent: its SMS provider is no longer the one chosen in Administration > SMS; send it again.";
+    private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE = "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED";
+    private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE =
+            "SMS system test not sent: the SMS provider was changed before it went out; send a new test.";
+    /**
+     * How long a former provider's row waits after it could not be marked failed, so a row whose write keeps
+     * failing doesn't head the queue and hold up the others on every run.
+     */
+    static final Duration INACTIVE_PROVIDER_RETRY_DELAY = Duration.ofMinutes(5);
 
     private final SmsTransactionService transactionRecorder;
     private final SmsProviderClientResolver providerResolver;
@@ -204,6 +213,7 @@ public class SmsQueueProcessingService {
      * Each run fails at most {@code limit} of them, apart from the active provider's send batch.
      */
     private void failInactiveProvider(SmsProviderType providerType, int limit) {
+        int writeFailures = 0;
         for (int handled = 0; handled < limit; handled++) {
             // Read again before each row: the clinic may have chosen this provider since the run started, and
             // its new texts must then be sent, not failed.
@@ -217,13 +227,22 @@ public class SmsQueueProcessingService {
             }
             SmsTransaction claimed = transactions.get(0);
             try {
-                transactionRecorder.markProviderResult(claimed, SmsProviderSendResultDto.failed(
-                        QUEUE_PROVIDER_NOT_ACTIVE_CODE, QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE));
+                // A system test held back by the rate limit is not a patient's text: say so, rather than
+                // asking staff to resend it.
+                SmsProviderSendResultDto result = claimed.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST
+                        ? SmsProviderSendResultDto.failed(
+                                QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE, QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE)
+                        : SmsProviderSendResultDto.failed(
+                                QUEUE_PROVIDER_NOT_ACTIVE_CODE, QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE);
+                transactionRecorder.markProviderResult(claimed, result);
             } catch (RuntimeException e) {
                 // Nothing was sent, so the claim goes back rather than leaving the row for stale recovery, which
-                // would report an unknown outcome.
+                // would report an unknown outcome. It comes due again a little later, so the next row gets its
+                // turn. Releasing gives the attempt back, so a row that can never be failed is retried every few
+                // minutes, with a warning each time, rather than an unsent text being dropped.
                 try {
-                    SmsTransaction released = transactionRecorder.releaseClaim(claimed, new Date());
+                    SmsTransaction released = transactionRecorder.releaseClaim(claimed,
+                            new Date(new Date().getTime() + INACTIVE_PROVIDER_RETRY_DELAY.toMillis()));
                     LOGGER.warn("SMS transaction {} of inactive provider {} could not be failed; nothing was sent; the"
                                     + " claim {};{}", claimed.getId(), providerType,
                             released != null && released.getStatus() == SmsStatus.QUEUED
@@ -238,7 +257,11 @@ public class SmsQueueProcessingService {
                             + " was sent; stale recovery reconciles it;{}", claimed.getId(), providerType,
                             LogSafe.exceptionTrace(releaseFailure));
                 }
-                return;
+                // One failed write may belong to that row alone; a second in the same run more likely means the
+                // database is in trouble, so stop for this run.
+                if (++writeFailures >= 2) {
+                    return;
+                }
             }
         }
     }
