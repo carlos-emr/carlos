@@ -48,3 +48,10 @@ test('partition flags hiddenHasData only when a hidden block has data', () => {
   assert.equal(partition(layout, { a: 'OK' }).hiddenHasData, true);
   assert.equal(partition(layout, { a: 'EMPTY' }).hiddenHasData, false);
 });
+
+test('normalizeLayout keeps ids that collide with Object.prototype members', () => {
+  const out = normalizeLayout(
+    { top: ['constructor', 'toString'], right: ['a'], hidden: [] },
+    ['constructor', 'toString', 'a']);
+  assert.deepEqual(out, { top: ['constructor', 'toString'], right: ['a'], hidden: [] });
+});

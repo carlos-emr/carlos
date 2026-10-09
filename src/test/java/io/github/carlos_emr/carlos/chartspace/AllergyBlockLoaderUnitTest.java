@@ -103,6 +103,17 @@ class AllergyBlockLoaderUnitTest {
     }
 
     @Test
+    void shouldReturnEmpty_whenManagerReturnsNull() {
+        allowAllergyRead();
+        when(allergyManager.getActiveAllergies(info, 2)).thenReturn(null);
+
+        AllergyBlockDto dto = loader.load(info, 2);
+
+        assertThat(dto.status()).isEqualTo(BlockStatus.EMPTY);
+        assertThat(dto.items()).isEmpty();
+    }
+
+    @Test
     void shouldMapItems_inManagerOrder() throws Exception {
         allowAllergyRead();
         Allergy first = allergy("Penicillin", "3", "Hives");

@@ -52,7 +52,7 @@
   function normalizeLayout(raw, knownIds) {
     var known = asArray(knownIds);
     var source = raw && typeof raw === 'object' ? raw : {};
-    var seen = {};
+    var seen = Object.create(null);
     var out = { top: [], right: [], hidden: [] };
 
     REGIONS.forEach(function (region) {
