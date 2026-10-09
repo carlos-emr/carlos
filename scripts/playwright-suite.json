@@ -4041,6 +4041,21 @@
       "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope); all owned rows removed."
     },
     {
+      "name": "flowsheet-customized-rules",
+      "script": "scripts/flowsheet-customized-rules-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with seeded WAIS and INR readings, and an ACR reading seeded mid-check; patient-scoped customizations created through the flowsheet editor (delete of diab3 DTYP, ckd ACR, diab2 UMS and inrFlow COUM; update of diab3 WAIS with a warning rule; add of diab3 HR with a month-range rule); one provider-scope (Your Patients) delete of the test login's CKD AORA, refused if that login already customizes CKD, so it must not run concurrently with another check that customizes that login's CKD flowsheet. All owned rows removed and verified by cleanup.",
+      "notes": "Fails on 2026.08 at step 1: the customized copy dropped ds_rules, so the CDM Indicators recommendations disappear. Issue #4433: a customized flowsheet must show the same flowsheet-level DRL output as the uncustomized one (diab.drl on CDM Indicators, ckd.drl on CKD at provider scope, inrFlowsheet.drl on INR) and keep the INR inr.html header; rules added through Update Flowsheet and the Add tab run alongside diab.drl, including on Custom Print; hiding ACR, which ckd.drl reads, never reports its reading as missing on the flowsheet or Custom Print; Diabetes (diab2) keeps its own item recommendations, including its Flu prevention reminder, and never starts running diab.drl."
+    },
+    {
       "name": "immunization-schedule-config",
       "script": "scripts/immunization-schedule-config-playwright-checks.js",
       "tiers": [
