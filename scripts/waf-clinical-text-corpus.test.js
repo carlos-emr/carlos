@@ -182,7 +182,7 @@ test('shouldTestEveryExclusionTheBriefNames_exceptTheBritishColumbiaOne', () => 
   const named = ['1104', '1105', '1108', '1109', '1113', '1116', '1117', '1118', '1120', '1123', '1125', '1126', '1010', '1030', '1040', '1045', '1134', '1135', '1136'];
   for (const id of named) assert.ok(covered.has(id), `no row tests exclusion ${id}`);
   assert.ok(!covered.has('1137'), '1137 is the British Columbia reprocess route: no BC work is in scope (issue #4439)');
-  assert.ok(covered.has('1141'), 'the tickler list search is covered too (it is what shows the saved message back)');
+  assert.ok(covered.has('1141'), 'the tickler list search term is covered too (exclusion 1141 unhooks search[value], the term going out; the saved message coming back is the separate tickler-list-response row, which no exclusion reaches)');
 });
 
 test('shouldNameAnExistingRuleOnTheRowsRoute_forEveryRow', () => {

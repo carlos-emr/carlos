@@ -103,7 +103,10 @@ const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '1';
 // ALLERGY_PIN selects which finding the last step pins: unset pins finding 178 (the default entry),
 // `shortcut-id` pins finding 215 (the entry allergy-add-penicillin-shortcut-id).
 const ALLERGY_PIN = (process.env.ALLERGY_PIN || '').trim();
-if (ALLERGY_PIN !== '' && ALLERGY_PIN !== 'shortcut-id') throw new Error(`ALLERGY_PIN must be unset or shortcut-id, not ${ALLERGY_PIN}`);
+/** ALLERGY_PIN must be unset or `shortcut-id`. Judged when the check runs (main), never when the module is required. */
+function validatePin(value = ALLERGY_PIN) {
+  if (value !== '' && value !== 'shortcut-id') throw new Error(`ALLERGY_PIN must be unset or shortcut-id, not ${value}`);
+}
 const drugrefDatabase = process.env.DRUGREF_TEST_DATABASE || 'drugref2';
 if (!/^[A-Za-z0-9_]+$/.test(drugrefDatabase)) throw new Error('DRUGREF_TEST_DATABASE must be a plain database name');
 assert(/^\d+$/.test(demographicNo), 'ALLERGY_DEMOGRAPHIC_NO must be numeric');
@@ -233,6 +236,7 @@ async function fillStartDate(page, form, value) {
 }
 
 async function main({ cancellation }) {
+  validatePin();
   const recorder = createRecorder();
   // The browser launch sits inside the protected scope so a failure in it still reaches the
   // fixture cleanup (runCheck's cleanup hook runs whatever this function does).
@@ -452,4 +456,4 @@ if (require.main === module) {
     },
   });
 }
-module.exports = { main, journalActionErrors };
+module.exports = { main, journalActionErrors, validatePin };

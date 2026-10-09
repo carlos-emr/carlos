@@ -113,7 +113,13 @@ const REQUESTED_SCOPES = 'demographic.read';
 // OAUTH_PIN selects which finding the last step pins: unset pins finding 150 (the default entry),
 // `scope-list` pins finding 214 (the entry oauth-rest-surfaces-scope-list).
 const OAUTH_PIN = (process.env.OAUTH_PIN || '').trim();
-if (OAUTH_PIN !== '' && OAUTH_PIN !== 'scope-list') throw new Error(`OAUTH_PIN must be unset or scope-list, not ${OAUTH_PIN}`);
+/**
+ * OAUTH_PIN must be unset or `scope-list`. Judged when the check runs (main), never at load: a bad value in the
+ * environment of whoever merely requires this module for its signer (oauth-rest-surfaces.test.js) is not their error.
+ */
+function validatePin(value = OAUTH_PIN) {
+  if (value !== '' && value !== 'scope-list') throw new Error(`OAUTH_PIN must be unset or scope-list, not ${value}`);
+}
 const SCOPE_LIST = 'demographic.read provider.read';
 const SCOPE_LIST_STEP = 'a request for two scopes is stored as two scopes';
 
@@ -224,6 +230,7 @@ async function cleanup(state) {
 }
 
 async function main(state = {}) {
+  validatePin();
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
@@ -479,4 +486,4 @@ if (require.main === module) {
   const state = {};
   runCheck({ name: 'oauth-rest-surfaces', run: () => main(state), cleanup: () => cleanup(state) });
 }
-module.exports = { main, cleanup, oauthHeader, oauthSignature, pct, signatureBaseUri };
+module.exports = { main, cleanup, oauthHeader, oauthSignature, pct, signatureBaseUri, validatePin };

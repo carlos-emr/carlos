@@ -110,7 +110,10 @@ const STEP = {
 // (entry mcedt-mailbox-outbox-short-name): the menu, then finding 217. `plaintext` (entry mcedt-mailbox-outbox-plaintext):
 // the menu and Change Password, then finding 189. The variants run only the steps their finding needs.
 const PIN = (process.env.MCEDT_PIN || '').trim();
-if (!['', 'short-name', 'plaintext'].includes(PIN)) throw new Error(`MCEDT_PIN must be unset, short-name or plaintext, not ${PIN}`);
+/** MCEDT_PIN must be unset, short-name or plaintext. Judged when the check runs (workflow), never when the module is required. */
+function validatePin(value = PIN) {
+  if (!['', 'short-name', 'plaintext'].includes(value)) throw new Error(`MCEDT_PIN must be unset, short-name or plaintext, not ${value}`);
+}
 
 // Routes whose handlers call the Ministry (Upload & Submit, Upload new files, Download, Sent, Re-Submit, the old interface).
 const SERVICE_PATHS = /\/mcedt\/(autoUpload|kaiautodl|download|resourceInfo|reSubmit|mcedt|uploads|update|info)$/;
@@ -129,6 +132,7 @@ async function until(check, message, timeout = 20000) {
 }
 
 async function workflow(s) {
+  validatePin();
   const { sql, marker, provider, config, context } = s;
   const full = PIN === '';
   const q = h.sqlString;
@@ -707,4 +711,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow(NAME, workflow, { openPatient: false });
-module.exports = { workflow, STEP };
+module.exports = { workflow, STEP, validatePin };
