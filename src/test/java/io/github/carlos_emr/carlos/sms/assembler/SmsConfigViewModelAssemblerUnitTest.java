@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -59,6 +60,8 @@ class SmsConfigViewModelAssemblerUnitTest {
     @BeforeEach
     void seedEncryptionKey() throws Exception {
         originalKey = EncryptionKeyTestSupport.seedFreshKey();
+        // Most pages are for a provider that can send; the not-ready tests say otherwise.
+        when(configService.providerReady(any())).thenReturn(true);
     }
 
     @AfterEach
@@ -168,6 +171,84 @@ class SmsConfigViewModelAssemblerUnitTest {
         assertThat(model.toString()).doesNotContain("new-secret-value").doesNotContain("webhook-value-123");
         assertThat(model.version()).as("the form keeps the version it was based on, not the stored one")
                 .isEqualTo("7");
+    }
+
+    @Test
+    @DisplayName("warns when sending is on but the provider can't send")
+    void shouldWarn_whenSendingOnAndProviderNotReady() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.providerNotReady");
+    }
+
+    @Test
+    @DisplayName("warns when nothing is saved and the default provider can't send")
+    void shouldWarn_whenNothingSavedAndDefaultProviderNotReady() {
+        when(configService.current()).thenReturn(Optional.empty());
+        when(providerResolver.configuredDefault()).thenReturn(SmsProviderType.STUB);
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.providerNotReady");
+    }
+
+    @Test
+    @DisplayName("doesn't warn when the provider can send, saved or not")
+    void shouldNotWarn_whenProviderReady() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        when(configService.current()).thenReturn(Optional.of(stored));
+        assertThat(assembler().assemble(null, List.of()).errorKeys()).isEmpty();
+
+        when(configService.current()).thenReturn(Optional.empty());
+        when(providerResolver.configuredDefault()).thenReturn(SmsProviderType.STUB);
+        assertThat(assembler().assemble(null, List.of()).errorKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("doesn't add the not-ready warning to a rejected save, whose own errors say what is missing")
+    void shouldNotWarn_onRejectedSave() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.providerReady(any())).thenReturn(false);
+
+        SmsConfigViewModel model = assembler().assembleRejected(null, List.of("sms.config.error.credentialRequired"));
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialRequired");
+    }
+
+    @Test
+    @DisplayName("doesn't warn about a provider that can't send while sending is off")
+    void shouldNotWarn_whenSendingOff() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(false);
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shows only the unreadable-credentials warning when that is why the provider can't send")
+    void shouldShowOnlyUnreadableWarning_whenCredentialsUnreadable() {
+        SmsConfig stored = new SmsConfig();
+        stored.setEnabled(true);
+        org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.providerReady(SmsProviderType.STUB)).thenReturn(false);
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialsUnreadable");
     }
 
     @Test
