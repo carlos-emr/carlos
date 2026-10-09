@@ -289,8 +289,8 @@ function replayRow(s, ctx, spec) {
     watermark() { if (spec.watermark) spec.watermark(); },
     async send(values) {
       const aim = spec.aim ? await spec.aim(captured) : {};
-      const place = spec.where === 'query' ? { query: { ...(aim.query || {}), ...values }, overrides: aim.overrides || {} }
-        : { overrides: { ...(aim.overrides || {}), ...values }, query: aim.query || {} };
+      const place = spec.where === 'query' ? { query: { ...aim.query, ...values }, overrides: aim.overrides || {} }
+        : { overrides: { ...aim.overrides, ...values }, query: aim.query || {} };
       const replay = rep.buildReplay(captured, { origin: s.config.baseUrl.origin, token: await ctx.token(), ...place });
       return rep.sendReplay(s.context, replay);
     },
@@ -739,7 +739,7 @@ function rows(s, ctx) {
           const stored = s.sql.rows(`SELECT x.prevention_id, x.keyval, HEX(x.val) FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id
             WHERE p.demographic_no=${patient} AND p.id > ${mark} AND x.keyval IN ('comments','reason')`);
           const byPrevention = new Map();
-          for (const [id, key, value] of stored) byPrevention.set(id, { ...(byPrevention.get(id) || {}), [key]: value });
+          for (const [id, key, value] of stored) byPrevention.set(id, { ...byPrevention.get(id), [key]: value });
           seen = [...byPrevention.values()];
           if (seen.some((entry) => entry.comments === hex(values.comments) && entry.reason === hex(values.reason))) return null;
           await wait(200);
