@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.MockedConstruction;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -46,9 +48,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -270,34 +275,141 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
     }
 
+    @ParameterizedTest(name = "type {0}")
+    @ValueSource(strings = {"8", "10", "11", "12", "14"})
+    @DisplayName("should not look up DrugRef identifiers for non-brand allergens")
+    void shouldSkipIdentifierLookup_forNonBrandAllergenTypes(String type) throws Exception {
+        mockRequest.setParameter("type", type);
+        mockRequest.setParameter("ID", "39007");
+        mockRequest.setParameter("name", "PENICILLINS");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(drugData.constructed()).isEmpty();
+        }
+        assertThat(action.isIdentifiersUnresolved()).isFalse();
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
+        assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
+    }
+
     @Test
-    @DisplayName("should log archive when archived allergy belongs to the session patient")
+    @DisplayName("should store the ATC code and DIN when a brand allergen resolves")
+    void shouldStoreIdentifiers_whenBrandAllergenResolves() throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", "100");
+        mockRequest.setParameter("name", "AMOXIL");
+        RxDrugData.DrugMonograph monograph = mock(RxDrugData.DrugMonograph.class);
+        monograph.regionalIdentifier = "00012345";
+        when(monograph.getAtc()).thenReturn("J01CA04");
+
+        try (MockedConstruction<RxDrugData> ignored = mockConstruction(RxDrugData.class,
+                (m, c) -> when(m.getDrug("100")).thenReturn(monograph))) {
+            action.execute();
+        }
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getAtc()).isEqualTo("J01CA04");
+        assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("00012345");
+        assertThat(action.isIdentifiersUnresolved()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should still save the allergy but flag it when a brand allergen cannot be resolved")
+    void shouldSaveAndFlagAllergy_whenBrandLookupFails() throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", "39007");
+        mockRequest.setParameter("name", "AMOXIL");
+
+        try (MockedConstruction<RxDrugData> ignored = mockConstruction(RxDrugData.class,
+                (m, c) -> when(m.getDrug("39007")).thenThrow(new java.util.NoSuchElementException("none")))) {
+            String result = action.execute();
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getAtc()).isNullOrEmpty();
+        // The search id is kept as the DrugRef id but is not presented as a DIN.
+        assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
+        assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
+        assertThat(action.isIdentifiersUnresolved()).isTrue();
+    }
+
+    @ParameterizedTest(name = "ID={0}")
+    @ValueSource(strings = {"", "0", "null"})
+    @DisplayName("should flag a brand allergen submitted without a usable DrugRef id")
+    void shouldFlagAllergy_whenBrandAllergenHasNoLookupId(String id) throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", id);
+        mockRequest.setParameter("name", "AMOXIL");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(drugData.constructed()).isEmpty();
+        }
+        verify(mockRxPatient).addAllergy(any(), any());
+        assertThat(action.isIdentifiersUnresolved()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should amend the active allergy and log ADD and ARCHIVE when it belongs to the session patient")
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(true);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient).deleteAllergy(42);
+        verify(mockRxPatient).amendActiveAllergy(any(), any(), eq(42));
+        // The replacement is added only through the conditional amendment, never on its own.
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
+                any(String.class), any(String.class), eq("123"), any(String.class)));
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
                 eq("42"), any(String.class), eq("123"), isNull()));
     }
 
     @Test
-    @DisplayName("should only audit archival when the previously validated allergy was archived")
-    void shouldNotAuditArchive_whenArchiveFailsAfterValidation() throws Exception {
+    @DisplayName("should refuse with 409 and write nothing when the allergy being amended is already archived (issue #4410)")
+    void shouldRefuseAmendment_whenOriginalAllergyIsAlreadyArchived() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        Allergy archived = new Allergy();
+        archived.setArchived(true);
+        when(mockRxPatient.getAllergy(42)).thenReturn(archived);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).amendActiveAllergy(any(), any(), anyInt());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should refuse with 409 and audit nothing when another session archives the original first (issue #4410)")
+    void shouldRefuseAmendment_whenOriginalIsArchivedConcurrently() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(false);
 
-        action.execute();
+        String result = action.execute();
 
-        logActionMock.verify(() -> LogAction.addLog(
-                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
-                any(String.class), any(String.class), any(String.class), any()), never());
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        logActionMock.verifyNoInteractions();
     }
 
     @ParameterizedTest
@@ -313,6 +425,121 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).addAllergy(any(), any());
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should save once when the same saveToken is retried after a successful save")
+    void shouldSaveOnce_whenSaveTokenRetriedAfterSuccess() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        // The first response was lost, so the clinician presses Add Allergy again.
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should save on retry when the first attempt with the saveToken failed")
+    void shouldSaveOnRetry_whenFirstAttemptFailed() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        doThrow(new IllegalStateException("db down")).doNothing().when(mockRxPatient).addAllergy(any(), any());
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(IllegalStateException.class);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockRxPatient, times(2)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should not burn the saveToken when validation rejects the request")
+    void shouldKeepSaveTokenUsable_whenValidationRejects() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("allergyToArchive", "42");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+
+        mockRequest.removeParameter("allergyToArchive");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should answer a retried amendment that did persist as saved instead of 409")
+    void shouldSucceedOnce_whenPersistedAmendmentIsRetried() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("allergyToArchive", "42");
+        Allergy original = new Allergy();
+        when(mockRxPatient.getAllergy(42)).thenReturn(original);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(true);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        // The response was lost; the original is archived now, and the retry must not read as stale.
+        original.setArchived(true);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+        verify(mockRxPatient, times(1)).amendActiveAllergy(any(), any(), eq(42));
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should keep a stale amendment refused on retry without burning the saveToken")
+    void shouldRefuseStaleAmendment_whenRetriedWithSameToken() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(false);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        // Not the save-token conflict: the dialogue must report it as the stale-amendment refusal.
+        assertThat(mockResponse.getHeader("X-Allergy-Save-Token")).isNull();
+
+        // The refusal released the token, so the retry reaches the conditional archive again
+        // rather than being answered from the ledger.
+        MockHttpServletResponse retryResponse = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(retryResponse);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(retryResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, times(2)).amendActiveAllergy(any(), any(), eq(42));
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should refuse a retry whose values changed after the token was used")
+    void shouldRejectRetry_whenValuesChangedForUsedToken() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("reactionDescription", "rash");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        mockRequest.setParameter("reactionDescription", "anaphylaxis");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        // Marked so the dialogue does not read it as the stale-amendment refusal (#4410).
+        assertThat(mockResponse.getHeader("X-Allergy-Save-Token")).isEqualTo("conflict");
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject a malformed saveToken before adding an allergy")
+    void shouldRejectAdd_whenSaveTokenIsMalformed() throws Exception {
+        mockRequest.setParameter("saveToken", "<script>");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should still save when no saveToken is supplied")
+    void shouldSave_whenNoSaveTokenSupplied() throws Exception {
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(2)).addAllergy(any(), any());
     }
 
     /**

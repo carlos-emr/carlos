@@ -12,8 +12,12 @@
  * deleteImage; a non-image upload is refused, keeps the manager open, leaves the stored photo
  * untouched and shows an error; Clear Photo (confirm) removes the row and the chart falls back
  * to the placeholder. (PNG is not accepted by design: the action allows GIF/JPEG only.)
+ * Last (pinned to app-findings-log.md finding 156): with the photo managers of TWO patients open in
+ * one login, Clear Photo in the first must clear the first patient's photo and keep the second's.
+ * ClientImage reads the patient from the session-wide clientId, which the manager opened last set.
  * Fixtures: the owned FAKE- patient and its client_image rows (images carry the run marker in a
- * comment segment); cleanup deletes only that patient's rows and verifies they are gone.
+ * comment segment), plus for finding 156 a second FAKE- patient (same last name, first name
+ * PhotoBravo) holding one photo; cleanup deletes only those patients' rows and verifies they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md chart section (patient-photo-upload).
  */
 const h = require('./lib/playwright-harness');
@@ -41,6 +45,7 @@ function markedGif(marker) {
   return Buffer.concat([GIF.subarray(0, -1), Buffer.from([0x21, 0xfe, text.length]), text, Buffer.from([0x00, 0x3b])]);
 }
 
+const CLEAR_STEP = 'Clear Photo in the first photo manager keeps the photo of the patient whose manager was opened second';
 const sha = bytes => require('node:crypto').createHash('sha256').update(bytes).digest('hex');
 const photo = chart => chart.locator('#rightNavBar img[title="Click to upload a new photo."]');
 const isPhotoRequest = patient => response => {
@@ -198,6 +203,88 @@ async function workflow(s) {
     await waitForNavbars(chart, 20000);
     consumeUnloadBeacon(s.recorder, since);
     h.assert(await photo(chart).getAttribute('alt') === 'No_Id_Photo', 'The chart still shows a photo after Clear Photo');
+  });
+
+  // ---- Finding 156: Clear Photo acts on whichever manager was opened last -------------------------
+  // ClientImage (saveImage, deleteImage) takes no patient parameter; the manager page stores its
+  // demographicNo as the session's clientId and the action reads it back. Two managers open in one
+  // login therefore share one target: the one opened last.
+  const { provider, marker } = s;
+  const q = h.sqlString;
+  const bPhoto = markedJpeg(`${marker}-B`);
+  let patientB;
+  const storedFor = demo => sql.rows(`SELECT image_type,SHA2(FROM_BASE64(contents),256) FROM client_image
+    WHERE demographic_no=${demo}`);
+  let managerA;
+  let managerB;
+  await s.step('two photo managers are open for two patients that each hold a photo', async () => {
+    patientB = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
+      date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
+      VALUES (${q(marker)}, 'PhotoBravo', '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR', NOW());
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(patientB), 'The second patient fixture was not created');
+    s.cleanup(() => {
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patientB}
+        AND last_name=${q(marker)} AND first_name='PhotoBravo'`) === '1', 'The second patient fixture ownership changed');
+      sql.execute(`DELETE FROM client_image WHERE demographic_no=${patientB};
+        DELETE FROM demographicExt WHERE demographic_no=${patientB};
+        DELETE FROM demographicArchive WHERE demographic_no=${patientB};
+        DELETE FROM demographic WHERE demographic_no=${patientB} AND last_name=${q(marker)}`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographic WHERE demographic_no=${patientB})
+        + (SELECT COUNT(*) FROM client_image WHERE demographic_no=${patientB})`) === '0',
+      'The second patient fixture was not removed');
+    });
+    sql.execute(`INSERT INTO client_image (demographic_no,image_type,contents,update_date)
+      VALUES (${patientB},'jpeg',${q(bPhoto.toString('base64'))},NOW())`);
+    h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+      'The second patient photo fixture was not stored as seeded');
+    // The first patient's photo goes through the manager, as a clinician uploads one.
+    await upload({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: jpeg });
+    h.assert(JSON.stringify(storedFor(patient)) === JSON.stringify([['jpeg', sha(jpeg)]]),
+      'The first patient photo was not stored as uploaded');
+    managerA = await openManager();
+    // The second manager is opened by the address the chart's photo opens (rightColumn.jsp
+    // popupUploadPage), in its own window, after the first: it is the last one opened.
+    managerB = await s.context.newPage();
+    await h.gotoApp(managerB, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
+    h.assert(new URL(managerB.url()).searchParams.get('demographicNo') === patientB
+      && await managerB.locator('button[type="submit"]', { hasText: 'Clear Photo' }).count() === 1,
+    'The second photo manager did not open for the second patient');
+    h.assert(await managerA.locator('button[type="submit"]', { hasText: 'Clear Photo' }).count() === 1
+      && new URL(managerA.url()).searchParams.get('demographicNo') === patient,
+    'The first photo manager is not bound to the first patient');
+  });
+
+  // The action of the pinned step below, with its controls: Clear Photo is pressed in the FIRST manager and asks exactly
+  // once to confirm, the manager closes and the chart reloads. What it did to each patient's photo is judged by the next
+  // two steps, so a confirm that is not asked (or a click that does nothing) reads failed-elsewhere, not known-fail.
+  await s.step('Clear Photo in the first photo manager asks once to confirm, closes the manager and reloads the chart', async () => {
+    const since = s.recorder.requestFailures.length;
+    const dialogs = await h.withExpectedDialogs(managerA, async () => {
+      await Promise.all([
+        managerA.waitForEvent('close'),
+        chart.waitForEvent('load'),
+        managerA.locator('button[type="submit"]', { hasText: 'Clear Photo' }).click(),
+      ]);
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
+    await waitForNavbars(chart, 20000);
+    consumeUnloadBeacon(s.recorder, since);
+  });
+
+  // Pinned: holds only the assertion finding 156 breaks.
+  await s.step(CLEAR_STEP, async () => {
+    h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+      'Clear Photo in the first photo manager deleted the photo of the patient whose manager was opened second '
+      + '(ClientImage acts on the session-wide clientId)');
+  });
+
+  // The other half of the same behaviour, in its own step so the pinned one above holds only what finding 156
+  // breaks: the first manager's Clear Photo must also reach the first patient.
+  await s.step('Clear Photo in the first photo manager clears the first patient photo', async () => {
+    await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0',
+      'Clear Photo in the first manager did not clear the first patient photo');
+    await managerB.close();
   });
 }
 

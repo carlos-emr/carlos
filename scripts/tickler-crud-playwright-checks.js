@@ -22,7 +22,7 @@
  */
 
 const { chromium } = require('playwright');
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -53,6 +53,9 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -134,7 +137,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -469,7 +475,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 });
 
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,

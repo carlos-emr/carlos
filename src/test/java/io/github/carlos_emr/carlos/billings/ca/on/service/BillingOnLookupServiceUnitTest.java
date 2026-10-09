@@ -54,16 +54,18 @@ import static org.mockito.Mockito.when;
 class BillingOnLookupServiceUnitTest {
 
     private BillingONFavouriteDao favouriteDao;
+    private ProviderDao providerDao;
     private BillingOnLookupService service;
 
     @BeforeEach
     void setUp() {
         favouriteDao = mock(BillingONFavouriteDao.class);
+        providerDao = mock(ProviderDao.class);
         service = new BillingOnLookupService(
                 mock(OscarAppointmentDao.class),
                 mock(ProfessionalSpecialistDao.class),
                 mock(ClinicLocationDao.class),
-                mock(ProviderDao.class),
+                providerDao,
                 mock(BillingPaymentTypeDao.class),
                 favouriteDao,
                 mock(DemographicManager.class),
@@ -126,5 +128,60 @@ class BillingOnLookupServiceUnitTest {
         assertThat(result.formFields()).containsEntry("name", "Morning");
         assertThat(favourite.getDeleted()).isEqualTo(1);
         verify(favouriteDao).merge(favourite);
+    }
+
+    // ---- billing group number normalization (issue #4277) ----------------
+
+    private static io.github.carlos_emr.carlos.commn.model.Provider billableProvider(String providerNo, String storedGroup) {
+        var p = new io.github.carlos_emr.carlos.commn.model.Provider();
+        p.setProviderNo(providerNo);
+        p.setLastName("Fixture");
+        p.setFirstName("Group");
+        p.setOhipNo("0" + providerNo + "0");
+        p.setStatus("1");
+        p.setComments("<xml_p_billinggroup_no>" + storedGroup + "</xml_p_billinggroup_no>"
+                + "<xml_p_specialty_code>00</xml_p_specialty_code>");
+        return p;
+    }
+
+    @Test
+    void shouldZeroPadShortNumericGroup_whenReadingProviderObject() {
+        when(providerDao.getProvider("1234")).thenReturn(billableProvider("1234", "123"));
+
+        assertThat(service.getProviderObj("1234").getBillingGroupNo()).isEqualTo("0123");
+    }
+
+    @Test
+    void shouldClassifyProvidersByNormalizedGroup_whenListingSoloAndGroupProviders() {
+        when(providerDao.getBillableProviders()).thenReturn(List.of(
+                billableProvider("1001", "123"),
+                billableProvider("1002", "000"),
+                billableProvider("1003", ""),
+                billableProvider("1004", " 12a4 ")));
+
+        assertThat(service.getCurGrpProvider())
+                .extracting(dto -> dto.getProviderNo() + "=" + dto.getBillingGroupNo())
+                .containsExactly("1001=0123", "1004=12A4");
+        assertThat(service.getCurSoloProvider())
+                .extracting(dto -> dto.getProviderNo() + "=" + dto.getBillingGroupNo())
+                .containsExactly("1002=0000", "1003=0000");
+    }
+
+    @Test
+    void shouldNormalizeGroup_inProviderDropdownEntries() {
+        when(providerDao.getBillableProviders()).thenReturn(List.of(billableProvider("1001", "123")));
+
+        assertThat(service.getCurProviderStr())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry::billingGroupNo)
+                .containsExactly("0123");
+    }
+
+    @Test
+    void shouldKeepUnnormalizableGroup_forDownstreamRejection() {
+        // The lookup does not guess: a five-digit value stays ill-formed so the
+        // generation flow can name the provider instead of billing under "".
+        when(providerDao.getProvider("1234")).thenReturn(billableProvider("1234", "12345"));
+
+        assertThat(service.getProviderObj("1234").getBillingGroupNo()).isEqualTo("12345");
     }
 }

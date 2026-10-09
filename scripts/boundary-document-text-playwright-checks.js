@@ -17,6 +17,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const q = h.sqlString;
 
@@ -44,30 +45,26 @@ async function workflow(s) {
   const T = b.TOKENS;
   const column = b.columnLength(sql, 'document', 'docdesc');
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'bnd-doc-'));
+  // Each upload files a chart note for its document and a note link (lib/document-residue.js); neither carries the description.
+  const mark = markDocumentResidue(sql);
   const rows = () => sql.rows(`SELECT d.document_no, d.docfilename FROM document d JOIN ctl_document c ON c.document_no=d.document_no
     WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc LIKE ${q(`${marker}%`)}`);
   s.cleanup(() => {
     const files = new Set();
-    for (const [no, file] of rows()) {
-      h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
-      // A demographic upload also saves a "Document ... created" chart note linked to it (table_name 5 = DOCUMENT).
-      const notes = sql.rows(`SELECT l.note_id FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id=l.note_id
-        WHERE l.table_name=5 AND l.table_id=${no} AND n.demographic_no=${patient}`);
-      for (const [note] of notes) {
-        h.assert(/^[1-9]\d*$/.test(note), 'Owned document note id is invalid');
-        sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id=${note} AND table_name=5 AND table_id=${no};
-          DELETE FROM casemgmt_issue_notes WHERE note_id=${note};
-          DELETE FROM casemgmt_note WHERE note_id=${note} AND demographic_no=${patient}`);
+    try {
+      for (const [no, file] of rows()) {
+        // Registered before anything that can throw: the stored PDF is removed below even when a delete for its document fails.
+        files.add(file);
+        h.assert(/^[1-9]\d*$/.test(no), 'Owned document id is invalid');
+        sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
+        removeDocumentResidue(sql, mark, [no]);
       }
-      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_link WHERE table_name=5 AND table_id=${no}`) === '0',
-        'The owned document\'s chart note was not removed');
-      sql.execute(`DELETE FROM ctl_document WHERE document_no=${no} AND module_id=${patient}; DELETE FROM document WHERE document_no=${no}`);
-      files.add(file);
-    }
-    for (const file of files) {
-      const target = path.join(store, path.basename(file));
-      if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
-      h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+    } finally {
+      for (const file of files) {
+        const target = path.join(store, path.basename(file));
+        if (path.basename(file) === file && fs.existsSync(target)) fs.unlinkSync(target);
+        h.assert(!fs.existsSync(target), 'An uploaded document file was not removed from the store');
+      }
     }
     fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(rows().length === 0, 'Owned documents were not removed');

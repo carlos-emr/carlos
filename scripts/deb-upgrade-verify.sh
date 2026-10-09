@@ -136,9 +136,17 @@ OSCAR_DEFAULT_MIGRATIONS=(
   'displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true'
   'DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true'
 )
+# The OAuth access-mode keys are reset to their stock default once, from ANY
+# single-definition value (.oauth-access-defaults-migrated). Keep in step with
+# the OAUTH_ACCESS_DEFAULTS block in debian/carlos-emr.postinst.
+OAUTH_ACCESS_DEFAULTS=(
+  'oauth.scope.enforcement.enabled|oauth.scope.enforcement.enabled=false'
+  'oauth.scope.legacy.access|oauth.scope.legacy.access=restricted'
+)
 ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
 ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
 od_sentinel_pre=$(g "$PRE" sentinel..oscar-feature-defaults-migrated 2>/dev/null || true)
+oa_sentinel_pre=$(g "$PRE" sentinel..oauth-access-defaults-migrated 2>/dev/null || true)
 # Every migrated line either stayed put or made exactly its sanctioned
 # old-stock -> new-stock move on an upgrade that had not yet run that migration.
 ht_ok=0
@@ -151,21 +159,49 @@ for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
   od_changed="$od_changed $k"
   { [ "$pre" = "$old_line" ] && [ "$post" = "$new_line" ] && [ "$od_sentinel_pre" != yes ]; } || od_ok=0
 done
+# An OAuth access key either stayed put or, on the upgrade that first writes
+# its sentinel, moved from one definition of any value to exactly the stock line.
+oa_ok=1; oa_changed=""
+for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
+  k=${pair%%|*}; new_line=${pair#*|}
+  pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true); post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
+  [ "$pre" = "$post" ] && continue
+  oa_changed="$oa_changed $k"
+  case "$pre" in *';'*|'') oa_ok=0; continue ;; esac
+  { [ "$post" = "$new_line" ] && [ "$oa_sentinel_pre" != yes ]; } || oa_ok=0
+done
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
-elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] \
+elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then
-  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
+  ok "cfg.carlos.properties.sha changed only by the one-time stock-default migrations (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; OAuth access:${oa_changed:- none})"
 elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.active.sha)" = "$(g "$POST" cfg.carlos.properties.active.sha)" ] \
-    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ]; then
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ]; then
   # Same active settings apart from any sanctioned migration, different bytes:
   # a key was commented out and re-appended with its old value (see
   # deb-upgrade-baseline.sh).
   ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none})"
 else
-  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none})"
+  bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none}; OAuth access changed:${oa_changed:- none})"
+fi
+# The OAuth access-mode reset is asserted when the PRE snapshot carries a
+# single definition of either key that is not the stock default.
+if [ "$oa_sentinel_pre" != yes ]; then
+  oa_expected=0
+  for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
+    k=${pair%%|*}; new_line=${pair#*|}
+    pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true)
+    case "$pre" in ''|*';'*) continue ;; esac
+    [ "$pre" = "$new_line" ] && continue
+    oa_expected=1
+    post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
+    [ "$post" = "$new_line" ] && ok "the OAuth access setting $pre was reset to $new_line" || bad "$k was not reset: '$post'"
+  done
+  if [ "$oa_expected" = 1 ]; then
+    [ "$(g "$POST" sentinel..oauth-access-defaults-migrated)" = yes ] && ok "OAuth access-defaults migration sentinel written" || bad "OAuth access-defaults migration sentinel missing after upgrade"
+  fi
 fi
 if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
   [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"

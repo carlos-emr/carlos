@@ -100,3 +100,30 @@ test('browser and database cleanup failures are reported and credentials are sti
     (error) => error instanceof AggregateError && error.errors.length === 2);
   assert.equal(disposed, true);
 });
+
+test('legacy empty-group cleanup retains exclusive provider ownership checks', async (t) => {
+  const root = directory(t);
+  fs.writeFileSync(path.join(root, 'HJ.001'), 'owned fallback');
+  fs.writeFileSync(path.join(root, 'H9999J.001'), 'unrelated');
+  const deleted = [];
+  const db = {
+    value: query => query.includes('AND first_name=') ? '1' : '0',
+    rows(query) {
+      if (query.startsWith('SELECT d.id')) {
+        assert.match(query, /d\.groupno IN \('8123',''\)/);
+        assert.match(query, /AND EXISTS .*f\.providerno IN \('970001'\)/);
+        assert.match(query, /AND NOT EXISTS .*f\.providerno IS NULL OR f\.providerno NOT IN \('970001'\)/);
+        return [['12', 'HJ.001']];
+      }
+      return [];
+    },
+    execute: query => deleted.push(query),
+    dispose() {},
+  };
+  await cleanupResources(null, db, {
+    marker: 'PW4277-test', groupNo: '8123', cleanupGroupNumbers: ['8123', ''],
+    providers: { ZERO: { providerNo: '970001' } },
+  }, root);
+  assert.deepEqual(fs.readdirSync(root), ['H9999J.001']);
+  assert.ok(deleted.some(query => query.includes('DELETE FROM billing_on_diskname WHERE id=12')));
+});

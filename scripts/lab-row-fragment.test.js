@@ -38,3 +38,23 @@ test('the row loading indicator names an image included in the web application',
   const asset = jsp.match(/img\.setAttribute\('src', '\$\{carlos:forJavaScript\(pageContext\.request\.contextPath\)\}([^']+)'\)/)[1];
   assert.ok(fs.statSync(path.join(web, asset)).isFile(), `Missing row loading image: ${asset}`);
 });
+
+test('boxover tooltip payloads never carry attribute-only-encoded data (stored markup reaches innerHTML)', () => {
+  // boxover.js assigns the decoded title segments to innerHTML, so every data value in a
+  // fade=[..] title must go through SafeEncode.forTooltipText (HTML- then attribute-encoding).
+  const offenders = [];
+  const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return walk(full);
+    if (!/\.(jsp|jspf)$/.test(entry.name)) return;
+    fs.readFileSync(full, 'utf8').split('\n').forEach((line, i) => {
+      if (line.includes('fade=[') && !line.includes('<%--') && /context="htmlAttribute"/.test(line)) {
+        offenders.push(`${path.relative(web, full)}:${i + 1}`);
+      }
+    });
+  });
+  walk(path.join(web, 'WEB-INF/jsp'));
+  assert.deepEqual(offenders, []);
+  const lab = fs.readFileSync(path.join(web, 'WEB-INF/jsp/lab/DisplayLabValue.jsp'), 'utf8');
+  assert.equal((lab.match(/SafeEncode\.forTooltipText\(/g) || []).length, 4);
+});

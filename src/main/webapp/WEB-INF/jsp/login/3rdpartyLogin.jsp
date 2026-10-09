@@ -270,6 +270,24 @@
                         is requesting access to your OSCAR account.<br>
                         URL: <carlos:encode value='${oauthData.applicationURI}' context="html"/>.
                     </h5>
+                    <c:if test="${not oauthData.scopesEnforced and oauthData.legacyRestricted}">
+                        <%-- The default access mode (#4419): the scopes below are recorded on the token but
+                             not checked; the application is held to the legacy integration endpoints
+                             instead. --%>
+                        <div class="alert alert-warning" role="alert" id="legacyRestrictedWarning">
+                            This server does not check the permissions listed below. If you authorize this
+                            application, it is limited to the legacy integration operations: creating,
+                            updating and reading patient records and attaching documents to them.
+                        </div>
+                    </c:if>
+                    <c:if test="${not oauthData.scopesEnforced and not oauthData.legacyRestricted}">
+                        <%-- oauth.scope.legacy.access=full: approving grants the provider's full access. --%>
+                        <div class="alert alert-warning" role="alert" id="fullAccessWarning">
+                            This server does not check the permissions listed below and gives applications
+                            full access. If you authorize this application, it can read and change
+                            everything your account can, not only the permissions listed below.
+                        </div>
+                    </c:if>
                     <h5>Permissions requested:</h5>
                     <form id="scopeForm" method="post"
                         action="${carlos:forHtmlAttribute(oauthData.replyTo)}">

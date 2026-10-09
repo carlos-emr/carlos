@@ -32,6 +32,9 @@
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE (to stage and restore the pharmacy links)
+ * The check reprints the demo patient's own prescription and flips that patient's pharmacy links. The application stamps the audit
+ * columns while it does (the script's reprint log and lastUpdateDate, each link's addDate); they are snapshotted first and written
+ * back exactly in the cleanup (lib/demo-timestamp-restore.js), where only the link status was restored before.
  * Optional: PRESCRIPTION_SCRIPT_ID (defaults to the newest owned script with owned drug rows;
  *   an unusable explicit fixture is rejected before browser launch),
  *   PRESCRIPTION_DEMOGRAPHIC_NO (default 1), CHROME_PATH,
@@ -46,6 +49,7 @@ const path = require('path');
 const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { cleanupOwnedWorkflow } = require('./lib/workflow-session');
+const demoAudit = require('./lib/demo-timestamp-restore');
 const { openRx, stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 const {
   assert,
@@ -143,6 +147,12 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// sql() as the rows()/execute() client lib/demo-timestamp-restore.js takes.
+const auditSql = {
+  rows: (query) => { const out = sql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { sql(query); },
+};
+
 // The pharmacy unlink is staged through the table's own soft-delete model
 // (DemographicPharmacy.ACTIVE='1' / INACTIVE='0') rather than DELETE+re-
 // INSERT, and only the ids captured here are flipped back, so a crashed run
@@ -178,6 +188,8 @@ async function assertPreviewRenders(hostFrame, label) {
 // Module scope so the SIGINT/SIGTERM handler (issue #3600) reaches the same state
 // the finally block cleans up: a finally does not run when the process is killed.
 let browser = null;
+// The demo patient's prescription and pharmacy-link audit columns as they were before the run (see the header).
+let auditBefore = null;
 let stagedLinkIds = null;
 let foreignPatient = null;
 const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
@@ -198,6 +210,14 @@ async function cleanupRunOnce() {
     restorePharmacy(stagedLinkIds);
   } catch (restoreError) {
     console.error(`FAIL failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
+    process.exitCode = 1;
+  }
+  try {
+    // After the status is back: the flips and the reprints moved audit columns the check does not own (the link's addDate is
+    // ON UPDATE CURRENT_TIMESTAMP), and this puts them back exactly. Attempted even when the status restore failed.
+    if (auditBefore) demoAudit.restore(auditSql, auditBefore);
+  } catch (auditError) {
+    console.error(`FAIL failed to restore the demo prescription and pharmacy-link audit columns: ${auditError.message}`);
     process.exitCode = 1;
   }
   try {
@@ -222,6 +242,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
   try {
     initMysqlDefaults();
     scriptId = resolvePrescriptionScriptId();
+    auditBefore = demoAudit.snapshot(auditSql, demographicNo);
     browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
     stagedLinkIds = stageNoPharmacy();
 
