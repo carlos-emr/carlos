@@ -50,6 +50,11 @@
  *
  * Environment (beyond the common contract in lib/playwright-harness.js):
  *   LAB_UPLOAD_DOCUMENT_STORE  the server's DOCUMENT_DIR, mounted or local.
+ *   LAB_UPLOAD_JOURNAL_UNIT    optional: the systemd unit whose journal holds the server log
+ *                              (`carlos-emr` on a package install). With it, or LAB_UPLOAD_SERVER_LOG,
+ *                              the failure step also asserts the log names the database's own error
+ *                              at ERROR and shows no Hibernate HHH000099 (#4436). See lib/server-log.js.
+ *   LAB_UPLOAD_SERVER_LOG      optional: a console log file, such as the devcontainer's catalina.out.
  */
 
 const crypto = require('node:crypto');
@@ -57,6 +62,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 const { syntheticCmlLab, openUploader } = require('./lab-upload-playwright-checks');
 
 /** Encrypts and signs a lab the way the legacy sender protocol does. */
@@ -152,7 +158,9 @@ async function workflow(session) {
         sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
           DELETE FROM measurements WHERE id IN (${ids})`);
       }
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+      // The upload path also writes a providerLabRoutingLock row for each lab it files; nothing else removes it.
+      sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
+        DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
@@ -213,6 +221,8 @@ async function workflow(session) {
           END IF;
         END//
         DELIMITER ;`);
+      const serverLog = serverLogFromEnvironment();
+      const logMark = serverLog.mark();
       const status = await postSigned(session, popup, sealed, service);
       h.assert(status === 500, `A failed signed upload answered HTTP ${status}; a sender must be told to retry`);
       h.assert(sql.value(`SELECT
@@ -221,6 +231,10 @@ async function workflow(session) {
         + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
       'The failed upload left its checksum or partial lab rows, which would refuse the retry');
       expectCopies(0, 'after the failed upload');
+      // After the rollback, which matters more, so a log failure cannot mask it. #4436: the rejected
+      // insert must surface as the database's own error, not as Hibernate's HHH000099.
+      await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
+        databaseMessage: 'Synthetic signed upload failure probe', assert: h.assert });
     } finally {
       sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
       triggerMayExist = false;

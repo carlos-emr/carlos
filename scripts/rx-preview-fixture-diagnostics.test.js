@@ -95,7 +95,11 @@ const pharmacyEntry = pharmacy.slice(pharmacy.indexOf('let browser = null;'));
 for (const invalid of [true, false]) {
   test(`pharmacy fixture startup cleans up after ${invalid ? 'fixture validation' : 'browser launch'} failure`, async () => {
     const events = [];
+    const audit = [];
     const context = {
+      // The demo prescription's and pharmacy links' audit columns: snapshotted once the fixture resolves, put back in the cleanup.
+      demoAudit: {snapshot(client, patient) {audit.push('snapshot'); return {patient};}, restore() {audit.push('restore');}},
+      auditSql: {}, demographicNo: '1',
       createRecorder: () => ({}), config: {chromePath: ''},
       randomBytes: () => ({toString: () => 'fixture'}),
       initMysqlDefaults() { events.push('defaults'); },
@@ -116,6 +120,8 @@ for (const invalid of [true, false]) {
     await vm.runInNewContext(pharmacyEntry, context);
     assert.equal(context.process.exitCode, 1);
     assert.deepEqual(events, ['defaults', 'resolve', ...(invalid ? [] : ['launch']), 'restore', 'owned cleanup', 'defaults cleanup']);
+    // Nothing is snapshotted for a fixture that never resolved, so nothing is written back; otherwise it is, even though the browser never started.
+    assert.deepEqual(audit, invalid ? [] : ['snapshot', 'restore']);
   });
 }
 
@@ -130,6 +136,8 @@ for (const failRestore of [false, true]) {
     const events = [];
     const errors = [];
     const context = {
+      // A run that snapshotted the demo audit columns writes them back after the status, whether or not the status restore failed.
+      auditBefore: {patient: '1'}, auditSql: {}, demoAudit: {restore(client, state) {assert.equal(state.patient, '1'); events.push('audit restore');}},
       stagedLinkIds: '12,13', browser: {}, foreignPatient: null, foreignMarker: 'fixture',
       restorePharmacy(ids) {
         assert.equal(ids, '12,13'); events.push('restore');
@@ -141,11 +149,29 @@ for (const failRestore of [false, true]) {
     };
     await vm.runInNewContext(teardown, context);
     assert.equal(context.process.exitCode, failRestore ? 1 : 0);
-    assert.deepEqual(events, ['restore', 'owned cleanup', 'defaults cleanup']);
+    assert.deepEqual(events, ['restore', 'audit restore', 'owned cleanup', 'defaults cleanup']);
     assert.equal(errors.length, failRestore ? 1 : 0);
     if (failRestore) assert.match(errors[0], /^FAIL .*restore demographicPharmacy links/);
   });
 }
+
+test('a failed write-back of the demo audit columns fails an otherwise successful run and does not stop the rest of the cleanup', async () => {
+  const events = [];
+  const errors = [];
+  const context = {
+    auditBefore: {patient: '1'}, auditSql: {}, demoAudit: {restore() {events.push('audit restore'); throw new Error('audit write-back unavailable');}},
+    stagedLinkIds: '12,13', browser: {}, foreignPatient: null, foreignMarker: 'fixture',
+    restorePharmacy() {events.push('restore');},
+    cleanupOwnedWorkflow: async () => {events.push('owned cleanup');},
+    cleanupMysqlDefaults() {events.push('defaults cleanup');}, sql() {},
+    process: {exitCode: 0}, console: {error(message) {errors.push(message);}},
+  };
+  await vm.runInNewContext(teardown, context);
+  assert.equal(context.process.exitCode, 1);
+  assert.deepEqual(events, ['restore', 'audit restore', 'owned cleanup', 'defaults cleanup']);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /^FAIL .*restore the demo prescription and pharmacy-link audit columns/);
+});
 
 const waitHelper = section(signature, 'async function waitForPreviewOrExplain(', 'async function previewFrame(');
 async function probe({waits, states}) {

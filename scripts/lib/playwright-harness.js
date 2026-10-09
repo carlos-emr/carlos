@@ -849,11 +849,48 @@ function getLaunchOptions(chromePath) {
   return launchOptions;
 }
 
+/**
+ * The version of the browser a check drove, for the run's record ("chromium 154.0.8025.0"), or undefined
+ * when the object does not say.
+ *
+ * WHY IT IS RECORDED. A browser's rules change between releases and under the host's settings: Chromium
+ * 154 refuses a beforeunload prompt from a handler that removes itself, and names a download "download"
+ * under the POSIX locale. A failure that comes from the browser looks exactly like one that comes from the
+ * application, so a result is only interpretable next to the browser that produced it (alpha19 validation,
+ * docs/ui-tests/deb-install-validation.md).
+ *
+ * `browser` is a Playwright Browser. Only the plain version text is kept (the runner copies it into
+ * JUnit and the console, so it is cut down to a short, harmless string).
+ */
+function describeBrowserVersion(browser) {
+  try {
+    const version = browser && typeof browser.version === 'function' ? browser.version() : undefined;
+    if (typeof version !== 'string' || !version.trim()) return undefined;
+    const type = typeof browser.browserType === 'function' ? browser.browserType() : undefined;
+    const name = type && typeof type.name === 'function' ? type.name() : undefined;
+    const text = `${typeof name === 'string' ? `${name} ` : ''}${version}`.replace(/[^\w .+-]/g, '').trim();
+    return text ? text.slice(0, 80) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What launchBrowser() saw in this process; one check is one process, so it is that check's browser. */
+let launchedBrowserVersion;
+
+/** Remember a launched browser's version for runCheck() to write into its record. null forgets it (tests). */
+function recordBrowserVersion(browser) {
+  launchedBrowserVersion = browser === null ? undefined : describeBrowserVersion(browser);
+  return launchedBrowserVersion;
+}
+
 /** Lazy so the harness stays require()-able in CI, which has no browser binary. */
 async function launchBrowser(config) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  return chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  recordBrowserVersion(browser);
+  return browser;
 }
 
 /**
@@ -1025,6 +1062,10 @@ async function login(context, config, recorder, options = {}) {
 }
 
 async function screenshot(page, screenshotDir, name) {
+  // SCREENSHOT_DIR is optional (readConfig defaults it to ''): screenshots are diagnostics, so an
+  // unset directory captures nothing instead of failing a check that otherwise passed. A directory
+  // that IS set still goes through the artifact-path validation below.
+  if (screenshotDir === undefined || screenshotDir === null || String(screenshotDir).trim() === '') return null;
   const outputPath = buildArtifactPath(screenshotDir, name);
   await page.screenshot({ path: outputPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   return outputPath;
@@ -1087,12 +1128,205 @@ function installCleanupSignalHandlers(cleanup, options = {}) {
 }
 
 /**
+ * Record on `error` the label of the step that threw it, so runCheck() can report `failedStep`.
+ *
+ * WHY. The manifest's `expectedFailure: { finding, step }` says a check fails at one specific step
+ * while a logged defect stands. The runner can only tell "that step" from "a new failure somewhere
+ * else" if the failing step's label travels with the failure. The INNERMOST label wins, so a
+ * wrapper such as `const step = (label, body) => s.step(label, ...)` or an outer step around a
+ * nested one cannot relabel a failure a deeper step already named.
+ *
+ * The property is non-enumerable: console.error(error) and JSON serialisation of the error stay
+ * exactly as they were. A thrown primitive cannot carry a property and passes through unchanged.
+ * Returns `error` so a catch block can `throw markFailedStep(error, label)`.
+ */
+function markFailedStep(error, label) {
+  if (error !== null && typeof error === 'object' && typeof label === 'string' && label
+    && typeof error.failedStep !== 'string') {
+    try {
+      Object.defineProperty(error, 'failedStep', { value: label, enumerable: false, configurable: true });
+    } catch {
+      // A frozen or exotic error object: the failure is still reported, only unlabelled.
+    }
+  }
+  return error;
+}
+
+/** A header the application's own filters add to every response and the WAF's nginx error page lacks. */
+const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
+
+/**
+ * The statuses a caller may add to assertRefused's refusals (alsoRefusedBy), each a deliberate answer
+ * to the request's content rather than to its address: 409 (a conflicting or replayed submission),
+ * 415 (a content type the resource does not consume) and 422 (an entity it will not process).
+ */
+const ALSO_REFUSED_STATUSES = Object.freeze([409, 415, 422]);
+
+/**
+ * The front door's block page: nginx + ModSecurity answer 403 to text the application would have
+ * accepted (the check's own fixture text can trip CRS rules). It says nothing about the route.
+ */
+function isWafPage(status, body) {
+  return status === 403 && /ModSecurity|<center>nginx<\/center>/i.test(body || '');
+}
+
+/** CARLOS's refusal page (securityError.jsp, the global SecurityException result). */
+function isSecurityErrorBody(body) {
+  return /Security Exception/i.test(body || '') && /insufficient privileges/i.test(body || '');
+}
+
+/**
+ * CARLOS's generic error page (errorpage.jsp, titled "Error Page"), which a sendError(405) renders.
+ * Only a fallback proof of origin for a 405: the header is the primary proof, and the title is
+ * localised, so a deployment in another locale relies on the header.
+ */
+function isApplicationErrorPage(body) {
+  return /<title>\s*Error Page\s*<\/title>/i.test(body || '');
+}
+
+/** Normalise a Playwright APIResponse/Response, or a pre-read { status, body, headers }. */
+async function readRefusalEvidence(response) {
+  assert(response && typeof response === 'object', 'assertRefused needs the response of the request under test');
+  const read = (member) => (typeof response[member] === 'function' ? response[member]() : response[member]);
+  const rawHeaders = read('headers') || {};
+  const headers = {};
+  for (const [name, value] of Object.entries(rawHeaders)) headers[name.toLowerCase()] = value;
+  let body = '';
+  if (typeof response.text === 'function') {
+    body = await response.text().catch(() => '');
+  } else if (typeof response.body === 'string') {
+    body = response.body;
+  }
+  return { status: read('status'), headers, body: String(body || '') };
+}
+
+/**
+ * Did the APPLICATION refuse? Returns { refused, evidence } or { refused: false, problem }.
+ * Nothing here echoes the body or the address: the message lands in stdout and RESULT_JSON.
+ */
+function judgeRefusal({ status, headers, body }, alsoRefusedBy = []) {
+  if (isWafPage(status, body)) {
+    return {
+      refused: false,
+      problem: 'WAF refusal, not an application refusal: the 403 is the ModSecurity/nginx front door\'s page, '
+        + 'so it says nothing about the route under test',
+    };
+  }
+  const fromApplication = Object.prototype.hasOwnProperty.call(headers, APPLICATION_HEADER);
+  if (status === 405) {
+    // A 405 is no more self-evidently the application's than a 403: the nginx front door and the
+    // container's default servlet answer 405 too (a POST to a static resource, a disallowed
+    // verb), and neither says anything about the route under test.
+    if (fromApplication) return { refused: true, evidence: `HTTP 405 carrying ${APPLICATION_HEADER}` };
+    if (isApplicationErrorPage(body)) return { refused: true, evidence: 'HTTP 405 application error page' };
+    return {
+      refused: false,
+      problem: `HTTP 405 whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header `
+        + 'and not the application\'s error page)',
+    };
+  }
+  if (status === 403) {
+    if (fromApplication) return { refused: true, evidence: `HTTP 403 carrying ${APPLICATION_HEADER}` };
+    if (isSecurityErrorBody(body)) return { refused: true, evidence: 'HTTP 403 securityError page' };
+    return {
+      refused: false,
+      problem: `HTTP 403 whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header `
+        + 'and not the securityError page)',
+    };
+  }
+  // A status the caller named as this request's deliberate refusal (a JAX-RS resource that
+  // @Consumes JSON answers any other content type with 415 before the method runs) counts only
+  // with the application header: the front door and the container can answer it too.
+  if (alsoRefusedBy.includes(status)) {
+    if (fromApplication) return { refused: true, evidence: `HTTP ${status} carrying ${APPLICATION_HEADER}` };
+    return {
+      refused: false,
+      problem: `HTTP ${status} whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header)`,
+    };
+  }
+  // An include()d gate cannot set a status, so the securityError page can arrive under a 200.
+  if (status >= 200 && status < 300 && isSecurityErrorBody(body)) {
+    return { refused: true, evidence: `HTTP ${status} securityError page` };
+  }
+  if (status >= 300 && status < 400 && /securityError|noRights/i.test(headers.location || '')) {
+    return { refused: true, evidence: `HTTP ${status} redirect to the securityError page` };
+  }
+  let hint = '';
+  if (status === 404) hint = ' (route not found)';
+  else if (status >= 500) hint = ' (server error)';
+  else if (status >= 200 && status < 300) hint = ' (the route served the request)';
+  else if (status >= 300 && status < 400) hint = ` (redirect to ${pathOnly(headers.location) || 'nowhere'})`;
+  return {
+    refused: false,
+    problem: `HTTP ${status}${hint} is not the application's 403/405/securityError refusal`,
+  };
+}
+
+/**
+ * Assert that the application refused a request AND wrote nothing.
+ *
+ * THE SHARED REFUSAL ASSERTION for every GET-reject, CSRF and authorization probe. It passes only
+ * when BOTH hold:
+ *   1. the answer is the application's own refusal: a 405 or a 403 that CARLOS wrote (its
+ *      X-Permitted-Cross-Domain-Policies header, which ResponseDefaultsFilter adds to every
+ *      response and the front door's nginx pages lack; or, for a 403, its securityError page, and
+ *      for a 405, its error page), or a redirect to securityError. A bare status is NOT enough, 405
+ *      included (the front door and the default servlet answer 405 too): a 404 is
+ *      a mistyped route, a 5xx is a crash, and a ModSecurity 403 is the front door reacting to the
+ *      check's own fixture text, so a check that accepted any of them would pass without ever
+ *      reaching the code under test;
+ *   2. `SELECT COUNT(*) FROM table WHERE where` equals `before`, the count the caller took BEFORE
+ *      sending the request. Rows unchanged alone prove nothing either (the WAF blocks before the
+ *      application runs), which is why the two are required together.
+ * Every problem found is named in one error.
+ *
+ * `response` is a Playwright APIResponse or Response, or a pre-read { status, body, headers }.
+ * `table` must be a plain table name and `where` a fragment that selects only rows the calling
+ * check owns; both come from the check's source, never from request data. `label` (optional) names
+ * the request in the message. `alsoRefusedBy` (optional, default none) names further HTTP statuses
+ * that are THIS request's deliberate refusal, such as 415 from a JAX-RS resource that @Consumes JSON
+ * when the probe sends another content type; one of them counts only when it carries the
+ * application header. Only ALSO_REFUSED_STATUSES can be named: a 404 (a mistyped route) or a 400 says
+ * nothing about the defence under test, so it can never be declared a refusal. Returns
+ * { status, evidence, rows }.
+ */
+async function assertRefused(s, {
+  response, table, where, before, label = 'the request', alsoRefusedBy = [],
+} = {}) {
+  assert(Array.isArray(alsoRefusedBy) && alsoRefusedBy.every(status => ALSO_REFUSED_STATUSES.includes(status)),
+    `assertRefused: alsoRefusedBy names only ${ALSO_REFUSED_STATUSES.join(', ')}`);
+  assert(s && s.sql && typeof s.sql.value === 'function', 'assertRefused needs the workflow session (s.sql.value)');
+  assert(before !== undefined && before !== null && String(before).trim() !== '',
+    'assertRefused needs the COUNT(*) taken before the request (before)');
+  assert(typeof table === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(table),
+    'assertRefused: table must be a plain table name');
+  assert(typeof where === 'string' && where.trim() !== '',
+    'assertRefused needs a where clause that selects only the rows the check owns');
+  const evidence = await readRefusalEvidence(response);
+  const verdict = judgeRefusal(evidence, alsoRefusedBy);
+  const rows = String(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`));
+  const problems = [];
+  if (!verdict.refused) problems.push(verdict.problem);
+  if (rows !== String(before)) {
+    problems.push(`${label} changed ${table}: COUNT(*) was ${before} before the request and ${rows} after`);
+  }
+  assert(problems.length === 0, `${label} was not shown to be refused: ${problems.join('; ')}`);
+  return { status: evidence.status, evidence: verdict.evidence, rows };
+}
+
+/**
  * The one entry point a check's main() should use.
  *
  * Standardises what 75 scripts each did differently: the SIGINT/SIGTERM handler
  * (issue #3600 -- 52 scripts had none, so an interrupted run left its fixture
  * rows behind), the PASS/FAIL/SKIP reporting line the runner parses, the exit
  * code, and running cleanup in a finally even when the body threw.
+ *
+ * A failure also reports WHICH labelled step threw (`failedStep`, set by markFailedStep, which
+ * workflow-session's step() calls) and whether cleanup failed (`cleanupFailed`). A script that
+ * runs through runCheck directly and labels its own steps wraps each body with markFailedStep to
+ * take part in the manifest's expectedFailure bookkeeping. The record also carries `browserVersion`
+ * ("chromium 154.0.8025.0") when launchBrowser() started a browser in this process.
  */
 async function runCheck(options) {
   const { name } = options;
@@ -1105,6 +1339,10 @@ async function runCheck(options) {
   let outcome = 'PASS';
   let detail = '';
   let value;
+  // The label of the step that threw (see markFailedStep), for the runner's expectedFailure
+  // comparison. Never set for a skip or an interruption: neither is a failure AT a step.
+  let failedStep;
+  let cleanupFailed = false;
   try {
     value = await options.run({ cancellation, throwIfCancelled: cancellation.throwIfCancelled });
   } catch (error) {
@@ -1117,6 +1355,9 @@ async function runCheck(options) {
     } else {
       outcome = 'FAIL';
       detail = (error && error.message) || 'check failed';
+      if (error && typeof error.failedStep === 'string' && error.failedStep) {
+        failedStep = error.failedStep;
+      }
     }
   } finally {
     if (options.cleanup) {
@@ -1128,6 +1369,7 @@ async function runCheck(options) {
         // test here" -- while its fixture rows stayed in the database for the
         // next run to inherit.
         outcome = 'FAIL';
+        cleanupFailed = true;
         detail = `${detail ? `${detail}; ` : ''}cleanup failed: ${(cleanupError && cleanupError.message) || 'unknown'}`;
       }
     }
@@ -1135,8 +1377,17 @@ async function runCheck(options) {
   }
   const durationMs = (options.now ? options.now() : Date.now()) - started;
   out.log(`${outcome} ${name}${detail ? ` -- ${detail}` : ''}`);
+  // failedStep and cleanupFailed are written only when they carry information, so a passing
+  // record keeps its original four fields. The runner reads both: a failure at the step the
+  // manifest expects is a known failure only if its cleanup also left nothing behind.
+  // browserVersion only when this process launched a browser through launchBrowser(): a check that
+  // skipped before launching, or drives Playwright itself, records none rather than a guess.
+  const browserVersion = launchedBrowserVersion;
   const record = {
     name, outcome, detail, durationMs,
+    ...(failedStep ? { failedStep } : {}),
+    ...(cleanupFailed ? { cleanupFailed: true } : {}),
+    ...(browserVersion ? { browserVersion } : {}),
   };
   const resultPath = (options.env || processRef.env || {}).RESULT_JSON;
   if (resultPath) {
@@ -1154,8 +1405,12 @@ module.exports = {
   SkipCheck,
   appUrl,
   assert,
+  APPLICATION_HEADER,
+  ALSO_REFUSED_STATUSES,
   assertNoPageErrors,
   assertNotErrorPage,
+  assertRefused,
+  isApplicationErrorPage,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,
@@ -1170,9 +1425,13 @@ module.exports = {
   NO_PLAYWRIGHT_SIGNAL_HANDLING,
   insertId,
   isLocalTlsTarget,
+  isWafPage,
   launchBrowser,
+  describeBrowserVersion,
+  recordBrowserVersion,
   loadConsoleBaseline,
   login,
+  markFailedStep,
   newContext,
   parseMysqlBatchOutput,
   readConfig,

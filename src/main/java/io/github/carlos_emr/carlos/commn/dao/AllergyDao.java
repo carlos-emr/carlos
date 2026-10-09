@@ -64,4 +64,18 @@ public interface AllergyDao extends AbstractDao<Allergy> {
      * @since 2026-04-11
      */
     public List<AllergyListItemDTO> findAllergyDTOsByDemographicNo(Integer demographicNo);
+
+    /**
+     * Archives one allergy of one patient only if it is still active, as a single conditional
+     * UPDATE. Two requests amending the same allergy race on this row: the database serializes
+     * them, so exactly one sees it active and archives it, and the other is told nothing changed.
+     * Must run inside the caller's transaction so the archive and the replacement commit together.
+     *
+     * @param allergyId the allergy to archive
+     * @param demographicNo the patient the allergy must belong to
+     * @return the number of rows archived: 1, or 0 when the allergy is missing, belongs to another
+     *         patient, or was already archived
+     * @since 2026-10-08
+     */
+    public int archiveIfActive(Integer allergyId, Integer demographicNo);
 }

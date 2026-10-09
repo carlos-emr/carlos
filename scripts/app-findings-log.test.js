@@ -27,7 +27,8 @@ function findingRows() {
   return LOG.split('\n')
     .filter((line) => /^\|\s*\d+\s*\|/.test(line))
     .map((line) => {
-      const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+      // A pipe inside a cell is written \| (a code span, a regular expression), and is not a cell boundary.
+      const cells = line.split(/(?<!\\)\|/).slice(1, -1).map((cell) => cell.trim());
       return { id: Number(cells[0]), cells, line };
     });
 }
@@ -57,6 +58,15 @@ test('every finding carries evidence and a status from the allowed set', () => {
     assert.ok(evidence && evidence.length > 20,
       `finding ${row.id} must record how it was verified, so a reader can re-check it`);
   }
+});
+
+test('every finding from 182 on says in its evidence cell what was seen live and what was read in source', () => {
+  // The cell opens with "Live" or "Source" so a reader can tell a reproduced defect from one found by reading.
+  const bad = findingRows()
+    .filter((row) => row.id >= 182)
+    .filter((row) => !/^(Live|Source)\b/.test(row.cells[row.cells.length - 2].replace(/^[`*_\s]+/, '')))
+    .map((row) => row.id);
+  assert.deepEqual(bad, [], `findings ${bad.join(', ')} have an evidence cell that does not start with Live or Source`);
 });
 
 test('a console-baseline entry can only cite a finding that is actually recorded', () => {

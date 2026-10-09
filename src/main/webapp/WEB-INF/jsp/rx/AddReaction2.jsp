@@ -2,7 +2,8 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %>
+<%@ page import="java.util.UUID" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -154,6 +155,12 @@
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
                             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <%-- One token per rendered dialogue, resent unchanged on every retry by
+                                 rx-allergy-dialog.js (it posts the whole form). The server saves at most
+                                 one allergy per token, so retrying after a failed or unconfirmed save
+                                 cannot duplicate the record (#3488). --%>
+                            <input type="hidden" name="saveToken" id="saveToken"
+                                   value="<carlos:encode value='<%= UUID.randomUUID().toString() %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="formDemographicNo"
                                    value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
                             <%-- The write target: RxAddAllergy2Action resolves the bean from this and

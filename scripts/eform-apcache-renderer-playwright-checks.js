@@ -58,11 +58,17 @@
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
  *   RESET_PASSWORD=...  (only for the one-time forced reset on a fresh deb install)
- *   APCACHE_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   APCACHE_SCREENSHOT_DIR=/tmp
  *   APCACHE_JOURNAL_UNIT=carlos-emr   (enables the journalctl assertions)
  *   APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos   (enables direct servlet probes)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The two eForms are filled in and saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker). The application's Delete only marks a saved instance and an imported template removed (status 0), so the
+ * check used to leave two templates, two instances and 18 values behind, the instances on DEMO patient 1. After the UI cleanup it
+ * now deletes the instances and their values by the patient's key and the two templates by their unique names, and the patient,
+ * and asserts each gone.
  */
 
 const fs = require('fs');
@@ -70,6 +76,8 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium, request: playwrightRequest } = require('playwright');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNotErrorPage,
@@ -97,7 +105,8 @@ const config = {
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
   resetPassword: process.env.RESET_PASSWORD || '',
-  demographicNo: process.env.APCACHE_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.APCACHE_SCREENSHOT_DIR || '/tmp',
   journalUnit: process.env.APCACHE_JOURNAL_UNIT || '',
   probeUrl: process.env.APCACHE_PROBE_URL || '',
@@ -141,7 +150,6 @@ function describe(value) {
 }
 
 function validateConfig() {
-  assert(/^\d+$/.test(config.demographicNo), `APCACHE_DEMOGRAPHIC_NO must be numeric, got ${config.demographicNo}`);
   assert(fs.existsSync(config.fixtureHtmlPath), `Fixture not found: ${config.fixtureHtmlPath}`);
   assert(/^[A-Za-z0-9_-]+$/.test(config.journalUnit || 'x'), `APCACHE_JOURNAL_UNIT must be a plain unit name, got ${config.journalUnit}`);
   if (config.probeUrl) {
@@ -472,9 +480,18 @@ async function main() {
   let context = null;
   let positiveFid = null;
   let negativeFid = null;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  let ownedPatient = null;
 
   try {
     validateConfig();
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-eform-apcache-'));
     const positiveHtml = writeFixture(tempDir, 'apcache-positive', null);
     const negativeHtml = writeFixture(tempDir, 'apcache-negative', missingKey);
@@ -523,7 +540,8 @@ async function main() {
       probes,
     }, null, 2));
     for (const artifactPath of artifactPaths) {
-      fs.rmSync(artifactPath, { force: true });
+      // screenshot() returns null when screenshots are disabled; there is no file to remove then.
+      if (artifactPath) fs.rmSync(artifactPath, { force: true });
     }
     console.log('PASS eForm renderer APCache bridge check');
   } catch (error) {
@@ -548,6 +566,25 @@ async function main() {
     }
     if (tempDir) {
       fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    try {
+      // The soft-deleted templates by their unique names, then the instances and the patient by the patient's key.
+      // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) !== '0') {
+          throw new Error('The imported eForm templates were not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
     }
     if (cleanupErrors.length) {
       console.error(`cleanup problems: ${cleanupErrors.map((error) => redactSensitiveFailureText(error.message)).join('; ')}`);

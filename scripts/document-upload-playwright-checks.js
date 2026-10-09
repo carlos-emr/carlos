@@ -90,6 +90,7 @@ const {
   wirePage,
 } = require('./eform-local-playwright-utils');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -130,18 +131,49 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// The harness-shaped view of sql() that lib/document-residue.js takes.
+const residueSql = {
+  value: (query) => sql(query),
+  rows: (query) => { const out = sql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { sql(query); },
+};
+// Taken before the first upload: the rows the application files for the uploaded documents are found by it.
+let residueMark = null;
+
+/** Deletes the stored copies of the probe documents (the uploader prefixes a 14-digit timestamp to the name), inside DOCUMENT_DIR only. */
+function removeProbeFiles(names) {
+  const configured = process.env.DOCUMENT_DIR;
+  if (!configured) {
+    if (names.length) console.warn(`WARN: DOCUMENT_DIR is not set, so the uploaded file(s) ${names.join(', ')} stay in the document store`);
+    return;
+  }
+  const store = fs.realpathSync(configured);
+  for (const name of names) {
+    // Only a name that is a bare file name ending in this run's probe name: no other document is touched.
+    if (name !== path.basename(name) || !name.endsWith(probeName)) continue;
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a bare file name (equal to its own basename, checked in the condition above) taken from the document store listing this check just made
+    const target = path.join(store, name);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+    assert(!fs.existsSync(target), `The uploaded probe file ${name} was not removed from the document store`);
+  }
+}
+
 // Remove the document rows this run created, by its unique stamp only.
 function cleanupProbeDocuments() {
   try {
-    const ids = sql(
-      `SELECT document_no FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
-    ).split(/\s+/).filter(Boolean);
-    if (!ids.length) return;
+    const found = sql(
+      `SELECT document_no, docfilename FROM document WHERE docfilename LIKE '%${stamp}%' OR docdesc LIKE '%${stamp}%'`,
+    ).split('\n').filter(Boolean).map((line) => line.split('\t'));
+    if (!found.length) return;
+    const ids = found.map(([id]) => id);
     const list = ids.join(',');
     console.log(`cleanup: removing probe document row(s) ${list} for stamp ${stamp}`);
     sql(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list})`);
     sql(`DELETE FROM ctl_document WHERE document_no IN (${list})`);
     sql(`DELETE FROM document WHERE document_no IN (${list})`);
+    // The note the application filed for each upload, the queue links and the routing lock (lib/document-residue.js).
+    if (residueMark) removeDocumentResidue(residueSql, residueMark, ids);
+    removeProbeFiles(found.map(([, name]) => name).filter(Boolean));
   } catch (e) {
     // A leftover routed document can poison later workflow checks.
     process.exitCode = 1;
@@ -342,6 +374,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
   workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
   initMysqlDefaults();
   try {
+    residueMark = markDocumentResidue(residueSql);
     const probePdf = writeProbePdf(workDir);
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
