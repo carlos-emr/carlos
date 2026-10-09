@@ -67,7 +67,7 @@
 <header class="cs-header">
     <h1 class="cs-title"><carlos:encode value="${csTitle}"/></h1>
     <button type="button" id="cs-hidden-toggle" class="btn btn-outline-secondary btn-sm"
-            aria-expanded="false" aria-controls="cs-hidden-panel" data-has-data="false">
+            aria-expanded="false" aria-controls="cs-hidden-panel" data-has-data="false" disabled>
         <carlos:encode value="${csBtnHidden}"/> (0)
     </button>
 </header>

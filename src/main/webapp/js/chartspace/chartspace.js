@@ -68,6 +68,9 @@
       card.setAttribute('data-state', 'LOADING');
       card.appendChild(el('h3', 'cs-block-title', titles[id] || ''));
       var body = el('div', 'cs-block-body');
+      // Announce loading/empty/error transitions to assistive technology.
+      body.setAttribute('role', 'status');
+      body.setAttribute('aria-live', 'polite');
       body.appendChild(el('p', 'cs-state cs-state-loading', i18n.msgLoading || ''));
       card.appendChild(body);
       cards[id] = card;
@@ -128,6 +131,15 @@
         block.render(bodies[id], vm, i18n);
         statuses[id] = vm.state;
         cards[id].setAttribute('data-state', vm.state);
+        place();
+      }).catch(function () {
+        // A failed load, view-model or render must never leave the card in LOADING.
+        while (bodies[id].firstChild) {
+          bodies[id].removeChild(bodies[id].firstChild);
+        }
+        bodies[id].appendChild(el('p', 'cs-state cs-state-error', i18n.msgError || ''));
+        statuses[id] = 'ERROR';
+        cards[id].setAttribute('data-state', 'ERROR');
         place();
       });
     });

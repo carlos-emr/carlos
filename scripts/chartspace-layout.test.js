@@ -75,3 +75,30 @@ test('chartSpace.jsp keeps the presentation contract', () => {
     .forEach((id) => assert.ok(jsp.includes('id="' + id + '"'), id));
   assert.ok(jsp.includes('<html lang="${pageContext.request.locale.language}">'));
 });
+
+// Static source checks for the page shell (no jsdom available).
+const fs = require('node:fs');
+const path = require('node:path');
+const shellJs = fs.readFileSync(
+  path.join(__dirname, '../src/main/webapp/js/chartspace/chartspace.js'), 'utf8');
+const shellJsp = fs.readFileSync(
+  path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/chartspace/chartSpace.jsp'), 'utf8');
+
+test('shell sends a failed load/render to ERROR via a catch handler', () => {
+  assert.match(shellJs, /\.catch\(function/);
+  const tail = shellJs.slice(shellJs.indexOf('.catch('));
+  assert.match(tail, /data-state['"],\s*['"]ERROR['"]/);
+  assert.match(tail, /statuses\[id\]\s*=\s*['"]ERROR['"]/);
+  assert.match(tail, /place\(\)/);
+});
+
+test('shell card bodies are polite live status regions', () => {
+  assert.match(shellJs, /setAttribute\('role',\s*'status'\)/);
+  assert.match(shellJs, /setAttribute\('aria-live',\s*'polite'\)/);
+});
+
+test('JSP renders the hidden toggle disabled in static HTML', () => {
+  const m = shellJsp.match(/<button[^>]*id="cs-hidden-toggle"[^>]*>/);
+  assert.ok(m, 'toggle tag present');
+  assert.match(m[0], /\sdisabled(\s|>|=)/);
+});
