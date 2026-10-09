@@ -31,7 +31,10 @@
  * verifies the stored signature is persisted on the preview. The uploaded
  * association is cleared after the check. Set PRESCRIPTION_SIGNATURE_CLEANUP=true
  * with local MYSQL_HOST/USER/PASSWORD/DATABASE settings to remove this run's
- * unreferenced signature row and encrypted image as well.
+ * unreferenced signature row and encrypted image as well. The same setting also puts back the two audit columns the
+ * application moves on the demo prescription while its signature association is saved (lastUpdateDate, and the reprint log),
+ * which nothing restored before: the fixture is the demo's own script 45 of patient 1, not a row this check owns
+ * (lib/demo-timestamp-restore.js).
  *
  * Required fixture:
  *   PRESCRIPTION_SCRIPT_ID=123 npm run test:prescription-signature-playwright
@@ -56,6 +59,13 @@ const { chromium } = require('playwright');
 const { browserErrorClass } = require('./browser-error-class');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const { localFixtureSql, deleteOwnedPrescriptionSignature } = require('./local-fixture-cleanup');
+const demoAudit = require('./lib/demo-timestamp-restore');
+
+// localFixtureSql() (a trimmed string) as the rows()/execute() client lib/demo-timestamp-restore.js takes.
+const auditSql = {
+  rows: (query) => { const out = localFixtureSql(query); return out ? out.split('\n').map((line) => line.split('\t')) : []; },
+  execute: (query) => { localFixtureSql(query); },
+};
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -489,11 +499,14 @@ async function runPrescriptionSignatureCheck(context) {
   wirePage(page, 'prescription-signature');
   let uploadedSignatureId = '';
   let associationCleared = false;
+  let auditBefore = null;
 
   try {
     if (process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true') {
       // Check the explicitly enabled local database access before creating a signature.
       localFixtureSql('SELECT 1');
+      // The demo prescription's audit columns as they are before the signature association is saved.
+      auditBefore = demoAudit.snapshot(auditSql, prescriptionDemographicNo);
     }
     await checkEmptyPrescriptionPrint(page);
     await openPrescriptionView(page, 'initial-prescription-view');
@@ -545,6 +558,7 @@ async function runPrescriptionSignatureCheck(context) {
         } else if (uploadedSignatureId) {
           console.warn('Created signature retained: enable PRESCRIPTION_SIGNATURE_CLEANUP with local MYSQL settings for full teardown');
         }
+        if (auditBefore) demoAudit.restore(auditSql, auditBefore);
       } catch (error) {
         findings.push({
           label: 'prescription-signature:restore',

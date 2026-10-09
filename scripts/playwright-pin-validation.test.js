@@ -13,7 +13,7 @@ const { spawnSync } = require('node:child_process');
  * not fail that. Each case runs in a child process because the variable is read once, at load.
  *
  * Only the pin is deferred. A check's other environment variables keep their own validation: the allergy check still
- * validates DRUGREF_TEST_DATABASE and ALLERGY_DEMOGRAPHIC_NO (and BASE_URL and MYSQL_HOST) when its module loads, so
+ * validates DRUGREF_TEST_DATABASE (and BASE_URL and MYSQL_HOST) when its module loads, so
  * "requiring never throws" holds for a bad pin and for nothing else.
  */
 const CASES = [
@@ -56,7 +56,7 @@ const CASES = [
  * that runs the meta-tests would fail an unrelated case with a message about a variable the case never set, so a child
  * never inherits them.
  */
-const NOT_INHERITED = ['ALLERGY_DEMOGRAPHIC_NO', 'DRUGREF_TEST_DATABASE'];
+const NOT_INHERITED = ['DRUGREF_TEST_DATABASE'];
 
 function child(script, variable, value, body) {
   const env = { ...process.env, [variable]: value };
@@ -113,10 +113,9 @@ test('shouldRefuseToRun_whenAuthzWriteSelectorIsInvalid', () => {
 });
 
 test('shouldNotInheritTheAllergyLoadVariables_whenTheShellHoldsOddValues', () => {
-  // Both would throw as the allergy module loads (ALLERGY_DEMOGRAPHIC_NO must be numeric, DRUGREF_TEST_DATABASE a plain name).
+  // It would throw as the allergy module loads (DRUGREF_TEST_DATABASE must be a plain name).
   const saved = Object.fromEntries(NOT_INHERITED.map((name) => [name, process.env[name]]));
   try {
-    process.env.ALLERGY_DEMOGRAPHIC_NO = 'not-a-number';
     process.env.DRUGREF_TEST_DATABASE = 'not a database';
     const result = child('allergy-add-penicillin-playwright-checks.js', 'ALLERGY_PIN', 'shortcut-id', "console.log('loaded', typeof m.validatePin);");
     assert.equal(result.status, 0, `a stray shell value leaked into the child: ${result.stderr}`);
