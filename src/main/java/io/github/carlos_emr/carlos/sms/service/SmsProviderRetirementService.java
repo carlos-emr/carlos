@@ -100,7 +100,7 @@ public class SmsProviderRetirementService {
 
     static SmsProviderSendResultDto retirementFailure(SmsTransaction row) {
         boolean systemTest = row.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST;
-        return SmsProviderSendResultDto.failed(systemTest ? "QUEUE_SYSTEM_TEST_NOT_ACTIVE" : "QUEUE_PROVIDER_NOT_ACTIVE",
+        return SmsProviderSendResultDto.failed(systemTest ? "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED" : "QUEUE_PROVIDER_NOT_ACTIVE",
                 systemTest ? "This queued system test was not sent. Use Send test again in Administration > SMS."
                         : "The SMS provider for this queued text was retired. Review it before sending it again.");
     }

@@ -479,7 +479,7 @@ class SmsProviderSwapUnitTest {
         assertThat(worker().processDueMessages(10)).isZero();
 
         assertThat(test.getStatus()).isEqualTo(SmsStatus.FAILED);
-        assertThat(test.getErrorCode()).isEqualTo("QUEUE_SYSTEM_TEST_NOT_ACTIVE");
+        assertThat(test.getErrorCode()).isEqualTo("QUEUE_SYSTEM_TEST_PROVIDER_CHANGED");
         assertThat(test.getErrorMessage()).contains("Send test");
         assertThat(stub.sends).isZero();
     }

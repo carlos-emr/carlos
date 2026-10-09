@@ -74,11 +74,14 @@ public class SmsQueueProcessingService {
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_CODE = "QUEUE_PROVIDER_NOT_ACTIVE";
     private static final String QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE =
             "SMS not sent: its SMS provider is no longer the one chosen in Administration > SMS; send it again.";
-
-    private static final String QUEUE_SYSTEM_TEST_NOT_ACTIVE_CODE = "QUEUE_SYSTEM_TEST_NOT_ACTIVE";
-    private static final String QUEUE_SYSTEM_TEST_NOT_ACTIVE_MESSAGE =
-            "SMS system test not sent: the test provider is not active; use Send test in Administration > SMS again.";
-    private static final Duration INACTIVE_FAILURE_DELAY = Duration.ofMinutes(5);
+    private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE = "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED";
+    private static final String QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE =
+            "SMS system test not sent: the SMS provider was changed before it went out; send a new test.";
+    /**
+     * How long a former provider's row waits after it could not be marked failed, so a row whose write keeps
+     * failing doesn't head the queue and hold up the others on every run.
+     */
+    static final Duration INACTIVE_PROVIDER_RETRY_DELAY = Duration.ofMinutes(5);
 
     private final SmsTransactionService transactionRecorder;
     private final SmsProviderClientResolver providerResolver;
@@ -255,16 +258,22 @@ public class SmsQueueProcessingService {
             }
             SmsTransaction claimed = transactions.get(0);
             try {
-                boolean systemTest = claimed.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST;
-                transactionRecorder.markProviderResult(claimed, SmsProviderSendResultDto.failed(
-                        systemTest ? QUEUE_SYSTEM_TEST_NOT_ACTIVE_CODE : QUEUE_PROVIDER_NOT_ACTIVE_CODE,
-                        systemTest ? QUEUE_SYSTEM_TEST_NOT_ACTIVE_MESSAGE : QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE));
+                // A system test held back by the rate limit is not a patient's text: say so, rather than
+                // asking staff to resend it.
+                SmsProviderSendResultDto result = claimed.getMessagePurpose() == SmsMessagePurpose.SYSTEM_TEST
+                        ? SmsProviderSendResultDto.failed(
+                                QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_CODE, QUEUE_SYSTEM_TEST_PROVIDER_CHANGED_MESSAGE)
+                        : SmsProviderSendResultDto.failed(
+                                QUEUE_PROVIDER_NOT_ACTIVE_CODE, QUEUE_PROVIDER_NOT_ACTIVE_MESSAGE);
+                transactionRecorder.markProviderResult(claimed, result);
             } catch (RuntimeException e) {
                 // Nothing was sent, so the claim goes back rather than leaving the row for stale recovery, which
-                // would report an unknown outcome.
+                // would report an unknown outcome. It comes due again a little later, so the next row gets its
+                // turn. Releasing gives the attempt back, so a row that can never be failed is retried every few
+                // minutes, with a warning each time, rather than an unsent text being dropped.
                 try {
                     SmsTransaction released = transactionRecorder.releaseClaim(claimed,
-                            Date.from(Instant.now().plus(INACTIVE_FAILURE_DELAY)));
+                            Date.from(Instant.now().plus(INACTIVE_PROVIDER_RETRY_DELAY)));
                     LOGGER.warn("SMS transaction {} of inactive provider {} could not be failed; nothing was sent; the"
                                     + " claim {};{}", claimed.getId(), providerType,
                             released != null && released.getStatus() == SmsStatus.QUEUED

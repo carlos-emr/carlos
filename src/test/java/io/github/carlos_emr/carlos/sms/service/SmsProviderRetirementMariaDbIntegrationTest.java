@@ -23,7 +23,9 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsConfigDaoImpl;
@@ -242,6 +244,27 @@ class SmsProviderRetirementMariaDbIntegrationTest {
                     .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
         }
         assertThat(sends.get()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldKeepPublishedSystemTestReason_whenDurableCleanupOrUnsentReleaseRetiresHeldTest() {
+        save(SmsProviderType.STUB, true);
+        SmsSendCommand command = new SmsSendCommand(null, "+16135550100", SmsRecipientPhoneType.CELL, "FAKE held system test",
+                SmsMessagePurpose.SYSTEM_TEST, "999998", 1, null);
+        SmsTransaction held = recorder.recordOutboundAttempt(command, SmsProviderType.STUB, CONSENT);
+        SmsTransaction queued = recorder.recordOutboundAttempt(command, SmsProviderType.STUB, CONSENT);
+        held = recorder.claimDueOutboundQueue(SmsProviderType.STUB, new Date(), 1).get(0);
+        save(SmsProviderType.CLOUDLI, true);
+        save(SmsProviderType.STUB, true);
+
+        assertThat(recorder.failRetiredOutboundQueue(SmsProviderType.STUB, 1)).isEqualTo(1);
+        assertThat(recorder.releaseClaim(held, new Date()).getStatus()).isEqualTo(SmsStatus.FAILED);
+        for (SmsTransaction row : List.of(held, queued)) {
+            assertThat(stored(row)).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                    .containsExactly(SmsStatus.FAILED, "QUEUE_SYSTEM_TEST_PROVIDER_CHANGED");
+            assertThat(stored(row).getErrorMessage()).contains("Send test");
+        }
+        assertThat(sends.get()).isZero();
     }
 
     @Test
