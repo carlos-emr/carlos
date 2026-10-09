@@ -30,6 +30,7 @@ const h = require('./lib/playwright-harness');
 const { clickOpensPopup, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { settle, shownRows } = require('./inboxhub-filters-playwright-checks');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const TIMEOUT = 60000;
 
@@ -65,6 +66,8 @@ async function workflow(s) {
   const ownedFavourites = [];
   const file = path.join(store, `${marker}.pdf`);
   let documentNo = null;
+  // Forwarding the owned document writes a routing lock row for its number, which no marker finds (lib/document-residue.js).
+  const mark = markDocumentResidue(sql);
   const routes = () => sql.rows(`SELECT provider_no FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY provider_no`)
     .map(row => row[0]);
   const listed = (dialog, select) => dialog.locator(`#${select} option`).evaluateAll(options => options.map(option => option.value));
@@ -78,6 +81,7 @@ async function workflow(s) {
         DELETE FROM patientLabRouting WHERE lab_no=${documentNo} AND lab_type='DOC' AND demographic_no=${patient};
         DELETE FROM ctl_document WHERE document_no=${documentNo} AND module='demographic' AND module_id=${patient};
         DELETE FROM document WHERE document_no=${documentNo} AND docdesc=${h.sqlString(marker)}`);
+      removeDocumentResidue(sql, mark, [documentNo]);
     }
     if (fs.existsSync(file)) fs.unlinkSync(file);
     const left = sql.value(`SELECT CONCAT_WS(',',

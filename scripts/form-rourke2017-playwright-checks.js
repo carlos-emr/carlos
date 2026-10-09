@@ -30,16 +30,19 @@
  *   4. reopens the latest form through forwardshortcutname?formId=latest and
  *      asserts the values render back.
  *
- * Every formRourke2017 row created for the patient during the run (the form
- * also autosaves every 10 seconds) is deleted in a finally.
+ * The patient is a FAKE one this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). Every formRourke2017 row
+ * created for it during the run (the form also autosaves every 10 seconds), the 434 form_boolean_value rows the application keeps
+ * for each saved form (keyed by form name and form id, so nothing but a delete by those finds them), and the patient are deleted
+ * in a finally. It used to run on DEMO patient 1 and delete only the form row, which left the 434 checkbox rows behind per run.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: ROURKE_DEMOGRAPHIC_NO (1), ROURKE_PROVIDER_NO (999998).
+ * Optional: ROURKE_PROVIDER_NO (999998).
  */
 
 const { chromium } = require('playwright');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -69,9 +72,11 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.ROURKE_DEMOGRAPHIC_NO || '1';
+// The owned patient the form is saved for, created in main (never a demo patient).
+let demographicNo = null;
+const ownedMarker = newOwnedMarker();
 const providerNo = process.env.ROURKE_PROVIDER_NO || '999998';
-assert(/^\d+$/.test(demographicNo) && /^\d+$/.test(providerNo), 'ROURKE_DEMOGRAPHIC_NO and ROURKE_PROVIDER_NO must be numeric');
+assert(/^\d+$/.test(providerNo), 'ROURKE_PROVIDER_NO must be numeric');
 
 // Visit date is typed the way the form's own date helper writes it (d/m/yyyy);
 // the row stores it as yyyy-MM-dd and the form may render either form back.
@@ -110,10 +115,20 @@ function newFormRows() {
   return sqlRows(`SELECT ID, c_pName, c_birthDate, c_length, p1_date1w, p1_ht1w, p1_wt1w, p1_hc1w, provider_no FROM formRourke2017 WHERE demographic_no=${Number(demographicNo)} AND ID > ${formHighWater} ORDER BY ID`)
     .map(([id, name, dob, length, date1w, ht1w, wt1w, hc1w, provider]) => ({ id, name, dob, length, date1w, ht1w, wt1w, hc1w, provider }));
 }
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
 function cleanupRows() {
-  for (const row of newFormRows()) {
-    sql(`DELETE FROM formRourke2017 WHERE ID=${Number(row.id)}`);
+  if (demographicNo === null) return;
+  const ids = newFormRows().map((row) => Number(row.id));
+  if (ids.length) {
+    // The checkbox values are keyed by form name and id, and the id alone is shared with the other forms.
+    sql(`DELETE FROM form_boolean_value WHERE form_name='formRourke2017' AND form_id IN (${ids.join(',')})`);
   }
+  for (const id of ids) {
+    sql(`DELETE FROM formRourke2017 WHERE ID=${id}`);
+  }
+  // Everything else left for the patient (the chart's rows), then the patient, by its key.
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, { extra: [['formRourke2017', 'demographic_no']] });
 }
 
 async function openForm(context, recorder, label, appPath) {
@@ -168,6 +183,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   // either still reaches the fixture cleanup below.
   try {
     formHighWater = Number(sql('SELECT IFNULL(MAX(ID), 0) FROM formRourke2017'));
+    // The patient first, so a failure anywhere below still reaches cleanupRows() through runCleanup().
+    const ownedProvider = sql(`SELECT provider_no FROM security WHERE user_name='${config.testUser.replace(/'/g, "''")}'`);
+    assert(ownedProvider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider: ownedProvider });
     // The form shows the DOB as dd/MM/yyyy; the row stores it as yyyy-MM-dd.
     const [expectedName, expectedDob, expectedDobIso] = sql(`SELECT CONCAT(last_name, ', ', first_name), CONCAT(LPAD(date_of_birth, 2, '0'), '/', LPAD(month_of_birth, 2, '0'), '/', year_of_birth), CONCAT(year_of_birth, '-', LPAD(month_of_birth, 2, '0'), '-', LPAD(date_of_birth, 2, '0')) FROM demographic WHERE demographic_no=${Number(demographicNo)}`).split('\t');
     assert(expectedName && expectedDob, `demographic ${demographicNo} not found`);

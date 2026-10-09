@@ -8,16 +8,54 @@
  * clicks, double Enter on the focused toolbar Save button (the fixture's own submit is not the eForm save path), slow-response re-click) the check saves ONE instance with
  * its own marker subject and asserts EXACTLY ONE eform_data row for the owned patient and that subject.
  *
- * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; cleanup deletes the instances
- * (eform_values + eform_data) for the owned patient/form and the template, and asserts they are gone.
+ * Last (pinned to app-findings-log.md finding 168): a login that may save eForms but holds no `_edoc` x
+ * presses Add to Documents. The eForm is stored, the eDoc step is then refused, and the answer must not be
+ * the replay refusal ("This form can no longer be submitted from this page"): that text tells the
+ * clinician nothing failed and that the page was submitted twice.
+ * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; for finding 168 one owned
+ * role holding `_eform` w, `_demographic` r and `_eChart` r (no `_edoc`) and a login holding it; cleanup
+ * deletes the instances (eform_values + eform_data) for the owned patient/form and the template, removes the
+ * role and login, and asserts they are gone.
  * Wave-6 pattern sweep "double-submit".
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep, recorderMark, forgiveAbortedSecondRequest } = require('./lib/double-submit-helpers');
 
 const q = h.sqlString;
+
+/**
+ * Put the page in the state a clinician's is in when a browser shows its "Leave site?" prompt: the user
+ * has clicked in it, and a beforeunload handler asks to stay.
+ *
+ * TWO BROWSER RULES, BOTH ARTEFACTS OF THE TEST BROWSER AND NOT OF THE APPLICATION. Chromium suppresses
+ * the prompt, and logs "Blocked attempt to show a 'beforeunload' confirmation panel for a frame that never
+ * had a user gesture since its load", in these cases (reproduced on the packaged Chromium 154):
+ *   1. the frame never had a user gesture. locator.fill() inserts text and is not a gesture, so the page
+ *      is clicked first: a real, trusted click on the fixture's own heading, a neutral element with no
+ *      handler, so it cannot change the form, press a toolbar button or start the submission measured;
+ *   2. the handler removes ITSELF while it runs, which is what `addEventListener(..., { once: true })` does.
+ *      The message blames the gesture, but a gesture does not help: the same page and click show the prompt
+ *      for a handler that stays registered. So the handler disarms itself from a timer, after the browser
+ *      has taken the prompt, which keeps the one-shot behaviour the later steps rely on (the corrected
+ *      form must save without a second prompt).
+ */
+async function armUnsavedChangesPrompt(form) {
+  const heading = form.locator('h2').first();
+  await heading.waitFor({ state: 'visible' });
+  await heading.click();
+  await form.evaluate(() => {
+    const prompt = event => {
+      setTimeout(() => window.removeEventListener('beforeunload', prompt), 0);
+      event.preventDefault(); event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', prompt);
+  });
+}
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
@@ -41,6 +79,25 @@ async function workflow(s) {
     showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
     VALUES(${q(formName)},'','dbl fixture',CURDATE(),CURTIME(),${q(provider)},1,${q(html)},0,0,'',0,1); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(fid), 'The eForm template fixture was not created');
+  // The demo database ships EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids
+  // 247-1063 that no eform_data row owns any more, because the eForm instances were pruned and the id counter
+  // restarted below them. An instance saved at one of those ids inherits the stale attachments, and a login that
+  // cannot read those object types is then refused with 403 ("no permission to use one or more selected
+  // attachments") BEFORE the eForm is stored: a fixture artefact that production never meets (ids are not reused),
+  // and not the failure the Add to Documents step below pins. Move the counter past them with an owned row
+  // inserted at an explicit id and deleted again, which is all an AUTO_INCREMENT column needs.
+  const staleAttachmentHigh = Number(sql.value('SELECT COALESCE(MAX(fdid),0) FROM EFormDocs'));
+  const nextInstanceId = Number(sql.value(`SELECT AUTO_INCREMENT FROM information_schema.tables
+    WHERE table_schema=DATABASE() AND table_name='eform_data'`));
+  if (nextInstanceId <= staleAttachmentHigh) {
+    const seed = staleAttachmentHigh + 1;
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${seed}`) === '0', 'The eForm instance id used to move the id counter is occupied');
+    sql.execute(`INSERT INTO eform_data(fdid,fid,form_name,subject,demographic_no,status,form_date,form_time,form_provider,form_data,
+      showLatestFormOnly,patient_independent,roleType)
+      VALUES(${seed},${fid},${q(formName)},${q(`${marker}-IDSEED`)},${patient},1,CURDATE(),CURTIME(),${q(provider)},'',0,0,'')`);
+    sql.execute(`DELETE FROM eform_data WHERE fdid=${seed} AND form_name=${q(formName)} AND demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${seed}`) === '0', 'The eForm instance used to move the id counter was not removed');
+  }
   const chart = await s.chart();
   const v = verdicts('eform-submit');
   // The Add eForm list stays open all run: unloading it throws on a null window.opener (known defect,
@@ -73,9 +130,7 @@ async function workflow(s) {
       const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
         { textField: form.locator('#remoteSubmitButton') });
       if (mode.key === 'slowResubmit') {
-        await form.evaluate(() => window.addEventListener('beforeunload', event => {
-          event.preventDefault(); event.returnValue = '';
-        }, { once: true }));
+        await armUnsavedChangesPrompt(form);
         const dialogs = await h.withExpectedDialogs(form, activate);
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
@@ -86,9 +141,15 @@ async function workflow(s) {
       await sleep(300);
       forgiveAbortedSecondRequest(s.recorder, since, /\/eform\//);
       if (mode.key === 'replay') {
-        h.assert(responses.some(response => response.status() === 409), 'Reload did not reject the consumed submission');
+        // Statuses and the owned-row count ride in the messages (no body text: it is the form's own answer): a
+        // replay that fails here is either a lost response (the reload cancelled the first POST in flight, a
+        // timing artefact) or a second save, and the two read differently only by these numbers.
+        h.assert(responses.some(response => response.status() === 409),
+          `Reload did not reject the consumed submission (AddEForm responses seen: [${responses.map(response => response.status()).join(', ')}]; owned rows: ${count})`);
         const conflict = responses.find(response => response.status() === 409);
-        h.assert((await conflict.text()).includes('Check the patient'), 'Replay did not explain how to check the saved eForm');
+        const conflictText = await conflict.text().catch(error => `<body unavailable: ${String(error.message).split('\n')[0]}>`);
+        h.assert(conflictText.includes('Check the patient'),
+          `Replay did not explain how to check the saved eForm (HTTP 409 body of ${conflictText.length} characters)`);
         // This exact, asserted conflict is the expected result of the deliberately replayed POST.
         consumeExpectedFailure(s.recorder, failures, { status: 409, path: /\/eform\/addEForm$/ });
       }
@@ -101,15 +162,16 @@ async function workflow(s) {
         maxRedirects: 0,
       });
       h.assert(repeated.status() === 409 && (await repeated.text()).includes('Check the patient'),
-        'Server accepted a repeated eForm POST or omitted recovery guidance');
+        `Server accepted a repeated eForm POST or omitted recovery guidance (HTTP ${repeated.status()})`);
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)} AND d.subject=${q(subject)}
         AND v.var_name='note' AND v.var_value='double submit'`) === '1', 'Clinical field was lost or duplicated');
       h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
         WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)}
         AND v.var_name='carlosEformSubmission'`) === '0', 'Submission identity was stored as clinical form data');
-      h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
-        AND form_name=${q(formName)} AND subject=${q(subject)}`) === '1', 'Direct replay created a duplicate');
+      const afterReplay = sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+        AND form_name=${q(formName)} AND subject=${q(subject)}`);
+      h.assert(afterReplay === '1', `Direct replay created a duplicate (owned rows: ${afterReplay})`);
       if (mode.key === 'slowResubmit') h.assert(posts.seen.length === 1, 'Toolbar remained active while saving');
       form.off('request', capture);
       form.off('response', captureResponse);
@@ -150,9 +212,7 @@ async function workflow(s) {
     h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
       'Late window cancellation saved or trapped the next attempt');
     h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Late cancellation left an overlay blocking edits');
-    await form.evaluate(() => window.addEventListener('beforeunload', event => {
-      event.preventDefault(); event.returnValue = '';
-    }, { once: true }));
+    await armUnsavedChangesPrompt(form);
     const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
       form.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'beforeunload' }),
       form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),
@@ -203,6 +263,49 @@ async function workflow(s) {
     h.assert(await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
       AND form_name=${q(formName)} AND subject=${q(`${marker}-REVISION`)}`) === 1, 'Saved-form revision was lost');
     for (const form of [first, second, revision]) if (!form.isClosed()) await form.close();
+  });
+
+  // ---- Finding 168: a failure after the eForm is stored is reported as a replay -------------------
+  // AddEForm2Action answers every RuntimeException after the eForm is committed with the replay 409
+  // (rejectSubmission(false): eform.submitUnavailable). Add to Documents moves the PDF into the document
+  // store, which DocumentManagerImpl.moveDocument refuses without `_edoc` x.
+  const replayText = bundleMessage('eform.submitUnavailable', "This form can no longer be submitted from this page.")
+    .split('. ')[0].replace(/\.$/, '');
+  let noEdoc;
+  await s.step('Add to Documents by a login without _edoc x stores the eForm once and files no document', async () => {
+    const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
+    s.cleanup(() => fixture.cleanup());
+    const role = fixture.addRole({ _eform: 'w', _demographic: 'r', _eChart: 'r' });
+    const login = fixture.addLogin(role);
+    const subject = `${marker}-NOEDOC`;
+    const restricted = await signIn(s, login);
+    try {
+      const page = await restricted.context.newPage();
+      await h.gotoApp(page, s.config.baseUrl, `/eform/efmformadd_data?fid=${fid}&demographic_no=${patient}`);
+      await page.locator('#remoteSaveEdocumentButton').waitFor({ state: 'visible' });
+      await page.locator('#remote_eform_subject').fill(subject);
+      await page.locator('#note').fill('no document rights');
+      const [response] = await Promise.all([
+        page.waitForResponse(r => r.request().method() === 'POST' && /\/eform\/addEForm$/i.test(new URL(r.url()).pathname)),
+        page.locator('#remoteSaveEdocumentButton').click(),
+      ]);
+      noEdoc = { status: response.status(), text: await response.text() };
+      await page.close();
+    } finally {
+      await restricted.context.close();
+    }
+    const stored = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+      AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 1500 });
+    h.assert(stored === 1, `The eForm was stored ${stored} time(s), expected exactly once (HTTP ${noEdoc.status})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${q(subject)}`) === '0',
+      'A document was filed for a login that may not add documents');
+  });
+
+  // Pinned: holds only the assertion finding 168 breaks.
+  await s.step('a failed Add to Documents is not answered with the replay refusal', async () => {
+    h.assert(!noEdoc.text.includes(replayText),
+      `The answer to a failed Add to Documents (HTTP ${noEdoc.status}) is the replay refusal "${replayText}.", which is what a `
+      + 'replayed submission gets and hides that the eForm was saved and only the document step failed');
   });
 }
 
