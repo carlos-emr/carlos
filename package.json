@@ -551,6 +551,7 @@
     "test:export-content-dashboard-csv-playwright": "node scripts/export-content-dashboard-csv-playwright-checks.js",
     "test:audit-log-session-playwright": "node scripts/audit-log-session-playwright-checks.js",
     "test:audit-log-chart-read-playwright": "node scripts/audit-log-chart-read-playwright-checks.js",
+    "test:audit-log-chart-note-history-playwright": "node scripts/audit-log-chart-note-history-playwright-checks.js",
     "test:audit-log-chart-note-playwright": "node scripts/audit-log-chart-note-playwright-checks.js",
     "test:audit-log-demographic-edit-playwright": "node scripts/audit-log-demographic-edit-playwright-checks.js",
     "test:audit-log-appointment-playwright": "node scripts/audit-log-appointment-playwright-checks.js",

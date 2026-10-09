@@ -8610,6 +8610,25 @@
       }
     },
     {
+      "name": "audit-log-chart-note-history",
+      "script": "scripts/audit-log-chart-note-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient and one note saved through the chart; cleanup deletes the note rows and the audit rows scoped to the patient, the note id or this run's marker and asserts them gone.",
+      "notes": "Regression check for #4426: the older note-history route (CaseManagementEntry method=history) must write one read/CME note row that names the patient, the note and carries the audit string."
+    },
+    {
       "name": "audit-log-chart-note",
       "script": "scripts/audit-log-chart-note-playwright-checks.js",
       "tiers": [
