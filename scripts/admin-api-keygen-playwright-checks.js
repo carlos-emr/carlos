@@ -256,6 +256,13 @@ async function workflow(s) {
     h.assert(!problems.length, `Key manager buttons do not reach their routes: ${problems.join('; ')}`);
   });
 
+  // The precondition of the pinned step below, in a step of its own: a probe service name that is already taken
+  // would make the refusal and the row count mean nothing, and must not read as the known failure.
+  await s.step('no key pair is registered under the probe service name', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(probeService)}`) === '0',
+      'A key pair is already registered under the probe service name');
+  });
+
   // Pinned: holds only the assertion finding 163 breaks. The route is the one the Create New Key
   // button opened in the step above (so it exists and is served by the application); the request is
   // the same address with a name, sent as a GET. assertRefused requires the application's 403/405 and
@@ -264,7 +271,6 @@ async function workflow(s) {
   await s.step('a GET of Create Key that names a service is refused and registers no key pair', async () => {
     const owned = `service=${h.sqlString(probeService)}`;
     const before = sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
-    h.assert(before === '0', 'A key pair is already registered under the probe service name');
     const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/ViewKeygenCreateKey'),
       {params: {name: probeService, type: 'FAKEPW'}, maxRedirects: 0, failOnStatusCode: false});
     await h.assertRefused(s, {response, table: 'publicKeys', where: owned, before,

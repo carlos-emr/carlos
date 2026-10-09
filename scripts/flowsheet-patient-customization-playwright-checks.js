@@ -302,13 +302,20 @@ async function workflow(s, { editorOnly = false } = {}) {
     await flowsheet.close();
   });
 
+  // The page the pinned step judges is loaded here, with its not-an-error-page check (inside ckd()), so a page that
+  // fails to render reads failed-elsewhere and only a rendered flowsheet that lost its warning reads known-fail.
+  let customizedMessages = null;
+  await s.step('the customized CKD flowsheet renders and its recommendations list is read', async () => {
+    const { flowsheet, messages } = await ckd('CKD flowsheet after customization, recommendations');
+    customizedMessages = messages;
+    await flowsheet.close();
+  });
+
   // Pinned: holds only the assertion finding 176 breaks.
   await s.step('the customized CKD flowsheet still warns that no urine ACR is recorded', async () => {
-    const { flowsheet, messages } = await ckd('CKD flowsheet after customization, recommendations');
-    h.assert(messages.includes(ckdWarning),
+    h.assert(customizedMessages.includes(ckdWarning),
       'The customized CKD flowsheet shows no warning for the missing urine ACR '
       + '(its flowsheet-level decision-support rules were lost when the customized copy was built)');
-    await flowsheet.close();
   });
 }
 

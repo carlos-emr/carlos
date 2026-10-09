@@ -55,7 +55,8 @@
  *      installed DrugRef (category 10). The shortcut hard-codes 44452 (ChooseAllergy2.jsp,
  *      ShowAllergies2.jsp), which the packaged DrugRef holds as another product, so the allergy is
  *      filed under that product's id and gets none of the class's identifiers (finding 178 is the
- *      missing-identifiers symptom of the same row).
+ *      missing-identifiers symptom of the same row). A control step of its own runs first and shows
+ *      the check can read DrugRef and that the installed copy holds the PENICILLINS class.
  *
  * Both allergy rows (the original and the amendment) are deleted in a finally.
  *
@@ -182,6 +183,9 @@ function runCleanup() {
  * failure elsewhere, never as the known one.
  */
 const SHORTCUT_ID_STEP = 'the Penicillin shortcut files the allergy under the PENICILLINS drug class id';
+// The control of the shortcut-id pin, a step of its own so that a DrugRef this check cannot read (or one that holds no
+// PENICILLINS class at all) reads as a failure elsewhere and not as finding 215.
+const DRUGREF_STEP = 'the installed DrugRef is readable and holds the PENICILLINS drug class (category 10)';
 const IDENTIFIER_STEP = 'the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error';
 
 /** Runs one labelled step, tagging a failure with its label for the suite runner (markFailedStep). */
@@ -380,7 +384,14 @@ async function main({ cancellation }) {
     assert(recorder.consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(recorder.consoleIssues, null, 2)}`);
 
     if (ALLERGY_PIN === 'shortcut-id') {
-      // 7. The shortcut's DrugRef id is the class (finding 215). Pinned: holds only what the finding breaks.
+      // 7. The shortcut's DrugRef id is the class (finding 215). The control first: the check can read DrugRef and the
+      // installed copy holds the PENICILLINS class, which is what the shortcut's id is compared with.
+      await runStep(cancellation, DRUGREF_STEP, async () => {
+        const classRow = sql(`SELECT CONCAT(id,'|',category,'|',name) FROM \`${drugrefDatabase}\`.cd_drug_search `
+          + "WHERE category=10 AND name='PENICILLINS' LIMIT 1");
+        assert(classRow !== '', `${drugrefDatabase}.cd_drug_search holds no PENICILLINS row in category 10, so the shortcut's id has no class to be compared with`);
+      });
+      // Pinned: holds only what the finding breaks.
       await runStep(cancellation, SHORTCUT_ID_STEP, async () => {
         const named = sql(`SELECT CONCAT(category,'|',name) FROM \`${drugrefDatabase}\`.cd_drug_search WHERE id=${Number(shortcutId)}`);
         assert(named === '10|PENICILLINS',

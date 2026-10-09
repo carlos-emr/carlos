@@ -49,7 +49,8 @@
  * its first failing step, so one run cannot pin three defects; the precedent is oauth-rest-surfaces-scope-list):
  *   - MCEDT_PIN=short-name (mcedt-mailbox-outbox-short-name), finding 217: ActionUtils.isOHIPFile reads
  *     filename.substring(0, 2), so Add of a ONE-character name ("x") answers HTTP 500 instead of the refusal every
- *     other non-claim name gets. Runs the menu, a two-character control ("ab" is refused with the message), then the pin.
+ *     other non-claim name gets. Runs the menu, a two-character control ("ab" is refused with the message), then the pin
+ *     (the status is not a server error) and, once that passes, the same refusal message the control gets.
  *   - MCEDT_PIN=plaintext (mcedt-mailbox-outbox-plaintext), finding 189: Change Password stores the typed text as
  *     given. Runs the menu and the Change Password step (which does NOT judge the stored value, so it keeps passing
  *     when the credential is encrypted at rest), then the pin: the stored value is not the typed one.
@@ -97,7 +98,8 @@ const STEP = {
   privileges: 'a login without _admin.billing is refused by every MCEDT route, and one holding it for reading only cannot change anything',
   shortNameControl: 'Add refuses a two-character name that is not a claim file with the application\'s message, and the one-character request is sent',
   noService: 'the run never posted to an MCEDT service route and the browser reached only the application',
-  shortName: 'Add refuses a one-character name with the application\'s message, not a server error',
+  shortName: 'Add of a one-character name is not answered with a server error',
+  shortNameMessage: 'Add refuses a one-character name with the application\'s message',
   plaintext: 'the stored MCEDT password is not the text that was typed',
   reopen: 'Administration ▸ MCEDT Mailbox ▸ Upload is opened three times in a row and what each open left in ONEDT_OUTBOX is recorded',
   staged: 'the generated OHIP claim file is copied to ONEDT_OUTBOX byte for byte and listed once, and reopening does not duplicate it',
@@ -339,8 +341,13 @@ async function workflow(s) {
       });
     });
     // Finding 217: ActionUtils.isOHIPFile reads filename.substring(0, 2), which throws for a one-character name.
+    // Pinned: holds only the assertion the defect breaks (a server error where a refusal is due).
     await s.step(STEP.shortName, async () => {
       h.assert(oneCharacter.status < 500, `Add of a one-character name answered HTTP ${oneCharacter.status}, a server error, instead of refusing it`);
+    });
+    // Runs only once finding 217 is fixed (a script stops at its first failing step): the refusal must then be the
+    // same one every other non-claim name gets, the page with the application's message.
+    await s.step(STEP.shortNameMessage, async () => {
       h.assert(oneCharacter.status === 200 && oneCharacter.message.includes('not a supported file Name'),
         'Add of a one-character name was not refused with the application\'s message');
     });

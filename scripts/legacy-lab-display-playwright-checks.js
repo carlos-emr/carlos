@@ -32,7 +32,7 @@
  *                                        a BC install it would fail at its display step (finding 195).
  * Unset, the type is cml. Any other value is an error.
  *
- * STEPS, in order, for the one type of the run: seed; Display; Acknowledge; Forward.
+ * STEPS, in order, for the one type of the run: seed; Display; Acknowledge; Forward picker; Forward.
  *   Display      the page-specific form is there; no error page; the patient's name, birth date and health
  *                number as the lab carries them; the result row (test name, result, flag, range, units);
  *                the link to the OWNED patient (the Msg button renders only when the routing resolved a
@@ -40,11 +40,13 @@
  *   Acknowledge  Acknowledge asks for a comment (a real prompt); the popup closes; the patient lab list
  *                that opened it reloads (Close.jsp); providerLabRouting holds exactly one row for the
  *                provider, status A, with the comment; opened again the page shows Acknowledged and it.
- *   Forward      Forward opens the picker; its provider search offers the throwaway recipient; the Forward
- *                List holds exactly that provider; the picker offers a control that sends it; pressing it
- *                makes the lab page post its Forward request; the recipient then holds a providerLabRouting
- *                row, status N, and the sender's row and every other provider's are untouched. Each stage
- *                is asserted on its own, so the failure says which one stands.
+ *   Forward picker  Forward opens the picker; its provider search offers the throwaway recipient; the Forward
+ *                List holds exactly that provider. The windows stay open for the next step.
+ *   Forward      the picker offers a control that sends the list; pressing it makes the lab page post its
+ *                Forward request; the recipient then holds a providerLabRouting row, status N, and the
+ *                sender's row and every other provider's are untouched. This is the step finding 184 is
+ *                pinned at, and it holds only what the finding breaks: the picker step before it holds the
+ *                controls. Each stage is asserted on its own, so the failure says which one stands.
  *
  * KNOWN DEFECTS (docs/ui-tests/app-findings-log.md):
  *   184  Forward from these pages cannot be completed: SelectProvider.jsp has no Submit button, the
@@ -94,16 +96,19 @@ const STEP = Object.freeze({
   CML: Object.freeze({
     display: "CML display shows the lab's values and its patient",
     acknowledge: 'CML acknowledge records status A and the comment',
+    picker: 'CML forward opens the provider picker, which offers the recipient and puts it in the Forward List',
     forward: 'CML forward routes the lab to the chosen provider',
   }),
   BCP: Object.freeze({
     display: "PathNet display shows the lab's values and its patient",
     acknowledge: 'PathNet acknowledge records status A and the comment',
+    picker: 'PathNet forward opens the provider picker, which offers the recipient and puts it in the Forward List',
     forward: 'PathNet forward routes the lab to the chosen provider',
   }),
   MDS: Object.freeze({
     display: "MDS display shows the lab's values and its patient",
     acknowledge: 'MDS acknowledge records status A and the comment',
+    picker: 'MDS forward opens the provider picker, which offers the recipient and puts it in the Forward List',
     forward: 'MDS forward routes the lab to the chosen provider',
   }),
 });
@@ -502,8 +507,13 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   }
 
   // ---- Forward ------------------------------------------------------------------------------------------------------
+  // Two steps per lab. The first holds everything the pinned one depends on (the lab page opens, its Forward button opens
+  // the picker, the picker searches and puts the recipient in the Forward List) and leaves both windows open; the
+  // pinned one holds only what finding 184 breaks (a control that sends the list back, and what comes of pressing it).
+  // A page or search that fails to work therefore reads failed-elsewhere, never as the known failure.
   for (const lab of labs) {
-    await s.step(STEP[lab.key].forward, async () => {
+    let held = null;
+    await s.step(STEP[lab.key].picker, async () => {
       excuseAbandonedLoads();
       const beforeMine = mine(lab);
       const beforeOthers = others(lab);
@@ -522,7 +532,17 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
         const listed = await picker.locator('#fwdProviders option').evaluateAll((options) => options.map((option) => option.value));
         h.assert(JSON.stringify(listed) === JSON.stringify([recipient.providerNo]),
           'Selecting the search result did not put exactly the intended provider in the Forward List');
+        held = { labPage, picker, beforeMine, beforeOthers };
+      } catch (error) {
+        if (picker) await picker.close().catch(() => {});
+        await labPage.close().catch(() => {});
+        throw error;
+      }
+    });
 
+    await s.step(STEP[lab.key].forward, async () => {
+      const { labPage, picker, beforeMine, beforeOthers } = held;
+      try {
         // The picker must offer a control that sends the Forward List back to the lab page.
         const submit = picker.locator('#submitButton')
           .or(picker.getByRole('button', { name: /^\s*(submit|forward|ok|send|route)\s*$/i }));

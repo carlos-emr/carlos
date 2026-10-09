@@ -255,8 +255,10 @@ async function workflow(s) {
     'The first photo manager is not bound to the first patient');
   });
 
-  // Pinned: holds only the assertion finding 156 breaks.
-  await s.step(CLEAR_STEP, async () => {
+  // The action of the pinned step below, with its controls: Clear Photo is pressed in the FIRST manager and asks exactly
+  // once to confirm, the manager closes and the chart reloads. What it did to each patient's photo is judged by the next
+  // two steps, so a confirm that is not asked (or a click that does nothing) reads failed-elsewhere, not known-fail.
+  await s.step('Clear Photo in the first photo manager asks once to confirm, closes the manager and reloads the chart', async () => {
     const since = s.recorder.requestFailures.length;
     const dialogs = await h.withExpectedDialogs(managerA, async () => {
       await Promise.all([
@@ -268,6 +270,10 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
     await waitForNavbars(chart, 20000);
     consumeUnloadBeacon(s.recorder, since);
+  });
+
+  // Pinned: holds only the assertion finding 156 breaks.
+  await s.step(CLEAR_STEP, async () => {
     h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
       'Clear Photo in the first photo manager deleted the photo of the patient whose manager was opened second '
       + '(ClientImage acts on the session-wide clientId)');

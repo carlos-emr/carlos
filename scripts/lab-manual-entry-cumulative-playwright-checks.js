@@ -300,18 +300,27 @@ async function workflow(s) {
     await rowDisplay.close();
   });
 
-  // Pinned: holds only the assertion finding 149 breaks. DisplayLabValue.jsp attribute-encodes the result, units and
-  // range into the row's title, the browser decodes the attribute, and boxover.js writes it with innerHTML.
-  await s.step(POISONED_TOOLTIP_STEP, async () => {
+  // The control of the pinned step below: Row Display opens (openPoisonedRow asserts the lab's button is listed once and
+  // that its values load), the row is hovered and the tooltip is on the screen. The page stays open for the next step,
+  // so the pinned one holds nothing but the question it exists to ask.
+  await s.step('hovering a Row Display row whose result, units and range carry markup shows its tooltip', async () => {
     await openPoisonedRow();
     await section.locator('.preventionProcedure').hover();
     await rowDisplay.waitForFunction(() => typeof oDv !== 'undefined' && getComputedStyle(oDv).visibility === 'visible'
       && typeof dvHdr !== 'undefined' && dvHdr.textContent.trim() !== '', null, { timeout: TIMEOUT });
-    const built = await rowDisplay.locator('[data-xp]').evaluateAll((elements) => elements.map((el) => ({
-      field: el.getAttribute('data-xp'), inTooltip: !!el.closest('#oDv') })));
-    h.assert(built.length === 0,
-      `Hovering the Row Display row built ${built.length} element(s) from lab text in its tooltip (data-xp ${built.map((e) => e.field).join(', ')})`);
-    await rowDisplay.close();
+  });
+
+  // Pinned: holds only the assertion finding 149 breaks. DisplayLabValue.jsp attribute-encodes the result, units and
+  // range into the row's title, the browser decodes the attribute, and boxover.js writes it with innerHTML.
+  await s.step(POISONED_TOOLTIP_STEP, async () => {
+    try {
+      const built = await rowDisplay.locator('[data-xp]').evaluateAll((elements) => elements.map((el) => ({
+        field: el.getAttribute('data-xp'), inTooltip: !!el.closest('#oDv') })));
+      h.assert(built.length === 0,
+        `Hovering the Row Display row built ${built.length} element(s) from lab text in its tooltip (data-xp ${built.map((e) => e.field).join(', ')})`);
+    } finally {
+      await rowDisplay.close().catch(() => {});
+    }
   });
 }
 

@@ -77,7 +77,10 @@ const STEP_SIGN_IN = {
 };
 const STEP_TOP_BAR = 'the restricted top bar has no Administration and no billing entry, and its day sheet no Bill link, where the full login has both';
 const STEP_CHART = 'the restricted chart offers no Rx "+" and no Allergy "+", where the full login\'s chart offers both (its note toolbar, which holds Bill, is not rendered for a role without note rights)';
-const STEP_CHART_BILL = 'with read-only note rights the restricted chart renders its note toolbar but offers no Bill button, where the full login\'s chart offers it';
+// The chart-bill mode runs two steps: a control (the note toolbar renders, the full login's chart offers Bill, the
+// Rx and Allergy "+" are still absent) and, LAST, the pinned one (finding 200), which holds only the Bill button.
+const STEP_CHART_TOOLBAR = 'with read-only note rights the restricted chart renders its note toolbar and no Rx "+" or Allergy "+", where the full login\'s chart offers its Bill button';
+const STEP_CHART_BILL = 'the restricted chart\'s note toolbar offers no Bill button to a role without _billing';
 const STEPS = {
   'tickler-add': 'tickler add: the restricted login\'s replay with its own valid token is refused, and the full login\'s replay writes',
   'rx-save': 'Rx Save Only: the restricted login\'s replay with its own valid token is refused, and the full login\'s replay writes',
@@ -209,7 +212,10 @@ async function workflow(s, { mode, only, name } = selection()) {
   });
 
   if (mode === 'chart-bill') {
-    await s.step(STEP_CHART_BILL, async () => {
+    // Everything the Bill judgement depends on is established here, so a precondition that fails (no toolbar to judge,
+    // a full login that does not offer Bill) reads failed-elsewhere and only the defect reads known-fail.
+    let restrictedOffers;
+    await s.step(STEP_CHART_TOOLBAR, async () => {
       const fullChart = await s.chart();
       await notesPanelSettled(fullChart);
       const full = await chartOffers(fullChart);
@@ -221,7 +227,11 @@ async function workflow(s, { mode, only, name } = selection()) {
       h.assert(offers.toolbar > 0, 'The restricted chart did not render its note toolbar, so its Bill button cannot be judged');
       h.assert(offers.rxPlus === 0, 'The restricted chart offers the Rx "+"');
       h.assert(offers.allergyPlus === 0, 'The restricted chart offers the Allergy "+"');
-      h.assert(offers.bill === 0, 'The restricted chart\'s note toolbar offers the Bill button to a role without _billing');
+      restrictedOffers = offers;
+    });
+    // Pinned (finding 200): holds only the assertion the defect breaks.
+    await s.step(STEP_CHART_BILL, async () => {
+      h.assert(restrictedOffers.bill === 0, 'The restricted chart\'s note toolbar offers the Bill button to a role without _billing');
     });
     await restricted.context.close();
     return;
