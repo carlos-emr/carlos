@@ -109,8 +109,13 @@ class PersonalEmailFooterMariaDbIntegrationTest {
     @Test void shouldNotBlockAnotherOwner_andKeepClinicAndOtherPersonalOnClear()throws Exception {
         var locked=new CountDownLatch(1);var finish=new CountDownLatch(1);
         try(var workers=Executors.newFixedThreadPool(2)){
-            var first=workers.submit(()->new TransactionTemplate(manager).execute(status->{
-                service.saveOwnFooter("101","First personal");locked.countDown();await(finish);return true;
+            // Hold the save open in the READ_COMMITTED transaction the public service requests.
+            // The separate snapshot cases deliberately inherit repeatable-read callers.
+            var first=workers.submit(()->tx(TransactionDefinition.ISOLATION_READ_COMMITTED).execute(status->{
+                service.saveOwnFooter("101","First personal");
+                entities.unwrap(org.hibernate.Session.class).doWork(connection ->
+                        assertThat(connection.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED));
+                locked.countDown();await(finish);return true;
             }));
             try{
                 if(!locked.await(10,TimeUnit.SECONDS))first.get(1,TimeUnit.SECONDS);
