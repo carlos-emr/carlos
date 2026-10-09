@@ -222,14 +222,16 @@ cmd_up() {
   ctl=$(find_one_deb 'carlos-ctl_*_all.deb')
   mkdir -p "$LOG_DIR"
   docker inspect "$CONTAINER" >/dev/null 2>&1 && die "container $CONTAINER already exists; run 'down' first"
+  local extra=() cgroup_args
+  # An assignment, not a substitution inside docker run's arguments: a v1-only
+  # host must stop here, before an image is built or a container started. It is
+  # decided before the port probe, so it does not depend on what else this host
+  # happens to be listening on.
+  cgroup_args=$(cgroup_run_args) || exit 1
   for port in 80 443 3306 18080 9515; do
     if ss -Hltn "sport = :$port" 2>/dev/null | grep -q .; then die "port $port is already in use on this host"; fi
   done
-  local extra=() cgroup_args
   [ -n "$CONTAINER_CPUS" ] && extra+=(--cpus "$CONTAINER_CPUS")
-  # An assignment, not a substitution inside docker run's arguments: a v1-only
-  # host must stop here, before an image is built or a container started.
-  cgroup_args=$(cgroup_run_args) || exit 1
   build_image
 
   say "starting $CONTAINER (cgroup mode: $(cgroup_mode))"

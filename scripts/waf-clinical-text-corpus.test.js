@@ -205,14 +205,16 @@ test('shouldFillOnlyArgumentsTheRulesUnhook_forEveryRowWithRules', () => {
 });
 
 test('shouldRelyOnTheAfterCrsPattern_whenARowHasNoNumberedRule', () => {
-  const text = fs.readFileSync(AFTER_CRS, 'utf8');
+  // The parsed rules, not the file text: one exemption per (tag, pattern) pair, so another tag's exemption of the
+  // same pattern, or this tag's exemption of another pattern, cannot stand in for it (comments are skipped too).
+  const exemptions = afterCrsExemptions(AFTER_CRS);
   for (const [key, fact] of Object.entries(FACTS)) {
     // A response row measures a rule that reads the answer; the package has no exclusion to rely on there.
     if (fact.rules.length || fact.response) continue;
     assert.ok(fact.afterCrs && fact.afterCrs.length, `${key}: a row without a rule names the after-CRS pattern it relies on`);
     for (const pattern of fact.afterCrs) {
       for (const tag of ['attack-sqli', 'attack-rce', 'attack-injection-php', 'attack-protocol', 'attack-lfi', 'attack-rfi']) {
-        assert.ok(text.includes(`SecRuleUpdateTargetByTag "${tag}"`) && text.includes(pattern), `${key}: ${tag} ${pattern} is not in the after-CRS file`);
+        assert.ok(exemptions.some((e) => e.tag === tag && `!ARGS:${e.arg}` === pattern), `${key}: ${tag} ${pattern} is not in the after-CRS file`);
       }
     }
   }
@@ -286,6 +288,9 @@ test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
     '    SecRule REQUEST_METHOD "@streq POST" \\',
     '        "t:none,\\',
     '        ctl:ruleRemoveTargetByTag=attack-rce;ARGS:customName"',
+    // The exemption written on the head rule itself, with no chain.
+    'SecRule REQUEST_URI "@rx ^/carlos/rx/SingleRule(?:[;?]|$)" \\',
+    '    "id:9003,phase:1,pass,nolog,ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:oneRule"',
     '',
   ].join('\n'));
   const rules = exemptArguments(conf);
@@ -295,6 +300,7 @@ test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_288452', none)], ['attack-lfi']);
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'customName', none)], ['attack-rfi'], 'an exemption by rule id counts for its family');
   assert.deepEqual([...familiesUnhooked('rx/writeScript', 'customName', none)], ['attack-rce'], 'route names are case-sensitive');
+  assert.deepEqual([...familiesUnhooked('rx/SingleRule', 'oneRule', none)], ['attack-rfi'], 'an exemption on the head rule itself counts');
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_1', { rules, exemptions: [{ tag: 'attack-rfi', arg: '/^drugName_[0-9]+$/' }] })].sort(), ['attack-lfi', 'attack-rfi']);
 });
 

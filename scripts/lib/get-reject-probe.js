@@ -131,23 +131,25 @@ function createLedger(name) {
         // response: its own filters add X-Permitted-Cross-Domain-Policies to every response, which
         // the WAF's nginx error page (and any blank or custom proxy answer) does not carry. This
         // works for HEAD too, where there is no body to recognise a WAF page by. An unmarked 403 is
-        // inconclusive. A 405 is always a refusal.
+        // inconclusive. A 405 needs the same evidence (h.assertRefused() judges both alike): the nginx front door
+        // and the container's default servlet answer 405 too, and neither says anything about the route.
         const fromApplication = Object.prototype.hasOwnProperty.call(response.headers(), APPLICATION_HEADER);
         const unverified403 = status === 403 && !waf && !fromApplication;
-        const refused = status === 405 || (status === 403 && !waf && fromApplication);
-        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 ? ' (unverified origin)' : ''}`);
+        const unverified405 = status === 405 && !fromApplication && !(body && h.isApplicationErrorPage(body));
+        const refused = (status === 405 && !unverified405) || (status === 403 && !waf && fromApplication);
+        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never
         // answered the question: it must not read as "refused" just because the rows are unchanged.
         if (waf) entry.blocked = true;
         if (status >= 500) entry.errored = true;
-        if (unverified403) entry.unverified = true;
+        if (unverified403 || unverified405) entry.unverified = true;
         // requireStatus=false: an include()d gate cannot set a status (the container ignores
         // sendError inside an include), so only the absence of a write can be asserted.
         if (!refused && requireStatus) entry.open = true;
       }
       entries.push(entry);
-      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 of unverified origin']
+      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 or 405 of unverified origin']
         .filter(Boolean).join(', ');
       const verdict = entry.changed ? `WROTE (${entry.changedBy.join('/')})`
         : flaws ? `INCONCLUSIVE (${flaws})`

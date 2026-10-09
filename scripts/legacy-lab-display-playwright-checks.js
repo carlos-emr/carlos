@@ -498,7 +498,7 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
       const again = await openLab(lab, `${NAME}-${lab.key}-acknowledged`);
       try {
         const text = await expectDisplay(again, lab);
-        h.assert(text.includes('Acknowledged') && text.includes(`comment : ${comment}`),
+        h.assert(!text.includes('Not Acknowledged') && text.includes('Acknowledged') && text.includes(`comment : ${comment}`),
           `The ${lab.title} lab page opened again does not show it Acknowledged with the comment`);
       } finally {
         await again.close().catch(() => {});

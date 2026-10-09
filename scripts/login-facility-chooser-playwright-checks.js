@@ -336,8 +336,10 @@ async function workflow(s) {
     h.assert(!banner.includes(text.Aold), 'The banner of facility A shows its expired message');
   });
 
+  // Declared outside its step so the teardown can close this session before the provider it signed in as is deleted.
+  let third;
   await step('choosing the other facility B shows B\'s message and not A\'s, and audits B once', async () => {
-    const third = await signIn(multi, 'login-facility-chooser-third');
+    third = await signIn(multi, 'login-facility-chooser-third');
     h.assert(third.outcome === 'other' && endsWith(third.page.url(), '/select_facility'), `The third sign-in landed on ${third.landing}, not on the chooser`);
     const mark = logWatermark();
     await pick(third.page, B);
@@ -381,7 +383,7 @@ async function workflow(s) {
 
   // ---- teardown ---------------------------------------------------------------------------------------------------
   await step('every owned facility, message, login and audit row is removed', async () => {
-    for (const context of [first, second, only].map(session => session && session.context)) {
+    for (const context of [first, second, third, only].map(session => session && session.context)) {
       if (context) await context.close().catch(() => {});
     }
     fixture.cleanup();

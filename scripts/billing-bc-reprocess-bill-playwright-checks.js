@@ -39,18 +39,23 @@ async function workflow(s) {
   let billingmasterNo;
 
   s.cleanup(() => {
-    if (billingmasterNo) {
+    // Keyed by the owned patient, not by the ids captured above: the cleanup must still recover the rows when the
+    // INSERT succeeded and the id read that followed it was lost.
+    const owned = sql.rows(`SELECT billingmaster_no FROM billingmaster WHERE demographic_no=${patient}`)
+      .map(([id]) => id).filter((id) => /^\d+$/.test(id));
+    if (owned.length) {
+      const list = owned.join(',');
       sql.execute([
-        `DELETE FROM billing_history WHERE billingmaster_no=${billingmasterNo}`,
-        `DELETE FROM billingnote WHERE billingmaster_no=${billingmasterNo}`,
-        `DELETE FROM billingmaster WHERE billingmaster_no=${billingmasterNo} AND billing_no=${billingNo}`,
+        `DELETE FROM billing_history WHERE billingmaster_no IN (${list})`,
+        `DELETE FROM billingnote WHERE billingmaster_no IN (${list})`,
+        `DELETE FROM billingmaster WHERE billingmaster_no IN (${list}) AND demographic_no=${patient}`,
       ].join(';'));
     }
-    if (billingNo) sql.execute(`DELETE FROM billing WHERE billing_no=${billingNo} AND demographic_no=${patient}`);
+    sql.execute(`DELETE FROM billing WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM billing WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM billingmaster WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM billingnote WHERE billingmaster_no=${billingmasterNo || 0})
-      + (SELECT COUNT(*) FROM billing_history WHERE billingmaster_no=${billingmasterNo || 0})`) === '0',
+      + (SELECT COUNT(*) FROM billingnote WHERE billingmaster_no IN (${owned.length ? owned.join(',') : 0}))
+      + (SELECT COUNT(*) FROM billing_history WHERE billingmaster_no IN (${owned.length ? owned.join(',') : 0}))`) === '0',
     'Owned BC bill rows were not removed');
   });
 

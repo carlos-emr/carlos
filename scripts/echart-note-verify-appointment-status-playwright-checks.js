@@ -426,7 +426,7 @@ async function workflow(s) {
       await pressAndExit(chart, SIGN_SAVE, s.master);
       const note = await waitForNote(text, 'Sign & Save did not write the note');
       h.assert(note.signed === '1' && note.signer === provider, `The note was not signed by the provider (${note.signed}/${note.signer})`);
-      h.assert(note.appointment === '0' || note.appointment === 'NULL', `The note carries appointment ${note.appointment}`);
+      h.assert(note.appointment === '0' || note.appointment === null, `The note carries appointment ${note.appointment}`);
       h.assert(signatureShape(signedLabel).test(signatureLine(note.body)), 'The note does not end with the signature line');
       h.assert(appointmentsFingerprint() === before, 'Signing a note with no appointment changed an appointment row or wrote an archive row');
     });
@@ -512,7 +512,7 @@ async function workflow(s) {
     await noteField(chart).fill(text);
     await pressAndExit(chart, SIGN_SAVE, s.master);
     const note = await waitForNote(text, 'Sign & Save did not write the note');
-    h.assert(note.signed === '1' && (note.appointment === '0' || note.appointment === 'NULL'),
+    h.assert(note.signed === '1' && (note.appointment === '0' || note.appointment === null),
       `The note was not signed with no appointment (${note.signed}/${note.appointment})`);
     h.assert(appointmentsFingerprint() === before, 'Signing a note with no appointment changed an appointment row or wrote an archive row');
   });

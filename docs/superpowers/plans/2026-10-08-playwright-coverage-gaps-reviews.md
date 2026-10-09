@@ -7,6 +7,8 @@ Appendix to `2026-10-08-playwright-coverage-gaps.md`. These are the five read-on
 ```text
 CROSS-CUTTING COVERAGE GAPS: CARLOS EMR Playwright suite (release/2026.08 harness branch, read-only review)
 
+[Snapshot of 2026-10-08: every count below is as of that day. The manifest has since grown (run `node scripts/run-playwright-suite.js --list` for the current figures) and some pins named in these appendices have been removed because the finding was fixed on release/2026.08.]
+
 The manifest has 496 checks. By tier: core 462, smoke 12, front-door 9, extended 18, standalone 4 (2 of them manual). By province: all 410, ON 83, BC 3.
 
 GAPS (most important first)

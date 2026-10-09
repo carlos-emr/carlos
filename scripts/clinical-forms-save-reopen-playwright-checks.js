@@ -395,7 +395,11 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
       entry.before = Number(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`));
       const savePath = form.savePath || '/form/formname';
       const posted = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(savePath));
-      const landed = form.idInUrl === false ? page.waitForLoadState('domcontentloaded')
+      // A form whose id is not in the URL has no URL to wait for: wait for the navigation the Save starts. The load state of
+      // the page it is already on would resolve at once, and the redisplay concern would then judge the old document.
+      const landed = form.idInUrl === false
+        ? page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame() })
+          .then(() => page.waitForLoadState('domcontentloaded'))
         : page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
       // Observed below; a failure raised first must not surface later as an unhandled rejection.
       posted.catch(() => {});
@@ -533,7 +537,8 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
         'The folded-navigation fixture did not put the saved form beyond the first page');
       page = await claims.reaching(() => openSavedEntry(fresh, entry));
       const params = new URL(page.url()).searchParams;
-      h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
+      // A form whose id is not in the URL takes its patient from the session too (see the open step).
+      if (form.idInUrl !== false) h.assert(params.get('demographic_no') === patient, 'The saved-form entry opened another patient');
       if (form.idInUrl !== false) h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
       // After a multi-page form's last Save the chart opens its last page, so that page's text is what must be there.
       await assertShown(page, form, entry.text, 'The reopened form', lastProse(form));

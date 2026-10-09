@@ -309,7 +309,8 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     console.log('PASS demographic, tickler, consultation, and admin browser surfaces rendered correctly');
   } finally {
     try {
-      if (browser) await browser.close();
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
       // After the browser is gone: the patient's archive and chart rows, then the patient, by its key.
       if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker);
     } finally {

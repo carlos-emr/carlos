@@ -163,6 +163,7 @@ on:
       - 'src/main/java/**/*2Action.java'
       - 'src/main/java/**/*Filter*.java'
       - 'src/main/java/**/web/**'
+      - 'src/main/java/**'
       - 'database/mysql/migration/**'
       - '.devcontainer/**'
       - 'scripts/**'
@@ -949,8 +950,9 @@ The leg, per province, on the pull requests the job already runs on (its `paths`
 4. Count every base table, `flyway migrate` and `flyway validate` with this commit's files, count again.
 5. Fail if a table disappeared or shrank unless `scripts/migration/upgrade-row-count-exceptions.txt` names it
    (the maintainers create that file; one table per line, with the migration that justifies it), if
-   `demographic`, `provider`, `security` or `appointment` changed at all, if the sentinel is gone, or if no
-   migration was applied on top of the tag.
+   the row count of `demographic`, `provider`, `security` or `appointment` changed at all, if the sentinel is gone, or
+   if no migration was applied on top of the tag. Only counts are compared (`snapshot()` records `COUNT(*)`), so this
+   catches a deletion, not an edit of a row; comparing row values would need a per-table checksum.
 
 ```yaml
 # Hunk 1 of 2: the job needs the tags and the history behind them.
@@ -1035,10 +1037,11 @@ The leg, per province, on the pull requests the job already runs on (its `paths`
                   problems.append(f"{table}: table dropped (was {count} rows)")
               elif after[table] < count:
                   problems.append(f"{table}: {count} -> {after[table]} rows")
-          # A migration never deletes patients, providers or logins from a clinic.
+          # A migration never deletes patients, providers or logins from a clinic. The snapshot holds row counts
+          # only, so this catches a deletion (or an unexplained insert), not an edit of a row.
           for table in ("demographic", "provider", "security", "appointment"):
               if before.get(table) != after.get(table):
-                  problems.append(f"{table}: {before.get(table)} -> {after.get(table)}, expected unchanged")
+                  problems.append(f"{table}: {before.get(table)} -> {after.get(table)} rows, expected the same count")
           if before.get("demographic", 0) < 2:
               problems.append("the demo dataset did not load (demographic has fewer than 2 rows)")
           print(f"{len(before)} tables compared, {len(after) - len(before)} added by the migrations")

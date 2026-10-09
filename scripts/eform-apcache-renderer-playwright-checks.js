@@ -569,13 +569,20 @@ async function main() {
     }
     try {
       // The soft-deleted templates by their unique names, then the instances and the patient by the patient's key.
-      sql.execute(`DELETE FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`);
-      if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) !== '0') {
-        throw new Error('The imported eForm templates were not removed');
+      // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) !== '0') {
+          throw new Error('The imported eForm templates were not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
       }
-      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
-    } catch (error) {
-      cleanupErrors.push(error);
+      try {
+        if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
     } finally {
       sql.dispose();
     }

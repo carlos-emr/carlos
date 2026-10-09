@@ -302,7 +302,7 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       // Clone the configuration columns of an existing enabled facility (never its members, its programs or any clinical
       // data), as the facility-selection check does: the columns follow the schema, so a NOT NULL column a later migration
       // adds is copied rather than failing this INSERT.
-      const source = sql.value(`SELECT IFNULL(MIN(id),'') FROM Facility WHERE disabled=0 AND description<>${sqlString(marker)}`);
+      const source = sql.value(`SELECT IFNULL(MIN(id),'') FROM Facility WHERE disabled=0 AND IFNULL(description,'')<>${sqlString(marker)}`);
       assert(/^[1-9]\d*$/.test(source), 'The install has no enabled facility to copy a facility row from');
       const columns = sql.rows(`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE()
         AND TABLE_NAME='Facility' AND COLUMN_NAME NOT IN ('id','name','description','lastUpdated','disabled') ORDER BY ORDINAL_POSITION`).flat();

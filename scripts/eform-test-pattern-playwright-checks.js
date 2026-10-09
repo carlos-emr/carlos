@@ -981,17 +981,24 @@ async function cleanupUploadedImage(context, imageName) {
       fs.rmSync(runtimeFixture.tempDir, { recursive: true, force: true });
     }
     if (browser) {
-      await browser.close();
+      await browser.close().catch(() => {});
     }
     try {
       // The imported template by its unique name, then the instances, their values and the patient by the patient's key.
-      sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
-      if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
-        throw new Error('The imported eForm template was not removed');
+      // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
       }
-      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
-    } catch (error) {
-      cleanupErrors.push(error);
+      try {
+        if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
     } finally {
       sql.dispose();
     }

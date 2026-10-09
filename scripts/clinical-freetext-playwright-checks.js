@@ -596,7 +596,8 @@ async function runFreeTextChecks() {
     await runFreeTextChecks();
   } finally {
     try {
-      if (browser) await browser.close();
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
       if (demographicNo !== null) removeFixturePatient(sql, demographicNo, ownedMarker);
     } finally {
       sql.dispose();

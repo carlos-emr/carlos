@@ -222,7 +222,8 @@ function auditWithStubJournal(t, { bootEpoch }) {
     '#!/bin/sh',
     'case "$*" in',
     `  *short-unix*) printf '%s\\n' '${first}' ;;`,
-    '  *) : ;;',
+    // The unit's own journal: one line, so the audit has something to read (an empty journal is refused).
+    "  *) printf '%s\\n' 'INFO started' ;;",
     'esac',
     '',
   ].join('\n'), { mode: 0o755 });
@@ -248,4 +249,31 @@ test('should say so, and audit every catalina log, when the journal cannot name 
   assert.match(r.err, /could not find the start of the current boot; catalina logs are not bounded/);
   assert.match(r.out, /EarlierBootFailure/);
   assert.match(r.out, /ThisBootFailure/);
+});
+
+// A journal that cannot be read is not a finding: status 2, kept apart from status 1 (an unexplained signature).
+function auditWithJournalScript(t, journalctlBody) {
+  const dir = tmp(t);
+  const bin = path.join(dir, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'journalctl'), `#!/bin/sh\n${journalctlBody}\n`, { mode: 0o755 });
+  const base = path.join(dir, 'baseline.tsv');
+  fs.writeFileSync(base, '# none\n');
+  const result = spawnSync('bash', [SCRIPT, '--baseline', base, '--catalina-dir', path.join(dir, 'no-catalina')],
+    { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CARLOS_LOG_AUDIT_SINCE: '' } });
+  return { status: result.status, out: result.stdout, err: result.stderr };
+}
+
+test('should exit 2, not 1, when journalctl fails', (t) => {
+  const r = auditWithJournalScript(t, 'echo "Failed to open journal" >&2\nexit 1');
+  assert.equal(r.status, 2, r.out + r.err);
+  assert.match(r.err, /journalctl failed \(exit 1\): Failed to open journal/);
+  assert.doesNotMatch(r.out, /PASS/);
+});
+
+test('should exit 2, not report PASS, when the journal holds no line for the unit', (t) => {
+  const r = auditWithJournalScript(t, 'exit 0');
+  assert.equal(r.status, 2, r.out + r.err);
+  assert.match(r.err, /read no journal line for unit/);
+  assert.doesNotMatch(r.out, /PASS/);
 });

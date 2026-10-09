@@ -1410,6 +1410,7 @@ module.exports = {
   assertNoPageErrors,
   assertNotErrorPage,
   assertRefused,
+  isApplicationErrorPage,
   assertStrictPage,
   buildArtifactPath,
   buildFailureDetails,

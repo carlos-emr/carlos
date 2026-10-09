@@ -112,7 +112,8 @@ const config = {
     process.exitCode = 1;
   } finally {
     try {
-      if (browser) await browser.close();
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
       if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
     } catch (error) {
       console.error(`FAIL cleanup: ${error.message}`);

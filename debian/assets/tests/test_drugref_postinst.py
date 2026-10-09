@@ -84,6 +84,14 @@ def _function_source(name):
     if not match:
         raise AssertionError("no function %s() in %s -- this contract has "
                              "lost its subject" % (name, POSTINST.name))
+    # The match ends at the first closing brace in column 0. A heredoc or other multi-line construct
+    # that put one inside the function would cut it short and the tests would run a broken function;
+    # a syntax check turns that silent truncation into a loud failure.
+    syntax = subprocess.run(["sh", "-n"], input=match.group(0), capture_output=True,
+                            text=True, timeout=20, check=False)
+    if syntax.returncode != 0:
+        raise AssertionError("function %s() extracted from %s does not parse (truncated at a "
+                             "column-0 brace?): %s" % (name, POSTINST.name, syntax.stderr.strip()))
     return match.group(0)
 
 

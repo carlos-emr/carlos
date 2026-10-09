@@ -591,19 +591,35 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
+    // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
+    // `finally` would replace the failure of the check itself.
+    const cleanupErrors = [];
     try {
       if (browser) await browser.close();
-    } finally {
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
+      // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
       try {
-        // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
         sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
         if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
           throw new Error('The imported eForm template was not removed');
         }
-        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
-      } finally {
-        sql.dispose();
+      } catch (error) {
+        cleanupErrors.push(error);
       }
+      try {
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => String(error.message).split('\n')[0]).join('; ')}`);
+      process.exitCode = 1;
     }
   }
 })().catch((error) => {

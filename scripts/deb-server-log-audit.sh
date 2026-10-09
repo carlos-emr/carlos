@@ -50,7 +50,7 @@
 #   --catalina-dir  Tomcat log directory (default /var/log/carlos-emr/tomcat);
 #                 its SEVERE lines are audited too.
 #
-# Exit status: 0 no unexplained signature, 1 at least one, 2 usage error.
+# Exit status: 0 no unexplained signature, 1 at least one, 2 usage error or an unreadable (or empty) journal.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -97,10 +97,21 @@ boot_start_iso() {
 if [ -n "$INPUT" ]; then
   cat "$INPUT" > "$work/app.log"
 else
-  if [ -n "$SINCE" ]; then
-    journalctl -u "$UNIT" --no-pager -o cat --since "$SINCE" > "$work/app.log"
-  else
-    journalctl -u "$UNIT" --no-pager -o cat -b > "$work/app.log"
+  jargs=(-u "$UNIT" --no-pager -o cat)
+  if [ -n "$SINCE" ]; then jargs+=(--since "$SINCE"); else jargs+=(-b); fi
+  # Status 2 for a journal that could not be read, kept apart from status 1 (an unexplained signature): `set -e`
+  # would otherwise end the script with journalctl's own status 1 and a caller could not tell the two apart.
+  jstatus=0
+  journalctl "${jargs[@]}" > "$work/app.log" 2> "$work/journal.err" || jstatus=$?
+  if [ "$jstatus" -ne 0 ]; then
+    echo "deb-server-log-audit: journalctl failed (exit $jstatus): $(head -n 1 "$work/journal.err" | cut -c1-200)" >&2
+    exit 2
+  fi
+  # A wrong --unit makes journalctl succeed with no lines, and the audit would then report PASS for a log that was
+  # never read.
+  if [ ! -s "$work/app.log" ]; then
+    echo "deb-server-log-audit: read no journal line for unit $UNIT since ${SINCE:-the current boot}" >&2
+    exit 2
   fi
   # Tomcat's own JUL log: "08-Oct-2026 04:31:00.123 SEVERE [thread] logger message".
   # Keep SEVERE lines at or after --since (compared as ISO text).

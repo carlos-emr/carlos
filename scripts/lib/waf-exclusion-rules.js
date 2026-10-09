@@ -115,6 +115,15 @@ function wafRouteRules(file) {
 function exemptArguments(file) {
   const byId = new Map();
   let current = null;
+  // The `ctl:ruleRemoveTarget...` actions of one rule, read into `current`. A rule may carry them on the head itself
+  // (one rule with an id) as well as on a chained link, so both paths use this.
+  const readRemovals = (rule) => {
+    for (const ctl of rule.actions.matchAll(/ctl:ruleRemoveTarget(ByTag|ById)=([^;,"]+);ARGS:([^,"\s]+)/g)) {
+      current.args.add(ctl[3]);
+      if (!current.removals.has(ctl[3])) current.removals.set(ctl[3], new Set());
+      current.removals.get(ctl[3]).add(ctl[1] === 'ByTag' ? ctl[2] : `id:${ctl[2]}`);
+    }
+  };
   for (const { line, text } of logicalLines(fs.readFileSync(file, 'utf8'))) {
     const rule = parseSecRule(text);
     if (!rule) continue;
@@ -125,17 +134,14 @@ function exemptArguments(file) {
         const head = routeOf(file, line, id[1], rule);
         current = { id: id[1], line, route: head.route, shape: head.shape, args: new Set(), removals: new Map(), methods: new Set() };
         byId.set(id[1], current);
+        readRemovals(rule);
       }
       continue;
     }
     if (!current) continue;
     const method = /^@streq\s+(\w+)$/.exec(rule.operator);
     if (method && variableNames(rule.variables).includes('REQUEST_METHOD')) current.methods.add(method[1]);
-    for (const ctl of rule.actions.matchAll(/ctl:ruleRemoveTarget(ByTag|ById)=([^;,"]+);ARGS:([^,"\s]+)/g)) {
-      current.args.add(ctl[3]);
-      if (!current.removals.has(ctl[3])) current.removals.set(ctl[3], new Set());
-      current.removals.get(ctl[3]).add(ctl[1] === 'ByTag' ? ctl[2] : `id:${ctl[2]}`);
-    }
+    readRemovals(rule);
   }
   return byId;
 }
