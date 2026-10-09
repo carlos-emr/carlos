@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "artifact_id": "synthetic-overview-001",
+  "generated_at": "2026-09-08T00:00:00Z",
+  "model": "Hand-authored rendering fixture (no inference)",
+  "workflow": "patient-overview",
+  "patient_context": {
+    "id": "synthetic-001",
+    "label": "Synthetic patient 001",
+    "synthetic": true
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Recent history",
+      "claim_ids": [
+        "claim-1"
+      ]
+    },
+    {
+      "id": "medications",
+      "title": "Medication reconciliation",
+      "claim_ids": [
+        "claim-2"
+      ]
+    },
+    {
+      "id": "allergies",
+      "title": "Allergy record",
+      "claim_ids": [
+        "claim-3"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "The synthetic visit note records intermittent left knee pain for two weeks, without a reported injury.",
+      "source_ids": [
+        "note-1"
+      ]
+    },
+    {
+      "id": "claim-2",
+      "text": "Medication status is unresolved: the medication list marks amlodipine 5 mg daily as active, while the visit note records that the patient stopped it one week earlier.",
+      "source_ids": [
+        "meds-1",
+        "note-1"
+      ]
+    },
+    {
+      "id": "claim-3",
+      "text": "The allergy record lists penicillin with a rash; the reaction date is not recorded.",
+      "source_ids": [
+        "allergy-1"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "note-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic visit note",
+      "date": "2026-09-01",
+      "text": "Synthetic patient 001 reports intermittent left knee pain for two weeks. No injury reported. Patient reports stopping amlodipine one week ago. Medication reconciliation remains pending."
+    },
+    {
+      "id": "meds-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic medication list",
+      "date": "2026-08-15",
+      "text": "Amlodipine 5 mg orally daily. Status: active. This list predates the visit note."
+    },
+    {
+      "id": "allergy-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic allergy record",
+      "date": "2026-08-15",
+      "text": "Penicillin: rash. Reaction date not recorded."
+    },
+    {
+      "id": "admin-1",
+      "patient_id": "synthetic-001",
+      "title": "Synthetic scheduling note",
+      "date": "2026-08-30",
+      "text": "Appointment time confirmed. No clinical content."
+    }
+  ],
+  "coverage": [
+    {
+      "source_id": "note-1",
+      "status": "cited",
+      "reason": "Recent history and patient-reported medication status."
+    },
+    {
+      "source_id": "meds-1",
+      "status": "cited",
+      "reason": "Conflicting medication-list status retained."
+    },
+    {
+      "source_id": "allergy-1",
+      "status": "cited",
+      "reason": "Recorded allergy and missing reaction date retained."
+    },
+    {
+      "source_id": "admin-1",
+      "status": "excluded",
+      "reason": "Scheduling-only source; excluded from clinical summary."
+    }
+  ],
+  "fact_ledger": [
+    {
+      "id": "fact-1",
+      "category": "Symptoms",
+      "text": "Intermittent left knee pain for two weeks; no injury reported.",
+      "source_ids": [
+        "note-1"
+      ]
+    },
+    {
+      "id": "fact-2",
+      "category": "Medication conflict",
+      "text": "Amlodipine 5 mg daily is listed active; patient reports stopping it. Current use is unresolved.",
+      "source_ids": [
+        "meds-1",
+        "note-1"
+      ]
+    },
+    {
+      "id": "fact-3",
+      "category": "Allergies",
+      "text": "Penicillin rash; reaction date is absent.",
+      "source_ids": [
+        "allergy-1"
+      ]
+    }
+  ],
+  "validation": [
+    {
+      "severity": "pass",
+      "code": "fixture_review",
+      "message": "This hand-authored fixture has source references for each claim and ledger entry.",
+      "source_ids": []
+    },
+    {
+      "severity": "warning",
+      "code": "medication_conflict",
+      "message": "Medication sources disagree; reconciliation is pending.",
+      "source_ids": [
+        "meds-1",
+        "note-1"
+      ]
+    },
+    {
+      "severity": "warning",
+      "code": "clinical_review_required",
+      "message": "Reference and coverage checks do not establish clinical correctness or completeness.",
+      "source_ids": []
+    }
+  ]
+}

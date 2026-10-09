@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "campaign_id": "clinical-summary-ledger-delta-2b-final-v1",
+  "model": "qwen3.5:2b",
+  "seeds": [42],
+  "repetitions": 1,
+  "timeout_seconds": 240,
+  "cases": [
+    "../cases/medication-conflict.json",
+    "../cases/single-source.json",
+    "../cases/repetitive-discharge.json",
+    "../cases/adversarial-source.json"
+  ],
+  "candidates": [
+    {
+      "id": "host-ledger-guided-delta",
+      "max_claims": 10,
+      "max_chars": 180,
+      "num_ctx": 8192,
+      "num_predict": 384,
+      "input_mode": "clinical_sources_and_atomic_fact_ledger",
+      "output_mode": "host_ledger_with_guided_delta"
+    }
+  ]
+}

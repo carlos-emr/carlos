@@ -38,6 +38,9 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
+    /** Complete patient-scoped history, including completed records and records without a linked provider. */
+    List<ConsultationRequest> findByDemographicNo(Integer demographicNo);
+
 
     public static final int DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT = 100;
 

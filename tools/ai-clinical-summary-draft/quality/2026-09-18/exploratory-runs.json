@@ -1,0 +1,1536 @@
+[
+ {
+  "name": "A-single-pass",
+  "note": "Control: current prompt, one whole-record pass.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 83.016,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "temperature": 0.2,
+  "section_passes": false,
+  "section_workers": 2,
+  "timeout_seconds": 180,
+  "request_bytes": 50000,
+  "prompt_sha256": "1890e1d0175060f8fdd8c34a64077340de79690f3fa43ce9445bb96a6d389c57",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.022357,
+  "calls": [
+   {
+    "seconds": 82.869,
+    "prompt_tokens": 7334,
+    "completion_tokens": 3746,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0223575,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "B-section-passes-timeout180",
+  "note": "Rejected: fifth pass exceeded the 180-second per-request timeout.",
+  "fixture": "NHSSYN001",
+  "status": "rejected",
+  "error": "UpstreamError: OpenRouter connection, timeout, or response-format failure",
+  "seconds": 180.051,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "temperature": 0.2,
+  "section_passes": true,
+  "section_workers": 2,
+  "timeout_seconds": 180,
+  "request_bytes": 50000,
+  "prompt_sha256": "1890e1d0175060f8fdd8c34a64077340de79690f3fa43ce9445bb96a6d389c57",
+  "passes": 4,
+  "claims": 0,
+  "cost_usd": 0.057005,
+  "calls": [
+   {
+    "seconds": 11.687,
+    "prompt_tokens": 6762,
+    "completion_tokens": 1739,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.012897,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 43.764,
+    "prompt_tokens": 6759,
+    "completion_tokens": 2115,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01458675,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 7.847,
+    "prompt_tokens": 6814,
+    "completion_tokens": 1707,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.012792,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 50.173,
+    "prompt_tokens": 6796,
+    "completion_tokens": 2585,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0167295,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "B2-section-passes",
+  "note": "Five section-scoped passes over two workers at the 300-second ceiling.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 121.142,
+  "model": "qwen/qwen3.5-397b-a17b",
+  "temperature": 0.2,
+  "section_passes": true,
+  "section_workers": 2,
+  "timeout_seconds": 300,
+  "request_bytes": 50000,
+  "prompt_sha256": "1890e1d0175060f8fdd8c34a64077340de79690f3fa43ce9445bb96a6d389c57",
+  "passes": 5,
+  "claims": 70,
+  "cost_usd": 0.076119,
+  "calls": [
+   {
+    "seconds": 37.859,
+    "sections": [
+     "clinical_overview"
+    ],
+    "prompt_tokens": 6762,
+    "completion_tokens": 1589,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.012222,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 65.367,
+    "sections": [
+     "results_observations"
+    ],
+    "prompt_tokens": 6781,
+    "completion_tokens": 3609,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.02132625,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 32.663,
+    "sections": [
+     "active_problems"
+    ],
+    "prompt_tokens": 6759,
+    "completion_tokens": 1748,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.01293525,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 28.575,
+    "sections": [
+     "medications_allergies"
+    ],
+    "prompt_tokens": 6816,
+    "completion_tokens": 1692,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.012726,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 50.548,
+    "sections": [
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 6796,
+    "completion_tokens": 2625,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0169095,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "C1-27b-single-baseline",
+  "note": "Committed prompt; 27B single-pass baseline.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 95.297,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": null,
+  "section_prompt_path": null,
+  "prompt_sha256": "1890e1d0175060f8fdd8c34a64077340de79690f3fa43ce9445bb96a6d389c57",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009343,
+  "calls": [
+   {
+    "seconds": 95.221,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7334,
+    "completion_tokens": 3755,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0093435,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C2-27b-P2-t02",
+  "note": "Role-only prompt.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 108.789,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 31,
+  "cost_usd": 0.009761,
+  "calls": [
+   {
+    "seconds": 108.72,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3957,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0097615,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C3-27b-P2-t0",
+  "note": "Role-only prompt; the one single-pass failure.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 112.083,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 20,
+  "cost_usd": 0.009703,
+  "calls": [
+   {
+    "seconds": 112.06,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3119,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0097026,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C4-27b-P2-t0-sf",
+  "note": "Role-only prompt; recommended configuration.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 116.955,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.009392,
+  "calls": [
+   {
+    "seconds": 116.918,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3772,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0093915,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C5-27b-P2-t02-phala",
+  "note": "Role-only prompt; second provider.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 127.776,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.2,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.011107,
+  "calls": [
+   {
+    "seconds": 127.746,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3704,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0111066,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C6-27b-P2-t0-sf-repeat",
+  "note": "C4 repeated for stability.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 150.296,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 1,
+  "claims": 27,
+  "cost_usd": 0.009203,
+  "calls": [
+   {
+    "seconds": 150.258,
+    "sections": [
+     "clinical_overview",
+     "active_problems",
+     "medications_allergies",
+     "results_observations",
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 7390,
+    "completion_tokens": 3678,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0092035,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C7-27b-P2-sections",
+  "note": "Section passes; section-prompt.txt NOT patched, so leaks reflect the old rule.",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 146.078,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": true,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": null,
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 6,
+  "claims": 53,
+  "cost_usd": 0.036037,
+  "calls": [
+   {
+    "seconds": 35.865,
+    "sections": [
+     "clinical_overview"
+    ],
+    "prompt_tokens": 6762,
+    "completion_tokens": 1493,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00563992,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 60.339,
+    "sections": [
+     "results_observations"
+    ],
+    "prompt_tokens": 6781,
+    "completion_tokens": 2571,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00844766,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 0.232,
+    "sections": [
+     "medications_allergies"
+    ],
+    "error": "RateLimitError: Rate limited; wait before retrying (HTTP 429)"
+   },
+   {
+    "seconds": 48.424,
+    "sections": [
+     "active_problems"
+    ],
+    "prompt_tokens": 6759,
+    "completion_tokens": 2087,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00718354,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 36.765,
+    "sections": [
+     "medications_allergies"
+    ],
+    "prompt_tokens": 6814,
+    "completion_tokens": 1557,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00581984,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 61.711,
+    "sections": [
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 6796,
+    "completion_tokens": 2761,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00894556,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "C8-27b-P2-sections-fixed",
+  "note": "Section passes with both prompts patched; rejected in merge validation.",
+  "fixture": "NHSSYN001",
+  "status": "rejected",
+  "error": "ValueError: Missing, unknown or duplicate source review",
+  "seconds": 168.746,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": true,
+  "prompt_path": "quality/2026-09-18/prompts/P2-role-only.txt",
+  "section_prompt_path": "quality/2026-09-18/prompts/P2-role-only-section.txt",
+  "prompt_sha256": "3fba4dfbe7b48f151bba30f74de1a60fbbc4dec8863966e2d394380129983f9f",
+  "passes": 5,
+  "claims": 0,
+  "cost_usd": 0.030051,
+  "calls": [
+   {
+    "seconds": 42.915,
+    "sections": [
+     "clinical_overview"
+    ],
+    "prompt_tokens": 6830,
+    "completion_tokens": 1613,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0049335,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 75.265,
+    "sections": [
+     "results_observations"
+    ],
+    "prompt_tokens": 6849,
+    "completion_tokens": 2977,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00766625,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 49.83,
+    "sections": [
+     "active_problems"
+    ],
+    "prompt_tokens": 6827,
+    "completion_tokens": 1977,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.00566075,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 41.365,
+    "sections": [
+     "medications_allergies"
+    ],
+    "prompt_tokens": 6882,
+    "completion_tokens": 1608,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.0049365,
+    "finish_reasons": [
+     "stop"
+    ]
+   },
+   {
+    "seconds": 75.933,
+    "sections": [
+     "plan_follow_up"
+    ],
+    "prompt_tokens": 6864,
+    "completion_tokens": 2569,
+    "reasoning_tokens": 0,
+    "cost_usd": 0.006854,
+    "finish_reasons": [
+     "stop"
+    ]
+   }
+  ],
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "D1-001-P3",
+  "note": "P3 discharge example",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 103.054,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P3-discharge-plan.txt",
+  "prompt_sha256": "88afce771bf4402a9379b987db5793b1f835b5e92261d65517581141a08ff233",
+  "passes": 1,
+  "claims": 30,
+  "cost_usd": 0.009593,
+  "metrics": {
+   "claims": 30,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "D2-001-P4",
+  "note": "P4 no-discharge-event",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 128.714,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P4-no-discharge-event.txt",
+  "prompt_sha256": "74ebf273e02245274a8b65a23433e2ef1f56ac8d8c40e62586ea4b2e6cefbd81",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.009091,
+  "metrics": {
+   "claims": 26,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "D3-001-P5",
+  "note": "P5 final",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 94.818,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.00899,
+  "metrics": {
+   "claims": 26,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "D4-001-P5-phala",
+  "note": "P5 final",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 100.584,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 24,
+  "cost_usd": 0.010694,
+  "metrics": {
+   "claims": 24,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "D5-001-P5-sf-repeat",
+  "note": "P5 final, repeat",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 152.281,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 27,
+  "cost_usd": 0.009056,
+  "metrics": {
+   "claims": 27,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "E1-002-P3",
+  "note": "P3 discharge example",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 160.617,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P3-discharge-plan.txt",
+  "prompt_sha256": "88afce771bf4402a9379b987db5793b1f835b5e92261d65517581141a08ff233",
+  "passes": 1,
+  "claims": 43,
+  "cost_usd": 0.015031,
+  "metrics": {
+   "claims": 43,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "E2-002-P4",
+  "note": "P4 no-discharge-event",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 182.27,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P4-no-discharge-event.txt",
+  "prompt_sha256": "74ebf273e02245274a8b65a23433e2ef1f56ac8d8c40e62586ea4b2e6cefbd81",
+  "passes": 1,
+  "claims": 53,
+  "cost_usd": 0.016282,
+  "metrics": {
+   "claims": 53,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "E3-002-P5",
+  "note": "P5 final",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 207.715,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 56,
+  "cost_usd": 0.014839,
+  "metrics": {
+   "claims": 56,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "E4-002-P5-phala",
+  "note": "P5 final",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 179.232,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 48,
+  "cost_usd": 0.016808,
+  "metrics": {
+   "claims": 48,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "E5-002-P5-deepinfra",
+  "note": "P5 final",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 61.828,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 26,
+  "cost_usd": 0.012168,
+  "metrics": {
+   "claims": 26,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "F1-003-P4",
+  "note": "P4 no-discharge-event",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 92.524,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P4-no-discharge-event.txt",
+  "prompt_sha256": "74ebf273e02245274a8b65a23433e2ef1f56ac8d8c40e62586ea4b2e6cefbd81",
+  "passes": 1,
+  "claims": 28,
+  "cost_usd": 0.008141,
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "F2-003-P5",
+  "note": "P5 final",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 112.663,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 31,
+  "cost_usd": 0.010939,
+  "metrics": {
+   "claims": 31,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "F3-003-P5-repeat",
+  "note": "P5 final, repeat",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 92.824,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "quality/2026-09-18/prompts/P5-implausible-values.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 25,
+  "cost_usd": 0.00796,
+  "metrics": {
+   "claims": 25,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "G1-003-committed-prompt",
+  "note": "committed prompt, no override",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 133.828,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "section_passes": false,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "54262791ab5f763eb7ce7b666ed9cb31dbaaf0715ef0b813f52dcdf010a543cc",
+  "passes": 1,
+  "claims": 27,
+  "cost_usd": 0.008236,
+  "metrics": {
+   "claims": 27,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300
+ },
+ {
+  "name": "H1-002-P6-phala",
+  "note": "P6 no plausibility judgement",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 179.77,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "prompt_path": "quality/2026-09-18/prompts/P6-no-plausibility-judgement.txt",
+  "prompt_sha256": "49bfc9c11bf55da087f7049b810484aa9c010f9e54830b7d1abc8af2418d7427",
+  "passes": 1,
+  "claims": 47,
+  "cost_usd": 0.016238,
+  "metrics": {
+   "claims": 47,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "H2-002-P6-deepinfra",
+  "note": "P6 no plausibility judgement",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 87.427,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "prompt_path": "quality/2026-09-18/prompts/P6-no-plausibility-judgement.txt",
+  "prompt_sha256": "49bfc9c11bf55da087f7049b810484aa9c010f9e54830b7d1abc8af2418d7427",
+  "passes": 3,
+  "claims": 27,
+  "cost_usd": 0.01191,
+  "metrics": {
+   "claims": 27,
+   "fact_recall": 0.909,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "H3-001-P6",
+  "note": "P6 via committed prompt",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 153.322,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "49bfc9c11bf55da087f7049b810484aa9c010f9e54830b7d1abc8af2418d7427",
+  "passes": 1,
+  "claims": 25,
+  "cost_usd": 0.009121,
+  "metrics": {
+   "claims": 25,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "H4-003-P6",
+  "note": "P6 via committed prompt",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 135.824,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "temperature": 0.0,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "49bfc9c11bf55da087f7049b810484aa9c010f9e54830b7d1abc8af2418d7427",
+  "passes": 1,
+  "claims": 36,
+  "cost_usd": 0.012215,
+  "metrics": {
+   "claims": 36,
+   "fact_recall": 0.9,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "H5-002-P6-sf",
+  "note": "P6 via committed prompt",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 206.296,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "49bfc9c11bf55da087f7049b810484aa9c010f9e54830b7d1abc8af2418d7427",
+  "passes": 1,
+  "claims": 52,
+  "cost_usd": 0.014718,
+  "metrics": {
+   "claims": 52,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "J1-002-P7-sf",
+  "note": "P7 same-purpose conflict",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 176.273,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "prompt_path": "quality/2026-09-18/prompts/P7-same-purpose-conflict.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 62,
+  "cost_usd": 0.015088,
+  "metrics": {
+   "claims": 62,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "J2-002-P7-deepinfra",
+  "note": "P7 same-purpose conflict",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "seconds": 101.157,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "deepinfra",
+  "temperature": 0.0,
+  "prompt_path": "quality/2026-09-18/prompts/P7-same-purpose-conflict.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 28,
+  "cost_usd": 0.012294,
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 0.909,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 1,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "K1-001-final",
+  "note": "final, committed prompt",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "seconds": 124.942,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 28,
+  "cost_usd": 0.009323,
+  "metrics": {
+   "claims": 28,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "K2-003-final",
+  "note": "final, committed prompt",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "seconds": 90.968,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "temperature": 0.0,
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "passes": 1,
+  "claims": 29,
+  "cost_usd": 0.008453,
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false
+ },
+ {
+  "name": "L1-002-P9",
+  "note": "P9 consolidated (too small)",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 179.837,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "46f7dc693d56c3ac8bbd90129a3880e4519abcdd920bf3bd4170f37f19044033",
+  "claims": 51,
+  "cost_usd": 0.013995,
+  "metrics": {
+   "claims": 51,
+   "fact_recall": 0.955,
+   "critical_recall": 0.923,
+   "missing_critical": [
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "L2-001-P9",
+  "note": "P9 consolidated",
+  "fixture": "NHSSYN001",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 123.025,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "phala",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "46f7dc693d56c3ac8bbd90129a3880e4519abcdd920bf3bd4170f37f19044033",
+  "claims": 24,
+  "cost_usd": 0.010791,
+  "metrics": {
+   "claims": 24,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 1,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "M1-002-P10",
+  "note": "P10 (too small)",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 108.983,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "90f653965e850c7cd325ddbb94a502d07885a8174c97736ee6211c3e54244f3e",
+  "claims": 29,
+  "cost_usd": 0.010243,
+  "metrics": {
+   "claims": 29,
+   "fact_recall": 0.864,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "N1-002-P11",
+  "note": "P11 fits 10,000 (too small)",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 96.2,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "e93c78da8adab3c41076f2cd7929cb41318e4a06ec70cfcef85d06df3a831280",
+  "claims": 24,
+  "cost_usd": 0.009658,
+  "metrics": {
+   "claims": 24,
+   "fact_recall": 0.909,
+   "critical_recall": 0.846,
+   "missing_critical": [
+    "ward-round-vitals-retained",
+    "thromboprophylaxis-conflict"
+   ],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": false
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "N2-003-P11",
+  "note": "P11 fits 10,000 (refused)",
+  "fixture": "NHSSYN003",
+  "status": "rejected",
+  "error": "ValueError: Incomplete or refused completion",
+  "seconds": 140.478,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "e93c78da8adab3c41076f2cd7929cb41318e4a06ec70cfcef85d06df3a831280",
+  "claims": 0,
+  "cost_usd": 0.001533,
+  "metrics": {
+   "status": "rejected",
+   "error": "ValueError: Incomplete or refused completion"
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "P1-002-final",
+  "note": "final: P7 prompt after the host default moved to 16,000; this gateway pass still used 50,000",
+  "fixture": "NHSSYN002",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 209.39,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "claims": 56,
+  "cost_usd": 0.01502,
+  "metrics": {
+   "claims": 56,
+   "fact_recall": 1.0,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ },
+ {
+  "name": "P2-003-final",
+  "note": "final: P7 prompt after the host default moved to 16,000; this gateway pass still used 50,000",
+  "fixture": "NHSSYN003",
+  "status": "structurally_valid",
+  "error": null,
+  "seconds": 101.525,
+  "model": "qwen/qwen3.5-27b",
+  "provider": "siliconflow",
+  "prompt_path": "prompt.txt",
+  "prompt_sha256": "0b151648d5b6d5c9a995feb1455be9e0640d6b4ee22abb749982b40fc8cf68ee",
+  "claims": 31,
+  "cost_usd": 0.008627,
+  "metrics": {
+   "claims": 31,
+   "fact_recall": 0.95,
+   "critical_recall": 1.0,
+   "missing_critical": [],
+   "date_errors": 0,
+   "name_leaks": 0,
+   "identity_leaks": 0,
+   "forbidden_assertions": 0,
+   "cross_section_duplicates": 0,
+   "mixed_date_formats": false,
+   "gate_pass": true
+  },
+  "temperature": 0.0,
+  "request_bytes": 50000,
+  "timeout_seconds": 300,
+  "section_passes": false,
+  "passes": 1
+ }
+]

@@ -24,6 +24,7 @@ COPY ./.devcontainer/db/scripts/demo-issue-codes.sql /scripts/demo-issue-codes.s
 COPY ./.devcontainer/db/scripts/demo-hrm-report.sql /scripts/demo-hrm-report.sql
 COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql
 COPY ./.devcontainer/db/scripts/admin_test_account.sql /scripts/admin_test_account.sql
+COPY ./.devcontainer/db/scripts/nhs-synthetic /scripts/nhs-synthetic
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 
