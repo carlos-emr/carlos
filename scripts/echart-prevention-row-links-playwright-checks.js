@@ -270,9 +270,10 @@ async function workflow(s) {
   await s.step('merged histories select the newest clinical date and break date ties by record id', async () => {
     sql.execute(`INSERT INTO demographic_merged (demographic_no,merged_to,deleted,lastUpdateUser,lastUpdateDate)
       VALUES (${child},${patient},0,${sqlString(s.provider)},NOW())`);
+    // lastUpdateDate is NOT NULL with no default: strict sql_mode refuses a row that omits it.
     const childId = sql.value(`INSERT INTO preventions
-      (demographic_no,prevention_type,prevention_date,creator,provider_no,refused,deleted,never,snomedId)
-      SELECT ${child},prevention_type,'1999-01-01',creator,provider_no,refused,0,never,snomedId
+      (demographic_no,prevention_type,prevention_date,creator,provider_no,refused,deleted,never,snomedId,lastUpdateDate)
+      SELECT ${child},prevention_type,'1999-01-01',creator,provider_no,refused,0,never,snomedId,NOW()
       FROM preventions WHERE id=${id}; SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(childId) && Number(childId) > Number(id), 'Merged older record was not created');
     async function closeListToRefresh() {

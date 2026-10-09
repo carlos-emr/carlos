@@ -29,14 +29,15 @@ async function workflow(s) {
     { tag: 'start', day: '2004-06-15', amount: '11.11', active: 1, provider: selected },
     { tag: 'end', day: '2004-06-16', amount: '22.22', active: 1, provider: selected },
     { tag: 'after', day: '2004-06-17', amount: '200.00', active: 1, provider: selected },
-    { tag: 'inactive', day: '2004-06-16', amount: '999.99', active: 0, provider: selected },
+    { tag: 'inact', day: '2004-06-16', amount: '999.99', active: 0, provider: selected },
     { tag: 'other', day: '2004-06-16', amount: '33.33', active: 1, provider: other },
   ];
+  // raheader.filename is varchar(30) and the marker is 23 characters, so a tag may be at most 6. A longer filename is
+  // rejected by a strict sql_mode (error 1406); a permissive one truncates it silently, and the cleanup below, which
+  // matches the full name, would then leave that RA row and its premium behind.
   const filenames = fixtures.map(row => `${marker}-${row.tag}`);
-  // raheader.filename is varchar(30) and the marker alone is 23 characters, so a longer name is stored cut
-  // short and `filename IN (...)` would never match it again: ownership is the payable column, which
-  // holds the full run marker.
-  const ownsRa = `payable=${h.sqlString(marker)}`;
+  h.assert(filenames.every(name => name.length <= 30), 'An RA fixture filename exceeds raheader.filename (varchar(30))');
+  const ownsRa = `filename IN (${filenames.map(h.sqlString).join(',')}) AND payable=${h.sqlString(marker)}`;
   // Register before any RA INSERT; recover even when an INSERT acknowledgement is lost.
   s.cleanup(() => {
     const ids = sql.rows(`SELECT raheader_no FROM raheader WHERE ${ownsRa}`).map(row => Number(row[0]));

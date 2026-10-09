@@ -916,6 +916,42 @@ OSCAR_DEFAULTS
             : > "${OSCAR_DEFAULTS_SENTINEL}"
         fi
 
+        # One-time migration: the OAuth access mode (README.Debian section 8).
+        # The default is the restricted legacy access: oauth.scope.enforcement
+        # .enabled=false and oauth.scope.legacy.access=restricted, the stock
+        # lines. Development builds between #4419 and this release shipped
+        # enforcement.enabled=true in the stock file, and an operator may have
+        # set legacy.access=full by hand; the first configure that finds either
+        # key set to anything but its default resets it, once, and says so.
+        # Same discipline as the OSCAR block above: under the provisioning
+        # lock, a key defined more than once is the operator's override and is
+        # left alone, an absent key needs nothing (the WAR default is the same),
+        # and once the sentinel lands a value set later is never flipped back.
+        # Keep the pairs in step with OAUTH_ACCESS_DEFAULTS in
+        # scripts/deb-upgrade-verify.sh and OAUTH_ACCESS_MIGRATIONS in
+        # scripts/deb-upgrade-baseline.sh.
+        OAUTH_ACCESS_SENTINEL="${STATE}/.oauth-access-defaults-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OAUTH_ACCESS_SENTINEL}" ]; then
+            if [ -f "${PROPERTIES}" ]; then
+                while IFS='|' read -r key default_line; do
+                    [ -n "${key}" ] || continue
+                    key_re="$(printf '%s' "${key}" | sed 's/\./\\./g')"
+                    defs="$(grep -c "^${key_re}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
+                    [ "${defs}" = 1 ] || continue
+                    current="$(grep "^${key_re}[[:space:]]*[=:]" "${PROPERTIES}")"
+                    if [ "${current}" != "${default_line}" ]; then
+                        sed -i "s/^${key_re}[[:space:]]*[=:].*\$/${default_line}/" "${PROPERTIES}"
+                        echo "carlos-emr: ${current} -> ${default_line} (reset to the default OAuth access mode, once; edit ${PROPERTIES} to change it)"
+                    fi
+                done <<'OAUTH_ACCESS_DEFAULTS'
+oauth.scope.enforcement.enabled|oauth.scope.enforcement.enabled=false
+oauth.scope.legacy.access|oauth.scope.legacy.access=restricted
+OAUTH_ACCESS_DEFAULTS
+            fi
+            mkdir -p "${STATE}"
+            : > "${OAUTH_ACCESS_SENTINEL}"
+        fi
+
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then
             CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"

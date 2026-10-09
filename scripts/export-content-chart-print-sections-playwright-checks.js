@@ -12,8 +12,9 @@
  * prints with its date and the refused one is flagged "(Refused)"; the deleted prevention is absent; the current
  * medications print, the discontinued and the expired one do not. Archived allergies never print, including when
  * every allergy is archived; restoring an active allergy makes it printable again. Deselecting the Allergies icon
- * omits that section. Identical custom and coded entries collapse even with another drug in between, while
- * different regimens and dated entries remain visible. A newer archived copy must not hide its current sibling.
+ * omits that section. Identical custom and coded entries collapse even with another drug in between, as does a
+ * renewal that differs only in its dates (#4420), while different regimens remain visible (#4270). A newer archived
+ * copy must not hide its current sibling.
  * Fixtures: the owned FAKE-PW patient with SQL-seeded allergies, preventions, one prescription row with drugs and
  * one signed note; cleanup deletes the patient's rows of each table and asserts it. Needs pdftotext.
  */
@@ -162,7 +163,7 @@ async function workflow(s) {
       'Deselecting Allergies also removed another selected section');
   });
 
-  await s.step('equivalent medications collapse while clinically distinct entries remain visible', async () => {
+  await s.step('equivalent medications and renewals collapse while distinct regimens remain visible', async () => {
     const rx = squashed(section('Patient Rx History', 'Patient Preventions History'));
     const count = value => rx.split(squashed(value)).length - 1;
     const times = count(`${marker}-X 10 mg once daily`);
@@ -171,7 +172,7 @@ async function workflow(s) {
       for (const dose of [10, 20]) h.assert(count(`${marker}-${name} ${dose} mg once daily`) === 1,
         `The ${name} ${dose} mg regimen is missing or duplicated`);
     }
-    h.assert(count(`${marker}-DATED 10 mg once daily`) === 2, 'Different dated prescriptions were collapsed');
+    h.assert(count(`${marker}-DATED 10 mg once daily`) === 1, 'A renewal that differs only in its dates is listed twice (#4420)');
     h.assert(count(`${marker}-STATUS 10 mg once daily`) === 1, 'The newer archived copy hid the current prescription');
   });
 }

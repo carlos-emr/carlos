@@ -69,9 +69,13 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
     @NativeSql("reportagesex")
     @Override
     public void populateAll(String yearOfBirth) {
+        // reportagesex.roster is varchar(4) but demographic.roster_status is varchar(20) and holds values such as
+        // "NA - not applicable". A permissive sql_mode used to cut them to four characters silently; a strict one
+        // rejects the whole INSERT (error 1406) and the report fails. The report only compares the column with short
+        // codes such as "RO", so LEFT() keeps exactly the value that was always stored.
         String copyQuery =
                 "INSERT INTO reportagesex(demographic_no, age, roster, sex, provider_no, reportdate, status, date_joined) " +
-                        "SELECT d.demographic_no, TIMESTAMPDIFF(YEAR, STR_TO_DATE(CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%Y-%m-%d'), CURRENT_DATE()), d.roster_status, d.sex, d.provider_no, CURRENT_DATE(), d.patient_status, d.date_joined " +
+                        "SELECT d.demographic_no, TIMESTAMPDIFF(YEAR, STR_TO_DATE(CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%Y-%m-%d'), CURRENT_DATE()), LEFT(d.roster_status, 4), d.sex, d.provider_no, CURRENT_DATE(), d.patient_status, d.date_joined " +
                         "FROM demographic d WHERE d.year_of_birth >= ?1";
         Query query = entityManager.createNativeQuery(copyQuery);
         query.setParameter(1, yearOfBirth);

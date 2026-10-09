@@ -40,26 +40,34 @@
  *   4. Neither surface takes the other's credential. A logged-in browser session
  *      alone is refused by /ws/services, and a signed access token alone by /ws/rs
  *      (401, no patient data).
+ *   3a. The access mode (#4419). By default (EXPECT_OAUTH_MODE=legacy-restricted)
+ *      /initiate accepts a request with no scope, the consent page says the
+ *      permissions are not checked, and the scopeless token is refused
+ *      (403 restricted_endpoint) a read in another domain and a write outside the
+ *      legacy list (DELETE of a demographic that does not exist, so a regression
+ *      answers 404, never deletes). With EXPECT_OAUTH_MODE=scoped (the server's
+ *      oauth.scope.enforcement.enabled=true) /initiate refuses a request with no
+ *      scope or an unknown one (400 invalid_scope), the token granted
+ *      demographic.read is refused the same probes as insufficient_scope, and the
+ *      consent page shows no warning. With legacy-full (oauth.scope.legacy.access=
+ *      full) the same probes go through to the service and the full-access
+ *      warning is shown.
+ *   3b. In every mode the always-blocked endpoints answer 403 blocked_endpoint, and
+ *      the legacy integration calls (PUT /demographics, POST
+ *      /document/saveDocumentToDemographic, GET /demographics/{id}) reach their
+ *      service: with an empty body the first two answer the service's own 400, so
+ *      nothing is created. Under enforcement that takes a second token granted
+ *      demographic.write and document.write; in the legacy modes a scopeless one.
  *   5. The session surface is unaffected. /ws/rs refuses an anonymous call and
  *      serves the logged-in browser. Its JSON dates stay epoch milliseconds: before
  *      the fix, loading applicationContextREST.xml as it was replaced the /ws/rs
  *      mapper (a shared bean id) and turned them into "yyyy-MM-dd" strings. SOAP
  *      still publishes its WSDL and still rejects an unauthenticated operation.
- *   6. Scopes bind the token (last, pinned to app-findings-log.md finding 150). The provider
- *      approved one scope (demographic.read); a signed GET of an endpoint
- *      whose scope is outside it (/ws/services/allergies/active needs allergy.read) must be
- *      refused with the application's 403 and return no data. Shipped, the interceptor
- *      enforces scopes only when oauth.scope.enforcement.enabled is set and no packaged
- *      carlos.properties sets it, so the call is served. Only the scope control and this
- *      step are labelled (step 7 replaces both in the scope-list run); the steps before them are
- *      unlabelled, so a failure in them is never mistaken for the known failure.
- *   7. A scope LIST is stored as a list (pinned to app-findings-log.md finding 214, selected by
- *      OAUTH_PIN=scope-list: the manifest entry oauth-rest-surfaces-scope-list runs this script
- *      with steps 1-5 and this step in place of step 6, because a script stops at its first failing
- *      step and so cannot pin two findings in one run). A signed POST to /ws/oauth/initiate for
- *      `scope=demographic.read%20provider.read` (the encoding RFC 5849 requires for a space) must
- *      store the request token with the two scopes; OAuth1ParamParser decodes only `+`, so the
- *      stored value is the one string "demographic.read%20provider.read", which is no known scope.
+ *   6. Anonymous floods are bounded (#4429, #4438). Anonymous /ws/services
+ *      refusals are a plain-text reason, not a CXF XMLFault naming a Java exception
+ *      (which the sanitizing filter logged at ERROR). A burst of anonymous calls
+ *      writes a bounded number of OAUTH_LOGIN_* audit rows, not one per call, and
+ *      behind the packaged front door (EXPECT_FRONT_DOOR=true) some are answered 429.
  *
  * FIXTURE. The check inserts one ServiceClient row with a unique name, key and
  * secret, because the Administration > REST Clients page never shows a client's
@@ -80,48 +88,34 @@
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   OAUTH_DEMOGRAPHIC_NO=1   demographic to read through both surfaces. Default:
  *                            the lowest-numbered one with a patient status date.
+ *   EXPECT_OAUTH_MODE=legacy-restricted
+ *                            the mode the server is configured for: legacy-restricted
+ *                            (the shipped default), scoped or legacy-full. The check
+ *                            fails if the server behaves as another mode.
  */
 const crypto = require('crypto');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
-  isWafPage, launchBrowser, login, markFailedStep, newContext, readConfig, runCheck, sqlString, wireStrictPage,
+  launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
 } = require('./lib/playwright-harness');
 
 const CXF_NOT_PUBLISHED = 'No service was found';
-
-/**
- * Runs one labelled step. The label travels with a failure (markFailedStep) so the suite runner
- * can tell the failure the manifest expects (expectedFailure.step) from a new one elsewhere.
- */
-async function step(label, body) {
-  try {
-    await body();
-  } catch (error) {
-    throw markFailedStep(error, label);
-  }
-  console.log(`  PASS oauth-rest-surfaces: ${label}`);
-}
-const SCOPE_STEP = 'a token approved for demographic.read is refused at an endpoint outside that scope, with no data';
-// The one scope the signed data calls below need when oauth.scope.enforcement.enabled is on
-// (/ws/services/demographics/{id}; /ws/services/oauth/info maps to no scope). With enforcement off
-// (the default) it is recorded on the token and not consulted. ONE scope, not a list: a list has
-// to be sent as `scope=a%20b`, and OAuth1ParamParser keeps that %20 in the stored scope string
-// ("a%20b" is then a single unknown scope; app-findings-log.md finding 214), so a two-scope request
-// would stop working the moment enforcement is switched on, taking this check's handshake with it
-// before the pinned step could pass.
-const REQUESTED_SCOPES = 'demographic.read';
-// OAUTH_PIN selects which finding the last step pins: unset pins finding 150 (the default entry),
-// `scope-list` pins finding 214 (the entry oauth-rest-surfaces-scope-list).
-const OAUTH_PIN = (process.env.OAUTH_PIN || '').trim();
-/**
- * OAUTH_PIN must be unset or `scope-list`. Judged when the check runs (main), never at load: a bad value in the
- * environment of whoever merely requires this module for its signer (oauth-rest-surfaces.test.js) is not their error.
- */
-function validatePin(value = OAUTH_PIN) {
-  if (value !== '' && value !== 'scope-list') throw new Error(`OAUTH_PIN must be unset or scope-list, not ${value}`);
-}
-const SCOPE_LIST = 'demographic.read provider.read';
-const SCOPE_LIST_STEP = 'a request for two scopes is stored as two scopes';
+// OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT plus its one suppression notice, for
+// each of the (at most two) one-minute windows a burst can straddle.
+const MAX_FLOOD_AUDIT_ROWS = 2 * (10 + 1);
+const FLOOD_REQUESTS = 120;
+// A demographic number the demo dataset does not use: the scope-refused DELETE probe targets it,
+// so even a regression that let the call through could only answer 404.
+const ABSENT_DEMOGRAPHIC_NO = 2147483646;
+// Scopes the signed calls below need. Enforcement is on by default (#4419), so the token is
+// limited to these; /ws/services/oauth/info is scope-exempt.
+const REQUESTED_SCOPES = 'demographic.read provider.read';
+// What the legacy integration needs under enforcement (OAuthScopes' legacy allowlist, scoped).
+const LEGACY_INTEGRATION_SCOPES = 'demographic.write document.write';
+const OAUTH_MODES = ['scoped', 'legacy-restricted', 'legacy-full'];
+const OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'legacy-restricted';
+assert(OAUTH_MODES.includes(OAUTH_MODE), `EXPECT_OAUTH_MODE must be one of ${OAUTH_MODES.join(', ')}`);
+const SCOPED = OAUTH_MODE === 'scoped';
 
 /** RFC 3986 percent-encoding, as OAuth 1.0a section 3.6 requires. */
 function pct(value) {
@@ -230,7 +224,6 @@ async function cleanup(state) {
 }
 
 async function main(state = {}) {
-  validatePin();
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
@@ -293,6 +286,12 @@ async function main(state = {}) {
   for (const route of ['/ws/services/oauth/info', `/ws/services/demographics/${demographicNo}`]) {
     r = await anon.get(app(route), { headers: json });
     await expectStatus(r, 401, `anonymous GET ${route}`);
+    // #4438: OAuth1ExceptionMapper answers with the reason. Without it CXF wrote an XMLFault naming
+    // the Java exception, which ResponseSanitizationFilter replaced and logged at ERROR every time.
+    const refusal = await r.text();
+    assert(refusal.trim() === 'authentication_required',
+      `anonymous GET ${route} did not answer the plain reason authentication_required (got ${refusal.length} chars`
+      + `${/Exception|XMLFault/.test(refusal) ? ' naming a Java exception or an XMLFault' : ''})`);
     await noPatientData(r, `anonymous GET ${route}`);
   }
   r = await anon.get(demoUrl, {
@@ -307,72 +306,120 @@ async function main(state = {}) {
   await expectStatus(r, 401, 'GET /ws/services/demographics/{id} with an unknown access token');
   await noPatientData(r, 'an OAuth call with an unknown access token');
 
-  // 2. Handshake: request token, consent in the browser, access token.
-  const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(REQUESTED_SCOPES)}`);
-  r = await anon.post(initiateUrl, {
-    headers: {
-      Authorization: oauthHeader({
-        method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
-      }),
-    },
-  });
-  await expectStatus(r, 200, 'signed POST /ws/oauth/initiate');
-  const requestToken = formFields(await r.text());
-  assert(requestToken.oauth_token && requestToken.oauth_token_secret
-    && requestToken.oauth_callback_confirmed === 'true',
-  '/ws/oauth/initiate did not return oauth_token, oauth_token_secret and oauth_callback_confirmed=true');
+  // 2. Handshake. Under enforcement (#4419) /initiate refuses a request token with no scope
+  // or an unknown one before it persists anything. In a legacy mode, the default, it accepts a
+  // request with no scope, as the legacy integration sends.
+  if (SCOPED) {
+    for (const [label, query] of [['no scope', ''], ['an unknown scope', `?scope=${pct('everything.write')}`]]) {
+      const refusedUrl = app(`/ws/oauth/initiate${query}`);
+      r = await anon.post(refusedUrl, {
+        headers: {
+          Authorization: oauthHeader({
+            method: 'POST', url: refusedUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
+          }),
+        },
+      });
+      await expectStatus(r, 400, `signed POST /ws/oauth/initiate with ${label}`);
+      assert((await r.text()).includes('invalid_scope'),
+        `/ws/oauth/initiate with ${label} did not answer invalid_scope: is oauth.scope.enforcement.enabled off?`);
+    }
+    assert(sql.value(`SELECT COUNT(*) FROM ServiceRequestToken WHERE clientId=
+        (SELECT id FROM ServiceClient WHERE clientKey=${sqlString(consumerKey)})`) === '0',
+    'a refused /ws/oauth/initiate still stored a request token');
+  }
 
   const context = await newContext(state.browser, config);
   await login(context, config, recorder);
-  const consent = await context.newPage();
-  wireStrictPage(consent, 'oauth-consent', recorder);
-  const consentResponse = await consent.goto(
-    app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
-  assert(consentResponse && consentResponse.status() === 200,
-    `the consent page answered HTTP ${consentResponse && consentResponse.status()}`);
-  await assertNotErrorPage(consent, 'OAuth consent page');
-  const consentText = await consent.locator('body').innerText();
-  assert(consentText.includes(clientName), 'the consent page does not name the requesting application');
-  for (const scope of REQUESTED_SCOPES.split(' ')) {
-    assert(consentText.includes(scope), `the consent page does not list the requested scope ${scope}`);
-  }
-  const [approval] = await Promise.all([
-    consent.waitForResponse((resp) => resp.request().method() === 'POST'
-      && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
-    consent.locator('#scopeForm button[type="submit"]').click(),
-  ]);
-  assert(approval.status() === 200, `approving the request token answered HTTP ${approval.status()}`);
-  const verifier = formFields(await approval.text()).oauth_verifier;
-  assert(verifier, 'approving the request token did not show an oauth_verifier');
 
-  const tokenUrl = app('/ws/oauth/token');
-  const exchange = (oauthVerifier) => anon.post(tokenUrl, {
-    headers: {
-      Authorization: oauthHeader({
-        method: 'POST', url: tokenUrl, consumerKey, consumerSecret,
-        token: requestToken.oauth_token, tokenSecret: requestToken.oauth_token_secret,
-        extra: { oauth_verifier: oauthVerifier },
-      }),
-    },
-  });
-  r = await exchange(`${verifier}x`);
-  await expectStatus(r, 401, 'signed POST /ws/oauth/token with the wrong verifier');
-  assert((await r.text()).includes('invalid_verifier'),
-    '/ws/oauth/token did not name a wrong verifier as invalid_verifier');
-  r = await exchange(verifier);
-  await expectStatus(r, 200, 'signed POST /ws/oauth/token');
-  const accessToken = formFields(await r.text());
-  assert(accessToken.oauth_token && accessToken.oauth_token_secret,
-    '/ws/oauth/token did not return oauth_token and oauth_token_secret');
-  // Request tokens are single-use (OscarOAuthDataProvider.createAccessToken deletes it).
-  r = await exchange(verifier);
-  await expectStatus(r, 401, 'a second /ws/oauth/token exchange of the same request token (fresh nonce)');
+  /**
+   * Request token, consent in the browser, access token. The consent page must name the client,
+   * list the requested scopes, and carry exactly the warning the server's mode calls for.
+   */
+  const authorize = async (scopes, { probeExchange = false } = {}) => {
+    const initiateUrl = app(`/ws/oauth/initiate${scopes ? `?scope=${pct(scopes)}` : ''}`);
+    r = await anon.post(initiateUrl, {
+      headers: {
+        Authorization: oauthHeader({
+          method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
+        }),
+      },
+    });
+    await expectStatus(r, 200, `signed POST /ws/oauth/initiate${scopes ? '' : ' with no scope'}`);
+    const requestToken = formFields(await r.text());
+    assert(requestToken.oauth_token && requestToken.oauth_token_secret
+      && requestToken.oauth_callback_confirmed === 'true',
+    '/ws/oauth/initiate did not return oauth_token, oauth_token_secret and oauth_callback_confirmed=true');
+
+    const consent = await context.newPage();
+    wireStrictPage(consent, 'oauth-consent', recorder);
+    const consentResponse = await consent.goto(
+      app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
+    assert(consentResponse && consentResponse.status() === 200,
+      `the consent page answered HTTP ${consentResponse && consentResponse.status()}`);
+    await assertNotErrorPage(consent, 'OAuth consent page');
+    const consentText = await consent.locator('body').innerText();
+    assert(consentText.includes(clientName), 'the consent page does not name the requesting application');
+    for (const scope of (scopes || '').split(' ').filter(Boolean)) {
+      assert(consentText.includes(scope), `the consent page does not list the requested scope ${scope}`);
+    }
+    const warnings = {
+      scoped: null, 'legacy-restricted': '#legacyRestrictedWarning', 'legacy-full': '#fullAccessWarning',
+    };
+    for (const [mode, selector] of Object.entries(warnings)) {
+      if (!selector) continue;
+      const shown = await consent.locator(selector).count() > 0;
+      assert(shown === (mode === OAUTH_MODE),
+        shown ? `the consent page shows the ${mode} warning (${selector}); the server is not in ${OAUTH_MODE} mode`
+          : `the consent page lacks the ${mode} warning (${selector}) the server's mode calls for`);
+    }
+    const [approval] = await Promise.all([
+      consent.waitForResponse((resp) => resp.request().method() === 'POST'
+        && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
+      consent.locator('#scopeForm button[type="submit"]').click(),
+    ]);
+    assert(approval.status() === 200, `approving the request token answered HTTP ${approval.status()}`);
+    const verifier = formFields(await approval.text()).oauth_verifier;
+    assert(verifier, 'approving the request token did not show an oauth_verifier');
+    await consent.close();
+
+    const tokenUrl = app('/ws/oauth/token');
+    const exchange = (oauthVerifier) => anon.post(tokenUrl, {
+      headers: {
+        Authorization: oauthHeader({
+          method: 'POST', url: tokenUrl, consumerKey, consumerSecret,
+          token: requestToken.oauth_token, tokenSecret: requestToken.oauth_token_secret,
+          extra: { oauth_verifier: oauthVerifier },
+        }),
+      },
+    });
+    if (probeExchange) {
+      r = await exchange(`${verifier}x`);
+      await expectStatus(r, 401, 'signed POST /ws/oauth/token with the wrong verifier');
+      assert((await r.text()).includes('invalid_verifier'),
+        '/ws/oauth/token did not name a wrong verifier as invalid_verifier');
+    }
+    r = await exchange(verifier);
+    await expectStatus(r, 200, 'signed POST /ws/oauth/token');
+    const accessToken = formFields(await r.text());
+    assert(accessToken.oauth_token && accessToken.oauth_token_secret,
+      '/ws/oauth/token did not return oauth_token and oauth_token_secret');
+    if (probeExchange) {
+      // Request tokens are single-use (OscarOAuthDataProvider.createAccessToken deletes it).
+      r = await exchange(verifier);
+      await expectStatus(r, 401, 'a second /ws/oauth/token exchange of the same request token (fresh nonce)');
+    }
+    return accessToken;
+  };
+
+  // In the legacy modes the token is requested the way the legacy integration does: no scope.
+  const accessToken = await authorize(SCOPED ? REQUESTED_SCOPES : '', { probeExchange: true });
 
   // 3. Signed calls on the OAuth-guarded data API.
-  const signedGet = (url, secret = consumerSecret) => oauthHeader({
-    method: 'GET', url, consumerKey, consumerSecret: secret,
-    token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret,
+  const signed = (method, url, token = accessToken, secret = consumerSecret) => oauthHeader({
+    method, url, consumerKey, consumerSecret: secret,
+    token: token.oauth_token, tokenSecret: token.oauth_token_secret,
   });
+  const signedGet = (url, secret = consumerSecret) => signed('GET', url, accessToken, secret);
   const infoUrl = app('/ws/services/oauth/info');
   const infoAuthorization = signedGet(infoUrl);
   r = await anon.get(infoUrl, { headers: { ...json, Authorization: infoAuthorization } });
@@ -384,6 +431,67 @@ async function main(state = {}) {
   await expectStatus(r, 200, 'signed GET /ws/services/demographics/{id}');
   assert(String((await r.json()).demographicNo) === String(demographicNo),
     '/ws/services/demographics/{id} returned a different record than the one requested');
+
+  // 3a. Under enforcement the token holds demographic.read and provider.read only (#4419); in
+  // legacy-restricted mode it holds nothing and may call only the legacy integration endpoints; in
+  // legacy-full mode it may call anything the provider can.
+  const refusedAs = async (response, reason, label) => {
+    await expectStatus(response, 403, label);
+    assert((await response.text()).trim() === reason, `${label} was not refused as ${reason}`);
+  };
+  const outsideGrant = { scoped: 'insufficient_scope', 'legacy-restricted': 'restricted_endpoint' }[OAUTH_MODE];
+  const ticklerUrl = app('/ws/services/tickler/mine');
+  r = await anon.get(ticklerUrl, { headers: { ...json, Authorization: signedGet(ticklerUrl) } });
+  if (outsideGrant) {
+    await refusedAs(r, outsideGrant, 'signed GET /ws/services/tickler/mine with a token granted no tickler scope');
+  } else {
+    await expectStatus(r, 200, 'signed GET /ws/services/tickler/mine under full legacy access');
+  }
+  const deleteUrl = app(`/ws/services/demographics/${ABSENT_DEMOGRAPHIC_NO}`);
+  r = await anon.delete(deleteUrl, { headers: { ...json, Authorization: signed('DELETE', deleteUrl) } });
+  if (outsideGrant) {
+    await refusedAs(r, outsideGrant, 'signed DELETE /ws/services/demographics/{id} with only demographic.read');
+  } else {
+    await expectStatus(r, 404, 'signed DELETE of an absent demographic under full legacy access');
+  }
+  // The same write through the .json extension mapping CXF strips before routing: before #4419 its
+  // root read as "demographics.json", which needed no scope at all.
+  const deleteJsonUrl = `${deleteUrl}.json`;
+  r = await anon.delete(deleteJsonUrl, { headers: { ...json, Authorization: signed('DELETE', deleteJsonUrl) } });
+  await expectStatus(r, outsideGrant ? 403 : 404, 'signed DELETE /ws/services/demographics/{id}.json');
+
+  // 3b. Closed to every OAuth client in every mode: server administration and account reconnaissance.
+  for (const route of ['/ws/services/jobs/all', '/ws/services/persona/rights']) {
+    const blockedUrl = app(route);
+    r = await anon.get(blockedUrl, { headers: { ...json, Authorization: signedGet(blockedUrl) } });
+    await refusedAs(r, 'blocked_endpoint', `signed GET ${route} (${OAUTH_MODE})`);
+  }
+  // The legacy integration calls reach their service. An empty JSON body is refused by the service itself
+  // (400: a demographicNo, or a title and file, is required), so nothing is created; the status
+  // proves the call got past the OAuth gate. Under enforcement the first token's demographic.read
+  // cannot, and a second token granted what the legacy integration needs can.
+  const legacyCalls = [
+    ['PUT', app('/ws/services/demographics/'), 'PUT /ws/services/demographics/'],
+    ['POST', app('/ws/services/document/saveDocumentToDemographic/'), 'POST /ws/services/document/saveDocumentToDemographic/'],
+  ];
+  const legacyCall = async (method, url, token) => anon.fetch(url, {
+    method,
+    headers: { ...json, 'Content-Type': 'application/json', Authorization: signed(method, url, token) },
+    data: '{}',
+  });
+  if (SCOPED) {
+    for (const [method, url, label] of legacyCalls) {
+      await refusedAs(await legacyCall(method, url, accessToken), 'insufficient_scope',
+        `${label} with only demographic.read`);
+    }
+  }
+  const legacyToken = SCOPED ? await authorize(LEGACY_INTEGRATION_SCOPES) : accessToken;
+  for (const [method, url, label] of legacyCalls) {
+    await expectStatus(await legacyCall(method, url, legacyToken), 400,
+      `${label} with an empty body${SCOPED ? ' and the legacy integration scopes' : ` (${OAUTH_MODE})`}`);
+  }
+  r = await anon.get(demoUrl, { headers: { ...json, Authorization: signed('GET', demoUrl, legacyToken) } });
+  await expectStatus(r, 200, `GET /ws/services/demographics/{id}${SCOPED ? ' with the legacy integration scopes' : ''}`);
 
   r = await anon.get(infoUrl, { headers: { ...json, Authorization: infoAuthorization } });
   await expectStatus(r, 401, 'a replayed signed request (same nonce)');
@@ -426,64 +534,34 @@ async function main(state = {}) {
   });
   await expectStatus(r, [400, 401], 'unauthenticated SOAP getDemographic');
 
-  if (OAUTH_PIN === 'scope-list') {
-    // 7. A scope list survives the request token (finding 214).
-    await step(SCOPE_LIST_STEP, async () => {
-      const listUrl = app(`/ws/oauth/initiate?scope=${pct(SCOPE_LIST)}`);
-      const listed = await anon.post(listUrl, {
-        headers: {
-          Authorization: oauthHeader({
-            method: 'POST', url: listUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
-          }),
-        },
-      });
-      const status = listed.status();
-      const body = await listed.text();
-      assert(!isWafPage(status, body), 'the front door, not the application, answered the two-scope initiate');
-      const issued = formFields(body).oauth_token;
-      assert(status === 200 && issued,
-        `a signed /ws/oauth/initiate for the two scopes ${SCOPE_LIST} answered HTTP ${status} and issued no request token`);
-      const recorded = sql.value(`SELECT scopes FROM ServiceRequestToken WHERE tokenId=${sqlString(issued)}`);
-      assert(recorded === SCOPE_LIST,
-        `the request token for the two scopes ${SCOPE_LIST} records "${recorded}", not those two scopes `
-        + '(OAuth1ParamParser leaves the %20 of the query string in the stored scope)');
-    });
-    assertStrictPage(recorder);
-    return { surfaces: 4, handshake: 'oob' };
+  // 6. An anonymous burst (#4429). Rows are counted by id, not time, so the app's and the
+  // database's clocks cannot disagree. Last, because behind the front door it uses up this
+  // address's API request budget for a few seconds.
+  const lastLogId = Number(sql.value('SELECT COALESCE(MAX(id), 0) FROM log'));
+  const floodUrl = app('/ws/services/oauth/info');
+  const statuses = await Promise.all(Array.from({ length: FLOOD_REQUESTS },
+    () => anon.get(floodUrl, { headers: json }).then((resp) => resp.status())));
+  const unexpected = statuses.filter((status) => status !== 401 && status !== 429);
+  assert(unexpected.length === 0,
+    `an anonymous burst on /ws/services answered statuses other than 401 and 429: ${[...new Set(unexpected)].join(', ')}`);
+  const throttled = statuses.filter((status) => status === 429).length;
+  if (config.expectFrontDoor) {
+    assert(throttled > 0,
+      `${FLOOD_REQUESTS} concurrent anonymous /ws/services calls through the front door drew no 429: `
+      + 'the carlos_wsapi limit_req zone is not applied (#4429)');
   }
-
-  // 6. Scopes bind the access token (finding 150).
-  // Control, in its own step: the token the provider approved records exactly that one scope, so
-  // the refusal below is about scope and not about a token that was never granted anything.
-  await step('the access token records only the scope the provider approved', async () => {
-    const recorded = sql.value(`SELECT scopes FROM ServiceAccessToken
-      WHERE tokenId=${sqlString(accessToken.oauth_token)}`);
-    const tokenScopes = String(recorded).split(' ').filter(Boolean).sort().join(' ');
-    assert(tokenScopes === REQUESTED_SCOPES.split(' ').sort().join(' '),
-      `the access token records the scopes "${tokenScopes}", not exactly the one the provider approved on the consent page`);
-  });
-  // The pinned step holds only the assertion the defect breaks. /ws/services/allergies/active
-  // needs allergy.read (OAuthScopes: root "allergies" -> domain "allergy", GET -> read), which
-  // the token above does not hold.
-  await step(SCOPE_STEP, async () => {
-    const allergyUrl = app(`/ws/services/allergies/active?demographicNo=${demographicNo}`);
-    const refused = await anon.get(allergyUrl, { headers: { ...json, Authorization: signedGet(allergyUrl) } });
-    const status = refused.status();
-    const body = await refused.text();
-    assert(!isWafPage(status, body), 'the front door, not the application, answered the out-of-scope call');
-    assert(status === 403,
-      `GET /ws/services/allergies/active with a token that lacks allergy.read answered HTTP ${status}, expected the `
-      + 'application\'s 403 (scopes are enforced only when oauth.scope.enforcement.enabled is set)');
-    assert(!body.includes(surname) && !body.includes('"allergies"'),
-      'the refused out-of-scope call returned patient data');
-  });
+  const auditRows = Number(sql.value(`SELECT COUNT(*) FROM log WHERE id > ${lastLogId}
+      AND action IN ('OAUTH_LOGIN_FAILURE', 'OAUTH_LOGIN_FAILURES_SUPPRESSED')`));
+  assert(auditRows <= MAX_FLOOD_AUDIT_ROWS,
+    `${FLOOD_REQUESTS - throttled} anonymous /ws/services refusals wrote ${auditRows} audit rows; `
+    + `the failure audit budget allows at most ${MAX_FLOOD_AUDIT_ROWS} (#4429)`);
 
   assertStrictPage(recorder);
-  return { surfaces: 4, handshake: 'oob' };
+  return { surfaces: 4, handshake: 'oob', mode: OAUTH_MODE, flood: { requests: FLOOD_REQUESTS, throttled, auditRows } };
 }
 
 if (require.main === module) {
   const state = {};
   runCheck({ name: 'oauth-rest-surfaces', run: () => main(state), cleanup: () => cleanup(state) });
 }
-module.exports = { main, cleanup, oauthHeader, oauthSignature, pct, signatureBaseUri, validatePin };
+module.exports = { main, cleanup, oauthHeader, oauthSignature, pct, signatureBaseUri };
