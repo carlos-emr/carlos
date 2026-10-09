@@ -29,12 +29,12 @@
 package io.github.carlos_emr.carlos.webserv.rest.conversion.summary;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -46,6 +46,7 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.prevention.PreventionDS;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionPageData;
 
 
 @Component
@@ -96,14 +97,17 @@ public class PreventionsSummary implements Summary {
 
         List<String> items = new ArrayList<String>();
 
+        // One patient lookup for the per-type loop below, instead of three per type.
+        PreventionPageData pageData = new PreventionPageData(loggedInInfo, demographicNo.toString());
+        Demographic demographic = pageData.getDemographic();
+
         for (int i = 0; i < prevList.size(); i++) {
 
             HashMap<String, String> h = prevList.get(i);
             String prevName = h.get("name");
-            ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNo);
-            Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, demographicNo);
+            ArrayList<Map<String, Object>> alist = pageData.getPreventionData(prevName);
 
-            boolean show = pdc.display(loggedInInfo, h, demographicNo.toString(), alist.size());
+            boolean show = pdc.display(h, demographic, alist.size());
             if (show) {
                 //add warnings right away so they display first
                 if (warningTable.containsKey(prevName)) {

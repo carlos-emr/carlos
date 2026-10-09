@@ -302,10 +302,30 @@ public class PreventionData {
 
 	@Nonnull
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
+        Date dob;
+        try {
+            dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            return new ArrayList<Map<String, Object>>();
+        }
+        return listForCheckedPatient(preventionType, demographicId, dob);
+    }
+
+    /**
+     * Lists the patient's preventions of one type, or of every type when
+     * {@code preventionType} is {@code null}, as
+     * {@link #getPreventionData(LoggedInInfo, String, Integer)} does, for a date of birth the
+     * caller has already looked up. It makes no privilege check of its own, so it stays
+     * package-private, and its name says so: call it only for a patient the caller has already
+     * looked up through a privilege-checked call. {@link PreventionPageData} calls it after its own
+     * checked lookup of the same patient.
+     */
+    @Nonnull
+    static ArrayList<Map<String, Object>> listForCheckedPatient(String preventionType, Integer demographicId, Date dob) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
         try {
-            Date dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
             List<Prevention> preventions = preventionType == null ? preventionDao.findNotDeletedByDemographicId(demographicId) : preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
             for (Prevention prevention : preventions) {
 

@@ -68,7 +68,8 @@ public class PreventionDisplayConfig {
 
     /**
      * The prevention list and its by-name index, published together so a reader never pairs a
-     * list from one load with an index from another. Replaced wholesale by loadPreventions().
+     * list from one load with an index from another. Replaced wholesale by loadPreventions(), or
+     * by setPreventionsForTesting() in this package's tests.
      */
     private record PreventionSnapshot(ArrayList<HashMap<String, String>> list,
                                       HashMap<String, HashMap<String, String>> byName) {
@@ -102,6 +103,32 @@ public class PreventionDisplayConfig {
             current = preventions;
         }
         return current;
+    }
+
+    /**
+     * Makes {@code types} the singleton's loaded prevention list, with its by-name index, without
+     * reading PreventionItems.xml or the vaccine catalogue, and returns the list it replaced
+     * ({@code null} when none was loaded). The list is kept as given, not copied; as in a real
+     * load, an entry with no name stays out of the index. {@code null} unloads the list, so the
+     * next read loads it again. For tests in this package only.
+     */
+    static ArrayList<HashMap<String, String>> setPreventionsForTesting(ArrayList<HashMap<String, String>> types) {
+        PreventionDisplayConfig config = preventionDisplayConfig;
+        synchronized (config.preventionLoadLock) {
+            PreventionSnapshot previous = config.preventions;
+            if (types == null) {
+                config.preventions = null;
+            } else {
+                HashMap<String, HashMap<String, String>> byName = new HashMap<>();
+                for (HashMap<String, String> type : types) {
+                    if (type.get("name") != null) {
+                        byName.put(type.get("name"), type);
+                    }
+                }
+                config.preventions = new PreventionSnapshot(types, byName);
+            }
+            return previous == null ? null : previous.list();
+        }
     }
 
     public ArrayList<HashMap<String, String>> getPreventions() {
@@ -281,11 +308,18 @@ public class PreventionDisplayConfig {
     }
 
 
-    public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
+    /**
+     * Returns the style attribute for a configuration set on the prevention page.
+     *
+     * @param setHash the configuration set
+     * @param demograph the patient, already looked up by the caller through
+     *        {@code DemographicManager}, which checks the caller's privileges
+     * @return {@code ""} when the set has an age range or a sex and the patient meets every one
+     *         it has; otherwise {@code style="display:none;"}, which also covers a set with
+     *         neither and an error such as a missing patient
+     */
+    public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
-        DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
-        Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
         try {
             String minAgeStr = (String) setHash.get("minAge");
             String maxAgeStr = (String) setHash.get("maxAge");
@@ -337,12 +371,39 @@ public class PreventionDisplayConfig {
         return display;
     }
 
+    /**
+     * Whether a prevention type shows for the patient, looking the patient up on every call.
+     *
+     * @deprecated A loop over the prevention types should look the patient up once, through
+     *             {@link PreventionPageData}, and call {@link #display(Map, Demographic, int)}.
+     *             Nothing in CARLOS calls this any more.
+     */
+    @Deprecated
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
-        boolean display = false;
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+        return display(setHash, demograph, numberOfPrevs);
+    }
+
+    /**
+     * Whether a prevention type shows for the patient: not when the type is hidden and the
+     * patient has none of it; yes when the patient has at least {@code showIfMinRecordNum} of
+     * it; otherwise by its age range and sex, as {@link #getDisplay(Map, Demographic)} decides
+     * for a configuration set. The patient is one the caller has already looked up through
+     * {@code DemographicManager}, which checks the caller's privileges.
+     * The prevention page (in its default view), the eChart's Preventions box and the REST
+     * preventions summary call this once per type, passing the patient from their
+     * {@link PreventionPageData}.
+     *
+     * @param setHash the prevention type
+     * @param demograph the patient
+     * @param numberOfPrevs how many preventions of this type the patient has
+     * @return whether the type shows; {@code false} also on an error such as a missing patient
+     */
+    public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        boolean display = false;
+        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
             if (preventionManager.hideItem(setHash.get("name")) && numberOfPrevs == 0) {
                 //move to hidden list
