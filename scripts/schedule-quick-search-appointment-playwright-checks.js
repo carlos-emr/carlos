@@ -115,11 +115,13 @@ function appointmentRow() {
 const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
 function cleanupRows() {
   if (demographicNo === null) return;
-  // Each status change files an archive row of the appointment; the application never removes them.
-  sql(`DELETE FROM appointmentArchive WHERE appointment_no IN (SELECT appointment_no FROM appointment WHERE reason='${escapeSql(reason)}')`);
   sql(`DELETE FROM appointment WHERE reason='${escapeSql(reason)}'`);
-  // Last: whatever else the pages wrote for the patient, and the patient, by its key.
-  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, { extra: [['admission', 'client_id']] });
+  // Last: whatever else the pages wrote for the patient, and the patient, by its key. Each status change files an archive row of
+  // the appointment that the application never removes; it carries the patient's number, so it is keyed by the owned patient and
+  // not through the appointment row (which is already gone by now).
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, {
+    extra: [['appointmentArchive', 'demographic_no'], ['appointment', 'demographic_no'], ['admission', 'client_id']],
+  });
 }
 
 let browser = null;

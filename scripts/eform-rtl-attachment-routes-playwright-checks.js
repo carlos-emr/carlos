@@ -58,13 +58,19 @@ const config = {
   const recorder = createRecorder();
   const sql = createSqlRunner(readConfig().mysql);
   const ownedMarker = newOwnedMarker();
-  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
-  const ownedRows = eformRows(sql);
-  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
-  assert(provider, 'The configured test login has no provider');
-  config.demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  let browser = null;
+  let ownedRows = null;
+  let ownedPatient = null;
+  // Patient creation and the browser launch are inside the try whose finally removes the patient and disposes the mysql option
+  // file, so a browser that fails to launch cannot strand a FAKE-PW patient.
   try {
+    // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+    ownedRows = eformRows(sql);
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
@@ -105,9 +111,9 @@ const config = {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
     try {
-      removeOwnedPatient(sql, config.demographicNo, ownedMarker, ownedRows);
+      if (browser) await browser.close();
+      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
     } catch (error) {
       console.error(`FAIL cleanup: ${error.message}`);
       process.exitCode = 1;

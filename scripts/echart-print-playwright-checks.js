@@ -440,22 +440,26 @@ async function printChart(page, noteText, flags, expectAutosave) {
 (async () => {
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
-  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
-  assert(provider, 'The configured test login has no provider');
-  demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-  const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
-  // Certificate verification is only relaxed for loopback, where the packaged
-  // install serves its own self-signed cert. A target opted in with
-  // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
-  // check logs in with real credentials. Same contract as
-  // billing-on-third-party and allergy-rx-alert, and the same loopback test as
-  // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
-    acceptDownloads: true,
-  });
+  let browser = null;
 
+  // Patient creation, browser launch and context setup are all inside the try whose finally removes the patient and disposes the
+  // mysql option file, so a browser that fails to launch cannot strand a FAKE-PW patient.
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+    // Certificate verification is only relaxed for loopback, where the packaged
+    // install serves its own self-signed cert. A target opted in with
+    // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+    // check logs in with real credentials. Same contract as
+    // billing-on-third-party and allergy-rx-alert, and the same loopback test as
+    // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+      acceptDownloads: true,
+    });
+
     const page = await login(context);
     // Before anything is typed into a chart: refuse a patient that is not test data.
     await verifySyntheticPatient(page);
@@ -583,11 +587,11 @@ async function printChart(page, noteText, flags, expectAutosave) {
       + `on the worst-case body); ${cleanupOutcome}`);
   } finally {
     try {
-      await closeBrowserWithChartCleanup(browser, baseUrl);
+      if (browser) await closeBrowserWithChartCleanup(browser, baseUrl);
     } finally {
       try {
         // After the browser is gone: the patient's draft, note lock, eChart row and the patient, by its key.
-        removeOwnedPatient(sql, demographicNo, ownedMarker);
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker);
       } finally {
         sql.dispose();
       }
