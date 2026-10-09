@@ -181,6 +181,27 @@ test('shouldKeepThePinnedLabel_onlyForThePairsOwnFailure', () => {
   assert.match(claims.claimFailure(undefined, label).label, /\(no outcome\)$/);
 });
 
+test('shouldKeepNoBrowserProblemAsThePairsOwn_whenItIsPinnedOnAnAssertion', () => {
+  const label = 'ALPHA: opens from the Forms menu';
+  const stray = claims.outcomeOf(null, ['console error: Failed to load resource: 404', 'uncaught TypeError: x']);
+  // Without a declaration the pair takes the problems as its own failure: the pin would stay "known" after a fix.
+  assert.equal(claims.claimFailure(stray, label).label, label);
+  // ASSERTION_ONLY: every problem is reported apart, whatever it says.
+  const verdict = claims.claimFailure(stray, label, claims.ASSERTION_ONLY);
+  assert.equal(verdict.label, `${label} (other browser problems)`);
+  assert.match(verdict.message, /^2 browser problem\(s\) with the pinned assertion intact: console error: Failed to load resource: 404 \| uncaught TypeError: x$/);
+  // The assertion itself, a precondition, an unreached concern and a pass behave as they do with a signature.
+  assert.equal(claims.claimFailure(claims.outcomeOf(new Error('answered HTTP 500'), []), label, claims.ASSERTION_ONLY).label, label);
+  assert.equal(claims.claimFailure(claims.outcomeOf(new Error('answered HTTP 500'), ['console error: 500']), label, claims.ASSERTION_ONLY).label, label,
+    'a failed assertion is the pair\'s own failure even when the browser also reported problems');
+  assert.equal(claims.claimFailure(claims.blockedOutcome('x'), label, claims.ASSERTION_ONLY).label, `${label} (not reached)`);
+  assert.equal(claims.claimFailure(claims.outcomeOf(new claims.Precondition('p'), []), label, claims.ASSERTION_ONLY).label, `${label} (precondition)`);
+  assert.equal(claims.claimFailure({ ok: true }, label, claims.ASSERTION_ONLY), null);
+  // And it is not a pattern a pair could be mistaken for: it has no test().
+  assert.equal(typeof claims.ASSERTION_ONLY.test, 'undefined');
+  assert.ok(Object.isFrozen(claims.ASSERTION_ONLY));
+});
+
 /* ---- the real tables and the real manifest ---- */
 
 const SUITES = [
@@ -192,6 +213,8 @@ const SUITES = [
     // The label the run gives a pair, and the one it would give with no PINNED entry.
     labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
     generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
+    // What the pair declares about browser problems (a pattern, or ASSERTION_ONLY); the suites that pass it must declare one for every pin.
+    knownOf(suite, key, concern) { return suite.module.knownProblem(key, concern); },
   },
   {
     label: 'form-rourke2020-growth',
@@ -200,6 +223,7 @@ const SUITES = [
     variables: { only: 'ROURKE_GROWTH_ONLY', except: 'ROURKE_GROWTH_EXCEPT' },
     labelOf(suite, key, concern) { return suite.module.stepLabel(key, concern); },
     generatedOf(suite, key, concern) { return suite.module.generatedLabel(key, concern); },
+    knownOf(suite, key, concern) { return suite.module.knownProblem(key, concern); },
   },
   {
     label: 'clinical-forms-save-reopen',
@@ -239,6 +263,19 @@ function entriesOf(suite) {
 
 for (const suite of SUITES) {
   const universe = suite.module.claimForms.flatMap((form) => form.concerns.map((concern) => claims.claimKey(form.key, concern)));
+
+  if (suite.knownOf) {
+    test(`shouldDeclareHowEveryPinnedPairTreatsBrowserProblems_in${suite.label}`, () => {
+      // A pair that takes the page's problems and declares nothing reads ANY of them as its own failure, so after its defect is fixed
+      // a stray problem would keep the pin "known". Each pin says which it is: the signature of its browser problem, or an assertion.
+      for (const claim of Object.keys(suite.module.PINNED)) {
+        const [key, concern] = claim.split('.');
+        const known = suite.knownOf(suite, key, concern);
+        assert.ok(known === claims.ASSERTION_ONLY || known instanceof RegExp,
+          `${claim} is pinned but declares neither a browser-problem signature nor claims.ASSERTION_ONLY`);
+      }
+    });
+  }
 
   test(`shouldClaimEveryPairOnce_by${suite.label}ManifestEntries`, () => {
     const entries = entriesOf(suite);

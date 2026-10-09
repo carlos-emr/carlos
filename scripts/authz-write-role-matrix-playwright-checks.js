@@ -284,7 +284,7 @@ async function issueChange(s, { restricted, restrictedToken, fullToken, name, ca
     // Opened after the reseed: the session's form bean is built from the rows as they are when the chart opens.
     const { offers } = await openRestrictedChart(restricted, config, patient);
     h.assert(offers.toolbar === 0, 'The restricted chart rendered a note toolbar, so the role has note rights and this is not the question asked');
-    // edit() files the lock just before it stores the session's form bean (CaseManagementEntry2Action:555-566).
+    // edit() files the lock (isNoteEdited, CaseManagementEntry2Action:553) just before it stores the session's form bean (:566).
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no=${q(restricted.login.providerNo)}`) !== '0',
       'Opening the restricted chart filed no note lock, so its session may hold no form bean for issueChange to read');
     const before = R.count(sql, 'casemgmt_issue', unchanged());

@@ -26,9 +26,9 @@ const CASES = [
   { script: 'echart-note-verify-appointment-status-playwright-checks.js', variable: 'ECHART_VERIFY_PIN', label: 'EchartVerify', good: ['', 'archive', 'billing'],
     run: 'workflow({})' },
   { script: 'echart-issues-filter-playwright-checks.js', variable: 'ECHART_ISSUES_PIN', label: 'EchartIssues',
-    good: ['', 'editor', 'heading', 'resolve', 'panel'], run: 'workflow({})' },
+    good: ['', 'editor', 'heading', 'resolve', 'panel', 'radios'], run: 'workflow({})' },
   { script: 'lab-to-flowsheet-playwright-checks.js', variable: 'LAB_FLOWSHEET_PIN', label: 'LabFlowsheet',
-    good: ['', 'value', 'fraction', 'time'], run: 'workflow({})' },
+    good: ['', 'value', 'fraction', 'time', 'seconds'], run: 'workflow({})' },
   // The two table-driven form checks select the (form, concern) pairs a run asserts with a pair of variables
   // (lib/form-claims.js); each variable is judged on its own, so each has its own case.
   { script: 'form-catalog-smoke-playwright-checks.js', variable: 'FORM_CATALOG_ONLY', label: 'FormCatalogOnly',
@@ -51,8 +51,16 @@ const CASES = [
     good: ['', 'delservice', 'enablerequest.get,updateinstitution.restricted'], run: 'workflow({})' },
 ];
 
+/**
+ * Variables the allergy check validates when its module loads (see its header), whatever the pin: a stray value in the shell
+ * that runs the meta-tests would fail an unrelated case with a message about a variable the case never set, so a child
+ * never inherits them.
+ */
+const NOT_INHERITED = ['ALLERGY_DEMOGRAPHIC_NO', 'DRUGREF_TEST_DATABASE'];
+
 function child(script, variable, value, body) {
   const env = { ...process.env, [variable]: value };
+  for (const name of NOT_INHERITED) delete env[name];
   return spawnSync(process.execPath, ['-e', `const m = require(${JSON.stringify(path.join(__dirname, script))}); ${body}`],
     { env, encoding: 'utf8', timeout: 30000 });
 }
@@ -102,4 +110,20 @@ test('shouldRefuseToRun_whenAuthzWriteSelectorIsInvalid', () => {
   assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'not-a-mode' }), /AUTHZ_WRITE_MODE must be one of matrix, chart-bill, issue-change/);
   assert.throws(() => selection({ AUTHZ_WRITE_ONLY: 'not-a-family' }), /AUTHZ_WRITE_ONLY names an unknown family/);
   assert.throws(() => selection({ AUTHZ_WRITE_MODE: 'issue-change', AUTHZ_WRITE_ONLY: 'billing-on-save' }), /cannot be combined/);
+});
+
+test('shouldNotInheritTheAllergyLoadVariables_whenTheShellHoldsOddValues', () => {
+  // Both would throw as the allergy module loads (ALLERGY_DEMOGRAPHIC_NO must be numeric, DRUGREF_TEST_DATABASE a plain name).
+  const saved = Object.fromEntries(NOT_INHERITED.map((name) => [name, process.env[name]]));
+  try {
+    process.env.ALLERGY_DEMOGRAPHIC_NO = 'not-a-number';
+    process.env.DRUGREF_TEST_DATABASE = 'not a database';
+    const result = child('allergy-add-penicillin-playwright-checks.js', 'ALLERGY_PIN', 'shortcut-id', "console.log('loaded', typeof m.validatePin);");
+    assert.equal(result.status, 0, `a stray shell value leaked into the child: ${result.stderr}`);
+    assert.match(result.stdout, /loaded function/);
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
 });

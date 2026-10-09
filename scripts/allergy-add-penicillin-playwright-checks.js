@@ -188,9 +188,10 @@ function runCleanup() {
 }
 
 /**
- * The labels of the pinned steps. A run labels exactly one of them (step 6 by default, step 7 under
- * ALLERGY_PIN=shortcut-id): the stages before it are unlabelled, so a failure in them is reported as a
- * failure elsewhere, never as the known one.
+ * The labels of the pinned steps. A run pins exactly one of them (IDENTIFIER_STEP, step 6, by default;
+ * SHORTCUT_ID_STEP, step 7, under ALLERGY_PIN=shortcut-id). Each is preceded by a control step with a label of its
+ * own (OBSERVATION_STEP, DRUGREF_STEP) that reads what the pin judges, and the stages before those are unlabelled, so
+ * a failure in any of them is reported as a failure elsewhere, never as the known one.
  */
 const SHORTCUT_ID_STEP = 'the Penicillin shortcut files the allergy under the PENICILLINS drug class id';
 // The control of the shortcut-id pin, a step of its own so that a DrugRef this check cannot read (or one that holds no

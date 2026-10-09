@@ -44,6 +44,10 @@
  *            clinician could reach the control. Pinned to finding 227.
  *   panel    A SEEDED link, the filter panel is in the page and closed, a clinician can open it. Pinned to
  *            finding 185.
+ *   radios   A SEEDED link; with a FULL-rights login (the test provider) and the checklist revealed by a script, the
+ *            Certain, Uncertain, Major and Not Major radios and the role box of the issue are enabled. Pinned to
+ *            finding 261: noteIssueList.jsp writes disabled="${disabled}" for them in the unresolved list, which
+ *            prints disabled="false", a boolean attribute, so they are disabled whatever the user's rights.
  *
  * SEEDED LINK. Findings 186 and 225 mean no UI route assigns an issue, so the entries that exercise what comes
  * after the assignment write the casemgmt_issue row and its casemgmt_issue_notes link with SQL. That is a
@@ -78,13 +82,14 @@ const STEP = {
   heading: 'clicking the Issues heading brings every note back',
   resolve: 'a clinician can reach the control that resolves an issue from the note editor',
   panel: 'the notes filter panel can be opened from the chart',
+  radios: 'the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights',
 };
 
-const PINS = ['editor', 'heading', 'resolve', 'panel'];
+const PINS = ['editor', 'heading', 'resolve', 'panel', 'radios'];
 // ECHART_ISSUES_PIN selects which finding the run pins (see the header); judged when the check runs, never when
 // the module is required, so a stray value in someone's shell cannot break a test that only requires the file.
 const PIN = (process.env.ECHART_ISSUES_PIN || '').trim();
-/** ECHART_ISSUES_PIN must be unset or one of editor, heading, resolve, panel. */
+/** ECHART_ISSUES_PIN must be unset or one of editor, heading, resolve, panel, radios. */
 function validatePin(value = PIN) {
   if (!['', ...PINS].includes(value)) {
     throw new Error(`ECHART_ISSUES_PIN must be unset or ${PINS.join(', ')}, not ${value}`);
@@ -95,7 +100,7 @@ async function workflow(s) {
   validatePin();
   const { sql, patient, marker, config } = s;
   const q = h.sqlString;
-  const seeded = ['heading', 'resolve', 'panel'].includes(PIN);
+  const seeded = ['heading', 'resolve', 'panel', 'radios'].includes(PIN);
 
   const issueRow = sql.rows(`SELECT issue_id, description, role FROM issue WHERE code=${q(ISSUE_CODE)}`);
   if (issueRow.length !== 1) throw new h.SkipCheck(`The issue catalog has no single row with code ${ISSUE_CODE} to assign`);
@@ -431,6 +436,49 @@ async function workflow(s) {
       h.assert(reachable.shown,
         'The note editor holds the Reference Unresolved Issues checklist but it is hidden (display none) and no visible control in the editor opens it '
         + `(visible controls naming issues: ${reachable.togglers.length})`);
+    });
+    return;
+  }
+
+  if (PIN === 'radios') {
+    // What the unresolved checklist's controls look like for the signed-in provider, recorded by the control and judged by the pin.
+    const shown = {};
+    await s.step('(control, not a clinician path) with the checklist revealed by a script, the login can write the issue: its checkbox, Acute and Resolved controls are enabled', async () => {
+      const chart = await s.chart();
+      await noteField(chart).waitFor({ state: 'visible', timeout: TIMEOUT });
+      const rows = await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').count();
+      h.assert(rows === 1, `The note editor's unresolved checklist holds ${rows} issues, expected the one assigned`);
+      // A script reveals what no control reveals (finding 227); it is what lets the radios be looked at, not a clinician path.
+      await chart.evaluate(() => { document.getElementById('noteIssues-unresolved').style.display = 'block'; });
+      await chart.locator('#noteIssues-unresolved a[onclick^="return displayIssue"]').click({ timeout: TIMEOUT });
+      await chart.locator('#noteIssues-unresolved input[type="radio"][name$=".issue.certain"]').first().waitFor({ state: 'visible', timeout: TIMEOUT });
+      // Every control is read once, in one page evaluation: the property (what the browser enforces) and the attribute (what the page wrote).
+      Object.assign(shown, await chart.evaluate(() => {
+        const read = (selector) => [...document.querySelectorAll(`#noteIssues-unresolved ${selector}`)].map((el) => ({
+          disabled: el.disabled, attribute: el.getAttribute('disabled'), value: el.value }));
+        return {
+          checkbox: read('input[type="checkbox"][name$=".checked"]'),
+          acute: read('input[type="radio"][name$=".issue.acute"]'),
+          resolved: read('input[type="radio"][name$=".issue.resolved"]'),
+          certain: read('input[type="radio"][name$=".issue.certain"]'),
+          major: read('input[type="radio"][name$=".issue.major"]'),
+          role: read('input[type="text"][name$=".issueDisplay.role"]'),
+        };
+      }));
+      h.assert(shown.checkbox.length === 1 && shown.acute.length === 2 && shown.resolved.length === 2
+        && shown.certain.length === 2 && shown.major.length === 2 && shown.role.length === 1,
+      `The revealed checklist holds checkbox/acute/resolved/certain/major/role controls ${JSON.stringify(Object.values(shown).map((list) => list.length))}, expected 1/2/2/2/2/1`);
+      // The checkbox and the Acute and Resolved radios are the controls the same page enables for a login that may write the issue.
+      h.assert(!shown.checkbox[0].disabled && shown.acute.every((el) => !el.disabled) && shown.resolved.every((el) => !el.disabled),
+        'The checkbox, Acute and Resolved controls of the issue are disabled, so this login cannot write the issue and the radios cannot be judged');
+    });
+
+    // Finding 261. Pure assertion on what the control recorded.
+    await s.step(STEP.radios, async () => {
+      const disabled = ['certain', 'major'].flatMap((name) => shown[name].filter((el) => el.disabled)
+        .map((el) => `${name}=${el.value} (disabled="${el.attribute}")`)).concat(shown.role.filter((el) => el.disabled).map((el) => `role box (disabled="${el.attribute}")`));
+      h.assert(disabled.length === 0,
+        `The Certain, Uncertain, Major and Not Major radios and the role box are disabled for a login with full rights: ${disabled.join(', ')}`);
     });
     return;
   }

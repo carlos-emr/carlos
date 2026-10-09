@@ -174,11 +174,23 @@ function blockedOutcome(why) {
 }
 
 /**
+ * What a pair that is pinned on an ASSERTION (a page that answers 500, a title, a value that is not stored) declares as its
+ * `known` signature: no browser problem is the pair's own failure, so every problem that ends the concern is reported
+ * apart as "other browser problems". Without a declaration, a pair that takes the page's problems reads ANY of them as its
+ * own failure, so once the defect is fixed a stray problem would keep the pin "known" instead of letting it flip.
+ *
+ * It is a sentinel and not a never-matching pattern such as /(?!)/, so the intent is stated where the pair is declared and
+ * a test can require that every pinned pair declares one or the other (scripts/form-claims.test.js).
+ */
+const ASSERTION_ONLY = Object.freeze({ assertionOnly: true, toString: () => 'assertion only: no browser problem is this pair\'s own' });
+
+/**
  * Judge a recorded outcome for the assertion phase.
  *
  * @param {object|undefined} outcome  outcomeOf() / blockedOutcome() result
- * @param {RegExp} [known]  the signature of the browser problem the pair is pinned to; without one, any problem
- *   that ends a concern is that concern's own failure
+ * @param {RegExp|ASSERTION_ONLY} [known]  the signature of the browser problem the pair is pinned to, or ASSERTION_ONLY when
+ *   it is pinned on an assertion and no problem is its own; without one, any problem that ends a concern is that
+ *   concern's own failure
  * @returns {null|{pinned: boolean, reason?: string, message: string}} null when the concern passed; `pinned` false
  *   means the step must be reported under a label of its own (`reason`), never the pair's pinned label
  */
@@ -188,10 +200,12 @@ function classify(outcome, known) {
   if (outcome.kind === 'blocked') return { pinned: false, reason: 'not reached', message: outcome.message };
   if (outcome.kind === 'precondition') return { pinned: false, reason: 'precondition', message: outcome.message };
   if (outcome.kind === 'problems' && known) {
-    const others = outcome.problems.filter((problem) => !known.test(problem));
+    const others = known === ASSERTION_ONLY ? outcome.problems : outcome.problems.filter((problem) => !known.test(problem));
     if (others.length) {
       return { pinned: false, reason: 'other browser problems',
-        message: `${others.length} browser problem(s) besides the known one: ${others.join(' | ')}` };
+        message: known === ASSERTION_ONLY
+          ? `${others.length} browser problem(s) with the pinned assertion intact: ${others.join(' | ')}`
+          : `${others.length} browser problem(s) besides the known one: ${others.join(' | ')}` };
     }
   }
   return { pinned: true, message: outcome.message };
@@ -217,6 +231,6 @@ function claimFailure(outcome, label, known) {
 }
 
 module.exports = {
-  Precondition, asPrecondition, blockedOutcome, claimFailure, claimKey, classify, effectiveClaims, outcomeOf, parseSpec,
+  ASSERTION_ONLY, Precondition, asPrecondition, blockedOutcome, claimFailure, claimKey, classify, effectiveClaims, outcomeOf, parseSpec,
   partitionProblems, precondition, reaching,
 };

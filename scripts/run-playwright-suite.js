@@ -58,8 +58,11 @@
  *     the runner takes a baseline of fax_config, the encounterForm registrations and the
  *     property rows the selected checks' manifest `mutates` names BEFORE the first check, and
  *     audits AFTER the last (scripts/lib/residue-audit.js): marker-named fixture rows that
- *     survive, and any difference from the baseline. It prints `residue: <table> <count>` per
- *     table, never a row, and exits non-zero on residue; a clean audit prints
+ *     survive, any difference from the baseline, and any table that has MORE ROWS than the baseline's
+ *     exact count of every base table (so a table with no marker column cannot leak unseen; only the
+ *     tables that grow on every run, ROW_GROWTH_ALLOWED, are exempt and are named in a line of their
+ *     own). It prints `residue: <table> <count>` per table (`<count> (rows added)` for the row-count
+ *     diff), never a row, and exits non-zero on residue; a clean audit prints
  *     `residue audit: no residue`. It needs MYSQL_* like a database-asserting check, and a run
  *     that cannot take its baseline stops before any check starts rather than pass unaudited.
  *
@@ -79,7 +82,7 @@ const { spawnSync } = require('node:child_process');
 const {
   EXIT_FAIL, EXIT_PASS, EXIT_SKIP, createSqlRunner, isLocalTlsTarget, readConfig, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
-const { auditResidueDetailed, captureBaseline, formatResidue } = require('./lib/residue-audit');
+const { auditResidueDetailed, captureBaseline, describeResidue, formatResidue } = require('./lib/residue-audit');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
@@ -591,11 +594,15 @@ function finishResidueAudit(audit, out) {
   // Say what the audit did NOT cover, so a clean verdict is not read as wider than it is.
   if (report.absent.length) out.log(`residue audit: not installed here: ${report.absent.join(', ')}`);
   if (report.notDiffed.length) out.log(`residue audit: not diffed: ${report.notDiffed.join(', ')}`);
+  // The tables that grow on every run by design are not residue, but a reader should see how much the allow-list absorbed.
+  if ((report.allowedGrowth || []).length) {
+    out.log(`residue audit: rows added to tables that grow on every run (not residue): ${report.allowedGrowth.map(({ table, count }) => `${table} ${count}`).join(', ')}`);
+  }
   if (!report.residue.length) return null;
   return {
     name: 'residue-audit',
     outcome: 'FAIL',
-    detail: report.residue.map(({ table, count }) => `${table} ${count}`).join(', '),
+    detail: report.residue.map(describeResidue).join(', '),
     durationMs: 0,
   };
 }

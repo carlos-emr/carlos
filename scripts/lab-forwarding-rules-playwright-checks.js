@@ -45,12 +45,21 @@ function unusedNumber(sql, column) {
   throw new Error(`No unused ${column} was found`);
 }
 
+/** The part of a providerLabRoutingLock predicate that keeps a lock row another lab type's routing also uses. */
+const LOCK_NOT_SHARED = `NOT EXISTS (SELECT 1 FROM providerLabRouting other
+    WHERE other.lab_no=providerLabRoutingLock.lab_no AND other.lab_type<>'HL7')`;
+
 /**
  * Removes every row an uploaded or form-created HL7 lab writes (routing and its lock, measurements, the
  * message and its checksum) for the given lab numbers, plus the archived upload file named by
  * each of the lab's fileUploadCheck rows, and asserts nothing remains. A checksum row whose
  * filename is not an archive name the uploader generates is still deleted, but its file is not
  * guessed at: cleanup fails and names it, so a changed naming scheme never leaks silently.
+ *
+ * The lock is keyed by the lab number alone, and documents are routed in the same number space
+ * (providerLabRouting.lab_type is DOC for them). A lock row is therefore removed only when no
+ * routing row of another lab type shares its number: a number that a document also uses is not
+ * this lab's to delete (LOCK_NOT_SHARED).
  */
 function removeOwnedHl7Labs(sql, labNos) {
   const labs = [...new Set(labNos.map(String))].filter((labNo) => /^[1-9]\d*$/.test(labNo));
@@ -72,7 +81,7 @@ function removeOwnedHl7Labs(sql, labNos) {
   }
   // providerLabRoutingLock is the row ProviderLabRoutingDaoImpl inserts when it routes a lab (one per lab number).
   sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-    DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
+    DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED};
     DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
     DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
     DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
@@ -80,7 +89,7 @@ function removeOwnedHl7Labs(sql, labNos) {
   removeArchiveFiles(archives);
   h.assert(sql.value(`SELECT
       (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
-    + (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list}))
+    + (SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${list}) AND ${LOCK_NOT_SHARED})
     + (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list}))
     + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no IN (${list}))
     + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id IN (${list}))
@@ -371,4 +380,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('lab-forwarding-rules', workflow, { openMaster: false });
-module.exports = { workflow, removeOwnedHl7Labs, removeArchiveFiles, archivesNamed };
+module.exports = { workflow, removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox, LOCK_NOT_SHARED };

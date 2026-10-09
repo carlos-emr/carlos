@@ -25,8 +25,12 @@
  *     12-hour time pattern misreads, finding 259; only the date reaches the flowsheet, so no other step minds),
  *   - an A1C ABOVE it (2026-09-30), filed together with CML 2010 HEMOGLOBIN 137 g/L, a code measurementMap maps to
  *     LOINC 718-7 but which no FLOWSHEET row shares, so it is the unmapped code,
- *   - only in the two entries that pin findings 256 and 257: an A1C reported as a FRACTION, 0.095 (dated
- *     2026-08-15), the form the A1C measurement type's own range (Range:0.040-0.200) and diab-A1C.drl describe.
+ *   - only in the entry that pins finding 257: an A1C reported as a FRACTION, 0.095 (dated 2026-08-15), the form
+ *     the A1C measurement type's own range (Range:0.040-0.200) and diab-A1C.drl describe.
+ * Two entries file one more lab AFTER step 9, so the steps that count labs, rows and typed measurements never see it:
+ *   - the entry for finding 256: Create Lab files a CML 3180 Creatinine of 112.5 umol/L, a mapped code that is not
+ *     the A1C (it is the flowsheet type SCR) and whose first five characters are digits and '.',
+ *   - the entry for finding 262: Inbox > HL7 Lab Upload files a CML A1C whose observation time has no seconds.
  * "Within" and "above" are judged against the target the flowsheet itself states ("Target <= 7.0%" on its A1C
  * row), read from the flowsheet before the labs are created, so no threshold is hard-coded: the values are
  * derived from it.
@@ -48,15 +52,21 @@
  *   unset     The path above, then LAST and PINNED to finding 258: the flowsheet's A1C row links to the lab it
  *             came from. measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it;
  *             the row only opens the Add Measurement form for the value.
- *   value     Pinned to finding 256, right after step 4: an A1C of 0.095 is filed with the value the lab sent.
- *             The shipped HL7_LAB_MEASUREMENT_FILTER has the alternative ^([+-\\?]{1,4}), and in a character class
- *             +-\? is a RANGE (0x2B-0x3F: the digits, '.', ...), so find() takes the first four characters of any
- *             number: 0.095 becomes 0.09.
+ *   value     Pinned to finding 256, LAST (after step 9): a creatinine of 112.5 umol/L is filed as the SCR
+ *             measurement with the value the lab sent. The shipped HL7_LAB_MEASUREMENT_FILTER has the alternative
+ *             ^([+-\\?]{1,4}), and in a character class +-\? is a RANGE (0x2B-0x3F: the digits, '.', ...), so
+ *             find() takes the first four characters of any such number: 112.5 becomes 112. The value is not the
+ *             A1C fraction of the entry for 257, so a fix of 257 that normalises fractions on import cannot decide
+ *             this pin, and a creatinine is mapped to a flowsheet type of its own, so the A1C steps never see it.
  *   time      Pinned to finding 259, right after step 4: a result observed at 12:15 is filed with that time of day.
  *             The handler parses the 24-hour observation time with the 12-hour pattern hh, which reads 12 as 0, so
  *             12:15 is stored as 00:15 (the date is right; the order of same-day results is not).
  *   fraction  Pinned to finding 257, right after step 8: the flowsheet flags an A1C reported as a fraction above
  *             the target. omdDiabetesFlowsheet.xml flags only a value above 7; its fraction rule is commented out.
+ *   seconds   Pinned to finding 262, LAST (after step 9): a lab UPLOADED with an observation time that has no seconds
+ *             (OBR-7 of 12 digits) is filed as observed at that time. CMLHandler.formatDateTime returns
+ *             "yyyy-MM-dd HH:mm" for it, Hl7textResultsData parses with "yyyy-MM-dd hh:mm:ss", the parse throws and
+ *             the catch files the upload time instead. Create Lab always writes seconds, so only an upload reaches it.
  * The steps after a pin run once its finding is fixed. A step named in an expectedFailure holds only the assertion
  * its finding breaks; the controls (the row exists, the flag works for a percentage, the measurement is filed with
  * its type and lab number) are earlier steps with their own labels, and they hand the pinned step what it judges (the
@@ -72,18 +82,21 @@
  * Expected: every step passes except the pinned one of each entry (see the manifest).
  */
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { submitCreateLab } = require('./lab-manual-entry-cumulative-playwright-checks');
-const { removeOwnedHl7Labs } = require('./lab-forwarding-rules-playwright-checks');
+const { removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox } = require('./lab-forwarding-rules-playwright-checks');
 
 const TIMEOUT = 30000;
-const PINS = ['value', 'fraction', 'time'];
+const PINS = ['value', 'fraction', 'time', 'seconds'];
 // LAB_FLOWSHEET_PIN selects which finding the run pins (see the header); judged when the check runs, never when
 // the module is required, so requiring it with a bad value (a meta-test does) is harmless.
 const PIN = (process.env.LAB_FLOWSHEET_PIN || '').trim();
-/** LAB_FLOWSHEET_PIN must be unset or one of value, fraction, time. */
+/** LAB_FLOWSHEET_PIN must be unset or one of value, fraction, time, seconds. */
 function validatePin(value = PIN) {
   if (!['', ...PINS].includes(value)) {
     throw new Error(`LAB_FLOWSHEET_PIN must be unset or ${PINS.join(', ')}, not ${value}`);
@@ -92,9 +105,10 @@ function validatePin(value = PIN) {
 
 /** The step labels the manifest's expectedFailure entries name; one place, so the script and the manifest agree. */
 const STEP = {
-  value: 'an A1C result longer than four characters is filed as a measurement with the value the lab sent',
+  value: 'a creatinine result of five characters is filed as a measurement with the value the lab sent',
   fraction: 'the Diabetes Flowsheet flags an A1C reported as a fraction above its target',
   time: 'a result observed in the noon hour is filed as a measurement with the time of day the lab gave',
+  seconds: 'a result uploaded with an observation time that has no seconds is filed as a measurement observed at that time',
   link: 'the Diabetes Flowsheet A1C row links to the lab it came from',
 };
 
@@ -102,9 +116,14 @@ const STEP = {
 // FLOWSHEET row shares (the check proves that against measurementMap when it runs).
 const A1C = { code: '3767', name: 'HEMOGLOBIN A1C' };
 const UNMAPPED = { code: '2010', name: 'HEMOGLOBIN', value: '137', unit: 'g/L', low: '120', high: '160', flag: 'N' };
-const DATES = { within: '2026-06-15', fraction: '2026-08-15', above: '2026-09-30' };
+// CML 3180 Creatinine maps to the FLOWSHEET type SCR (measurementType "in umol/L"), so it is a mapped value that is not
+// the A1C; 112.5 has five characters, all of them digits or '.', which the shipped result filter cuts to four (finding 256).
+const LONG = { code: '3180', name: 'Creatinine', value: '112.5', unit: 'umol/L', low: '45', high: '110', flag: 'A', type: 'SCR' };
+const DATES = { within: '2026-06-15', fraction: '2026-08-15', above: '2026-09-30', long: '2026-09-01' };
 // The observation time of the within-target lab: the noon hour, the one hour a 12-hour clock misreads (finding 259).
 const NOON = '12:15';
+// The uploaded lab's observation time (finding 262): a morning hour, so a 12-hour pattern could not misread it (259).
+const UPLOAD_TIME = { date: '20260820', time: '0945' };
 const DIAB_TEMPLATE = 'diab2';
 
 /** The flowsheet's own A1C target ("Target <= 7.0%") as a number, or null. */
@@ -139,12 +158,37 @@ function a1cTest(value, { unit = '%', low = '4.0', high = '6.0', flag = 'A', tim
   return { ...A1C, value, unit, low, high, flag, time };
 }
 
+/**
+ * A CML ORU^R01 for the HL7 Lab Upload page: one result for the run's FAKE patient, shaped like lab-upload's synthetic
+ * message (the PID that matches the patient by name, date of birth and sex), with the observation time `observed`
+ * (OBR-7) exactly as given. Create Lab writes every time with seconds (CMLLabHL7Generator, 14 digits), so only a file
+ * can carry the 12-digit time of finding 262.
+ *
+ * @param {{accession: string, last: string, test: object, observed: string}} lab `test` is a Create Lab test
+ *   ({code, name, value, unit, low, high, flag}); `observed` is yyyyMMdd, yyyyMMddHHmm or yyyyMMddHHmmss
+ */
+function cmlUploadHl7({ accession, last, test, observed }) {
+  const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 12);
+  return [
+    `MSH|^~\\&|Reports|CML|||${stamp}-500||ORU^R01||1|2.3`,
+    `PID|1|||^^ON|${last}^Workflow||19800102|F`,
+    `ORC|NW|${accession}|||F|||||||999998^DR. PROBE|||${observed.slice(0, 8)}`,
+    `OBR|1|${accession}||ML70^SYNTHETIC PANEL||${observed.slice(0, 8)}083000|${observed}|||||||||999998^DR. PROBE|||||||||F`,
+    `OBX|1|ST|${test.code}^${test.name}|^^CHEMISTRY|${test.value}|${test.unit}|${test.low}-${test.high}|${test.flag}|||F||765^1007010||70`,
+    'NTE|1|L|SYNTHETIC LAB UPLOAD BROWSER CHECK - NOT A PATIENT RESULT',
+    'FTS|1',
+    '',
+  ].join('\r');
+}
+
 async function workflow(s) {
   validatePin();
   const { sql, patient, provider, context } = s;
-  const needsFraction = PIN === 'value' || PIN === 'fraction';
+  const needsFraction = PIN === 'fraction';
   const labs = {}; // key -> { accession, labNo, date, tests }
   const claimed = [];
+  const uploaded = []; // the upload file names of the 'seconds' entry, so cleanup can find a file whose lab never stored
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-flowsheet-'));
   // What the control steps read, kept for the pinned steps: a pinned step is then a judgment on a value in hand and
   // cannot fail for want of a page, a row or a lab, which the runner would read as the known defect.
   const filed = {}; // lab key -> its A1C measurement (step 3)
@@ -177,6 +221,16 @@ async function workflow(s) {
       if (lab.labNo) labNos.push(lab.labNo);
     }
     removeOwnedHl7Labs(sql, labNos);
+    fs.rmSync(workDir, { recursive: true, force: true });
+    // An upload that failed before a lab was stored leaves its checksum row and archive without any lab row to find them by;
+    // the run's unique upload name still identifies both.
+    for (const fileName of uploaded) {
+      const pattern = h.sqlString(`LabUpload.${fileName}.%`);
+      sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${pattern}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${pattern}`) === '0',
+        'The run\'s lab upload checksum row was not removed');
+      removeArchiveFiles(archivesNamed(fileName));
+    }
   });
 
   /** Claims an accession no lab uses yet and records the lab so cleanup finds it. */
@@ -230,25 +284,31 @@ async function workflow(s) {
   });
 
   // ---- 2. Create Lab ---------------------------------------------------------------------------------------------
+  /** The lab reached hl7TextInfo under its accession and is matched to the patient: records its lab number. */
+  const assertStored = async (lab) => {
+    await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(lab.accession)}`, '1',
+      `The ${lab.key} lab did not reach hl7TextInfo under its accession`);
+    lab.labNo = sql.value(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(lab.accession)}`);
+    h.assert(/^[1-9]\d*$/.test(lab.labNo), `The ${lab.key} lab has no lab number`);
+    h.assert(sql.value(`SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${lab.labNo}`) === patient,
+      `The ${lab.key} lab was not matched to the patient`);
+  };
+  /** Inbox > Create Lab for one planned lab, then the checks every Create Lab lab gets (stored, matched, routed to the submitter). */
+  const createLab = async (lab) => {
+    const { form, inbox } = await submitCreateLab(s, { accession: lab.accession, tests: lab.tests, label: `lab-flowsheet-${lab.key}`, date: lab.date });
+    await assertStored(lab);
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no=${lab.labNo}
+      AND provider_no=${h.sqlString(provider)}`) === '1', `The ${lab.key} lab was not routed to the submitting provider`);
+    await form.close();
+    if (inbox !== s.schedule) await inbox.close();
+  };
   await s.step('Inbox ▸ Create Lab files the A1C results and an unmapped hemoglobin for the patient', async () => {
     const plan = [
       claim('within', DATES.within, [a1cTest(values.within, { time: NOON })]),
       claim('above', DATES.above, [a1cTest(values.above), UNMAPPED]),
     ];
     if (needsFraction) plan.push(claim('fraction', DATES.fraction, [a1cTest(values.fraction, { low: '0.040', high: '0.060', unit: 'fraction' })]));
-    for (const lab of plan) {
-      const { form, inbox } = await submitCreateLab(s, { accession: lab.accession, tests: lab.tests, label: `lab-flowsheet-${lab.key}`, date: lab.date });
-      await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(lab.accession)}`, '1',
-        `The ${lab.key} lab did not reach hl7TextInfo under its accession`);
-      lab.labNo = sql.value(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(lab.accession)}`);
-      h.assert(/^[1-9]\d*$/.test(lab.labNo), `The ${lab.key} lab has no lab number`);
-      h.assert(sql.value(`SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${lab.labNo}`) === patient,
-        `The ${lab.key} lab was not matched to the patient`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='HL7' AND lab_no=${lab.labNo}
-        AND provider_no=${h.sqlString(provider)}`) === '1', `The ${lab.key} lab was not routed to the submitting provider`);
-      await form.close();
-      if (inbox !== s.schedule) await inbox.close();
-    }
+    for (const lab of plan) await createLab(lab);
   });
 
   // ---- 3. The A1C measurements -----------------------------------------------------------------------------------
@@ -273,9 +333,11 @@ async function workflow(s) {
 
   // ---- 4. The unmapped code ---------------------------------------------------------------------------------------
   await s.step('the unmapped hemoglobin result is filed with no flowsheet measurement type', async () => {
-    // Proof that the code is unmapped: its CML row shares no LOINC code with any FLOWSHEET row.
+    // Proof that the code is unmapped: no measurementMap row with that identifier shares a LOINC code with a FLOWSHEET row.
+    // The application's own lookup (MeasurementMapDaoImpl.findMeasurements) matches a.ident_code and the LOINC code and
+    // never the lab type of a, so neither does this: a row of another lab type with the same identifier would map the result too.
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementMap a JOIN measurementMap b ON b.loinc_code=a.loinc_code
-      AND b.lab_type='FLOWSHEET' WHERE a.lab_type='CML' AND a.ident_code=${h.sqlString(UNMAPPED.code)}`) === '0',
+      AND b.lab_type='FLOWSHEET' WHERE a.ident_code=${h.sqlString(UNMAPPED.code)}`) === '0',
     `CML ${UNMAPPED.code} is mapped to a flowsheet measurement type, so it is not the unmapped code this check needs`);
     const rows = measurementsOf(labs.above).filter((row) => row.ext.identifier === UNMAPPED.code);
     h.assert(rows.length === 1, `The unmapped result was filed as ${rows.length} measurement(s); the lab-only record is expected once`);
@@ -284,15 +346,6 @@ async function workflow(s) {
     const typed = sql.rows(`SELECT DISTINCT type FROM measurements WHERE demographicNo=${patient} AND type<>''`).map(([type]) => type);
     h.assert(JSON.stringify(typed) === JSON.stringify(['A1C']), `The patient has measurements of type ${JSON.stringify(typed)}; only A1C is expected`);
   });
-
-  // ---- Pin: finding 256 -------------------------------------------------------------------------------------------
-  if (PIN === 'value') {
-    // The control is step 3: the same measurement is filed with its type, date, lab number and unit.
-    await s.step(STEP.value, async () => {
-      h.assert(filed.fraction.value === values.fraction,
-        `The lab sent ${values.fraction} and the A1C measurement holds ${JSON.stringify(filed.fraction.value)}`);
-    });
-  }
 
   // ---- Pin: finding 259 -------------------------------------------------------------------------------------------
   if (PIN === 'time') {
@@ -402,6 +455,59 @@ async function workflow(s) {
     await tracker.close();
   });
 
+  // ---- Pin: finding 256 (a lab of its own, after every step that counts labs and rows) ---------------------------
+  if (PIN === 'value') {
+    let longRow;
+    await s.step('Inbox ▸ Create Lab files a creatinine of five characters as a measurement of its flowsheet type with its lab number, date and unit', async () => {
+      const lab = claim('long', DATES.long, [{ ...LONG, time: '09:00' }]);
+      await createLab(lab);
+      const rows = measurementsOf(lab);
+      h.assert(rows.length === 1, `The creatinine lab filed ${rows.length} measurements, expected 1`);
+      longRow = rows[0];
+      h.assert(longRow.type === LONG.type, `The creatinine result is filed with type ${JSON.stringify(longRow.type)}, not ${LONG.type}`);
+      h.assert(longRow.date === DATES.long, `The creatinine measurement is dated ${longRow.date}, not ${DATES.long}`);
+      h.assert(longRow.ext.lab_no === lab.labNo && longRow.ext.identifier === LONG.code && longRow.ext.name === LONG.name && longRow.ext.unit === LONG.unit,
+        `The creatinine measurement does not carry its lab number, test code, name and unit: ${JSON.stringify(longRow.ext)}`);
+    });
+    // The control is the step above: the same measurement is filed with its type, date, lab number and unit.
+    await s.step(STEP.value, async () => {
+      h.assert(longRow.value === LONG.value, `The lab sent ${LONG.value} and the ${LONG.type} measurement holds ${JSON.stringify(longRow.value)}`);
+    });
+  }
+
+  // ---- Pin: finding 262 (an upload of its own, after every step that counts labs and rows) ---------------------------
+  if (PIN === 'seconds') {
+    let uploadedRow;
+    let given;
+    await s.step('Inbox ▸ HL7 Lab Upload files a CML A1C whose observation time has no seconds, matched to the patient, with the time the file gave', async () => {
+      const lab = claim('upload', null, [a1cTest(values.within)]);
+      const fileName = `lab-flowsheet-upload-${lab.accession}.hl7`;
+      uploaded.push(fileName);
+      const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+      fs.writeFileSync(filePath, Buffer.from(cmlUploadHl7({ accession: lab.accession, last: s.marker, test: lab.tests[0],
+        observed: `${UPLOAD_TIME.date}${UPLOAD_TIME.time}` }), 'latin1'));
+      const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
+        { context: s.context, recorder: s.recorder, label: 'lab-flowsheet-upload-inbox', timeout: TIMEOUT });
+      const status = await uploadFromInbox(inbox, s.recorder, filePath, fileName);
+      if (inbox !== s.schedule) await inbox.close();
+      h.assert(status === 'Uploaded successfully', `The upload reported "${status}"`);
+      await assertStored(lab);
+      const rows = measurementsOf(lab);
+      h.assert(rows.length === 1, `The uploaded lab filed ${rows.length} measurements, expected 1`);
+      uploadedRow = rows[0];
+      h.assert(uploadedRow.type === 'A1C' && uploadedRow.ext.lab_no === lab.labNo && uploadedRow.ext.identifier === A1C.code && uploadedRow.ext.unit === lab.tests[0].unit,
+        `The uploaded A1C is not filed as an A1C measurement with its lab number, code and unit: ${JSON.stringify(uploadedRow)}`);
+      // The time the lab gave, as the handler read it from OBR-7: the minute, with no seconds (the file carries none).
+      given = `${UPLOAD_TIME.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')} ${UPLOAD_TIME.time.replace(/(\d{2})(\d{2})/, '$1:$2')}`;
+      h.assert(uploadedRow.ext.datetime === given, `The upload's observation time was read as ${JSON.stringify(uploadedRow.ext.datetime)}, not ${given}`);
+    });
+    // The control is the step above: the measurement exists with its type, lab number and the time the file gave.
+    await s.step(STEP.seconds, async () => {
+      h.assert(uploadedRow.observed.slice(0, given.length) === given,
+        `The file gave the observation time ${given} and the measurement is dated ${uploadedRow.observed}`);
+    });
+  }
+
   // ---- Pin: finding 258 -------------------------------------------------------------------------------------------
   if (PIN === '') {
     // The controls are step 7 (the row exists under its date, with the value) and step 3 (the measurement carries lab_no).
@@ -415,4 +521,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('lab-to-flowsheet', workflow, { contextOptions: { locale: 'en-US' } });
-module.exports = { workflow, validatePin, STEP, targetOf, a1cItemTitle, linksToLab };
+module.exports = { workflow, validatePin, STEP, targetOf, a1cItemTitle, linksToLab, cmlUploadHl7 };

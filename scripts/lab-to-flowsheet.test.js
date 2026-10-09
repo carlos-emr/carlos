@@ -11,7 +11,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const entries = manifest.checks.filter((entry) => entry.script === 'scripts/lab-to-flowsheet-playwright-checks.js');
 
 /*
- * The pure helpers of lab-to-flowsheet and the wiring of its three entries. The browser flow is proved live; what can
+ * The pure helpers of lab-to-flowsheet and the wiring of its five entries (the default one and one per pin). The browser flow is proved live; what can
  * drift without a browser is pinned here: how the flowsheet's own target is read, what counts as a link to a lab, and
  * which manifest entry pins which finding at which step.
  */
@@ -58,18 +58,20 @@ test('shouldNotTakeAMeasurementIdForALink_orOneLabNumberForAnother', () => {
 });
 
 test('shouldAcceptEveryDocumentedPin_andRefuseAnyOther', () => {
-  for (const value of ['', 'value', 'fraction', 'time']) assert.doesNotThrow(() => check.validatePin(value));
-  assert.throws(() => check.validatePin('link'), /LAB_FLOWSHEET_PIN must be unset or value, fraction, time, not link/);
+  for (const value of ['', 'value', 'fraction', 'time', 'seconds']) assert.doesNotThrow(() => check.validatePin(value));
+  assert.throws(() => check.validatePin('link'), /LAB_FLOWSHEET_PIN must be unset or value, fraction, time, seconds, not link/);
 });
 
 test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
   const byName = new Map(entries.map((entry) => [entry.name, entry]));
-  assert.deepEqual([...byName.keys()].sort(), ['lab-to-flowsheet', 'lab-to-flowsheet-fraction', 'lab-to-flowsheet-long-value', 'lab-to-flowsheet-observed-time']);
+  assert.deepEqual([...byName.keys()].sort(), ['lab-to-flowsheet', 'lab-to-flowsheet-fraction', 'lab-to-flowsheet-long-value',
+    'lab-to-flowsheet-observed-time', 'lab-to-flowsheet-upload-time']);
   const expected = {
     'lab-to-flowsheet': { pin: undefined, finding: 258, step: check.STEP.link },
     'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value },
     'lab-to-flowsheet-fraction': { pin: 'fraction', finding: 257, step: check.STEP.fraction },
     'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time },
+    'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds },
   };
   for (const [name, { pin, finding, step }] of Object.entries(expected)) {
     const entry = byName.get(name);
@@ -81,4 +83,30 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
     assert.ok(alias, `${name} has no npm alias`);
     assert.equal(/LAB_FLOWSHEET_PIN=(\w+)/.exec(alias)?.[1], pin, `${name}'s npm alias selects another pin`);
   }
+});
+
+/*
+ * Finding 262 is reached only by a file: Create Lab writes every time with seconds (CMLLabHL7Generator formats 14
+ * digits), so the fixture the upload entry sends must carry the 12-digit OBR-7 and nothing else unusual.
+ */
+test('shouldCarryATwelveDigitObservationTime_inTheUploadedCmlMessage', () => {
+  const lab = { accession: 'ML0123ABCD', last: 'FAKE-PW0123456789ABCDEF', test: { code: '3767', name: 'HEMOGLOBIN A1C', value: '6.1', unit: '%', low: '4.0', high: '6.0', flag: 'A' },
+    observed: '202608200945' };
+  const segments = check.cmlUploadHl7(lab).split('\r');
+  assert.equal(segments.at(-1), '', 'every segment ends with the HL7 segment terminator');
+  const byName = Object.fromEntries(segments.filter(Boolean).map((segment) => [segment.slice(0, 3), segment.split('|')]));
+  assert.deepEqual(Object.keys(byName), ['MSH', 'PID', 'ORC', 'OBR', 'OBX', 'NTE', 'FTS']);
+  assert.equal(byName.MSH[1], '^~\\&', 'MSH-2 is the four encoding characters');
+  assert.equal(byName.OBR[7], '202608200945', 'OBR-7 is the observation time, 12 digits: no seconds');
+  assert.equal(byName.OBR[2], lab.accession);
+  assert.equal(byName.ORC[2], lab.accession);
+  assert.ok(byName.PID[5].startsWith(`${lab.last}^`), 'PID-5 names the owned patient');
+  assert.deepEqual(byName.OBX.slice(1, 8), ['1', 'ST', '3767^HEMOGLOBIN A1C', '^^CHEMISTRY', '6.1', '%', '4.0-6.0']);
+});
+
+test('shouldTakeTheObservationTimeAsGiven_whateverItsWidth', () => {
+  const lab = (observed) => check.cmlUploadHl7({ accession: 'ML0123ABCD', last: 'FAKE-PW0123456789ABCDEF',
+    test: { code: '3767', name: 'HEMOGLOBIN A1C', value: '6.1', unit: '%', low: '4.0', high: '6.0', flag: 'A' }, observed });
+  assert.equal(lab('20260820').split('\r')[3].split('|')[7], '20260820');
+  assert.equal(lab('20260820094500').split('\r')[3].split('|')[7], '20260820094500');
 });

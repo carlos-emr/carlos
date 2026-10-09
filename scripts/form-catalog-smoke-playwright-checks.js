@@ -64,7 +64,10 @@ const typed = (name, value) => ({ name, value });
  * fields   further typed values or ticked boxes, each checked in the table and on every redisplay
  * reveal   what a clinician does before the questions show
  * bare     the form also runs the `bare` concern (open for a patient with NULL contact columns)
- * known    per concern, the signature of the browser problem a pin is for; any other problem is reported apart
+ * known    per concern, the signature of the browser problem a pin is for; any other problem is reported apart. A pair
+ *          pinned on an ASSERTION (an error page, a missing value, a key that is not resolved) declares
+ *          claims.ASSERTION_ONLY instead: no browser problem is its own, so once its defect is fixed a stray one cannot
+ *          keep the pin "known". scripts/form-claims.test.js requires every PINNED pair to declare one or the other.
  * print    window: the button calls window.print (stubbed and counted, so the browser's own print dialog is never
  *          opened); pdf: a POST or GET answers a PDF (read in transit), where 'same' replaces the form's window and
  *          'popup' opens another; carries: the typed text must be in what is printed
@@ -72,23 +75,27 @@ const typed = (name, value) => ({ name, value });
 const FORMS = [
   { key: 'rourke2006', code: 'R06', title: 'Rourke Baby Record 2006', view: 'formrourke2006', table: 'formRourke2006',
     prose: { name: 'p1_signature1w' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
-    print: { kind: 'pdf', button: 'Print', where: 'popup' } },
+    print: { kind: 'pdf', button: 'Print', where: 'popup' },
+    known: { keys: claims.ASSERTION_ONLY, reopen: claims.ASSERTION_ONLY } },
   { key: 'rourke', code: 'ROU', title: 'Rourke Baby Record', view: 'formrourke', table: 'formRourke',
     prose: { name: 'c_birthRemarks' }, fields: [check('p1_breastFeeding1w'), typed('c_length', '51.5')],
     print: { kind: 'window', button: 'Print' } },
   { key: 'letterhead', code: 'LTR', title: 'Letterhead', view: 'formConsultant', table: 'formConsult',
     prose: { name: 'comments' }, fields: [typed('t_name', 'FAKE Referral Doc')],
-    print: { kind: 'window', button: 'Print', confirm: false, carries: true } },
+    print: { kind: 'window', button: 'Print', confirm: false, carries: true },
+    known: { restore: claims.ASSERTION_ONLY } },
   { key: 'labreq', code: 'LRQ', title: 'Lab Req', view: 'formlabreq', table: 'formLabReq',
     prose: { name: 'aci' }, fields: [check('b_glucose')],
     print: { kind: 'pdf', button: 'Print Pdf', where: 'same', carries: true } },
   { key: 'adfv2', code: 'ADF', title: 'ADFv2', view: 'formadfv2', table: 'formAdfV2',
     prose: { name: 'actProblem' }, fields: [typed('sendFacility', 'FAKE Facility'), check('capTreatDecY')],
-    print: { kind: 'window', button: 'Print' } },
+    print: { kind: 'window', button: 'Print' }, known: { redisplay: claims.ASSERTION_ONLY } },
   { key: 'alpha', code: 'ALP', title: 'ALPHA', view: 'formalpha', table: 'formAlpha',
-    prose: { name: 'socialSupport' }, fields: [], print: { kind: 'window', button: 'Print' } },
+    prose: { name: 'socialSupport' }, fields: [], print: { kind: 'window', button: 'Print' },
+    known: { open: claims.ASSERTION_ONLY } },
   { key: 'cesd', code: 'CES', title: 'CESD', view: 'formCESD', table: 'formCESD',
-    prose: null, fields: [check('Q1Rare'), check('Q2Some')], print: { kind: 'window', button: 'Print' } },
+    prose: null, fields: [check('Q1Rare'), check('Q2Some')], print: { kind: 'window', button: 'Print' },
+    known: { redisplay: claims.ASSERTION_ONLY, restore: claims.ASSERTION_ONLY } },
   { key: 'chf', code: 'CHF', title: 'CHF', view: 'formchf', table: 'formchf',
     prose: { name: 'PI1', limit: 60 }, fields: [check('SHFDx'), typed('weight1', '70.5')],
     print: { kind: 'window', button: 'Print' } },
@@ -124,7 +131,7 @@ const FORMS = [
     } },
   { key: 'positionhazard', code: 'POS', title: 'Position Hazard', view: 'formPositionHazard', table: 'formPositionHazard',
     prose: { name: 'staffName' }, fields: [check('NewHire')], print: { kind: 'pdf', button: 'Print Pdf', where: 'popup' },
-    provider: false, bare: true, known: { open: /positionHazardStyle\.css/ } },
+    provider: false, bare: true, known: { open: /positionHazardStyle\.css/, bare: claims.ASSERTION_ONLY } },
   { key: 'riskassessment', code: 'RISK', title: 'Risk Assessment', view: 'formselfadministered', table: 'formSelfAdministered',
     prose: null, fields: [check('healthEx'), check('stayInHospNo')], print: { kind: 'window', button: 'Print' } },
   { key: 'selfefficacy', code: 'SEFF', title: 'Self Efficacy', view: 'formselfefficacy', table: 'formSelfEfficacy',
@@ -186,6 +193,11 @@ const CONCERN_STEP = Object.freeze({
   restore: 'the redisplayed and the reopened form show every saved value again',
   print: 'Print produces a print page, a PDF or the browser print',
 });
+/** What the pair declares about browser problems: the signature of the one it is pinned to, claims.ASSERTION_ONLY, or nothing. */
+function knownProblem(key, concern) {
+  const form = FORMS.find(entry => entry.key === key);
+  return form.known && form.known[concern];
+}
 function generatedLabel(key, concern) {
   return `${FORMS.find(entry => entry.key === key).title}: ${CONCERN_STEP[concern]}`;
 }
@@ -539,7 +551,7 @@ async function workflow(s, { select = validatePin() } = {}) {
       const label = stepLabel(entry.form.key, concern);
       // Only the pair's own failure carries the pinned label; a precondition, a concern that was not reached and
       // browser problems beyond the known one are reported under a label of their own.
-      const failure = claims.claimFailure(entry.results[concern], label, entry.form.known && entry.form.known[concern]);
+      const failure = claims.claimFailure(entry.results[concern], label, knownProblem(entry.form.key, concern));
       if (failure) throw h.markFailedStep(new Error(failure.message), failure.label);
       console.log(`  ASSERTED ${NAME}: ${label}`);
     }
@@ -549,4 +561,4 @@ async function workflow(s, { select = validatePin() } = {}) {
 if (require.main === module) runWorkflow(NAME, workflow, {
   preflight: () => require('./lib/export-content-helpers').requirePoppler('pdftotext'),
 });
-module.exports = { workflow, FORMS, CONCERNS, validatePin, stepLabel, generatedLabel, PINNED, claimForms: CLAIM_FORMS, revealSavedForm };
+module.exports = { workflow, FORMS, CONCERNS, validatePin, stepLabel, generatedLabel, knownProblem, PINNED, claimForms: CLAIM_FORMS, revealSavedForm };

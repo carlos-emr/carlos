@@ -14,8 +14,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
-  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, STATE_TABLES, auditResidue, auditResidueDetailed,
-  captureBaseline, formatResidue, likePrefix, parseMutates, requiredSchema,
+  FAX_CONFIG_TABLE, MARKER_PREFIXES, MARKER_TABLES, ROWS_ADDED, ROW_GROWTH_ALLOWED, STATE_TABLES, auditResidue, auditResidueDetailed,
+  captureBaseline, countRows, describeResidue, formatResidue, likePrefix, parseMutates, requiredSchema, rowGrowth,
 } = require('./lib/residue-audit');
 const { parseArguments, main } = require('./run-playwright-suite');
 const { EXIT_FAIL, EXIT_PASS } = require('./lib/playwright-harness');
@@ -35,10 +35,11 @@ function installedSchema(without = []) {
 
 /**
  * A stub of the harness mysql client. `counts` answers the marker COUNT(*) queries; `digests`
- * answers the row-digest queries of the state tables and is read on every call, so a test can
- * change it between the baseline and the audit.
+ * answers the row-digest queries of the state tables; `rowCounts` (table -> rows) answers the
+ * whole-database row-count diff: the list of base tables and their COUNT(*). The last two are read
+ * on every call, so a test can change them between the baseline and the audit.
  */
-function fakeSql({ schema = installedSchema(), counts = {}, digests = {} } = {}) {
+function fakeSql({ schema = installedSchema(), counts = {}, digests = {}, rowCounts = {} } = {}) {
   const queries = [];
   const table = (query) => /FROM `(\w+)`/.exec(query)[1];
   return {
@@ -54,6 +55,16 @@ function fakeSql({ schema = installedSchema(), counts = {}, digests = {} } = {})
         const asked = [...query.matchAll(/'(\w+)'/g)].map((match) => match[1]);
         return Object.entries(schema).filter(([name]) => asked.includes(name))
           .flatMap(([name, columns]) => columns.map((column) => [name, column]));
+      }
+      if (/information_schema\.TABLES/.test(query)) return Object.keys(rowCounts).sort().map((name) => [name]);
+      if (/^SELECT '/.test(query)) {
+        // SELECT 'name', COUNT(*) FROM `name` UNION ALL ...: one [name, count] per part.
+        return query.split(' UNION ALL ').map((part) => {
+          const match = /^SELECT '((?:[^']|'')*)', COUNT\(\*\) FROM `((?:[^`]|``)*)`$/.exec(part);
+          assert.ok(match, `not a row-count statement: ${part}`);
+          assert.equal(match[1].replace(/''/g, "'"), match[2].replace(/``/g, '`'), 'the name and the table it counts differ');
+          return [match[1].replace(/''/g, "'"), String(rowCounts[match[2].replace(/``/g, '`')])];
+        });
       }
       return (digests[table(query)] || []).map((row) => [...row]);
     },
@@ -227,6 +238,136 @@ test('shouldFormatResidueLines_asTableThenCount', () => {
   assert.deepEqual(formatResidue([]), ['residue audit: no residue']);
 });
 
+test('shouldSayRowsAdded_forAnEntryOfTheRowCountDiff', () => {
+  assert.equal(describeResidue({ table: 'providerLabRoutingLock', count: 3, kind: ROWS_ADDED }), 'providerLabRoutingLock 3 (rows added)');
+  assert.equal(describeResidue({ table: 'tickler', count: 1 }), 'tickler 1');
+  assert.deepEqual(formatResidue([{ table: 'formRourke2020', count: 2, kind: ROWS_ADDED }]), ['residue: formRourke2020 2 (rows added)']);
+});
+
+/*
+ * THE ROW-COUNT DIFF. A table with no marker column cannot be found by the marker audit, so the baseline counts the rows of
+ * EVERY base table and the audit reports each table that has more. Task 32 found by hand that five checks leaked a
+ * providerLabRoutingLock row per lab (34 rows) and that no audit could see it.
+ */
+const COUNTS = { demographic: 40, form_boolean_value: 10, formRourke2020: 0, providerLabRoutingLock: 9, patientLabRouting: 25,
+  measurementsExt: 300, log: 1000, hash_audit: 261 };
+
+test('shouldReportEveryTableThatGrew_whateverItsColumns', () => {
+  const rowCounts = { ...COUNTS };
+  const sql = fakeSql({ rowCounts });
+  const baseline = captureBaseline({ sql });
+  assert.deepEqual(auditResidue({ sql, since: baseline }), [], 'a run that adds nothing is clean');
+
+  rowCounts.form_boolean_value += 4;
+  rowCounts.formRourke2020 += 1;
+  rowCounts.providerLabRoutingLock += 34;
+  rowCounts.patientLabRouting += 1;
+  rowCounts.measurementsExt += 2;
+  assert.deepEqual(auditResidue({ sql, since: baseline }), [
+    { table: 'formRourke2020', count: 1, kind: ROWS_ADDED },
+    { table: 'form_boolean_value', count: 4, kind: ROWS_ADDED },
+    { table: 'measurementsExt', count: 2, kind: ROWS_ADDED },
+    { table: 'patientLabRouting', count: 1, kind: ROWS_ADDED },
+    { table: 'providerLabRoutingLock', count: 34, kind: ROWS_ADDED },
+  ]);
+});
+
+test('shouldNotReportTheTablesThatGrowOnEveryRun_butSayHowMuchTheyGrew', () => {
+  const rowCounts = { ...COUNTS };
+  const sql = fakeSql({ rowCounts });
+  const baseline = captureBaseline({ sql });
+  rowCounts.log += 120;
+  rowCounts.hash_audit += 2;
+  const report = auditResidueDetailed({ sql, since: baseline });
+  assert.deepEqual(report.residue, []);
+  assert.deepEqual(report.allowedGrowth, [{ table: 'hash_audit', count: 2 }, { table: 'log', count: 120 }],
+    'what the allow-list absorbed is said, not hidden');
+  rowCounts.demographic += 1;
+  assert.deepEqual(auditResidue({ sql, since: baseline }), [{ table: 'demographic', count: 1, kind: ROWS_ADDED }],
+    'a table outside the allow-list is reported beside them');
+});
+
+test('shouldGiveEveryAllowedTableAReason_andAllowOnlyTheAuditTrails', () => {
+  assert.deepEqual(ROW_GROWTH_ALLOWED.map((entry) => entry.table), ['log', 'hash_audit']);
+  for (const entry of ROW_GROWTH_ALLOWED) {
+    assert.match(entry.table, /^[A-Za-z_][A-Za-z0-9_]*$/);
+    assert.ok(typeof entry.reason === 'string' && entry.reason.length > 30, `${entry.table} has no reason`);
+  }
+  assert.ok(Object.isFrozen(ROW_GROWTH_ALLOWED), 'the allow-list is not edited at run time');
+});
+
+test('shouldNotReportATableThatShrankOrVanished_butCountOneCreatedDuringTheRunFromZero', () => {
+  const growth = rowGrowth({ a: 5, b: 5, c: 5 }, { a: 4, b: 5, d: 2 });
+  assert.deepEqual(growth.grown, [{ table: 'd', count: 2, kind: ROWS_ADDED }], 'a (shrank), b (same), c (gone) are not residue; d is new');
+  assert.deepEqual(growth.allowedGrowth, []);
+});
+
+test('shouldHonourAnAllowListGiven_whenDiffingCounts', () => {
+  const growth = rowGrowth({ x: 1, y: 1 }, { x: 4, y: 3 }, [{ table: 'x' }]);
+  assert.deepEqual(growth.grown, [{ table: 'y', count: 2, kind: ROWS_ADDED }]);
+  assert.deepEqual(growth.allowedGrowth, [{ table: 'x', count: 3 }]);
+});
+
+test('shouldCountEveryBaseTable_inStatementsOfAHundred_quotingAnyName', () => {
+  const rowCounts = {};
+  for (let index = 0; index < 250; index++) rowCounts[`t${String(index).padStart(3, '0')}`] = index;
+  rowCounts['odd`name'] = 7;
+  const sql = fakeSql({ rowCounts });
+  assert.deepEqual(countRows(sql), rowCounts);
+  const statements = sql.queries.filter((query) => /^SELECT '/.test(query));
+  assert.equal(statements.length, 3, '251 tables are counted in three statements');
+  for (const statement of statements) assert.ok(statement.split(' UNION ALL ').length <= 100, 'a statement counts at most 100 tables');
+  assert.ok(statements.some((statement) => statement.includes('FROM `odd``name`')), 'a backtick in a table name is doubled');
+  assert.ok(sql.queries.some((query) => /information_schema\.TABLES.*TABLE_TYPE='BASE TABLE'/.test(query)), 'views are not tables');
+});
+
+test('shouldReadOnlyCounts_fromEveryTable', () => {
+  const sql = fakeSql({ rowCounts: COUNTS });
+  const baseline = captureBaseline({ sql });
+  auditResidue({ sql, since: baseline });
+  const reads = sql.queries.filter((query) => /^SELECT '/.test(query));
+  assert.ok(reads.length >= 2);
+  for (const query of reads) assert.doesNotMatch(query, /SELECT \*|WHERE|LIMIT/, 'a table is only counted');
+  assert.ok(!JSON.stringify(baseline).includes('SELECT'), 'the baseline holds counts, nothing else');
+});
+
+test('shouldSkipTheRowCountDiff_whenTheBaselineHoldsNoCounts', () => {
+  const rowCounts = { ...COUNTS };
+  const sql = fakeSql({ rowCounts });
+  const { rowCounts: _dropped, ...older } = captureBaseline({ sql });
+  rowCounts.demographic += 5;
+  const before = sql.queries.length;
+  assert.deepEqual(auditResidue({ sql, since: older }), []);
+  assert.ok(!sql.queries.slice(before).some((query) => /^SELECT '/.test(query)), 'with nothing to compare against it counts nothing');
+  assert.deepEqual(auditResidueDetailed({ sql, since: older }).allowedGrowth, []);
+});
+
+test('shouldNotCountRows_whenNoBaselineIsGiven', () => {
+  const sql = fakeSql({ rowCounts: COUNTS });
+  assert.deepEqual(auditResidue({ sql }), []);
+  assert.ok(!sql.queries.some((query) => /^SELECT '/.test(query)), 'without a baseline there is nothing to subtract');
+});
+
+test('shouldFailLoudly_whenARowCountIsNotANumber', () => {
+  const sql = fakeSql({ rowCounts: { demographic: 1 } });
+  const rows = sql.rows;
+  sql.rows = (query) => (/^SELECT '/.test(query) ? [['demographic', 'x']] : rows(query));
+  assert.throws(() => countRows(sql), /row count of demographic was not a number/);
+  sql.rows = (query) => (/^SELECT '/.test(query) ? [] : rows(query));
+  assert.throws(() => countRows(sql), /row count of 1 table\(s\) was not returned/);
+});
+
+test('shouldListEveryTableTheBriefNames_asCoveredByTheRowCounts', () => {
+  // The tables with no marker column: any run that leaves a row in one of them is reported.
+  const covered = ['form_boolean_value', 'formRourke2020', 'providerLabRoutingLock', 'patientLabRouting', 'measurementsExt'];
+  const rowCounts = Object.fromEntries(covered.map((name) => [name, 0]));
+  const sql = fakeSql({ rowCounts });
+  const baseline = captureBaseline({ sql });
+  for (const name of covered) rowCounts[name] = 1;
+  assert.deepEqual(auditResidue({ sql, since: baseline }).map((entry) => entry.table).sort(), [...covered].sort());
+  for (const name of covered) assert.ok(!MARKER_TABLES.some((entry) => entry.table === name), `${name} has a marker column after all; the marker audit would cover it`);
+});
+
 /*
  * THE RUNNER FLAG. The runner takes the baseline before the first check and audits after the
  * last, prints one line per table, and exits non-zero on residue. It is driven here with spawn and
@@ -298,6 +439,23 @@ test('shouldExitNonZeroAndNameEachTable_whenResidueIsFound', () => {
   assert.match(text, /^residue: fax_config 1$/m);
   assert.match(text, /FAIL\s+residue-audit/, 'the summary names the failure like the identity guard does');
   assert.doesNotMatch(text, /residue audit: no residue/);
+});
+
+test('shouldSayWhatTheAllowListAbsorbed_andNameRowsAdded', () => {
+  const clean = runnerWith([check('a')], {
+    residueAudit: auditDouble({ residue: [], absent: [], notDiffed: [], allowedGrowth: [{ table: 'log', count: 41 }, { table: 'hash_audit', count: 2 }] }),
+  });
+  assert.equal(clean.code, EXIT_PASS, 'growth the allow-list absorbs is not residue');
+  assert.match(clean.text, /^residue audit: no residue$/m);
+  assert.match(clean.text, /^residue audit: rows added to tables that grow on every run \(not residue\): log 41, hash_audit 2$/m);
+
+  const leaked = runnerWith([check('a')], {
+    residueAudit: auditDouble({ residue: [{ table: 'providerLabRoutingLock', count: 3, kind: ROWS_ADDED }], absent: [], notDiffed: [], allowedGrowth: [] }),
+  });
+  assert.equal(leaked.code, EXIT_FAIL);
+  assert.match(leaked.text, /^residue: providerLabRoutingLock 3 \(rows added\)$/m);
+  assert.match(leaked.text, /FAIL\s+residue-audit/);
+  assert.doesNotMatch(leaked.text, /rows added to tables that grow/);
 });
 
 test('shouldPrintNoResidue_andPass_whenTheAuditIsClean', () => {

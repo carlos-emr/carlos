@@ -283,6 +283,27 @@ const PINNED = Object.freeze({
   'growth036.printdob': 'Growth 0-36m: the printed chart carries the date of birth',
   'growthchart.printbmi': 'Growth Chart: Print BMI produces a PDF',
 });
+/*
+ * What each pinned pair declares about the browser problems its concern takes (lib/form-claims.js ASSERTION_ONLY). Every pin here
+ * is on an assertion (a missing dialog, a title, a PDF, a printed value), so no browser problem is the pair's own failure: once
+ * the defect is fixed, a stray problem that ends the concern reads as other browser problems and cannot keep the pin "known".
+ * scripts/form-claims.test.js requires every PINNED pair to be declared here.
+ */
+const KNOWN = Object.freeze({
+  'rourke2020.headcirc': claims.ASSERTION_ONLY,
+  'rourke2020.measuredate': claims.ASSERTION_ONLY,
+  'rourke2020.printnull': claims.ASSERTION_ONLY,
+  'rourke2020.printsex': claims.ASSERTION_ONLY,
+  'rourke2020.printgestation': claims.ASSERTION_ONLY,
+  'rourke2020.printnotes': claims.ASSERTION_ONLY,
+  'rourke2020.graphtitle': claims.ASSERTION_ONLY,
+  'rourke2020.storage': claims.ASSERTION_ONLY,
+  'growth036.title': claims.ASSERTION_ONLY,
+  'growth036.printdob': claims.ASSERTION_ONLY,
+  'growthchart.printbmi': claims.ASSERTION_ONLY,
+});
+/** What the pair declares about browser problems: the signature of the one it is pinned to, claims.ASSERTION_ONLY, or nothing. */
+const knownProblem = (key, concern) => KNOWN[claims.claimKey(key, concern)];
 const CONCERN_STEP = Object.freeze({
   open: 'opens from the Forms menu with no error page, script error or failed asset',
   keys: 'shows no unresolved message key',
@@ -316,6 +337,13 @@ function stepLabel(key, concern) {
 }
 
 const labelsOf = form => [`form-${form.code}`, `reopen-${form.code}`, `print-${form.code}`];
+
+/**
+ * Whether an HTTP status says the request never reached the endpoint's own code: a redirect (3xx; the requests here do not follow
+ * them, so a redirect to the login page is seen as it is), 401 or 403. Finding 250 is the endpoint answering 500, so these are a
+ * precondition (a lost session, a missing CSRF token) and not the defect.
+ */
+const refusedBeforeTheEndpoint = status => (status >= 300 && status < 400) || status === 401 || status === 403;
 const isFormPost = response => response.request().method() === 'POST'
   && new URL(response.url()).pathname.endsWith('/form/formname');
 /** How many times the word null stands on its own in a printed page's text (what Jasper prints for an expression that is null). */
@@ -553,8 +581,13 @@ async function workflow(s, { select = validatePin() } = {}) {
     claims.precondition(!seen[0].error, `the request failed: ${seen[0].error}`);
     return seen[0];
   }
-  /** A PDF answer: 200, application/pdf, %PDF. Anything else (an HTML error page above all) is a failure naming the status. */
+  /**
+   * A PDF answer: 200, application/pdf, %PDF. Anything else (an HTML error page above all) is a failure naming the status,
+   * except an answer that refused the request before the endpoint spoke (a redirect, 401, 403: refusedBeforeTheEndpoint), which
+   * is a precondition of the run (the session or the CSRF token) and so never reads as the endpoint's own failure.
+   */
   function assertPdf(answer, what) {
+    claims.precondition(!refusedBeforeTheEndpoint(answer.status), `${what} was refused with HTTP ${answer.status} before the endpoint answered: the session or the CSRF token, not the document`);
     h.assert(answer.status === 200 && /application\/pdf/.test(answer.type), `${what} answered ${answer.status} ${answer.type || 'with no content type'}, not a PDF`);
     h.assert(answer.body.subarray(0, 4).toString() === '%PDF', `${what} answered something other than a PDF document`);
     return answer.body;
@@ -1199,7 +1232,7 @@ async function workflow(s, { select = validatePin() } = {}) {
       const label = stepLabel(entry.form.key, concern);
       // Only the pair's own failure carries the pinned label; a precondition, a concern that was not reached and
       // browser problems beyond the known one are reported under a label of their own (lib/form-claims.js).
-      const failure = claims.claimFailure(entry.results[concern], label);
+      const failure = claims.claimFailure(entry.results[concern], label, knownProblem(entry.form.key, concern));
       if (failure) throw h.markFailedStep(new Error(failure.message), failure.label);
       console.log(`  ASSERTED ${NAME}: ${label}`);
     }
@@ -1221,7 +1254,7 @@ if (require.main === module) runWorkflow(NAME, workflow, {
   contextOptions: { timezoneId: RUN_ZONE },
 });
 module.exports = {
-  workflow, FORMS, validatePin, stepLabel, generatedLabel, PINNED, claimForms: CLAIM_FORMS,
+  workflow, FORMS, validatePin, stepLabel, generatedLabel, knownProblem, refusedBeforeTheEndpoint, PINNED, claimForms: CLAIM_FORMS,
   zoneWhereTodayDiffersFromUtc, localDate, rourkeFields, chartFields, growthFields, day, nullWords, dmy, iso, INFANT_DAYS,
   ROURKE_LENGTH_WEIGHT_POINTS, ROURKE_HEAD_POINTS, CHART_POINTS, GROWTH_ROWS, MEASURE_OR_DATE, ROURKE_NOTES,
   ROURKE_LENGTH_WEIGHT_PAGES, ROURKE_HEAD_PAGES, ROURKE_PRINT_PAGES, GROWTH_PRINT_PAGES, PRINT_PAGE, PRINT_BOXES, BOX_SLACK,

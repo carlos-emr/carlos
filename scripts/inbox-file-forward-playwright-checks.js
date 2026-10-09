@@ -56,8 +56,8 @@
  * the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs uploaded through the UI (each with
  * a unique accession; the archived upload files under LAB_UPLOAD_DOCUMENT_STORE are removed by prefix), two
  * owned PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting / providerLabRouting rows and
- * a queue_document_link row each. Cleanup removes exactly those rows and files, the throwaway login and its
- * audit rows, and asserts them gone. The test login's own favourites are snapshotted and asserted unchanged.
+ * a queue_document_link row each. Cleanup removes exactly those rows and files, the routing lock row the run created
+ * for each document's number, the throwaway login and its audit rows, and asserts them gone. The test login's own favourites are snapshotted and asserted unchanged.
  * The lab-upload archive is retained (and the run says so) when LAB_UPLOAD_DOCUMENT_STORE is unset.
  */
 const crypto = require('node:crypto');
@@ -213,6 +213,10 @@ async function workflow(s) {
   const [labPopup, labCard, labControl] = labs;
   const docs = ownedPdfDocuments(store, marker, [{ key: 'file' }, { key: 'control' }]);
   const [docFile, docControl] = docs;
+  // providerLabRoutingLock is keyed by the number alone, and a new document's number is shared with the HL7 labs of the demo
+  // dataset (documents 1 to 21, labs 1 to 172). Routing an owned document writes (or finds) the lock for its number, which
+  // cleanup removes only if it did not exist when the document was seeded: the audit would otherwise count a row of this run.
+  const lockedBefore = new Set();
   const queueOf = (doc) => `SELECT GROUP_CONCAT(status ORDER BY id) FROM queue_document_link WHERE document_id=${doc.id}`;
   const favourites = () => JSON.stringify(sql.rows(`SELECT id, route_to_provider_no FROM providerLabRoutingFavorites
     WHERE provider_no=${q(provider)} ORDER BY id`));
@@ -244,6 +248,10 @@ async function workflow(s) {
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${list}) AND demographic_no=${patient};
         DELETE FROM queue_document_link WHERE document_id IN (${list})`);
+      const created = ids.filter((id) => !lockedBefore.has(String(id)));
+      if (created.length) sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${created.join(',')})`);
+      h.assert(created.length === 0 || sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${created.join(',')})`) === '0',
+        'The routing lock rows this run created for its documents were not removed');
     }
     removeOwnedPdfDocuments({ sql, marker, patient, files: docs.map((doc) => doc.file), docs });
     assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files: docs.map((doc) => doc.file), docs });
@@ -312,7 +320,11 @@ async function workflow(s) {
           + (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id})
           + (SELECT COUNT(*) FROM queue_document_link WHERE document_id=${doc.id})
           + (SELECT COUNT(*) FROM ctl_document WHERE document_no=${doc.id} AND NOT (module='demographic' AND module_id=${patient}))`);
-        if (held === '0') break;
+        if (held === '0') {
+          // Seeded, and nothing has routed it yet: any lock on this number is older than the run.
+          if (sql.value(`SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no=${doc.id}`) !== '0') lockedBefore.add(String(doc.id));
+          break;
+        }
         h.assert(attempt < 6, 'Six consecutive new document numbers collide with orphaned routing rows');
         sql.execute(`DELETE FROM ctl_document WHERE document_no=${doc.id} AND module='demographic' AND module_id=${patient};
           DELETE FROM document WHERE document_no=${doc.id} AND docdesc=${q(doc.label)}`);

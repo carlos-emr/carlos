@@ -189,3 +189,22 @@ test('shouldFormatTheUtcDateOfAnInstant', () => {
   assert.equal(check.utcDate(new Date(Date.UTC(2026, 9, 9, 23, 59, 59))), '2026-10-09');
   assert.equal(check.utcDate(new Date(Date.UTC(2026, 9, 10, 0, 0, 0))), '2026-10-10');
 });
+
+test('shouldTreatARefusalBeforeTheEndpointAsAPrecondition_andAnErrorPageAsTheDefect', () => {
+  // Finding 250 is Print BMI answering HTTP 500. A redirect, 401 or 403 is the session or the CSRF token: not the document, not 250.
+  for (const status of [301, 302, 303, 307, 308, 399, 401, 403]) assert.equal(check.refusedBeforeTheEndpoint(status), true, `HTTP ${status}`);
+  for (const status of [200, 204, 400, 404, 405, 500, 502, 503]) assert.equal(check.refusedBeforeTheEndpoint(status), false, `HTTP ${status}`);
+});
+
+test('shouldDeclareHowEveryPinnedPairTreatsBrowserProblems_andPinEachOnItsAssertion', () => {
+  // Every pin of this check is on an assertion: a browser problem that ends the concern must never read as the pinned defect.
+  for (const claim of Object.keys(check.PINNED)) {
+    const [key, concern] = claim.split('.');
+    assert.equal(check.knownProblem(key, concern), claims.ASSERTION_ONLY, `${claim} declares nothing about browser problems`);
+  }
+  const problems = claims.outcomeOf(null, ['console error: Failed to load resource: the server responded with a status of 404']);
+  const pinned = check.PINNED['growthchart.printbmi'];
+  assert.equal(claims.claimFailure(problems, pinned, check.knownProblem('growthchart', 'printbmi')).label, `${pinned} (other browser problems)`);
+  assert.equal(claims.claimFailure(claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []), pinned, check.knownProblem('growthchart', 'printbmi')).label, pinned,
+    'the assertion itself still holds the pin');
+});

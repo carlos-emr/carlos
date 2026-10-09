@@ -645,9 +645,15 @@ it does not approve omitted content to obtain a PDF.
 > it counts marker-named (`FAKE-PW...`) fixture rows left in `demographic`, `provider`,
 > `security`, `tickler`, `casemgmt_note`, `billing_on_cheader1`, `billingmaster`,
 > `eform_data` and `document`, and the roles a check makes for itself (`secRole` and
-> `secObjPrivilege` rows named `FAKEPW...`). It prints `residue: <table> <count>` (never a row) and exits
-> non-zero, or `residue audit: no residue`. A run that cannot take its baseline stops before
-> any check starts.
+> `secObjPrivilege` rows named `FAKEPW...`). It also takes an exact row count of every base table
+> before the first check and reports each table that has more rows after the last, which is
+> how a table with no marker column (`form_boolean_value`, `formRourke2020` and the other form
+> tables, `providerLabRoutingLock`, `patientLabRouting`, `measurementsExt`) is covered; only
+> tables that grow on every run by design (`log`, `hash_audit`, listed with their reasons in
+> `scripts/lib/residue-audit.js`) are exempt, and the audit says how many rows they gained. It prints
+> `residue: <table> <count>` (never a row; `<count> (rows added)` for a table the row-count diff
+> found) and exits non-zero, or `residue audit: no residue`. A run that cannot take its baseline
+> stops before any check starts.
 
 Environment contract (one block, exported before every script):
 
