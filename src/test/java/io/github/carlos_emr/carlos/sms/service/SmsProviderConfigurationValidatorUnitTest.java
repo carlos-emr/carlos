@@ -42,7 +42,7 @@ class SmsProviderConfigurationValidatorUnitTest {
     }
 
     @Test
-    @DisplayName("does not block startup when the saved SMS settings cannot be read (V1.0.59 not applied)")
+    @DisplayName("does not block startup when the saved SMS settings cannot be read (V1.0.78 not applied)")
     void shouldNotBlockStartup_whenStoredSettingsCannotBeRead() {
         SmsProviderConfigurationValidator validator = new SmsProviderConfigurationValidator(
                 new SmsDefaultProviderResolver(() -> "STUB", () -> {

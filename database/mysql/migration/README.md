@@ -27,14 +27,8 @@ migration/
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
            V1.0.23.1__widen_email_config.sql
-           V1.0.24__add_email_consent_audit.sql
-           V1.0.25__add_sms_system_of_record.sql
-           V1.0.26__widen_email_config_for_encrypted_credentials.sql
-           V1.0.27__prepare_outbound_email_archive_reference_engines.sql
-           V1.0.28__outbound_email_archive.sql
            V1.0.29__rename_placeholder_demo_clinic.sql
            V1.0.30__add_ocean_setting.sql
-           V1.0.31__add_sms_security_objects.sql
            V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
            V1.0.33__aacp_provided_revised_reviewed_validation.sql
            V1.0.36__serialize_messenger_membership_changes.sql
@@ -50,13 +44,21 @@ migration/
            V1.0.53__decode_diagnostic_description_apostrophes.sql
            V1.0.54__allow_dashboard_exclusion_history.sql
            V1.0.55__preserve_remittance_health_number_version.sql
-           V1.0.57__one_live_consent_per_type.sql  # merged as V1.0.33 (#3917), renumbered above both lines (#4382)
-           V1.0.58__patient_portal_invite_delivery.sql  # merged as V1.0.43 (#3856), renumbered above both lines (#4440)
-           V1.0.59__add_sms_config.sql  # SMS settings (#3927)
-           V1.0.62__add_sms_consent.sql  # was V1.0.32; renumbered at the 2026.08.0-alpha19 forward-merge
-           V1.0.63__patient_portal_security_objects.sql  # was V1.0.41; renumbered at that forward-merge
-           V1.0.64__portal_email_delivery.sql  # was V1.0.42; renumbered at that forward-merge
-           V1.0.65__activate_sms_consent.sql  # was V1.0.54; renumbered at that forward-merge
+           # Develop-only migrations, in develop's order, above the release line's V1.0.56. All were
+           # renumbered at the 2026.08.0-alpha19 forward merge; "was" names develop's earlier number.
+           V1.0.66__add_email_consent_audit.sql  # was V1.0.24
+           V1.0.67__add_sms_system_of_record.sql  # was V1.0.25
+           V1.0.68__widen_email_config_for_encrypted_credentials.sql  # was V1.0.26
+           V1.0.69__prepare_outbound_email_archive_reference_engines.sql  # was V1.0.27
+           V1.0.70__outbound_email_archive.sql  # was V1.0.28
+           V1.0.71__add_sms_security_objects.sql  # was V1.0.31
+           V1.0.72__add_sms_consent.sql  # was V1.0.32
+           V1.0.73__patient_portal_security_objects.sql  # was V1.0.41
+           V1.0.74__portal_email_delivery.sql  # was V1.0.42
+           V1.0.75__patient_portal_invite_delivery.sql  # was V1.0.43 (#3856), then V1.0.58 (#4440)
+           V1.0.76__activate_sms_consent.sql  # was V1.0.54
+           V1.0.77__one_live_consent_per_type.sql  # was V1.0.33 (#3917), then V1.0.57 (#4382)
+           V1.0.78__add_sms_config.sql  # was V1.0.59 (#3927)
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -73,25 +75,30 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.65` (`common/V1.0.65`,
+`V1.0.3` onward is a forward delta. The highest version in use is `V1.0.78` (`common/V1.0.78`,
 shared by both provinces), so the next free number for ANY location — shared or province — is
-`V1.0.66`. `V1.0.60` and `V1.0.61` are held by open draft pull requests (#4136, #4487) numbered
-before this line reached `V1.0.65`; they must be renumbered above the high-water mark when they merge.
+`V1.0.79`. Open draft pull requests #4136 and #4487 were numbered `V1.0.60` and `V1.0.61` before
+this line reached `V1.0.78`; they must be renumbered above the high-water mark when they merge.
 
-`release/2026.08` and this line allocated versions independently. The 2026.08.0-alpha19 forward-merge
-brought the release line's migrations (up to `on/V1.0.56`) here. Where both lines had used one number
-for different files, the release file — published in a tag, so its checksum is frozen — kept the
-number and this line's file was renumbered above both lines, keeping its order: `V1.0.32` became
-`V1.0.62` (SMS consent type), `V1.0.41` became `V1.0.63` (portal security objects), `V1.0.42` became
-`V1.0.64` (portal email delivery columns) and `V1.0.54` became `V1.0.65` (SMS consent wording);
-`V1.0.33` and `V1.0.43` had already become `V1.0.57` and `V1.0.58`. Each rename is byte-identical.
-A scratch or staging schema that ran this line's files under their old numbers with Flyway fails
-validation afterwards and must be rebuilt; the devcontainer databases are built without Flyway
-history and are unaffected.
+`release/2026.08` and this line allocated versions independently. The 2026.08.0-alpha19 forward merge
+brought the release line's migrations (up to `on/V1.0.56`) here. The release files are published in
+a tag, so their numbers and checksums are frozen. Every migration that existed only on this line was
+renumbered to `V1.0.66`–`V1.0.78`, in this line's order (see the listing above). Two reasons:
 
-This line's `V1.0.24`–`V1.0.28` and `V1.0.31` are numbered below the release line's `V1.0.56`, so a
-database upgraded from `release/2026.08` would not apply them (see the rule below). That must be
-resolved before a release is cut from this line.
+- Some of this line's numbers had been used by the release line for different files.
+- A database upgraded through `release/2026.08` has run `V1.0.56`, and Flyway (no `outOfOrder`)
+  would never apply this line's `V1.0.24`–`V1.0.28` and `V1.0.31` there. Startup validation rejects
+  such ignored migrations, so the upgrade would refuse to start.
+
+Renumbering only the low ones was not enough. `V1.0.72` (SMS consent type) alters the
+`sms_transaction` table that `V1.0.67` creates, and `V1.0.76` rewords the consent type that `V1.0.72`
+seeds, so the whole chain moved together. No release migration depends on one of this line's. The
+release `emailConfig` widening (`V1.0.23.1`) still runs before this line's (`V1.0.68`).
+
+Each rename is byte-identical, so comments inside the files still cite the old numbers. A scratch or
+staging schema that ran this line's files under their old numbers with Flyway fails validation
+afterwards and must be rebuilt. The devcontainer databases are built without Flyway history and are
+unaffected.
 
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
@@ -100,8 +107,8 @@ renumbered or not merged. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.65` on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.65`) but would silently
+run — `common/V1.0.78` on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.78`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province. Check every active branch inventory (release and develop) before allocating a

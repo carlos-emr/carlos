@@ -116,11 +116,11 @@ email privilege the rest of CARLOS requires to create or close an outbox row. Se
 `_edoc` write, because every sent email is archived as a patient document. Both are checked before the
 portal is asked for anything, and the page shows only the controls the user's rights allow.
 
-`V1.0.58` (merged as `V1.0.43`) grants `doctor` full `_portal.invite`, because `doctor` is the only
+`V1.0.75` grants `doctor` full `_portal.invite`, because `doctor` is the only
 non-admin role the baseline grants `_email`. Read-only `_portal.account`, which the invitation panel
-uses to show whether the patient already has an account, comes from `V1.0.63`; `V1.0.58` does not
+uses to show whether the patient already has an account, comes from `V1.0.73`; `V1.0.75` does not
 grant it again, so a clinic that removed it keeps that choice. Unlocking a portal account stays with
-`admin`, where `V1.0.63` put it. Front-desk roles hold `_demographic` but not `_email`: granting
+`admin`, where `V1.0.73` put it. Front-desk roles hold `_demographic` but not `_email`: granting
 them `_portal.invite` in Administration > Security lets them see and revoke invitations, but not
 send one or resolve an unfinished delivery.
 
