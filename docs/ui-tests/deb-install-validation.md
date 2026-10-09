@@ -653,6 +653,10 @@ export EDOC_NAV_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/documen
 # The extended lab-upload-rollback and lab-upload-signed-feed checks also need CREATE/DROP TRIGGER
 # privileges in the test DB; lab-upload-signed-feed finds its decrypted copies here by content.
 export LAB_UPLOAD_DOCUMENT_STORE=/var/lib/carlos-emr/CarlosDocument/carlos/document
+# With the journal unit named, those two checks also read the server log for their injected failure and
+# assert it shows the database's own error at ERROR and no Hibernate HHH000099 (#4436). Unset, that half
+# is skipped with a notice. Needs a user who can read the journal (root in the VM).
+export LAB_UPLOAD_JOURNAL_UNIT=carlos-emr
 # Browser diagnostics omit raw clinical content. eDoc screenshots are disabled by
 # default; set EDOC_NAV_SCREENSHOT_DIR only for an explicitly approved test-data capture.
 # login-playwright-checks mutates and restores this account; give it the hash of

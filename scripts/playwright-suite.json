@@ -685,7 +685,9 @@
       "timeoutSec": 480,
       "env": [
         "CML_UPLOAD_KEY",
-        "LAB_UPLOAD_DOCUMENT_STORE"
+        "LAB_UPLOAD_DOCUMENT_STORE",
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
       ]
     },
     {
@@ -700,7 +702,9 @@
       ],
       "timeoutSec": 300,
       "env": [
-        "LAB_UPLOAD_DOCUMENT_STORE"
+        "LAB_UPLOAD_DOCUMENT_STORE",
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
       ]
     },
     {
