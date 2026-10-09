@@ -67,7 +67,8 @@ class PersonalEmailFooterMariaDbIntegrationTest {
     @BeforeEach void reset(){
         new TransactionTemplate(manager).executeWithoutResult(status->{
             entities.createQuery("delete from UserProperty").executeUpdate();entities.createQuery("delete from Provider").executeUpdate();
-            entities.persist(new Provider("101"));entities.persist(new Provider("202"));
+            entities.persist(new Provider("101","FAKE One","doctor","U","","Fixture"));
+            entities.persist(new Provider("202","FAKE Two","doctor","U","","Fixture"));
             var clinic=new UserProperty();clinic.setName("email_footer_clinic_default");clinic.setValue("Mandatory Clinic");entities.persist(clinic);
         });
     }

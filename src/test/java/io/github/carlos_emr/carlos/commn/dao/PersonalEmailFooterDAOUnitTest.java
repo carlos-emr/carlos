@@ -17,7 +17,7 @@ class PersonalEmailFooterDAOUnitTest {
         assertThatThrownBy(()->dao.lockPersonalEmailFooterOwner("101"))
                 .isInstanceOf(OptimisticLockException.class).hasCause(changed);
         var other=new PersistenceException(new SQLException("FAKE different error","HY000",1205));
-        when(entities.find(Provider.class,"101",LockModeType.PESSIMISTIC_WRITE)).thenThrow(other);
+        doThrow(other).when(entities).find(Provider.class,"101",LockModeType.PESSIMISTIC_WRITE);
         assertThatThrownBy(()->dao.lockPersonalEmailFooterOwner("101")).isSameAs(other);
     }
     @Test void shouldDeleteCurrentOwnerRow_evenWhenEarlierViewCannotFindItsId(){

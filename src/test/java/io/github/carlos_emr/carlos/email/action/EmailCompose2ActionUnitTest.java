@@ -105,6 +105,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             HttpSession session, String viewId, MockHttpServletResponse viewResponse, String expectedResult) {
         MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
         viewRequest.setSession(session);
+        EmailComposeViewTestSupport.ensureLoggedInUser(viewRequest);
         viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(viewResponse);

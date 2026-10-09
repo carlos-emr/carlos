@@ -130,10 +130,8 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
             case "failed" -> EmailSendResult.failed(log, false);
             default -> EmailSendResult.unconfirmed(log);
         });
-        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
-            var action = new EmailSend2Action(); action.request = request; action.response = new MockHttpServletResponse();
-            assertThat(action.sendDirectEmail()).isEqualTo(ActionSupport.SUCCESS);
-        }
+        var action = new EmailSend2Action(); action.request = request; action.response = new MockHttpServletResponse();
+        assertThat(action.sendDirectEmail()).isEqualTo(ActionSupport.SUCCESS);
         if (outcome.equals("accepted")) {
             org.mockito.Mockito.verify(personal).saveOwnFooter("101", "<b>Chosen personal</b>");
             assertThat(request.getAttribute("footerSavedAsMine")).isEqualTo(true);
@@ -168,10 +166,8 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
         var user = mock(LoggedInInfo.class);when(user.getLoggedInProviderNo()).thenReturn("101");
         when(securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
-        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
-            var action = new EmailSend2Action();action.request = request;action.response = new MockHttpServletResponse();
-            action.saveFooterAsMineIfAsked(user, true);
-        }
+        var action = new EmailSend2Action();action.request = request;action.response = new MockHttpServletResponse();
+        action.saveFooterAsMineIfAsked(user, true);
         org.mockito.Mockito.verify(personal).saveOwnFooter("101", "");
         assertThat(request.getAttribute("footerSavedEmpty")).isEqualTo(true);
     }
