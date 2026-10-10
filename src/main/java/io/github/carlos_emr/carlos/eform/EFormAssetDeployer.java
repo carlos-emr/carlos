@@ -444,6 +444,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: filename is a shipped asset name, checked by validateGeneratedChildPath; targetDir is configuration
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is a shipped asset name checked by PathValidationUtils.validateGeneratedChildPath; targetDir is the configured eForm image directory")
     private void deployAssetFromStream(String filename, File targetDir, InputStream is, String sourceLabel) {
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
         Path targetPath = targetFile.toPath();

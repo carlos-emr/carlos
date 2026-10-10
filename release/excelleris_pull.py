@@ -2053,11 +2053,11 @@ class LabUploadEnvelope:
         ).encryptor()  # codeql[py/weak-cryptographic-algorithm]
         ciphertext = encryptor.update(padded) + encryptor.finalize()
         wrapped = self.server_key.encrypt(
-            aes_key, padding.PKCS1v15()
+            aes_key, padding.PKCS1v15()  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-encrypt.cryptography-rsa-pkcs1-encrypt -- see below
         )  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-encrypt.cryptography-rsa-pkcs1-encrypt -- LabUpload2Action unwraps with RSA/ECB/PKCS1Padding; OAEP tracked in #3413
         # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- LabUpload2Action verifies MD5WithRSA; replacement tracked in #3413
         signature = self.client_key.sign(
-            plaintext, padding.PKCS1v15(), hashes.MD5()
+            plaintext, padding.PKCS1v15(), hashes.MD5()  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- see above
         )  # codeql[py/weak-sensitive-data-hashing]  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
         return (
             ciphertext,

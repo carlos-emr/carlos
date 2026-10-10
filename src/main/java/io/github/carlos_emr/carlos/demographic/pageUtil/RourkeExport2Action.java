@@ -182,7 +182,8 @@ public class RourkeExport2Action extends ActionSupport {
         }
         try (java.io.InputStream input = java.nio.file.Files.newInputStream(file.toPath())) {
             response.setContentType("application/zip");
-            response.setHeader("Content-Disposition", "attachment; filename=\"" + zipName + "\"");
+            // The recorded name (equal to the validated request value), so no request text reaches a header.
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + storedFilename + "\"");
             response.setHeader("Cache-Control", "no-store");
             input.transferTo(response.getOutputStream());
         } catch (IOException e) {
