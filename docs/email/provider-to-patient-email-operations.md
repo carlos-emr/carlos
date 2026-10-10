@@ -20,8 +20,12 @@ The currently supported provider-to-patient workflow is the eForm email flow:
    consent status, message fields, and attachments.
 5. Sending posts through `EmailSend2Action`, which delegates delivery to
    `EmailManager`.
-6. `EmailManager` creates an `EmailLog` row, attempts delivery through the
-   configured sender, and updates the log to `SUCCESS` or `FAILED`.
+6. `EmailManager` creates an `EmailLog` row, hands the message to the
+   configured sender (SMTP relay or API), and updates the log to `SUCCESS` when
+   the relay or API accepts it, or `FAILED` when it reports an error. `SUCCESS`
+   is shown as **ACCEPTED BY MAIL SERVER**, in grey rather than green. It does
+   not mean the patient received the message; see
+   [What "ACCEPTED BY MAIL SERVER" means](#what-accepted-by-mail-server-means).
 
 CARLOS Messenger is separate from this path. It handles internal messaging and
 document transfer workflows; it is not the confirmed mechanism for sending
@@ -120,8 +124,12 @@ For production use, treat email as an external delivery dependency:
   patient sends.
 - Verify attachment size limits and content policies with the relay or API
   provider.
+- Make the sending account's address a real mailbox that staff monitor. For SMTP
+  senders it is where bounces and non-delivery reports are returned; see
+  [Bounces and non-delivery reports](#bounces-and-non-delivery-reports).
 - Send non-PHI test messages after every sender configuration change.
-- Confirm successful test delivery and `EmailLog` status before sending patient
+- Confirm each test message arrived in the test mailbox, not only that its
+  `EmailLog` row shows **ACCEPTED BY MAIL SERVER**, before sending patient
   communications.
 
 ## Optional PDF Signing
@@ -240,6 +248,9 @@ Recommended operating checks:
 
 - Review failed email rows after sender configuration changes and during normal
   clinic operations.
+- Check the sending accounts' mailboxes for bounces and non-delivery reports.
+  Manage Emails does not show them; see
+  [Bounces and non-delivery reports](#bounces-and-non-delivery-reports).
 - Investigate repeated failures before retrying patient communications.
 - Test with non-PHI messages first whenever sender credentials, sender domains,
   relay/API settings, or DNS records change.
@@ -257,6 +268,53 @@ Repeated failures usually point to one of these causes:
 - Attachment size limits or provider content rejection.
 - Local development environment has no localhost SMTP capture service.
 - PDF generation or attachment rendering failure before send.
+
+### What "ACCEPTED BY MAIL SERVER" means
+
+Manage Emails shows an `EmailLog` row with status `SUCCESS` as **ACCEPTED BY
+MAIL SERVER**. CARLOS sets that status when the SMTP relay or email API (such
+as SendGrid) takes the message without an error. That hand-off is the last
+thing CARLOS sees. The relay or provider can still bounce the message, give up
+after retrying, or drop it (an API provider can drop a message to an address
+already on its bounce list), and none of that is reported back to CARLOS. The
+row keeps showing **ACCEPTED BY MAIL SERVER**.
+
+Treat the status as evidence that the message left CARLOS, not that the patient
+received it. When receipt matters clinically, confirm with the patient. The
+compose screen says the same thing after a send: the message was accepted for
+delivery, which is not confirmation that it arrived.
+
+This is a display label only. The stored value in `emailLog.status` is
+`SUCCESS`, and the Manage Emails status filter submits `SUCCESS`, so reports or
+queries that read the table directly still see `SUCCESS`.
+
+### Bounces and non-delivery reports
+
+Bounce processing and provider delivery webhooks are not implemented, so a
+bounce never changes an `EmailLog` row (tracked in
+[issue #3834](https://github.com/carlos-emr/carlos/issues/3834)). Until that
+exists, bounces reach staff only as email:
+
+- Make each sending account's address a real mailbox that staff check as part
+  of normal operations. The SMTP sender uses the sending address as the
+  envelope sender (Return-Path), so bounces and non-delivery reports (NDRs)
+  come back to that mailbox unless the relay rewrites the envelope sender.
+- An API provider such as SendGrid receives bounces itself. Check the
+  provider's activity and bounce lists, or set up its bounce notifications to
+  reach the monitored mailbox.
+- Bounces and NDRs often carry the whole original message: the subject, any
+  body text that was not moved into the encrypted PDF, and the attachments
+  (unencrypted attachments in clear). Treat the mailbox as holding patient
+  information and limit who can read it.
+- When a bounce arrives for a patient email, find the row in **Admin > Manage
+  Emails** by date and patient, correct the patient's email address if it is
+  wrong, and reach the patient another way if the message mattered clinically.
+- Record the bounce in the patient's chart. Any chart note written for the
+  email ("Sent on ...") stays as it was, and the row in Manage Emails still
+  reads "ACCEPTED BY MAIL SERVER", so without a note the chart still suggests
+  the patient was informed.
+- Once the bounce is handled and recorded, delete it from the mailbox,
+  following the clinic's retention policy for patient correspondence.
 
 ## Outbound Email Archive at Rest
 
@@ -345,6 +403,9 @@ subjects, body text, and password clues accordingly.
   [PR #3097](https://github.com/carlos-emr/carlos/pull/3097).
 - Outbound email archive foundation:
   [PR #3138](https://github.com/carlos-emr/carlos/pull/3138).
+- Bounce processing and provider delivery webhooks are not implemented, so
+  **ACCEPTED BY MAIL SERVER** is the last status CARLOS records:
+  [issue #3834](https://github.com/carlos-emr/carlos/issues/3834).
 - Outbound email archive encryption at rest:
   [issue #3448](https://github.com/carlos-emr/carlos/issues/3448). Archives written
   before it stay plaintext until a re-encryption job exists.
