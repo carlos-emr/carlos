@@ -230,7 +230,7 @@ public final class RxViewScript2Action extends ActionSupport {
             return null;
         }
         String first = firstItem.getScript_no();
-        // Only a value the whole downstream chain (stamping + FrmCustomedPDFServlet.parsePositiveInt)
+        // Only a value the whole downstream chain (stamping + PrescriptionPdfComposer.parsePositiveInt)
         // would accept counts as "already persisted": 1-10 digits parsing to a positive int. A "0" or
         // an overflow value must fall through to a real saveScript rather than being reused as a
         // (rejected) script id that later surfaces as an unsigned/missing script.
