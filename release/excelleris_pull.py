@@ -1326,7 +1326,7 @@ def inspect_pull(body: bytes) -> PullSummary:
     Excelleris keeps it pending for the next run.
     """
     try:
-        root = ET.fromstring(body)
+        root = ET.fromstring(body)  # nosec B314 -- one mutual-TLS peer; ElementTree resolves no external entities (see inspect_pull)
     except ET.ParseError as exc:
         return PullSummary(0, None, f"not well-formed XML: {exc}")
     if root.tag != "HL7Messages":
@@ -1456,7 +1456,7 @@ class ExcellerisSession:
             log.info("excelleris: %s acknowledgment sent (empty reply)", value.lower())
             return
         try:
-            root = ET.fromstring(body) if body else None
+            root = ET.fromstring(body) if body else None  # nosec B314 -- one mutual-TLS peer; ElementTree resolves no external entities (see inspect_pull)
         except ET.ParseError:
             root = None
         if root is not None and root.tag == "HL7Messages" and len(root) == 0:
@@ -2049,7 +2049,7 @@ class LabUploadEnvelope:
         # decrypts and verifies; the receiver dictates them (CARLOS issue #3413 tracks
         # the replacement). See the class docstring.
         encryptor = Cipher(
-            algorithms.AES(aes_key), modes.ECB()
+            algorithms.AES(aes_key), modes.ECB()  # nosec B305 -- LabUpload2Action decrypts AES/ECB; #3413
         ).encryptor()  # codeql[py/weak-cryptographic-algorithm]
         ciphertext = encryptor.update(padded) + encryptor.finalize()
         wrapped = self.server_key.encrypt(
@@ -2057,7 +2057,7 @@ class LabUploadEnvelope:
         )  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-encrypt.cryptography-rsa-pkcs1-encrypt -- LabUpload2Action unwraps with RSA/ECB/PKCS1Padding; OAEP tracked in #3413
         # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- LabUpload2Action verifies MD5WithRSA; replacement tracked in #3413
         signature = self.client_key.sign(
-            plaintext, padding.PKCS1v15(), hashes.MD5()  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- see above
+            plaintext, padding.PKCS1v15(), hashes.MD5()  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5 -- see above  # nosec B303
         )  # codeql[py/weak-sensitive-data-hashing]  # nosemgrep: python.cryptography.cryptography-rsa-pkcs1-signature.cryptography-rsa-pkcs1-signature, python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
         return (
             ciphertext,
@@ -2400,7 +2400,7 @@ class CarlosSession:
         an HTML page that happens to quote the tag from passing as a result.
         """
         try:
-            root = ET.fromstring(body.strip())
+            root = ET.fromstring(body.strip())  # nosec B314 -- CARLOS's own upload reply over TLS; ElementTree resolves no external entities
         except ET.ParseError:
             return None
         if root.tag != "labUploadResult":

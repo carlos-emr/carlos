@@ -2732,7 +2732,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                         try {
                             hrmDocProvider.setSignedOffTimestamp(f.parse(reviewDateTime));
                         } catch (ParseException _) {
-
+                            // The sign-off is still recorded, without its time; the date itself is not logged.
+                            logger.warn("HRM review date is not yyyy-MM-dd; sign-off timestamp left unset");
                         }
 
                         HRMDocumentToProviderDao hRMDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
