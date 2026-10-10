@@ -31,10 +31,10 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.sql.Timestamp;
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -163,7 +163,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             EFormData f = new EFormData();
             f.setId((Integer) cols[0]);
             f.setDemographicId((Integer) cols[1]);
-            f.setFormDate((Timestamp) cols[2]);
+            f.setFormDate(NativeQueryValues.asDate(cols[2]));
             EFormData prior = forms.get(f.getId());
             if (prior == null || prior.getFormDate().getTime() < f.getFormDate().getTime()) {
                 forms.put(f.getId(), f);
@@ -188,7 +188,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bos.add(bo);
         }
         return bos;
@@ -210,7 +210,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
             bo.setProgramId((Integer) cols[5]);
@@ -237,7 +237,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setVacancyID((Integer) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
             bo.setProgramId((Integer) cols[5]);
@@ -272,7 +272,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
         if (cols != null) {
             bo.setVacancyName((String) cols[0]);
             bo.setVacancyTemplateName((String) cols[1]);
-            bo.setCreated((Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setProgramName((String) cols[3]);
             bo.setVacancyName((String) cols[4]);
         }
@@ -345,7 +345,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             bo.setProgramId((Integer) cols[0]);
             bo.setNoOfVacancy(((Number) cols[1]).intValue());
             bo.setVacancyName((String) cols[2]);
-            bo.setCreated((java.util.Date) cols[3]);
+            bo.setCreated(NativeQueryValues.asDate(cols[3]));
             bo.setVacancyID((Integer) cols[4]);
             bos.add(bo);
         }
@@ -367,7 +367,7 @@ public class WaitlistDaoImpl implements WaitlistDao {
             VacancyDisplayBO bo = new VacancyDisplayBO();
             bo.setProgramId((Integer) cols[0]);
             bo.setVacancyName((String) cols[1]);
-            bo.setCreated((java.util.Date) cols[2]);
+            bo.setCreated(NativeQueryValues.asDate(cols[2]));
             bo.setVacancyID((Integer) cols[3]);
             bo.setVacancyTemplateName((String) cols[4]);
             bos.add(bo);

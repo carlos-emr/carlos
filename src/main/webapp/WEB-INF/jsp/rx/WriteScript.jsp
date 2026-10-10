@@ -35,6 +35,7 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.LimitedUseCode" %>
@@ -70,24 +71,29 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="WriteScript.title"/></title>
 
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
-        <c:if test="${sessionScope.RxSessionBean == null}">
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
+        <c:if test="${pageScope.RxSessionBean == null}">
             <c:redirect url="error.html"/>
         </c:if>
 
-        <c:if test="${not empty sessionScope.RxSessionBean}">
-            <c:set var="bean" value="${sessionScope.RxSessionBean}" scope="page"/>
+        <c:if test="${not empty pageScope.RxSessionBean}">
+            <c:set var="bean" value="${pageScope.RxSessionBean}" scope="page"/>
 
             <c:if test="${bean.valid == false}">
                 <c:redirect url="error.html"/>
             </c:if>
 
             <c:if test="${bean.stashIndex == -1}">
-                <c:redirect url="/rx/searchDrug"/>
+                <c:redirect url="/rx/searchDrug"><c:param name="demographicNo" value="${bean.demographicNo}"/></c:redirect>
             </c:if>
         </c:if>
 
@@ -123,8 +129,10 @@
                 }
             }
 
-            var frm = document.forms.RxWriteScriptForm;
-            oscarLog("frm=" + frm);
+            // The write-script form is name="frm" (below); the legacy binding named the Struts 1
+            // form bean, so every field handler on this page threw. This script runs in <head>,
+            // before the form exists, so it is bound in pageLoad() (#3908).
+            var frm = null;
             var freqMin;
             var freqMax;
             var orig = null;
@@ -191,7 +199,7 @@
                     oscarLog('<fmt:message key="WriteScript.msgQuantity"/>');
                 } else {
                     oscarLog("else");
-                    frm.action.value = action;
+                    frm.elements["action"].value = action;
 
                     frm.submit();
                 }
@@ -325,7 +333,12 @@
             }
 
             function useQtyMax() {
-                frm.quantity.value = frm.sugQtyMax.value;
+                var maximum = calcQuantity();
+                if (!Number.isFinite(maximum)) {
+                    alert('The value entered is invalid.');
+                    return;
+                }
+                frm.quantity.value = maximum;
 
                 writeScriptDisplay();
             }
@@ -570,6 +583,8 @@
                 } else if (pc == "N") {
                     if (frm.patientComplianceN.checked) frm.patientComplianceY.checked = false;
                 }
+                frm.elements['patientCompliance'].value = frm.patientComplianceY.checked ? 'true'
+                    : frm.patientComplianceN.checked ? 'false' : '';
                 writeScriptDisplay();
             }
 
@@ -581,7 +596,7 @@
                 if (!disabled) {
                     if (first == false) {
 
-                        var frm2 = document.forms.RxWriteScriptForm;
+                        var frm2 = document.forms.frm;
 
                         var orig2 = frm.special.value;
                         var preStr = "";
@@ -718,8 +733,31 @@
                 return true;
             }
 
+            function restoreEditorSelect(select, value) {
+                select.value = value;
+                if (select.value !== value) {
+                    select.add(new Option(value, value));
+                    select.value = value;
+                }
+            }
+
+            function refreshSuggestedQuantity() {
+                var index = frm.frequencyCode.selectedIndex;
+                var duration = calculateDuration(frm.durationUnit.value, frm.duration.value);
+                var minimum = Math.ceil(Number(frm.takeMin.value) * freqMin[index] * duration);
+                var maximum = Math.ceil(Number(frm.takeMax.value) * freqMax[index] * duration);
+                if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
+                    frm.sugQtyMin.value = minimum;
+                    frm.sugQtyMax.value = maximum;
+                    setQuantity();
+                }
+            }
+
             function pageLoad() {
-                calcQty();
+                frm = document.forms.frm;
+                // Rendering an existing prescription must not recalculate its quantity or rewrite
+                // its instructions. Dosing controls explicitly invoke calcQty when edited.
+                refreshSuggestedQuantity();
                 var txtQty = frm.quantity;
                 if (txtQty.restrict) alert("YES");
                 txtQty.restrict = "0-9";
@@ -728,8 +766,9 @@
             }
 
             function prepareOutsideProvider() {
-                if (frm.outsideProviderName.value.length > 0) document.getElementById('ocheck').checked = true;
-                showHideOutsideProvider();
+                var checked = frm.outsideProviderName.value.length > 0 || frm.outsideProviderOhip.value.length > 0;
+                document.getElementById('ocheck').checked = checked;
+                document.getElementById('otext').style.display = checked ? '' : 'none';
             }
 
             function showHideOutsideProvider() {
@@ -832,13 +871,27 @@
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
     <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/rx/addFavoriteWriteScript" style="display:none">
-        <input type="hidden" name="stashId" value=""/>
+        <input type="hidden" name="randomId" value=""/>
         <input type="hidden" name="favoriteName" value=""/>
+        <%-- The staged card is looked up in this window's patient's stash only (#3875). --%>
+        <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
+    </form>
+
+    <form id="RxStashForm" name="RxStashForm" action="${pageContext.request.contextPath}/rx/stash" method="post" style="display:none">
+        <input type="hidden" name="action" value=""/>
+        <input type="hidden" name="demographicNo" value="<%= bean.getDemographicNo() %>"/>
+        <input type="hidden" name="randomId"/>
+        <input type="hidden" name="draftRevision"/>
     </form>
 
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
     <input type="hidden" name="action" id="action"/>
+
+    <%-- Printing persists the entire displayed stash; bind every card version, not only the editor. --%>
+    <% for (RxPrescriptionData.Prescription draftCard : bean.getStash()) { %>
+    <input type="hidden" name="draftRevision_<%= draftCard.getRandomId() %>" value="<carlos:encode value='<%= draftCard.getDraftRevision() %>' context="htmlAttribute"/>"/>
+    <% } %>
 
     <%
 
@@ -854,6 +907,11 @@
         if (thisForm != null) {
             if (bean.getStashIndex() > -1) { //new way
                 RxPrescriptionData.Prescription rx = bean.getStashItem(bean.getStashIndex());
+    %>
+    <%-- Bind this editor to the displayed card, including when another window moves the cursor. --%>
+    <input type="hidden" name="randomId" value="<%= rx.getRandomId() %>"/>
+    <input type="hidden" name="draftRevision" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
+    <%
                 RxDrugData drugData = new RxDrugData();
                 thisForm.setDemographicNo(bean.getDemographicNo());
                 thisForm.setRxDate(RxUtil.DateToString(rx.getRxDate(), "yyyy-MM-dd"));
@@ -891,11 +949,12 @@
                 thisForm.setPrn(rx.getPrn());
 
                 if (rx.getSpecial() == null || rx.getSpecial().length() < 6)
-                    MiscUtils.getLogger().error("The drug special passed to the display of the user was already blank :" + rx.getSpecial());
+                    MiscUtils.getLogger().warn("The drug instructions passed to the display were blank or truncated");
 
                 thisForm.setSpecial(rx.getSpecial());
                 thisForm.setLongTerm(rx.getLongTerm());
                 thisForm.setPastMed(rx.getPastMed());
+                thisForm.setShortTerm(rx.getShortTerm());
                 thisForm.setDispenseInternal(rx.getDispenseInternal());
                 thisForm.setPatientCompliance(rx.getPatientCompliance());
                 thisForm.setAtcCode(rx.getAtcCode());
@@ -1003,11 +1062,16 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
         <%}%>
     </script>
 
-    <input type="hidden" name="demographicNo" id="demographicNo"/>
-    <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO"/>
-    <input type="hidden" name="atcCode" id="atcCode"/>
-    <input type="hidden" name="regionalIdentifier" id="regionalIdentifier"/>
-    <input type="hidden" name="dosage" id="dosage"/>
+    <%-- Carries the window's patient: the per-patient Rx bean is resolved from it, and a save that
+         does not name its patient is refused (#3875). --%>
+    <input type="hidden" name="demographicNo" id="demographicNo" value="<%= bean.getDemographicNo() %>"/>
+    <input type="hidden" name="dispenseInternal" value="<%= thisForm.getDispenseInternal() %>"/>
+    <input type="hidden" name="shortTerm" value="<%= thisForm.getShortTerm() %>"/>
+    <input type="hidden" name="patientCompliance" value="<%= thisForm.getPatientCompliance() == null ? "" : thisForm.getPatientCompliance().toString() %>"/>
+    <input type="hidden" name="GCN_SEQNO" id="GCN_SEQNO" value="<carlos:encode value='<%= thisForm.getGCN_SEQNO() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="atcCode" id="atcCode" value="<carlos:encode value='<%= thisForm.getAtcCode() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="regionalIdentifier" id="regionalIdentifier" value="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="dosage" id="dosage" value="<carlos:encode value='<%= thisForm.getDosage() %>' context="htmlAttribute"/>"/>
 
 
     <table border="0" cellpadding="0" cellspacing="0" <% /*style="border-collapse: collapse"*/%> bordercolor="#111111"
@@ -1021,7 +1085,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td width="0%" valign="top">
                             <div class="DivCCBreadCrumbs">
-                                <a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a> >
+                                <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<%= bean.getDemographicNo() %>"> <fmt:message key="SearchDrug.title"/></a> >
                                 <fmt:message key="ChooseDrug.title"/> >
                                 <b><fmt:message key="WriteScript.title"/></b>
                             </div>
@@ -1054,7 +1118,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <fmt:message key="WriteScript.genericNameText"/>:
                                     </td>
                                     <td colspan=2>
-                                        <input type="hidden" name="genericName" id="genericName"/>
+                                        <input type="hidden" name="genericName" id="genericName" value="<carlos:encode value='<%= thisForm.getGenericName() %>' context="htmlAttribute"/>"/>
                                         <b><carlos:encode value='<%= thisForm.getGenericName() %>' context="html"/>
                                         </b>
                                         <%if (compString != null) {%>
@@ -1078,7 +1142,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <fmt:message key="WriteScript.brandNameText"/>:
                                     </td>
                                     <td colspan=2>
-                                        <input type="hidden" name="brandName" id="brandName"/>
+                                        <input type="hidden" name="brandName" id="brandName" value="<carlos:encode value='<%= thisForm.getBrandName() %>' context="htmlAttribute"/>"/>
                                         <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value='<%= thisForm.getBrandName() %>' context="html"/>
                                         </b>
                                         <oscar:oscarPropertiesCheck property="SHOW_ODB_LINK" value="yes">
@@ -1100,7 +1164,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td colspan=2 valign="top">Custom Drug:</td>
                                     <td colspan=2><textarea name="customName" cols="50"
                                                                  rows="3"
-                                                            onchange="javascript:writeScriptDisplay();"></textarea></td>
+                                                            onchange="javascript:writeScriptDisplay();"><carlos:encode value='<%= thisForm.getCustomName() %>' context="html"/></textarea></td>
                                     <td valign=top rowspan=8>
                                         <div style="z-index: 0;"><select size=20 name="selSpecial"
                                                                          ondblclick="javascript:cmdSpecial_click();">
@@ -1115,8 +1179,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 <% } /* Custom */ %>
 
                                 <tr>
-                                    <td colspan=2><fmt:message key="WriteScript.startDate"/>:</td>
-                                    <td colspan=2><input type="text" name="rxDate" id="rxDate" /></td>
+                                    <td colspan=2><label for="rxDate"><fmt:message key="WriteScript.startDate"/></label>:</td>
+                                    <td colspan=2><input type="text" name="rxDate" id="rxDate"  value="<carlos:encode value='<%= thisForm.getRxDate() %>' context="htmlAttribute"/>"/></td>
                                     <!--<td >
                                           &nbsp;
                                         </td>-->
@@ -1185,10 +1249,10 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                             <carlos:encode value='<%= freq[i].getFreqCode() %>' context="html"/>
                                         </option>
                                         <%}%>
-                                    </select> <input type="hidden" name="takeMin" id="takeMin"/>
-                                        <input type="hidden" name="takeMax" id="takeMax"/>
+                                    </select> <input type="hidden" name="takeMin" id="takeMin" value="<carlos:encode value='<%= thisForm.getTakeMin() %>' context="htmlAttribute"/>"/>
+                                        <input type="hidden" name="takeMax" id="takeMax" value="<carlos:encode value='<%= thisForm.getTakeMax() %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
-                                            var frm = document.forms.RxWriteScriptForm;
+                                            var frm = document.forms.frm;
 
 
                                             if (frm.takeMin.value == frm.takeMax.value) {
@@ -1202,7 +1266,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                             }
 
                                             if (frm.takeOther.value == '0.25') {
-                                                frm.takeOther.value == '1/4';
+                                                frm.takeOther.value = '1/4';
                                             }
                                             frm.take.value = frm.takeOther.value;
                                             if (frm.take.value != frm.takeOther.value) {
@@ -1210,8 +1274,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                 frm.takeOther.style.display = '';
                                             }
                                         </script>
-                                        <fmt:message key="WriteScript.prn"/>
-                                        <input type="checkbox" name="prn" onchange="javascript:writeScriptDisplay();"/>
+                                        <label for="prn"><fmt:message key="WriteScript.prn"/></label>
+                                        <input type="checkbox" id="prn" name="prn" value="true" <%= thisForm.getPrn() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                     </td>
                                     <!--<td>
                                             &nbsp;
@@ -1239,7 +1303,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                             <option value="D"><fmt:message key="WriteScript.msgDays"/></option>
                                             <option value="W"><fmt:message key="WriteScript.msgWeeks"/></option>
                                             <option value="M"><fmt:message key="WriteScript.msgMonths"/></option>
-                                        </select> <input type="hidden" name="duration" id="duration"/>
+                                        </select> <input type="hidden" name="duration" id="duration" value="<carlos:encode value='<%= thisForm.getDuration() %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
                                             frm.txtDuration.value = frm.duration.value;
 
@@ -1263,13 +1327,13 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                                        size="8"
                                                                        onchange="javascript:if( chkQty(this.value) ) {writeScriptDisplay(); customQty(this.value);}"
                                                                        onkeypress="return validNum(event);"
-                                                                       onkeyup="customQty(this.value);"/> <input
+                                                                       onkeyup="customQty(this.value);" value="<carlos:encode value='<%= thisForm.getQuantity() %>' context="htmlAttribute"/>"/> <input
                                             type=button
                                             value="<<" onclick=" javascript:useQtyMax();"/>
                                         (<fmt:message key="WriteScript.msgCalculated"/>:&nbsp;<span id="lblSugQty"
                                                                                                      style="font-weight: bold"></span>&nbsp;
                                         )&nbsp;<input type="text" name="unitName" size="5"
-                                                          onchange="javascript:writeScriptDisplay();"/> <input
+                                                          onchange="javascript:writeScriptDisplay();" value="<carlos:encode value='<%= thisForm.getUnitName() %>' context="htmlAttribute"/>"/> <input
                                                 type=hidden name="sugQtyMin"/> <input type=hidden
                                                                                       name="sugQtyMax"/>
                                         <script language="javascript">
@@ -1307,7 +1371,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <option value="Other"><fmt:message key="WriteScript.msgOther"/></option>
                                     </select> <input type=text name="txtRepeat" size="5"
                                                      onchange="calcQty();" style="display: none"/>
-                                        <input type="hidden" name="repeat" id="repeat"/>
+                                        <input type="hidden" name="repeat" id="repeat" value="<carlos:encode value='<%= String.valueOf(thisForm.getRepeat()) %>' context="htmlAttribute"/>"/>
                                         <script language=javascript>
                                             frm.txtRepeat.value = frm.repeat.value;
 
@@ -1318,33 +1382,35 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                             }
                                         </script>
                                         &nbsp;
-                                        <fmt:message key="WriteScript.noSubs"/>:
-                                        <input type="checkbox" name="nosubs" onchange="javascript:writeScriptDisplay();"/>
+                                        <label for="nosubs"><fmt:message key="WriteScript.noSubs"/></label>:
+                                        <input type="checkbox" id="nosubs" name="nosubs" value="true" <%= thisForm.getNosubs() ? "checked" : "" %> onchange="javascript:writeScriptDisplay();"/>
                                         &nbsp;
-                                        <fmt:message key="WriteScript.msgLastRefillDate"/>:
-                                        <input type="text" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';"/>
+                                        <label for="lastRefillDate"><fmt:message key="WriteScript.msgLastRefillDate"/></label>:
+                                        <input type="text" id="lastRefillDate" name="lastRefillDate" onfocus="javascript:lastRefillDate.value='';" value="<carlos:encode value='<%= thisForm.getLastRefillDate() %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
-                                        <fmt:message key="WriteScript.msgLongTermMedication"/>:
-                                        <input type="checkbox" name="longTerm" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgPastMedication"/>:
-                                        <input type="checkbox" name="pastMed" onchange="javascript:writeScriptDisplay();"/>&nbsp;&nbsp;
-                                        <fmt:message key="WriteScript.msgPatientCompliance"/>:
-                                        <fmt:message key="WriteScript.msgYes"/>
-                                        <input type="checkbox" name="patientComplianceY" onchange="javascript:checkPatientCompliance('Y');"/>
-                                        <fmt:message key="WriteScript.msgNo"/>
-                                        <input type="checkbox" name="patientComplianceN" onchange="javascript:checkPatientCompliance('N');"/>
+                                        <label for="longTermFlag"><fmt:message key="WriteScript.msgLongTermMedication"/></label>:
+                                        <input type="hidden" name="longTerm" value="<%= thisForm.getLongTerm() == null ? "" : thisForm.getLongTerm().toString() %>"/>
+                                        <input type="checkbox" id="longTermFlag" name="longTermFlag" <%= Boolean.TRUE.equals(thisForm.getLongTerm()) ? "checked" : "" %> onchange="frm.elements['longTerm'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <label for="pastMedFlag"><fmt:message key="WriteScript.msgPastMedication"/></label>:
+                                        <input type="hidden" name="pastMed" value="<%= thisForm.getPastMed() == null ? "" : thisForm.getPastMed().toString() %>"/>
+                                        <input type="checkbox" id="pastMedFlag" name="pastMedFlag" <%= Boolean.TRUE.equals(thisForm.getPastMed()) ? "checked" : "" %> onchange="frm.elements['pastMed'].value = this.checked; writeScriptDisplay();"/>&nbsp;&nbsp;
+                                        <span id="patientComplianceLabel"><fmt:message key="WriteScript.msgPatientCompliance"/>:</span>
+                                        <label for="patientComplianceY"><fmt:message key="WriteScript.msgYes"/></label>
+                                        <input type="checkbox" aria-describedby="patientComplianceLabel" id="patientComplianceY" name="patientComplianceY" <%= Boolean.TRUE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('Y');"/>
+                                        <label for="patientComplianceN"><fmt:message key="WriteScript.msgNo"/></label>
+                                        <input type="checkbox" aria-describedby="patientComplianceLabel" id="patientComplianceN" name="patientComplianceN" <%= Boolean.FALSE.equals(thisForm.getPatientCompliance()) ? "checked" : "" %> onchange="javascript:checkPatientCompliance('N');"/>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan=4>
                                         <fmt:message key="WriteScript.special"/>: &nbsp; &nbsp; &nbsp; &nbsp;
-                                        <input type="checkbox" name="customInstr"/><fmt:message key="WriteScript.msgCustomInstructions"/>
+                                        <input type="checkbox" id="customInstr" name="customInstr" value="true" <%= thisForm.getCustomInstr() ? "checked" : "" %>/><label for="customInstr"><fmt:message key="WriteScript.msgCustomInstructions"/></label>
                                         <script language=javascript>
                                             function cmdSpecial_click() {
-                                                var frm = document.forms.RxWriteScriptForm;
+                                                var frm = document.forms.frm;
                                                 if (frm.selSpecial.selectedIndex > -1) {
                                                     var s = frm.selSpecial.value;
 
@@ -1356,7 +1422,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <table width=100% border=1>
                                             <tr>
                                                 <td valign=top><textarea name="special" cols="50"
-                                                                         rows="5"></textarea> <input type=button value="RD"
+                                                                         rows="5"><carlos:encode value='<%= thisForm.getSpecial() %>' context="html"/></textarea> <input type=button value="RD"
                                                                                                 title="Redraw"
                                                                                                 onclick="javascript:first = false; writeScriptDisplay(); clearWarning(); fillWarnings();"/>
                                                     <div id="warningDiv" style="display: none;">
@@ -1405,21 +1471,21 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 </tr>
                                 <tr>
                                     <td colspan="5">
-                                        <fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/>
+                                        <label for="ocheck"><fmt:message key="WriteScript.msgPrescribedByOutsideProvider"/></label>
                                         <input type="checkbox" id="ocheck"
                                                onclick="showHideOutsideProvider();"/> &nbsp;
                                         <span id="otext">
-							    <b><fmt:message key="WriteScript.msgName"/>:</b>
-                                            <input type="text" name="outsideProviderName"/> &nbsp;
-							    <b><fmt:message key="WriteScript.msgOHIPNO"/>:</b>
-                                            <input type="text" name="outsideProviderOhip"/>
+							    <b><label for="outsideProviderName"><fmt:message key="WriteScript.msgName"/></label>:</b>
+                                            <input type="text" id="outsideProviderName" name="outsideProviderName" value="<carlos:encode value='<%= thisForm.getOutsideProviderName() %>' context="htmlAttribute"/>"/> &nbsp;
+							    <b><label for="outsideProviderOhip"><fmt:message key="WriteScript.msgOHIPNO"/></label>:</b>
+                                            <input type="text" id="outsideProviderOhip" name="outsideProviderOhip" value="<carlos:encode value='<%= thisForm.getOutsideProviderOhip() %>' context="htmlAttribute"/>"/>
 							</span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td colspan="5">
                                       <label for="writtenDate"> <fmt:message key="WriteScript.msgRxWrittenDate"/>: </label>
-                                            <input type="text" name="writtenDate" id="writtenDate" />
+                                            <input type="text" name="writtenDate" id="writtenDate"  value="<carlos:encode value='<%= thisForm.getWrittenDate() %>' context="htmlAttribute"/>"/>
                                     </td>
                                 </tr>
                             </table>
@@ -1473,19 +1539,16 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                 ACETAMINOPHEN	inhibits	BENZODIAZEPINE, long acting &nbsp;&nbsp;&nbsp;&nbsp;SIGNIFICANCE = MINOR &nbsp;&nbsp;&nbsp;EVIDENCE = POOR
                                 </div>-->
                             <script language=javascript>
-                                function submitPending(stashId, action) { //calls stash action
+                                function submitPending(randomId, draftRevision, action) { //calls stash action
                                     var path = "${carlos:forJavaScript(ctx)}";
                                     oscarLog("path in submitPending:" + path);
-                                    var frm = document.getElementsByName("RxStashForm");
-                                    frm[0].elements["stashId"].value = stashId;
-                                    frm[0].elements["action"].value = action;
-                                    frm[0].submit();
+                                    var stashForm = document.forms["RxStashForm"];
+                                    stashForm.elements["randomId"].value = randomId;
+                                    stashForm.elements["draftRevision"].value = draftRevision;
+                                    stashForm.elements["action"].value = action;
+                                    stashForm.submit();
                                 }
                             </script>
-                            <form action="${pageContext.request.contextPath}/rx/stash" method="post">
-                                <input type="hidden" name="action" value="">
-                                <input type="hidden" name="stashId"/>
-                            </form>
                       </td>
                     </tr>
 
@@ -1499,18 +1562,19 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td>
                             <script type="text/javascript">
-                                function ShowDrugInfo(GN) {
-                                    window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(GN), "_blank",
+                                function ShowDrugInfo(GN, din) {
+                                    window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(GN)
+                                        + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
 
-                                function addFavorite(stashId, brandName) {
+                                function addFavorite(randomId, brandName) {
                                     var favoriteName = window.prompt('Please enter a name for the Favorite:',
                                         brandName);
 
                                     if (favoriteName !== null && favoriteName.length > 0) {
                                         var form = document.getElementById('addFavoriteWriteScriptForm');
-                                        form.elements['stashId'].value = stashId;
+                                        form.elements['randomId'].value = randomId;
                                         form.elements['favoriteName'].value = favoriteName;
                                         form.submit();
                                     }
@@ -1532,28 +1596,28 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'delete');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:submitPending('${loopStatus.index}', 'edit');">
+                                                    <a href="javascript:submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('${rx2.genericName}');">
+                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>
@@ -1598,19 +1662,24 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                         //out.write("calcQtyflag=false;");
                   }
 
-                if (isEmpty(quan)){ quan = "null"; }
                 %>
 
                 function customQty(quan) {
                     if (calcQuantity() == quan || quan == null) {
-                        document.forms.RxWriteScriptForm.autoQty.checked = true;
+                        document.forms.frm.autoQty.checked = true;
                     } else {
-                        document.forms.RxWriteScriptForm.autoQty.checked = false;
+                        document.forms.frm.autoQty.checked = false;
                     }
                 }
 
-                customQty(<%=quan%>);
-                writeScriptDisplay();
+                // Preserve stored values, including historical options no longer in current lists.
+                restoreEditorSelect(frm.elements['method'], '<carlos:encode value='<%= thisForm.getMethod() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['unit'], '<carlos:encode value='<%= thisForm.getUnit() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['route'], '<carlos:encode value='<%= thisForm.getRoute() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['frequencyCode'], '<carlos:encode value='<%= thisForm.getFrequencyCode() %>' context="javaScriptBlock"/>');
+                restoreEditorSelect(frm.elements['durationUnit'], '<carlos:encode value='<%= thisForm.getDurationUnit() %>' context="javaScriptBlock"/>');
+                customQty('<carlos:encode value='<%= quan %>' context="javaScriptBlock"/>');
+                // Keep the stored instructions verbatim until a dosing control is edited.
                 <oscar:oscarPropertiesCheck property="RENAL_DOSING_DS" value="yes">
 
                 function getRenalDosingInformation(origRequest) {
@@ -1640,6 +1709,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
     </tr>
 
     </table>
+    </form>
     </body>
 </html>
 <%long end = System.currentTimeMillis() - start; %>

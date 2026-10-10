@@ -66,7 +66,8 @@
 
     String demographic_no = request.getParameter("demographic_no");
 
-    String[] demos = request.getParameterValues("demo");
+    String[] demos = request.getParameterValues("demos");
+    if (demos == null) demos = request.getParameterValues("demo");
 
 %>
 
@@ -207,8 +208,8 @@
                         <td>&nbsp; <a href="${pageContext.request.contextPath}/report/ViewManageLetters"><fmt:message key="report.GenerateLetters.manage"/></a></td>
                         <td style="text-align: right">
                             <a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                    href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                    href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                    href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -217,8 +218,26 @@
             <td class="MainTableLeftColumn" valign="top">&nbsp;</td>
             <td valign="top" class="MainTableRightColumn"><form
                     action="${pageContext.request.contextPath}/report/GenerateLetters" method="POST"
-                    id="listDemographic">
+                    id="listDemographic" onsubmit="return hasSelectedPatient()">
 
+                <%-- Set by GenerateLetters / GenerateEnvelopes when the submission named no printable patient. --%>
+                <% if (Boolean.TRUE.equals(request.getAttribute("noPatientsSelected"))) { %>
+                <div id="noPatientsSelected" role="alert" style="color:#b00020; font-weight:bold; margin-bottom:6px;">
+                    <fmt:message key="report.GenerateLetters.noPatientsSelected"/>
+                </div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("envelopeGenerationFailed"))) { %>
+                <div id="envelopeGenerationFailed" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.envelopeFailed"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterGenerationFailed"))) { %>
+                <div id="letterGenerationFailed" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.generationFailed"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterGenerationUncertain"))) { %>
+                <div id="letterGenerationUncertain" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.generationUncertain"/></div>
+                <% } %>
+                <% if (Boolean.TRUE.equals(request.getAttribute("letterSelectionIncomplete"))) { %>
+                <div id="letterSelectionIncomplete" class="alert alert-danger" role="alert"><fmt:message key="report.GenerateLetters.selectionIncomplete"/></div>
+                <% } %>
                 <%
                     ManageLetters mLetter = new ManageLetters();
                     ArrayList list = mLetter.getActiveReportList();
@@ -264,6 +283,7 @@
                     <% DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                         for (int i = 0; i < demos.length; i++) {
                             Map<String, String> h = deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), demos[i]);
+                            if (h.isEmpty()) continue;
                     %>
                     <tr>
                         <td><%=i + 1%>
@@ -297,11 +317,28 @@
     %>
     </div>
 
+    <fmt:message key="report.GenerateLetters.noPatientsSelected" var="noPatientsSelectedMessage"/>
     <script type="text/javascript">
         // Calendar.setup( { inputField : "asofDate", ifFormat : "%Y-%m-%d", showsTime :false, button : "date", singleClick : true, step : 1 } );
+        // Unchecked boxes are not submitted, so a round trip with nothing selected would come back
+        // without the patient list. Catch it here; the actions still reject it server-side.
+        function hasSelectedPatient() {
+            if (document.querySelector('#listDemographic input[name="demos"]:checked')) {
+                return true;
+            }
+            alert("${carlos:forJavaScript(noPatientsSelectedMessage)}");
+            return false;
+        }
+
         function genEnvelopes(form) {
+            if (!hasSelectedPatient()) {
+                return;
+            }
             var formEl = document.getElementById('listDemographic');
-            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes?" + new URLSearchParams(new FormData(formEl)).toString();
+            var formData = new FormData(formEl);
+            // Envelopes are a GET download; keep the CSRFGuard token out of the URL, history and logs.
+            formData.delete('CSRF-TOKEN');
+            window.location = "<%=request.getContextPath()%>/report/GenerateEnvelopes?" + new URLSearchParams(formData).toString();
         }
 
     </script>

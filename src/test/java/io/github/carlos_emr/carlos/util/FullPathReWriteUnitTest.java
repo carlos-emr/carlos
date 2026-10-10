@@ -8,6 +8,7 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
@@ -16,6 +17,8 @@ import jakarta.servlet.jsp.PageContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,15 +51,126 @@ class FullPathReWriteUnitTest {
     }
 
     @Test
-    @DisplayName("should preserve existing path shape for absolute jspPage values")
-    void shouldPreserveExistingPathShape_forAbsoluteJspPageValues() {
+    @DisplayName("should resolve leading-slash targets against the context path")
+    void shouldResolveAgainstContextPath_forLeadingSlashJspPage() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET",
-                "/carlos/billing/CA/BC/adjustBill.jsp");
+                "/carlos/WEB-INF/jsp/billing/CA/BC/adjustBill.jsp");
+        request.setContextPath("/carlos");
 
         String url = FullPathReWrite.buildRelativeUrl(request,
                 "/billing/CA/BC/ViewBillingCodeNewSearch");
 
-        assertThat(url).isEqualTo("/carlos/billing/CA/BC//billing/CA/BC/ViewBillingCodeNewSearch");
+        assertThat(url).isEqualTo("/carlos/billing/CA/BC/ViewBillingCodeNewSearch");
+    }
+
+    @Test
+    @DisplayName("should resolve leading-slash targets from the root context")
+    void shouldResolveAgainstRootContext_forLeadingSlashJspPage() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/WEB-INF/jsp/prevention/index.jsp");
+        request.setContextPath("");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "/prevention/printPrevention"))
+                .isEqualTo("/prevention/printPrevention");
+    }
+
+    @Test
+    @DisplayName("should ignore the forward URI for leading-slash targets")
+    void shouldStayContextRelative_whenForwardUriIsSetForLeadingSlashJspPage() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/carlos/WEB-INF/jsp/prevention/index.jsp");
+        request.setContextPath("/carlos");
+        request.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI,
+                "/carlos/prevention/ViewPreventionIndex");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "/billing/CA/BC/ViewBillingCodeNewSearch"))
+                .isEqualTo("/carlos/billing/CA/BC/ViewBillingCodeNewSearch");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"//attacker.example/path", "///attacker.example/path", "/\\attacker.example/path",
+            "\\/attacker.example/path", "\\\\attacker.example/path", "/\t//attacker.example/path",
+            "\t//attacker.example/path", "/\n/attacker.example/path", "/\r\n//attacker.example/path"})
+    @DisplayName("should never emit a protocol-relative URL under the root context")
+    void shouldCollapseLeadingSeparators_forProtocolRelativeJspPage(String jspPage) {
+        // A top-level request URI, so no page directory is prepended to mask the result.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/index.jsp");
+        request.setContextPath("");
+
+        String url = FullPathReWrite.buildRelativeUrl(request, jspPage);
+
+        assertThat(url).isEqualTo("/attacker.example/path");
+    }
+
+    @Test
+    @DisplayName("should resolve relative targets against the browser URL after a gate forward")
+    void shouldUseForwardRequestUri_whenPageWasReachedThroughGateForward() {
+        // Issue #4132: after the gate forward getRequestURI() is the internal JSP path.
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                "/carlos/WEB-INF/jsp/prevention/index.jsp");
+        request.setContextPath("/carlos");
+        request.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI,
+                "/carlos/prevention/ViewPreventionIndex");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "printPrevention"))
+                .isEqualTo("/carlos/prevention/printPrevention")
+                .doesNotContain("WEB-INF");
+    }
+
+    @Test
+    @DisplayName("should map a WEB-INF/jsp base to its route directory when no forward URI is set")
+    void shouldMapWebInfJspDirectory_whenForwardUriIsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/WEB-INF/jsp/documentManager/documentReport.jsp");
+        request.setContextPath("/carlos");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "combinePDFs"))
+                .isEqualTo("/carlos/documentManager/combinePDFs");
+    }
+
+    @Test
+    @DisplayName("should map a top-level WEB-INF/jsp page to the context root")
+    void shouldMapToContextRoot_forTopLevelWebInfJspPage() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/WEB-INF/jsp/index.jsp");
+        request.setContextPath("/carlos");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "login"))
+                .isEqualTo("/carlos/login");
+    }
+
+    @Test
+    @DisplayName("should never emit a WEB-INF URL for a non-jsp WEB-INF base")
+    void shouldFallBackToContextRoot_forOtherWebInfDirectory() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/WEB-INF/jspf/fragment.jspf");
+        request.setContextPath("/carlos");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "target"))
+                .isEqualTo("/carlos/target");
+    }
+
+    @Test
+    @DisplayName("should ignore an empty forward URI attribute")
+    void shouldUseRequestUri_whenForwardUriIsEmpty() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/documentManager/documentReport");
+        request.setContextPath("/carlos");
+        request.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI, "");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "combinePDFs"))
+                .isEqualTo("/carlos/documentManager/combinePDFs");
+    }
+
+    @Test
+    @DisplayName("should not treat a WEB-INF-like route prefix as WEB-INF")
+    void shouldKeepPath_whenDirectoryOnlyStartsWithWebInfText() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/WEB-INF-docs/page");
+        request.setContextPath("/carlos");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "next"))
+                .isEqualTo("/carlos/WEB-INF-docs/next");
     }
 
     @Test

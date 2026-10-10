@@ -78,7 +78,11 @@ public class BillingClaimBatchAcknowledgementReportParser {
                     String claimNumber = nextline.substring(62, 67);
                     String recordNumber = nextline.substring(67, 73);
                     String batchProcessDate = nextline.substring(73, 81);
-                    String explain = nextline.substring(81, 121);
+                    // OSCAR 19 read 30 characters here (81-111) and rejected anything
+                    // shorter; MOH lines may carry 40. Keep the mandatory 30 (a shorter
+                    // line still fails the file as malformed) plus whatever follows.
+                    String explain = nextline.substring(81, 111)
+                            + nextline.substring(111, Math.min(nextline.length(), 121));
 
                     BillingClaimBatchAcknowledgementReportRecordDto CBABean = new BillingClaimBatchAcknowledgementReportRecordDto(batchNumber,
                             operatorNumber,

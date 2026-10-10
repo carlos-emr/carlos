@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.Document;
@@ -78,15 +79,40 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
         String providerNo = (String) request.getSession().getAttribute("user");
         String method = request.getParameter("method");
         String id = request.getParameter("tblSet");
-        int setnum = Integer.parseInt(id);
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        if (!"delete".equals(method) && !"restore".equals(method)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        int setnum;
+        int expectedVersion;
+        try {
+            setnum = Integer.parseInt(id);
+            expectedVersion = Integer.parseInt(request.getParameter("scheduleVersion"));
+            if (setnum < 0 || expectedVersion <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A schedule version and set are required. Reload the schedule.");
+            return NONE;
+        }
 
 
         try {
 
-            String imm = immData.getImmunizations(demographicNo);
-            ///String sDoc = UtilMisc.decode64(imm);
-            Document doc = UtilXML.parseXML(imm);
+            Immunizations current = immData.getCurrentSchedule(demographicNo);
+            if (current == null || current.getId() != expectedVersion) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                return NONE;
+            }
+            Document doc = UtilXML.parseXML(current.getImmunizations());
             NodeList sets = doc.getElementsByTagName("immunizationSet");
+            if (setnum >= sets.getLength()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
             Element set = (Element) sets.item(setnum);
 
             if (method.equals("delete")) {
@@ -99,7 +125,10 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
             String sXML = UtilXML.toXML(doc);
 
             //EctImmImmunizationData imm = new EctImmImmunizationData();
-            immData.saveImmunizations(demographicNo, providerNo, sXML);
+            if (!immData.saveImmunizations(demographicNo, providerNo, sXML, expectedVersion)) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                return NONE;
+            }
         } catch (Exception ex) {
             throw new ServletException("Exception occurred in EctImmDeleteImmSchedule2Action", ex);
         }

@@ -69,6 +69,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function checkform(formobj) {
                 if (!validDateFieldsByClass('datefield', formobj)) {
@@ -93,19 +94,9 @@
         <script>
             function deleteTemplate(templateId) {
                 if (confirm('Are you sure you want to delete this report template?')) {
-                    var form = document.createElement('form');
-                    form.method = 'post';
-                    form.action = 'addEditTemplatesAction';
-                    var fields = {templateid: templateId, action: 'delete'};
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
-                    form.submit();
+                    // carlosPostForm attaches the CSRF token, which CSRFGuard
+                    // cannot inject into a runtime-built form in time (#4130).
+                    carlosPostForm('addEditTemplatesAction', {templateid: templateId, action: 'delete'});
                 }
             }
         </script>
@@ -244,11 +235,14 @@
 
     <div id="optionsDiv" class="form-actions">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>" class="link">View Template XML</a>
+        <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>&amp;opentext=1" class="link">Edit
             Template</a>
         <a href="javascript:void(0);" onclick="deleteTemplate('<carlos:encode value='<%= curreport.getTemplateId() %>' context="javaScriptAttribute"/>');" class="link">
             Delete Template
         </a>
+        </security:oscarSec>
     </div>
 
 </html>

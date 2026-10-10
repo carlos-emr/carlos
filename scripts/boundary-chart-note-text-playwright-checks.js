@@ -1,0 +1,117 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * Special characters in a progress note (wave 6, boundary values).
+ * User path: Schedule > Search > Master Record > E-Chart > type into the note > Sign & Save > reopen the E-Chart.
+ * Asserts: a note with an apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+", ";",
+ * a literal "</textarea>" terminator, a long line, typed between a leading and a trailing blank line, is stored
+ * (utf8mb4, no "?" substitution, no entity or encoding damage), the reopened chart shows the whole body in order,
+ * and the note's Edit link loads it into the editor as text (the terminator does not close the textarea). The body is compared exactly with the
+ * browser's own normalisation of the typed text; whether the application keeps or trims the outer blank lines
+ * is logged, not asserted (it trims them, which is harmless for a signed note).
+ * Fixtures: the owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with
+ * issue links, ext rows, drafts and locks) is deleted by cleanup, which asserts they are gone.
+ * Implements the wave-6 "boundary values" pattern, Part 1 (case-management note text).
+ */
+const h = require('./lib/playwright-harness');
+const b = require('./lib/boundary-values');
+const { runWorkflow } = require('./lib/workflow-session');
+
+const NOTE = 'textarea[name="caseNote_note"]';
+
+async function workflow(s) {
+  const { sql, patient, marker } = s;
+  const T = b.TOKENS;
+  const like = h.sqlString(`%${marker}%`);
+  const noteIds = () => sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like}`).map(([id]) => id);
+  const wipe = () => {
+    const ids = noteIds();
+    ids.forEach(id => h.assert(/^[1-9]\d*$/.test(id), 'Owned note id is invalid'));
+    if (ids.length) {
+      const list = ids.join(',');
+      sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${list});
+        DELETE FROM casemgmt_note_ext WHERE note_id IN (${list});
+        DELETE FROM casemgmt_note_link WHERE note_id IN (${list});
+        DELETE FROM casemgmt_note WHERE note_id IN (${list}) AND demographic_no=${patient}`);
+    }
+    sql.execute(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${patient}; DELETE FROM casemgmt_note_lock WHERE demographic_no=${patient}`);
+  };
+  s.cleanup(() => { wipe(); h.assert(noteIds().length === 0, 'Owned chart notes were not removed'); });
+  wipe();
+
+  const lines = [
+    `${marker} ${T.apostrophe} ${T.latin}`,
+    `${T.cjk} ${T.emoji} ${T.entity} ${T.quotes}`,
+    `${T.backslash} ${T.percent} ${T.plus} ${T.semicolon} <not a tag> </textarea> 5 < 6 > 4`,
+    `${'long line of words '.repeat(60)}end`,
+  ];
+  // Explicit leading and trailing blank lines: the boundary whitespace is part of what the note must keep.
+  const text = `\n\n${lines.join('\n')}\n\n`;
+
+  let typed;
+  await s.step('Sign & Save stores the note text byte for byte', async () => {
+    const chart = await s.chart();
+    const note = chart.locator(NOTE).first();
+    await note.waitFor({ state: 'visible', timeout: 30000 });
+    await note.click();
+    await note.fill(text);
+    // What the box holds is what the browser normalised the typed text to; the stored note must carry exactly that.
+    typed = await note.inputValue();
+    await chart.locator('#signSaveImg').first().click();
+    const deadline = Date.now() + 25000;
+    while (noteIds().length === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 300));
+    h.assert(noteIds().length === 1, 'Sign & Save did not store exactly one note');
+    const stored = b.readStored(sql, 'casemgmt_note', 'note', `demographic_no=${patient} AND note LIKE ${like}`);
+    const storedText = Buffer.from(stored.hex, 'hex').toString('utf8');
+    const storedLf = storedText.replace(/\r\n/g, '\n');
+    const body = typed.trim();
+    h.assert(typed.startsWith('\n') && typed.endsWith('\n'), 'The textarea dropped the boundary blank lines before Sign & Save');
+    // The application signs the note and may trim the typed text's outer blank lines; the body between them (internal
+    // whitespace, special characters, the long line) must be stored exactly, and the signature must come after it.
+    // The stored note is the typed body, optionally preceded by blank lines the application may keep, and followed only by
+    // the application's own signature line: nothing else may be added or lost (line endings normalised, nothing more).
+    const at = storedLf.indexOf(body);
+    const prefix = at < 0 ? null : storedLf.slice(0, at);
+    const suffix = at < 0 ? null : storedLf.slice(at + body.length);
+    h.assert(at >= 0 && /^\s*$/.test(prefix) && /^\s*(\[Signed on [^\]]*\])?\s*$/.test(suffix),
+      `The stored note is not the typed text plus the application's signature: ${b.explainMismatch(body, { hex: stored.hex, chars: stored.chars })}`
+      + (suffix === null ? '' : ` (prefix ${JSON.stringify(prefix)}, suffix ${JSON.stringify(suffix)})`));
+    console.log(`    (boundary blank lines: leading ${storedLf.startsWith('\n') ? 'kept' : 'trimmed'}, `
+      + `trailing ${storedLf.slice(storedLf.indexOf(body) + body.length).startsWith('\n\n') ? 'kept' : 'trimmed'} by the application)`);
+    if (!chart.isClosed()) await chart.close().catch(() => {});
+  });
+
+  await s.step('the reopened E-Chart shows the saved note text unchanged', async () => {
+    // Sign & Save closes the chart and refreshes the Master Record that opened it; let that settle first.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await s.master.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
+    const chart = await s.chart();
+    await chart.locator('#encMainDiv').first().waitFor({ state: 'attached', timeout: 30000 });
+    await chart.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    const shown = (await chart.locator('#encMainDiv').first().innerText()).replace(/\s+/g, ' ');
+    const missing = [T.apostrophe, T.latin, T.cjk, T.emoji, T.entity, T.quotes, T.backslash, T.percent, T.plus, T.semicolon, '<not a tag> </textarea> 5 < 6 > 4']
+      .filter(token => !shown.includes(token));
+    h.assert(missing.length === 0, `The reopened chart does not show these note fragments as typed: ${missing.join(' | ')}`);
+    // The fragments alone would accept a truncated or reordered note: the whole body, in order, must be shown.
+    h.assert(shown.includes(typed.trim().replace(/\s+/g, ' ')), 'The reopened chart does not show the complete note body in order (truncated or reordered)');
+  });
+
+  await s.step('the saved note\'s Edit link loads the body, "</textarea>" included, into the editor as text', async () => {
+    const chart = await s.chart();
+    const noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: marker }).last();
+    const editLink = noteDiv.locator('a[id^="edit"]').first();
+    await editLink.waitFor({ state: 'visible', timeout: 30000 });
+    await editLink.click();
+    const editor = noteDiv.locator(NOTE);
+    await editor.first().waitFor({ state: 'visible', timeout: 30000 });
+    h.assert(await editor.count() === 1, 'The Edit link did not open exactly one editor for the note');
+    // A terminator that escaped encoding would end the textarea early: its value would stop before "</textarea>".
+    const loaded = (await editor.inputValue()).replace(/\r\n/g, '\n');
+    h.assert(loaded.includes(typed.trim()), 'The editor opened by the Edit link does not hold the saved note body verbatim');
+    // Nothing is saved: closing drops the edit; cleanup removes the lock and any autosave row.
+    await chart.close().catch(() => {});
+  });
+}
+
+if (require.main === module) runWorkflow('boundary-chart-note-text', workflow, { openPatient: true });
+module.exports = { workflow };

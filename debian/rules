@@ -19,11 +19,22 @@
 #                                      (chrome-linux/ plus chromedriver) instead
 #                                      of downloading the revision pinned in
 #                                      debian/chromium.pin. This is the offline
-#                                      path for carlos-emr-eform-renderer.
-#   SKIP_EFORM_RENDERER=1              do not build carlos-emr-eform-renderer at
-#                                      all. Note that saved-eForm print, fax and
-#                                      archive have NO non-browser fallback, so a
-#                                      release build must not set this.
+#                                      path for the eForm renderer carlos-emr
+#                                      ships.
+#   SKIP_EFORM_RENDERER=1              build carlos-emr WITHOUT the renderer
+#                                      payload (Chromium, its service unit,
+#                                      AppArmor profile and carlos-emr.service
+#                                      drop-in). Dev/CI knob only: saved-eForm
+#                                      print, fax and archive have NO
+#                                      non-browser fallback, so a release build
+#                                      must not set this.
+#
+# The carlos-ctl administration command is NOT built here: it is its own
+# source and binary package (carlos-emr/carlos-ctl) that carlos-emr depends
+# on (debian/control), pinned by release tag in debian/carlos-ctl.pin and
+# fetched by debian/fetch-carlos-ctl.sh for the release assets and the
+# install tests. This tree ships what the CLI drives: the migrations, the
+# helper scripts, the skeletons and the OSCAR 19 import manifests.
 #
 # NETWORK: like every Maven-built package, the build resolves dependencies
 # from Maven Central, the DrugRef source is fetched from GitHub unless
@@ -33,7 +44,7 @@
 # variables above for a fully offline build.
 
 export DH_VERBOSE = 1
-export JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk-$(shell dpkg --print-architecture)
+export JAVA_HOME ?= /usr/lib/jvm/java-25-openjdk-$(shell dpkg --print-architecture)
 export LC_ALL = C.UTF-8
 
 # Maven wants a writable local repository; keep it inside the build tree so a
@@ -50,7 +61,6 @@ MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true
 
 PKG        := carlos-emr
 DPKG       := carlos-emr-drugref
-RPKG       := carlos-emr-eform-renderer
 BUILDDIR   := $(CURDIR)/debian/build
 # Note the ordering: STAGE expands PKG immediately (:=), so PKG has to be
 # defined above it. The other way round, STAGE silently becomes debian/ and the
@@ -83,13 +93,10 @@ CHROMIUM_DRIVER_SHA ?= $(shell sed -n 's/^chromedriver_sha256=//p' debian/chromi
 ifneq ($(SKIP_DRUGREF),)
 DH_EXTRA := --no-package=carlos-emr-drugref
 endif
-# SKIP_EFORM_RENDERER drops carlos-emr-eform-renderer the same way, for a build
-# that must not reach the network for the ~250 MB Chromium archive. Dev/CI knob
-# only — release builds always ship it, because without a browser saved-eForm
-# print/fax/archive has no fallback path at all.
-ifneq ($(SKIP_EFORM_RENDERER),)
-DH_EXTRA += --no-package=carlos-emr-eform-renderer
-endif
+# SKIP_EFORM_RENDERER is NOT a --no-package knob any more: the renderer lives
+# inside carlos-emr (the former carlos-emr-eform-renderer binary package, later
+# an empty transitional one, is no longer built). It leaves the renderer payload
+# out of carlos-emr instead -- see override_dh_auto_install.
 
 %:
 	dh $@ --with installsysusers $(DH_EXTRA)
@@ -160,19 +167,16 @@ override_dh_clean:
 
 override_dh_auto_test:
 	# Application tests are the app repo's own CI concern; a package build
-	# must not require a live database. The man page is checked separately
-	# because Ubuntu 26.04's lintian/man-db pipeline itself exits non-zero even
-	# for known-good compressed system pages. groff returns zero for warnings,
-	# so capture diagnostics and explicitly make any warning a package failure.
-	set -e; \
-	if ! warnings="$$(groff -ww -z -Tutf8 -man debian/carlos-ctl.8 2>&1)"; then \
-		printf '%s\n' "$$warnings" >&2; \
-		exit 1; \
-	fi; \
-	if [ -n "$$warnings" ]; then \
-		printf '%s\n' "$$warnings" >&2; \
-		exit 1; \
-	fi
+	# must not require a live database. (The carlos-ctl(8) render gate moved
+	# with the man page to the carlos-ctl package's own build.) What IS
+	# checked here is the payload the CLI reads: every OSCAR 19 manifest this
+	# package ships must parse and carry the format the pinned CLI expects,
+	# because a malformed one fails an import at a clinic, not a build.
+	set -e; for f in debian/assets/o19-manifest/*.json; do \
+	  python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); \
+	    assert type(d.get("format")) is int and d["format"]==1 and d.get("kind")' "$$f" \
+	    || { echo "carlos-emr: OSCAR 19 manifest $$f is malformed (not format 1, or not JSON)" >&2; exit 1; }; \
+	done
 
 override_dh_auto_clean:
 	rm -rf $(BUILDDIR)
@@ -181,6 +185,16 @@ override_dh_auto_install:
 	set -e; \
 	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
 	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
+	# Packaged JSPs change on upgrades, which restart Tomcat. Keep the shared
+	# WAR/devcontainer hot-reload defaults, and preserve application web.xml values.
+	test ! -e $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/tomcat-web.xml
+	install -m 0644 debian/assets/tomcat/tomcat-web.xml \
+	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/tomcat-web.xml
+	# Explicit package-only resource transform; operator properties are untouched.
+	# Reject an older prebuilt WAR that cannot consume the new defaults resource.
+	test -f $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/jdbc-defaults.properties
+	install -m 0644 debian/assets/jdbc-defaults.properties \
+	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/jdbc-defaults.properties
 	# Ship the migration set outside the WAR too, so an operator can read and
 	# diff the SQL that carlos-ctl applies without unpacking a webapp.
 	install -d $(STAGE)/$(SHAREDIR)/schema
@@ -196,6 +210,7 @@ override_dh_auto_install:
 	  database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	  database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	  database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	  database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql \
 	  database/mysql/updates/update-2026-03-10-standardize-prevention-types.sql \
 	  $(STAGE)/$(SHAREDIR)/schema/o19-fixups/
 	install -d $(STAGE)/$(SHAREDIR)/lib
@@ -226,6 +241,7 @@ override_dh_auto_install:
 	    database/mysql/updates/update-2026-03-22-rtl-2026.3.0-modernize.sql \
 	    database/mysql/updates/update-2026-03-12-rtl-enable-direct.sql \
 	    database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql \
+	    database/mysql/updates/update-2026-09-20-rtl-provider-stamp-fields.sql \
 	    .devcontainer/db/scripts/demo-hrm-report.sql \
 	    .devcontainer/db/scripts/admin_test_data.sql \
 	    $(STAGE)/$(SHAREDIR)/demo/
@@ -280,24 +296,25 @@ override_dh_auto_install:
 	# MariaDB tuning drop-in
 	install -d $(STAGE)/etc/mysql/mariadb.conf.d
 	install -m 0644 debian/assets/mariadb/60-carlos-emr.cnf $(STAGE)/etc/mysql/mariadb.conf.d/60-carlos-emr.cnf
-	# Administrative tooling. carlos-ctl is a Python package (mirroring
-	# carlos-podman's carlos_ctl in name, language and verb set) behind a
-	# tiny shim; the three shell helpers remain the systemd units' direct
-	# workhorses. `carlosctl` stays as a compatibility symlink that prints a
-	# rename note.
-	install -d $(STAGE)/$(LIBDIR)/carlos_ctl $(STAGE)/usr/sbin
-	install -m 0644 debian/assets/carlos_ctl/*.py $(STAGE)/$(LIBDIR)/carlos_ctl/
-	install -m 0755 debian/assets/bin/carlos-ctl $(STAGE)/$(LIBDIR)/carlos-ctl
+	# Administrative helpers: the three shell helpers are the systemd units'
+	# direct workhorses and what `carlos-ctl backup|cert|...` execs. The
+	# carlos-ctl command itself is the separate carlos-ctl package
+	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
+	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
+	install -d $(STAGE)/$(LIBDIR)
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
-	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlos-ctl
-	ln -sf ../lib/carlos-emr/carlos-ctl $(STAGE)/usr/sbin/carlosctl
-	install -d $(STAGE)/usr/share/man/man8
-	ln -sf carlos-ctl.8.gz $(STAGE)/usr/share/man/man8/carlosctl.8.gz
+	# The OSCAR 19 import manifests, generated from THIS tree's schema by
+	# scripts/migration/o19/generate_manifests.py and read by carlos-ctl's
+	# importer at run time (its loader checks the "format" every file
+	# carries). Shipped here rather than with the CLI so a schema migration
+	# never needs a CLI release.
+	install -d $(STAGE)/$(SHAREDIR)/o19-manifest
+	install -m 0644 debian/assets/o19-manifest/*.json $(STAGE)/$(SHAREDIR)/o19-manifest/
 	# Config skeletons the maintainer scripts instantiate (never conffiles:
 	# they carry generated credentials).
 	install -d $(STAGE)/$(SHAREDIR)/skel
@@ -350,9 +367,10 @@ override_dh_auto_install:
 ifeq ($(SKIP_DRUGREF),)
 	install -d debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	cd debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2 && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/drugref2.war
-	# Pin Hibernate's dialect: autodetection runs a MySQL-8-only
-	# information_schema query that MariaDB rejects, and the whole context
-	# fails to deploy. See the comment inside the file.
+	# Exact, validated datasource transform; preserve private db_url/credentials.
+	python3 debian/apply-drugref-jdbc-default.py \
+	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/spring_config.xml
+	# Retain the explicit MariaDB dialect, independently of datasource metadata.
 	install -m 0644 debian/assets/drugref-hibernate.properties \
 	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/hibernate.properties
 	install -d debian/$(DPKG)/$(SHAREDIR)/schema/drugref
@@ -366,35 +384,47 @@ ifeq ($(SKIP_DRUGREF),)
 	    debian/$(DPKG)/$(SHAREDIR)/tomcat/Catalina/localhost/drugref2.xml
 endif
 ifeq ($(SKIP_EFORM_RENDERER),)
+	# --- eForm renderer --------------------------------------------------
+	# Part of carlos-emr since the renderer package was folded in (it made this
+	# package amd64). Staged into the carlos-emr tree at the SAME paths the
+	# former carlos-emr-eform-renderer package used, which is what lets
+	# Replaces: hand them over on upgrade without an operator-visible change.
+	#
 	# cp -a, not install: the Chromium tree carries nested resource
 	# directories and its own helper binaries, and their modes matter
 	# (chrome_crashpad_handler and the sandbox helper must stay executable).
-	install -d debian/$(RPKG)/$(LIBDIR)/chromium
-	cp -a $(BUILDDIR)/chromium/chrome-linux/. debian/$(RPKG)/$(LIBDIR)/chromium/
-	install -m 0755 $(BUILDDIR)/chromium/chromedriver debian/$(RPKG)/$(LIBDIR)/chromium/chromedriver
+	install -d $(STAGE)/$(LIBDIR)/chromium
+	cp -a $(BUILDDIR)/chromium/chrome-linux/. $(STAGE)/$(LIBDIR)/chromium/
+	install -m 0755 $(BUILDDIR)/chromium/chromedriver $(STAGE)/$(LIBDIR)/chromium/chromedriver
 	# The setuid sandbox helper ships non-setuid on purpose. The browser IS
 	# sandboxed (EFORM_RENDER_SANDBOX=true is set unconditionally by the shipped
 	# drop-in), but via unprivileged user namespaces — the AppArmor profile
 	# grants userns and the browser unit permits namespaces — so the setuid
 	# fallback path is never used, and a setuid root binary inside a clinical
 	# package is not something to install for a path that never runs.
-	chmod 0755 debian/$(RPKG)/$(LIBDIR)/chromium/chrome_sandbox || true
+	chmod 0755 $(STAGE)/$(LIBDIR)/chromium/chrome_sandbox || true
 	# AppArmor profile that hands back the `userns` permission Ubuntu 23.10+
 	# removes system-wide. Without it Chromium aborts with "No usable sandbox!"
 	# and the only alternative would be --no-sandbox.
-	install -d debian/$(RPKG)/etc/apparmor.d
+	install -d $(STAGE)/etc/apparmor.d
 	install -m 0644 debian/assets/apparmor/carlos-emr-chromium \
-	    debian/$(RPKG)/etc/apparmor.d/carlos-emr-chromium
-	# Drop-in shipped by THIS package, not by carlos-emr: installing the optional
-	# renderer is what adds the ordering and turns the sandbox on, and removing it
-	# takes both away. carlos-emr.service stays free of renderer specifics.
-	install -d debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d
+	    $(STAGE)/etc/apparmor.d/carlos-emr-chromium
+	# The browser's own unit. Installed here rather than as
+	# debian/carlos-emr.carlos-emr-render-browser.service so a SKIP_EFORM_RENDERER
+	# build does not ship a unit whose binary is absent; dh_installsystemd picks
+	# it up from the tree (see override_dh_installsystemd).
+	install -d $(STAGE)/usr/lib/systemd/system
+	install -m 0644 debian/assets/systemd/carlos-emr-render-browser.service \
+	    $(STAGE)/usr/lib/systemd/system/carlos-emr-render-browser.service
+	# Ordering on the browser unit plus EFORM_RENDER_SANDBOX=true. Kept as a
+	# drop-in (at its pre-merge path) so the sandbox flag still travels with the
+	# browser payload: a SKIP_EFORM_RENDERER build leaves out both.
+	install -d $(STAGE)/usr/lib/systemd/system/carlos-emr.service.d
 	install -m 0644 debian/assets/systemd/carlos-emr.service.d/10-eform-renderer.conf \
-	    debian/$(RPKG)/usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf
+	    $(STAGE)/usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf
 	# Skeleton only: the postinst generates the url-base secret into the real file.
-	install -d debian/$(RPKG)/$(SHAREDIR)/skel
-	install -m 0644 debian/assets/skel/render-browser.env \
-	    debian/$(RPKG)/$(SHAREDIR)/skel/render-browser.env
+	install -m 0644 debian/assets/skel/renderer.env \
+	    $(STAGE)/$(SHAREDIR)/skel/renderer.env
 endif
 
 # The webapp is thousands of small files that Tomcat serves directly; gzipping
@@ -407,9 +437,8 @@ override_dh_compress:
 	# references (found by the documentation audit).
 	dh_compress -X/usr/share/carlos-emr -XREADME.Debian
 
-# carlos-emr itself ships no ELF objects, and the ELF that carlos-emr-eform-renderer
-# does ship is a VENDORED Chromium: stripping it, rewriting its build-ids or
-# computing shlibdeps from it are all wrong (its dependencies are declared by
+# The only ELF carlos-emr ships is its VENDORED Chromium: stripping it,
+# rewriting its build-ids or computing shlibdeps from it are all wrong (its dependencies are declared by
 # hand in debian/control, read off the binary's own dynamic section). Skipping
 # these also keeps the build from spending minutes walking a 400 MB exploded
 # webapp.
@@ -431,6 +460,9 @@ override_dh_installsystemd:
 	dh_installsystemd --no-start --name=carlos-emr-backup
 	dh_installsystemd --no-start --name=carlos-emr-backup-verify
 	dh_installsystemd --no-start --name=carlos-emr-cert-renew
-	# -p explicitly: override_dh_installsystemd otherwise runs each --name across
-	# every binary package, and this unit belongs only to the renderer.
-	dh_installsystemd --no-start -p carlos-emr-eform-renderer --name=carlos-emr-chromedriver
+	# The render browser, from the unit staged into the tree by
+	# override_dh_auto_install (absent, and so skipped, in a SKIP_EFORM_RENDERER
+	# build). -p explicitly: override_dh_installsystemd otherwise runs each
+	# --name across every binary package. Enabled here, started by the postinst
+	# before the EMR, which probes it at deploy time.
+	dh_installsystemd --no-start -p carlos-emr --name=carlos-emr-render-browser

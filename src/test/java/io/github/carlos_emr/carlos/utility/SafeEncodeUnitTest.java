@@ -97,6 +97,11 @@ class SafeEncodeUnitTest {
         }
 
         @Test
+        void shouldReturnEmpty_whenBreakMarkerValueIsNull() {
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers(null)).isEmpty();
+        }
+
+        @Test
         void shouldReturnEmpty_forHtmlAttribute_whenValueIsNull() {
             assertThat(SafeEncode.forHtmlAttribute(null)).isEmpty();
         }
@@ -253,6 +258,56 @@ class SafeEncodeUnitTest {
         }
 
         @Test
+        void shouldRenderBreakMarkersAsLineBreaks_forHtmlContentWithBreakMarkers() {
+            // The three spellings HL7 lab handlers emit for the \.br\ escape, plus casing.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("a<br />b<br/>c<br>d<BR>e"))
+                    .isEqualTo("a<br/>b<br/>c<br/>d<br/>e");
+        }
+
+        @Test
+        void shouldRenderRawNewlinesAsLineBreaks_forHtmlContentWithBreakMarkers() {
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("a\r\nb\nc<br />d"))
+                    .isEqualTo("a<br/>b<br/>c<br/>d");
+        }
+
+        @Test
+        void shouldKeepOtherMarkupEscaped_forHtmlContentWithBreakMarkers() {
+            String input = "5.2<br /><script>alert('x')</script><img src=x onerror=alert(1)>&amp;";
+            String rendered = SafeEncode.forHtmlContentWithBreakMarkers(input);
+
+            assertThat(rendered)
+                    .isEqualTo("5.2<br/>" + Encode.forHtmlContent(
+                            "<script>alert('x')</script><img src=x onerror=alert(1)>&amp;"))
+                    .doesNotContain("<script", "<img");
+        }
+
+        @Test
+        void shouldEscapeBreakTagWithAttributes_forHtmlContentWithBreakMarkers() {
+            // Only the bare marker is a line break; a <br> carrying attributes is data.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("<br onclick=alert(1)>"))
+                    .isEqualTo(Encode.forHtmlContent("<br onclick=alert(1)>"));
+        }
+
+        @Test
+        void shouldNotTreatEncodedMarkerAsBreak_forHtmlContentWithBreakMarkers() {
+            // Text that already spells an escaped marker stays visible text, double-escaped.
+            assertThat(SafeEncode.forHtmlContentWithBreakMarkers("&lt;br /&gt;"))
+                    .isEqualTo(Encode.forHtmlContent("&lt;br /&gt;"));
+        }
+
+        @Test
+        void shouldMatchHtmlContentEncoding_withoutBreakMarkers() {
+            for (String input : NON_NULL_INPUTS) {
+                if (input.contains("\n") || input.contains("\r") || input.contains("<br")) {
+                    continue;
+                }
+                assertThat(SafeEncode.forHtmlContentWithBreakMarkers(input))
+                        .as("forHtmlContentWithBreakMarkers(%s)", input)
+                        .isEqualTo(Encode.forHtmlContent(input));
+            }
+        }
+
+        @Test
         void shouldMatchEncode_forHtmlAttribute_forAllInputs() {
             for (String input : NON_NULL_INPUTS) {
                 assertThat(SafeEncode.forHtmlAttribute(input))
@@ -366,6 +421,8 @@ class SafeEncodeUnitTest {
 
             assertThat(encode("htmlAttribute", hostile)).isEqualTo(SafeEncode.forHtmlAttribute(hostile));
             assertThat(encode("htmlUnquotedAttribute", hostile)).isEqualTo(SafeEncode.forHtmlUnquotedAttribute(hostile));
+            assertThat(encode("htmlWithBreakMarkers", hostile + "<br />x"))
+                    .isEqualTo(SafeEncode.forHtmlContentWithBreakMarkers(hostile + "<br />x"));
             assertThat(encode("forHtml", hostile)).isEqualTo(SafeEncode.forHtml(hostile));
             assertThat(encode("javaScript", hostile)).isEqualTo(SafeEncode.forJavaScript(hostile));
             assertThat(encode("js", hostile)).isEqualTo(SafeEncode.forJavaScript(hostile));
@@ -412,6 +469,37 @@ class SafeEncodeUnitTest {
             StringWriter sw = new StringWriter();
             SafeEncode.forContext(sw, context, value);
             return sw.toString();
+        }
+    }
+
+    @Nested
+    @DisplayName("forTooltipText (boxover payload)")
+    class TooltipText {
+
+        @Test
+        @DisplayName("should return empty string when value is null")
+        void shouldReturnEmptyString_whenValueIsNull() {
+            assertThat(SafeEncode.forTooltipText(null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should leave stored markup inert after the attribute is decoded")
+        void shouldLeaveMarkupInert_afterAttributeDecoding() {
+            String payload = "<img src=x onerror=alert(1)>\"'&";
+            String encoded = SafeEncode.forTooltipText(payload);
+
+            // The attribute layer must hide every delimiter from the HTML parser...
+            assertThat(encoded).doesNotContain("<", ">", "\"", "'");
+            // ...and one decode (what the browser does to the attribute) must still be HTML-encoded text.
+            assertThat(org.owasp.encoder.Encode.forHtmlContent(payload))
+                    .isEqualTo(htmlAttributeDecode(encoded));
+            assertThat(htmlAttributeDecode(encoded)).doesNotContain("<", ">");
+        }
+
+        private String htmlAttributeDecode(String s) {
+            return s.replace("&#34;", "\"").replace("&#39;", "'").replace("&lt;", "<")
+                    .replace("&gt;", ">").replace("&#43;", "+").replace("&#61;", "=")
+                    .replace("&#96;", "`").replace("&amp;", "&");
         }
     }
 }

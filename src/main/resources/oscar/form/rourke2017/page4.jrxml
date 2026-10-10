@@ -313,9 +313,9 @@
 	<parameter name="p4_signature18m" />
 	<parameter name="p4_signature24m" />
 	<parameter name="p4_signature48m" />
-	<queryString>
+	<query>
         <![CDATA[]]>
-    </queryString>
+    </query>
 	<detail>
 		<band height="2200" splitType="Stretch">
 			<element kind="image" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4" x="0" y="0" width="1700" height="2200">

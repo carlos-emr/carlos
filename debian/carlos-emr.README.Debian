@@ -33,30 +33,58 @@ Contents
 0. Getting the packages
 -----------------------
 
-Release builds of both packages are attached to every CARLOS GitHub release
+Release builds of the packages (carlos-emr for amd64 and carlos-emr-drugref)
+are attached to every CARLOS
+GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte.
+published WAR's application payload, with the Debian build identity stamped
+in carlos-build.properties and the explicit package-only jdbc-defaults.properties
+resource described below. All other EMR WAR entries remain unchanged.
+
+The Debian MariaDB default appends useInformationSchema=false to the JDBC URL
+only when no explicit (including URL-encoded) useInformationSchema option exists.
+Connector/J's default MySQL keyword query references
+INFORMATION_SCHEMA.KEYWORDS.RESERVED, which MariaDB does not provide; Hibernate
+otherwise boots using incomplete fallback metadata. This setting keeps JDBC
+metadata enabled using Connector/J's alternate metadata implementation. The
+ordinary WAR's jdbc-defaults.properties is empty and keeps normal driver defaults.
+Existing /etc/carlos-emr/carlos.properties is preserved: an explicit
+ db_default_use_information_schema=true
+changes the optional default, while
+ db_default_use_information_schema=
+(empty) disables it. Existing explicit URL options and explicit driver connection
+properties retain their normal precedence. The timezone behavior is unchanged.
+Restart the EMR after an operator change. JVM -D properties do not override these
+Spring placeholders. An older operator file without this key receives the package
+default on upgrade without having its URL or credentials rewritten for this fix.
 
 Fetching them from a shell (a server has no browser; from WSL this is far
 easier than copying files across): on the release page, right-click each
 asset and copy its link address, or build the URLs from the tag. <tag> is the
-release tag as GitHub shows it (2026.08.0-alpha12); <version> is that tag as
-it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha12):
+release tag as GitHub shows it (2026.08.0-alpha14); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14);
+<ctl-version> is the carlos-ctl release the CARLOS release re-attaches (for example 1.1.1):
 
   R=https://github.com/carlos-emr/carlos/releases/download/<tag>
-  wget $R/carlos-emr_<version>_all.deb $R/carlos-emr_<version>_all.deb.sha256 \
+  wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
        $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
-       $R/carlos-emr-eform-renderer_<version>_amd64.deb $R/carlos-emr-eform-renderer_<version>_amd64.deb.sha256
+       $R/carlos-ctl_<ctl-version>_all.deb $R/carlos-ctl_<ctl-version>_all.deb.sha256
 
 Verify, then install:
 
-  sha256sum -c carlos-emr_<version>_all.deb.sha256
+  sha256sum -c carlos-emr_<version>_amd64.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
-      ./carlos-emr-eform-renderer_<version>_amd64.deb
+  sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
+  sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
+      ./carlos-emr-drugref_<version>_all.deb ./carlos-ctl_<ctl-version>_all.deb
+
+Releases up to and including 2026.08.0-alpha13 publish carlos-emr as _all.deb
+and the renderer as a real carlos-emr-eform-renderer_<version>_amd64.deb; adjust
+the names above for those. Releases 2026.08.0-alpha14 through alpha17 also
+attached an empty transitional carlos-emr-eform-renderer_<version>_all.deb;
+later releases do not build it.
 
 On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
 package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
@@ -70,9 +98,13 @@ digest is unchanged), for example:
 Repeat for drugref and the renderer and require an OK result for every package
 before installing. Later releases record the published name directly.
 
-carlos-emr-eform-renderer is optional but strongly recommended: it carries the
-browser that renders saved eForms to PDF, and eForm print, fax and archive do
-not work without it. Leave it out only if the site does not use eForms.
+carlos-emr is built for amd64 only: it carries the pinned Chromium that renders
+saved eForms to PDF (eForm print, fax and archive have no other path), run as
+the carlos-emr-render-browser service. carlos-emr-eform-renderer, the separate
+renderer package through 2026.08.0-alpha13, is replaced by carlos-emr and is
+no longer built, not even as a transitional package; see "Upgrading from
+2026.08.0-alpha13 or earlier" below. A transitional copy left installed by
+alpha14 through alpha17 owns no files and can be removed at any time.
 
 apt normally prints this while installing a local .deb, and it is harmless:
 
@@ -97,10 +129,18 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
                                          and read-only to the service account
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
+  /usr/share/carlos-emr/o19-manifest/    the OSCAR 19 import manifests (JSON;
+                                         read by carlos-ctl import-o19)
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
-                                         chromedriver (carlos-emr-eform-renderer)
-  /usr/sbin/carlos-ctl                    the administration command
+                                         chromedriver (run by the
+                                         carlos-emr-render-browser service)
+  /usr/sbin/carlos-ctl                    the administration command -- the
+                                         separate carlos-ctl package, which
+                                         carlos-emr depends on (its code is
+                                         under /usr/lib/carlos-ctl; through
+                                         2026.08.0~alpha15 it was part of
+                                         carlos-emr)
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
   /etc/carlos-emr/carlos.properties      application configuration + credentials
@@ -168,6 +208,14 @@ upgrade, compare them against the current reference copies in
                   repository, its passphrase, or the backup credential. A
                   compromise of the EMR therefore cannot destroy or decrypt
                   the backups you would recover from.
+  carlos-render   the eForm render browser (carlos-emr-render-browser.service):
+                  chromedriver and the Chromium it launches, on loopback only.
+                  A member of NO group, including `carlos`: it owns nothing
+                  but a scratch home (/var/lib/carlos-emr/renderer) and cannot
+                  read patient documents or any credential. Its unit is the
+                  only one on the host allowed to create namespaces, which is
+                  what lets Chromium keep its own sandbox; see
+                  /usr/lib/sysusers.d/carlos-emr.conf for the full reasoning.
   www-data        nginx, the only process listening on a public interface.
   mysql           MariaDB, listening on loopback only.
 
@@ -355,7 +403,15 @@ messages, ticklers and the rest of the survey in ids 1010 and 1100-1199 — and,
 through a GENERATED companion file, from the narrative cells of the encounter
 forms (Rourke, BCAR, the mental-health assessments and the rest:
 REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
-save route and form class). Two things are left inspected ON PURPOSE. The
+save route and form class). The two report-authoring tools whose input IS SQL
+-- Query By Example (and its favourites) and the Report by Template editor --
+are exempted from the SQLi family on their specific arguments (ids 1400-1402;
+the template document from the XSS family too). The application checks the
+statement shape itself: before any QBE query runs (a favourite is stored text
+that only ever runs through that same check), and when a template is saved as
+well as before it runs. Those application checks are the only control on these
+arguments: the WAF no longer inspects them, malicious SQL included. Two things are left
+inspected ON PURPOSE. The
 survey rules (1100-1199) and the generated form rules (1200-1399) keep the XSS
 family ON every argument they exempt, so raw HTML markup pasted into a
 referral or a master-record note still answers 403: that layer is defence in
@@ -687,12 +743,31 @@ sequence has been exercised end to end (DROP DATABASE and back):
 8. Upgrades
 -----------
 
-`apt upgrade` of this package stops the application FIRST (the packaging's
+Upgrading this package -- `sudo apt install --no-remove` of the newer release
+files, as in section 0; a plain `apt upgrade` does nothing, because these
+packages are not served from an apt repository -- stops the application FIRST (the packaging's
 preinst stops the service and timers before unpack — replacing the exploded
 webapp underneath a running JVM is not safe), replaces the webapp, re-renders
 the derived configuration, runs `carlos-ctl db-migrate`, and starts the
 service again. Plan the maintenance window for the whole operation: unpack of
-the ~400 MB webapp plus migration plus the ~2-minute redeploy.
+the ~400 MB webapp plus migration plus the ~2-minute redeploy. The application
+deploys ONCE per apt transaction, even though carlos-emr and carlos-emr-drugref
+both need it restarted: both activate the carlos-emr-restart dpkg trigger, and
+the restart runs after every package in the transaction is configured. apt
+returns only after the application (and DrugRef, if installed) answers, so a
+`carlos-ctl check` straight afterwards reflects the finished system.
+
+Upgrading from 2026.08.0-alpha13 or earlier: the eForm renderer, then its own
+package, is now part of carlos-emr, and no transitional package is shipped,
+so apt must remove the old renderer package. Run the upgrade WITHOUT
+--no-remove and check that carlos-emr-eform-renderer is the only package apt
+proposes to remove. The render token carries over: the postinst moves it from
+/etc/carlos-emr/render-browser.env to /etc/carlos-emr/renderer.env, and the
+browser now runs as carlos-emr-render-browser.service with its home in
+/var/lib/carlos-emr/renderer. Removing or purging the old renderer package,
+now or later, touches none of those -- though purging the removed old
+renderer later runs its old script, which re-applies the configuration and restarts
+the EMR once, so do it outside clinic hours.
 
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
@@ -716,6 +791,32 @@ the rename is deferred; catch up with
 Grants on the old `oscar` schema are left behind by the rename (harmless —
 db-users grants on the new name during the same configure); drop them by hand
 if you want a tidy grant table.
+
+OAuth integrations (/ws/oauth, /ws/services): by default an approved
+third-party app gets the restricted legacy access: the scopes it requests
+are recorded but not checked, and it may call only the legacy integration
+endpoints (create, update and read a patient, attach a document); anything
+else answers 403 restricted_endpoint. That is what the legacy
+patient-engagement integration needs and nothing more. Two settings in
+/etc/carlos-emr/carlos.properties change it, and both are server-wide (they
+apply to every OAuth client at once; there is no per-client exception):
+  oauth.scope.enforcement.enabled=true   scopes are enforced: an app must
+      request known <domain>.read / <domain>.write scopes at
+      /ws/oauth/initiate (400 invalid_scope otherwise) and each /ws/services
+      call needs the scope its endpoint requires (403 insufficient_scope
+      otherwise). Tokens already issued keep the scopes they were granted;
+      one granted none has to be re-authorized.
+  oauth.scope.legacy.access=full          while enforcement is not on, an
+      approved app may call everything its approving provider can.
+Restart after a change (sudo carlos-ctl restart). The consent page tells
+providers which mode is in force. In every mode a few endpoints stay closed
+to all OAuth clients (403 blocked_endpoint): the scheduled-job service, the
+account-rights lookups, patient record merges, provider settings writes and
+the recently-viewed lists. The first upgrade to this release resets either
+setting to the default once if it was set otherwise (see the postinst);
+after that the values stay as the operator sets them. The front door
+rate-limits /ws/services and /ws/oauth/authorize per client address
+(carlos_wsapi in conf.d/carlos-emr-limits.conf; excess answers 429).
 
 
 9. Log retention   (DECIDE THIS)
@@ -772,7 +873,7 @@ and in backup.env, to your own obligations.
   sudo carlos-ctl logs -n 200          application server log
   sudo carlos-ctl logs -f              follow it live
   sudo journalctl -u nginx -n 100      front door
-  sudo journalctl -u carlos-emr-chromedriver -n 100
+  sudo journalctl -u carlos-emr-render-browser -n 100
                                        the eForm render browser (its OWN unit —
                                        it does not log to the application log)
   sudo journalctl -u mariadb -n 100    the database
@@ -787,7 +888,7 @@ Which log holds what
                                        journal for carlos-emr.service; the same
                                        content is on disk under
                                        /var/log/carlos-emr/tomcat/.
-    journalctl -u carlos-emr-chromedriver
+    journalctl -u carlos-emr-render-browser
                                        the browser that renders eForms to PDF.
                                        Separate service, separate journal — a
                                        render failure often leaves nothing in the
@@ -896,8 +997,8 @@ eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:
 
-    sudo systemctl status carlos-emr-chromedriver
-    sudo journalctl -u carlos-emr-chromedriver -n 50
+    sudo systemctl status carlos-emr-render-browser
+    sudo journalctl -u carlos-emr-render-browser -n 50
     sudo carlos-ctl logs | grep -i "renderer"
 
   At startup the application probes the browser once and says so. Look for
@@ -923,8 +1024,9 @@ eForm print, fax or archive fails
 
       carlos-ctl logs | grep '<reference>'
 
-  If the renderer package is not installed at all, that is expected and the
-  application says so once at startup rather than failing a print later.
+  The render browser ships inside carlos-emr. Only a development build made
+  with SKIP_EFORM_RENDERER lacks it; the application then says so once at
+  startup rather than failing a print later.
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the

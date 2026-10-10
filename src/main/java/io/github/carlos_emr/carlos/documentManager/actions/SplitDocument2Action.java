@@ -1,42 +1,9 @@
-/**
- * Copyright (c) 2008-2012 Indivica Inc.
- * <p>
- * This software is made available under the terms of the
- * GNU General Public License, Version 2, 1991 (GPLv2).
- * License details are available via "indivica.ca/gplv2"
- * and "gnu.org/licenses/gpl-2.0.html".
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
- * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
- */
+/* Copyright (c) 2008-2012 Indivica Inc.; 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.CarlosProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageTree;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
@@ -51,361 +18,300 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock;
+import io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision;
+import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
-
-import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
-import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
-
-
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/** Stored-document page operations. A capacity refusal always precedes publication/persistence. */
 public class SplitDocument2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+    private final transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private static final ObjectMapper JSON = new ObjectMapper();
 
-    private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
-    private transient OutboundEmailArchiveDao outboundEmailArchiveDao = SpringUtils.getBean(OutboundEmailArchiveDao.class);
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
-
-    public String execute() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
+    @Override public String execute() throws IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return reject(405, false, false, "Document changes require POST");
         }
-
         String method = request.getParameter("method");
-        if ("split".equals(method)) {
-            return split();
-        } else if ("rotate180".equals(method)) {
-            return rotate180();
-        } else if ("rotate90".equals(method)) {
-            return rotate90();
-        } else if ("removeFirstPage".equals(method)) {
-            return removeFirstPage();
-        } 
-        return SUCCESS;
+        if ("split".equals(method)) return split();
+        if ("rotate180".equals(method)) return rotate180();
+        if ("rotate90".equals(method)) return rotate90();
+        if ("removeFirstPage".equals(method)) return removeFirstPage();
+        return reject(400, false, false, "Unknown document operation");
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. path validated for directory containment via PathValidationUtils before use")
-    public String split() {
-        String docNum = request.getParameter("document");
-        assertNotOutboundEmailArchiveDocument(docNum);
-        String[] commands = request.getParameterValues("page");
-        String queueId = request.getParameter("queueID");
+    public String split() throws IOException { return perform(SplitDocumentPdfWork.Operation.SPLIT); }
+    public String rotate180() throws IOException { return perform(SplitDocumentPdfWork.Operation.ROTATE_180); }
+    public String rotate90() throws IOException { return perform(SplitDocumentPdfWork.Operation.ROTATE_90); }
+    public String removeFirstPage() throws IOException { return perform(SplitDocumentPdfWork.Operation.REMOVE_FIRST); }
 
-        /*
-         * Default Queue is always 1 if not specified
-         */
-        if (queueId == null || queueId.isEmpty()) {
-            queueId = "1";
+    // Spring transaction callbacks change Publication.mutationStarted after publish;
+    // failed/unknown commit must retain accepted=true. The second revision check
+    // also throws after Publication is assigned. SplitDocument2ActionUnitTest covers
+    // uncertainCommitKeepsPublishedFileAndForbidsReplay and
+    // replacementOutsideTheLeaseDuringPreparationIsDetectedAgainBeforePublication.
+    @SuppressWarnings("java:S2583") // Symbolic execution misses publication state across transaction callbacks.
+    private String perform(SplitDocumentPdfWork.Operation operation) throws IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return reject(405, false, false, "Document changes require POST");
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        Document doc = documentDao.getDocument(docNum);
-        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
-
-        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (!docdownload.endsWith(File.separator)) {
-            docdownload = docdownload + File.separator;
-        }
-
-        String newFilename = doc.getDocfilename();
-
-        PDDocument pdf = null;
-        PDDocument newPdf = null;
-
+        SplitDocumentPdfWork.Publication publication = null;
         try {
-            File docDir = new File(docdownload);
-            File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
-            pdf = Loader.loadPDF(input);
-
-            newPdf = new PDDocument();
-
-            PDPageTree pages = pdf.getDocumentCatalog().getPages();
-
-            if (commands != null) {
-                for (String c : commands) {
-                    String[] command = c.split(",");
-                    int pageNum = Integer.parseInt(command[0]);
-                    int rotation = Integer.parseInt(command[1]);
-
-                    PDPage p = (PDPage) pages.get(pageNum - 1);
-                    p.setRotation(rotation);
-
-                    newPdf.addPage(p);
-                }
-
+            LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (info == null || !securityInfoManager.hasPrivilege(info, "_edoc", "w", null)) {
+                throw new SecurityException("Document write access is required");
             }
-
-            if (newPdf.getNumberOfPages() > 0) {
-
-
-                EDoc newDoc = new EDoc("", "", newFilename, "", providerNo, doc.getDoccreator(), "", 'A', DateFormatUtils.format(new Date(), "yyyy-MM-dd"), "", "", "demographic", "-1", 0);
-                newDoc.setDocPublic("0");
-                newDoc.setContentType("application/pdf");
-                newDoc.setNumberOfPages(newPdf.getNumberOfPages());
-
-                String newDocNo = EDocUtil.addDocumentSQL(newDoc);
-
-                // Validate the user-sourced filename component to prevent path traversal;
-                // docdownload (the base directory) comes from server-side configuration.
-                File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
-                Path pdfPath = safeFile.toPath();
-                // Atomically create the file with owner-only permissions before writing content,
-                // eliminating the window where a new file exists with default world-readable permissions.
-                // On non-POSIX filesystems, falls back to creating without explicit permissions.
-                try {
-                    Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
-                } catch (UnsupportedOperationException e) {
-                    MiscUtils.getLogger().warn("POSIX file permissions not supported; creating PDF without "
-                            + "restricted permissions: " + pdfPath);
-                    Files.createFile(pdfPath);
-                }
-                newPdf.save(pdfPath.toString());
-                newPdf.close();
-
-
-                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean("queueDocumentLinkDao");
-                //providerInboxRoutingDao.addToProviderInbox("0", Integer.parseInt(newDocNo), "DOC");
-
-                List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docNum));
-                for (ProviderInboxItem i : routeList) {
-                    providerInboxRoutingDao.addToProviderInbox(i.getProviderNo(), Integer.parseInt(newDocNo), "DOC");
-                }
-
-                providerInboxRoutingDao.addToProviderInbox(providerNo, Integer.parseInt(newDocNo), "DOC");
-
-                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean("queueDocumentLinkDao");
-                Integer did = Integer.parseInt(newDocNo.trim());
-                queueDocumentLinkDAO.addActiveQueueDocumentLink(Integer.parseInt(queueId), did);
-
-                ProviderLabRoutingDao providerLabRoutingDao = (ProviderLabRoutingDao) SpringUtils.getBean(ProviderLabRoutingDao.class);
-
-                List<ProviderLabRoutingModel> result = providerLabRoutingDao.getProviderLabRoutingDocuments(Integer.parseInt(docNum));
-                if (!result.isEmpty()) {
-                    new ProviderLabRouting().route(newDocNo,
-                            result.get(0).getProviderNo(), "DOC");
-                }
-
-                PatientLabRoutingDao patientLabRoutingDao = (PatientLabRoutingDao) SpringUtils.getBean(PatientLabRoutingDao.class);
-                List<PatientLabRouting> result2 = patientLabRoutingDao.findDocByDemographic(Integer.parseInt(docNum));
-
-                if (!result2.isEmpty()) {
-                    PatientLabRouting newPatientRoute = new PatientLabRouting();
-
-                    newPatientRoute.setDemographicNo(result2.get(0).getDemographicNo());
-                    newPatientRoute.setLabNo(Integer.parseInt(newDocNo));
-                    newPatientRoute.setLabType("DOC");
-
-                    patientLabRoutingDao.persist(newPatientRoute);
-                }
-
-                CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
-                CtlDocument result3 = ctlDocumentDao.getCtrlDocument(Integer.parseInt(docNum));
-
-                if (result3 != null) {
-                    CtlDocumentPK ctlDocumentPK = new CtlDocumentPK(Integer.parseInt(newDocNo), "demographic");
-                    CtlDocument newCtlDocument = new CtlDocument();
-                    newCtlDocument.setId(ctlDocumentPK);
-                    newCtlDocument.getId().setModuleId(result3.getId().getModuleId());
-                    newCtlDocument.setStatus(result3.getStatus());
-                    documentDao.merge(newCtlDocument);
-                }
-
-                if (result.isEmpty() || result2.isEmpty()) {
-                    ObjectNode jsonObject = objectMapper.createObjectNode();
-                    jsonObject.put("newDocNum", newDocNo);
-                    response.setContentType("application/json");
-                    PrintWriter printWriter = response.getWriter();
-                    printWriter.print(jsonObject);
-                    printWriter.flush();
-                    return null;
-
-                }
-
-
+            String documentValue = request.getParameter("document");
+            if (!IncomingDocumentCapacityResponse.positiveId(documentValue)) throw new IllegalArgumentException("Invalid document");
+            int documentNo = Integer.parseInt(documentValue);
+            // Refuse archive eDocs by id before the document is loaded; the filename alias is
+            // checked once it is known, and both are rechecked under the source lease.
+            assertNotOutboundEmailArchiveDocument(documentValue);
+            String[] revisionValues = request.getParameterValues("sourceRevision");
+            if (revisionValues == null || revisionValues.length != 1 || !StoredDocumentRevision.valid(revisionValues[0])) {
+                throw new StoredDocumentRevision.ConflictException();
             }
+            String observedRevision = revisionValues[0];
+            boolean split = operation == SplitDocumentPdfWork.Operation.SPLIT;
+            String queue = request.getParameter("queueID");
+            if (queue == null || queue.isEmpty()) queue = "1";
+            if (split) IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, info, queue);
+            List<SplitDocumentPdfWork.PageSelection> selections = split
+                    ? SplitDocumentPdfWork.selections(request.getParameterValues("page")) : List.of();
+            Document document = requireDocument(documentValue);
+            assertNotOutboundEmailArchiveFileName(document.getDocfilename());
+            authorize(info, documentNo);
+            File directory = PathValidationUtils.validateConfiguredDirectory(
+                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            File source = StoredDocumentRevision.resolveStoredChild(directory, document.getDocfilename());
+            try (IncomingDocumentMutationLock.Lease lease = IncomingDocumentMutationLock.acquire(source, directory)) {
+                document = requireDocument(documentValue);
+                File current = StoredDocumentRevision.resolveStoredChild(directory, document.getDocfilename());
+                if (!current.getCanonicalFile().equals(lease.source())) throw new SecurityException("Document changed while waiting");
+                assertNotOutboundEmailArchiveDocument(documentValue);
+                assertNotOutboundEmailArchiveFileName(document.getDocfilename());
+                authorize(info, documentNo);
+                StoredDocumentRevision.requireMatch(lease.source().toPath(), observedRevision);
+                try (SplitDocumentPdfWork.Prepared prepared = prepare(lease.source().toPath(), directory.toPath(), operation, selections)) {
+                    String committedRevision = split ? observedRevision : StoredDocumentRevision.sha256(prepared.pdf);
+                    // Under the source lease, renderers cannot republish old pages. A
+                    // cache deletion failure must refuse the edit before changing bytes.
+                    if (!split) invalidateCaches(document, prepared.originalPageCount);
+                    publication = new SplitDocumentPdfWork.Publication(prepared, lease.source().toPath(), !split);
+                    int newDocumentNo = persist(documentNo, split ? Integer.parseInt(queue) : 1, info, publication, observedRevision);
+                    if (!publication.committed || publication.uncertain) throw new IOException("Document transaction outcome is unconfirmed");
+                    ObjectNode result = JSON.createObjectNode().put("success", true).put("accepted", true)
+                            .put("sourceRevision", committedRevision);
+                    if (split) result.put("newDocNum", newDocumentNo);
+                    else result.put("pageCount", prepared.pageCount).put("document", documentNo);
+                    // Cleanup failure must be visible before reporting success. close is idempotent.
+                    prepared.close();
+                    write(200, result);
+                    return NONE;
+                }
+            }
+        } catch (StoredDocumentRevision.ConflictException changed) {
+            if (publication != null && publication.mutationStarted) {
+                return reject(500, true, false, "Document outcome is unconfirmed; do not submit again");
+            }
+            write(409, JSON.createObjectNode().put("success", false).put("accepted", false)
+                    .put("retryable", false).put("sourceChanged", true)
+                    .put("error", "The document changed. Refresh it before submitting a new selection."));
+            return NONE;
+        } catch (BoundedPdfTask.BusyException busy) {
+            boolean accepted = publication != null && publication.mutationStarted;
+            if (!accepted) response.setHeader("Retry-After", "1");
+            return reject(accepted ? 500 : 503, accepted, !accepted,
+                    accepted ? "Document outcome is unconfirmed; do not submit again" : "Document server is busy; waiting is safe");
+        } catch (SecurityException denied) {
+            return reject(403, publication != null && publication.mutationStarted, false, "Document access denied");
+        } catch (IllegalArgumentException invalid) {
+            return reject(400, publication != null && publication.mutationStarted, false, "Invalid document or page selection");
+        } catch (NoSuchFileException missing) {
+            return reject(404, publication != null && publication.mutationStarted, false, "Document is no longer available");
+        } catch (IOException | RuntimeException failure) {
+            boolean accepted = publication != null && publication.mutationStarted;
+            MiscUtils.getLogger().error("Stored document page operation failed; acceptance uncertain: " + accepted, failure);
+            if (response.isCommitted()) throw new IOException("Document response could not be delivered", failure);
+            return reject(accepted ? 500 : 422, accepted, false,
+                    accepted ? "Document outcome is unconfirmed; do not submit again" : "Document could not be changed");
+        }
+    }
 
-        } catch (Exception e) {
-            MiscUtils.getLogger().error(e.getMessage(), e);
-            return null;
-        } finally {
+    private Document requireDocument(String number) throws NoSuchFileException {
+        Document document = documentDao.getDocument(number);
+        if (document == null || document.getStatus() == 'D') throw new NoSuchFileException("Document unavailable");
+        return document;
+    }
+
+    private void authorize(LoggedInInfo info, int documentNo) {
+        IncomingDocumentCapacityResponse.requireRefileSourceAccess(securityInfoManager, info, documentNo);
+        Set<Integer> patients = new HashSet<>();
+        for (CtlDocument link : SpringUtils.getBean(CtlDocumentDao.class).findByDocumentNoAndModule(documentNo, "demographic")) {
+            if (link.getId().getModuleId() != null) patients.add(link.getId().getModuleId());
+        }
+        for (PatientLabRouting route : SpringUtils.getBean(PatientLabRoutingDao.class).findDocByDemographic(documentNo)) {
+            patients.add(route.getDemographicNo());
+        }
+        // "true" is the required positive value, not a default: absent/false
+        // properties deny content changes after any positive patient assignment.
+        // authorize runs before work, after lease admission, and again inside
+        // the transaction so an assignment made while waiting cannot be bypassed.
+        boolean allowAssignedContentChanges = CarlosProperties.getInstance()
+                .getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true");
+        for (Integer patient : patients) {
+            if (patient != null && patient > 0 && !allowAssignedContentChanges) {
+                throw new SecurityException("Assigned document content changes are disabled");
+            }
+            if (patient != null && patient > 0 && (!securityInfoManager.isAllowedAccessToPatientRecord(info, patient)
+                    || !securityInfoManager.hasPrivilege(info, "_edoc", "w", patient.toString()))) {
+                throw new SecurityException("Patient document write access denied");
+            }
+        }
+    }
+
+    protected SplitDocumentPdfWork.Prepared prepare(Path source, Path directory, SplitDocumentPdfWork.Operation operation,
+                                                    List<SplitDocumentPdfWork.PageSelection> selections) throws IOException {
+        return SplitDocumentPdfWork.prepare(source, directory, operation, selections);
+    }
+
+    private int persist(int sourceNo, int queue, LoggedInInfo info,
+                        SplitDocumentPdfWork.Publication publication, String observedRevision) {
+        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return Objects.requireNonNull(transaction.execute(status -> {
+            TransactionSynchronizationManager.registerSynchronization(publication);
+            Document current = documentDao.findForPageMutation(sourceNo);
+            if (current == null || current.getStatus() == 'D') throw new IllegalArgumentException("Document no longer available");
+            File root = publication.prepared.directory.getParent().toFile();
+            File currentFile = StoredDocumentRevision.resolveStoredChild(root, current.getDocfilename());
             try {
-
-                if (pdf != null) pdf.close();
-
-            } catch (IOException e) {
-                //do nothing
-            }
-        }
-
-        return SUCCESS;
-    }
-
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public String rotate180() throws Exception {
-        String documentNo = request.getParameter("document");
-        assertNotOutboundEmailArchiveDocument(documentNo);
-        Document doc = documentDao.getDocument(documentNo);
-        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
-
-        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File docDir = new File(docdownload);
-        File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
-        PDDocument pdf = Loader.loadPDF(input);
-        setFilePermissions(input);
-        int x = 1;
-        for (Object p : pdf.getDocumentCatalog().getPages()) {
-            PDPage pg = (PDPage) p;
-            int r = pg.getRotation();
-            pg.setRotation((r + 180) % 360);
-
-            ManageDocument2Action.deleteCacheVersion(doc, x);
-            x++;
-        }
-
-        saveFile(pdf, input.getPath());
-
-        return null;
-    }
-
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public String rotate90() throws Exception {
-        String documentNo = request.getParameter("document");
-        assertNotOutboundEmailArchiveDocument(documentNo);
-        Document doc = documentDao.getDocument(documentNo);
-        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
-
-        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File docDir = new File(docdownload);
-        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
-
-        PDDocument pdf = Loader.loadPDF(file);
-        int x = 1;
-        for (Object p : pdf.getDocumentCatalog().getPages()) {
-            PDPage pg = (PDPage) p;
-            int r = pg.getRotation();
-            pg.setRotation((r + 90) % 360);
-
-            ManageDocument2Action.deleteCacheVersion(doc, x);
-            x++;
-        }
-
-        saveFile(pdf, file.getPath());
-
-        return null;
-    }
-
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    public String removeFirstPage() throws Exception {
-        String documentNo = request.getParameter("document");
-        // Must run before the PDF is opened or saved. EDocUtil.subtractOnePage also guards, but
-        // this action rewrites the bytes first and updates the page count afterwards.
-        assertNotOutboundEmailArchiveDocument(documentNo);
-        Document doc = documentDao.getDocument(documentNo);
-        assertNotOutboundEmailArchiveFileName(doc != null ? doc.getDocfilename() : null);
-
-        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File docDir = new File(docdownload);
-        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
-
-        PDDocument pdf = Loader.loadPDF(file);
-
-        // Documents must have at least 2 pages, for the first page to be removed.
-        if (pdf.getNumberOfPages() <= 1) {
-            return null;
-        }
-
-        setFilePermissions(file);
-
-        int x = 1;
-        for (Object p : pdf.getDocumentCatalog().getPages()) {
-            ManageDocument2Action.deleteCacheVersion(doc, x);
-            x++;
-        }
-
-        pdf.removePage(0);
-        if (saveFile(pdf, file.getPath())) {
-            EDocUtil.subtractOnePage(documentNo);
-        }
-
-        return null;
-    }
-
-    /**
-     * @param pdf      The pdf document
-     * @param fileName The file name string
-     * @return A boolean value indicating if the file was successfully saved without errors
-     */
-    private boolean saveFile(PDDocument pdf, String fileName) {
-        List<String> errors = new ArrayList<String>();
-        try {
-            pdf.save(fileName);
-        } catch (IOException ioe) {
-            errors.add(ioe.getMessage());
-            MiscUtils.getLogger().error("Error", ioe);
-        } finally {
+                if (!currentFile.getCanonicalFile().toPath().equals(publication.source)) throw new SecurityException("Document identity changed");
+            } catch (IOException failure) { throw new UncheckedIOException(failure); }
+            authorize(info, sourceNo);
+            if (!publication.replacement) IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, info, String.valueOf(queue));
             try {
-                if (pdf != null) pdf.close();
-            } catch (IOException ioeClose) {
-                errors.add(ioeClose.getMessage());
-                MiscUtils.getLogger().error("Error", ioeClose);
+                // Also cover other document-replacement paths that do not use this
+                // source lease. A changed file must never receive prepared stale pages.
+                StoredDocumentRevision.requireMatch(publication.source, observedRevision);
+                publication.publish();
             }
-            if (errors.size() > 0) {
-                for (String errorMessage : errors) {
-                    MiscUtils.getLogger().error(errorMessage);
-                }
-                return false;
-            } else {
-                return true;
+            catch (IOException failure) { throw new UncheckedIOException(failure); }
+            if (publication.replacement) {
+                documentDao.updatePageCount(sourceNo, publication.prepared.pageCount);
+                return sourceNo;
             }
+            return persistSplit(current, sourceNo, queue, info, publication);
+        }), "Document transaction did not return a result");
+    }
+
+    private int persistSplit(Document source, int sourceNo, int queue, LoggedInInfo info,
+                             SplitDocumentPdfWork.Publication publication) {
+        String provider = info.getLoggedInProviderNo();
+        CtlDocumentDao links = SpringUtils.getBean(CtlDocumentDao.class);
+        CtlDocument primary = links.getCtrlDocument(sourceNo);
+        String module = primary == null ? "demographic" : primary.getId().getModule();
+        String moduleId = primary == null ? "-1" : String.valueOf(primary.getId().getModuleId());
+        EDoc copy = new EDoc("", "", publication.target.getFileName().toString(), "", provider,
+                source.getDoccreator(), "", 'A', LocalDate.now().toString(), "", "", module, moduleId,
+                publication.prepared.pageCount);
+        // EDoc's constructor generates a filename; persistence must use our exact publication.
+        copy.setFileName(publication.target.getFileName().toString());
+        copy.setDocPublic("0");
+        copy.setContentType("application/pdf");
+        copy.setProgramId(source.getProgramId());
+        copy.setRestrictToProgram(Boolean.TRUE.equals(source.isRestrictToProgram()));
+        int newNo = Integer.parseInt(EDocUtil.addDocumentSQL(copy));
+        if (newNo <= 0) throw new IllegalStateException("Invalid persisted document identity");
+        ProviderInboxRoutingDao inbox = SpringUtils.getBean(ProviderInboxRoutingDao.class);
+        Set<String> providers = new HashSet<>();
+        for (ProviderInboxItem item : inbox.getProvidersWithRoutingForDocument("DOC", sourceNo)) providers.add(item.getProviderNo());
+        providers.add(provider);
+        for (String recipient : providers) inbox.addToProviderInboxStrict(recipient, newNo, "DOC");
+        SpringUtils.getBean(QueueDocumentLinkDao.class).addActiveQueueDocumentLink(queue, newNo);
+        List<ProviderLabRoutingModel> routes = SpringUtils.getBean(ProviderLabRoutingDao.class).getProviderLabRoutingDocuments(sourceNo);
+        if (!routes.isEmpty()) routeProvider(String.valueOf(newNo), routes.get(0).getProviderNo());
+        PatientLabRoutingDao patientRoutes = SpringUtils.getBean(PatientLabRoutingDao.class);
+        Set<Integer> patients = new HashSet<>();
+        for (PatientLabRouting original : patientRoutes.findDocByDemographic(sourceNo)) {
+            if (!patients.add(original.getDemographicNo())) continue;
+            PatientLabRouting route = new PatientLabRouting();
+            route.setDemographicNo(original.getDemographicNo());
+            route.setLabNo(newNo);
+            route.setLabType("DOC");
+            patientRoutes.persist(route);
         }
+        // Preserve the kind of the primary link (including provider/case modules),
+        // and every demographic link rather than silently dropping all but one.
+        if (primary != null) copyLink(links, primary, newNo);
+        for (CtlDocument link : links.findByDocumentNoAndModule(sourceNo, "demographic")) copyLink(links, link, newNo);
+        return newNo;
+    }
+
+    protected void routeProvider(String documentNo, String provider) { new ProviderLabRouting().routeMagic(Integer.parseInt(documentNo), provider, "DOC"); }
+
+    private static void copyLink(CtlDocumentDao dao, CtlDocument source, int documentNo) {
+        CtlDocument copy = new CtlDocument();
+        copy.setId(new CtlDocumentPK(source.getId().getModule(), source.getId().getModuleId(), documentNo));
+        copy.setStatus(source.getStatus());
+        dao.merge(copy);
+    }
+
+    protected void invalidateCaches(Document document, int originalPages) throws IOException {
+        for (int page = 1; page <= originalPages; page++) ManageDocument2Action.deleteCacheVersionChecked(document, page);
+    }
+
+    private String reject(int status, boolean accepted, boolean retryable, String message) throws IOException {
+        write(status, JSON.createObjectNode().put("success", false).put("accepted", accepted)
+                .put("retryable", retryable).put("error", message));
+        return NONE;
+    }
+
+    private void write(int status, ObjectNode payload) throws IOException {
+        response.setStatus(status);
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("application/json;charset=UTF-8");
+        JSON.writeValue(response.getWriter(), payload);
     }
 
     /**
-     * Sets file permissions for the file that is being modified, restricting
-     * access to the owner only (rw-------).
+     * Refuses split, rotate and remove-first-page on an outbound email archive eDoc.
      *
-     * <p>Requires a POSIX-compliant filesystem (Linux/macOS). On non-POSIX
-     * filesystems (e.g., Windows/FAT32) the call is a no-op with a warning logged.</p>
-     *
-     * @param file A file
-     */
-    private void setFilePermissions(File file) {
-        try {
-            Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
-        } catch (UnsupportedOperationException e) {
-            MiscUtils.getLogger().warn("POSIX file permissions not supported on this filesystem; "
-                    + "file permissions could not be restricted: " + file.getAbsolutePath());
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error setting file permissions on " + file.getAbsolutePath(), e);
-        }
-    }
-    /**
-     * Refuses split and rotate on an outbound email archive eDoc.
-     *
-     * <p>Both operations rewrite the stored file in place. Doing that to an archive artifact
+     * <p>Page operations rewrite or derive from the stored file. Rewriting an archive artifact
      * silently invalidates the SHA-256 the archive recorded, so the record would no longer match
      * what was actually sent -- and the mismatch would surface later as an integrity failure on
      * read, long after the cause.</p>

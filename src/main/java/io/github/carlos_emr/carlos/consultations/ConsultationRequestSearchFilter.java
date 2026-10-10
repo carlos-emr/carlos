@@ -49,7 +49,13 @@ public class ConsultationRequestSearchFilter {
     private Date appointmentStartDate;
     private Date appointmentEndDate;
     private Integer demographicNo;
-    private Integer mrpNo;
+    /**
+     * MRP {@code demographic.provider_no}. Provider numbers are string identifiers (leading zeros are
+     * significant), so this is kept as text end to end; null or blank means any MRP.
+     */
+    private String mrpNo;
+    /** {@code professionalSpecialists.specId} the request was sent to; null or non-positive means any. */
+    private Integer consultantId;
     private String urgency;
     private SORTMODE sortMode = SORTMODE.ReferralDate;
     private SORTDIR sortDir = SORTDIR.desc;
@@ -121,12 +127,20 @@ public class ConsultationRequestSearchFilter {
         this.demographicNo = demographicNo;
     }
 
-    public Integer getMrpNo() {
+    public String getMrpNo() {
         return mrpNo;
     }
 
-    public void setMrpNo(Integer mrpNo) {
+    public void setMrpNo(String mrpNo) {
         this.mrpNo = mrpNo;
+    }
+
+    public Integer getConsultantId() {
+        return consultantId;
+    }
+
+    public void setConsultantId(Integer consultantId) {
+        this.consultantId = consultantId;
     }
 
     public String getUrgency() {

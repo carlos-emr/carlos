@@ -113,8 +113,14 @@ class SchedulePageStatusUpdateRegressionTest {
     private static final Pattern DAY_VIEW_STATUS_HAS_DOUBLE_DELIMITER = Pattern.compile(
             "day=<%=day%>&amp;<%=viewString%>");
 
+    // The shared predicate, not an exact header match. CSRFGuard's client script appends its own
+    // marker to whatever jQuery set, so the real header is "XMLHttpRequest, OWASP CSRFGuard
+    // Project"; an equals check classified this POST as a page request and left the reply as
+    // text/html for the response-decorating filters to append their script blocks to.
     private static final Pattern ADD_STATUS_DETECTS_AJAX = Pattern.compile(
-            "\"XMLHttpRequest\"\\.equals\\(request\\.getHeader\\(\"X-Requested-With\"\\)\\)", Pattern.DOTALL);
+            "RequestNegotiation\\.isAjax\\(\\s*request\\s*\\)", Pattern.DOTALL);
+    private static final Pattern ADD_STATUS_EXACT_HEADER_MATCH = Pattern.compile(
+            "\"XMLHttpRequest\"\\.equals(IgnoreCase)?\\(\\s*request\\.getHeader", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_RETURNS_URL_FOR_AJAX = Pattern.compile(
             "out\\.print\\s*\\(\\s*displaypage\\s*\\)", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_DELEGATES_ATOMIC_TRANSITION = Pattern.compile(
@@ -210,6 +216,10 @@ class SchedulePageStatusUpdateRegressionTest {
         // The mutation JSP must return the refreshed URL on success. Failures
         // are explicit HTTP errors mapped from the service exception above.
         assertThat(matches(addStatus, ADD_STATUS_DETECTS_AJAX)).isTrue();
+        // and never by comparing the raw header again, in either JSP
+        assertThat(matches(addStatus, ADD_STATUS_EXACT_HEADER_MATCH)).isFalse();
+        assertThat(matches(providerControl, ADD_STATUS_DETECTS_AJAX)).isTrue();
+        assertThat(matches(providerControl, ADD_STATUS_EXACT_HEADER_MATCH)).isFalse();
         assertThat(ajaxResponseBranches)
                 .anyMatch(branch -> matches(branch, ADD_STATUS_RETURNS_URL_FOR_AJAX));
         assertThat(matches(addStatus, ADD_STATUS_AJAX_ERROR_SETS_STATUS)).isTrue();

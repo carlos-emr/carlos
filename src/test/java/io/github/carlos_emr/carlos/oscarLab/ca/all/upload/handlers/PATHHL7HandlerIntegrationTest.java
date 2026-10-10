@@ -25,92 +25,109 @@
  */
 package io.github.carlos_emr.carlos.oscarLab.ca.all.upload.handlers;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
-import java.net.URL;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.utils.AuthUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Integration tests for PATHL7 handler upload processing.
- *
- * <p>Migrated from legacy JUnit 4 parameterized {@code PATHHL7HandlerTest}.
- * The legacy test was marked with {@code @Ignore} pending issue resolution.
- * This modern version preserves the same disabled status via {@code @Disabled}.</p>
- *
- * @see PATHL7Handler
- * @see MessageUploader
- * @since 2012-01-01
- */
+/** Exercises the real parser, JDBC lookup, JPA message storage and inbox routing for every fixture. */
 @Tag("integration")
 @Tag("lab")
 @Tag("upload")
-@DisplayName("PATHL7 Handler Integration Tests")
+@Isolated("MessageUploader caches Spring beans in static fields")
 class PATHHL7HandlerIntegrationTest extends CarlosTestBase {
+    @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
+    @Autowired private Hl7TextMessageDao messages;
+    @Autowired private Hl7TextInfoDao infos;
+    @Autowired private ProviderLabRoutingDao routes;
+    private final Map<Field, Object> originalBeans = new LinkedHashMap<>();
 
-    private static final Logger log = LogManager.getLogger(PATHHL7HandlerIntegrationTest.class);
+    @BeforeEach
+    void bindRealUploaderDaos() throws Exception {
+        // A unit test may have initialized this legacy class first with mocked Spring beans.
+        for (Field field : MessageUploader.class.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
+                    && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                field.setAccessible(true);
+                originalBeans.put(field, field.get(null));
+                field.set(null, applicationContext.getBean(field.getType()));
+            }
+        }
+        em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();
+    }
 
-    @Test
-    @Disabled("Skipping until underlying issue is resolved (ported from legacy @Ignore)")
-    @DisplayName("should parse and route PATHL7 lab messages from zip archive")
-    void shouldParseAndRoutePathl7LabMessages_fromZipArchive() {
-        URL url = Thread.currentThread().getContextClassLoader().getResource("excelleris_test_lab_data.zip");
-        List<String> hl7Bodies = new ArrayList<>();
+    @AfterEach
+    void restoreUploaderDaos() throws Exception {
+        for (var entry : originalBeans.entrySet()) entry.getKey().set(null, entry.getValue());
+    }
 
-        try (ZipFile zip = new ZipFile(url.getPath())) {
-            Enumeration<? extends ZipEntry> enumeration = zip.entries();
-
-            while (enumeration.hasMoreElements()) {
-                ZipEntry zipEntry = enumeration.nextElement();
-                if (zipEntry.getName().endsWith(".txt")) {
-                    log.debug(zipEntry.getName());
-                    try (InputStream is = zip.getInputStream(zipEntry)) {
-                        StringWriter writer = new StringWriter();
-                        IOUtils.copy(is, writer, StandardCharsets.UTF_8);
-                        hl7Bodies.add(writer.toString());
-                    }
+    static Stream<Arguments> labMessages() throws Exception {
+        var fixtures = new ArrayList<Arguments>();
+        InputStream resource = PATHHL7HandlerIntegrationTest.class.getResourceAsStream("/excelleris_test_lab_data.zip");
+        assertThat(resource).as("required PATHL7 archive").isNotNull();
+        try (ZipInputStream zip = new ZipInputStream(resource)) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".txt")) {
+                    fixtures.add(Arguments.of(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8)));
                 }
             }
-        } catch (IOException e) {
-            log.error("Failed to read test zip file", e);
         }
+        assertThat(fixtures).as("all six archived reports must be exercised").hasSize(6);
+        return fixtures.stream();
+    }
 
-        LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
-        int testCount = 0;
+    @ParameterizedTest(name = "should persist and route PATHL7 report {0}")
+    @MethodSource("labMessages")
+    void shouldPersistAndRoutePathl7LabMessage_whenArchiveContainsReport(String fixture, String body) throws Exception {
+        PATHL7Handler parser = new PATHL7Handler();
+        parser.init(body);
+        RouteReportResults result = new RouteReportResults();
+        MessageUploader.routeReport(AuthUtils.initLoginContext(), "PATHHL7HandlerTest", "PATHL7", body, 983440, result);
+        em.flush();
+        em.clear();
 
-        for (String hl7Body : hl7Bodies) {
-            testCount++;
-            log.info("#------------>>  Testing PATHHL7Handler Uploader for file: (" + testCount + ")");
-
-            PATHL7Handler handler = new PATHL7Handler();
-            final int count = testCount;
-            final String body = hl7Body;
-
-            assertThatNoException().isThrownBy(() -> {
-                handler.init(body);
-                MessageUploader.routeReport(loggedInInfo, "PATHHL7HandlerTest", "PATHL7", body, count, null);
-            });
-        }
+        assertThat(result.segmentId).as(fixture).isPositive();
+        var stored = messages.find(result.segmentId);
+        assertThat(stored).isNotNull();
+        assertThat(stored.getType()).isEqualTo("PATHL7");
+        assertThat(new String(Base64.getDecoder().decode(stored.getBase64EncodedeMessage()), StandardCharsets.UTF_8))
+                .isEqualTo(body);
+        var info = infos.findLabId(result.segmentId);
+        assertThat(info).isNotNull();
+        assertThat(info.getAccessionNumber()).isEqualTo(parser.getAccessionNum());
+        assertThat(info.getLabel()).as("complete panel label, including the fixture exceeding 255 characters")
+                .isEqualTo(parser.getLabel().trim());
+        assertThat(routes.findAllLabRoutingByIdandType(result.segmentId, "HL7"))
+                .as("uploaded result must reach an inbox").isNotEmpty();
     }
 }

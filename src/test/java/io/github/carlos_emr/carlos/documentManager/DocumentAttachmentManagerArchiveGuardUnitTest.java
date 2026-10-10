@@ -18,9 +18,14 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -28,6 +33,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,20 +44,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("DocumentAttachmentManagerImpl Unit Tests")
+@DisplayName("DocumentAttachmentManagerImpl outbound email archive guard")
 @Tag("unit")
 @Tag("documentManager")
 class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
+
+    private static final int DEMOGRAPHIC_NO = 123;
+    private static final int PARENT_ID = 456;
 
     @Mock
     private SecurityInfoManager securityInfoManager;
@@ -70,6 +82,12 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
 
     private DocumentAttachmentManagerImpl manager;
 
+    /*
+     * The plain consult read/write privilege tests live in DocumentAttachmentManagerConsultAccessUnitTest;
+     * this class covers only the archive refusal and preservation rules. The transactional
+     * DocumentAttach writer locks the parent and validates the selection through Spring beans, so
+     * those collaborators are registered leniently for the tests that reach a write.
+     */
     @BeforeEach
     void setUp() {
         manager = new DocumentAttachmentManagerImpl();
@@ -80,165 +98,104 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
         registerMock(OutboundEmailArchiveDao.class, outboundEmailArchiveDao);
-    }
 
-    @Test
-    @DisplayName("should allow reading consult attachments with consult read privilege")
-    void shouldAllowGetConsultAttachments_withConsultReadPrivilege() {
-        int demographicNo = 123;
-        int requestId = 456;
-        ConsultDocs attachedDoc = new ConsultDocs(requestId, 789, DocumentType.DOC.getType(), "999");
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo))
+        lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(true);
+        PlatformTransactionManager transactions = createAndRegisterMock(PlatformTransactionManager.class);
+        lenient().when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        ConsultationRequest consultation = new ConsultationRequest();
+        consultation.setDemographicId(DEMOGRAPHIC_NO);
+        lenient().when(createAndRegisterMock(ConsultationRequestDao.class).lockForAttachmentSync(PARENT_ID))
+                .thenReturn(consultation);
+        EFormData eForm = new EFormData();
+        eForm.setDemographicId(DEMOGRAPHIC_NO);
+        lenient().when(createAndRegisterMock(EFormDataDao.class).lockForAttachmentSync(PARENT_ID)).thenReturn(eForm);
+        AttachmentSelectionAccess selectionAccess = createAndRegisterMock(AttachmentSelectionAccess.class);
+        lenient().when(selectionAccess.validate(eq(loggedInInfo), any(), eq(DEMOGRAPHIC_NO), any(), any()))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of(attachedDoc));
-
-        List<String> attachmentIds = manager.getConsultAttachments(loggedInInfo, requestId, DocumentType.DOC, demographicNo);
-
-        assertThat(attachmentIds).containsExactly("789");
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
-    }
-
-    @Test
-    @DisplayName("should attach documents to consult with consult write privilege")
-    void shouldAttachToConsult_withConsultWritePrivilege() {
-        int demographicNo = 123;
-        int requestId = 456;
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
-                .thenReturn(List.of());
-
-        manager.attachToConsult(
-                loggedInInfo,
-                DocumentType.DOC,
-                new String[] {"789"},
-                "999",
-                requestId,
-                demographicNo);
-
-        ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        // Once to preserve any archive relationship omitted by the UI, then once in the legacy
-        // DocumentAttach differ that applies the submitted relationship set.
-        verify(consultDocsDao, times(2)).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
-        verify(consultDocsDao).persist(consultDocCaptor.capture());
-        ConsultDocs persisted = consultDocCaptor.getValue();
-        assertThat(persisted.getRequestId()).isEqualTo(requestId);
-        assertThat(persisted.getDocumentNo()).isEqualTo(789);
-        assertThat(persisted.getDocType()).isEqualTo(DocumentType.DOC.getType());
-        assertThat(persisted.getProviderNo()).isEqualTo("999");
     }
 
     @Test
     @DisplayName("should not perform an archive preservation query for non-document consultation attachments")
     void shouldNotPerformArchivePreservationQuery_forNonDocumentConsultationAttachments() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.LAB.getType()))
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(PARENT_ID, DocumentType.LAB.getType()))
                 .thenReturn(List.of());
+        createAndRegisterMock(PatientLabRoutingDao.class);
 
         manager.attachToConsult(
-                loggedInInfo, DocumentType.LAB, new String[] {"789"}, "999", requestId, demographicNo);
+                loggedInInfo, DocumentType.LAB, new String[0], "999", PARENT_ID, DEMOGRAPHIC_NO);
 
-        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.LAB.getType());
-        verify(outboundEmailArchiveDao, never()).findExistingDocumentNos(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("should require consult read privilege before reading consult attachments")
-    void shouldRequireConsultReadPrivilege_beforeGetConsultAttachments() {
-        int demographicNo = 123;
-        int requestId = 456;
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo))
-                .thenReturn(false);
-
-        assertThatThrownBy(() -> manager.getConsultAttachments(loggedInInfo, requestId, DocumentType.DOC, demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_con)");
-
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
-        verifyNoInteractions(consultDocsDao);
-    }
-
-    @Test
-    @DisplayName("should require consult write privilege before attaching to consult")
-    void shouldRequireConsultWritePrivilege_beforeAttachToConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
-                .thenReturn(false);
-
-        assertThatThrownBy(() -> manager.attachToConsult(
-                loggedInInfo,
-                DocumentType.DOC,
-                new String[] {"789"},
-                "999",
-                requestId,
-                demographicNo))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_con)");
-
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
-        verifyNoInteractions(consultDocsDao);
+        // Only the transactional differ reads the current lab set; the unlocked archive
+        // preservation read is reserved for eDocs.
+        verify(consultDocsDao).findByRequestIdDocTypeForUpdate(PARENT_ID, DocumentType.LAB.getType());
+        verify(consultDocsDao, never()).findByRequestIdDocType(PARENT_ID, DocumentType.LAB.getType());
+        verify(outboundEmailArchiveDao, never()).findExistingDocumentNos(any());
     }
 
     @Test
     @DisplayName("should refuse archive eDocs before attaching them to a consult")
     void shouldRefuseArchiveEdocs_beforeAttachToConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(java.util.Set.of(789));
+                .thenReturn(Set.of(789));
 
         assertThatThrownBy(() -> manager.attachToConsult(
-                loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", requestId, demographicNo))
+                loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999", PARENT_ID, DEMOGRAPHIC_NO))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
-        verify(consultDocsDao, never()).persist(org.mockito.ArgumentMatchers.any());
-        verify(consultDocsDao, never()).merge(org.mockito.ArgumentMatchers.any());
+        verify(consultDocsDao, never()).persist(any());
+        verify(consultDocsDao, never()).merge(any());
     }
 
     @Test
     @DisplayName("should refuse archive eDocs before attaching them to an Ocean consult")
     void shouldRefuseArchiveEdocs_beforeAttachToOceanConsult() {
-        int demographicNo = 123;
-        int requestId = 456;
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
-                .thenReturn(java.util.Set.of(789));
+                .thenReturn(Set.of(789));
 
         assertThatThrownBy(() -> manager.attachToConsult(
                 loggedInInfo, DocumentType.DOC, new String[] {"789"}, "999",
-                requestId, demographicNo, Boolean.TRUE))
+                PARENT_ID, DEMOGRAPHIC_NO, Boolean.TRUE))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
 
-        verify(consultDocsDao, never()).persist(org.mockito.ArgumentMatchers.any());
-        verify(consultDocsDao, never()).merge(org.mockito.ArgumentMatchers.any());
+        verify(consultDocsDao, never()).persist(any());
+        verify(consultDocsDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("should refuse archive eDocs during consultation attachment verification")
+    void shouldRefuseArchiveEdocs_duringVerifyConsultAttachments() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
+                .thenReturn(true);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
+                .thenReturn(Set.of(789));
+
+        assertThatThrownBy(() -> manager.verifyConsultAttachments(loggedInInfo, PARENT_ID, DEMOGRAPHIC_NO,
+                Map.of(DocumentType.DOC, new String[] {"789"})))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("controlled archive workflow");
+
+        verify(consultDocsDao, never()).persist(any());
+        verify(consultDocsDao, never()).merge(any());
     }
 
     @Test
     @DisplayName("should preserve an existing archive eDoc omitted from a consultation update")
     void shouldPreserveExistingArchiveEdoc_omittedFromConsultationUpdate() {
-        int demographicNo = 123;
-        int requestId = 456;
         ConsultDocs archiveDocument = new ConsultDocs(
-                requestId, 789, DocumentType.DOC.getType(), "999");
+                PARENT_ID, 789, DocumentType.DOC.getType(), "999");
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
-        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+        when(consultDocsDao.findByRequestIdDocType(PARENT_ID, DocumentType.DOC.getType()))
+                .thenReturn(List.of(archiveDocument));
+        when(consultDocsDao.findByRequestIdDocTypeForUpdate(PARENT_ID, DocumentType.DOC.getType()))
                 .thenReturn(List.of(archiveDocument));
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(790)))
                 .thenReturn(Set.of());
@@ -246,7 +203,7 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
                 .thenReturn(Set.of(789));
 
         manager.attachToConsult(
-                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", requestId, demographicNo);
+                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", PARENT_ID, DEMOGRAPHIC_NO);
 
         verify(consultDocsDao, never()).merge(archiveDocument);
         ArgumentCaptor<ConsultDocs> persistedDocument = ArgumentCaptor.forClass(ConsultDocs.class);
@@ -257,16 +214,13 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse a new archive eDoc on an eForm")
     void shouldRefuseNewArchiveEdoc_onEform() {
-        int demographicNo = 123;
-        int fdid = 456;
-
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(791)))
                 .thenReturn(Set.of(791));
 
         assertThatThrownBy(() -> manager.attachToEForm(
-                loggedInInfo, DocumentType.DOC, new String[] {"791"}, "999", fdid, demographicNo))
+                loggedInInfo, DocumentType.DOC, new String[] {"791"}, "999", PARENT_ID, DEMOGRAPHIC_NO))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("controlled archive workflow");
     }
@@ -274,21 +228,21 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should preserve an existing archive eDoc on an eForm")
     void shouldPreserveExistingArchiveEdoc_onEform() {
-        int demographicNo = 123;
-        int fdid = 456;
-        EFormDocs archiveDocument = new EFormDocs(fdid, 789, DocumentType.DOC.getType(), "999");
+        EFormDocs archiveDocument = new EFormDocs(PARENT_ID, 789, DocumentType.DOC.getType(), "999");
 
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, demographicNo))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, DEMOGRAPHIC_NO))
                 .thenReturn(true);
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(790)))
                 .thenReturn(Set.of());
         when(outboundEmailArchiveDao.findExistingDocumentNos(List.of(789)))
                 .thenReturn(Set.of(789));
-        when(eFormDocsDao.findByFdidIdDocType(fdid, DocumentType.DOC.getType()))
+        when(eFormDocsDao.findByFdidIdDocType(PARENT_ID, DocumentType.DOC.getType()))
+                .thenReturn(List.of(archiveDocument));
+        when(eFormDocsDao.findByFdidIdDocTypeForUpdate(PARENT_ID, DocumentType.DOC.getType()))
                 .thenReturn(List.of(archiveDocument));
 
         manager.attachToEForm(
-                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", fdid, demographicNo);
+                loggedInInfo, DocumentType.DOC, new String[] {"790"}, "999", PARENT_ID, DEMOGRAPHIC_NO);
 
         verify(eFormDocsDao, never()).merge(archiveDocument);
         ArgumentCaptor<EFormDocs> persistedDocument = ArgumentCaptor.forClass(EFormDocs.class);

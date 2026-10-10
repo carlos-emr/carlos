@@ -171,7 +171,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                     return;
                 }
             } catch (Exception e) {
-                logger.error("Could not render client image id {}", clientId, e);
+                logger.error("Could not render client image id {}", LogSafe.sanitize(clientId), e);
             }
         }
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -251,6 +251,8 @@ public final class ImageRenderingServlet extends HttpServlet {
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
 
                 // Use PathValidationUtils to validate the temp file path
+                // getTempFilePath validates the generated child; allowed-temp and validateUpload checks precede the read.
+                // nosemgrep: carlos.httpservlet-path-traversal
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
                     logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
@@ -262,7 +264,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 byte[] imageBytes = FileUtils.readFileToByteArray(validatedTargetFile);
                 renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
-            } catch (FileNotFoundException e) {
+            } catch (FileNotFoundException _) {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
@@ -297,7 +299,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         int parsedDigitalSignatureId;
         try {
             parsedDigitalSignatureId = Integer.parseInt(digitalSignatureId);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Digital signature id {} is non-numeric", LogSafe.sanitize(digitalSignatureId));
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
@@ -312,7 +314,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         if (!canRenderStoredSignature(session, signatureMetadata)) {
             logger.warn("Denied stored signature render: provider={} moduleType={} demographicNo={}",
-                    provider.getProviderNo(), signatureMetadata.getModuleType(), signatureMetadata.getDemographicId());
+                    LogSafe.sanitize(provider.getProviderNo()), LogSafe.sanitizeObject(signatureMetadata.getModuleType()),
+                    LogSafe.sanitizeObject(signatureMetadata.getDemographicId()));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

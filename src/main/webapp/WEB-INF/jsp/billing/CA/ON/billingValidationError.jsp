@@ -36,10 +36,8 @@
   xml_appointment_date and unparseable bill admission/billing date) without
   per-action duplication.
 
-  PHI-safe: the exception message is server-composed at the throw site with
-  LogSafe-sanitized values; it is rendered with the carlos:encode tag
-  in context="html" mode so any residual control characters are HTML-escaped
-  before display.
+  Only fixed public guidance is displayed. Original exception messages and causes
+  can contain clinical values and are withheld, including container-error fallbacks.
 
   @since 2026-04-25
 --%>
@@ -52,7 +50,7 @@
      here unless the page actually needs it. --%>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    // Pull the exception message defensively — three sources in priority order:
+    // Resolve the failure defensively — three sources in priority order:
     //   1. Struts2 ExceptionMappingInterceptor (the documented wiring via
     //      <global-exception-mappings> in struts-billing.xml) places the
     //      caught exception on the ValueStack and exposes it as the request
@@ -77,7 +75,7 @@
             __bve = (Throwable) __attr;
         }
     }
-    String __bveMessage = __bve == null ? "" : (__bve.getMessage() == null ? "" : __bve.getMessage());
+    String __bveMessage = io.github.carlos_emr.carlos.app.PublicExceptionDetails.message(__bve);
     request.setAttribute("__bveMessage", __bveMessage);
 %>
 <!DOCTYPE html>
@@ -108,6 +106,9 @@
         <p class="mb-0">No data was saved. Use your browser's <strong>Back</strong>
            button to return to the form and correct the input.</p>
     </div>
+    <c:if test="${not empty carlosIncidentId}">
+        <p>Incident reference: <carlos:encode value="${carlosIncidentId}" context="html"/></p>
+    </c:if>
     <div class="d-flex gap-2">
         <a class="btn btn-secondary" href="javascript:history.back()" role="button">Back</a>
     </div>

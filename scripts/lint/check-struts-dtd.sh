@@ -7,7 +7,7 @@
 # example -- passes every XML parse, compiles, packages, and then takes the
 # WHOLE application down at deploy with "Dispatcher initialization failed". That
 # exact failure shipped in a local build once. The CI source-lint job runs this
-# check with JDK 21, and it remains useful locally before pushing struts*.xml changes.
+# check with JDK 25, and it remains useful locally before pushing struts*.xml changes.
 #
 # The DTD is vendored under scripts/lint/dtd so the check is hermetic -- no jar
 # hunting, no Maven, no network -- and it validates with a tiny SAX program that

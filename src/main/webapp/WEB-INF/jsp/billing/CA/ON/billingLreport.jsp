@@ -21,8 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingLreport in the Ontario billing workflow.
-  Expected request model data includes: lreportModel.
+  Purpose: Display the Ontario MOH XML report selected by the paired action.
+  Features: transforms report XML with its selected XSL stylesheet and supports printing.
+  Parameters: lreportModel request attribute supplies filename, xslName and fileContents.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -45,76 +47,11 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>MOH Report</title>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/billing.css">
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
 
-        <script>
-            <!--
-
-            function loadXMLDoc(xmldoc) {
-                if (window.XMLHttpRequest) {
-                    // Support for IE7, Firefox and Safari only
-                    xhttp = new XMLHttpRequest();
-                } else if (window.ActiveXObject) {
-                    // for IE5, IE6
-                    xhttp = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                xhttp.open("GET", xmldoc, false);
-                xhttp.send("");
-
-                return xhttp.responseXML;
-            }
-
-            function displayReport() {
-                var cpath = "${pageContext.request.contextPath}";
-                sname = cpath + "/billing/CA/ON/<carlos:encode value='${lreportModel.xslName}' context='javaScript'/>.xsl";
-
-                xml = '<carlos:encode value="${lreportModel.fileContents}" context="javaScript"/>';
-                try {
-                    xsl = loadXMLDoc(sname);
-
-                } catch (err) {
-                    txt = "Cannot load XSL document.\n";
-                    txt += "xsl doc=" + sname + "\n";
-                    txt += "Error description: " + err.description;
-                    alert(txt);
-                    return;
-                }
-
-                var xmlDoc = null;
-
-                if (navigator.appName == 'Microsoft Internet Explorer') {
-                    xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
-                    xmlDoc.async = false;
-                    xmlDoc.loadXML(xml);
-                } else if (window.DOMParser) {
-                    parser = new DOMParser();
-                    xmlDoc = parser.parseFromString(xml, "text/xml");
-                } else {
-                    alert("Your browser doesn't suppoprt XML parsing!");
-                }
-
-                // code for Mozilla, Firefox, Opera
-                if (document.implementation && document.implementation.createDocument) {
-                    xsltProcessor = new XSLTProcessor();
-                    xsltProcessor.importStylesheet(xsl);
-                    resultDocument = xsltProcessor.transformToFragment(xmlDoc, document);
-                    var mohReport = document.getElementById("MOHreport");
-                    mohReport.innerHTML = '';
-                    mohReport.appendChild(resultDocument);
-                } else if (window.ActiveXObject) {
-                    // code for IE - uses transformNode which returns a string
-                    ex = xmlDoc.transformNode(xsl);
-                    document.getElementById('MOHreport').innerHTML = ex;
-                } else {
-                    alert("Viewing report is not supported by this Browser.");
-                }
-
-            }
-
-            // -->
-        </script>
+        <script src="${pageContext.request.contextPath}/js/billing-moh-report.js" defer></script>
 
         <style>
             @media print {
@@ -125,7 +62,7 @@
         </style>
     </head>
 
-    <body onload="displayReport()">
+    <body>
     <table width="100%" border="0" cellspacing="0" cellpadding="0" class="noprint">
         <tr>
             <td height="40" width="10%" class="Header">
@@ -137,7 +74,11 @@
             </td>
         </tr>
     </table>
+    <div id="MOHreportError" role="alert" hidden>Could not display the selected MOH report. Check that the file is a valid MOH XML report and try again.</div>
     <div id="MOHreport"></div>
+    <label for="MOHreportSource" hidden>MOH report source</label>
+    <textarea id="MOHreportSource" hidden
+              data-stylesheet="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/${carlos:forHtmlAttribute(lreportModel.xslName)}.xsl"><carlos:encode value="${lreportModel.fileContents}"/></textarea>
 
     </body>
 </html>

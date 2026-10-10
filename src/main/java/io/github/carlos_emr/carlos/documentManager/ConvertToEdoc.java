@@ -84,7 +84,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Fallback conversion via Flying Saucer {@code ITextRenderer} with OpenPDF backend</li>
  * </ol>
  *
- * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods are synchronized
+ * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods hold one private lock
  * to prevent concurrent modification of the shared {@link #realPath} field.
  *
  * @see EDoc
@@ -115,7 +115,9 @@ public final class ConvertToEdoc {
     private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
-    private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    // Private, unlike the class monitor that `static synchronized` used, so no other code can take
+    // it; from() and saveAsTempPDF() still exclude one another on it (see the class Javadoc).
+    private static final Object RENDER_LOCK = new Object();
 
     /**
      * Converts an EForm into a PDF and returns an EDoc wrapping the result.
@@ -125,28 +127,29 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
-    public synchronized static EDoc from(EFormData eform) {
+    public static EDoc from(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            String eformString = eform.getFormData();
+            String demographicNo = eform.getDemographicId() + "";
+            String filename = buildFilename(eform.getFormName(), demographicNo);
+            String eDocDescription = (eform.getSubject() == null || eform.getSubject().trim().isEmpty()) ? eform.getFormName() : eform.getSubject();
+            EDoc edoc = null;
+            Path path = execute(eformString, filename);
 
-        String eformString = eform.getFormData();
-        String demographicNo = eform.getDemographicId() + "";
-        String filename = buildFilename(eform.getFormName(), demographicNo);
-        String eDocDescription = eform.getSubject().trim().isEmpty() ? eform.getFormName() : eform.getSubject();
-        EDoc edoc = null;
-        Path path = execute(eformString, filename);
+            if (path != null && Files.isReadable(path)) {
+                edoc = buildEDoc(path.getFileName().toString(),
+                        eDocDescription,
+                        null,
+                        eform.getProviderNo(),
+                        demographicNo,
+                        DocumentType.eForm,
+                        path.getParent().toString());
+            } else {
+                logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
+            }
 
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(path.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eform.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    path.getParent().toString());
-        } else {
-            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
+            return edoc;
         }
-
-        return edoc;
     }
 
     /**
@@ -157,25 +160,27 @@ public final class ConvertToEdoc {
      * @return EDoc the document object referencing the PDF
      * @throws PDFGenerationException if the PDF file at the given path is not readable
      */
-    public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
-        String demographicNo = eForm.getDemographicId() + "";
-        String filename = buildFilename(eForm.getFormName(), demographicNo);
-        String eDocDescription = eForm.getSubject().trim().isEmpty() ? eForm.getFormName() : eForm.getSubject();
-        EDoc edoc = null;
+    public static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
+        synchronized (RENDER_LOCK) {
+            String demographicNo = eForm.getDemographicId() + "";
+            String filename = buildFilename(eForm.getFormName(), demographicNo);
+            String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
+            EDoc edoc = null;
 
-        if (Files.isReadable(eFormPDFPath)) {
-            edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eForm.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    eFormPDFPath.getParent().toString());
-        } else {
-            throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            if (Files.isReadable(eFormPDFPath)) {
+                edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
+                        eDocDescription,
+                        null,
+                        eForm.getProviderNo(),
+                        demographicNo,
+                        DocumentType.eForm,
+                        eFormPDFPath.getParent().toString());
+            } else {
+                throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            }
+
+            return edoc;
         }
-
-        return edoc;
     }
 
     /**
@@ -197,35 +202,36 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
-    public synchronized static EDoc from(FormTransportContainer formTransportContainer) {
+    public static EDoc from(FormTransportContainer formTransportContainer) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = formTransportContainer.getHTML();
+            String demographicNo = formTransportContainer.getDemographicNo();
+            String filename = buildFilename(formTransportContainer.getFormName(), demographicNo);
+            String subject = formTransportContainer.getSubject();
+            String providerNo = formTransportContainer.getProviderNo();
+            if (providerNo == null) {
+                providerNo = formTransportContainer.getLoggedInInfo().getLoggedInProviderNo();
+            }
+            // this should be the same for every thread.
+            ConvertToEdoc.realPath = formTransportContainer.getRealPath();
 
-        String htmlString = formTransportContainer.getHTML();
-        String demographicNo = formTransportContainer.getDemographicNo();
-        String filename = buildFilename(formTransportContainer.getFormName(), demographicNo);
-        String subject = formTransportContainer.getSubject();
-        String providerNo = formTransportContainer.getProviderNo();
-        if (providerNo == null) {
-            providerNo = formTransportContainer.getLoggedInInfo().getLoggedInProviderNo();
+            EDoc edoc = null;
+            Path path = execute(htmlString, filename);
+
+            if (path != null && Files.isReadable(path)) {
+                edoc = buildEDoc(filename,
+                        subject,
+                        null,
+                        providerNo,
+                        demographicNo,
+                        formTransportContainer.getDocumentType(),
+                        path.toString());
+            } else {
+                logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
+            }
+
+            return edoc;
         }
-        // this should be the same for every thread.
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-
-        EDoc edoc = null;
-        Path path = execute(htmlString, filename);
-
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(filename,
-                    subject,
-                    null,
-                    providerNo,
-                    demographicNo,
-                    formTransportContainer.getDocumentType(),
-                    path.toString());
-        } else {
-            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
-        }
-
-        return edoc;
     }
 
     /**
@@ -235,10 +241,12 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EFormData eform) {
-        String eformString = eform.getFormData();
-        String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
-        return execute(eformString, filename);
+    public static Path saveAsTempPDF(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            String eformString = eform.getFormData();
+            String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
+            return execute(eformString, filename);
+        }
     }
 
     /**
@@ -249,8 +257,10 @@ public final class ConvertToEdoc {
      * @param filename String the base filename (without directory) used for the temporary PDF
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
-        return execute(htmlString, filename);
+    public static Path saveAsTempPDF(String htmlString, String filename) {
+        synchronized (RENDER_LOCK) {
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -260,11 +270,13 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
-        String htmlString = formTransportContainer.getHTML();
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-        String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
-        return execute(htmlString, filename);
+    public static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = formTransportContainer.getHTML();
+            ConvertToEdoc.realPath = formTransportContainer.getRealPath();
+            String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -274,10 +286,12 @@ public final class ConvertToEdoc {
      * @param emailData EmailData containing the encrypted/HTML email message body
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EmailData emailData) {
-        String htmlString = emailData.getEncryptedMessage();
-        String filename = buildFilename("emailbody_", "");
-        return execute(htmlString, filename);
+    public static Path saveAsTempPDF(EmailData emailData) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = emailData.getEncryptedMessage();
+            String filename = buildFilename("emailbody_", "");
+            return execute(htmlString, filename);
+        }
     }
 
     /**
@@ -299,7 +313,8 @@ public final class ConvertToEdoc {
         String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
-            path = nioFileManager.saveTempFile(filename, os);
+            // Resolve against the current context; do not retain a bean across context reloads.
+            path = SpringUtils.getBean(NioFileManager.class).saveTempFile(filename, os);
             if (logger.isDebugEnabled()) {
                 // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
                 logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));

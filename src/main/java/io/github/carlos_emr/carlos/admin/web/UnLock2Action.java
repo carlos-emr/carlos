@@ -21,10 +21,14 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.login.LoginCheckLogin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -41,13 +45,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Requires any of {@code _admin r}, {@code _admin.userAdmin r}, or
  * {@code _admin.unlockAccount r} privilege. On POST with a {@code submit} parameter,
  * unlocks the specified username via {@link LoginCheckLogin} and adds an audit log entry.
- * Always loads the current lock list into the {@code lockList} request attribute.</p>
+ * When site-access privacy is enabled, both listing and unlocking are restricted
+ * to accounts sharing a site with the administrator. Loads the permitted lock
+ * list into the {@code lockList} request attribute.</p>
  *
  * @since 2026-04-05
  */
 public class UnLock2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    private final SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -62,10 +70,21 @@ public class UnLock2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin, _admin.userAdmin, or _admin.unlockAccount)");
         }
 
+        boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        Set<String> permittedUsers = new HashSet<>();
+        if (isSiteAccessPrivacy) {
+            for (Security account : securityDao.findByProviderSite(loggedInInfo.getLoggedInProviderNo())) {
+                permittedUsers.add(account.getUserName());
+            }
+        }
+
         String submit = request.getParameter("submit");
         if ("POST".equalsIgnoreCase(request.getMethod()) && submit != null) {
             String userName = request.getParameter("userName");
             if (userName != null && !userName.isEmpty()) {
+                if (isSiteAccessPrivacy && !permittedUsers.contains(userName)) {
+                    throw new SecurityException("Account is outside the permitted sites");
+                }
                 LoginCheckLogin loginCheckLogin = new LoginCheckLogin();
                 boolean wasLocked = loginCheckLogin.unlock(userName);
 
@@ -83,14 +102,13 @@ public class UnLock2Action extends ActionSupport {
             }
         }
 
-        // Expose whether the site-access privacy feature is active for the JSP
-        boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
-        request.setAttribute("isSiteAccessPrivacy", isSiteAccessPrivacy);
-
         // Always load the current lock list
         LoginCheckLogin loginCheckLogin = new LoginCheckLogin();
         @SuppressWarnings("unchecked")
         Vector<String> lockList = loginCheckLogin.findLockList();
+        if (isSiteAccessPrivacy) {
+            lockList.removeIf(userName -> !permittedUsers.contains(userName));
+        }
         request.setAttribute("lockList", lockList);
 
         return SUCCESS;

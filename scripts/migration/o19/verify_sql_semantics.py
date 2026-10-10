@@ -71,7 +71,7 @@ mojibake with Python's ISO-8859-1 and reported three false failures.)
 ## One live Consent per patient and type
 
 `consent_live_statements` decides, before the copy, which of a clinic's
-Consent rows arrive live: V1.0.57's `uq_consent_live_type` allows one
+Consent rows arrive live: V1.0.77's `uq_consent_live_type` allows one
 per patient and consent type, and an OSCAR 19 clinic can hold several.
 It ranks with ROW_NUMBER() over a derived table whose consent type is a
 correlated id-map lookup. The sqlite replay (test_consent_live_replay)
@@ -108,6 +108,7 @@ import decimal
 import re
 import shutil
 import subprocess
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -161,7 +162,21 @@ def reject_credential_args(args):
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(REPO_ROOT / "debian" / "assets"))
+# the shipped manifests are THIS tree's; the CLI comes from a checkout or
+# the installed package
+os.environ.setdefault("CARLOS_CTL_O19_MANIFEST_DIR",
+                      str(REPO_ROOT / "debian" / "assets" / "o19-manifest"))
+# The carlos-ctl package is its own repository since the split
+# (carlos-emr/carlos-ctl): import it from a checkout named by CARLOS_CTL_SRC,
+# from whatever is already importable, or from the installed package.
+_checkout = os.environ.get("CARLOS_CTL_SRC")
+if _checkout and os.path.isdir(os.path.join(_checkout, "carlos_ctl")):
+    if _checkout in sys.path:
+        sys.path.remove(_checkout)
+    sys.path.insert(0, _checkout)
+_installed = "/usr/lib/carlos-ctl"
+if os.path.isdir(os.path.join(_installed, "carlos_ctl")) and _installed not in sys.path:
+    sys.path.append(_installed)
 
 from carlos_ctl import (o19_preflight, o19digest,               # noqa: E402
                         o19etl, o19map_schema, o19roles)
@@ -2775,7 +2790,7 @@ CONSENT_SRC_DDL = (
 CONSENT_EDIT_DATE_TYPES = ("datetime", "timestamp NULL DEFAULT NULL")
 
 #: CARLOS's Consent as V1__baseline_schema.sql creates it, verbatim. The
-#: shape V1.0.57 leaves it in (NOT NULL flags, the generated INVISIBLE
+#: shape V1.0.77 leaves it in (NOT NULL flags, the generated INVISIBLE
 #: `live_demographic_no`, `uq_consent_live_type`) is not restated here:
 #: the migration file itself is run over this table.
 CONSENT_DST_DDL = (
@@ -3068,13 +3083,13 @@ def check_consent_live(client: Client, src: str, dst: str,
     `<=>` to IS, skips the CREATE ... LIKE of the rebuild and holds the
     dates as text -- so neither a zero DATETIME nor MariaDB's window
     functions had ever seen it. Here every clause of the rule is seeded
-    with its own patient, the target is built by V1.0.57 itself, and the
+    with its own patient, the target is built by V1.0.77 itself, and the
     importer's own statements run in the ETL's order, the copy under
     UNIQUE_CHECKS=0. Asserted: the rows that ARRIVE, coverage 0,
     duplicates 0 and P7 0. The whole pass runs twice, edit_date DATETIME
     and then TIMESTAMP; the controls run on the first: P7 catches a
     stored `deleted` changed afterwards, and the copy without the rule
-    is seen by some check the import runs -- with V1.0.57's key in place
+    is seen by some check the import runs -- with V1.0.77's key in place
     (on MariaDB 11.8 the statement stores nothing and reports success,
     which P4's row parity catches) and without it (the duplicates check
     counts every repeated pair).
@@ -3137,7 +3152,7 @@ def _consent_live_body(client: Client, src: str, dst: str, arch: str,
     built = (key == ["live_demographic_no,consent_type_id", "0"]
              and "INVISIBLE" in extra.upper())
     print("    {0:<44} {1}".format(
-        "the target carries V1.0.57's key",
+        "the target carries V1.0.77's key",
         "ok" if built else "NO (key {0}, column {1!r})".format(key, extra)))
     if not built:
         return ["the migration did not leave uq_consent_live_type over an "
@@ -3239,7 +3254,7 @@ def _consent_live_body(client: Client, src: str, dst: str, arch: str,
 
     # control 2: the entry as generated before the ruling -- no
     # `deleted`, no expressions -- which run_etl now refuses up front.
-    # Every row arrives live. First with V1.0.57's key in place, under
+    # Every row arrives live. First with V1.0.77's key in place, under
     # the ETL's session: what the server does is reported, and some
     # check must see it -- refused (the ETL's query() raises and the
     # import stops), admitted (the duplicates check must count every
@@ -3405,7 +3420,7 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "--admin-user used to enforce demonstrably lists none, and the "
           "Consent import keeps live exactly the record the application "
           "reads as deciding -- every clause of the rule, from a DATETIME "
-          "and a TIMESTAMP edit date, into V1.0.57's unique key under "
+          "and a TIMESTAMP edit date, into V1.0.77's unique key under "
           "UNIQUE_CHECKS=0 -- with coverage, duplicates and P7 all 0, "
           "where the copy without the rule demonstrably leaves live "
           "duplicates the duplicates check counts")

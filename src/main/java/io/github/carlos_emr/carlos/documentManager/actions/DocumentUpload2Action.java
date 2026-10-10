@@ -129,6 +129,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             } else {
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(
+                        securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request), queueId);
 
                 // Answer an unusable destination through the uploader's JSON contract. Letting an
                 // off-allowlist folder reach the path builders turned a bad request into an

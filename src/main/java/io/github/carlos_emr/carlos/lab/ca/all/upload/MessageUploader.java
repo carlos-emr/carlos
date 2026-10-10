@@ -44,7 +44,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Pattern;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -52,16 +51,24 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.UnexpectedRollbackException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -274,7 +281,8 @@ public final class MessageUploader {
         }
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
+            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength,
+                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
         }
         retVal = h.audit();
         if (results != null) {
@@ -345,14 +353,14 @@ public final class MessageUploader {
 
     // Allowed column names for provider search to prevent SQL injection
     private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
-            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
+            "ohip_no", "provider_no", "last_name", "first_name", "practitionerno", "hso_no");
 
     /**
      * Attempt to match the doctors from the lab to a providers
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
+    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
         PreparedStatement pstmt;
@@ -418,16 +426,45 @@ public final class MessageUploader {
         }
 
 
-        ProviderLabRouting routing = new ProviderLabRouting();
-        if (providerNums.size() > 0) {
+        routeToProviders(labId, providerNums, altProviderNo, new ProviderLabRouting(),
+                SpringUtils.getBean(MrpRoutingService.class), uploaderProviderNo);
+    }
+
+    /**
+     * Routes an uploaded HL7 lab to the providers matched from the message.
+     *
+     * <p>When nothing in the message matched a provider, the lab goes to the matched patient's
+     * MRP ({@code altProviderNo}), or to the unassigned inbox ({@code 0}) when no patient matched
+     * either. When providers did match and the clinic has Provider Linking Rules on, the lab goes
+     * to the MRP as well, so the family physician sees a result a specialist or locum ordered.
+     * The router is idempotent and applies each recipient's forwarding rules.</p>
+     *
+     * @param labId the uploaded lab segment
+     * @param providerNums providers matched from the message, in match order
+     * @param altProviderNo the matched patient's MRP, or {@code 0} / {@code null}
+     * @param routing the lab router
+     * @param mrpRouting the Provider Linking Rules decision
+     * @param uploaderProviderNo the uploading provider for the audit log, or {@code null}
+     * @throws SQLException if a lab identifier is not numeric
+     */
+    static void routeToProviders(String labId, Set<String> providerNums, String altProviderNo,
+                                 ProviderLabRouting routing, MrpRoutingService mrpRouting,
+                                 String uploaderProviderNo) throws SQLException {
+        if (!providerNums.isEmpty()) {
             for (String provider_no : providerNums) {
-                routing.route(labId, provider_no, conn, "HL7");
+                routing.route(labId, provider_no, "HL7");
+            }
+            if (mrpRouting.shouldRouteUploadToMrp(altProviderNo)) {
+                String mrp = altProviderNo.trim();
+                // An MRP who ordered the test was routed above; this is not a linking-rule routing.
+                if (!providerNums.contains(mrp)) {
+                    mrpRouting.routeUploadedLabToMrp(labId, uploaderProviderNo);
+                }
             }
         } else {
-            if (altProviderNo != null && !altProviderNo.equals("0")) {
-                routing.route(labId, altProviderNo, conn, "HL7");
-            } else {
-                routing.route(labId, "0", conn, "HL7");
+            if (altProviderNo == null || "0".equals(altProviderNo)
+                    || !mrpRouting.routeUploadedFallbackToMrp(labId, uploaderProviderNo)) {
+                routing.route(labId, "0", "HL7");
             }
         }
     }
@@ -436,7 +473,7 @@ public final class MessageUploader {
      * Attempt to match the doctors from the lab to a providers
      */
     private static void providerRouteReport(String labId, ArrayList docNums, Connection conn, String altProviderNo, String labType) throws Exception {
-        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false);
+        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false, null);
     }
 
 
@@ -607,9 +644,103 @@ public final class MessageUploader {
     }
 
     /**
-     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables
+     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables.
+     *
+     * <p>Every upload entry point runs the handlers inside {@code FileUploadCheck.storeIfNew}'s
+     * transaction, which rolls back on an exception or a rejected parse, and a handler calls this from
+     * its {@code catch} block. When the failure was a rejected insert, Hibernate has already marked that
+     * transaction rollback-only and left the failed entity in the session with no id, so the first query
+     * here threw {@code AssertionFailure} (HHH000099, which Hibernate itself logs at ERROR) out of the
+     * handler before it logged the real cause (#4436). Nothing a rollback-only transaction wrote can
+     * commit, so there is nothing to clean: this returns without touching the session.</p>
+     *
+     * <p>A transaction that is still healthy is cleaned as before, because {@code IHAPOIHandler}
+     * returns a per-message failure string, which the caller commits, and relies on this to undo its
+     * rows first; so is a call with no transaction at all. A failing cleanup is logged at WARN rather
+     * than thrown, so it cannot replace the failure that brought the caller here. It does mark the
+     * enclosing transaction rollback-only, because a half-finished cleanup that the caller then commits
+     * would leave some rows removed and others stored; only if the transaction cannot be marked is the
+     * failure rethrown, so that it still rolls back. A call with no transaction runs the cleanup in one of
+     * its own, for the same all-or-nothing reason.</p>
+     *
+     * @param fileId the id of the {@code fileUploadCheck} row that the failed upload's rows reference
      */
     public static void clean(int fileId) {
+        if (isEnclosingTransactionRollbackOnly()) {
+            logger.info("Not cleaning up a failed lab upload: its transaction is already rollback-only, so nothing it wrote can commit");
+            return;
+        }
+        try {
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                removeStoredRows(fileId);
+            } else {
+                // Without a caller transaction every DAO call commits on its own, so a failure part-way would
+                // leave some rows recycled and removed and the rest stored. One transaction makes it all or nothing.
+                new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                        .executeWithoutResult(status -> removeStoredRows(fileId));
+            }
+        } catch (RuntimeException cleanupFailure) {
+            // exceptionTrace, like the upload actions: a persistence failure's nested causes can carry row content.
+            logger.warn("Could not clean up the rows of lab upload {}: {}", fileId, LogSafe.exceptionTrace(cleanupFailure));
+            if (TransactionSynchronizationManager.isActualTransactionActive() && !markEnclosingTransactionRollbackOnly()) {
+                throw cleanupFailure;
+            }
+        }
+    }
+
+    /**
+     * Makes the calling thread's Spring transaction unable to commit, without throwing.
+     *
+     * <p>Joins the transaction as a participant and marks that participant rollback-only, which is what a
+     * failing participating {@code @Transactional} method does: the transaction manager then marks the
+     * transaction itself, and a participant's completion neither commits nor rolls anything back.</p>
+     *
+     * @return {@code true} if the transaction was marked; {@code false} if it could not be, so the caller
+     *         must propagate its failure instead
+     */
+    private static boolean markEnclosingTransactionRollbackOnly() {
+        try {
+            joinEnclosingTransaction().executeWithoutResult(TransactionStatus::setRollbackOnly);
+            return true;
+        } catch (RuntimeException unmarkable) {
+            logger.warn("Could not mark the transaction rollback-only: {}", LogSafe.exceptionTrace(unmarkable));
+            return false;
+        }
+    }
+
+    /**
+     * Reports whether the calling thread's Spring transaction exists and can no longer commit.
+     *
+     * <p>Asks the transaction manager, as a participant, whether the transaction is rollback-only: the
+     * same question it asks at commit, so it sees Hibernate's own mark after a failed insert as well as
+     * one left by a failing transactional DAO. A manager configured to fail early answers by throwing
+     * {@code UnexpectedRollbackException} when the probe completes, which also means rollback-only. Never
+     * throws: if the state cannot be read, the transaction is treated as usable and {@link #clean(int)}
+     * attempts the cleanup.</p>
+     */
+    private static boolean isEnclosingTransactionRollbackOnly() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(joinEnclosingTransaction().execute(TransactionStatus::isRollbackOnly));
+        } catch (UnexpectedRollbackException alreadyRollbackOnly) {
+            // A manager set to fail early on global rollback-only reports it this way when the probe completes.
+            return true;
+        } catch (RuntimeException unreadable) {
+            logger.debug("Could not read the transaction's rollback state: {}", LogSafe.exceptionTrace(unreadable));
+            return false;
+        }
+    }
+
+    /** A template that only joins the calling thread's transaction; it throws if there is none to join. */
+    private static TransactionTemplate joinEnclosingTransaction() {
+        TransactionTemplate template = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_MANDATORY);
+        return template;
+    }
+
+    private static void removeStoredRows(int fileId) {
 
         List<Hl7TextMessage> results = hl7TextMessageDao.findByFileUploadCheckId(fileId);
 
@@ -727,35 +858,26 @@ public final class MessageUploader {
      * String arrays are delineated with a pipe |
      */
     public static String mergeLabLabels(List<Hl7TextInfo> currentLabs, String incoming) {
-        // If a past lab with the same AccessionNumber exist carry over the label
-        String mergedLabel = StringUtils.trimToEmpty(incoming);
-        if (currentLabs == null) {
-            currentLabs = Collections.emptyList();
-        }
-        for (Hl7TextInfo matchingLab : currentLabs) {
-            String currentLabel = matchingLab.getLabel();
-            // if the lab has an entered label to carry over
-            if (!StringUtils.isBlank(currentLabel) && !StringUtils.isBlank(mergedLabel)) {
-                // compare labels and eliminate duplicates.
-                String[] labelArray = mergedLabel.split("\\s?\\|\\s?");
-                for (String labelItem : labelArray) {
-                    if (!labelItem.isEmpty()) {
-                        String regex = Pattern.quote(labelItem) + "\\s?\\|?\\s?";
-                        currentLabel = currentLabel.replaceAll(regex, "");
-                    }
-                }
-                currentLabel = StringUtils.trimToEmpty(currentLabel);
-
-                if (!currentLabel.isEmpty()) {
-                    mergedLabel = currentLabel + " | " + mergedLabel;
-                }
-
-                if (mergedLabel.startsWith("|")) {
-                    mergedLabel = mergedLabel.substring(1);
-                    mergedLabel = mergedLabel.trim();
-                }
+        LinkedHashSet<String> merged = labelTokens(incoming);
+        if (currentLabs != null) {
+            for (Hl7TextInfo matchingLab : currentLabs) {
+                LinkedHashSet<String> previous = labelTokens(matchingLab.getLabel());
+                // Compare whole panel/manual label tokens, never substrings (ALT is not SALT).
+                // Preserve the existing ordering: carried labels precede the incoming label.
+                previous.removeAll(merged);
+                previous.addAll(merged);
+                merged = previous;
             }
         }
-        return mergedLabel;
+        return String.join(" | ", merged);
+    }
+
+    private static LinkedHashSet<String> labelTokens(String label) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        for (String token : StringUtils.trimToEmpty(label).split("\\|")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) tokens.add(trimmed);
+        }
+        return tokens;
     }
 }

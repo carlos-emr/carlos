@@ -43,6 +43,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -513,8 +514,27 @@ public class FrmRecordHelp {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @SuppressWarnings("unchecked")
     public String findActionValue(String submit) {
-        return VALID_ACTION_VALUES.contains(submit) ? submit : "failure";
+        if (submit == null) {
+            return "failure";
+        }
+        // MATCHED WITHOUT REGARD TO CASE, AND ANSWERED IN THE CANONICAL SPELLING. The submit token
+        // comes from whatever each form JSP puts in document.forms[0].submit.value, and seven of
+        // them (the lab requisitions, the mental health forms and formCounseling) have always sent
+        // "printall" where the rest send "printAll". An exact-case lookup answered "failure" for
+        // those, and "failure" is a mapped Struts result pointing at the error page -- so Print Pdf
+        // on a lab requisition saved the record and then handed the clinician a server error
+        // instead of the PDF (issue #3735). Returning the member rather than the caller's spelling
+        // is what makes the answer usable as a Struts result name.
+        for (String value : (Set<String>) VALID_ACTION_VALUES) {
+            if (value.equalsIgnoreCase(submit)) {
+                return value;
+            }
+        }
+        return "failure";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

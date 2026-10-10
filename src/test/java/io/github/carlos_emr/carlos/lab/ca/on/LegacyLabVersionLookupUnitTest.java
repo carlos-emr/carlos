@@ -102,4 +102,33 @@ class LegacyLabVersionLookupUnitTest extends CarlosUnitTestBase {
         when(lab.getDateTime()).thenReturn(Timestamp.valueOf(date));
         return lab;
     }
+    @Test
+    void shouldPropagateMdsLookupFailure_whenResolvingForMutation() {
+        var data = mock(MDSResultsData.class, CALLS_REAL_METHODS);
+        doThrow(new IllegalStateException("lookup failed")).when(data).findMDSAccessionNumber("42");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> data.getMatchingLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+    }
+
+    @Test
+    void shouldPropagateCmlLookupFailure_whenResolvingForMutation() throws Exception {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.LabPatientPhysicianInfoDao.class);
+        when(dao.findLabServiceDatesByLabId(42)).thenThrow(new IllegalStateException("lookup failed"));
+        var data = mock(MDSResultsData.class, CALLS_REAL_METHODS);
+        Field field = MDSResultsData.class.getDeclaredField("labPPIDao");
+        field.setAccessible(true);
+        field.set(data, dao);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+    }
+
+    @Test
+    void shouldPropagatePathnetLookupFailure_whenResolvingForMutation() throws Exception {
+        var dao = mock(Hl7OrcDao.class);
+        when(dao.findFillerAndStatusChageByMessageId(42)).thenThrow(new IllegalStateException("lookup failed"));
+        var data = pathnet(dao);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> data.getMatchingLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+    }
+
 }

@@ -29,38 +29,25 @@
 
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Favorites" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.FavoritesPrivilegeDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
 <%
-    FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
-    FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
+    // CopyFavorites2Action authorizes the source and prepares this model before rendering.
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-
-    // Setting default values
     String providerNo = (String) request.getAttribute("providerNo");
-    boolean share = false;
-    FavoritesPrivilege fp = favoritesPrivilegeDao.findByProviderNo(providerNo);
-    if (fp != null) {
-        share = fp.isOpenToPublic();
-    }
-
-    List<String> allProviders = favoritesPrivilegeDao.getProviders();
+    boolean share = Boolean.TRUE.equals(request.getAttribute("shareFavorites"));
+    List<String> allProviders = (List<String>) request.getAttribute("sharedProviders");
+    if (allProviders == null) allProviders = Collections.emptyList();
     String copyProviderNo = (String) request.getAttribute("copyProviderNo");
-    if (copyProviderNo == null) {
-        copyProviderNo = "";
-    }
-
-    RxCodesData.FrequencyCode[] freq = new RxCodesData().getFrequencyCodes();
+    if (copyProviderNo == null) copyProviderNo = "";
 %>
 
 <html>
@@ -70,6 +57,11 @@
         <title><fmt:message key="SearchDrug.title.CopyFavorites"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:choose>
             <c:when test="${empty RxSessionBean}">
                 <c:redirect url="error.html"/>
@@ -97,9 +89,11 @@
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
         <form action="<%= request.getContextPath()%>/rx/copyFavorite2" method="post">
+        <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
             <input type="hidden" name="dispatch" value="refresh"/>
-            <input type="hidden" name="userProviderNo" value="<carlos:encode value='<%=providerNo%>' context='htmlAttribute'/>"/>
-            <input type="hidden" name="copyProviderNo" value="<carlos:encode value='<%=copyProviderNo%>' context='htmlAttribute'/>"/>
+            <%-- The copy action takes the source from ddl_provider and the target from the session;
+                 it walks countFavorites rows and copies only the ticked ones, by id (#3908). --%>
+            <input type="hidden" name="countFavorites" value="${fn:length(copyFavorites)}"/>
 
             <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" width="100%">
                 <%@ include file="TopLinks.jsp"%>
@@ -110,7 +104,7 @@
                             <tr>
                                 <td>
                                     <div class="DivCCBreadCrumbs">
-                                        <a href="<%= request.getContextPath() %>/rx/searchDrug"> 
+                                        <a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> 
                                             <fmt:message key="SearchDrug.title"/>
                                         </a> > 
                                         <b>
@@ -122,15 +116,28 @@
                             <tr>
                                 <td>
                                     <div class="DivContentPadding">
-                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug';"/>
+                                        <input type="button" value="Back to Search For Drug" class="ControlPushButton" onClick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}';"/>
                                     </div>
                                 </td>
                             </tr>
 
                             <tr>
                                 <td>
+                                    <fieldset class="DivContentPadding">
+                                        <legend>Share my favorites</legend>
+                                        <label><input type="radio" name="rb_share" value="1" <%= share ? "checked" : "" %>/> Allow other providers to copy my favorites</label>
+                                        <label><input type="radio" name="rb_share" value="0" <%= !share ? "checked" : "" %>/> Keep my favorites private</label>
+                                        <input type="button" value="Save sharing preference" onclick="update();this.form.submit();"/>
+                                    </fieldset>
+                                    <c:if test="${not empty copiedFavoritesCount}">
+                                        <p role="status"><carlos:encode value="${copiedFavoritesCount}"/> favorites copied to your favorites.</p>
+                                    </c:if>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
                                     <div class="DivContentPadding">
-                                        <div class="DivContentTitle">Choose provider who share the favorites</div>
+                                        <div class="DivContentTitle">Choose a provider who shares favorites</div>
                                     </div>
                                 </td>
                             </tr>
@@ -141,47 +148,43 @@
                                         <table cellspacing="0" cellpadding="2">
                                             <tr>
                                                 <td>
-                                                    <select name="ddl_provider" onchange="form.submit();">
+                                                    <select name="ddl_provider" aria-label="Provider sharing favorites" onchange="this.form.elements.dispatch.value='refresh';this.form.submit();">
                                                         <option value=""> Select Provider</option>
-                                                        <%
-                                                            for (int p = 0; p < allProviders.size(); p++) {
-                                                                if (((String) allProviders.get(p)).equalsIgnoreCase(providerNo)) {
-                                                                    continue;
-                                                                }
+                                                        <% for (String sharedProviderNo : allProviders) {
+                                                            if (sharedProviderNo.equals(providerNo)) continue;
+                                                            Provider sharedProvider = providerDao.getProvider(sharedProviderNo);
+                                                            if (sharedProvider == null) continue;
                                                         %>
-                                                            <option value="<carlos:encode value='<%=((String) allProviders.get(p))%>' context='htmlAttribute'/>"
-                                                                <%=((String) allProviders.get(p)).equalsIgnoreCase(copyProviderNo) ? "selected=\"selected\"" : ""%>>
-                                                                <carlos:encode value='<%=providerDao.getProvider((String) allProviders.get(p)).getFormattedName()%>' context="html"/>
+                                                            <option value="<carlos:encode value='<%= sharedProviderNo %>' context="htmlAttribute"/>"
+                                                                <%= sharedProviderNo.equals(copyProviderNo) ? "selected" : "" %>>
+                                                                <carlos:encode value='<%= sharedProvider.getFormattedName() %>'/>
                                                             </option>
                                                         <% } %>
                                                     </select>
-                                                    <input type="button" onclick="copy();form.submit();" value="Copy to my Favorites" name="b_copy"/>
+                                                    <input type="button" onclick="copy();this.form.submit();" value="Copy to my Favorites" name="b_copy"/>
                                                 </td>
                                             </tr>
 
-                                            <c:forEach var="fav" items="${favoritesDao.findByProviderNo(copyProviderNo)}" varStatus="status">
+                                            <c:forEach var="fav" items="${copyFavorites}" varStatus="status">
                                                 <c:set var="i" value="${status.index}" />
                                                 <c:set var="isCustom" value="${fav.gcnSeqNo == 0}" />
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line1">
                                                     <td colspan="2">
-                                                        <label for="fldFavoriteName${i}"><b>Favorite Name:</b></label>
+                                                        <input type="checkbox" name="selected${i}" id="selected${i}" value="1"/>
+                                                        <label for="selected${i}"><b>Copy <carlos:encode value="${fav.favoriteName}"/></b></label>
                                                         <input type="hidden" name="fldFavoriteId${i}" value="${carlos:forHtmlAttribute(fav.id)}"/>
-                                                        <input type="text" id="fldFavoriteName${i}" size="50" name="fldFavoriteName${i}" class="tblRow" value="${carlos:forHtmlAttribute(fav.favoriteName)}"/>
                                                     </td>
                                                 </tr>
                                                 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line2">
-                                                    <td><b>Brand Name:</b>${carlos:forHtmlContent(fav.bn)}</td>
-                                                    <td colspan="5"><b>Generic Name:</b>${carlos:forHtmlContent(fav.gn)}</td>
+                                                    <td><b>Drug:</b> <carlos:encode value="${isCustom ? fav.customName : fav.bn}"/></td>
+                                                    <td colspan="5"><b>Generic Name:</b> ${carlos:forHtmlContent(fav.gn)}</td>
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><label for="fldTakeMin${i}"><b>Take:</b></label>
-                                                        <input type="text" id="fldTakeMin${i}" name="fldTakeMin${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMin)}"/>
-                                                        <label for="fldTakeMax${i}">to</label>
-                                                        <input type="text" id="fldTakeMax${i}" name="fldTakeMax${i}" class="tblRow" size="3" value="${carlos:forHtmlAttribute(fav.takeMax)}"/>
-                                                    </td>
+                                                    <td><b>Take:</b> <carlos:encode value="${fav.takeMin}"/> to <carlos:encode value="${fav.takeMax}"/></td>
+                                                    <td><b>Instructions:</b> <carlos:encode value="${fav.special}"/></td>
                                                 </tr>
                                             </c:forEach>
                                         </table>

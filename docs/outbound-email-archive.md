@@ -11,13 +11,13 @@ There is no new archive user interface.
 ## Installation and upgrade
 
 Use the normal CARLOS deployment and Flyway migration procedure. The shared
-`V1.0.27` migration prepares the reference tables; `V1.0.28` creates the four archive
+`V1.0.69` migration prepares the reference tables; `V1.0.70` creates the four archive
 tables and supplies the default admin eDoc deletion grant. Both Ontario and BC use
 these migrations. Follow the backup and maintenance-window instructions in the
-V1.0.27 header when upgrading legacy MyISAM tables.
+V1.0.69 header when upgrading legacy MyISAM tables.
 
 After deployment, confirm Flyway validation succeeds and history records successful
-V1.0.27 and V1.0.28 migrations. Do not bypass a failed migration to start the app.
+V1.0.69 and V1.0.70 migrations. Do not bypass a failed migration to start the app.
 Earlier development versions of these archive tables require a rebuild of the
 **disposable development database**, or an explicit schema reconciliation that
 preserves its data. `flyway repair` adjusts history; it does not update old columns,

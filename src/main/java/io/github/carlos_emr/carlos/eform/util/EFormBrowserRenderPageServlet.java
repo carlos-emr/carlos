@@ -28,6 +28,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -58,9 +59,9 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EFormBrowserRenderPageServlet request from : {}", remoteAddress);
+            logger.debug("EFormBrowserRenderPageServlet request from : {}", LogSafe.sanitize(remoteAddress));
             if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EFormBrowserRenderPageServlet from address : {}", remoteAddress);
+                logger.warn("Unauthorised request made to EFormBrowserRenderPageServlet from address : {}", LogSafe.sanitize(remoteAddress));
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
@@ -104,6 +105,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 // The grant's provider is NOT read here: the composer needs no provider (it splices
                 // the stored signature), and provider-scoped resolution happens downstream from
                 // grant.providerNo() in EFormApCacheForPdfGenerationServlet.
+                // formDataId is parsed as an Integer before this log statement.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request, formDataId);
@@ -123,6 +126,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires a matching provider session");
                     return;
                 }
+                // formDataId is parsed as an Integer before this log statement.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 
@@ -252,7 +257,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                         null,
                         null);
                 connectSource = endpoint.toASCIIString();
-            } catch (java.net.URISyntaxException ignored) {
+            } catch (java.net.URISyntaxException _) {
                 // Fail closed: APCache is disabled when a safe exact endpoint cannot be formed.
             }
         }
@@ -269,7 +274,7 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
     private static Integer parseFormDataId(String id, HttpServletResponse response) throws IOException {
         try {
             return Integer.parseInt(id);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid parameter: fdid must be a valid number");
             return null;
         }

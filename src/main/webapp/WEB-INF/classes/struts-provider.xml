@@ -56,6 +56,7 @@
             <result name="faxstatus">/WEB-INF/jsp/admin/faxStatusResults.jspf</result>
         </action>
         <action name="fax/faxAction" class="io.github.carlos_emr.carlos.fax.action.Fax2Action">
+            <result name="renderBusy">/WEB-INF/jsp/eform/EFormRenderCapacity.jsp</result>
             <result name="faxUncertain">/WEB-INF/jsp/fax/FaxSubmissionUncertain.jsp</result>
             <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
@@ -198,9 +199,6 @@
         </action>
         <action name="provider/ViewProviderDisplayMyGroup" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderDisplayMyGroup2Action">
             <result name="success">/WEB-INF/jsp/provider/providerdisplaymygroup.jsp</result>
-        </action>
-        <action name="provider/ViewProviderEncounterHistory" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterHistory2Action">
-            <result name="success">/WEB-INF/jsp/provider/providerencounterhistory.jsp</result>
         </action>
         <action name="provider/ViewProviderEncounterPrint" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterPrint2Action">
             <result name="success">/WEB-INF/jsp/provider/providerencounterprint.jsp</result>

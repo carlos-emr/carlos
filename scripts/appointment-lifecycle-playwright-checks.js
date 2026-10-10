@@ -290,6 +290,12 @@ async function bookFromSlot(context, daySheet) {
     recorder.dialogs.push({ ...entry, accepted: true });
     await dialog.accept().catch(() => {});
   });
+  // The context's page event can fire while the popup is still about:blank.
+  // Waiting for that document's load state would pass immediately and make a
+  // healthy appointment form look like an empty response.
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'add-appointment popup');
@@ -309,10 +315,9 @@ async function bookFromSlot(context, daySheet) {
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'appointment patient search results');
 
-  // The result row selects through a submit input whose NAME is demographic_no
-  // and whose VALUE is the patient id, not through an anchor, so the click has to
-  // land on that button for the id to travel back to the booking form.
-  const row = popup.locator(`table tr input[type="submit"][name="demographic_no"][value="${demographicNo}"]`).first();
+  // The result row selects through a button; patient fields are carried in the POST body.
+  // Its value identifies the owned fixture to choose from the search results.
+  const row = popup.locator(`table tr input[type="button"][name="pick_demographic"][value="${demographicNo}"]`).first();
   await row.waitFor({ state: 'visible', timeout: 30000 });
   await Promise.all([
     popup.waitForLoadState('domcontentloaded', { timeout: 45000 }),
@@ -373,6 +378,9 @@ async function openEditPopup(context, daySheet, appointmentNo, dialogHandler = n
   await link.click();
   const popup = await popupPromise;
   wirePage(popup, 'edit-appointment', recorder, dialogHandler);
+  await popup.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await popup.waitForLoadState('domcontentloaded', { timeout: 45000 });
   await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(popup, 'edit-appointment popup');
@@ -397,6 +405,9 @@ async function checkAppointmentLabels(context, daySheet, appointmentNo) {
     edit.locator('a[onclick*="ViewDemographicLabelPrintSetting"]').click(),
   ]);
   wirePage(labels, 'appointment-labels', recorder);
+  await labels.waitForURL(url => String(url) !== 'about:blank', {
+    timeout: 45000, waitUntil: 'domcontentloaded',
+  });
   await labels.waitForLoadState('domcontentloaded');
   await assertNotErrorPage(labels, 'appointment label settings');
   const features = await edit.evaluate(() => window.__labelWindowFeatures);
@@ -510,8 +521,14 @@ async function submitEditWithReceipt(context, popup, appointmentNo) {
   const row = stampedAppointments().find((entry) => entry.id === String(appointmentNo));
   assert(row, 'receipt appointment disappeared');
   const [patient] = sqlRows(`SELECT first_name, last_name FROM demographic WHERE demographic_no=${demographicNo}`);
-  for (const expected of [targetDate, row.startTime.slice(0, 5), ...patient]) {
+  for (const expected of [targetDate, row.startTime.slice(0, 5)]) {
     assert(text.includes(expected), `receipt is missing expected appointment content: ${expected}`);
+  }
+  // Long names can wrap at spaces or hyphens on receipt paper. Require every
+  // character while allowing only the whitespace introduced by PDF layout.
+  const compactText = text.replace(/\s+/g, '');
+  for (const name of patient) {
+    assert(compactText.includes(name.replace(/\s+/g, '')), 'receipt is missing patient identity content');
   }
   assert(text.split(/\W+/).includes(String(appointmentNo)), 'receipt contains no matching appointment ID');
   await receipt.close();
@@ -582,7 +599,8 @@ async function rotateStatus(daySheet, appointmentNo, statusBefore) {
 async function cancelAppointment(context, daySheet, appointmentNo) {
   const popup = await openEditPopup(context, daySheet, appointmentNo);
   // The status field has two shapes and a deployment property decides which:
-  // editappointment.jsp builds the <select> only when ENABLE_EDIT_APPT_STATUS=yes,
+  // editappointment.jsp builds the <select> unless ENABLE_EDIT_APPT_STATUS is set to a
+  // non-active value such as "no" (absent means enabled),
   // and otherwise presents status as free text that AppointmentUpdateRecord2Action
   // persists verbatim. Both are driven so the check works either way.
   const statusSelect = popup.locator('select[name="status"]');

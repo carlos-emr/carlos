@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.CppUtils;
 import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -68,7 +69,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDi
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -467,10 +468,10 @@ public class CaseManagementView2Action extends ActionSupport {
             request.setAttribute("Prescriptions", prescriptions);
 
             // Setup RX bean start
-            RxSessionBean bean = new RxSessionBean();
-            bean.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            bean.setDemographicNo(Integer.parseInt(demoNo));
-            request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            // Make sure this patient has an Rx bean without replacing it (#3875): rendering the
+            // eChart tab used to overwrite the one shared bean, wiping a stash staged in another
+            // window and repointing that window at this patient.
+            RxSessionBeanResolver.ensure(request, Integer.parseInt(demoNo), loggedInInfo.getLoggedInProviderNo());
             // Setup RX end
         }
 
@@ -713,6 +714,8 @@ public class CaseManagementView2Action extends ActionSupport {
             notes = caseManagementMgr.getNotes(demoNo);
         }
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: carlos.crlf-injection-logs
         logger.debug("FETCHED {} NOTES", notes.size());
 
         startTime = System.currentTimeMillis();
@@ -1157,7 +1160,11 @@ public class CaseManagementView2Action extends ActionSupport {
         // listNotes() applies the per-issue-code hasReadAccess("_" + codes[0], ...)
         // check above before populating the request attributes the JSP reads, so the
         // include does not widen authorization.
-        if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+        // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+        // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
+        // "XMLHttpRequest, OWASP CSRFGuard Project" and an equals check would fall through
+        // to the named result, reinstating the truncation this branch exists to avoid.
+        if (RequestNegotiation.isAjax(request)) {
             request.getRequestDispatcher("/WEB-INF/jsp/casemgmt/viewNotes.jsp").include(request, response);
             return NONE;
         }
@@ -1584,6 +1591,8 @@ public class CaseManagementView2Action extends ActionSupport {
         if (logger.isDebugEnabled()) {
             logger.debug("FOUND: {}", LogSafe.sanitize(String.valueOf(result)));
             for (NoteDisplay nd : result.getNotes()) {
+                // the note ID is LogSafe-sanitized; the other value is a Java class name.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("   {} noteId={}", nd.getClass().getSimpleName(), LogSafe.sanitize(String.valueOf(nd.getNoteId())));
             }
         }

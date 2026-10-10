@@ -60,6 +60,42 @@ class EditControl2AssetRegressionTest {
         assertBlankTemplateSameOriginInvariant(releaseScript);
     }
 
+    @Test
+    @DisplayName("should stamp a letter with the signing provider's own signature file")
+    void shouldStampWithProviderSignature_whenPickingAStamp() throws IOException {
+        String packagedScript = Files.readString(EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+        String releaseScript = Files.readString(RELEASE_EDIT_CONTROL_2_JS, StandardCharsets.UTF_8);
+
+        assertThat(releaseScript).as("release copy must track the packaged asset").isEqualTo(packagedScript);
+
+        // Before this, pickStamp() only knew ImgArray (the hand-maintained stamps.js list) and a
+        // single shared stamp.png, so a multi-provider clinic without a stamps.js signed every
+        // letter with the same image. CARLOS already stores a per-provider signature under this
+        // name; the letter has to ask for it.
+        assertThat(packagedScript).contains("\"consult_sig_\" + providerNumber + \".png\"");
+
+        // The delegation rule, mirroring sign() in visualEformEditor.jsp: a billing practitioner
+        // signs their own letters, anyone below the threshold is writing under the direction of
+        // the patient's MRP and stamps with the MRP's signature.
+        assertThat(packagedScript)
+                .contains("var MIN_BILLING_PROVIDER_OHIP_NO = 1000;")
+                .contains("userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO");
+
+        // The identity comes from the hidden inputs the eForm framework populates server-side,
+        // with the matching AP keys as the fallback for a stored form_html that predates them.
+        assertThat(packagedScript)
+                .contains("inputId: \"user_id\"")
+                .contains("inputId: \"user_ohip_no\"")
+                .contains("inputId: \"doctor_provider_no\"")
+                .contains("\"current_user_id\", \"current_user_ohip_no\", \"doctor_provider_no\"");
+
+        // stamps.js and stamp.png stay reachable: an install with no per-provider signatures on
+        // file must keep working exactly as it did.
+        assertThat(packagedScript)
+                .contains("function legacyStampFile()")
+                .contains("var fileName = \"stamp.png\";");
+    }
+
     private void assertBlankTemplateSameOriginInvariant(String script) {
         // Ensure the option points to the blank.rtl template
         assertThat(script).contains("<option value=\"blank.rtl\">blank</option>");

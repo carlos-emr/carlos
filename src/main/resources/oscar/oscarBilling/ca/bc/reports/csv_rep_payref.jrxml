@@ -2,9 +2,9 @@
 <jasperReport name="pdf_rep_payref" pageWidth="535" pageHeight="842" columnWidth="535" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
 	<parameter name="startDate" class="java.lang.String">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
@@ -26,11 +26,11 @@
 	<parameter name="account" class="java.lang.String">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="provider" class="java.lang.String" isForPrompting="false" />
-	<parameter name="payee" class="java.lang.String" isForPrompting="false" />
-	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false" />
-	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" isForPrompting="false" />
-	<queryString>
+	<parameter name="provider" class="java.lang.String" forPrompting="false" />
+	<parameter name="payee" class="java.lang.String" forPrompting="false" />
+	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
+	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
+	<query>
 		<![CDATA[select provider.first_name,provider.provider_no,provider.last_name,billing.billing_date,billing.billingtype,billingmaster.service_date, billingmaster.billingmaster_no,billing.billing_no,
 billing.demographic_name,billing.demographic_no,billingmaster.billing_unit,billingmaster.billing_code,billingmaster.bill_amount,billingmaster.billingstatus
 from provider,billing,billingmaster
@@ -38,7 +38,7 @@ where billingmaster.billing_no=billing.billing_no
 and billing.provider_no = provider.provider_no
 and billing.provider_no = 999993
 order by billing.billingtype;]]>
-	</queryString>
+	</query>
 	<field name="billingtype" class="java.lang.String" />
 	<field name="paymentDate" class="java.lang.String" />
 	<field name="demoNo" class="java.lang.String" />
@@ -61,17 +61,17 @@ order by billing.billingtype;]]>
 	<field name="adjustmentCodeDesc" class="java.lang.String" />
 	<field name="adjustmentCodeAmt" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="methTotal" class="java.lang.Double" resetType="Group" resetGroup="payMeth" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<group name="payMeth">
-		<groupExpression><![CDATA[$F{type}]]></groupExpression>
+		<expression><![CDATA[$F{type}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
@@ -199,7 +199,7 @@ order by billing.billingtype;]]>
 		</columnHeader>
 	<detail>
 		<band height="12" splitType="Stretch">
-			<element kind="textField" mode="Transparent" x="83" y="0" width="35" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="83" y="0" width="35" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -209,7 +209,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{billingtype}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="389" y="0" width="48" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="dd-MMM-yy" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="389" y="0" width="48" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="dd-MMM-yy" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -219,7 +219,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{serviceDate})]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="344" y="0" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="344" y="0" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -229,7 +229,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{seqNum}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="155" y="0" width="116" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="155" y="0" width="116" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -239,7 +239,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{demoName} + "(" + $F{demoNo} + ")"]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="271" y="0" width="36" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="271" y="0" width="36" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -249,7 +249,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double($F{amount}))]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="0" y="0" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-2" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="dd-MMM-yy" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="0" y="0" width="45" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-2" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="dd-MMM-yy" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -259,7 +259,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{paymentDate})]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="118" y="0" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="118" y="0" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -269,7 +269,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{acctInit}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="437" y="0" width="19" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-7" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="437" y="0" width="19" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-7" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -279,7 +279,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{provName}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="45" y="0" width="38" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="45" y="0" width="38" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -289,7 +289,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{type}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="307" y="0" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-15" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="307" y="0" width="37" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-15" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -299,7 +299,7 @@ order by billing.billingtype;]]>
 				</box>
 				<expression><![CDATA[$F{exp1}+$F{exp2}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="456" y="0" width="77" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-40" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" isRemoveLineWhenBlank="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="456" y="0" width="77" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-40" hTextAlign="Left" vTextAlign="Middle" rotation="None" blankWhenNull="true" pattern="" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />

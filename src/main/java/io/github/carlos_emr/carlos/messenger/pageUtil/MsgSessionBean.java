@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Session bean for maintaining message composition state across requests in the messaging module.
@@ -206,8 +207,16 @@ public class MsgSessionBean implements java.io.Serializable {
         return "<PDF><FILE_ID>" + currentAttachmentCount + "</FILE_ID>";
     }
 
+    /**
+     * Builds the {@code <TITLE>} element of a stored PDF attachment record.
+     *
+     * <p>The title is user-influenced, and the attachment list is a flat string whose records
+     * are located by tag name, so markup in a title could forge extra elements. XML special
+     * characters are therefore escaped; readers must {@code unescapeXml} before display
+     * (see {@code ViewPDFAttachment.jsp}).</p>
+     */
     public String getPDFTitleTag(String pdfTitle) {
-        return "<TITLE>" + pdfTitle + "</TITLE>";
+        return "<TITLE>" + StringEscapeUtils.escapeXml10(pdfTitle == null ? "" : pdfTitle) + "</TITLE>";
     }
 
     public String getContentTag(String binStr) {
@@ -230,6 +239,18 @@ public class MsgSessionBean implements java.io.Serializable {
      */
     public void nullAttachment() {
         this.attach = null;
+        this.pdfAttach = null;
+        this.totalAttachmentCount = 0;
+        this.currentAttachmentCount = 0;
+    }
+
+    /**
+     * Clears only the rendered chart-PDF attachments and their counters, leaving any other
+     * attachment on the message being composed (transferred chart items) in place. The chart
+     * attachment chooser replaces its own set with this, so attaching PDFs never discards a
+     * document the sender attached another way.
+     */
+    public void nullPDFAttachment() {
         this.pdfAttach = null;
         this.totalAttachmentCount = 0;
         this.currentAttachmentCount = 0;

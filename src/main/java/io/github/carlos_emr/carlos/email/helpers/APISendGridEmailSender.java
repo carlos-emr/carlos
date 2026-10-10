@@ -496,7 +496,16 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
     private String getEndPoint() throws EmailSendingException {
         JsonNode jsonNode = getConfigDetails();
         JsonNode endPointNode = jsonNode.get("end_point");
-        return endPointNode != null ? endPointNode.asText() : DEFAULT_END_POINT;
+        if (endPointNode == null) {
+            return DEFAULT_END_POINT;
+        }
+        // A present but null, non-text or blank end_point is a malformed configuration: fail
+        // closed with the sanitized credential error rather than coercing it to "null"/"" and
+        // relying on endpoint validation to reject it.
+        if (!endPointNode.isTextual() || endPointNode.textValue().isBlank()) {
+            throw invalidCredentialsException();
+        }
+        return endPointNode.textValue();
     }
 
     /**
