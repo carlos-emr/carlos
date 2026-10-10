@@ -129,7 +129,14 @@ public final class AiDocumentSummary2Action extends ActionSupport {
                 || !Objects.equals(link.getId().getDocumentNo(), documentId)) {
             throw new SecurityException("Document scope unavailable");
         }
-        String patient = String.valueOf(link.getId().getModuleId());
+        int patientId = link.getId().getModuleId();
+        if (!security.hasPrivilege(user, "_edoc", "r", patientId)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        if (!security.isAllowedAccessToPatientRecord(user, patientId)) {
+            throw new SecurityException("Document scope unavailable");
+        }
+        String patient = String.valueOf(patientId);
         boolean visible = EDocUtil.listDocs(user, "demographic", patient, "all", EDocUtil.PRIVATE,
                         EDocUtil.EDocSort.OBSERVATIONDATE, "active").stream()
                 .anyMatch(item -> String.valueOf(documentId).equals(item.getDocId()));
@@ -139,7 +146,7 @@ public final class AiDocumentSummary2Action extends ActionSupport {
                 || document.getStatus() != 'A') {
             throw new SecurityException("Document scope unavailable");
         }
-        return new Snapshot(link.getId().getModuleId(), document.getDocfilename(), document.getContenttype(),
+        return new Snapshot(patientId, document.getDocfilename(), document.getContenttype(),
                 document.getDocdesc(), document.getUpdatedatetime() == null ? null : document.getUpdatedatetime().getTime());
     }
 
