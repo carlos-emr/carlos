@@ -247,7 +247,10 @@ class PortalManage2ActionUnitTest {
         try (MockedStatic<PatientNavModel> nav = mockStatic(PatientNavModel.class)) {
             nav.when(() -> PatientNavModel.forRequest(request, patient, PatientNavModel.Page.PORTAL)).thenReturn(model);
 
-            assertThat(withPatient(no -> { looked.add(no); return patient; }).execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(withPatient(no -> {
+                looked.add(no);
+                return patient;
+            }).execute()).isEqualTo(ActionSupport.SUCCESS);
         }
 
         assertThat(looked).containsExactly(123);
@@ -284,7 +287,12 @@ class PortalManage2ActionUnitTest {
     void shouldNotLookUpPatient_whenCallerIsRefused() {
         List<Integer> looked = new ArrayList<>();
 
-        assertThatThrownBy(() -> withPatient(no -> { looked.add(no); return new Demographic(); }).execute())
+        PortalManage2Action action = withPatient(no -> {
+            looked.add(no);
+            return new Demographic();
+        });
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class);
         assertThat(looked).isEmpty();
     }

@@ -22,15 +22,20 @@
 package io.github.carlos_emr.carlos.demographic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +58,18 @@ class PatientNavSharingRegressionTest {
     private static final Path JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic");
     private static final String INCLUDE = "<jsp:include page=\"/WEB-INF/jsp/demographic/patient-nav.jsp\"/>";
     private static final Pattern SECURITY_TAG = Pattern.compile(
-            "<security:oscarSec\\b[^>]*objectName=\"([^\"]+)\"[^>]*rights=\"([^\"]+)\"[^>]*>|</security:oscarSec>");
+            "<security:oscarSec(?=\\s|>)([^<>]*+)>|</security:oscarSec>");
+    private static final Pattern SECURITY_ATTRIBUTE = Pattern.compile(
+            "\\G\\s++([A-Za-z_:][A-Za-z0-9_:.-]*+)\\s*+=\\s*+(?:\"([^\"]*+)\"|'([^']*+)')");
+    private static final String NESTED_GUARDS = """
+            <security:oscarSec rights = 'r' roleName="doctor" objectName = "_billing">
+                MARKER
+                <security:oscarSec objectName="_billing" roleName='doctor' rights="w">
+                    MARKER
+                </security:oscarSec>
+            </security:oscarSec>
+            MARKER
+            """;
 
     private static String read(String name) throws IOException {
         return Files.readString(JSP.resolve(name), StandardCharsets.UTF_8);
@@ -133,6 +149,44 @@ class PatientNavSharingRegressionTest {
                 .isLessThan(nav.indexOf("<c:when test=\"${nav.portalSwitchedOn}\">"));
     }
 
+    @Test
+    @DisplayName("should preserve nested guards when attribute order and quoting vary")
+    void shouldPreserveNestedGuards_withAttributeOrderAndQuoting() {
+        assertThat(guardsOf(NESTED_GUARDS, "MARKER", 1)).containsExactly("_billing r");
+        assertThat(guardsOf(NESTED_GUARDS, "MARKER", 2)).containsExactly("_billing r", "_billing w");
+        assertThat(guardsOf(NESTED_GUARDS, "MARKER", 3)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject a guard with a missing right rather than ignore it")
+    void shouldRejectIncompleteGuard_withMissingRight() {
+        String nav = "<security:oscarSec objectName=\"_billing\">MARKER</security:oscarSec>";
+
+        assertThatThrownBy(() -> guardsOf(nav, "MARKER"))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("rights");
+    }
+
+    @Test
+    @DisplayName("should reject duplicate guard attributes rather than choose one")
+    void shouldRejectAmbiguousGuard_withDuplicateAttribute() {
+        String nav = "<security:oscarSec objectName=\"_billing\" rights=\"r\" rights=\"w\">MARKER</security:oscarSec>";
+
+        assertThatThrownBy(() -> guardsOf(nav, "MARKER"))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("duplicate security attribute rights");
+    }
+
+    @Test
+    @DisplayName("should preserve the same guard results after many unterminated tag prefixes")
+    void shouldPreserveGuards_withLargeUnterminatedPrefix() {
+        String nav = "<security:oscarSec ".repeat(50_000) + NESTED_GUARDS;
+
+        assertTimeout(Duration.ofSeconds(5), () -> {
+            assertThat(guardsOf(nav, "MARKER", 1)).containsExactly("_billing r");
+            assertThat(guardsOf(nav, "MARKER", 2)).containsExactly("_billing r", "_billing w");
+            assertThat(guardsOf(nav, "MARKER", 3)).isEmpty();
+        });
+    }
+
     /** The text between the first {@code start} and the next {@code end}. */
     private static String between(String text, String start, String end) {
         int from = text.indexOf(start);
@@ -158,11 +212,30 @@ class PatientNavSharingRegressionTest {
         Matcher tag = SECURITY_TAG.matcher(nav);
         while (tag.find() && tag.start() < at) {
             if (tag.group(1) != null) {
-                open.addLast(tag.group(1) + " " + tag.group(2));
+                open.addLast(guardOf(tag.group(1)));
             } else {
+                assertThat(open).as("matching opening security tag").isNotEmpty();
                 open.removeLast();
             }
         }
         return new ArrayList<>(open);
+    }
+
+    /** Parse each quoted attribute once; do not search inside another attribute's value. */
+    private static String guardOf(String attributes) {
+        Map<String, String> values = new HashMap<>();
+        Matcher attribute = SECURITY_ATTRIBUTE.matcher(attributes);
+        int end = 0;
+        while (attribute.find()) {
+            String name = attribute.group(1);
+            String value = attribute.group(2) != null ? attribute.group(2) : attribute.group(3);
+            assertThat(values.put(name, value)).as("duplicate security attribute %s", name).isNull();
+            end = attribute.end();
+        }
+        assertThat(attributes.substring(end)).as("unparsed security attributes").isBlank();
+        assertThat(values).containsKeys("objectName", "rights");
+        assertThat(values.get("objectName")).isNotEmpty();
+        assertThat(values.get("rights")).isNotEmpty();
+        return values.get("objectName") + " " + values.get("rights");
     }
 }
