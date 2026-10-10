@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -103,18 +104,19 @@
 
             function getMainAction() {
                 mainAction = document.forms[0].action;
-                mainTarget = docuemtn.forms[0].target;
+                mainTarget = document.forms[0].target;
             }
 
             function onPrint() {
                 document.forms[0].submit.value = "print"; //printReferral
                 var ret = numvalidate();
+                if (ret === false) return false;
                 //if(ret==true) {
                 //ret = confirm("Do you wish to save this form and view the print preview?");
                 popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
                 document.forms[0].action = "<%= request.getContextPath() %>/form/formmhoutcomeprint";
                 document.forms[0].target = "planner";
-                document.forms[0].submit();
+                HTMLFormElement.prototype.submit.call(document.forms[0]);
                 document.forms[0].target = "apptProviderSearch";
                 //}
                 return false;
@@ -591,7 +593,7 @@
                         <td colspan="4" class="mhList" valign="top">Assessment
                             Comments:<br>
                             <textarea class="mhOutTextarea"
-                                      name="o_outComments"><%= props.getProperty("o_outComments", "") %></textarea>
+                                      name="o_outComments"><%= SafeEncode.forHtmlContent(props.getProperty("o_outComments", "")) %></textarea>
                         </td>
                     </tr>
                 </table>

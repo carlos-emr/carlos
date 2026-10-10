@@ -46,15 +46,16 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <script type="text/javascript" src="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/js/global.js"></script>
         <fmt:setBundle basename="oscarResources"/>
         <title><fmt:message key="form.mhoutcomeprint.title"/></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= SafeEncode.forHtmlAttribute(request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/") %>">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/mhStyles.css">
@@ -109,31 +110,31 @@
                        class="tableWithBorder">
                     <tr>
                         <td><fmt:message key="form.mhoutcomeprint.name"/></td>
-                        <td align="left"><%= props.getProperty("c_pName", "") %>&nbsp;</td>
+                        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_pName", "")) %>&nbsp;</td>
                     </tr>
                     <tr>
                         <td><fmt:message key="form.mhoutcomeprint.sex"/></td>
-                        <td align="left"><%= props.getProperty("c_sex", "") %>&nbsp;</td>
+                        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_sex", "")) %>&nbsp;</td>
                     </tr>
         </tr>
         <td><fmt:message key="form.mhoutcomeprint.address"/></td>
-        <td align="left"><%= props.getProperty("c_address", "") %>&nbsp;</td>
+        <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_address", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.mhoutcomeprint.homePhone"/></td>
-            <td align="left"><%= props.getProperty("c_homePhone", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_homePhone", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.mhoutcomeprint.birthDate"/> <small>(yyyy/mm/dd)</small>:</td>
-            <td align="left"><%= props.getProperty("c_birthDate", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_birthDate", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.mhoutcomeprint.referralDate"/><small>(yyyy/mm/dd)</small>:</td>
-            <td align="left"><%= props.getProperty("c_referralDate", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_referralDate", "")) %>&nbsp;</td>
         </tr>
         <tr>
             <td><fmt:message key="form.mhoutcomeprint.referredBy"/></td>
-            <td align="left"><%= props.getProperty("c_referredBy", "") %>&nbsp;</td>
+            <td align="left"><%= SafeEncode.forHtmlContent(props.getProperty("c_referredBy", "")) %>&nbsp;</td>
         </tr>
     </table>
     </td>
@@ -145,13 +146,13 @@
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.servicesProvided"/><br>
                         <% String[] sp = list.loadData("mhOutcome/ServicesProvided.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("o_sp1", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_sp1", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("o_sp2", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_sp2", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("o_sp3", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_sp3", "---").equals("") ? "" : sp[Integer.parseInt(props.getProperty("o_sp3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -159,13 +160,13 @@
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.problemsEncountered"/><br>
                         <% String[] pe = list.loadData("mhOutcome/ProblemsEncountered.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("o_pe1", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pe1", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("o_pe2", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pe2", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("o_pe3", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pe3", "---").equals("") ? "" : pe[Integer.parseInt(props.getProperty("o_pe3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -173,13 +174,13 @@
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.disposition"/><br>
                         <% String[] d = list.loadData("mhOutcome/Disposition.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("o_d1", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_d1", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("o_d2", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_d2", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("o_d3", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_d3", "---").equals("") ? "" : d[Integer.parseInt(props.getProperty("o_d3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
@@ -187,19 +188,19 @@
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.patientNotSeen"/><br>
                         <% String[] pns = list.loadData("mhOutcome/PatientNotSeen.txt", projecthome, path); %>
                         1.
-                        <b><%=props.getProperty("o_pns1", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns1", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pns1", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns1", "---")) - 1]) %>
                         </b><br>
                         2.
-                        <b><%=props.getProperty("o_pns2", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns2", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pns2", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns2", "---")) - 1]) %>
                         </b><br>
                         3.
-                        <b><%=props.getProperty("o_pns3", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns3", "---")) - 1] %>
+                        <b><%= SafeEncode.forHtmlContent(props.getProperty("o_pns3", "---").equals("") ? "" : pns[Integer.parseInt(props.getProperty("o_pns3", "---")) - 1]) %>
                         </b>
                     </td>
                 </tr>
                 <tr>
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.comments"/><br>
-                        <%= props.getProperty("o_outComments", "")%>
+                        <%= SafeEncode.forHtmlContent(props.getProperty("o_outComments", "")) %>
                     </td>
                 </tr>
             </table>
