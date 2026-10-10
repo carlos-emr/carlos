@@ -194,7 +194,7 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDenyDraft_whenPatientDocumentAccessRevokedDuringGeneration() {
+    void shouldDenyDraft_whenPatientDocumentAccessRevokedDuringGeneration() throws Exception {
         when(summarizer.summarize(anyString())).thenAnswer(call -> {
             when(security.hasPrivilege(user, "_edoc", "r", 3001)).thenReturn(false);
             return mock(DocumentSummary.class);
@@ -208,7 +208,7 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDenyDraft_whenPatientRecordAccessRevokedDuringGeneration() {
+    void shouldDenyDraft_whenPatientRecordAccessRevokedDuringGeneration() throws Exception {
         when(summarizer.summarize(anyString())).thenAnswer(call -> {
             when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(false);
             return mock(DocumentSummary.class);
@@ -223,7 +223,7 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"document", "record"})
-    void shouldDenyDraft_whenDocumentRelinkedToRestrictedPatient(String restriction) {
+    void shouldDenyDraft_whenDocumentRelinkedToRestrictedPatient(String restriction) throws Exception {
         EDoc visible = mock(EDoc.class);
         when(visible.getDocId()).thenReturn("42");
         visibility.when(() -> EDocUtil.listDocs(user, "demographic", "3002", "all", EDocUtil.PRIVATE,
