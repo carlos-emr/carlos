@@ -1,0 +1,262 @@
+{
+  "date": "2026-09-30",
+  "model": "qwen/qwen3.5-35b-a3b",
+  "provider": "parasail",
+  "mode": "balanced-reviewed",
+  "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+  "source_words": 561,
+  "accepted": true,
+  "summary_points": 14,
+  "point_words": 434,
+  "seconds": 3.781,
+  "calls": [
+    {
+      "provider": "Parasail",
+      "model": "qwen/qwen3.5-35b-a3b",
+      "usage": {
+        "prompt_tokens": 794,
+        "completion_tokens": 303,
+        "total_tokens": 1097,
+        "cost": 0.0004221,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0004221,
+          "upstream_inference_prompt_cost": 0.0001191,
+          "upstream_inference_completions_cost": 0.000303
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finish_reason": "stop"
+    },
+    {
+      "provider": "Parasail",
+      "model": "qwen/qwen3.5-35b-a3b",
+      "usage": {
+        "prompt_tokens": 2454,
+        "completion_tokens": 6,
+        "total_tokens": 2460,
+        "cost": 0.0003741,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0003741,
+          "upstream_inference_prompt_cost": 0.0003681,
+          "upstream_inference_completions_cost": 6e-06
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "review_trace": [
+    {
+      "draft": {
+        "points": [
+          {
+            "text": "Patient experienced a minor fall at home on 02/01/26 after tripping over a loose carpet edge, reporting no loss of consciousness but feeling dazed, followed by progressive confusion and inability to recall recent events.",
+            "evidence_ids": [
+              "2",
+              "3"
+            ]
+          },
+          {
+            "text": "Physical assessment indicates dehydration with dry mucous membranes, while the patient denies headache, visual changes, nausea, vomiting, limb weakness, chest pain, palpitations, or shortness of breath.",
+            "evidence_ids": [
+              "3",
+              "10"
+            ]
+          },
+          {
+            "text": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes",
+            "evidence_ids": [
+              "4"
+            ]
+          },
+          {
+            "text": "Past Medical History\n- HTN\n- Mild osteoarthritis",
+            "evidence_ids": [
+              "5"
+            ]
+          },
+          {
+            "text": "Medications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort",
+            "evidence_ids": [
+              "6"
+            ]
+          },
+          {
+            "text": "Allergies\nNone",
+            "evidence_ids": [
+              "7"
+            ]
+          },
+          {
+            "text": "Social history notes the patient is a retired accountant living alone in a ground-floor flat, independent in daily activities, a non-smoker with occasional alcohol use (approx. 6 units/week) and no recreational drug use.",
+            "evidence_ids": [
+              "8"
+            ]
+          },
+          {
+            "text": "Family History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders",
+            "evidence_ids": [
+              "9"
+            ]
+          },
+          {
+            "text": "Neurological examination reveals alertness with mild confusion (GCS 14/15, disoriented to time), unsteady gait requiring assistance, and intact cranial nerves, motor power, sensation, reflexes, and coordination; no meningeal signs or focal deficits were detected.",
+            "evidence_ids": [
+              "10",
+              "11"
+            ]
+          },
+          {
+            "text": "Observations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air",
+            "evidence_ids": [
+              "12"
+            ]
+          },
+          {
+            "text": "Investigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned",
+            "evidence_ids": [
+              "13"
+            ]
+          },
+          {
+            "text": "Test Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None",
+            "evidence_ids": [
+              "14"
+            ]
+          },
+          {
+            "text": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration",
+            "evidence_ids": [
+              "15"
+            ]
+          },
+          {
+            "text": "Plan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay",
+            "evidence_ids": [
+              "16"
+            ]
+          }
+        ]
+      },
+      "issues": []
+    }
+  ],
+  "output": {
+    "overview": "Patient experienced a minor fall at home on 02/01/26 after tripping over a loose carpet edge, reporting no loss of consciousness but feeling dazed, followed by progressive confusion and inability to recall recent events.",
+    "points": [
+      {
+        "text": "Patient experienced a minor fall at home on 02/01/26 after tripping over a loose carpet edge, reporting no loss of consciousness but feeling dazed, followed by progressive confusion and inability to recall recent events.",
+        "evidence": [
+          "Presenting Complaint\nAcute confusion following minor fall",
+          "History of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB"
+        ]
+      },
+      {
+        "text": "Physical assessment indicates dehydration with dry mucous membranes, while the patient denies headache, visual changes, nausea, vomiting, limb weakness, chest pain, palpitations, or shortness of breath.",
+        "evidence": [
+          "History of Presenting Complaint\n- Pt reports tripping over a loose carpet edge at home earlier in the day (02/01/26)\n- No LOC reported but recalls feeling dazed afterward\n- Developed pprogressive confusion over the following hours\n- Unable to remember recent events clearly\n- Denies headache, visual changes, N&V, or limb weakness\n- No reported CP, palpitations, or SOB",
+          "On Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added "
+        ]
+      },
+      {
+        "text": "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes",
+        "evidence": [
+          "Review of Systems\n- CNS: Mild confusion, denies heaadche, no visual disturbances, no speech difficulti es, no limb weakness, denies seizures\n- CVS: Denies chest pain, palpitations, or syncope\n- Resp: No breathlessness or cough\n- GIT: No abdominal pain, nausea, vomiting, or changes in bowel habit\n- Renal: No dysuria or haematuria\n- MSK: Reports mild right knee pain following the fall\n- Endo: No polyuria, polydipsia, or heat/cold intolerance\n- Other: No recent fever or weight changes"
+        ]
+      },
+      {
+        "text": "Past Medical History\n- HTN\n- Mild osteoarthritis",
+        "evidence": [
+          "Past Medical History\n- HTN\n- Mild osteoarthritis"
+        ]
+      },
+      {
+        "text": "Medications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort",
+        "evidence": [
+          "Medications\n- No regular medications\n- IV paracetamol 1g QID prescribed during ED stay to manage pain and prevent discomfort"
+        ]
+      },
+      {
+        "text": "Allergies\nNone",
+        "evidence": [
+          "Allergies\nNone"
+        ]
+      },
+      {
+        "text": "Social history notes the patient is a retired accountant living alone in a ground-floor flat, independent in daily activities, a non-smoker with occasional alcohol use (approx. 6 units/week) and no recreational drug use.",
+        "evidence": [
+          "Social History\n- Lives alone in a ground-floor flat\n- Independent with activities of daily living\n- Retired accountant\n- Non-smoker\n- Drinks alcohol occasionally, approximately 6 units per week\n- No recreational drug use"
+        ]
+      },
+      {
+        "text": "Family History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders",
+        "evidence": [
+          "Family History\n- Father: Deceased, history of MI at age 67\n- Motherr: Deceased, history of HTN and stroke\n- No known family history of neurodegenerative or psychiatric disorders"
+        ]
+      },
+      {
+        "text": "Neurological examination reveals alertness with mild confusion (GCS 14/15, disoriented to time), unsteady gait requiring assistance, and intact cranial nerves, motor power, sensation, reflexes, and coordination; no meningeal signs or focal deficits were detected.",
+        "evidence": [
+          "On Examination\n- Alert but mildly confused, GCS 14/15 (disoriented to time)\n- Appears dehydrated with dry mucous membranes\n- No obvious signs of head trauma or external injuries\n- Neurological examination:\n   - Cranial nerves: Intact, pupils equal and reactive to light bilaterally\n  - Motor: Normal power (5/5) in all limbs\n  - Sensory: No deficits detected in light touch, pinprick, or vibratkion sensation\n  - Reflexes: Normal and symmetrical in all limbs, plantar reflexes downgoing bilaterally\n - Coordination: No dysmetria or intention tremor on finger-nose testing\n  - Gait: Unsteady, requires assistance to walk; no gross abnormalities in stance or heel-to-toe walking\n- Cardiovascular: Heart sounds dual, no murmurs, no peripheral oedema\n- Respiratory: Equal air entry bilaterally, no added ",
+          "sounds\n- Abdomen: Soft, non-tender, no organomegaly\n- No meningeal signs"
+        ]
+      },
+      {
+        "text": "Observations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air",
+        "evidence": [
+          "Observations\nHR 88\nBP 142/86\nRR 16\nTemp 36.8\nSpO2 98% on room air"
+        ]
+      },
+      {
+        "text": "Investigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned",
+        "evidence": [
+          "Investigations\n- CT head (02/01/26): DSubdural hygroma noted, no MLS\n- No further imaging performed or currently planned"
+        ]
+      },
+      {
+        "text": "Test Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None",
+        "evidence": [
+          "Test Results\n- FB: Normal\n- U&E: Mild hyponatremia (Na 132 mmol/L)\n- CRP: Normal\n- LFTs: Normal\n- Coagulation profile: Normal\n- Blood glucose: Normal\n- Pending: None"
+        ]
+      },
+      {
+        "text": "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration",
+        "evidence": [
+          "Impression\nAcute confusion secondary to subdural hygroma and mild hypoNa, likely exacerbated by dehydration"
+        ]
+      },
+      {
+        "text": "Plan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay",
+        "evidence": [
+          "Plan\n- Commence IV 0.9% sodium chloride, 1L over 8 hours, to correct dehydration and mild hyponatremia\n- Prescribe IV paracetamol 1g QID to mnaage pain and prevent discomfort\n- Continue monitoring neurological status with GCS assessments every 4 hours\n- Repeat U&E in 24 hours to assess resposne to fluid resuscitation\n- Ensure adequate oral hydration once IV fluids are discontinued\n- Monitor for any progression of symptoms or development of focal neurological deficits\n- Liaise with neurology team for ongoing care and management\n- Document any further findings during the patient\u00e2\u20ac\u2122s stay"
+        ]
+      }
+    ]
+  },
+  "manual_review": {
+    "checked": "Compared all generated points and retained passages with the complete synthetic source.",
+    "limitation": "The generated examination point omits the source statements about absent external head injury and normal cardiovascular, respiratory and abdominal examination. An empty model-review issues list does not establish complete coverage."
+  }
+}

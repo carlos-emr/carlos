@@ -13,12 +13,18 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
     private final String name;
     private final int timeoutMs;
     private final int requestBytes;
+    private final boolean chartCoverageAudit;
 
     public HttpClinicalSummaryAgent(int port, String path, String name, int timeoutMs) {
         this(port, path, name, timeoutMs, MIN_REQUEST_BYTES);
     }
 
     public HttpClinicalSummaryAgent(int port, String path, String name, int timeoutMs, int requestBytes) {
+        this(port, path, name, timeoutMs, requestBytes, false);
+    }
+
+    HttpClinicalSummaryAgent(int port, String path, String name, int timeoutMs, int requestBytes, boolean chartCoverageAudit) {
+        this.chartCoverageAudit = chartCoverageAudit;
         validateConnection(port, timeoutMs);
         if (requestBytes < MIN_REQUEST_BYTES || requestBytes > MAX_REQUEST_BYTES) {
             throw new IllegalArgumentException("Invalid HTTP agent request budget");
@@ -36,6 +42,10 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
 
     @Override
     public String displayName() { return name + " via agent API v1"; }
+
+    /** Only the dedicated chart-update orchestration attests to coverage; older services may omit it. */
+    @Override
+    public boolean providesChartCoverageAudit() { return chartCoverageAudit; }
 
     @Override
     public int requestBytes() { return requestBytes; }

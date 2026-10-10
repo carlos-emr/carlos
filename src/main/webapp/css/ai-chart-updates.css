@@ -1,0 +1,120 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+/* Use CARLOS global.css for the page header, palette, buttons and focus states. */
+body { background: #fff; font-size: 14px; }
+.review-header .page-header-title { white-space: normal; }
+.review-content { padding: 0 15px 15px; }
+.review-context p { margin-bottom: .5rem; }
+.review-document { font-weight: 600; }
+.review-guidance { padding: .5rem .75rem; border: 1px solid var(--carlos-border); background: var(--carlos-bg-light); margin-bottom: .5rem; }
+.review-guidance p { margin: 0; }
+.review-guidance p + p { margin-top: .35rem; }
+.chart-update-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1rem; align-items: start; margin-top: 1rem; }
+.chart-update-layout > * { min-width: 0; }
+.chart-update-layout h2 { font-size: 18px; }
+.review-progress { font-weight: 600; }
+.suggestions-help, .field-help { color: #555; font-size: 13px; }
+.field-help { margin: .35rem 0 0; }
+.past-date { color: #84431a; font-weight: 600; margin: .35rem 0 0; }
+
+/* The eChart's own section colours (the tickler's darkened to 3.5:1 on white), so a suggestion looks
+   like where it will go. Colour is never the only cue: each card and summary row names its section,
+   and each step is named (tooltip and screen reader) by its position, kind and result. */
+[data-section] { --sec: #8a8a8a; }
+[data-section="MedHistory"], [data-section="Concerns"], [data-section="SocHistory"], [data-section="Reminders"] { --sec: #996633; }
+[data-section="FamHistory"] { --sec: #006600; }
+[data-section="RiskFactors"] { --sec: #993333; }
+[data-section="OMeds"] { --sec: #306754; }
+[data-section="Medications"] { --sec: #7d2252; }
+[data-section="Allergies"] { --sec: #c85a17; }
+[data-section="Preventions"] { --sec: #009999; }
+[data-section="Tickler"] { --sec: #e65c00; }
+.section-chip { display: inline-block; border-left: 4px solid var(--sec); background: var(--carlos-bg-light); padding: 0 .4rem; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.section-chip[hidden] { display: none; }
+
+.proposal { border: 1px solid var(--carlos-border); border-left: 5px solid var(--sec); border-radius: 4px; }
+.proposal .card-body { padding: .75rem; }
+.proposal-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .6rem; padding: .5rem .75rem; background: var(--carlos-bg-light); border-bottom: 1px solid var(--carlos-border); border-radius: 0 4px 0 0; }
+.proposal-heading h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.proposal-number { font-weight: 600; }
+.proposal-position { margin-left: auto; color: #555; font-size: 13px; }
+.proposal-evidence { border-left: 3px solid var(--sec); background: #fafafa; padding: .4rem .6rem; margin-bottom: .75rem; }
+.proposal-evidence .evidence-label { margin: 0; color: #555; font-size: 13px; }
+.proposal-evidence blockquote { border: 0; padding: 0; margin: .2rem 0 .3rem; }
+.source-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; margin-top: .5rem; }
+blockquote { border-left: 3px solid var(--carlos-border); padding-left: .75rem; margin-bottom: 0; }
+.proposal-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; margin-top: .25rem; }
+.form-label { font-weight: 600; }
+.form-control, .form-select { font-size: inherit; }
+.approval-confirmation { display: flex; align-items: start; gap: .5rem; margin: 0; flex: 1 1 18rem; }
+.approval-confirmation input { flex-shrink: 0; margin-top: .2rem; width: 1rem; height: 1rem; }
+.review-action-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .75rem; }
+.review-action-bar[hidden], [data-step-only][hidden] { display: none; }
+.review-action-spacer { flex: 1 1 auto; }
+.chart-reference { padding: .75rem; background: #fff; border: 1px solid var(--carlos-border); border-radius: 4px; position: sticky; top: .75rem; max-height: calc(100vh - 1.5rem); overflow: auto; }
+.chart-reference h2 { margin: -.75rem -.75rem .75rem; padding: .5rem .75rem; background: var(--carlos-bg-light); border-bottom: 1px solid var(--carlos-border); font-size: 15px; font-weight: 600; }
+summary { cursor: pointer; }
+summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 3px; }
+
+/* One suggestion at a time (script on). */
+.review-strip { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; margin: .25rem 0 0; }
+.review-strip[hidden] { display: none; }
+/* Steps share the width but never shrink below a 24px target: many suggestions wrap to another row. */
+.review-strip-steps { display: flex; flex-wrap: wrap; flex: 1 1 12rem; gap: 4px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.review-strip-steps li { flex: 1 0 24px; }
+/* A 24px target around a thin bar. Open steps are outlined, saved or closed ones filled. */
+.review-step { display: block; width: 100%; height: 24px; padding: 5px 0; border: 0; background: none; cursor: pointer; }
+.review-step::before { content: ""; display: block; height: 14px; border: 2px solid var(--sec); border-radius: 3px; background: #fff; }
+.review-step-done::before { background: var(--sec); }
+.review-step[aria-current="step"]::before { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #333; }
+.review-step:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 1px; }
+.review-strip-count { white-space: nowrap; font-weight: 600; }
+.review-stepping .proposal-number { display: none; }
+/* The current suggestion's actions stay at the bottom of the window. Script measures the bar
+   (--review-bar-space), so the page, the reference panel and focused fields clear it. */
+.review-stepping .review-action-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; margin: 0; padding: .5rem 15px; background: #fff; border-top: 1px solid var(--carlos-border); box-shadow: 0 -2px 6px rgba(0, 0, 0, .06); }
+.review-stepping { scroll-padding-bottom: calc(var(--review-bar-space, 0px) + .5rem); }
+.review-stepping body { padding-bottom: var(--review-bar-space, 0px); }
+.review-stepping .chart-reference { max-height: calc(100vh - 1.5rem - var(--review-bar-space, 0px)); }
+.proposal[hidden], .review-summary[hidden] { display: none; }
+.review-summary-table td { vertical-align: top; }
+.review-summary-table .source-text { margin: 0; }
+
+@media (max-width: 800px) {
+    .chart-update-layout, .proposal-fields { grid-template-columns: 1fr; }
+    .chart-reference, .review-stepping .chart-reference { position: static; max-height: none; }
+    /* Below the suggestion, the chart check comes first: the source has its own scroll box. */
+    .chart-reference { display: flex; flex-direction: column; }
+    /* Its own bottom margin: the next section's full-width header pulls up by .75rem. */
+    .chart-reference .chart-check { order: -1; margin-top: 0; margin-bottom: 1rem; }
+}
+
+.review-in-modal .review-header .page-header-title { display: none; }
+.review-in-modal .review-header { justify-content: end; }
+
+.source-viewer { max-height: 40vh; overflow: auto; border: 1px solid var(--carlos-border); padding: .5rem; }
+.source-viewer .source-text { margin: 0; }
+.source-viewer:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset: 2px; }
+.source-highlight { background: #fff0a6; color: #222; padding: 0; box-shadow: 0 1px 0 #b89100; }
+.chart-check, .current-chart { margin-top: 1rem; }
+.chart-check[hidden] { display: none; }
+.chart-check-clear { margin: 0; color: #555; }
+.chart-check-pointer { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .35rem .75rem; margin-bottom: .75rem; }
+.chart-check-pointer[hidden] { display: none; }
+.chart-match-notice, .related-proposal-notice { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .5rem .75rem; margin-bottom: .75rem; }
+.chart-match-notice p, .related-proposal-notice p { margin: 0 0 .35rem; }
+.chart-match-links { margin-bottom: 0; padding-left: 1.25rem; }
+.chart-entry-match { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .4rem .5rem; }
+
+.native-chart-review { width: 96vw; height: 94vh; max-width: none; max-height: 96vh; box-sizing: border-box; overflow: auto; padding: 12px; border: 1px solid #777; }
+.native-chart-review::backdrop { background: rgba(0, 0, 0, .4); }
+.native-chart-review[open] { display: flex; flex-direction: column; gap: .5rem; }
+.native-chart-review > :not(iframe) { flex-shrink: 0; }
+.native-chart-review iframe { width: 100%; flex: 1 1 auto; min-height: 160px; height: auto; border: 1px solid #ccc; }
+.native-chart-review .native-review-source { max-height: 15vh; overflow: auto; white-space: pre-wrap; }
+
+.coverage-audit { border: 1px solid #9db6cf; padding: .6rem; margin-bottom: 1rem; background: #f5f8fb; }
+.coverage-audit summary { cursor: pointer; color: #24496d; }
+.coverage-section, .coverage-rejected { border-top: 1px solid #c5d3e0; margin-top: .5rem; padding-top: .5rem; }
+.coverage-audit blockquote { max-height: 18rem; overflow: auto; margin: .5rem 0; padding: .5rem; background: white; }
+.coverage-section a { display: inline-block; margin: .3rem; }
+.coverage-gap { border-left: 3px solid #986e1c; }

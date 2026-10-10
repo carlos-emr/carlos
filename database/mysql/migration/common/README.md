@@ -65,6 +65,10 @@ type is seeded inactive until its wording has compliance sign-off, so SMS stays 
 configured until it is activated, and then for each patient until their consent is recorded.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
+`V1.0.33__reviewed_chart_update_receipts.sql` adds durable per-proposal receipts for optional
+clinician-reviewed document chart updates (#4065). Its number is set when it merges: it must be
+above the highest version on both develop and `release/2026.08`.
+
 `V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
 used by the patient portal client and grants them to `admin` only.
 Versions up to `V1.0.40` are not free: `release/2026.08` holds them and they arrive with that

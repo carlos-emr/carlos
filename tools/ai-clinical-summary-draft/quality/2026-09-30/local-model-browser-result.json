@@ -1,0 +1,41 @@
+{
+  "chartNumber": "AIFACT005",
+  "demographicId": 3051,
+  "baselineCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "afterCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "results": [
+    {
+      "documentId": 43,
+      "words": 4537,
+      "sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "elapsedMs": 1504039,
+      "status": "generated",
+      "proposals": 1,
+      "error": null,
+      "history": 1,
+      "reminders": 0,
+      "agentLabel": "Proposal source: Qwen 3.5 2B - local model (cached) via agent API v1"
+    },
+    {
+      "documentId": 44,
+      "words": 561,
+      "sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "elapsedMs": 903,
+      "status": "generation-unavailable",
+      "proposals": null,
+      "error": "Proposals could not be generated or failed source validation. Nothing was saved."
+    }
+  ]
+}

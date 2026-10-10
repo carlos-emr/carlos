@@ -33,6 +33,7 @@ migration/
            V1.0.28__outbound_email_archive.sql
            V1.0.31__add_sms_security_objects.sql  # 29-30 were held by open PRs; see common/README.md
            V1.0.32__add_sms_consent.sql
+           V1.0.33__reviewed_chart_update_receipts.sql  # number set at merge: above develop and release/2026.08 (#4065)
            V1.0.41__patient_portal_security_objects.sql
            V1.0.42__portal_email_delivery.sql
            V1.0.54__activate_sms_consent.sql  # above develop and release/2026.08 (V1.0.53)

@@ -41,6 +41,37 @@ class DocumentReportJspRegressionTest {
                 .doesNotContain("var msgNoDocSelected = '<fmt:message");
     }
 
+    @Test
+    @DisplayName("should announce that the chart-update document link opens a dialog")
+    void shouldAnnounceDialog_forChartUpdateDocumentLink() throws IOException {
+        String source = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+        assertThat(source).contains("<a class=\"chart-update-launch chart-update-document-link\" aria-haspopup=\"dialog\"");
+    }
+
+    /**
+     * Every launch link is gated, so with the feature off the dialogs, scripts and stylesheet
+     * would only be dead weight on each document report.
+     */
+    @Test
+    @DisplayName("should load chart-update dialogs and assets only when the feature is enabled")
+    void shouldLoadChartUpdateAssets_onlyWhenFeatureEnabled() throws IOException {
+        String source = Files.readString(DOCUMENT_REPORT_JSP, StandardCharsets.UTF_8);
+        // The shared helper keeps this page on the same flags as the eChart header and the action.
+        assertThat(source).contains("&& io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext.enabled();");
+        for (String asset : new String[] {"/css/ai-chart-updates-navigation.css\"",
+                "<%@ include file=\"/WEB-INF/jspf/chart-update-error-dialog.jspf\" %>",
+                "/js/ai-chart-updates-navigation.js\"",
+                "<%@ include file=\"/WEB-INF/jspf/chart-update-workflow-dialog.jspf\" %>",
+                "/js/ai-chart-updates-modal.js\""}) {
+            int at = source.indexOf(asset);
+            assertThat(at).as(asset).isPositive().isEqualTo(source.lastIndexOf(asset));
+            int guard = source.lastIndexOf("<% if (chartUpdatesEnabled) { %>", at);
+            assertThat(guard).as("%s must sit inside the chartUpdatesEnabled guard", asset).isPositive();
+            assertThat(source.indexOf("<% } %>", guard)).as("%s must sit inside the chartUpdatesEnabled guard", asset)
+                    .isGreaterThan(at);
+        }
+    }
+
     private static final Path DOCUMENT_REPORT_JSP =
             resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager",
                     "documentReport.jsp"));

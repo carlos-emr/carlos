@@ -1,0 +1,22 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="chartUpdates.title" var="chartUpdateWorkflowTitle"/>
+<fmt:message key="chartUpdates.checking" var="chartUpdateWorkflowLoading"/>
+<fmt:message key="chartUpdates.openFailed" var="chartUpdateWorkflowError"/>
+<fmt:message key="chartUpdates.wait" var="chartUpdateWorkflowWait"/>
+<fmt:message key="admin.configureFax.unsavedChangesPrompt" var="chartUpdateWorkflowUnsaved"/>
+<dialog id="chart-update-workflow-dialog" class="chart-update-workflow-dialog" aria-labelledby="chart-update-workflow-title"
+        data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
+        data-loading="${carlos:forHtmlAttribute(chartUpdateWorkflowLoading)}"
+        data-error="${carlos:forHtmlAttribute(chartUpdateWorkflowError)}"
+        data-wait="${carlos:forHtmlAttribute(chartUpdateWorkflowWait)}"
+        data-unsaved="${carlos:forHtmlAttribute(chartUpdateWorkflowUnsaved)}">
+    <div class="chart-update-workflow-header">
+        <h2 id="chart-update-workflow-title"><fmt:message key="chartUpdates.title"/></h2>
+        <button class="btn btn-secondary btn-sm" type="button" data-close-chart-update-workflow autofocus><fmt:message key="global.btnClose"/></button>
+    </div>
+    <p class="chart-update-workflow-status" role="status" hidden></p>
+    <iframe id="chart-update-workflow-frame" title="${carlos:forHtmlAttribute(chartUpdateWorkflowTitle)}" hidden></iframe>
+</dialog>

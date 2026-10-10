@@ -1,0 +1,663 @@
+{
+  "chartNumber": "AIFACT005",
+  "demographicId": 3051,
+  "baselineCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "afterCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "results": [
+    {
+      "documentId": 43,
+      "words": 4537,
+      "sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "elapsedMs": 5894,
+      "status": "generated",
+      "proposals": 88,
+      "error": null,
+      "history": 61,
+      "reminders": 2,
+      "nativeReviews": 25,
+      "agentLabel": "Proposal source: OpenRouter / Qwen3.5-35B-A3B (Parasail) via agent API v1",
+      "defaults": [
+        {
+          "kind": "review",
+          "destination": "Demographics",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Demographics",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "review",
+          "destination": "Allergies",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Allergies",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "RiskFactors"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "RiskFactors"
+        },
+        {
+          "kind": "tickler",
+          "dueDate": "2026-01-23",
+          "relatedSuggestion": true,
+          "assignee": "999998"
+        },
+        {
+          "kind": "tickler",
+          "dueDate": "2026-01-16",
+          "relatedSuggestion": true,
+          "assignee": "999998"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "RiskFactors"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "RiskFactors"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "RiskFactors"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "review",
+          "destination": "Allergies",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        }
+      ],
+      "demographicFormPatientChecked": true
+    },
+    {
+      "documentId": 44,
+      "words": 561,
+      "sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "elapsedMs": 2934,
+      "status": "generated",
+      "proposals": 34,
+      "error": null,
+      "history": 31,
+      "reminders": 0,
+      "nativeReviews": 3,
+      "agentLabel": "Proposal source: OpenRouter / Qwen3.5-35B-A3B (Parasail) via agent API v1",
+      "defaults": [
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": true
+        },
+        {
+          "kind": "review",
+          "destination": "Allergies",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "SocHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "FamHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Reminders"
+        },
+        {
+          "kind": "review",
+          "destination": "Medications",
+          "relatedSuggestion": false
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        }
+      ]
+    }
+  ]
+}

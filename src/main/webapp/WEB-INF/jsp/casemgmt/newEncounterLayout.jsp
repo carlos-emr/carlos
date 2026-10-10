@@ -70,6 +70,9 @@
     CppPreferencesUIBean cppPreferences = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
     cppPreferences.loadValues();
     pageContext.setAttribute("cppPreferences", cppPreferences, PageContext.PAGE_SCOPE);
+    // The header's launch link uses the same flags; without it the workflow dialog is never opened.
+    pageContext.setAttribute("chartUpdatesEnabled",
+            io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext.enabled(), PageContext.PAGE_SCOPE);
 %>
 <!DOCTYPE html>
 <html>
@@ -83,6 +86,9 @@
 
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
+        <c:if test="${chartUpdatesEnabled}">
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/ai-chart-updates-navigation.css?v=<%= System.currentTimeMillis() %>">
+        </c:if>
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
               title="win2k-cold-1">
@@ -889,5 +895,9 @@
     </div>
     <div id="encounterModal"></div>
 
+    <c:if test="${chartUpdatesEnabled}">
+    <%@ include file="/WEB-INF/jspf/chart-update-workflow-dialog.jspf" %>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-modal.js?v=<%= System.currentTimeMillis() %>"></script>
+    </c:if>
     </body>
 </html>

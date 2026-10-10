@@ -18,17 +18,31 @@ public final class ClinicalSummaryAgents {
         return configuredDocument(CarlosProperties.getInstance());
     }
 
+    /** Dedicated operation: the agent returns proposals, never chart-write instructions. */
+    public static ClinicalSummaryAgent configuredChartUpdates() {
+        return configuredChartUpdates(CarlosProperties.getInstance());
+    }
+
+    static ClinicalSummaryAgent configuredChartUpdates(Properties properties) {
+        return configuredDocument(properties, "/v1/chart-update-proposals", true);
+    }
+
     static ClinicalSummaryAgent configuredDocument(Properties properties) {
+        return configuredDocument(properties,
+                properties.getProperty("clinical.ai_document_summary.http.path", "/v1/document-summary"), false);
+    }
+
+    private static ClinicalSummaryAgent configuredDocument(Properties properties, String path, boolean chartCoverageAudit) {
         if (!"http".equals(properties.getProperty(PREFIX + "agent", "ollama"))) {
             return configured(properties);
         }
         return new HttpClinicalSummaryAgent(
                 Integer.parseInt(properties.getProperty(PREFIX + "http.port", "11435")),
-                properties.getProperty("clinical.ai_document_summary.http.path", "/v1/document-summary"),
+                path,
                 properties.getProperty(PREFIX + "http.name", "Configured agent"),
                 timeoutMillis(properties.getProperty(PREFIX + "http.timeoutSeconds", "600")),
                 Integer.parseInt(properties.getProperty(PREFIX + "http.requestBytes",
-                        String.valueOf(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES))));
+                        String.valueOf(ClinicalSummaryAgentProtocol.MIN_REQUEST_BYTES))), chartCoverageAudit);
     }
 
     static ClinicalSummaryAgent configured(Properties properties) {

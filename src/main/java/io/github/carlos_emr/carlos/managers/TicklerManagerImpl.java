@@ -326,13 +326,19 @@ public class TicklerManagerImpl implements TicklerManager {
             }
             ProgramProvider pp = ppList.get(0);
             Secrole role = pp.getRole();
+            if (role == null || role.getRoleName() == null) {
+                // Preserve the creator exception even when this membership has no usable role.
+                if (Objects.equals(t.getCreator(), providerNo)) filteredTicklers.add(t);
+                continue;
+            }
 
             // Get the tickler assigned to providers's role in the tickler's program
             String ticklerRole = null;
             List<ProgramProvider> ppList2 = new ArrayList<ProgramProvider>();
             ppList2 = this.programProviderDAO.getProgramProviderByProviderProgramId(t.getTaskAssignedTo(),
                     Long.valueOf(t.getProgramId()));
-            if (ppList2 != null && !ppList2.isEmpty()) {
+            if (ppList2 != null && !ppList2.isEmpty() && ppList2.get(0).getRole() != null
+                    && ppList2.get(0).getRole().getRoleName() != null) {
                 ticklerRole = ppList2.get(0).getRole().getRoleName().toLowerCase();
             }
 
@@ -355,7 +361,7 @@ public class TicklerManagerImpl implements TicklerManager {
                     add = true;
                 }
             } else {
-                if (ticklerRole.equals(role.getRoleName())) {
+                if (ticklerRole != null && ticklerRole.equals(role.getRoleName())) {
                     add = true;
                 }
             }
@@ -372,7 +378,7 @@ public class TicklerManagerImpl implements TicklerManager {
 
             // apply defaults - i think this is already added above
             if (!add) {
-                if (ticklerRole.equals(role.getRoleName())) {
+                if (ticklerRole != null && ticklerRole.equals(role.getRoleName())) {
                     add = true;
                 }
             }

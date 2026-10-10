@@ -1,0 +1,334 @@
+{
+  "date": "2026-09-30",
+  "mode": "balanced-reviewed",
+  "operation": "Gateway.run_document",
+  "model_if_connected": "qwen/qwen3.5-35b-a3b",
+  "provider_if_connected": "parasail",
+  "network_calls": 0,
+  "chart_writes": 0,
+  "method": "Existing gateway operation with completion callback stopping before model access. Completed notes use the existing protected-source-only path; other notes remain incomplete. No model response was simulated.",
+  "config_present": false,
+  "attachments": [
+    {
+      "document_id": 43,
+      "source_sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "source_words": 4537,
+      "source_passages": 163,
+      "protected_passages": 57,
+      "status": "rejected",
+      "reason": "Document does not match a complete committed synthetic note"
+    },
+    {
+      "document_id": 44,
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "source_words": 561,
+      "source_passages": 18,
+      "protected_passages": 10,
+      "status": "requires_hosted_connection"
+    }
+  ],
+  "constituent_notes": [
+    {
+      "note_index": 0,
+      "date": "2026-01-02",
+      "source_sha256": "222940c76000b564a897232a9f0537755d0169bb658deec7efceb58fcaffe867",
+      "source_words": 83,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 1,
+      "date": "2026-01-02",
+      "source_sha256": "5fecc43fdfbd94e737178a11f1ea72e121ef13496938a24e17f2a8ec56d65ef0",
+      "source_words": 61,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 2,
+      "date": "2026-01-02",
+      "source_sha256": "4f0e67834c0eb9975f46b7f43ae7c2a5e4cb5b5f399ba1b3a5384b1ff26a757c",
+      "source_words": 69,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 3,
+      "date": "2026-01-02",
+      "source_sha256": "96a4c977dbd72ff8415e7281f7ec1226c28e5dc6dc703e81ebcf849a11d96d7d",
+      "source_words": 61,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 4,
+      "date": "2026-01-02",
+      "source_sha256": "cf066e55bf22dbaebc6c556f87d95395eea0300618e33c87c1d899913f0b9e1a",
+      "source_words": 313,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 5,
+      "date": "2026-01-03",
+      "source_sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "source_words": 561,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 6,
+      "date": "2026-01-03",
+      "source_sha256": "8e0aec491a0a3a7ff53e10b8f717c5631f618db6632c371cd8fe0fc38e7f108e",
+      "source_words": 192,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 7,
+      "date": "2026-01-03",
+      "source_sha256": "309f52da021ab244ea551880019b7ef2ff6f7071cda29132c48be1814824edc1",
+      "source_words": 68,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 8,
+      "date": "2026-01-03",
+      "source_sha256": "72808378f145c5b9056dfdc94976aadd0245e3a8a7076c3f296c7846c8ee4333",
+      "source_words": 41,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 41
+    },
+    {
+      "note_index": 9,
+      "date": "2026-01-03",
+      "source_sha256": "46f72797d57778e46d383e1381e0d1561b993d10ca1e1343a7035305de7f68a0",
+      "source_words": 191,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 10,
+      "date": "2026-01-03",
+      "source_sha256": "ddc0f0ebad12a8ea7111feb8305d221ceff1273cfba28e9769acb69f1b71d5a3",
+      "source_words": 63,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 11,
+      "date": "2026-01-03",
+      "source_sha256": "511d588dafc29358d1c08431e3443ecb7547863c2f6e812bc9651e3beeb6ff7e",
+      "source_words": 36,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 12,
+      "date": "2026-01-04",
+      "source_sha256": "e8470278f23bbcbe385be603ea6d72fe4893532adb6c01701b57c87532d52803",
+      "source_words": 145,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 13,
+      "date": "2026-01-04",
+      "source_sha256": "83a621c4ed2fcbb5e4a1aec06e5477fabb5864ab113341f53ecdc3d8c78bb7ac",
+      "source_words": 62,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 14,
+      "date": "2026-01-04",
+      "source_sha256": "9814fcfe2967180866fae5e9667baf2f132a8d1342b2281bcf4d8789ea9eae2e",
+      "source_words": 42,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 15,
+      "date": "2026-01-04",
+      "source_sha256": "e6a9a79deecfb23b281a55ef60e513f739210a1d15a48df9c43090425b031438",
+      "source_words": 100,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 16,
+      "date": "2026-01-04",
+      "source_sha256": "50c152b5bb4e365253722c9c2e05a6ed1060d78408d81b01b435d9f52744555e",
+      "source_words": 185,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 17,
+      "date": "2026-01-05",
+      "source_sha256": "2552c56bbfbc9f72c52701ca949ae7a41f01b4e67d6b0ae1e311e8f09ff2667e",
+      "source_words": 68,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 18,
+      "date": "2026-01-05",
+      "source_sha256": "77177bc2cbd99d3dc1da00b11857c6651b3d286402f603642fe7858480e38c35",
+      "source_words": 174,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 19,
+      "date": "2026-01-05",
+      "source_sha256": "1a8f70e6ef91f5b3fb77136535d2bb4e1a2c8380963fca24345186f071fa2c2e",
+      "source_words": 59,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 20,
+      "date": "2026-01-05",
+      "source_sha256": "af5762aa72de279798353cebad911627df3d1a07434d10a40044be343c3b539d",
+      "source_words": 47,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 21,
+      "date": "2026-01-06",
+      "source_sha256": "8b846cf013d5ddf1e406d1189243c63d663e987b3ad057835a0e60be0d0c7912",
+      "source_words": 159,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 22,
+      "date": "2026-01-06",
+      "source_sha256": "ab6b6a21bbe5f4df8d3ad361390d753d9934ae88b99c4fd34799ffa482b19ae8",
+      "source_words": 74,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 23,
+      "date": "2026-01-06",
+      "source_sha256": "25aa8f67ad1389ef88afd8f9dd300e75f39ad99b96bdc675ba9a16e7041b5c01",
+      "source_words": 59,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 59
+    },
+    {
+      "note_index": 24,
+      "date": "2026-01-06",
+      "source_sha256": "af2129176921e6cb3828d6bbe82a764458f3d7937ae9d2b44b9358901e4cb63f",
+      "source_words": 101,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 101
+    },
+    {
+      "note_index": 25,
+      "date": "2026-01-06",
+      "source_sha256": "9ccbf72a9ccec28b197c2f836ee6c96038137f39846d155ef06886b883fc0b9c",
+      "source_words": 184,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 26,
+      "date": "2026-01-07",
+      "source_sha256": "faa5135ff28a3f818c6406e2e3d42135cff05193655b277941050dacdb9cce55",
+      "source_words": 73,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 73
+    },
+    {
+      "note_index": 27,
+      "date": "2026-01-07",
+      "source_sha256": "38b8e091e9191efb7947d7332248a4140cec979046481de3c71c6390d0c79415",
+      "source_words": 160,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 28,
+      "date": "2026-01-07",
+      "source_sha256": "b1dc3fe5f6dd2b166772577429e77528eca8f085d318c4f7ec08bbcd38a53646",
+      "source_words": 59,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 29,
+      "date": "2026-01-07",
+      "source_sha256": "e0e3d8d7ac51ef44a595eef4e2e2d61024c88a2ae02ff35be9903e2319912854",
+      "source_words": 52,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 52
+    },
+    {
+      "note_index": 30,
+      "date": "2026-01-08",
+      "source_sha256": "fb9e816f33694bfc32bd3d5e9ab1de902baef78ab21401d8dac247032d8a6c0a",
+      "source_words": 165,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 31,
+      "date": "2026-01-08",
+      "source_sha256": "56dfa62dabfb761e14862ecbb1e00618a79524d8060c770bce8d378f393de6e9",
+      "source_words": 84,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 32,
+      "date": "2026-01-08",
+      "source_sha256": "0ed6e72b147acae41940c9960b92383148d4d8f8538b686000c735c9ee9131e2",
+      "source_words": 38,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 33,
+      "date": "2026-01-08",
+      "source_sha256": "b5e65262abd00dc005657b32f8b2230dd86c4927c0c87f226e512c83ea869e41",
+      "source_words": 87,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 34,
+      "date": "2026-01-09",
+      "source_sha256": "e0730b804974912457a9546a8aa8af80490d2dbf8c72a1fea647726a472eebb5",
+      "source_words": 280,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    },
+    {
+      "note_index": 35,
+      "date": "2026-01-09",
+      "source_sha256": "0e731e8edd5a4cefcf00e76e791d7cc1da8959c545ab4bb9693f8064d8e4c7af",
+      "source_words": 48,
+      "status": "completed_without_model",
+      "summary_points": 1,
+      "summary_words": 48
+    },
+    {
+      "note_index": 36,
+      "date": "2026-01-09",
+      "source_sha256": "19737107cd85f6bbeb3f103db18901a848bd4b1cdd6dbb8a60b608cf4c35745f",
+      "source_words": 34,
+      "status": "requires_hosted_connection",
+      "summary_points": null
+    }
+  ]
+}

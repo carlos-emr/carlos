@@ -41,6 +41,7 @@ class DocumentSummaryAgentUnitTest {
     private boolean remoteModel;
     private int inferenceCalls;
     private boolean mismatch;
+    private String requestPath;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -52,6 +53,7 @@ class DocumentSummaryAgentUnitTest {
             JsonNode incoming = JSON.readTree(exchange.getRequestBody());
             ObjectNode reply = JSON.createObjectNode();
             String path = exchange.getRequestURI().getPath();
+            requestPath = path;
             if ("/api/show".equals(path)) {
                 if (remoteModel) reply.put("remote_host", "https://example.invalid");
             } else if ("/api/generate".equals(path)) {
@@ -65,6 +67,12 @@ class DocumentSummaryAgentUnitTest {
                 reply.put("contract_version", 1).put("status", "completed")
                         .put("request_id", mismatch ? "wrong-request" : incoming.path("request_id").asText());
                 reply.set("output", output);
+            } else if ("/v1/chart-update-proposals".equals(path)) {
+                inferenceCalls++;
+                request = incoming;
+                reply.put("contract_version", 1).put("status", "completed")
+                        .put("request_id", incoming.path("request_id").asText());
+                reply.putObject("output").putArray("proposals");
             } else {
                 exchange.sendResponseHeaders(404, -1);
                 exchange.close();
@@ -114,5 +122,19 @@ class DocumentSummaryAgentUnitTest {
         mismatch = true;
         assertThatThrownBy(() -> service.summarize("Repeat blood work planned."))
                 .isInstanceOf(ClinicalSummaryGenerationException.class);
+    }
+
+    @Test
+    void shouldUseChartUpdateOperation_withSharedHttpConfiguration() throws Exception {
+        Properties properties = new Properties();
+        properties.setProperty("clinical.ai_summary_generation.agent", "http");
+        properties.setProperty("clinical.ai_summary_generation.http.port", String.valueOf(server.getAddress().getPort()));
+        // The document-summary path override must not redirect chart-update proposals.
+        properties.setProperty("clinical.ai_document_summary.http.path", "/v1/custom-doc");
+        var generator = new ChartUpdateProposals(ClinicalSummaryAgents.configuredChartUpdates(properties));
+        assertThat(generator.generate("Review in two weeks.")).isEmpty();
+        assertThat(requestPath).isEqualTo("/v1/chart-update-proposals");
+        assertThat(request.path("workflow").asText()).isEqualTo("chart-update-proposals");
+        assertThat(inferenceCalls).isEqualTo(1);
     }
 }

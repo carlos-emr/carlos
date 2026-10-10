@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
@@ -203,6 +204,44 @@ class ManageDocument2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(action.getActionErrors()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "storedHtml", "file"})
+    void shouldHandleOriginalDocument_withOrWithoutStoredContent(String source) throws Exception {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        LoggedInInfo user = new LoggedInInfo();
+        user.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setMethod("GET");
+        request.setParameter("method", "display");
+        request.setParameter("doc_no", "42");
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(nonDemographicCtlDocument());
+        Document document = new Document();
+        document.setDocumentNo(42);
+        document.setDocfilename("original.txt");
+        document.setContenttype("text/plain");
+        if (source.equals("storedHtml")) document.setDocxml("<p>Stored original</p>");
+        when(documentDao.getDocument("42")).thenReturn(document);
+        Path file = tempDir.resolve("original.txt");
+        if (source.equals("file")) Files.writeString(file, "Readable original");
+        try (var paths = mockStatic(PathValidationUtils.class)) {
+            paths.when(() -> PathValidationUtils.resolveConfiguredDirectory(any(), eq("DOCUMENT_DIR")))
+                    .thenReturn(tempDir.toFile());
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), eq(tempDir.toFile())))
+                    .thenReturn(file.toFile());
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            if (source.equals("missing")) {
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+                assertThat(response.getErrorMessage()).contains("original document file is missing");
+            } else {
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+                assertThat(response.getContentAsString()).contains(source.equals("file")
+                        ? "Readable original" : "<p>Stored original</p>");
+            }
+        }
     }
 
     @Test

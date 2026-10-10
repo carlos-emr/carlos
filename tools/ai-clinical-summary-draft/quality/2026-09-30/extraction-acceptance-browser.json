@@ -1,0 +1,85 @@
+{
+  "chartNumber": "AIFACT005",
+  "demographicId": 3051,
+  "baselineCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "afterCounts": {
+    "casemgmt_note": 0,
+    "tickler": 0,
+    "drugs": 0,
+    "allergies": 0,
+    "clinical_chart_update_receipt": 0
+  },
+  "results": [
+    {
+      "documentId": 43,
+      "words": 4537,
+      "sha256": "fbd268bce203f86396a6a961308b2b5e3933e285be5393b45abe8861d3d07630",
+      "elapsedMs": 589,
+      "status": "generated",
+      "proposals": 5,
+      "error": null,
+      "history": 3,
+      "reminders": 2,
+      "agentLabel": "Proposal source: OpenRouter / Qwen3.5-35B-A3B (Parasail) via agent API v1",
+      "defaults": [
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": true,
+          "destination": "Concerns"
+        },
+        {
+          "kind": "tickler",
+          "dueDate": "2026-01-23",
+          "relatedSuggestion": false,
+          "assignee": "999998"
+        },
+        {
+          "kind": "tickler",
+          "dueDate": "2026-01-16",
+          "relatedSuggestion": false,
+          "assignee": "999998"
+        }
+      ]
+    },
+    {
+      "documentId": 44,
+      "words": 561,
+      "sha256": "47f35c2bca1e2d6553b2bcc0d2c87b1081f96cba441aa5aa9adf441c80f1e8db",
+      "elapsedMs": 689,
+      "status": "generated",
+      "proposals": 2,
+      "error": null,
+      "history": 2,
+      "reminders": 0,
+      "agentLabel": "Proposal source: OpenRouter / Qwen3.5-35B-A3B (Parasail) via agent API v1",
+      "defaults": [
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "MedHistory"
+        },
+        {
+          "kind": "history",
+          "relatedSuggestion": false,
+          "destination": "Concerns"
+        }
+      ]
+    }
+  ]
+}

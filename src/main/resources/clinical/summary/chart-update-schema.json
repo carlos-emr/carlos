@@ -1,0 +1,179 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposals"
+  ],
+  "properties": {
+    "proposals": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "history"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "MedHistory",
+                  "Concerns",
+                  "SocHistory",
+                  "FamHistory",
+                  "RiskFactors",
+                  "OMeds",
+                  "Reminders"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "tickler"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  ""
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "evidence",
+              "destination"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "review"
+                ]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
+              },
+              "destination": {
+                "type": "string",
+                "enum": [
+                  "Medications",
+                  "Allergies",
+                  "Preventions",
+                  "Demographics"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sections",
+        "rejected"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "start",
+              "end"
+            ],
+            "properties": {
+              "start": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "end": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "evidence",
+              "reason"
+            ],
+            "properties": {
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

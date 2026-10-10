@@ -157,6 +157,10 @@
     }
 
 
+    boolean chartUpdatesEnabled = "demographic".equals(module)
+            && io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext.enabled();
+    pageContext.setAttribute("chartUpdatesDocumentPicker", chartUpdatesEnabled && "1".equals(request.getParameter("chartUpdates")));
+
     UserProperty up = pref.getProp(user_no, UserProperty.EDOC_BROWSER_IN_DOCUMENT_REPORT);
     boolean DocumentBrowserLink = false;
 
@@ -170,6 +174,9 @@
         <title><fmt:message key="dms.documentReport.titleDocumentManager"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (chartUpdatesEnabled) { %>
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/ai-chart-updates-navigation.css">
+        <% } %>
         <% if (showScheduleNav) { %>
         <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
         <% } %>
@@ -469,6 +476,13 @@
             <fmt:message key="dms.documentReport.titleDocumentManager"/>
         </h2>
 
+        <c:if test="${chartUpdatesDocumentPicker}">
+            <section class="chart-update-document-banner" aria-labelledby="chart-update-picker-title">
+                <h3 id="chart-update-picker-title"><fmt:message key="chartUpdates.title"/></h3>
+                <p><fmt:message key="chartUpdates.chooseDocument"/></p>
+                <p><fmt:message key="chartUpdates.supportedDocuments"/></p>
+            </section>
+        </c:if>
         <div id="docListAlertContainer"></div>
 
         <% if ("demographic".equals(module)) { %>
@@ -658,6 +672,13 @@
                                             onclick="popupFocusPage(500,700,'<carlos:encode value="<%= url %>" context='javaScriptAttribute'/>','demographic_document');">
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
+                                    <% if (chartUpdatesEnabled && curdoc.getStatus() == 'A'
+                                            && java.util.Set.of("text/plain", "text/html").contains(java.util.Objects.toString(curdoc.getContentType(), "").split(";", 2)[0].trim().toLowerCase(java.util.Locale.ROOT))) { %>
+                                    <div class="mt-2"><a class="chart-update-launch chart-update-document-link" aria-haspopup="dialog"
+                                            data-document-title="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
+                                            data-original-url="${carlos:forHtmlAttribute(ctx)}/documentManager/<carlos:encode value='<%= url %>' context="htmlAttribute"/>"
+                                            href="${carlos:forHtmlAttribute(ctx)}/documentManager/AiChartUpdates?documentId=<carlos:encode value='<%= curdoc.getDocId() %>' context="uriComponent"/>"><fmt:message key="chartUpdates.title"/></a></div>
+                                    <% } %>
                                 </td>
                                 <td>
                                     <div style="overflow:hidden; text-overflow: ellipsis;"
@@ -803,5 +824,11 @@
 
 
     </div>
+    <% if (chartUpdatesEnabled) { %>
+    <%@ include file="/WEB-INF/jspf/chart-update-error-dialog.jspf" %>
+    <script src="${carlos:forHtmlAttribute(ctx)}/js/ai-chart-updates-navigation.js"></script>
+    <%@ include file="/WEB-INF/jspf/chart-update-workflow-dialog.jspf" %>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/ai-chart-updates-modal.js"></script>
+    <% } %>
     </body>
 </html>
