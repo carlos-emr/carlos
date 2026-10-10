@@ -105,6 +105,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             HttpSession session, String viewId, MockHttpServletResponse viewResponse, String expectedResult) {
         MockHttpServletRequest viewRequest = new MockHttpServletRequest("GET", "/email/emailComposeAction");
         viewRequest.setSession(session);
+        EmailComposeViewTestSupport.ensureLoggedInUser(viewRequest);
         viewRequest.setParameter(EmailCompose2Action.EMAIL_COMPOSE_VIEW_PARAM, viewId);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(viewRequest);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(viewResponse);
@@ -159,6 +160,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         return ownedPdf;
     }
 
+    @Test
+    void shouldKeepPersonalDefaultSeparateFromEFormOverrideAndExplicitEmpty() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, "<b>Saved personal</b>"))
+                .isEqualTo("<b>Saved personal</b>");
+        assertThat(EmailCompose2Action.resolveComposeFooter("", "Saved personal")).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("EForm\nPersonal", "Saved personal"))
+                .isEqualTo("EForm<br>Personal");
+    }
+
     private record ComposeMocks(EmailComposeManager emailComposeManager,
             EmailPdfPasswordService emailPdfPasswordService,
             PdfPreviewCapabilityService pdfPreviewCapabilityService) {
@@ -166,6 +176,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpComposeSubmissionStateService() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
         // EmailCompose2Action resolves the preview-token service at construction time, so every

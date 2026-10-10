@@ -186,6 +186,8 @@ class MutatorActionGetRejectionContractUnitTest {
             // and persist EmailLog; cancel consumes session-scoped attachment state.
             Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
                     "_email", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.email.action.SaveMyEmailFooter2Action",
+                    "_email", "w"),
             // Replaces or removes the clinic's email footer logo (issue #3981). The HTTP method is
             // checked before authorization, so a GET rejects without any hasPrivilege call.
             Arguments.of("io.github.carlos_emr.carlos.email.admin.SaveClinicEmailLogo2Action",

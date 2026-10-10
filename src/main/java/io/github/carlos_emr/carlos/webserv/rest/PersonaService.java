@@ -33,6 +33,12 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.persistence.PersistenceException;
+import org.springframework.dao.ConcurrencyFailureException;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -459,9 +465,41 @@ public class PersonaService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
+        String key = json.get("key") != null ? json.get("key").asText() : null;
+        boolean personalFooter = "email_footer".equals(key);
+        if (personalFooter && !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_email",
+                SecurityInfoManager.WRITE, null)) {
+            throw new ForbiddenException("Access Denied");
+        }
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), json.get("key") != null ? json.get("key").asText() : null);
+        UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), key);
         if (up != null) {
+            // Classify the actual resolved row with DB collation, including request and stored-name
+            // aliases. A client key's spelling cannot decide which permission governs the write.
+            personalFooter = userPropertyDao.isPersonalEmailFooterRow(provider.getProviderNo(), up.getId());
+            if (personalFooter && !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_email",
+                    SecurityInfoManager.WRITE, null)) {
+                throw new ForbiddenException("Access Denied");
+            }
+            // This legacy preference alias must use the same permission, limits and owner mutex
+            // as the personal editor. The request never supplies an authoritative provider.
+            if (personalFooter) {
+                var value = json.get("value");
+                if (value == null || !value.isTextual()) {
+                    return RestResponse.errorResponse("Personal footer value is required");
+                }
+                try {
+                    SpringUtils.getBean(EmailFooterService.class)
+                            .saveOwnFooter(provider.getProviderNo(), value.textValue());
+                } catch (EmailFooterService.FooterTooLongException failure) {
+                    return RestResponse.errorResponse("Personal footer is too long");
+                } catch (ConcurrencyFailureException | PersistenceException failure) {
+                    return RestResponse.errorResponse("Personal footer could not be saved; try again");
+                }
+                LogAction.addLog(provider.getProviderNo(),
+                        LogConst.UPDATE, "emailFooterOwn", "", getLoggedInInfo().getIp());
+                return RestResponse.successResponse(null);
+            }
             up.setValue(json.get("value") != null ? json.get("value").asText() : null);
             userPropertyDao.merge(up);
             return RestResponse.successResponse(null);

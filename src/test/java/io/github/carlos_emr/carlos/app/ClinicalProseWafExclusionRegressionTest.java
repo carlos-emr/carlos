@@ -156,7 +156,8 @@ class ClinicalProseWafExclusionRegressionTest {
                 // Back to POST: the provider encounter-note template body, note prose by construction.
                 Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
                 // Mandatory clinic footer prose is configured only through this admin POST.
-                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")));
+                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
+                Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */

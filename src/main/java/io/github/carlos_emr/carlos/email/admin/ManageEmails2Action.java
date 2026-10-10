@@ -468,8 +468,10 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
         // A resend is a new email. Its historical combined footer remains audit-only;
-        // the new optional personal text starts blank and the trusted clinic preview is current.
-        request.setAttribute("footerEmail", "");
+        // the new optional personal text is the current user's default; the clinic preview is current.
+        request.setAttribute("footerEmail", SpringUtils.getBean(
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo()));
         io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());

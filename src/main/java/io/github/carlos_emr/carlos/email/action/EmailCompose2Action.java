@@ -427,7 +427,9 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderEmail", view.senderEmail());
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
-        request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail()));
+        String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo());
+        request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail(), personalDefault));
         io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, context.clinicFooter());
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
@@ -447,14 +449,20 @@ public class EmailCompose2Action extends ActionSupport {
 
     /**
      * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged,
-     * otherwise empty (a blank one counts as none). Staff can change it before sending, in the
+     * otherwise the saved personal default. A supplied blank value means no personal text. Staff can change it before sending, in the
      * Edit footer window.
      *
      * @param stagedFooter footer the eForm posted, as plain text, or null
      * @return the footer as formatted HTML (an eForm's line breaks kept), never null
      */
     static String resolveComposeFooter(String stagedFooter) {
-        return EmailFooterHtml.fromPlainText(stagedFooter);
+        return resolveComposeFooter(stagedFooter, "");
+    }
+
+    /** An explicitly empty per-message eForm footer suppresses the personal default only. */
+    static String resolveComposeFooter(String stagedFooter, String personalDefault) {
+        return stagedFooter == null ? EmailFooterHtml.clean(personalDefault)
+                : EmailFooterHtml.fromPlainText(stagedFooter);
     }
 
     /**

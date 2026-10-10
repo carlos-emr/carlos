@@ -82,6 +82,9 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
         registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
                 io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
