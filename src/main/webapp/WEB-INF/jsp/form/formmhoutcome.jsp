@@ -110,6 +110,7 @@
             function onPrint() {
                 document.forms[0].submit.value = "print"; //printReferral
                 var ret = numvalidate();
+                if (ret === false) return false;
                 //if(ret==true) {
                 //ret = confirm("Do you wish to save this form and view the print preview?");
                 popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
