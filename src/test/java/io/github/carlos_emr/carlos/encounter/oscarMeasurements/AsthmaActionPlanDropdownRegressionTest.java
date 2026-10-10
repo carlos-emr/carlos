@@ -131,7 +131,8 @@ class AsthmaActionPlanDropdownRegressionTest {
                 .contains("<% for (String choice : choiceOptions) {")
                 .contains("<input class=\"form-check-input entry-input\" type=\"radio\" value=\"<%= encChoice %>\"")
                 .contains("name=\"<%= encField %>\" id=\"<%= choiceId %>\">")
-                .contains("<label class=\"form-check-label\" for=\"<%= choiceId %>\"><carlos:encode");
+                .contains("<label class=\"form-check-label\" for=\"<%= choiceId %>\">"
+                        + "<%= SafeEncode.forHtmlContent(choice) %></label>");
 
         // The choice branch must sit before the free-text fallback, which stays for everything else.
         int choiceBranch = jspf.indexOf("<% } else if (choiceList) { %>");

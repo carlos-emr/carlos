@@ -104,7 +104,7 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
                         throw new java.io.UncheckedIOException(e);
                     }
                 })) {
-            files.filter(p -> p.getFileName().toString().matches("V1\\.0\\.(?!1__|2__)\\d+.*\\.sql"))
+            files.filter(p -> p.getFileName().toString().matches("V1\\.0\\.(?!1__|2__)\\d+__.*\\.sql"))
                     .filter(p -> !p.getFileName().toString().startsWith("V1__"))
                     .forEach(p -> {
                         String sql = read(p);

@@ -76,6 +76,7 @@
     </table>
     <div id="MOHreportError" role="alert" hidden>Could not display the selected MOH report. Check that the file is a valid MOH XML report and try again.</div>
     <div id="MOHreport"></div>
+    <label for="MOHreportSource" hidden>MOH report source</label>
     <textarea id="MOHreportSource" hidden
               data-stylesheet="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/${carlos:forHtmlAttribute(lreportModel.xslName)}.xsl"><carlos:encode value="${lreportModel.fileContents}"/></textarea>
 

@@ -168,10 +168,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
     DocumentManager documentManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
 
     private final Logger logger = MiscUtils.getLogger();
+
+    // Setter-injected: the older collaborators above are still field-injected, and the tests
+    // build this class through its no-arg constructor.
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     public final String CON_REQUEST_ENABLED = "consultRequestEnabled";
     public final String CON_RESPONSE_ENABLED = "consultResponseEnabled";

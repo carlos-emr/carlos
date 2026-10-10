@@ -141,19 +141,14 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     Pattern namePtrn = Pattern.compile("sorting\\[(\\w+)\\]");
 
-    @Autowired
     private PatientLabRoutingDao patientLabRoutingDao;
 
-    @Autowired
     private AttachmentSelectionAccess attachmentSelectionAccess;
 
-    @Autowired
     private ConsultationRequestDao consultationRequestDao;
 
-    @Autowired
     private ConsultResponseDao consultationResponseDao;
 
-    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
@@ -168,16 +163,13 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Autowired
     DemographicManager demographicManager;
 
-    @Autowired
     private DemographicDao demographicDao;
 
     @Autowired
     private DocumentManager documentManager;
 
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
 
-    @Autowired
     private SecurityInfoManager securityInfoManager;
 
     @Autowired
@@ -201,6 +193,49 @@ public class ConsultationWebService extends AbstractServiceImpl {
     private ConsultationServiceConverter serviceConverter = new ConsultationServiceConverter();
     private ProfessionalSpecialistConverter specialistConverter = new ProfessionalSpecialistConverter();
     private DemographicConverter demographicConverter = new DemographicConverter();
+
+    // Collaborators added with the attachment and chart-access checks are setter-injected. The
+    // older fields are still field-injected, and the tests build this class through its
+    // no-arg constructor, so moving to constructor injection is a separate whole-class change.
+    @Autowired
+    public void setPatientLabRoutingDao(PatientLabRoutingDao patientLabRoutingDao) {
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
+
+    @Autowired
+    public void setAttachmentSelectionAccess(AttachmentSelectionAccess attachmentSelectionAccess) {
+        this.attachmentSelectionAccess = attachmentSelectionAccess;
+    }
+
+    @Autowired
+    public void setConsultationRequestDao(ConsultationRequestDao consultationRequestDao) {
+        this.consultationRequestDao = consultationRequestDao;
+    }
+
+    @Autowired
+    public void setConsultationResponseDao(ConsultResponseDao consultationResponseDao) {
+        this.consultationResponseDao = consultationResponseDao;
+    }
+
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    @Autowired
+    public void setDemographicDao(DemographicDao demographicDao) {
+        this.demographicDao = demographicDao;
+    }
+
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
+
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
 
     /********************************

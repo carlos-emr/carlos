@@ -111,8 +111,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private NioFileManager nioFileManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
+
+    // Setter-injected: the older collaborators above are still field-injected, and the tests
+    // build this class through its no-arg constructor.
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     // @Autowired
     // public void setEformDataManager(EformDataManager eformDataManager) {

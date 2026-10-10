@@ -1591,8 +1591,8 @@ function submitFaxButton() {
 	 * printed above the MRP's name.
 	 */
 	function stampSignerRole() {
-		var userOhipNo = parseInt(stampProviderField(STAMP_PROVIDER_FIELDS.userOhipNo), 10);
-		if (!isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO
+		var userOhipNo = Number.parseInt(stampProviderField(STAMP_PROVIDER_FIELDS.userOhipNo), 10);
+		if (!Number.isNaN(userOhipNo) && userOhipNo > MIN_BILLING_PROVIDER_OHIP_NO
 				&& stampProviderField(STAMP_PROVIDER_FIELDS.userId).length > 0) {
 			return "user";
 		}

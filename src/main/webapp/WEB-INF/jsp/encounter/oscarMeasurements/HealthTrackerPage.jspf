@@ -747,14 +747,12 @@
                                     <div class="form-check form-check-inline m-0">
                                         <input class="form-check-input entry-input" type="radio" value="<%= encChoice %>"
                                                name="<%= encField %>" id="<%= choiceId %>">
-                                        <label class="form-check-label" for="<%= choiceId %>"><carlos:encode
-                                                value='<%= choice %>' context="html"/></label>
+                                        <label class="form-check-label" for="<%= choiceId %>"><%= SafeEncode.forHtmlContent(choice) %></label>
                                     </div>
                                     <% } %>
                                 </div>
                                 <% } else { %>
-                                <label class="visually-hidden" for="<%= encField %>"><carlos:encode
-                                        value='<%= displayName %>' context="html"/></label>
+                                <label class="visually-hidden" for="<%= encField %>"><%= SafeEncode.forHtmlContent(displayName) %></label>
                                 <input type="text" class="form-control form-control-sm entry-input" style="width:170px"
                                        id="<%= encField %>" name="<%= encField %>" autocomplete="off"
                                        placeholder="Enter Data"
@@ -1139,12 +1137,13 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel"></h5>
+                <h5 class="modal-title" id="deleteModalLabel">Delete measurement</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
                 <input type="hidden" id="deleteId" value="">
-                <h1 id="deleteMeas"></h1>
+                <%-- The measurement value, sized like a heading but not one: the modal's heading is its title. --%>
+                <div class="h1" id="deleteMeas"></div>
                 <div id="deleteObsDate"></div>
                 <div id="deleteComment"></div>
             </div>

@@ -2355,7 +2355,10 @@ function updateCPPNote() {
         // wrap='soft', never 'hard': a hard-wrapped textarea submits a CRLF at every visual
         // wrap point (Firefox 145+ does so for scripted submissions too), and the server
         // stores those breaks as part of the note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
+        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
+        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
+        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -3293,7 +3296,10 @@ function updateCPPNote() {
         // JavaScript string), spliced into markup here: escape it like every other note text.
         // wrap='soft' for the same reason as editNote(): only line breaks the clinician types
         // may reach the saved note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
+        // tabindex 7 is the note editor's slot in the encounter page's tab order: ChartNotesAjax.jsp's
+        // server-rendered editors also use 7, and the encounter-time fields follow at 11-14. A 0 here
+        // would put this editor after every positive tabindex, so Tab from it would skip those fields.
+        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>"; <%-- NOSONAR Web:S6841 -- see the comment above --%>
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";
