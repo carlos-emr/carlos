@@ -82,6 +82,8 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
         when(request.getMethod()).thenReturn("POST");
         when(request.getParameterValues("documentId")).thenReturn(new String[]{"42"});
         when(security.hasPrivilege(user, "_edoc", "r", null)).thenReturn(true);
+        when(security.hasPrivilege(user, "_edoc", "r", 3001)).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(true);
         when(properties.getProperty(DocumentSummaryService.ENABLED_PROPERTY, "false")).thenReturn("true");
         when(properties.getProperty(ClinicalSummaryGenerationService.ENABLED_PROPERTY, "false")).thenReturn("true");
         link = new CtlDocument();
@@ -159,6 +161,85 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class);
         verifyNoInteractions(documents, summarizer);
         reader.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldDenyDocument_whenPatientDocumentAccessUnavailable(String method) {
+        when(request.getMethod()).thenReturn(method);
+        when(security.hasPrivilege(user, "_edoc", "r", 3001)).thenReturn(false);
+        assertThatThrownBy(() -> {
+            if ("POST".equals(method)) action.generate();
+            else action.execute();
+        }).isInstanceOf(SecurityException.class);
+        visibility.verifyNoInteractions();
+        reader.verifyNoInteractions();
+        verifyNoInteractions(summarizer);
+        verify(documents, never()).getDocument(user, 42);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldDenyDocument_whenPatientRecordAccessUnavailable(String method) {
+        when(request.getMethod()).thenReturn(method);
+        when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(false);
+        assertThatThrownBy(() -> {
+            if ("POST".equals(method)) action.generate();
+            else action.execute();
+        }).isInstanceOf(SecurityException.class);
+        visibility.verifyNoInteractions();
+        reader.verifyNoInteractions();
+        verifyNoInteractions(summarizer);
+        verify(documents, never()).getDocument(user, 42);
+    }
+
+    @Test
+    void shouldDenyDraft_whenPatientDocumentAccessRevokedDuringGeneration() {
+        when(summarizer.summarize(anyString())).thenAnswer(call -> {
+            when(security.hasPrivilege(user, "_edoc", "r", 3001)).thenReturn(false);
+            return mock(DocumentSummary.class);
+        });
+        assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class);
+        verify(documents).getDocument(user, 42);
+        reader.verify(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"));
+        verify(request, never()).setAttribute(eq("documentSummaryGenerated"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryOverview"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryPoints"), any());
+    }
+
+    @Test
+    void shouldDenyDraft_whenPatientRecordAccessRevokedDuringGeneration() {
+        when(summarizer.summarize(anyString())).thenAnswer(call -> {
+            when(security.isAllowedAccessToPatientRecord(user, 3001)).thenReturn(false);
+            return mock(DocumentSummary.class);
+        });
+        assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class);
+        verify(documents).getDocument(user, 42);
+        reader.verify(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"));
+        verify(request, never()).setAttribute(eq("documentSummaryGenerated"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryOverview"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryPoints"), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"document", "record"})
+    void shouldDenyDraft_whenDocumentRelinkedToRestrictedPatient(String restriction) {
+        EDoc visible = mock(EDoc.class);
+        when(visible.getDocId()).thenReturn("42");
+        visibility.when(() -> EDocUtil.listDocs(user, "demographic", "3002", "all", EDocUtil.PRIVATE,
+                EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(new ArrayList<>(List.of(visible)));
+        when(security.hasPrivilege(user, "_edoc", "r", 3002)).thenReturn(!"document".equals(restriction));
+        when(security.isAllowedAccessToPatientRecord(user, 3002)).thenReturn(!"record".equals(restriction));
+        when(summarizer.summarize(anyString())).thenAnswer(call -> {
+            link.getId().setModuleId(3002);
+            return mock(DocumentSummary.class);
+        });
+        assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class);
+        verify(documents).getDocument(user, 42);
+        reader.verify(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"));
+        verify(request, never()).setAttribute(eq("documentSummaryGenerated"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryOverview"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryPoints"), any());
     }
 
     @ParameterizedTest
