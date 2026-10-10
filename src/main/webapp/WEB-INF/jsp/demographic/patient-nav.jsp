@@ -49,7 +49,7 @@
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/share/css/patient-nav.css">
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/patient-nav.js"></script>
 <div class="patient-nav" data-open-in-tab="${nav.openInTab}">
-    <table border=0 cellspacing=0 width="100%" id="appt_table">
+    <table border="0" id="appt_table" role="presentation">
         <c:if test="${nav.onPortalPage}">
             <tr>
                 <td><a href="${carlos:forHtmlAttribute(nav.recordUrl)}"><fmt:message key="encounter.Index.masterFile"/></a></td>
