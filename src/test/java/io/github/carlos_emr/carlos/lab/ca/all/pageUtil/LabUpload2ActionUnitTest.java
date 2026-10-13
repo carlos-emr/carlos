@@ -51,6 +51,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.ProviderException;
+import java.security.SignatureException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Signature;
@@ -63,6 +68,8 @@ import java.util.stream.Stream;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.ShortBufferException;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
@@ -119,6 +126,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     private final List<InputStream> encryptedStreams = new ArrayList<>();
     private int saveCalls;
     private boolean runRealMethods;
+    private boolean jcaFaultObserved;
     private Case currentCase;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<PathValidationUtils> paths;
@@ -135,8 +143,21 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         SERVICE_UNKNOWN, SERVICE_MISSING, SENDER_LOOKUP_FAILED, SENDER_KEY_INVALID,
         NO_FILE, INVALID_FILENAME, SOURCE_REJECTED, HHS_FILTERED, PRIVILEGE_DENIED,
         STAGED_SIGNATURE_READ_FAILURE, SAVED_SIGNATURE_READ_FAILURE, STAGING_CREATE_FAILURE,
-        STAGING_INSIDE_DOCUMENT_DIR
+        STAGING_INSIDE_DOCUMENT_DIR, WRAPPED_AES_KEY_SIZE_BAD,
+        CIPHER_RSA_FACTORY_FAULT, CIPHER_RSA_INIT_FAULT, CIPHER_RSA_PROCESSING_FAULT,
+        CIPHER_AES_FACTORY_FAULT, CIPHER_AES_INIT_FAULT, CIPHER_AES_BUFFER_FAULT,
+        CIPHER_AES_FINAL_BUFFER_FAULT, STAGING_READ_IO_FAULT,
+        SIGNATURE_FACTORY_FAULT, SIGNATURE_INIT_FAULT, SIGNATURE_UPDATE_FAULT,
+        SIGNATURE_VERIFY_FAULT
     }
+
+    private static final EnumSet<Case> JCA_FAULT_CASES = EnumSet.of(
+            Case.CIPHER_RSA_FACTORY_FAULT, Case.CIPHER_RSA_INIT_FAULT,
+            Case.CIPHER_RSA_PROCESSING_FAULT, Case.CIPHER_AES_FACTORY_FAULT,
+            Case.CIPHER_AES_INIT_FAULT, Case.CIPHER_AES_BUFFER_FAULT,
+            Case.CIPHER_AES_FINAL_BUFFER_FAULT,
+            Case.SIGNATURE_FACTORY_FAULT, Case.SIGNATURE_INIT_FAULT,
+            Case.SIGNATURE_UPDATE_FAULT, Case.SIGNATURE_VERIFY_FAULT);
 
     @BeforeAll
     static void generateSyntheticKeys() throws Exception {
@@ -154,6 +175,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         encryptedStreams.clear();
         saveCalls = 0;
         runRealMethods = false;
+        jcaFaultObserved = false;
         documentDir = Files.createDirectory(fixtureRoot.resolve("documents"));
         request = new MockHttpServletRequest("POST", "/lab/newLabUpload");
         request.setParameter("service", SERVICE);
@@ -284,6 +306,19 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 byte[] ciphertext = Files.readAllBytes(uploadedPath);
                 Files.write(uploadedPath, Arrays.copyOf(ciphertext, ciphertext.length - 1));
             }
+            case WRAPPED_AES_KEY_SIZE_BAD -> request.setParameter("key",
+                    wrap(new SecretKeySpec(new byte[17], "AES")));
+            case STAGING_READ_IO_FAULT -> paths.when(() ->
+                    PathValidationUtils.openValidatedUploadInputStream(uploadedFile)).thenAnswer(call -> {
+                        if (!runRealMethods) return null;
+                        InputStream encrypted = spy((InputStream) call.callRealMethod());
+                        encryptedStreams.add(encrypted);
+                        doAnswer(read -> {
+                            jcaFaultObserved = true;
+                            throw new IOException("synthetic ordinary encrypted input read fault");
+                        }).when(encrypted).read(any(byte[].class));
+                        return encrypted;
+                    });
             case RECEIVER_KEY_MISSING -> when(oscarKeyDao.find("oscar")).thenReturn(null);
             case SERVICE_UNKNOWN -> request.setParameter("service", "SYNTHETIC_UNKNOWN");
             case SERVICE_MISSING -> request.removeParameter("service");
@@ -316,7 +351,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                             when(filter.getClientRef()).thenReturn("SYNTHETIC_REF"));
                 MockedStatic<OtherIdManager> otherIds = mockStatic(OtherIdManager.class);
                 MockedStatic<LabUpload2Action> signatures = mockStatic(LabUpload2Action.class, call -> runRealMethods
-                        ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call))) {
+                        ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
+                AutoCloseable jcaFault = injectJcaFault(testCase)) {
             if (testCase == Case.STAGED_SIGNATURE_READ_FAILURE || testCase == Case.SAVED_SIGNATURE_READ_FAILURE) {
                 signatures.when(() -> LabUpload2Action.validateSignature(any(), anyString(), any(File.class)))
                         .thenAnswer(call -> {
@@ -341,6 +377,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 return;
             }
             String result = action.execute();
+            if (JCA_FAULT_CASES.contains(testCase) || testCase == Case.STAGING_READ_IO_FAULT) {
+                assertThat(jcaFaultObserved).as("intended injected failure API must be reached").isTrue();
+            }
             // A passing failure response must come from the intended phase, not an earlier
             // source-validation rejection that happens to share its outcome or status.
             boolean noStage = EnumSet.of(Case.NO_FILE, Case.INVALID_FILENAME, Case.SOURCE_REJECTED,
@@ -353,7 +392,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 case ACCEPTED, HHS_FILTERED -> 200;
                 case DUPLICATE -> 409;
                 case SERVICE_UNKNOWN, SERVICE_MISSING, WRONG_RECEIVER_KEY, BAD_AES_BLOCK,
-                        NO_FILE, INVALID_FILENAME -> 400;
+                        WRAPPED_AES_KEY_SIZE_BAD, NO_FILE, INVALID_FILENAME -> 400;
                 case SOURCE_REJECTED -> 403;
                 case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED -> 406;
                 default -> 500;
@@ -362,7 +401,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 case ACCEPTED, HHS_FILTERED -> "uploaded";
                 case DUPLICATE -> "uploaded previously";
                 case PARSE_NULL -> "upload failed";
-                case SERVICE_UNKNOWN, SERVICE_MISSING, WRONG_RECEIVER_KEY, BAD_AES_BLOCK -> "rejected";
+                case SERVICE_UNKNOWN, SERVICE_MISSING, WRONG_RECEIVER_KEY, BAD_AES_BLOCK,
+                        WRAPPED_AES_KEY_SIZE_BAD -> "rejected";
                 case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED -> "validation failed";
                 default -> "exception";
             };
@@ -418,10 +458,99 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                     Case.WRONG_RECEIVER_KEY,
                     Case.BAD_AES_BLOCK, Case.RECEIVER_KEY_MISSING, Case.NO_FILE, Case.INVALID_FILENAME,
                     Case.SOURCE_REJECTED, Case.SERVICE_UNKNOWN, Case.SERVICE_MISSING,
-                    Case.SENDER_LOOKUP_FAILED, Case.SENDER_KEY_INVALID).contains(testCase)) {
+                    Case.SENDER_LOOKUP_FAILED, Case.SENDER_KEY_INVALID,
+                    Case.WRAPPED_AES_KEY_SIZE_BAD, Case.STAGING_READ_IO_FAULT).contains(testCase)
+                    || JCA_FAULT_CASES.contains(testCase)) {
                 assertThat(saveCalls).isZero();
                 verifyNoInteractions(uploadDao);
             }
+        }
+    }
+
+    /** Local API-path injection after normal fixtures exist; no provider registry/network changes. */
+    private AutoCloseable injectJcaFault(Case testCase) throws Exception {
+        if (!JCA_FAULT_CASES.contains(testCase)) return () -> { };
+        if (testCase.name().startsWith("CIPHER_")) {
+            String algorithm = testCase.name().startsWith("CIPHER_RSA_")
+                    ? "RSA/ECB/PKCS1Padding" : "AES";
+            Cipher exposed = spy(Cipher.getInstance(algorithm));
+            if (testCase == Case.CIPHER_RSA_INIT_FAULT || testCase == Case.CIPHER_AES_INIT_FAULT) {
+                doAnswer(call -> {
+                    jcaFaultObserved = true;
+                    throw new InvalidKeyException("synthetic valid-key receiver init fault");
+                }).when(exposed).init(eq(Cipher.DECRYPT_MODE), any(Key.class));
+            } else if (testCase == Case.CIPHER_RSA_PROCESSING_FAULT) {
+                doAnswer(call -> {
+                    jcaFaultObserved = true;
+                    throw new ProviderException("synthetic receiver unwrap processing fault");
+                }).when(exposed).doFinal(any(byte[].class));
+            } else if (testCase == Case.CIPHER_AES_BUFFER_FAULT) {
+                // The real CipherInputStream catches this actual update API exception and
+                // wraps it as IOException. It is not a bad-padding/illegal-block sender error.
+                doAnswer(call -> {
+                    jcaFaultObserved = true;
+                    throw new ShortBufferException("synthetic receiver output buffer fault");
+                }).when(exposed).update(any(byte[].class), anyInt(), anyInt(), any(byte[].class), anyInt());
+            } else if (testCase == Case.CIPHER_AES_FINAL_BUFFER_FAULT) {
+                doAnswer(call -> {
+                    jcaFaultObserved = true;
+                    throw new ShortBufferException("synthetic receiver final output buffer fault");
+                }).when(exposed).doFinal(any(byte[].class), anyInt());
+            }
+            MockedStatic<Cipher> factory = mockStatic(Cipher.class, call -> runRealMethods
+                    ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
+            try {
+                if (testCase == Case.CIPHER_RSA_FACTORY_FAULT || testCase == Case.CIPHER_AES_FACTORY_FAULT) {
+                    factory.when(() -> Cipher.getInstance(algorithm)).thenAnswer(call -> {
+                        if (!runRealMethods) return null;
+                        jcaFaultObserved = true;
+                        throw new NoSuchAlgorithmException("synthetic receiver cipher factory fault");
+                    });
+                } else {
+                    factory.when(() -> Cipher.getInstance(algorithm)).thenReturn(exposed);
+                }
+                return factory::close;
+            } catch (RuntimeException | Error e) {
+                factory.close();
+                throw e;
+            }
+        }
+        Signature exposed = spy(Signature.getInstance("MD5WithRSA"));
+        if (testCase == Case.SIGNATURE_INIT_FAULT) {
+            doAnswer(call -> {
+                jcaFaultObserved = true;
+                throw new InvalidKeyException("synthetic stored-key verifier init fault");
+            }).when(exposed).initVerify(any(java.security.PublicKey.class));
+        } else if (testCase == Case.SIGNATURE_UPDATE_FAULT) {
+            doAnswer(call -> {
+                jcaFaultObserved = true;
+                throw new SignatureException("synthetic verifier update fault");
+            }).when(exposed).update(any(byte[].class), anyInt(), anyInt());
+        } else if (testCase == Case.SIGNATURE_VERIFY_FAULT) {
+            doAnswer(call -> {
+                assertThat(call.<byte[]>getArgument(0)).hasSize(
+                        (senderKeys.getPublic() instanceof java.security.interfaces.RSAPublicKey rsa)
+                                ? (rsa.getModulus().bitLength() + 7) / 8 : 0);
+                jcaFaultObserved = true;
+                throw new SignatureException("synthetic valid-length verifier processing fault");
+            }).when(exposed).verify(any(byte[].class));
+        }
+        MockedStatic<Signature> factory = mockStatic(Signature.class, call -> runRealMethods
+                ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
+        try {
+            if (testCase == Case.SIGNATURE_FACTORY_FAULT) {
+                factory.when(() -> Signature.getInstance("MD5WithRSA")).thenAnswer(call -> {
+                    if (!runRealMethods) return null;
+                    jcaFaultObserved = true;
+                    throw new NoSuchAlgorithmException("synthetic verifier factory fault");
+                });
+            } else {
+                factory.when(() -> Signature.getInstance("MD5WithRSA")).thenReturn(exposed);
+            }
+            return factory::close;
+        } catch (RuntimeException | Error e) {
+            factory.close();
+            throw e;
         }
     }
 

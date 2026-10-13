@@ -74,8 +74,9 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
-import java.security.InvalidKeyException;
-import java.security.SignatureException;
+import java.security.interfaces.RSAPublicKey;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -165,7 +166,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 try {
                     stageDecrypted(decrypted, staged);
                 } catch (IOException e) {
-                    if (e.getCause() instanceof GeneralSecurityException) {
+                    if (e.getCause() instanceof BadPaddingException
+                            || e.getCause() instanceof IllegalBlockSizeException) {
                         return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
                     }
                     throw e;
@@ -329,34 +331,38 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         if (key == null) {
             throw new IllegalStateException("Receiver private key is unavailable");
         }
-        // Decrypt the secret key and the message
+        // Decode/unwrap errors caused by the envelope are sender failures. Factory,
+        // configuration and valid-key initialization failures belong to the receiver.
+        byte[] wrappedKey = Base64.decodeBase64(skey);
+        if (wrappedKey == null || wrappedKey.length == 0) return null;
+        Cipher cipher;
         try {
-
-            // Decrypt the secret key using the servers private key
-            // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
-            // padding oracle attacks. OAEP padding (RSA/ECB/OAEPWithSHA-256AndMGF1Padding)
-            // would be more secure, but this protocol is dictated by the external lab system
-            // sender which encrypts with PKCS#1 v1.5. Changing the padding here would break
-            // decryption of incoming lab uploads. This is decrypt-only (not encrypt), which
-            // limits the attack surface. If the external protocol is ever updated, migrate to OAEP.
-            Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // NOPMD HardCodedCryptoKey — JCA name, not key material // nosemgrep: java.lang.security.audit.crypto.ecb-cipher.ecb-cipher -- "ECB" is JCA convention for RSA single-block, not AES-ECB mode; PKCS#1v1.5 constraint documented above
+            cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // NOPMD HardCodedCryptoKey — JCA name, not key material // nosemgrep: java.lang.security.audit.crypto.ecb-cipher.ecb-cipher -- "ECB" is JCA convention for RSA single-block, not AES-ECB mode; PKCS#1v1.5 constraint documented above
             cipher.init(Cipher.DECRYPT_MODE, key);
-            byte[] newSecretKey = cipher.doFinal(Base64.decodeBase64(skey));
-
-            // Decrypt the message using the secret key
-            SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
-            Cipher msgCipher = Cipher.getInstance("AES");
-            msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
-
-            is = new CipherInputStream(is, msgCipher);
-
-            // Return the decrypted message
-            return (new BufferedInputStream(is));
-
-        } catch (Exception e) {
-            logger.error("Could not decrypt the message", e);
-            return (null);
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Receiver wrapping cipher is unavailable", e);
         }
+
+        byte[] newSecretKey;
+        try {
+            newSecretKey = cipher.doFinal(wrappedKey);
+        } catch (BadPaddingException | IllegalBlockSizeException e) {
+            return null;
+        }
+        // Legacy AES supports these encoded key sizes. A malformed unwrapped key is
+        // rejected before a provider init fault could be mistaken for invalid sender input.
+        if (newSecretKey == null || (newSecretKey.length != 16
+                && newSecretKey.length != 24 && newSecretKey.length != 32)) return null;
+        SecretKeySpec skeySpec = new SecretKeySpec(newSecretKey, "AES");
+        Cipher msgCipher;
+        try {
+            msgCipher = Cipher.getInstance("AES");
+            msgCipher.init(Cipher.DECRYPT_MODE, skeySpec);
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Receiver message cipher is unavailable", e);
+        }
+        // Unexpected provider RuntimeExceptions also propagate as receiver faults.
+        return new BufferedInputStream(new CipherInputStream(is, msgCipher));
     }
 
     /*
@@ -364,31 +370,26 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      */
     public static boolean validateSignature(PublicKey key, String sigString, File input)
             throws IOException, GeneralSecurityException {
-        if (sigString == null) {
-            return false;
+        if (sigString == null) return false;
+        if (!(key instanceof RSAPublicKey rsaKey)) {
+            throw new GeneralSecurityException("Stored sender key is not an RSA verification key");
         }
-        // MD5WithRSA is required by the external lab upload protocol for signature
-        // verification. Do not change without coordinating with all lab data senders.
+        byte[] signatureBytes = Base64.decodeBase64(sigString);
+        int expectedLength = (rsaKey.getModulus().bitLength() + 7) / 8;
+        // SunRsaSign throws SignatureException for the wrong RSA length. Reject malformed
+        // bytes here, then preserve actual valid-input provider processing faults as500.
+        if (signatureBytes == null || signatureBytes.length != expectedLength) return false;
+        // Retain the legacy MD5WithRSA wire algorithm; no protocol migration is implemented.
         Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
-        try {
-            sig.initVerify(key);
-        } catch (InvalidKeyException e) {
-            throw new GeneralSecurityException("The stored sender key cannot verify a signature", e);
-        }
+        sig.initVerify(key);
         byte[] buf = new byte[1024];
         try (InputStream msgIs = new FileInputStream(input)) {
-            int numRead = 0;
+            int numRead;
             while ((numRead = msgIs.read(buf)) >= 0) {
                 sig.update(buf, 0, numRead);
             }
         }
-        try {
-            return sig.verify(Base64.decodeBase64(sigString));
-        } catch (SignatureException | IllegalArgumentException e) {
-            // A signature of the wrong length or encoding: the sender's, so not worth a stack trace.
-            logger.warn("Lab upload signature could not be checked ({})", e.getClass().getSimpleName());
-            return false;
-        }
+        return sig.verify(signatureBytes);
     }
 
     /*
