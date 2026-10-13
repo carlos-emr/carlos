@@ -199,12 +199,14 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
         paths.when(() -> PathValidationUtils.createSecureTempFile("LabUploadVerify", ".tmp"))
                 .thenAnswer(call -> {
+                    if (!runRealMethods) return null;
                     File staged = (File) call.callRealMethod();
                     stagedFiles.add(staged.toPath());
                     return staged;
                 });
         paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(any(File.class)))
                 .thenAnswer(call -> {
+                    if (!runRealMethods) return null;
                     InputStream encrypted = spy((InputStream) call.callRealMethod());
                     encryptedStreams.add(encrypted);
                     return encrypted;
@@ -213,6 +215,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
         utilities.when(() -> Utilities.saveFile(any(InputStream.class), anyString()))
                 .thenAnswer(call -> {
+                    if (!runRealMethods) return null;
                     saveCalls++;
                     // The staged signature must have succeeded before this real saver runs.
                     assertThat(stagedFiles).hasSize(1);
@@ -392,9 +395,21 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 verifyNoInteractions(handler);
                 verify(uploadDao, never()).persist(any());
             }
-            assertThat(transactions.commits).isEqualTo(testCase == Case.ACCEPTED ? 1 : 0);
-            assertThat(transactions.rollbacks).isEqualTo(EnumSet.of(
+            // A duplicate still completes its read-only transaction. A failed DAO lookup
+            // throws INSIDE that transaction and rolls it back, before recording any row.
+            assertThat(transactions.commits).isEqualTo(
+                    EnumSet.of(Case.ACCEPTED, Case.DUPLICATE).contains(testCase) ? 1 : 0);
+            assertThat(transactions.rollbacks).isEqualTo(EnumSet.of(Case.LOOKUP_FAILED,
                     Case.PARSE_NULL, Case.PARSE_THROW, Case.CONFIRMED_ROLLBACK).contains(testCase) ? 1 : 0);
+            boolean callsSaver = EnumSet.of(Case.ACCEPTED, Case.DUPLICATE, Case.PARSE_NULL,
+                    Case.PARSE_THROW, Case.LOOKUP_FAILED, Case.UNKNOWN_COMMIT, Case.CONFIRMED_ROLLBACK,
+                    Case.SAVED_TRUNCATED, Case.SAVE_NULL, Case.HHS_FILTERED,
+                    Case.SAVED_SIGNATURE_READ_FAILURE).contains(testCase);
+            if (callsSaver) {
+                utilities.verify(() -> Utilities.saveFile(any(InputStream.class), eq(uploadedFile.getName())));
+            } else {
+                utilities.verify(() -> Utilities.saveFile(any(InputStream.class), anyString()), never());
+            }
             if (testCase == Case.HHS_FILTERED) {
                 assertThat(filters.constructed()).hasSize(1);
                 verify(filters.constructed().get(0)).init(anyString());
