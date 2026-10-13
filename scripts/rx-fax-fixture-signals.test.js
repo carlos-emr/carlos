@@ -7,21 +7,23 @@ const vm = require('node:vm');
 
 for (const filename of ['rx-fax-reprint-represcribe-playwright-checks.js']) {
   for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
-    test(`${filename}: ${signal} cleans fixtures and credentials before exiting ${exitCode}`, () => {
+    test(`${filename}: ${signal} cleans fixtures and credentials before exiting ${exitCode}`, async () => {
       const source = fs.readFileSync(path.join(__dirname, filename), 'utf8');
-      const registration = source.match(/for \(const signal of \['SIGINT', 'SIGTERM'\]\) \{[\s\S]*?\n\}/);
+      const registration = source.match(/installCleanupSignalHandlers\(\(\) => \{[\s\S]*?\n\}\);/);
       assert.ok(registration, 'actual signal registration must be present');
       const handlers = new Map();
       const events = [];
       vm.runInNewContext(registration[0], {
+        // The real shared helper, driven by a fake process.
+        installCleanupSignalHandlers: (cleanup) => require('./lib/playwright-harness').installCleanupSignalHandlers(cleanup, {
+          signalProcess: { on(name, handler) { handlers.set(name, handler); }, removeListener() {} },
+          exit(code) { events.push(code); },
+          logError() {},
+        }),
         cleanupFixtures() { events.push('fixtures'); },
         removeSecretsDir() { events.push('credentials'); },
-        process: {
-          on(name, handler) { handlers.set(name, handler); },
-          exit(code) { events.push(code); },
-        },
       });
-      handlers.get(signal)();
+      await handlers.get(signal)();
       assert.deepEqual(events, ['fixtures', 'credentials', exitCode]);
     });
   }

@@ -48,9 +48,11 @@
  * the "from" line when no active SRFAX row exists on that number, the fax job
  * rows on that line with their FaxClientLog audit rows, and the destination fax
  * number substituted on EVERY active pharmacy of the patient so no fixture can
- * leave for a real machine (each original restored exactly, NULL vs '' preserved). Files are NOT removed: two small PDFs are left under
- * DOCUMENT_DIR (prescription_<pdfId>.pdf) plus the pair each leaves in the fax
- * spool, which the fax scheduler consumes.
+ * leave for a real machine (each original restored exactly, NULL vs '' preserved;
+ * rx-fax-pharmacy-fax-fixture.js, which also journals the originals so the next
+ * Rx fax check restores them if this run is killed). Files are NOT removed: two
+ * small PDFs are left under DOCUMENT_DIR (prescription_<pdfId>.pdf) plus the pair
+ * each leaves in the fax spool, which the fax scheduler consumes.
  *
  * Prerequisites on the install (docs/ui-tests/deb-install-validation.md §6):
  *   - rx_fax_enabled=true and rx_signature_enabled=true in carlos.properties,
@@ -67,7 +69,8 @@
  * Optional:
  *   RX_FAX_DEMOGRAPHIC_NO (default 1), RX_FAX_PROVIDER_NO (default 999998),
  *   RX_FAX_NOTES_SAVE_DELAY_MS (default 2500), CHROME_PATH, ARTIFACT_DIR,
- *   ALLOW_NON_LOCAL_BASE_URL.
+ *   ALLOW_NON_LOCAL_BASE_URL, ALLOW_NON_LOCAL_MYSQL_HOST,
+ *   RX_FAX_JOURNAL_DIR (private directory for the pharmacy fixture's crash journal).
  *
  * Run: npm run test:rx-fax-record-binding-playwright
  */
@@ -83,12 +86,14 @@ const pdf = require('./lib/export-content-helpers');
 const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { browserErrorClass } = require('./browser-error-class');
+const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const {
   appUrl,
   buildArtifactPath,
   getLaunchOptions,
   gotoApp,
   validateBaseUrl,
+  validateMysqlHost,
 } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -109,6 +114,10 @@ if (!Number.isInteger(faxRoundTripTimeoutMs) || faxRoundTripTimeoutMs < 1000 || 
 const artifactDir = process.env.ARTIFACT_DIR || '/tmp/carlos-playwright-artifacts';
 const documentDir = validateDocumentDir(process.env.RX_FAX_DOCUMENT_DIR);
 
+// The suite-wide guard (scripts/lib/playwright-harness.js, re-exported above), the same one
+// run-playwright-suite.js applies before spawning this check: loopback only unless
+// ALLOW_NON_LOCAL_MYSQL_HOST=true, because this check seeds and deletes prescription, signature,
+// fax and pharmacy rows.
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
@@ -165,19 +174,6 @@ const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
 
 // --- validation helpers -------------------------------------------------------
-
-function validateMysqlHost(host) {
-  if (!/^[A-Za-z0-9.\-:\[\]]+$/.test(host)) {
-    throw new Error('MYSQL_HOST contains unsupported characters');
-  }
-  // This check seeds and deletes prescription, signature, fax and pharmacy rows, so it must target
-  // a local disposable database. Same opt-in as the sibling Rx checks for an intentional remote one.
-  const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
-  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`);
-  }
-  return host;
-}
 
 function validateDocumentDir(rawDir) {
   if (!rawDir || typeof rawDir !== 'string') {
@@ -282,7 +278,12 @@ async function waitForPdf(pdfId, label) {
 // --- fixtures ---------------------------------------------------------------------
 
 let faxConfig = null;
-const seededPharmacyFaxes = [];
+const pharmacyFax = createPharmacyFaxFixture({
+  sql,
+  demographicNo,
+  stagedFax: pharmacyFaxNumber,
+  mysql: { host: mysqlHost, user: mysqlUser, password: mysqlPassword, database: mysqlDatabase },
+});
 
 function stageFaxConfig() {
   // Refuse any collision, including inactive/other-provider accounts: cleanup must
@@ -318,37 +319,35 @@ function cleanupOwnedFaxSender() {
   }
 }
 
-function seedPharmacyFax() {
-  // Same active-pharmacy predicate as the sibling stamp check. Unlike it, EVERY active destination
-  // is replaced for the run, not only blank ones: the Fax button queues a real job to whatever
-  // number the patient's pharmacy carries, and a fixture prescription must never be able to leave
-  // for a real fax machine. Each original value is remembered exactly (NULL and '' are distinct
-  // states) and restored by cleanupFixtures only while the column still holds this run's number.
-  const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
-    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
-      AND (p.status IS NULL OR p.status <> '0');`)
-    .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
-  for (const [rawId, rawWasNull, rawFax] of rows) {
-    const recordId = rawId.trim();
-    const wasNull = String(rawWasNull).trim() === '1';
-    const originalFax = wasNull ? null : String(rawFax || '');
-    if (originalFax !== null && !/^[0-9A-Za-z .()+-]{0,32}$/.test(originalFax)) {
-      throw new Error('a pharmacy fax value has an unexpected shape; refusing to rewrite it');
-    }
-    sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, wasNull, originalFax });
-  }
-  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.length, active: rows.length });
-  if (!rows.length) {
+/**
+ * Take the lock the Rx fax checks share (replaying a killed run's journal), then point EVERY active
+ * pharmacy of the patient at this run's number, not only blank ones: the Fax button queues a real
+ * job to whatever number the patient's pharmacy carries, and a fixture prescription must never be
+ * able to leave for a real fax machine.
+ */
+async function seedPharmacyFax() {
+  const recovered = await pharmacyFax.lock();
+  if (recovered.journals || recovered.kept) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+  const staged = pharmacyFax.seed();
+  visited.push({ label: 'pharmacy-fax', ...staged });
+  if (!staged.active) {
     findings.push({ label: 'pharmacy-fax', type: 'no-active-pharmacy', text: 'the configured RX_FAX_DEMOGRAPHIC_NO patient has no active pharmacy, so a prescription for them can never be faxed' });
+  }
+}
+
+/** Release the shared fixture lock after cleanup; a lost lock is a finding, not a crash. */
+async function releaseFixtureLock() {
+  try {
+    await pharmacyFax.unlock();
+  } catch (error) {
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
   }
 }
 
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
     }
   };
   let ourScriptNos = [];
@@ -374,12 +373,10 @@ function cleanupFixtures() {
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
   attempt('fax_config', cleanupOwnedFaxSender);
-  while (seededPharmacyFaxes.length) {
-    const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
-    const restored = wasNull ? 'NULL' : `'${originalFax}'`; // shape-validated before the rewrite
-    attempt(`pharmacy-fax ${recordId}`, () => sql(
-      `UPDATE pharmacyInfo SET fax = ${restored} WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
-  }
+  attempt('pharmacy-fax', () => {
+    const { untouched } = pharmacyFax.restore();
+    if (untouched) visited.push({ label: 'pharmacy-fax-restore', untouched });
+  });
 }
 
 // --- browser plumbing -------------------------------------------------------------
@@ -704,8 +701,12 @@ async function assertFaxConfirmationRecovery(modalFrame) {
           timeout();
         } else {
           previewDoc.getElementById = function (id) {
-            if (outcome === 'inaccessible') throw new Error('inaccessible fixture response');
-            if (['preview2Form', 'fax-success', 'fax-failure'].includes(id)) return null;
+            const resultRead = ['preview2Form', 'fax-success', 'fax-failure'].includes(id);
+            // Only the fax-result reads become inaccessible. setComment() also reads this document
+            // on load ('additNotes'); a stub that threw for every id escaped from that unrelated
+            // handler as an uncaught page error, which this check then counted against itself.
+            if (outcome === 'inaccessible' && resultRead) throw new Error('inaccessible fixture response');
+            if (resultRead) return null;
             return getElement.call(this, id);
           };
           frame.dispatchEvent(new w.Event('load'));
@@ -1029,8 +1030,8 @@ async function runChecks(context, cancellation) {
     await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
       findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
     });
+    await seedPharmacyFax();
     faxConfig = stageFaxConfig();
-    seedPharmacyFax();
 
     const { modalFrame, scriptId } = await cancellation.run(() => writeCustomRxThroughUi(page));
     visited.push({ label: 'prescription', created: true });
@@ -1065,6 +1066,7 @@ async function runChecks(context, cancellation) {
     }
   } finally {
     cleanupFixtures();
+    await releaseFixtureLock();
     await page.close().catch(() => {});
   }
 }
@@ -1092,7 +1094,7 @@ async function runChecks(context, cancellation) {
       exitCode = 2;
       skipped = 'Poppler pdftotext is unavailable';
     } else if (!cancellation.isCancellation(error)) {
-      findings.push({ label: 'run', type: 'exception', text: browserErrorClass(error) });
+      findings.push({ label: 'run', type: 'exception', text: `${browserErrorClass(error)}${fixtureErrorTag(error)}` });
     }
   } finally {
     if (browser) await browser.close().catch(() => {});

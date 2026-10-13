@@ -1341,6 +1341,9 @@
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>
                                                         <td width="40%" align='right' valign="top">
+                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                                                <a href="<%=request.getContextPath()%>/report/ViewGenerateLetters?demo=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>" target="_blank" rel="noopener"><fmt:message key="report.GenerateLetters.title"/></a>
+                                                            </security:oscarSec>
                                                             <input type="button" size="110" name="Button"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/>"
                                                                    onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;">

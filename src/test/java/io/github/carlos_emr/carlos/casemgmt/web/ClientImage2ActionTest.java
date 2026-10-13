@@ -36,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -81,6 +83,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         MockitoAnnotations.openMocks(this);
 
         request = new MockHttpServletRequest();
+        request.setMethod("POST");
         response = new MockHttpServletResponse();
         request.setParameter("method", "saveImage");
         request.getSession().setAttribute("clientId", "123");
@@ -205,4 +208,31 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         assertThat(action.getActionErrors()).contains("Please select an image to upload.");
         verifyNoInteractions(clientImageManager);
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"execute-save", "execute-delete", "saveImage", "deleteImage"})
+    @DisplayName("should refuse GET at every photo mutation entry point")
+    void shouldRefuseGet_atEveryMutationEntryPoint(String entry) {
+        request.setMethod("GET");
+        request.setParameter("method", entry.equals("execute-delete") ? "deleteImage" : "saveImage");
+        String result = switch (entry) {
+            case "saveImage" -> action.saveImage();
+            case "deleteImage" -> action.deleteImage();
+            default -> action.execute();
+        };
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @Test
+    @DisplayName("should clear the selected patient photo on authorized POST")
+    void shouldDeleteSelectedPhoto_whenPosted() {
+        request.setParameter("method", "deleteImage");
+        assertThat(action.execute()).isEqualTo("success");
+        verify(clientImageManager).deleteClientImage(123);
+        assertThat(request.getAttribute("success")).isEqualTo(true);
+    }
+
 }

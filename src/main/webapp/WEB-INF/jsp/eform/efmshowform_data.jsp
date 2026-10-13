@@ -32,6 +32,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -136,6 +137,11 @@
             LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", eForm.getDemographicNo());
     eForm.setFormHtml(LegacyMeasurementHistory.embed(
             eForm.getFormHtml(), eForm, measurementsPermitted));
+
+    // A rendering is a new editing opportunity; a replay of its POST keeps the original identity.
+    if (!"-1".equals(eForm.getDemographicNo())) {
+        eForm.setSubmissionToken(EFormSubmissionGuard.issue(session, eForm.getFid(), eForm.getDemographicNo()));
+    }
 
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.

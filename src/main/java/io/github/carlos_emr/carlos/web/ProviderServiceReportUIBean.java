@@ -63,6 +63,14 @@ public class ProviderServiceReportUIBean {
         this.endDate = endDate;
     }
 
+    /** Quotes a report label as text so spreadsheet programs cannot evaluate saved names as formulas. */
+    public static String csvLabel(String value) {
+        if (value == null) return "";
+        String first = value.stripLeading();
+        if (!first.isEmpty() && "=+-@".indexOf(first.charAt(0)) >= 0) value = "'" + value;
+        return org.apache.commons.text.StringEscapeUtils.escapeCsv(value);
+    }
+
     public static class DataRow {
         public String programName = null;
         public String programType = null;

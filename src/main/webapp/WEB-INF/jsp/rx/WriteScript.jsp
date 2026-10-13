@@ -1523,8 +1523,9 @@
                     <tr>
                         <td>
                             <script type="text/javascript">
-                                function ShowDrugInfo(GN) {
-                                    window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(GN), "_blank",
+                                function ShowDrugInfo(GN, din) {
+                                    window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(GN)
+                                        + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                                         "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                 }
 
@@ -1571,7 +1572,7 @@
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>');">
+                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>

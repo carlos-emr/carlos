@@ -50,7 +50,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -59,8 +58,6 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -76,8 +73,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         int nbPatient = 0;
 
         if (!validateForm()) {
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializeFrequencyOfRelevantTestsCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         addHeading(headings, request);
@@ -133,12 +130,12 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                 }
 
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", new String[]{measurementType}));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", new String[]{measurementType}));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
@@ -363,5 +360,10 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     public int[] getLessThan() {
         return lessThan;
+    }
+
+    @StrutsParameter
+    public void setLessThan(int[] lessThan) {
+        this.lessThan = lessThan;
     }
 }

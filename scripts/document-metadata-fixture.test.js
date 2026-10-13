@@ -24,7 +24,7 @@ function ownedFixture() {
         providerLabRouting: ['id', 'lab_no', 'lab_type', 'provider_no', 'status', 'timestamp'],
         queue_document_link: ['id', 'document_id', 'queue_id', 'status'], document_storage: ['documentNo'],
     }).map(([table, columns]) => [table, {engine: 'InnoDB', columns}])), refs: [['document_storage', 'documentNo', '0']]};
-    const callbacks = [], transactions = [];
+    const callbacks = [], transactions = [], residue = [];
     const rows = {
         document: [['42', hash('a'), hash('b')]], ctl_document: [['123', 'demographic', '42', hash('c'), hash('d')]],
         patientLabRouting: [['11', hash('e'), hash('f')]], providerLabRouting: [['12', hash('1'), hash('2')]],
@@ -43,11 +43,14 @@ function ownedFixture() {
             if (query.startsWith('SELECT docdesc,doctype')) return clone(values.document);
             if (query.startsWith('SELECT id,queue_id,status')) return clone(values.queues);
             if (query.startsWith('SELECT id,provider_no,status')) return clone(values.providers);
+            if (query.startsWith('SELECT note_id FROM casemgmt_note_link')) return [];
             const table = /FROM `([^`]+)`/.exec(query)?.[1];
             if (table && rows[table]) return clone(rows[table].map(row => (query.match(/SHA2\(/g) || []).length === 2 ? row : row.slice(0, -1)));
             throw new Error('Unexpected metadata fixture rows query');
         },
         value(query) {
+            if (query.includes('MAX(id)')) return '0'; // the residue mark's floors
+            if (query.includes('DATE_FORMAT(NOW()')) return '2026-10-09 10:00:00';
             if (query.startsWith('INSERT INTO document')) {
                 assert.equal(callbacks.length, 1, 'Cleanup registered before insertion');
                 assert.match(query, /restrictToProgram,observationdate/);
@@ -65,7 +68,11 @@ function ownedFixture() {
             if (query.startsWith('SELECT SHA2(') && query.includes('FROM document WHERE')) return hash('8');
             throw new Error('Unexpected metadata fixture scalar query');
         },
-        execute(query) { assert(query.startsWith('INSERT INTO ctl_document')); },
+        execute(query) {
+            if (query.startsWith('INSERT INTO ctl_document')) return;
+            assert(query.startsWith('DELETE FROM casemgmt_note_link'), 'only the residue helper deletes outside the atomic transaction');
+            residue.push(query);
+        },
     };
     const session = {sql, marker: 'FAKE-PW1234567890abcdef', patient: '123', provider: '999998', cleanup(callback) {callbacks.push(callback);}};
     const fixture = createStoredDocumentFixture(session, '10', undefined, {metadataSchema: schema});
@@ -80,7 +87,7 @@ function ownedFixture() {
         return {kind: 'metadata', intent, before, after, response: {success: true, accepted: true, document: 42, patientId: '123'},
             requestBodySha256: createHash('sha256').update(intent.body).digest('hex')};
     }
-    return {fixture, rows, values, transactions, prepare, foreign() {foreign = true;},
+    return {fixture, rows, values, transactions, residue, prepare, foreign() {foreign = true;},
         journal() {return JSON.parse(fs.readFileSync(fixture.journal, 'utf8'));},
         async retained() {
             fixture.closeAfterDrain(); await assert.rejects(callbacks[0]());
@@ -123,6 +130,8 @@ test('real adapter fsyncs immutable full proof before advancing its journal and 
         assert.deepEqual(journal.documents[0][1].snapshot.document, [['42', hash('7')]]);
         env.fixture.assertUnchanged(); env.fixture.closeAfterDrain(); await env.cleanup();
         assert.equal(env.transactions.length, 1); assert.equal(env.fixture.isCleaned(), true);
+        assert.equal(env.residue.length, 1, 'the routing lock of the owned number is removed once the atomic cleanup committed');
+        assert.match(env.residue[0], /DELETE FROM providerLabRoutingLock WHERE lab_no IN \(42\) AND lastUpdateDate >= '2026-10-09 10:00:00'/);
     } finally {fs.fsyncSync = sync; fs.renameSync = rename; env.dispose();}
 });
 

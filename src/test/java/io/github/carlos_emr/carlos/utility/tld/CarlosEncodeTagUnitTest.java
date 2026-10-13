@@ -11,6 +11,8 @@ package io.github.carlos_emr.carlos.utility.tld;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import jakarta.el.ELContext;
 import jakarta.el.ExpressionFactory;
@@ -31,6 +33,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.owasp.encoder.Encode;
+import org.apache.commons.text.StringEscapeUtils;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -185,6 +190,25 @@ class CarlosEncodeTagUnitTest {
         void shouldDispatchToForJavaScriptBlock_whenContextIsSet() throws JspException {
             run("javaScriptBlock", "value");
             assertThat(captured.toString()).isEqualTo(Encode.forJavaScriptBlock("value"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"en", "es", "fr", "pl", "pt-BR"})
+        @DisplayName("should preserve quoted contact validation messages through the real JSP tag")
+        void shouldEncodeContactValidationMessages_forJavaScriptBlock(String language) throws JspException {
+            ResourceBundle messages = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language));
+            for (String key : new String[]{"demographic.contactForm.msgLastNameRequired",
+                    "demographic.contactForm.msgFirstNameRequired"}) {
+                String message = messages.getString(key);
+                assertThat(message).as("translated quote regression fixture %s/%s", language, key).contains("\"");
+                captured.getBuffer().setLength(0);
+                run("javaScriptBlock", message);
+                String encoded = captured.toString();
+                // The actual tag output must stay inside the JSP's double-quoted literal.
+                assertThat(encoded).doesNotContain("\r", "\n", "</script").contains("\\\"");
+                assertThat(encoded.replace("\\\"", "")).doesNotContain("\"");
+                assertThat(StringEscapeUtils.unescapeEcmaScript(encoded)).isEqualTo(message);
+            }
         }
 
         @Test

@@ -10,17 +10,19 @@ const root = path.resolve(__dirname, '..');
 const input = path.join(root, '.devcontainer/db/scripts/development.sql');
 
 // Read literal INSERT tuples without treating quoted commas, parentheses or escapes as syntax.
-function literalRows(sql, table, headerCount, columnCount, key) {
+function literalRows(sql, table, headerCount, columnCount, key, positionalColumns) {
   const patterns = {
     demographic: /^INSERT(?: IGNORE)? INTO `demographic` \(([^)]+)\) VALUES\s*/gm,
     emailLog: /^INSERT(?: IGNORE)? INTO `emailLog` \(([^)]+)\) VALUES\s*/gm,
     pharmacyInfo: /^INSERT(?: IGNORE)? INTO `pharmacyInfo` \(([^)]+)\) VALUES\s*/gm,
+    prescription: /^INSERT(?: IGNORE)? INTO `prescription` VALUES\s*/gm,
+    drugs: /^INSERT(?: IGNORE)? INTO `drugs` VALUES\s*/gm,
   };
   const headers = [...sql.matchAll(patterns[table])];
   assert.equal(headers.length, headerCount, 'source layouts must declare their own columns');
   const rows = new Map();
   for (const header of headers) {
-    const columns = header[1].split(',').map(value => value.trim().replaceAll('`', ''));
+    const columns = positionalColumns || header[1].split(',').map(value => value.trim().replaceAll('`', ''));
     assert.equal(new Set(columns).size, columnCount);
     let quote = false, escaped = false, depth = 0, start = 0, fields = [];
     for (let i = header.index + header[0].length; i < sql.length; i++) {
@@ -47,6 +49,40 @@ function literalRows(sql, table, headerCount, columnCount, key) {
   return rows;
 }
 
+function verifyPrescriptions(sql) {
+  const schema = fs.readFileSync(path.join(root, 'database/mysql/migration/common/V1__baseline_schema.sql'), 'utf8');
+  const tables = {};
+  for (const [table, key, count] of [['prescription', 'script_no', 10], ['drugs', 'drugid', 61]]) {
+    const start = schema.indexOf(`CREATE TABLE \`${table}\` (`);
+    assert.ok(start >= 0);
+    const end = schema.indexOf('\n) ENGINE=', start);
+    assert.ok(end > start);
+    const columns = [...schema.slice(start, end).matchAll(/^  `([^`]+)`/gm)].map(match => match[1]);
+    tables[table] = literalRows(sql, table, 1, count, key, columns);
+  }
+  const {prescription, drugs} = tables;
+  assert.equal(drugs.size, 63, 'keep all original demo medication rows');
+  assert.deepEqual([...drugs.keys()].map(Number).sort((a, b) => a - b),
+    Array.from({length: 63}, (_, index) => index + 1), 'keep the original demo medication IDs');
+  for (const row of prescription.values()) {
+    assert.ok([...drugs.values()].some(drug => drug.script_no === row.script_no
+      && drug.demographic_no === row.demographic_no),
+    `demo prescription ${row.script_no} must have drug rows for its own patient`);
+  }
+  assert.equal(prescription.size, 27, 'keep every usable demo prescription');
+  const latest = Math.max(...[...prescription.values()]
+    .filter(row => row.demographic_no === '1').map(row => Number(row.script_no)));
+  assert.equal(latest, 45, 'a plain MAX(script_no) must select a usable reprint fixture');
+  assert.deepEqual([...prescription.keys()].map(Number).sort((a, b) => a - b),
+    [17, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+      35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+    'keep every usable demo prescription ID');
+}
+
+test('every demo prescription has medication rows for its own patient', () => {
+  verifyPrescriptions(fs.readFileSync(input, 'utf8'));
+});
+
 function verify(sql) {
   const rows = literalRows(sql, 'demographic', 2, 58, 'demographic_no');
   assert.equal(rows.size, 3000);
@@ -71,14 +107,16 @@ test('demo patient rows preserve preferred names and gender fields without integ
   verify(fs.readFileSync(input, 'utf8'));
 });
 
-test('both Debian demo artifacts preserve the explicit demographic layouts', () => {
+test('both Debian demo artifacts preserve patient layouts and usable prescriptions', () => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-demo-layout-'));
   try {
     for (const province of ['on', 'bc']) {
       const output = path.join(temporary, `${province}.sql`);
       execFileSync('bash', ['scripts/build-demo-additive.sh', input, province, output], {cwd: root, stdio: 'pipe'});
       execFileSync('bash', ['scripts/check-demo-additive.sh', output, province], {cwd: root, stdio: 'pipe'});
-      verify(fs.readFileSync(output, 'utf8'));
+      const sql = fs.readFileSync(output, 'utf8');
+      verify(sql);
+      verifyPrescriptions(sql);
     }
   } finally {
     fs.rmSync(temporary, {recursive: true, force: true});

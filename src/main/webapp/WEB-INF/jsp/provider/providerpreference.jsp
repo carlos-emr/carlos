@@ -1371,7 +1371,7 @@
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-file-alt"></i> <fmt:message key="provider.providerpreference.link.docDescTemplate"/>
                 </a>
-                <a href="<%=request.getContextPath()%>/setProviderStaleDate?method=viewTicklerTaskAssignee"
+                <a href="<%=request.getContextPath()%>/setTicklerPreferences?method=viewTicklerTaskAssignee"
                    class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>

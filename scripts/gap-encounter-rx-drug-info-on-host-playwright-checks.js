@@ -8,14 +8,9 @@
  * the drug (opens rx/drugInfo in a window). Info is offered only for a DrugRef product, which carries a
  * generic name: the Custom Drug path stages a card with no name at all, so it is not used here (and the
  * chooser's own Info links are reached only with a search the Rx page does not offer for custom drugs).
- * RxDrugInfo2Action answers with a redirect to http://resource.oscarmcmaster.org/... carrying the drug
- * name in the query string: plain HTTP, a third party the deployment does not control, and the name of
- * what the patient is prescribed leaves the clinic's network. Asserts that the Info link asks for the
- * saved drug's own generic name and that rx/drugInfo answers without a redirect to another host.
- * Nothing leaves this machine: the Info link is clicked for real but window.open is replaced by a
- * recorder, the recorded CARLOS address is fetched by the check without following redirects, and only
- * the redirect target's HOST is looked at (never the URL, which carries the drug text). The assertion
- * fails while the redirect stands.
+ * Info must render useful configured DrugRef information locally. The first request is made without
+ * following redirects, so this regression remains safe against the old off-host redirect. After that
+ * check, the real popup must show the saved product's DIN and support local name search/result links.
  * Fixtures: the owned synthetic patient and the one drug saved for it through the Rx page (needs DrugRef
  * data for RX_INFO_DRUG_TERM / RX_INFO_DRUG_NAME, default LIPITOR 20MG); cleanup deletes the patient's
  * drugs and prescription rows and asserts them gone.
@@ -44,6 +39,9 @@ async function workflow(s) {
   let rx;
   let drug;
   let generic;
+  let brand;
+  let din;
+  let infoPage;
 
   await s.step('Prescriptions ▸ search stages a DrugRef product and Save files it for the patient', async () => {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === '0', 'A drug existed before the save');
@@ -59,8 +57,9 @@ async function workflow(s) {
     h.assert((await saved).status() === 200, 'Save did not answer 200');
     await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND BN=${h.sqlString(DRUG_NAME)}`, '1',
       'Save did not file the chosen DrugRef product for the patient');
-    [[drug, generic]] = sql.rows(`SELECT drugid, GN FROM drugs WHERE demographic_no=${patient}`);
+    [[drug, generic, brand, din]] = sql.rows(`SELECT drugid, GN, BN, regional_identifier FROM drugs WHERE demographic_no=${patient}`);
     h.assert(generic && generic !== 'NULL', 'The saved drug has no generic name for Info to look up');
+    h.assert(din && din !== 'NULL' && din !== '0', 'The saved DrugRef product has no DIN');
     await rx.locator(`#prescrip_${drug}`).waitFor({ state: 'visible' });
   });
 
@@ -74,6 +73,7 @@ async function workflow(s) {
     const info = rx.locator('a[href^="javascript:ShowDrugInfo("]').first();
     await info.waitFor({ state: 'visible', timeout: 20000 });
     await rx.evaluate(() => {
+      window.__originalOpen = window.open;
       window.__opened = [];
       window.open = address => { window.__opened.push(String(address)); return null; };
     });
@@ -85,20 +85,45 @@ async function workflow(s) {
     const target = new URL(opened[0], rx.url());
     h.assert(target.host === appHost && target.pathname.endsWith('/rx/drugInfo'), 'The Info link does not open a CARLOS address');
     h.assert(target.searchParams.get('GN') === generic, 'The Info link does not ask for the saved drug\'s generic name');
+    h.assert(target.searchParams.get('DIN') === din, 'The Info link does not identify the saved product by DIN');
     const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
     const status = response.status();
     const headers = response.headers();
     const location = headers.location;
     const host = location ? new URL(location, target).host : null;
     await response.dispose();
-    // A broken or WAF-blocked endpoint has no Location either, and context.request is not watched by the strict
-    // recorder, so a missing redirect only counts when CARLOS itself answered: a success or redirect status, or
-    // a refusal (403) that carries the application's own header (a WAF or proxy error page does not).
-    const fromApplication = Object.prototype.hasOwnProperty.call(headers, 'x-permitted-cross-domain-policies');
-    h.assert(status >= 200 && status < 400 || (status === 403 && fromApplication),
-      `Rx Info answered HTTP ${status}${status === 403 ? ' without the application\'s own header' : ''}, not a success or redirect from CARLOS`);
     h.assert(host === null || host === appHost,
       `Rx Info redirects to another host (${host}), carrying the drug name in the address`);
+    h.assert(status === 200 && !location, `Rx Info did not render its local view (HTTP ${status})`);
+    await rx.evaluate(() => { window.open = window.__originalOpen; });
+    infoPage = await s.popup(rx, info, 'rx-drug-info');
+    await infoPage.locator('#drug-reference-details').waitFor({ state: 'visible' });
+    h.assert(new URL(infoPage.url()).origin === new URL(config.baseUrl).origin, 'Drug reference details left CARLOS');
+    h.assert((await infoPage.locator('#drug-info-din').innerText()).trim() === din,
+      'Drug reference details do not identify the saved product');
+    h.assert((await infoPage.locator('#drug-reference-details h2').innerText()).trim() === DRUG_NAME,
+      'Drug reference details do not name the saved product');
+    h.assert(await infoPage.locator('#drug-info-name').inputValue() === generic,
+      'Info did not preserve the saved prescription description');
+  });
+
+  await s.step('local drug-name search opens useful reference details through a DrugRef product link', async () => {
+    await infoPage.locator('#drug-info-name').fill(DRUG_TERM);
+    await clickAndAwaitReload(infoPage, infoPage.getByRole('button', { name: 'Search', exact: true }), { label: 'local reference search' });
+    const product = infoPage.locator('#drug-info-matches a').filter({ hasText: DRUG_NAME }).first();
+    await product.waitFor({ state: 'visible' });
+    const target = new URL(await product.getAttribute('href'), infoPage.url());
+    h.assert(target.origin === new URL(config.baseUrl).origin && target.searchParams.has('BN'),
+      'The reference search result does not link to a local DrugRef product');
+    await clickAndAwaitReload(infoPage, product, { label: 'local reference result' });
+    await infoPage.locator('#drug-reference-details').waitFor({ state: 'visible' });
+    h.assert((await infoPage.locator('#drug-info-din').innerText()).trim() === din,
+      'The reference search result does not show the chosen product DIN');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND drugid=${drug}`) === '1',
+      'Viewing drug reference information changed the saved prescription');
+    const storedValues = sql.rows(`SELECT GN, BN, regional_identifier FROM drugs WHERE demographic_no=${patient} AND drugid=${drug}`);
+    h.assert(JSON.stringify(storedValues) === JSON.stringify([[generic, brand, din]]),
+      'Viewing drug reference information changed the saved drug names or DIN');
   });
 }
 

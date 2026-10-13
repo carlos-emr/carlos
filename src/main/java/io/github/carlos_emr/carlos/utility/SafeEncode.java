@@ -183,6 +183,24 @@ public final class SafeEncode {
         return Encode.forHtmlAttribute(nz(value));
     }
 
+    /**
+     * Encodes untrusted text for the {@code header=[..]} / {@code body=[..]} segments of a
+     * boxover {@code title} attribute.
+     *
+     * <p>The browser decodes the attribute, and {@code boxover.js} then assigns the decoded
+     * string to {@code innerHTML}. The value therefore needs two layers: HTML-content encoding
+     * (so it is still inert text after the attribute is decoded) and attribute encoding (so it
+     * cannot leave the attribute). Attribute encoding alone leaves stored markup live.
+     * Literal markup the page itself wants in a tooltip (for example {@code &lt;br/&gt;}) must
+     * be added around this call, never passed through it.
+     *
+     * @param value untrusted text; {@code null} yields an empty string
+     * @return text safe to place inside a boxover tooltip segment
+     */
+    public static String forTooltipText(String value) {
+        return forHtmlAttribute(forHtmlContent(value));
+    }
+
     public static void forHtmlAttribute(Writer out, String value) throws IOException {
         Encode.forHtmlAttribute(out, nz(value));
     }

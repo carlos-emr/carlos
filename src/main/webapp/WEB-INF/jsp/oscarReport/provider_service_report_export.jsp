@@ -31,7 +31,7 @@
      Parameters: startDate and endDate (MM/yyyy); invalid ranges return HTTP 400.
      @since 2026-10-02 --%>
 
-<%@ page pageEncoding="UTF-8" contentType="text/csv; charset=UTF-8" %>
+<%@ page pageEncoding="UTF-8" contentType="text/csv; charset=UTF-8" trimDirectiveWhitespaces="true" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -58,7 +58,8 @@
 <%@page import="java.text.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
-    String agencyName = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("db_name", "");
+    Clinic clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicDAO.class).getClinic();
+    String agencyName = clinic == null || clinic.getClinicName() == null ? "" : clinic.getClinicName();
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
     SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy", Locale.ROOT);
@@ -113,11 +114,11 @@
     ProviderServiceReportUIBean providerServiceReportUIBean = new ProviderServiceReportUIBean(startDate, endDate);
     for (ProviderServiceReportUIBean.DataRow row : providerServiceReportUIBean.getDataRows()) {
         StringBuilder sb = new StringBuilder();
-        sb.append(StringEscapeUtils.escapeCsv(agencyName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(agencyName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programType));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programType));
         sb.append(',');
         sb.append(StringEscapeUtils.escapeCsv(row.date));
         sb.append(',');

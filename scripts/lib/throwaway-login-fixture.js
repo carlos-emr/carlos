@@ -70,7 +70,10 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
     /** The bcrypt hash the throwaway started with (identical to the test login's). */
     get passwordHash() { return state.passwordHash; },
 
-    create() {
+    create({ roleNames, expiresTomorrow = false } = {}) {
+      assert(roleNames === undefined || (Array.isArray(roleNames) && roleNames.length > 0
+        && roleNames.every(role => typeof role === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(role))),
+      'Explicit fixture roles must be a nonempty list of role names');
       assert(!state.created, 'The throwaway login was already created');
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(testUser)}`) === '1',
         'The shared test login has no single security row to copy');
@@ -106,7 +109,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       // forcePasswordReset and MFA are explicitly off so the login lands on the schedule.
       state.securityNo = sql.value(`INSERT INTO security (user_name,password,provider_no,pin,b_ExpireSet,date_ExpireDate,
           b_LocalLockSet,b_RemoteLockSet,forcePasswordReset,passwordUpdateDate,pinUpdateDate,lastUpdateUser,lastUpdateDate,usingMfa,mfaSecret)
-        SELECT ${sqlString(username)},password,${providerNo},pin,b_ExpireSet,date_ExpireDate,b_LocalLockSet,b_RemoteLockSet,
+        SELECT ${sqlString(username)},password,${providerNo},pin,${expiresTomorrow ? '1,DATE_ADD(CURDATE(), INTERVAL 1 DAY)' : 'b_ExpireSet,date_ExpireDate'},b_LocalLockSet,b_RemoteLockSet,
           0,NOW(),NOW(),${sqlString(provider)},NOW(),0,NULL
         FROM security WHERE user_name=${sqlString(testUser)}; SELECT LAST_INSERT_ID()`);
       assert(/^[1-9]\d*$/.test(state.securityNo), 'The throwaway security row was not created');
@@ -114,9 +117,15 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
       assert(state.passwordHash
         && state.passwordHash === sql.value(`SELECT password FROM security WHERE user_name=${sqlString(testUser)}`),
       'The throwaway did not inherit the test login\'s password hash');
-      sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
-        SELECT ${providerNo},role_name,orgcd,activeyn,NOW() FROM secUserRole
-        WHERE provider_no=${sqlString(provider)} AND activeyn=1`);
+      if (roleNames) {
+        // Denial checks start with only their explicit grants, never inherited roles.
+        sql.execute(`INSERT INTO secUserRole (provider_no,role_name,activeyn,lastUpdateDate)
+          VALUES ${[...new Set(roleNames)].map(role => `(${providerNo},${sqlString(role)},1,NOW())`).join(',')}`);
+      } else {
+        sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
+          SELECT ${providerNo},role_name,orgcd,activeyn,NOW() FROM secUserRole
+          WHERE provider_no=${sqlString(provider)} AND activeyn=1`);
+      }
       assert(Number(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${providerNo}`)) > 0,
         'The throwaway received no role assignment');
       return this;

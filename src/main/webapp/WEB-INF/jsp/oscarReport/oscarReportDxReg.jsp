@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -168,11 +169,12 @@
             <form action="${pageContext.request.contextPath}/report/DxresearchReport?method=addSearchCode" method="post" accept-charset="UTF-8">
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
-                    <select name="quicklistname" class="sel">
+                    <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
                         <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                            <option value="${quickLists.quickListName}" ${quickLists.lastUsed}>
-                                ${quickLists.quickListName}
+                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed}>
+                                ${carlos:forHtml(quickLists.quickListName)}
                             </option>
                         </c:forEach>
                     </select>

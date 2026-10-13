@@ -87,6 +87,9 @@ async function workflow(s) {
     await nameField.fill(name);
     await valueField.fill(text);
     await submit(() => frame.getByRole('button', {name: 'Save', exact: true}).click());
+    h.assert(await frame.locator('#template-result').isVisible()
+      && (await frame.locator('#template-result').innerText()).trim() === 'Template saved.',
+    'Saving the template did not show its result');
     h.assert(await option().count() === 1, 'The saved template is not offered in the Edit selector');
     h.assert(sql.value(stored(text)) === '1', 'The template text was not stored exactly as typed');
   });
@@ -142,13 +145,30 @@ async function workflow(s) {
     '1', 'The saved note does not contain the inserted template text exactly');
   });
 
-  await s.step('Delete removes the template from Administration and the database', async () => {
+  await s.step('GET and HEAD cannot delete the owned template', async () => {
+    for (const method of ['GET', 'HEAD']) {
+      const response = await s.context.request.fetch(h.appUrl(s.config.baseUrl, '/admin/ProviderTemplate'), {
+        method, params: {dboperation: 'Delete', name}, maxRedirects: 0,
+      });
+      h.assert(response.status() < 500, `${method} deletion probe returned HTTP ${response.status()}`);
+      h.assert(count() === '1', `${method} deleted the template`);
+    }
+  });
+
+  await s.step('Delete shows confirmation and removes the template from Administration and the database', async () => {
     await frame.locator('form[name="edittemplate"] select[name="name"]').selectOption(name);
     await submit(() => frame.getByRole('button', {name: 'Edit', exact: true}).click());
     h.assert(await nameField.inputValue() === name, 'Edit did not load the template before deletion');
     await submit(() => frame.getByRole('button', {name: 'Delete', exact: true}).click());
+    h.assert(await frame.locator('#template-result').isVisible()
+      && (await frame.locator('#template-result').innerText()).trim() === 'Template deleted.',
+    'Deleting the template did not show confirmation');
     h.assert(await option().count() === 0, 'The deleted template is still offered in the Edit selector');
     h.assert(count() === '0', 'Delete left the template row in place');
+    // Reopen with GET so this also verifies a fresh selector without replaying Delete.
+    await frame.goto(h.appUrl(s.config.baseUrl, '/admin/ProviderTemplate'), {waitUntil: 'domcontentloaded'});
+    await frame.locator('form[name="edittemplate"] select[name="name"]').waitFor();
+    h.assert(await option().count() === 0, 'Reopening Administration offered the deleted template again');
   });
 }
 if (require.main === module) runWorkflow('encounter-templates', workflow, {openPatient: true});

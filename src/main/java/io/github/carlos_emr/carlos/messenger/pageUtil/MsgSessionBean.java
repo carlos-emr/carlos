@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Session bean for maintaining message composition state across requests in the messaging module.
@@ -206,8 +207,16 @@ public class MsgSessionBean implements java.io.Serializable {
         return "<PDF><FILE_ID>" + currentAttachmentCount + "</FILE_ID>";
     }
 
+    /**
+     * Builds the {@code <TITLE>} element of a stored PDF attachment record.
+     *
+     * <p>The title is user-influenced, and the attachment list is a flat string whose records
+     * are located by tag name, so markup in a title could forge extra elements. XML special
+     * characters are therefore escaped; readers must {@code unescapeXml} before display
+     * (see {@code ViewPDFAttachment.jsp}).</p>
+     */
     public String getPDFTitleTag(String pdfTitle) {
-        return "<TITLE>" + pdfTitle + "</TITLE>";
+        return "<TITLE>" + StringEscapeUtils.escapeXml10(pdfTitle == null ? "" : pdfTitle) + "</TITLE>";
     }
 
     public String getContentTag(String binStr) {

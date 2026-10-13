@@ -241,6 +241,7 @@ async function workflow(s) {
       await clickAndNavigate(favourites, favourites.mainFrame(), edited.getByRole('button', {name: 'Delete'}));
     });
     h.assert(accepted.length === 1 && accepted[0].type === 'confirm', 'The accepted delete did not raise exactly one confirm');
+    await h.assertNotErrorPage(favourites, 'QBE favourite deletion');
     h.assert(await favourites.locator('#favoritesForm tbody tr', {hasText: marker}).count() === 0, 'The deleted favourite is still listed');
     h.assert(sql.value(`SELECT COUNT(*) FROM reportByExamplesFavorite WHERE id=${favouriteId}`) === '0', 'The delete did not reach the database');
     const reloaded = admin.waitForEvent('framenavigated', {predicate: candidate => candidate === frame, timeout: TIMEOUT});

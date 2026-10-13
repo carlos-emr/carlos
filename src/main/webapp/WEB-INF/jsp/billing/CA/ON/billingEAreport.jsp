@@ -67,7 +67,7 @@
         <tr>
             <td>
                 <c:if test="${not empty claimsErrors}">
-                <c:forEach var="claimsError" items="${claimsErrors.claimsErrorReportBeanVector}">
+                <c:forEach var="claimsError" items="${claimsErrors.claimsErrorReportRecords}">
                 <c:if test="${not empty claimsError.techSpec}">
                 <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#CCCCFF">
                     <tr>

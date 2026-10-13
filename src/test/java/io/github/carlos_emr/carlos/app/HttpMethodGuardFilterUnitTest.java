@@ -202,6 +202,20 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should pass through GET to the BC reprocessBill route, which opens Bill Status and the adjust bill page")
+        void shouldPassThrough_forGetToBcReprocessBillOpenAction() throws Exception {
+            // BillingReProcessBill2Action itself answers 405 to a GET carrying billCheck or billingmasterNo (#4343).
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/billing/CA/BC/reprocessBill");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
         @DisplayName("should pass through GET to AddRelation popup render action")
         void shouldPassThrough_forGetToAddRelationAction() throws Exception {
             // AddRelation starts with "add" (a mutator prefix) but the "Add Relation" popup

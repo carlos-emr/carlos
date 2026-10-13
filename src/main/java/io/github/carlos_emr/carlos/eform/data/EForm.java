@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -79,6 +80,9 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    private static final String INPUT_TAG = "input";
+    private static final String HIDDEN_INPUT_TYPE = "hidden";
+    private static final String VALUE_ATTRIBUTE = "value";
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
@@ -292,6 +296,16 @@ public class EForm extends EFormBase {
         String method = "method=\"POST\"";
         html.insert(index, " " + action.toString() + " " + name + method);
         this.formHtml = html.toString();
+    }
+
+    /** Replaces any old submission identity on the actual save form, including saved-form revisions. */
+    public void setSubmissionToken(String token) {
+        String parameter = io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER;
+        getDocument().select("input[name=" + parameter + "]").remove();
+        Element form = getDocument().selectFirst("form");
+        if (form != null) {
+            form.appendElement(INPUT_TAG).attr("type", HIDDEN_INPUT_TYPE).attr("name", parameter).attr(VALUE_ATTRIBUTE, token);
+        }
     }
 
     // ------------------Saving the Form (inserting value= statements)---------------------
@@ -921,9 +935,9 @@ public class EForm extends EFormBase {
         if (field == null) return new StringBuilder(getFormHtml());
         switch (type) {
             case "text":
-            case "hidden":
+            case HIDDEN_INPUT_TYPE:
             case "date":
-                field.attr("value", value);
+                field.attr(VALUE_ATTRIBUTE, value);
                 break;
             case "textarea":
                 field.text(value);
@@ -934,7 +948,7 @@ public class EForm extends EFormBase {
             case "radio":
                 // For radio buttons, find all radios with the same name and check the correct one based on value
                 for (Element radio : getDocument().select("input[type=radio][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
-                    if (value.equals(radio.attr("value"))) {
+                    if (value.equals(radio.attr(VALUE_ATTRIBUTE))) {
                         radio.attr("checked", "checked");
                     } else {
                         radio.removeAttr("checked");
@@ -943,7 +957,7 @@ public class EForm extends EFormBase {
                 break;
             case "select":
                 for (Element option : field.select("option")) {
-                    if (option.attr("value").equals(value)) {
+                    if (option.attr(VALUE_ATTRIBUTE).equals(value)) {
                         option.attr("selected", "selected");
                     } else {
                         option.removeAttr("selected");
@@ -1266,7 +1280,7 @@ public class EForm extends EFormBase {
         if (StringUtils.isBlank(header)) return;
 
         String name = EFormUtil.removeQuotes(EFormUtil.getAttribute("name", header));
-        String value = EFormUtil.removeQuotes(EFormUtil.getAttribute("value", header));
+        String value = EFormUtil.removeQuotes(EFormUtil.getAttribute(VALUE_ATTRIBUTE, header));
         if (StringUtils.isBlank(name)) return;
 
         if (header.toLowerCase().startsWith("<input ")) {
@@ -1284,7 +1298,7 @@ public class EForm extends EFormBase {
                 String option = getFieldHeader(selects, pos);
                 String selected = EFormUtil.removeQuotes(EFormUtil.getAttribute("selected", option));
                 if (!StringUtils.isBlank(selected) && selected.equalsIgnoreCase("selected")) {
-                    value = EFormUtil.removeQuotes(EFormUtil.getAttribute("value", option));
+                    value = EFormUtil.removeQuotes(EFormUtil.getAttribute(VALUE_ATTRIBUTE, option));
                     break;
                 }
                 pos = selects.indexOf("<option ", pos + 1);
@@ -1467,8 +1481,8 @@ public class EForm extends EFormBase {
         Element form = getDocument().selectFirst("form");
         if (form != null && form.selectFirst("[name=subject]") == null) {
             // Jsoup escapes attribute values when serializing; keep the original text here.
-            form.appendElement("input").attr("type", "hidden").attr("name", "subject")
-                    .attr("value", subject == null ? "" : subject);
+            form.appendElement(INPUT_TAG).attr("type", HIDDEN_INPUT_TYPE).attr("name", "subject")
+                    .attr(VALUE_ATTRIBUTE, subject == null ? "" : subject);
         }
     }
 
@@ -1518,8 +1532,8 @@ public class EForm extends EFormBase {
         // serialization (formdata), appends its value only when the submission carries no other
         // newForm. Whether the template's own controls contribute can change after load, so this
         // server-side check only decides whether the element is emitted at all.
-        Element fallback = form.appendElement("input").attr("type", "hidden")
-                .attr("name", "newForm").attr("value", "true")
+        Element fallback = form.appendElement(INPUT_TAG).attr("type", HIDDEN_INPUT_TYPE)
+                .attr("name", "newForm").attr(VALUE_ATTRIBUTE, "true")
                 .attr(NEW_FORM_FALLBACK_ATTRIBUTE, "");
         // getElementById is case-sensitive, matching the browser.
         if (getDocument().getElementById("newForm") == null) {
@@ -1638,9 +1652,9 @@ public class EForm extends EFormBase {
     }
 
     public void addHiddenInputElement(String id, String name, String className, String value, Map<String, String> additionalProperties) {
-        Element input = getDocument().createElement("input");
+        Element input = getDocument().createElement(INPUT_TAG);
 
-        input.attr(ConvertToEdoc.ElementAttribute.type.name(), "hidden");
+        input.attr(ConvertToEdoc.ElementAttribute.type.name(), HIDDEN_INPUT_TYPE);
 
         if (id != null && !id.isEmpty()) {
             input.attr(ConvertToEdoc.ElementAttribute.id.name(), Encode.forHtmlAttribute(id));
@@ -1702,7 +1716,7 @@ public class EForm extends EFormBase {
                 if (parsedNode.isObject()) {
                     ObjectNode placeHolder = (ObjectNode) parsedNode;
                     JsonNode idNode = placeHolder.get("id");
-                    JsonNode valueNode = placeHolder.get("value");
+                    JsonNode valueNode = placeHolder.get(VALUE_ATTRIBUTE);
 
                     if (idNode != null && valueNode != null) {
                         String id = idNode.asText();

@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 @jakarta.persistence.FieldResult(name = "note", column = "note"),
                 @jakarta.persistence.FieldResult(name = "signed", column = "signed"),
                 @jakarta.persistence.FieldResult(name = "includeissue", column = "includeissue"),
-                @jakarta.persistence.FieldResult(name = "providerNo", column = "providerNo"),
+                @jakarta.persistence.FieldResult(name = "providerNo", column = "provider_no"),
                 @jakarta.persistence.FieldResult(name = "signing_provider_no", column = "signing_provider_no"),
                 @jakarta.persistence.FieldResult(name = "encounter_type", column = "encounter_type"),
                 @jakarta.persistence.FieldResult(name = "billing_code", column = "billing_code"),
@@ -82,7 +82,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 @jakarta.persistence.NamedNativeQueries({
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentTime", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -101,7 +101,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentDateRange", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -120,7 +120,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentLimit", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,

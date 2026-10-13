@@ -323,15 +323,25 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
+        // New editors distinguish literal text (including numeric text) from existing row IDs.
+        // Editors already open before an upgrade retain the legacy unprefixed format.
+        boolean prefixedTextValues = "prefixed".equals(request.getParameter("suggestionValueFormat"));
 
 
         for (String activeTextStr : activeText) {
+            boolean newText = prefixedTextValues && activeTextStr != null && activeTextStr.startsWith("text:");
+            String text = newText ? activeTextStr.substring(5) : activeTextStr;
+            // Accept legacy empty-list markers while preserving prefixed literal "0" text.
+            if (text == null || text.isBlank() || (!newText && "0".equals(text))) {
+                continue;
+            }
             Integer textSuggestId = null;
-            try {
-                textSuggestId = Integer.parseInt(activeTextStr);
-            } catch (NumberFormatException e) {
-                // A nonnumeric value is a new suggestion, not a parsing failure.
-                // Do not log entered text or the exception: both may contain clinical details.
+            if (!newText) {
+                try {
+                    textSuggestId = Integer.parseInt(text);
+                } catch (NumberFormatException e) {
+                    // Legacy nonnumeric values are new suggestions. Never log clinical text.
+                }
             }
 
             TicklerTextSuggest ts = null;
@@ -343,7 +353,7 @@ public class EditTickler2Action extends ActionSupport {
                 ts.setActive(true);
                 ts.setCreateDate(new Date());
                 ts.setCreator(providerNo);
-                ts.setSuggestedText(activeTextStr);
+                ts.setSuggestedText(text);
                 ticklerTextSuggestDao.persist(ts);
             } else {
                 ts.setActive(true);
@@ -353,12 +363,19 @@ public class EditTickler2Action extends ActionSupport {
 
 
         for (String inactiveTextStr : inactiveText) {
+            boolean newText = prefixedTextValues && inactiveTextStr != null && inactiveTextStr.startsWith("text:");
+            String text = newText ? inactiveTextStr.substring(5) : inactiveTextStr;
+            // Accept legacy empty-list markers while preserving prefixed literal "0" text.
+            if (text == null || text.isBlank() || (!newText && "0".equals(text))) {
+                continue;
+            }
             Integer textSuggestId = null;
-            try {
-                textSuggestId = Integer.parseInt(inactiveTextStr);
-            } catch (NumberFormatException e) {
-                // A nonnumeric value is a new suggestion, not a parsing failure.
-                // Do not log entered text or the exception: both may contain clinical details.
+            if (!newText) {
+                try {
+                    textSuggestId = Integer.parseInt(text);
+                } catch (NumberFormatException e) {
+                    // Legacy nonnumeric values are new suggestions. Never log clinical text.
+                }
             }
 
             TicklerTextSuggest ts = null;
@@ -370,7 +387,7 @@ public class EditTickler2Action extends ActionSupport {
                 ts.setActive(false);
                 ts.setCreateDate(new Date());
                 ts.setCreator(providerNo);
-                ts.setSuggestedText(inactiveTextStr);
+                ts.setSuggestedText(text);
                 ticklerTextSuggestDao.persist(ts);
             } else {
                 ts.setActive(false);

@@ -316,19 +316,9 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].dischargeDate) == false) {
-                b = false;
-            }
-
-            if (valDate(document.forms[0].pg1_eddByDate) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].pg1_eddByUs) == false) {
-                b = false;
-            }
-
-            return b;
+            return valDate(document.forms[0].dischargeDate);
         }
+
     </script>
 
     <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">

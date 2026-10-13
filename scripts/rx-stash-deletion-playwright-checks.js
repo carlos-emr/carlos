@@ -191,6 +191,10 @@ async function workflow(session) {
       const dialogs = await h.withExpectedDialogs(original, async () => {
         const pending = original.waitForResponse(response => routePattern.test(response.url()));
         const alert = original.waitForEvent('dialog');
+        // Mark the dialog wait handled up front: if the response wait or the 409 assertion fails
+        // first, an unawaited dialog timeout would otherwise reject unhandled and end the process
+        // before cleanup (#3607). Awaiting `alert` below still surfaces its own failure.
+        alert.catch(() => {});
         release();
         refusal = await pending;
         h.assert(refusal.status() === 409, 'the delayed old deletion was accepted for the replacement draft');

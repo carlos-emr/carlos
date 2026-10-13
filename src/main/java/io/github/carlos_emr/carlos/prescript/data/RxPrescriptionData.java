@@ -40,17 +40,18 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.StringJoiner;
 import java.util.Vector;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -64,6 +65,25 @@ public class RxPrescriptionData {
 
     static String textViewLineForFullOutline(String fullOutLine) {
         return StringUtils.defaultString(fullOutLine).replace(";", "\n");
+    }
+
+    /**
+     * Renders a stored prescription outline ({@link #getFullOutLine(String)}) as HTML, one line per
+     * {@code ";"}-separated part joined with {@code <br />}.
+     *
+     * <p>The outline carries the drug name and instructions exactly as the prescriber entered them,
+     * so each part is HTML-encoded here, once, at output. The split happens before encoding because
+     * an encoded character such as {@code &amp;} itself contains a {@code ";"} (#3952).
+     *
+     * @param fullOutLine the stored outline; {@code null} renders as empty
+     * @return HTML-safe markup with a {@code <br />} between the outline's lines
+     */
+    public static String fullOutLineToHtml(String fullOutLine) {
+        StringJoiner html = new StringJoiner("<br />");
+        for (String part : StringUtils.defaultString(fullOutLine).split(";", -1)) {
+            html.add(SafeEncode.forHtmlContent(part));
+        }
+        return html.toString();
     }
 
     public static String getFullOutLine(String special) {
@@ -486,41 +506,20 @@ public class RxPrescriptionData {
         return result;
     }
 
+    /**
+     * Returns the patient's medication list, one entry per product and regimen, newest first.
+     * See {@link UniqueMedicationList} for which rows merge and which copy is listed. Full
+     * prescription history is available separately through {@link #getPrescriptionsByPatient(int)}.
+     */
     public Prescription[] getUniquePrescriptionsByPatient(int demographicNo) {
-        List<Prescription> result = new ArrayList<Prescription>();
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
-
-        List<Drug> drugList = dao.findByDemographicId(demographicNo);
-
-        Collections.sort(drugList, new Drug.ComparatorIdDesc());
-
-        for (Drug drug : drugList) {
-
-            if (drug.isDeleted())
-                continue;
-
-            boolean isCustomName = true;
-
-            for (Prescription p : result) {
-                if (p.getGCN_SEQNO() != null && p.getGCN_SEQNO().equals(drug.getGcnSeqNo())) {
-					// not custom - safe GCN
-					if (!"0".equals(p.getGCN_SEQNO()))
-                        isCustomName = false;
-                    else if (p.getCustomName() != null && drug.getCustomName() != null) // custom
-                        isCustomName = !p.getCustomName().equals(drug.getCustomName());
-
-                }
-            }
-
-            if (isCustomName) {
-                Prescription p = toPrescription(drug, demographicNo);
-
-
-                p.setPosition(drug.getPosition());
-                result.add(p);
-            }
+        List<Prescription> result = new ArrayList<>();
+        for (Drug drug : UniqueMedicationList.select(dao.findByDemographicId(demographicNo))) {
+            Prescription prescription = toPrescription(drug, demographicNo);
+            prescription.setPosition(drug.getPosition());
+            result.add(prescription);
         }
-        return result.toArray(new Prescription[result.size()]);
+        return result.toArray(new Prescription[0]);
     }
 
     public Favorite[] getFavorites(String providerNo) {

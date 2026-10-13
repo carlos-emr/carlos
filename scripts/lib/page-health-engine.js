@@ -489,16 +489,14 @@ async function openLink(context, hostPage, item, timeout) {
 
 /**
  * Click the About / License footer links of a destination page, as a user does, and
- * require each to open its popup. Most pages carry the footer
- *   <a href="javascript:popupStart(300,400,'.../encounter/ViewAbout')">About</a>
- * and popupStart is defined only by encounter.js and a few pages' own scripts, so on the
- * rest the click throws ReferenceError and nothing opens. The throw is recorded by the
- * strict page wiring (reported per page by the crawl); this adds the "nothing opened"
- * finding to the ledger.
+ * require each to open its popup. Include native destination links as well as legacy
+ * JavaScript links so converting a footer cannot silently remove it from crawl coverage.
+ * Uncaught errors are recorded by strict page wiring; this adds missing-popup findings.
  */
 async function clickFooterLinks(context, page, label, timeout, ledger) {
   if (page.isClosed()) return;
-  const candidates = page.locator('a[href^="javascript:"]').filter({ hasText: /^\s*(About|License)\s*$/ });
+  const candidates = page.locator('a[href^="javascript:"], a[href*="/ViewAbout"], a[href*="/ViewLicense"]')
+    .filter({ hasText: /^\s*(About|License)\s*$/ });
   const count = await candidates.count().catch(() => 0);
   for (let index = 0; index < Math.min(count, 2); index += 1) {
     const link = candidates.nth(index);

@@ -62,6 +62,9 @@
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <%-- The sanitized Forward dialog runs inline initialization but does not load its external scripts. --%>
+    <script src="${pageContext.request.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script src="${pageContext.request.contextPath}/js/carlosAutocomplete.js"></script>
     <script type="text/javascript" charset="utf8" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/dompurify/purify.min.js"></script>

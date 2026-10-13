@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays saved medication history for the authorized patient, with re-prescribing, favourites and drug information.
+    The action supplies patient context; regionalIdentifier, cn, bn and atc filter the medication history.
+    Info passes the saved generic description (GN) and optional product DIN to the local DrugRef view.
+    @since 2026-07-07
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -118,8 +124,9 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
         <script type="text/javascript">
-            function ShowDrugInfo(gn) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(gn), "_blank",
+            function ShowDrugInfo(gn, din) {
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(gn)
+                    + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -371,7 +378,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>');">Info</a> <%
+						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>');">Info</a> <%
 							}
 						%>
                         </td>

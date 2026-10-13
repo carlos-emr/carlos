@@ -63,6 +63,11 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -121,8 +126,8 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
-        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        var transactions = spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // AddEForm2Action's constructor resolves this via SpringUtils regardless of the path taken.
         registerMock(EmailManager.class, mockEmailManager);
@@ -182,6 +187,9 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
 
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(),
+                        mockRequest.getParameter("efmfid"), "123"));
     }
 
     @AfterEach
@@ -194,10 +202,24 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         if (mockitoMocks != null) mockitoMocks.close();
     }
 
+    @Test
+    void shouldWriteChartTemplateOnlyOnce_whenSubmissionIsReplayed() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Check the patient eForms before reopening")
+                .when(action).getText("eform.submitUnavailable");
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(action.execute()).isEqualTo("none");
+        verifyTemplateWritten(true);
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
     private void verifyTemplateWritten(boolean expected) {
         eFormUtilMock.verify(
                 () -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), anyString(), anyString(), anyString()),
-                expected ? org.mockito.Mockito.times(1) : org.mockito.Mockito.never());
+                expected ? times(1) : never());
     }
 
     @Test
@@ -231,7 +253,7 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/saveEFormAsEDoc");
         assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
                 "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
-        org.mockito.Mockito.verify(mockEformDataManager, org.mockito.Mockito.times(1)).saveEformData(any(), any());
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
         verifyTemplateWritten(true);
     }
 
@@ -249,7 +271,7 @@ class AddEForm2ActionTemplateWriteUnitTest extends CarlosUnitTestBase {
         assertThat(mockRequest.getAttribute("renderCapacityAction")).isEqualTo("/eform/downloadEFormPdf");
         assertThat(mockRequest.getAttribute("renderCapacityFields")).isEqualTo(java.util.Map.of(
                 "fdid", "42", "demographicNo", "123", "renderApproval", "continuation-ticket", "autoClose", "true"));
-        org.mockito.Mockito.verify(mockEformDataManager, org.mockito.Mockito.times(1)).saveEformData(any(), any());
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
         verifyTemplateWritten(true);
     }
 

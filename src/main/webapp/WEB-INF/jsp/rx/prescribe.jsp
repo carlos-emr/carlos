@@ -236,10 +236,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     String prnStr="";
                     if(prn) { prnStr="prn"; }
 
-                drugName=drugName.replace("'", "\\'");
-                drugName=drugName.replace("\"","\\\"");
-                byte[] drugNameBytes = drugName.getBytes("ISO-8859-1");
-                drugName= new String(drugNameBytes, "UTF-8");
+                // drugName stays the raw stored name; each output below encodes it for its own context
+                // (htmlAttribute, javaScriptAttribute, javaScriptBlock). The former hand-escaping of quotes and
+                // the ISO-8859-1 -> UTF-8 re-decode put backslashes and replacement characters into the card,
+                // which a save then persisted into the prescription (#3952).
                 String fieldSetId = "set_" + rand;
 %>
 <%-- i18n variable declarations for this prescription card --%>
@@ -507,7 +507,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
         </div>
         <div>
             <fmt:message key="WriteScript.msgComment"/>:
-           <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<%=comment%>" size="60"/>
+           <input type="text" id="comment_<%=rand%>" name="comment_<%=rand%>" value="<carlos:encode value='<%= comment %>' context="htmlAttribute"/>" size="60"/>
            </div><div>  
             <fmt:message key="WriteScript.msgETreatmentType"/>:
            <select name="eTreatmentType_<%=rand%>">
@@ -706,7 +706,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
 
         <script type="text/javascript">
-            document.getElementById('drugName_'+'<%=rand%>').value=decodeURIComponent(encodeURIComponent('<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>'));
+            document.getElementById('drugName_'+'<%=rand%>').value='<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>';
             calculateRxData('<%=rand%>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
@@ -773,7 +773,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             //oscarLog("listRxDrugsSize="+listRxDrugSize);
             counterRx++;
             //oscarLog("counterRx="+counterRx);
-           var gcn_val="<%=gcnCode%>";
+           var gcn_val="<carlos:encode value='<%= gcnCode %>' context="javaScriptBlock"/>";
            if (keepStagedRx) {
                var focusInput = gcn_val === "0" ? document.getElementById('drugName_<%=rand%>')
                        : counterRx === listRxDrugSize ? document.getElementById('instructions_<%=rand%>') : null;

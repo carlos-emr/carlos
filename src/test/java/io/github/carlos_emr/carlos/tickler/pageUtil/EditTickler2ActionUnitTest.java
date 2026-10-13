@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
+import io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -310,6 +313,106 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
         assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
         jdbc.execute("DROP ALL OBJECTS");
+    }
+
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n", "0"})
+    void shouldIgnoreEmptyListPlaceholders_withoutPersistingSuggestions(String placeholder) {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{placeholder});
+        action.setInactiveText(new String[]{placeholder});
+
+        assertThat(action.execute()).isEqualTo("close");
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldPreserveExactNewText_andSkipPlaceholdersInBothLists() {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"", "0", "  Active suggestion <follow-up>  "});
+        action.setInactiveText(new String[]{" ", "0", "Inactive suggestion"});
+
+        assertThat(action.execute()).isEqualTo("close");
+        ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+        verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
+                .containsExactly("  Active suggestion <follow-up>  ", "Inactive suggestion");
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getActive).containsExactly(true, false);
+        assertThat(saved.getAllValues()).allSatisfy(value -> {
+            assertThat(value.getCreator()).isEqualTo("999998");
+            assertThat(value.getCreateDate()).isNotNull();
+        });
+        verify(dao, never()).merge(any());
+    }
+
+    @Test
+    void shouldMoveExistingSuggestions_withoutRewritingTheirTextOrOwnership() {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        TicklerTextSuggest active = new TicklerTextSuggest();
+        active.setId(11);
+        active.setActive(false);
+        active.setSuggestedText("Existing active");
+        active.setCreator("other-provider");
+        active.setCreateDate(new Date(1234));
+        TicklerTextSuggest inactive = new TicklerTextSuggest();
+        inactive.setId(12);
+        inactive.setActive(true);
+        inactive.setSuggestedText("Existing inactive");
+        inactive.setCreator("other-provider");
+        inactive.setCreateDate(new Date(5678));
+        when(dao.find(Integer.valueOf(11))).thenReturn(active);
+        when(dao.find(Integer.valueOf(12))).thenReturn(inactive);
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"11", ""});
+        action.setInactiveText(new String[]{"0", "12"});
+
+        assertThat(action.execute()).isEqualTo("close");
+        verify(dao).merge(active);
+        verify(dao).merge(inactive);
+        verify(dao, never()).persist(any());
+        assertThat(active.getActive()).isTrue();
+        assertThat(inactive.getActive()).isFalse();
+        assertThat(active.getSuggestedText()).isEqualTo("Existing active");
+        assertThat(inactive.getSuggestedText()).isEqualTo("Existing inactive");
+        assertThat(active.getCreator()).isEqualTo("other-provider");
+        assertThat(inactive.getCreator()).isEqualTo("other-provider");
+        assertThat(active.getCreateDate()).isEqualTo(new Date(1234));
+        assertThat(inactive.getCreateDate()).isEqualTo(new Date(5678));
+    }
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "11", "text:literal", "  Exact text  "})
+    void shouldPersistPrefixedLiteralText_withoutTreatingNumericTextAsAnId(String text) {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        request.setParameter("suggestionValueFormat", "prefixed");
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"", "text:" + text});
+        action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
+
+        assertThat(action.execute()).isEqualTo("close");
+        ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+        verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
+                .containsExactly(text, text);
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getActive).containsExactly(true, false);
+        org.mockito.Mockito.verifyNoMoreInteractions(dao);
+        verify(dao, never()).merge(any());
+    }
+
+    @Test
+    void shouldPreserveLegacyTextPrefixes_whenNoNewFormatIsDeclared() {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"text:literal"});
+        action.setInactiveText(new String[]{""});
+
+        assertThat(action.execute()).isEqualTo("close");
+        ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+        verify(dao).persist(saved.capture());
+        assertThat(saved.getValue().getSuggestedText()).isEqualTo("text:literal");
     }
 
 }

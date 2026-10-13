@@ -33,6 +33,7 @@ import java.util.Properties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFavouriteDao;
@@ -132,7 +133,7 @@ public class BillingOnLookupService {
                     p.getLastName(),
                     p.getFirstName(),
                     p.getOhipNo(),
-                    getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                    billingGroupNo(p),
                     getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
         }
         return retval;
@@ -166,7 +167,7 @@ public class BillingOnLookupService {
                         p.getLastName(),
                         p.getFirstName(),
                         p.getOhipNo(),
-                        getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                        billingGroupNo(p),
                         getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
             }
         } catch (RuntimeException e) {
@@ -200,10 +201,21 @@ public class BillingOnLookupService {
                     p.getLastName(),
                     p.getFirstName(),
                     p.getOhipNo(),
-                    getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000"),
+                    billingGroupNo(p),
                     getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00")));
         }
         return retval;
+    }
+
+    /**
+     * The provider's MOH billing group number, normalized: the stored text
+     * is free-form (see {@link BillingGroupNumber}), and every consumer of
+     * this service must see the same four-character key the OHIP file and
+     * the disk name use. A blank value is the solo group {@code 0000}.
+     */
+    private static String billingGroupNo(Provider p) {
+        return BillingGroupNumber.normalize(
+                SxmlMisc.getXmlContent(p.getComments(), "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
     }
 
     private String getXMLStringWithDefault(String xmlStr, String xmlName, String strDefault) {
@@ -287,7 +299,7 @@ public class BillingOnLookupService {
 
         for (Provider p : ps) {
             pObj = new BillingProviderDto();
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
+            billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             pObj.setProviderNo(p.getProviderNo());
             pObj.setLastName(p.getLastName());
@@ -329,7 +341,7 @@ public class BillingOnLookupService {
         String billinggroup_no;
         for (Provider p : ps) {
             pObj = new BillingProviderDto();
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
+            billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
             pObj.setProviderNo(p.getProviderNo());
             pObj.setLastName(p.getLastName());
@@ -356,6 +368,19 @@ public class BillingOnLookupService {
 
      */
 
+    /**
+     * Every provider number recorded on a disk's filename rows, billable or not.
+     * {@link #getProvider(String)} keeps only billable providers; the difference
+     * is what a regeneration would silently omit.
+     */
+    public List<String> getDiskProviderNos(String diskId) {
+        List<String> providerNos = new ArrayList<>();
+        for (BillingONFilename f : billingONFilenameDao.findByDiskId(Integer.parseInt(diskId))) {
+            providerNos.add(f.getProviderNo());
+        }
+        return providerNos;
+    }
+
     public List<BillingProviderDto> getProvider(String diskId) {
         List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String providerNo = null;
@@ -368,7 +393,7 @@ public class BillingOnLookupService {
             if (p != null && p.getStatus().equals("1") && p.getOhipNo().length() > 0) {
                 String specialty_code;
                 String billinggroup_no;
-                billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
+                billinggroup_no = billingGroupNo(p);
                 specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
 
                 BillingProviderDto pObj = new BillingProviderDto();
@@ -399,9 +424,9 @@ public class BillingOnLookupService {
 
         List<Provider> ps = providerDao.getBillableProviders();
         for (Provider p : ps) {
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
+            billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            if (!"0000".equals(billinggroup_no))
+            if (!BillingGroupNumber.SOLO.equals(billinggroup_no))
                 continue;
             BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());
@@ -431,9 +456,9 @@ public class BillingOnLookupService {
 
         List<Provider> ps = providerDao.getBillableProviders();
         for (Provider p : ps) {
-            billinggroup_no = getXMLStringWithDefault(p.getComments(), "xml_p_billinggroup_no", "0000");
+            billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            if ("0000".equals(billinggroup_no))
+            if (BillingGroupNumber.SOLO.equals(billinggroup_no))
                 continue;
             BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());

@@ -88,8 +88,8 @@ test('stash edit/delete uses its separate named form and preserves the editor ac
 
 // The encoder's quote/attribute behavior is covered by CarlosEncodeTagUnitTest; guard the
 // actual legacy link against reverting to raw EL or using a JavaScript-only context here.
-test('drug-info link encodes stored generic names for the surrounding JavaScript attribute', () => {
-  assert.ok(jsp.includes(`href="javascript:ShowDrugInfo('<carlos:encode value='\${rx2.genericName}' context="javaScriptAttribute"/>');"`));
+test('drug-info link encodes stored generic names and DINs for the surrounding JavaScript attribute', () => {
+  assert.ok(jsp.includes(`href="javascript:ShowDrugInfo('<carlos:encode value='\${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='\${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');"`));
   assert.ok(!jsp.includes(`href="javascript:ShowDrugInfo('\${rx2.genericName}');"`));
 });
 

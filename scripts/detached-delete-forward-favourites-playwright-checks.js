@@ -7,16 +7,16 @@
  *   Favorites: select the first owned favourite and "<<" it into the Forward List, double-click
  *   the second owned favourite to drop it > Forward (oscarMDS/ReportReassign). Then Schedule >
  *   Inbox (#inboxLink) > list mode > filter to the owned patient > tick the document > Forward
- *   (#topFBtn) > "<<" > provider search > Cancel.
+ *   (#topFBtn) > "<<" > provider search/selection > Cancel > reopen > search/selection > Forward.
  * Asserts: the dialog lists both owned favourites; Forward closes it, routes the document to the
  *   chosen provider (one new providerLabRouting row) and deletes exactly the dropped favourite's
  *   providerLabRoutingFavorites row while the kept one keeps its id. ReportReassign finds the
  *   favourites in one DAO call and deletes each by id (remove-by-id, the safe shape of the
  *   detached-delete pattern). Last: the Inbox list's Forward dialog opens without a script error,
- *   "<<" works and its provider search offers a provider; on 2026.08 this fails (Inboxhub.jsp
- *   never loads carlosAutocomplete.js and the sanitised dialog drops SelectProvider.jsp's own
- *   <script src>, so initProviderAutocomplete is undefined: uncaught ReferenceError and a dead
- *   provider search). Cancel writes nothing.
+ *   "<<" works and provider search selects the intended recipient. Cancel writes nothing; reopening and
+ *   forwarding to the searched recipient adds exactly its routing row without changing favourites.
+ *   The Inbox parent must load the shared autocomplete dependencies because sanitized dialog fragments
+ *   execute inline initialization but do not load SelectProvider.jsp's external script elements.
  * Fixtures: the owned FAKE- patient (runWorkflow; its NULL HIN set to the empty HIN the
  *   demographic form stores, which the inbox name search needs), one owned PDF in DOCUMENT_DIR
  *   with its document, ctl_document, patientLabRouting and providerLabRouting rows, and two
@@ -30,6 +30,7 @@ const h = require('./lib/playwright-harness');
 const { clickOpensPopup, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { settle, shownRows } = require('./inboxhub-filters-playwright-checks');
+const { markDocumentResidue, removeDocumentResidue } = require('./lib/document-residue');
 
 const TIMEOUT = 60000;
 
@@ -65,6 +66,8 @@ async function workflow(s) {
   const ownedFavourites = [];
   const file = path.join(store, `${marker}.pdf`);
   let documentNo = null;
+  // Forwarding the owned document writes a routing lock row for its number, which no marker finds (lib/document-residue.js).
+  const mark = markDocumentResidue(sql);
   const routes = () => sql.rows(`SELECT provider_no FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${documentNo} ORDER BY provider_no`)
     .map(row => row[0]);
   const listed = (dialog, select) => dialog.locator(`#${select} option`).evaluateAll(options => options.map(option => option.value));
@@ -78,6 +81,7 @@ async function workflow(s) {
         DELETE FROM patientLabRouting WHERE lab_no=${documentNo} AND lab_type='DOC' AND demographic_no=${patient};
         DELETE FROM ctl_document WHERE document_no=${documentNo} AND module='demographic' AND module_id=${patient};
         DELETE FROM document WHERE document_no=${documentNo} AND docdesc=${h.sqlString(marker)}`);
+      removeDocumentResidue(sql, mark, [documentNo]);
     }
     if (fs.existsSync(file)) fs.unlinkSync(file);
     const left = sql.value(`SELECT CONCAT_WS(',',
@@ -117,6 +121,7 @@ async function workflow(s) {
 
   let viewer;
   let dialog;
+  let inboxPage;
   await s.step('the E-Chart document viewer\'s Forward dialog lists both owned favourites', async () => {
     const chart = await s.chart();
     const link = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: marker }).first();
@@ -159,6 +164,7 @@ async function workflow(s) {
     const { page: inbox } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink'), {
       context: s.context, label: 'forward-favourites-inbox', recorder: s.recorder, timeout: TIMEOUT,
     });
+    inboxPage = inbox;
     await inbox.locator('#btnViewMode2').waitFor({ state: 'attached', timeout: TIMEOUT });
     if (await inbox.locator('#btnViewMode2').isChecked()) await inbox.locator('#btnViewModeLabel').click();
     await settle(inbox, TIMEOUT);
@@ -184,11 +190,39 @@ async function workflow(s) {
     await inboxDialog.locator('#autocompleteprov').fill(`${last}, ${first}`);
     const offeredBySearch = await inbox.locator('.ui-autocomplete:visible .ui-menu-item').first()
       .waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
+    h.assert(offeredBySearch, 'The Inbox list Forward dialog\'s provider search offered nothing (no recipient can be added by name)');
+    await inbox.locator('.ui-autocomplete:visible .ui-menu-item').filter({ hasText: `${last},${first}` }).first().click();
+    h.assert(JSON.stringify(await listed(inboxDialog, 'fwdProviders')) === JSON.stringify([keep, drop]),
+      'Selecting the search result did not add the intended provider to the Forward List');
     await inboxDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await inboxDialog.waitFor({ state: 'hidden' });
     h.assert(JSON.stringify({ routes: routes(), favourites: favourites() }) === JSON.stringify(before), 'Cancel changed routing or favourites');
     h.assert(JSON.stringify(copied) === JSON.stringify([keep]), 'The Inbox list Forward dialog\'s "<<" did not copy the favourite');
-    h.assert(offeredBySearch, 'The Inbox list Forward dialog\'s provider search offered nothing (no recipient can be added by name)');
+
+  });
+
+  await s.step('reopening Inbox Forward and selecting a searched recipient routes the owned document to that provider', async () => {
+    const beforeFavourites = favourites();
+    await inboxPage.locator(`input[name="flaggedLabs"][value="${documentNo}:DOC"]`).check();
+    await inboxPage.locator('#topFBtn').click();
+    const forward = inboxPage.getByRole('dialog', { name: 'Forward Documents', exact: true });
+    await forward.waitFor({ state: 'visible' });
+    const [last, first] = sql.rows(`SELECT last_name, first_name FROM provider WHERE provider_no=${h.sqlString(drop)}`)[0];
+    await forward.locator('#autocompleteprov').fill(`${last}, ${first}`);
+    await inboxPage.locator('.ui-autocomplete:visible .ui-menu-item').filter({ hasText: `${last},${first}` }).first().click();
+    h.assert(JSON.stringify(await listed(forward, 'fwdProviders')) === JSON.stringify([drop]),
+      'The reopened Forward List did not contain exactly the searched recipient');
+    const [sent] = await Promise.all([
+      inboxPage.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/oscarMDS/ReportReassign')),
+      forward.getByRole('button', { name: 'Forward', exact: true }).click(),
+    ]);
+    h.assert(sent.status() === 200, 'Inbox forwarding did not succeed');
+    await forward.waitFor({ state: 'hidden' });
+    h.assert(JSON.stringify(routes()) === JSON.stringify([provider, keep, drop].sort()),
+      'Inbox forwarding did not add exactly the searched recipient routing row');
+    h.assert(JSON.stringify(favourites()) === JSON.stringify(beforeFavourites),
+      'Inbox forwarding changed favourites without an edit');
   });
 }
 

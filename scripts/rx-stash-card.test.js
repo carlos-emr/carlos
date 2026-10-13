@@ -179,9 +179,10 @@ test('declining a discontinued drug keeps the card until removal succeeds and sk
     const end = prescribe.indexOf('</script>', start);
     let script = prescribe.slice(start, end)
         .replace(/<carlos:encode value='<%= archivedReason %>' context="javaScriptBlock"\/>/g, 'adverse reaction')
-        .replace(/<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"\/>/g, '2026-01-01');
+        .replace(/<carlos:encode value='<%= archivedDate %>' context="javaScriptBlock"\/>/g, '2026-01-01')
+        .replace(/<carlos:encode value='<%= gcnCode %>' context="javaScriptBlock"\/>/g, '0');
     const values = {isDiscontinuedLatest: 'true', fieldSetId: 'set_901', DrugReferenceId: '4242',
-        'listRxDrugs.size()': '1', gcnCode: '0', rand: '901'};
+        'listRxDrugs.size()': '1', rand: '901'};
     script = script.replace(/<%=\s*(.*?)\s*%>/g, (_, key) => {
         assert.ok(Object.hasOwn(values, key), `unexpected JSP expression: ${key}`);
         return values[key];

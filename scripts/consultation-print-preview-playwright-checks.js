@@ -45,11 +45,15 @@
  * than Submit -- opening the same JSP by any other route renders the new-request
  * buttons and there is no Print to press.
  *
- * WHAT IT WRITES, AND REMOVES. One consultation request for the selected patient,
- * created through the UI so the check has a referral of its own to edit, and the
- * note lock the chart takes. Both are removed afterwards through MYSQL_*. It never
- * edits a consultation it did not create: a clinician's referral is not something
- * a test types into.
+ * WHAT IT WRITES, AND REMOVES. One consultation request for a FAKE patient it creates
+ * (lib/owned-patient.js: last name = a FAKE-PW run marker), created through the UI so the
+ * check has a referral of its own to edit, and the note lock the chart takes. Saving a
+ * consultation also stores the provider's signature image against the patient and writes
+ * extension and archive rows; the request, those rows, the note lock and the patient are
+ * removed afterwards by the patient's key through MYSQL_*. It used to run on DEMO patient 2,
+ * delete only the request and leave a DigitalSignature and a consultationRequestExt row
+ * behind on every run. It never edits a consultation it did not create: a clinician's
+ * referral is not something a test types into.
  *
  * NO PATIENT KEY IN THE OUTPUT. demographic_no joins straight back to a patient
  * record and runCheck() writes thrown messages into CI artifacts, so the
@@ -59,11 +63,6 @@
  *   MYSQL_PASSWORD=... npm run test:consultation-print-preview-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   CONSULT_PREVIEW_SEARCH=FAKE-          surname prefix used to reach a patient
- *   CONSULT_PREVIEW_DEMOGRAPHIC_NO=2      which patient's chart to open. Defaults to 2, not 1:
- *                                         demographic 1's chart answers 500 on the demo dataset,
- *                                         because its HRM rows point at report files that never
- *                                         shipped
  *   CONSULT_PREVIEW_TIMEOUT_MS=45000      per-step allowance
  */
 
@@ -72,6 +71,7 @@ const {
   assert, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /** The action every consultation button posts to. */
@@ -86,6 +86,9 @@ const fixture = {
   requestId: '',
   demographicNo: '',
   sessionId: '',
+  /** The owned patient the referral is written for, and the marker that identifies it (never a demo patient). */
+  ownedPatient: '',
+  ownedMarker: '',
 };
 
 /** A plain integer, or the value never reaches a query. */
@@ -102,9 +105,19 @@ function sqlNumber(value, what) {
  * the assertions earned.
  */
 async function cleanup() {
-  const { sql, stamp, requestId, demographicNo, sessionId } = fixture;
+  const { sql, stamp, requestId, demographicNo, sessionId, ownedPatient, ownedMarker } = fixture;
   if (!sql) {
     return;
+  }
+  const failures = [];
+  if (ownedPatient) {
+    // FIRST: the request's extension, archive and document rows are found through the request, which the statements below delete.
+    try {
+      // The request, its extension, archive and document rows, the signature stored against the patient, the chart rows, the patient.
+      removeOwnedPatient(sql, ownedPatient, ownedMarker, CONSULTATION_ROWS);
+    } catch (error) {
+      failures.push(`the owned patient: ${(error && error.message) || 'delete failed'}`);
+    }
   }
   const statements = [];
   if (requestId) {
@@ -122,7 +135,6 @@ async function cleanup() {
     statements.push(['this session\'s note lock',
       `DELETE FROM casemgmt_note_lock WHERE demographic_no = ${demographicNo} AND session_id = '${sessionId}'`]);
   }
-  const failures = [];
   for (const [what, statement] of statements) {
     try {
       sql.execute(statement);
@@ -168,8 +180,6 @@ async function chooseService(page, timeout) {
 async function main() {
   pdf.requirePoppler('pdftotext');
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
-  const searchTerm = process.env.CONSULT_PREVIEW_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.CONSULT_PREVIEW_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.CONSULT_PREVIEW_TIMEOUT_MS || '45000');
   const saved = `PW_CONSULT_SAVED_${Date.now()}`;
   // Recorded before anything is created: cleanup can find the referral by this alone.
@@ -178,6 +188,13 @@ async function main() {
 
   const sql = createSqlRunner(config.mysql);
   fixture.sql = sql;
+  // The owned patient, recorded before it exists so cleanup can still find it: its marker is the search term.
+  fixture.ownedMarker = newOwnedMarker();
+  const searchTerm = fixture.ownedMarker;
+  const provider = sql.value(`SELECT provider_no FROM security WHERE user_name='${config.testUser.replace(/'/g, "''")}'`);
+  assert(provider, 'the configured test login has no provider');
+  const preferredDemographicNo = createOwnedPatient(sql, { marker: fixture.ownedMarker, provider });
+  fixture.ownedPatient = preferredDemographicNo;
 
   const recorder = createRecorder();
   let browser;

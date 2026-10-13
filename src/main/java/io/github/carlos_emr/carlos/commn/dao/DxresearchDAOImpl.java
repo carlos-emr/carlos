@@ -41,6 +41,7 @@ import java.text.SimpleDateFormat;
 import java.util.Map;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -379,6 +380,27 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         List<Dxresearch> items = query.getResultList();
 
         return !items.isEmpty();
+    }
+
+    @Override
+    public Integer persistActiveIfAbsent(Dxresearch diagnosis) {
+        // A patient row exists even when no matching diagnosis does. Lock it through
+        // the inherited DAO transaction so concurrent dashboard additions serialize.
+        if (entityManager.find(Demographic.class, diagnosis.getDemographicNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
+            return null;
+        }
+        Query query = entityManager.createQuery("select d from Dxresearch d where d.status='A'"
+                + " and d.demographicNo=?1 and d.codingSystem=?2 and d.dxresearchCode=?3");
+        query.setParameter(1, diagnosis.getDemographicNo());
+        query.setParameter(2, diagnosis.getCodingSystem());
+        query.setParameter(3, diagnosis.getDxresearchCode());
+        // A locking read also observes committed additions under REPEATABLE READ.
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        if (!query.getResultList().isEmpty()) return null;
+        diagnosis.setStatus('A');
+        entityManager.persist(diagnosis);
+        entityManager.flush();
+        return diagnosis.getId();
     }
 
     public void removeAllAssociationEntries() {

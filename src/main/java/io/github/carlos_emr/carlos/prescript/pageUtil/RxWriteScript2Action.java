@@ -62,7 +62,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -842,16 +841,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             // The page names the card's key; it must be unused in this stash (#3908).
             rx.setRandomId(RxStashIds.acceptOrNext(bean, request.getParameter("randomId"), RxStashIds.DEFAULT_BOUND));
+            // Kept raw: the chosen name is clinical text that is saved and printed, and every page that shows it
+            // encodes it for its own context. Escaping it here (Encode.forJava) stored backslashes before quotes,
+            // which the card and the printed prescription then showed (#3952).
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
-
-			if (text != null) {
-				text = Encode.forJava(text);
-			}
-
-			if (drugId != null) {
-				drugId = Encode.forJava(drugId);
-			}
 
             logger.debug("requesting drug from drugref id={}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);

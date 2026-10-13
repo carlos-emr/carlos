@@ -44,8 +44,8 @@ async function workflow(s) {
   h.assert(report, 'The Security Log Report did not load in the administration frame');
   await report.locator('form[name="myform"]').waitFor({ timeout: 20000 });
 
-  async function run(start, end) {
-    await report.locator('select[name="providerNo"]').selectOption(provider);
+  async function run(start, end, selectedProvider) {
+    await report.locator('select[name="providerNo"]').selectOption(selectedProvider);
     await report.locator('select[name="content"]').selectOption('admin');
     for (const [selector, value] of [['#startDate1', start], ['#endDate1', end]]) {
       await report.locator(selector).fill(value);
@@ -61,21 +61,19 @@ async function workflow(s) {
     return rows.sort();
   }
 
-  await s.step('a one-day window on the leap day lists every row of that day, from 00:00:00 to 23:59:59, and nothing else', async () => {
-    const got = await run('2004-02-29', '2004-02-29');
-    const want = ['2004-02-29 00:00:00', '2004-02-29 12:00:00', '2004-02-29 23:59:59'];
-    h.assert(JSON.stringify(got.filter(t => want.includes(t))) === JSON.stringify(want) && !got.includes('2004-02-28 23:59:59'),
-      `The leap-day window listed [${got.join(', ')}]; every row of 2004-02-29 and none of the day before is expected`);
-    const extra = got.filter(t => !want.includes(t));
-    h.assert(extra.length === 0, `The window ending 2004-02-29 also listed rows after its End Date: [${extra.join(', ')}] `
-      + '(OscarLogDaoImpl.findForReport uses dateTime <= <end date + 1 day 00:00:00>, which admits a row stamped exactly at midnight of the next day; LogReport2Action calls getSysDateEX(end, 1))');
-  });
-
-  await s.step('a window across 31 Dec / 1 Jan keeps both edges and excludes 00:00:00 of 2 Jan', async () => {
-    const got = await run('2003-12-31', '2004-01-01');
-    const want = ['2003-12-31 00:00:00', '2003-12-31 23:59:59', '2004-01-01 00:00:00', '2004-01-01 23:59:59'];
-    h.assert(JSON.stringify(got) === JSON.stringify(want), `The 2003-12-31..2004-01-01 window listed [${got.join(', ')}], expected [${want.join(', ')}]`);
-  });
+  const windows = [
+    { start: '2004-02-29', end: '2004-02-29', want: ['2004-02-29 00:00:00', '2004-02-29 12:00:00', '2004-02-29 23:59:59'] },
+    { start: '2003-12-31', end: '2004-01-01', want: ['2003-12-31 00:00:00', '2003-12-31 23:59:59', '2004-01-01 00:00:00', '2004-01-01 23:59:59'] },
+  ];
+  for (const [scope, selectedProvider] of [['specific provider', provider], ['all providers', '*']]) {
+    for (const { start, end, want } of windows) {
+      await s.step(`${scope}: ${start} through ${end} includes both selected dates and excludes adjacent days`, async () => {
+        const got = await run(start, end, selectedProvider);
+        h.assert(JSON.stringify(got) === JSON.stringify(want),
+          `The ${start}..${end} window listed [${got.join(', ')}], expected [${want.join(', ')}]; next midnight must be excluded`);
+      });
+    }
+  }
 }
 
 if (require.main === module) runWorkflow('boundary-date-audit-log', workflow, { openPatient: false });

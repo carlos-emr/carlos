@@ -990,13 +990,13 @@
                 </select>
             </td>
         </tr>
-        <!--<tr>
+        <%--<tr>
             <td>Service Date</td><%/*SERVICE-DATE*/%>
             <td><input type="text" name="serviceDate" value="<%=allFields.getProperty("serviceDate")%>"/></td>
             <td>Service to Day</td><%/*SERVICE-TO-DAY*/%>
             <td<input type="text" name="serviceToDay" value="<%=allFields.getProperty("serviceToDay")%>"/></td>
-       </tr>-->
-        <!--
+       </tr>--%>
+        <%--
        <tr>
             <td>Time Call Received</td><%!/*TIME-CALL-RECVD-SRV*/%>
             <td><input type="text" name="timeCallRec" value="<%=allFields.getProperty("timeCall")%>" size="4"/></td>
@@ -1012,7 +1012,7 @@
             <td><input type="text" name="finishTime" value="<%=allFields.getProperty("serviceEndTime")%>" size="4"</td>
 
        </tr>
-       -->
+       --%>
 
         <tr>
             <td class="bCellData" colspan="4">
@@ -1082,7 +1082,7 @@
             <td>
                 <table width="100%">
                     <tr bgcolor="#CCCCFF">
-                        <td class="bCellData">Billing Notes</td>
+                        <td class="bCellData"><label for="messageNotes">Billing Notes</label></td>
                     </tr>
                     <tr>
 
@@ -1090,8 +1090,10 @@
                         <td colspan="3">
                             <c:set var="__enc_3"><carlos:encode value='<%= String.valueOf(bill.getDemographicNo()) %>' context="uriComponent"/></c:set>
                             <c:set var="__enc_4"><carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="uriComponent"/></c:set>
-                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value="            
-<%= StringUtils.noNull(messageNotes) %>" context="html"/></textarea>
+                            <%-- The scriptlet expression must be the whole attribute value. With text in front
+                                 of it, Jasper passes the code itself to the tag as a literal string, and saving
+                                 would store that text as the note. --%>
+                            <textarea cols="60" rows="5" id="messageNotes" name="messageNotes"><carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context="html"/></textarea>
                         </td>
                         <td></td>
 
@@ -1143,20 +1145,20 @@
     <div id="wcbForms"></div>
 
 
-    <!--<tr>
+    <%--<tr>
     <td>Facility Num</td><%! /*FACILITY-NUM*/ %>
     <td><input type="text" name="facilityNum" value="<%=allFields.getProperty("facilityNo")%>" size="5"/></td>
     <td>Facility Sub Num</td><%! /*FACILITY-SUB-NUM*/%>
     <td><input type="text" name="facilitySubNum" value="<%=allFields.getProperty("facilitySubNo")%>" size="5"/></td>
-    </tr>-->
+    </tr>--%>
 
-    <!--<tr>
+    <%--<tr>
 
 
     <td>Registration Num</td><%!/*OIN-REGISTRATION-NUM*/%>
     <td><input type="text" name="registrationNum" value="<%=allFields.getProperty("oinRegistrationNo")%>" size="12"/></td>
-    </tr>-->
-    <!--
+    </tr>--%>
+    <%--
     <tr>
     <td>First Name</td><%/*OIN-FIRST-NAME*/%>
     <td><input type="text" name="firstName" value="<%=allFields.getProperty("oinFirstName")%>" size="12"/></td>
@@ -1191,7 +1193,7 @@
     <td>Postal Code</td><%/*OIN-POSTAL-CODE*/%>
     <td colspan="3"><input type="text" name="postalCode" value="<%=allFields.getProperty("oinPostalcode")%>" size="6"/></td>
     </tr>
-    -->
+    --%>
 
 
     <input type="hidden" value="0" name="saveandclose"/>
@@ -1201,20 +1203,21 @@
     %>
     <tr>
         <td colspan="4" class="bCellData">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnReprocessBill'/>">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnResubmitBill'/>">
-            <input type="submit" name="submit" id="reprocessAndReSubmitBill" value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnSettleBill'/>">
+            <%-- Each button posts a fixed value that BillingReProcessBill2Action recognises; only its text is translated. --%>
+            <button type="submit" name="submit" value="Reprocess Bill"><fmt:message key='billing.billingCorrection.btnReprocessBill'/></button>
+            <button type="submit" name="submit" value="Resubmit Bill"><fmt:message key='billing.billingCorrection.btnResubmitBill'/></button>
+            <button type="submit" name="submit" id="reprocessAndReSubmitBill" value="Reprocess and Resubmit Bill"><fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/></button>
+            <button type="submit" name="submit" value="Settle Bill"><fmt:message key='billing.billingCorrection.btnSettleBill'/></button>
 
         </td>
     </tr>
     <%} else {%>
     <tr>
         <td colspan="4" class="bCellData">
-            <input type="submit" name="submit" id="submitButton" style="display:none;"
-                   value="<fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/>">
+            <button type="submit" name="submit" id="submitButton" style="display:none;"
+                    value="Reprocess and Resubmit Bill"><fmt:message key='billing.billingCorrection.btnReprocessAndResubmitBill'/></button>
             <% if (!bill.getBillingtype().equals("Pri")) { %>
-            <input type="submit" name="submit" value="<fmt:message key='billing.billingCorrection.btnRevertToPWE'/>">
+            <button type="submit" name="submit" value="Revert to PWE"><fmt:message key='billing.billingCorrection.btnRevertToPWE'/></button>
             <% } %>
         </td>
     </tr>

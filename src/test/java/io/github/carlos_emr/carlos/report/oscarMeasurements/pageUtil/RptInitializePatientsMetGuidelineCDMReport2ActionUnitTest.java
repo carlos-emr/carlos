@@ -223,6 +223,54 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             when(validationsDao.find((Object) Integer.valueOf(18))).thenReturn(numeric);
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"PatientsMetGuideline", "PatientsInAbnormalRange", "FrequencyOfRelevantTests"})
+        void shouldRenderDateErrorsOnTheSameForm_withoutRunningReports(String kind) throws Exception {
+            org.apache.struts2.ActionSupport action;
+            String suffix;
+            String checkbox;
+            String typePrefix;
+            switch (kind) {
+                case "PatientsMetGuideline" -> {
+                    action = new TestableAction();
+                    suffix = "B";
+                    checkbox = "GuidelineCheckbox";
+                    typePrefix = "measurementType";
+                    ((RptInitializePatientsMetGuidelineCDMReport2Action) action).setGuidelineB(new String[]{"6"});
+                }
+                case "PatientsInAbnormalRange" -> {
+                    action = new RptInitializePatientsInAbnormalRangeCDMReport2Action() {
+                        @Override public String getText(String key, String[] args) { return key; }
+                    };
+                    suffix = "C";
+                    checkbox = "AbnormalCheckbox";
+                    typePrefix = "measurementTypeC";
+                    ((RptInitializePatientsInAbnormalRangeCDMReport2Action) action).setLowerBound(new String[]{"3"});
+                    ((RptInitializePatientsInAbnormalRangeCDMReport2Action) action).setUpperBound(new String[]{"5"});
+                }
+                default -> {
+                    action = new RptInitializeFrequencyOfRelevantTestsCDMReport2Action() {
+                        @Override public String getText(String key, String[] args) { return key; }
+                    };
+                    suffix = "D";
+                    checkbox = "FrequencyCheckbox";
+                    typePrefix = "measurementTypeD";
+                }
+            }
+            when(request.getParameter("value(" + typePrefix + "0)")).thenReturn("AACP");
+            Class<?> type = action.getClass();
+            type.getMethod("set" + checkbox, String[].class).invoke(action, (Object) new String[]{"0"});
+            type.getMethod("setStartDate" + suffix, String[].class).invoke(action, (Object) new String[]{"not-a-date"});
+            type.getMethod("setEndDate" + suffix, String[].class).invoke(action, (Object) new String[]{"2026-10-05"});
+
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidDate");
+            verify(request).setAttribute("actionErrors", new ArrayList<>(action.getActionErrors()));
+            verify(response, never()).sendRedirect(anyString());
+            verifyNoInteractions(measurementDao, formsDao);
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
         @Test
         void shouldBindNumbersAndFullTimestamps_whenReportingNumericReadings() throws Exception {
             useNumericValidation();
@@ -253,7 +301,24 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", null);
             action.setGuidelineB(new String[] {guideline});
 
-            assertThat(action.execute()).isEqualTo("none");
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(formsDao);
+            verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString());
+        }
+
+        @Test
+        void shouldReportInvalidDatesAndGuidelineTogether() throws Exception {
+            useNumericValidation();
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", null);
+            action.setGuidelineB(new String[] {"not a number"});
+            action.setStartDateB(new String[] {"invalid"});
+            action.setEndDateB(new String[] {"invalid"});
+
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly(
+                    "oscarReport.CDMReport.msgInvalidDate", "oscarReport.CDMReport.msgInvalidDate",
+                    "oscarReport.CDMReport.msgInvalidValue");
             verifyNoInteractions(formsDao);
             verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString());
         }
