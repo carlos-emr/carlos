@@ -83,8 +83,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * Synthetic legacy-envelope fixtures exercise authentication before durable saving, then the
- * release storage helper's transaction lifecycle. Both sender modes retain the release's
- * action result, attributes and HTTP calls. These mock responses do not execute Struts/JSP
+ * release storage helper's transaction lifecycle. This separate DRAFT pins proposed
+ * sender-visible fault/response classifications; compatibility requires sender-owner review. These mock responses do not execute Struts/JSP
  * error dispatch; actual XML/HTML bodies and multipart interception need container checks.
  */
 @Tag("unit")
@@ -260,7 +260,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0}, use_http_response_code={1}")
     @MethodSource("responseCases")
-    void shouldPreserveReleaseContracts(Case testCase, boolean useHttpResponseCode) throws Exception {
+    void shouldPinDraftResponseChanges(Case testCase, boolean useHttpResponseCode) throws Exception {
         currentCase = testCase;
         if (useHttpResponseCode) request.setParameter("use_http_response_code", "true");
         switch (testCase) {
@@ -340,33 +340,30 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 assertBeforeActionFailure();
                 return;
             }
-            if (EnumSet.of(Case.SERVICE_UNKNOWN, Case.SERVICE_MISSING, Case.SENDER_LOOKUP_FAILED,
-                    Case.SENDER_KEY_INVALID).contains(testCase)) {
-                assertThatThrownBy(action::execute).isInstanceOf(IndexOutOfBoundsException.class);
-                assertBeforeActionFailure();
-                return;
-            }
             String result = action.execute();
             // A passing failure response must come from the intended phase, not an earlier
             // source-validation rejection that happens to share its outcome or status.
-            boolean noStage = EnumSet.of(Case.NO_FILE, Case.INVALID_FILENAME,
-                    Case.SOURCE_REJECTED, Case.STAGING_CREATE_FAILURE).contains(testCase);
+            boolean noStage = EnumSet.of(Case.NO_FILE, Case.INVALID_FILENAME, Case.SOURCE_REJECTED,
+                    Case.STAGING_CREATE_FAILURE, Case.SERVICE_UNKNOWN, Case.SERVICE_MISSING,
+                    Case.SENDER_LOOKUP_FAILED, Case.SENDER_KEY_INVALID).contains(testCase);
             assertThat(stagedFiles).hasSize(noStage ? 0 : 1);
             boolean opensEncrypted = !noStage && testCase != Case.STAGING_INSIDE_DOCUMENT_DIR;
             assertThat(encryptedStreams).hasSize(opensEncrypted ? 1 : 0);
             int code = switch (testCase) {
-                case ACCEPTED, NO_FILE, INVALID_FILENAME, SOURCE_REJECTED, HHS_FILTERED -> 200;
+                case ACCEPTED, HHS_FILTERED -> 200;
                 case DUPLICATE -> 409;
-                case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED, SAVED_TRUNCATED,
-                        STAGED_SIGNATURE_READ_FAILURE, SAVED_SIGNATURE_READ_FAILURE -> 406;
+                case SERVICE_UNKNOWN, SERVICE_MISSING, WRONG_RECEIVER_KEY, BAD_AES_BLOCK,
+                        NO_FILE, INVALID_FILENAME -> 400;
+                case SOURCE_REJECTED -> 403;
+                case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED -> 406;
                 default -> 500;
             };
             String outcome = switch (testCase) {
                 case ACCEPTED, HHS_FILTERED -> "uploaded";
                 case DUPLICATE -> "uploaded previously";
                 case PARSE_NULL -> "upload failed";
-                case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED, SAVED_TRUNCATED,
-                        STAGED_SIGNATURE_READ_FAILURE, SAVED_SIGNATURE_READ_FAILURE -> "validation failed";
+                case SERVICE_UNKNOWN, SERVICE_MISSING, WRONG_RECEIVER_KEY, BAD_AES_BLOCK -> "rejected";
+                case SIGNATURE_BAD, SIGNATURE_MISSING, SIGNATURE_MALFORMED -> "validation failed";
                 default -> "exception";
             };
             boolean sendsError = useHttpResponseCode && code >= 400;
@@ -420,7 +417,8 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                     Case.STAGED_SIGNATURE_READ_FAILURE, Case.STAGING_CREATE_FAILURE, Case.STAGING_INSIDE_DOCUMENT_DIR,
                     Case.WRONG_RECEIVER_KEY,
                     Case.BAD_AES_BLOCK, Case.RECEIVER_KEY_MISSING, Case.NO_FILE, Case.INVALID_FILENAME,
-                    Case.SOURCE_REJECTED).contains(testCase)) {
+                    Case.SOURCE_REJECTED, Case.SERVICE_UNKNOWN, Case.SERVICE_MISSING,
+                    Case.SENDER_LOOKUP_FAILED, Case.SENDER_KEY_INVALID).contains(testCase)) {
                 assertThat(saveCalls).isZero();
                 verifyNoInteractions(uploadDao);
             }

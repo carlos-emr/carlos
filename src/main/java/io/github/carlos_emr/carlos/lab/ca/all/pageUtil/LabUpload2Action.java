@@ -73,6 +73,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
+import java.security.SignatureException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -87,6 +90,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static final String REQUEST_ATTRIBUTE_AUDIT = "audit";
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
     private static final String OUTCOME_EXCEPTION = "exception";
+    // Sender-visible DRAFT classification: actual sender retry behavior is not established.
+    private static final String OUTCOME_REJECTED = "rejected";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -103,9 +108,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
-            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
-            request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, "");
-            return SUCCESS;
+            return respond(OUTCOME_EXCEPTION, "", HttpServletResponse.SC_BAD_REQUEST);
         }
 
         String signature = request.getParameter("signature");
@@ -115,10 +118,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String audit = "";
         Integer httpCode = 200;
 
-        ArrayList<Object> clientInfo = getClientInfo(service);
-        PublicKey clientKey = (PublicKey) clientInfo.get(0);
-        String type = (String) clientInfo.get(1);
-
         // The decrypted copy this request wrote to DOCUMENT_DIR. Until it is handed to the store
         // step (which then owns its cleanup), a failure or rejection here removes it: nothing
         // references it, and each sender retry writes a new copy.
@@ -126,14 +125,19 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         boolean savedHandedOff = false;
         File staged = null;
         try {
+            // Unknown/blank service and receiver key-store faults now take explicit responses.
+            // This changes body-mode HTML500 versus XML200 behavior and needs sender approval.
+            ArrayList<Object> clientInfo = getClientInfo(service);
+            if (clientInfo.size() < 2) {
+                return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
+            }
+            PublicKey clientKey = (PublicKey) clientInfo.get(0);
+            String type = (String) clientInfo.get(1);
+
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 logger.error("No file provided for upload");
-                outcome = OUTCOME_EXCEPTION;
-                httpCode = HttpServletResponse.SC_BAD_REQUEST;
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-                return SUCCESS;
+                return respond(OUTCOME_EXCEPTION, audit, HttpServletResponse.SC_BAD_REQUEST);
             }
 
             // Validate file is from an allowed temp directory
@@ -141,11 +145,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 logger.error("Invalid upload source - potential path traversal");
-                outcome = OUTCOME_EXCEPTION;
-                httpCode = HttpServletResponse.SC_FORBIDDEN;
-                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-                return SUCCESS;
+                return respond(OUTCOME_EXCEPTION, audit, HttpServletResponse.SC_FORBIDDEN);
             }
 
             String fileName = importFile.getName();
@@ -159,8 +159,17 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
             try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile)) {
                 InputStream decrypted = decryptMessage(encrypted, key, clientKey);
-                if (decrypted == null) throw new IOException("Lab decryption failed");
-                stageDecrypted(decrypted, staged);
+                if (decrypted == null) {
+                    return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
+                }
+                try {
+                    stageDecrypted(decrypted, staged);
+                } catch (IOException e) {
+                    if (e.getCause() instanceof GeneralSecurityException) {
+                        return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
+                    }
+                    throw e;
+                }
             }
 
             boolean signatureValid = validateSignature(clientKey, signature, staged);
@@ -174,8 +183,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     throw new IOException("Lab file save returned no path");
                 }
                 saved = PathValidationUtils.validateExistingDocumentPath(savedPath);
-                // Keep verification of the actual saved bytes and its existing failure mapping.
-                // Changing a saved-copy/signature-read fault from 406 to 500 is separate work.
+                // DRAFT fault classification: compare the actual saved bytes before parsing.
+                // The caller's existing pre-handoff cleanup owns this file on mismatch/read fault.
+                if (Files.mismatch(staged.toPath(), saved.toPath()) != -1L) {
+                    throw new IOException("Stored lab upload differs from the verified staged copy");
+                }
                 signatureValid = validateSignature(clientKey, signature, saved);
             }
 
@@ -193,11 +205,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     OtherId providerOtherId = OtherIdManager.searchTable(OtherIdManager.PROVIDER, "STAR", filterHandler.getClientRef());
                     if (providerOtherId == null) {
                         logger.info("Filtering out HHS EMR lab: client reference has no matching provider");
-                        outcome = "uploaded";
-                        request.setAttribute("outcome", outcome);
-                        // Kept deliberately, as before: the filtered lab is acknowledged, not failed.
+                        // Retain acknowledgement, absent audit and saved-file lifetime.
                         savedHandedOff = true;
-                        return SUCCESS;
+                        return respond("uploaded", null, HttpServletResponse.SC_OK);
                     }
                 }
 
@@ -245,15 +255,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         if (saved != null && !savedHandedOff) {
             discardSaved(saved);
         }
+        return respond(outcome, audit, httpCode);
+    }
+
+    // Sender-visible DRAFT response policy. Preserve the release's normal successful view:
+    // sendError(200) would dispatch to errorpage.jsp and become500 (#4086).
+    private String respond(String outcome, String audit, int httpCode) {
         request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         request.setAttribute(REQUEST_ATTRIBUTE_AUDIT, audit);
-
         if (request.getParameter("use_http_response_code") != null) {
             if (httpCode < HttpServletResponse.SC_BAD_REQUEST) {
-                // A delivered lab must reach the sender as 200. sendError(200) dispatched to
-                // errorpage.jsp, which normalizes every status below 400 to 500, so each delivery
-                // was answered as a failure and the sender's retry then drew 409 (#4086). Answer
-                // with the normal result view, which carries the outcome and audit.
                 response.setStatus(httpCode);
                 return SUCCESS;
             }
@@ -262,8 +273,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             } catch (IOException e) {
                 logger.error("Error", e);
             }
-            return (null);
-        } else return SUCCESS;
+            return null;
+        }
+        return SUCCESS;
     }
 
     public LabUpload2Action() {
@@ -311,11 +323,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     @SuppressFBWarnings(value = {"ECB_MODE", "CIPHER_INTEGRITY"}, justification = "legacy lab upload transport format dictated by external senders; decrypt-only receiver, authenticated-encryption migration tracked in issue #3413")
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
+        // Keep receiver-key unavailability separate from an undecryptable envelope.
+        // This classification does not establish that any vendor will retry or reject it.
+        PrivateKey key = getServerPrivate();
+        if (key == null) {
+            throw new IllegalStateException("Receiver private key is unavailable");
+        }
         // Decrypt the secret key and the message
         try {
-
-            // retrieve the servers private key
-            PrivateKey key = getServerPrivate();
 
             // Decrypt the secret key using the servers private key
             // NOTE: PKCS1Padding (PKCS#1 v1.5) is theoretically vulnerable to Bleichenbacher
@@ -347,30 +362,32 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     /*
      * Check that the signature 'sigString' matches the message InputStream 'msgIS' thus verifying that the message has not been altered.
      */
-    public static boolean validateSignature(PublicKey key, String sigString, File input) {
-        byte[] buf = new byte[1024];
-
+    public static boolean validateSignature(PublicKey key, String sigString, File input)
+            throws IOException, GeneralSecurityException {
+        if (sigString == null) {
+            return false;
+        }
+        // MD5WithRSA is required by the external lab upload protocol for signature
+        // verification. Do not change without coordinating with all lab data senders.
+        Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
         try {
-
-            try (InputStream msgIs = new FileInputStream(input)) {
-                // MD5WithRSA is required by the external lab upload protocol for signature
-                // verification. Do not change without coordinating with all lab data senders.
-                Signature sig = Signature.getInstance("MD5WithRSA"); // nosemgrep: java.lang.security.audit.crypto.weak-hash -- external lab protocol requirement
-                sig.initVerify(key);
-
-                // Read in the message bytes and update the signature
-                int numRead = 0;
-                while ((numRead = msgIs.read(buf)) >= 0) {
-                    sig.update(buf, 0, numRead);
-                }
-
-                return (sig.verify(Base64.decodeBase64(sigString)));
+            sig.initVerify(key);
+        } catch (InvalidKeyException e) {
+            throw new GeneralSecurityException("The stored sender key cannot verify a signature", e);
+        }
+        byte[] buf = new byte[1024];
+        try (InputStream msgIs = new FileInputStream(input)) {
+            int numRead = 0;
+            while ((numRead = msgIs.read(buf)) >= 0) {
+                sig.update(buf, 0, numRead);
             }
-
-        } catch (Exception e) {
-            logger.debug("Could not validate signature: " + e);
-            MiscUtils.getLogger().error("Error", e);
-            return (false);
+        }
+        try {
+            return sig.verify(Base64.decodeBase64(sigString));
+        } catch (SignatureException | IllegalArgumentException e) {
+            // A signature of the wrong length or encoding: the sender's, so not worth a stack trace.
+            logger.warn("Lab upload signature could not be checked ({})", e.getClass().getSimpleName());
+            return false;
         }
     }
 
@@ -378,34 +395,28 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
      * Retrieve the clients public key from the database
      */
     public static ArrayList<Object> getClientInfo(String service) {
-
-        PublicKey Key = null;
-        String keyString = "";
-        String type = "";
-        byte[] publicKey;
         ArrayList<Object> info = new ArrayList<Object>();
+        if (service == null || service.isBlank()) {
+            return info;
+        }
+
+        // Not caught here: a DAO failure is a receiver fault and must reach the caller.
+        PublicKeyDao publicKeyDao = (PublicKeyDao) SpringUtils.getBean(PublicKeyDao.class);
+        io.github.carlos_emr.carlos.commn.model.PublicKey publicKeyObject = publicKeyDao.find(service);
+        if (publicKeyObject == null) {
+            return info;
+        }
 
         try {
-            PublicKeyDao publicKeyDao = (PublicKeyDao) SpringUtils.getBean(PublicKeyDao.class);
-            io.github.carlos_emr.carlos.commn.model.PublicKey publicKeyObject = publicKeyDao.find(service);
-
-            if (publicKeyObject != null) {
-                keyString = publicKeyObject.getBase64EncodedPublicKey();
-                type = publicKeyObject.getType();
-            }
-
-            publicKey = Base64.decodeBase64(keyString);
+            byte[] publicKey = Base64.decodeBase64(publicKeyObject.getBase64EncodedPublicKey());
             X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(publicKey);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            Key = keyFactory.generatePublic(pubKeySpec);
-
-            info.add(Key);
-            info.add(type);
-
-        } catch (Exception e) {
-            logger.error("Could not retrieve private key: ", e);
+            info.add(keyFactory.generatePublic(pubKeySpec));
+            info.add(publicKeyObject.getType());
+        } catch (GeneralSecurityException | RuntimeException e) {
+            throw new IllegalStateException("The stored public key for this service cannot be parsed", e);
         }
-        return (info);
+        return info;
     }
 
     /*
