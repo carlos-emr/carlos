@@ -75,6 +75,22 @@ table#providerSchedule td:not(.scheduleTime00):not(.scheduleTimeNot00):not(.appt
 .infirmaryView, #calendarLinkBottom, #group, #expandReason {
     display: none;
 }
+
+.provider-availability-mobile-row .provider-availability-link {
+    align-items: center;
+    background-color: #f8f9fa;
+    border: 1px solid #6c757d;
+    border-radius: 3px;
+    display: inline-flex;
+    gap: 3px;
+    margin: 3px;
+    padding: 5px 8px;
+}
+
+.provider-availability-mobile-row .provider-availability-link:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+}
 table {
   width: 100%;
 }
