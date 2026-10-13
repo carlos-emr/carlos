@@ -82,8 +82,7 @@ class FormProseWafExclusionRegressionTest {
     private static final String ENCODE_TAG = "<carlos:encode";
     // An attribute name starts only after a non-name character (the tag's attribute text
     // begins with whitespace), so each name character is scanned once even when no "=" follows.
-    private static final Pattern ATTR = Pattern.compile(
-            "(?:^|[^a-zA-Z_:-])([a-zA-Z_:-]++)\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", Pattern.DOTALL);
+    private static final Pattern ATTR_NAME = Pattern.compile("[a-zA-Z_:-]+");
     private static final Pattern DYNAMIC = Pattern.compile("<%|\\$\\{");
     private static final Pattern LITERAL_TARGET = Pattern.compile("^[A-Za-z0-9_.\\-]+$");
     private static final Pattern FORM_CLASS_ASSIGN = Pattern.compile(
@@ -109,6 +108,33 @@ class FormProseWafExclusionRegressionTest {
         }
         for (String field : List.of("other", "otherSymptoms", "p1_other", "symptomOther", "p1OtherText")) {
             assertThat(PROSE_INPUT_NAME.matcher(field).find()).as(field).isTrue();
+        }
+    }
+
+    @Test
+    void shouldKeepNestedQuotesInsideJspAttributes() {
+        String encoded = "<%=SafeEncode.forHtmlAttribute(request.getContextPath() + \"/form/createpdf\")%>";
+        Map<String, String> values = attrs(" action=\"" + encoded + "\" method='post'");
+        assertThat(values).containsExactlyInAnyOrderEntriesOf(Map.of("action", encoded, "method", "post"));
+        assertThat(ROUTE.matcher(values.get("action")).find()).isTrue();
+        String inverse = "<%=request.getAttribute('form')%>";
+        assertThat(attrs(" value='" + inverse + "' name=\"diagnosis\""))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("value", inverse, "name", "diagnosis"));
+        String encoder = "<carlos:encode value=\"<%=request.getAttribute(\"note\")%>\" context=\"attribute\"/>";
+        assertThat(attrs(" value=\"" + encoder + "\" name='encounter_notes'"))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("value", encoder, "name", "encounter_notes"));
+        assertThat(attrs(" <%=request.getAttribute(\"name='inner'\")%> name='outer'"))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("name", "outer"));
+        assertThat(attrs(" name='first' type=\"text\" name='last' disabled"))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("name", "last", "type", "text"));
+    }
+
+    @Test
+    void shouldNotExtractInnerAttributesFromMalformedValues() {
+        for (String malformed : List.of(
+                " value=\"<%= name='inner'", " value=\"<carlos:encode name='inner'>\"",
+                " value=\"unterminated name='inner'", " <%= name='inner'", " <carlos:encode name='inner'>")) {
+            assertThat(attrs(malformed)).as(malformed).isEmpty();
         }
     }
 
@@ -335,9 +361,79 @@ class FormProseWafExclusionRegressionTest {
 
     private static Map<String, String> attrs(String raw) {
         Map<String, String> out = new LinkedHashMap<>();
-        Matcher m = ATTR.matcher(raw);
-        while (m.find()) {
-            out.put(m.group(1).toLowerCase(), m.group(m.group(3) != null ? 3 : 4));
+        int i = 0;
+        int n = raw.length();
+        while (i < n) {
+            if (raw.startsWith("<%", i)) {
+                int end = raw.indexOf("%>", i + 2);
+                if (end < 0) {
+                    return out;
+                }
+                i = end + 2;
+                continue;
+            }
+            if (raw.regionMatches(true, i, ENCODE_TAG, 0, ENCODE_TAG.length())) {
+                int end = skipEncoderTag(raw, i);
+                if (end < 0) {
+                    return out;
+                }
+                i = end;
+                continue;
+            }
+            Matcher name = ATTR_NAME.matcher(raw).region(i, n);
+            if (!name.lookingAt()) {
+                i++;
+                continue;
+            }
+            String key = name.group().toLowerCase(java.util.Locale.ROOT);
+            i = name.end();
+            while (i < n && Character.isWhitespace(raw.charAt(i))) {
+                i++;
+            }
+            if (i >= n || raw.charAt(i) != '=') {
+                continue;
+            }
+            i++;
+            while (i < n && Character.isWhitespace(raw.charAt(i))) {
+                i++;
+            }
+            if (i >= n) {
+                return out;
+            }
+            char quote = raw.charAt(i);
+            if (quote != '"' && quote != '\'') {
+                while (i < n && !Character.isWhitespace(raw.charAt(i))) {
+                    i++;
+                }
+                continue;
+            }
+            int start = ++i;
+            boolean closed = false;
+            while (i < n) {
+                if (raw.startsWith("<%", i)) {
+                    int end = raw.indexOf("%>", i + 2);
+                    if (end < 0) {
+                        return out;
+                    }
+                    i = end + 2;
+                } else if (raw.regionMatches(true, i, ENCODE_TAG, 0, ENCODE_TAG.length())) {
+                    int end = skipEncoderTag(raw, i);
+                    if (end < 0) {
+                        return out;
+                    }
+                    i = end;
+                } else if (raw.charAt(i) == quote) {
+                    out.put(key, raw.substring(start, i));
+                    i++;
+                    closed = true;
+                    break;
+                } else {
+                    i++;
+                }
+            }
+            if (!closed) {
+                return out;
+            }
         }
         return out;
     }

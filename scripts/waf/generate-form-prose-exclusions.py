@@ -87,7 +87,7 @@ TAG_START_RE = re.compile(r"<(textarea|input|form)\b", re.IGNORECASE)
 ENCODE_TAG = "<carlos:encode"
 # An attribute name starts only after a non-name character (the tag's attribute text begins
 # with whitespace), so each name character is scanned once even when no "=" follows.
-ATTR_RE = re.compile(r"""(?:^|[^a-zA-Z_:-])([a-zA-Z_:-]++)\s*=\s*("([^"]*)"|'([^']*)')""", re.DOTALL)
+ATTR_NAME_RE = re.compile(r"[a-zA-Z_:-]+")
 DYNAMIC_RE = re.compile(r"<%|\$\{")
 # The only characters libmodsecurity accepts in a literal ctl target name.
 LITERAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")
@@ -121,9 +121,63 @@ def strip_comments(text):
 
 
 def attrs(raw):
+    """Read outer quoted values while keeping nested JSP and encoder tags intact."""
     out = {}
-    for m in ATTR_RE.finditer(raw):
-        out[m.group(1).lower()] = m.group(3) if m.group(3) is not None else m.group(4)
+    i = 0
+    n = len(raw)
+    while i < n:
+        if raw.startswith("<%", i):
+            end = raw.find("%>", i + 2)
+            if end < 0:
+                return out
+            i = end + 2
+            continue
+        if raw[i:i + len(ENCODE_TAG)].lower() == ENCODE_TAG:
+            end = skip_encoder_tag(raw, i)
+            if end < 0:
+                return out
+            i = end
+            continue
+        name = ATTR_NAME_RE.match(raw, i)
+        if name is None:
+            i += 1
+            continue
+        i = name.end()
+        while i < n and raw[i].isspace():
+            i += 1
+        if i >= n or raw[i] != "=":
+            continue
+        i += 1
+        while i < n and raw[i].isspace():
+            i += 1
+        if i >= n:
+            return out
+        if raw[i] not in ("\"", "'"):
+            while i < n and not raw[i].isspace():
+                i += 1
+            continue
+        quote = raw[i]
+        start = i + 1
+        i = start
+        while i < n:
+            if raw.startswith("<%", i):
+                end = raw.find("%>", i + 2)
+                if end < 0:
+                    return out
+                i = end + 2
+            elif raw[i:i + len(ENCODE_TAG)].lower() == ENCODE_TAG:
+                end = skip_encoder_tag(raw, i)
+                if end < 0:
+                    return out
+                i = end
+            elif raw[i] == quote:
+                out[name.group().lower()] = raw[start:i]
+                i += 1
+                break
+            else:
+                i += 1
+        else:
+            return out
     return out
 
 

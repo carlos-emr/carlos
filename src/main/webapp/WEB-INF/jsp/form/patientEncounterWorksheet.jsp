@@ -131,11 +131,11 @@
 %>
 <html>
     <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <link rel="icon" href="<carlos:encode value="${pageContext.request.contextPath}/images/favicon.ico" context="htmlAttribute"/>"/>
+        <script type="text/javascript" src="<carlos:encode value='<%= request.getContextPath() + "/js/global.js" %>' context="htmlAttribute"/>"></script>
         <title><fmt:message key='form.patientEncounterWorksheet.title'/></title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>">
+        <link rel="stylesheet" type="text/css" media="all" href="<carlos:encode value='<%= request.getContextPath() + "/share/css/extractedFromPages.css" %>' context="htmlAttribute"/>"/>
     </head>
 
 
@@ -149,7 +149,7 @@
     <h4 style="font-weight:bold;font-size:15px;text-align:center"><fmt:message key='form.patientEncounterWorksheet.title'/></h4>
 
     <div align="center">
-        <form action="<%= request.getContextPath() %>/form/createpdf" method="POST">
+        <form action="<carlos:encode value='<%= request.getContextPath() + "/form/createpdf" %>' context="htmlAttribute"/>" method="POST">
             <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographic_no")) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="form_id" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("form_id")) %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="__title" value="PatientEcounterWorksheet"/>
@@ -161,31 +161,31 @@
                 <tr>
                     <td valign="top" width="50%">
                         <table border="0" cellspacing="2" cellpadding="2">
-                            <input type="hidden" name="clinic_name" value="<%=clinic.getClinicName() %>"/>
-                            <input type="hidden" name="clinic_address1" value="<%=clinic.getClinicAddress() %>"/>
+                            <input type="hidden" name="clinic_name" value="<carlos:encode value='<%= clinic.getClinicName() %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="clinic_address1" value="<carlos:encode value='<%= clinic.getClinicAddress() %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="clinic_address2"
-                                   value="<%=clinic.getClinicCity() + ", " + clinic.getClinicProvince() + ", " + clinic.getClinicPostal() %>"/>
-                            <input type="hidden" name="clinic_phone" value="<%=clinic.getClinicPhone() %>"/>
-                            <input type="hidden" name="clinic_fax" value="<%=clinic.getClinicFax() %>"/>
+                                   value="<carlos:encode value='<%= clinic.getClinicCity() + ", " + clinic.getClinicProvince() + ", " + clinic.getClinicPostal() %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="clinic_phone" value="<carlos:encode value='<%= clinic.getClinicPhone() %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="clinic_fax" value="<carlos:encode value='<%= clinic.getClinicFax() %>' context="htmlAttribute"/>"/>
                             <tr>
                                 <td valign="top"><b><fmt:message key='form.patientEncounterWorksheet.office'/></b></td>
                                 <td valign="top">
-                                    <%=clinic.getClinicName() %>
+                                    <carlos:encode value='<%= clinic.getClinicName() %>' context="html"/>
                                     <br/>
-                                    <%=clinic.getClinicAddress() %>
+                                    <carlos:encode value='<%= clinic.getClinicAddress() %>' context="html"/>
                                     <br/>
-                                    <%=clinic.getClinicCity() %>, <%=clinic.getClinicProvince() %>
-                                    , <%=clinic.getClinicPostal() %>
+                                    <carlos:encode value='<%= clinic.getClinicCity() %>' context="html"/>, <carlos:encode value='<%= clinic.getClinicProvince() %>' context="html"/>
+                                    , <carlos:encode value='<%= clinic.getClinicPostal() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.phone'/></td>
-                                <td><%=clinic.getClinicPhone() %>
+                                <td><carlos:encode value='<%= clinic.getClinicPhone() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.fax'/></td>
-                                <td><%=clinic.getClinicFax() %>
+                                <td><carlos:encode value='<%= clinic.getClinicFax() %>' context="html"/>
                                 </td>
                             </tr>
                         </table>
@@ -193,37 +193,37 @@
                     <td valign="top" width="50%">
                         <table border="0" cellspacing="2" cellpadding="2">
                             <input type="hidden" name="demo_name"
-                                   value="<%=demographic.getFormattedName() + " (" + demographic.getSex().toUpperCase()  + ")" %>"/>
-                            <input type="hidden" name="demo_address1" value="<%=demographic.getAddress() %>"/>
+                                   value="<carlos:encode value='<%= demographic.getFormattedName() + " (" + demographic.getSex().toUpperCase()  + ")" %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="demo_address1" value="<carlos:encode value='<%= demographic.getAddress() %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="demo_address2"
-                                   value="<%=demographic.getCity() + ", " + demographic.getProvince() + ", " + demographic.getPostal() %>"/>
-                            <input type="hidden" name="demo_id" value="<%=demographic.getDemographicNo() %>"/>
+                                   value="<carlos:encode value='<%= demographic.getCity() + ", " + demographic.getProvince() + ", " + demographic.getPostal() %>' context="htmlAttribute"/>"/>
+                            <input type="hidden" name="demo_id" value="<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="demo_bday"
-                                   value="<%=demographic.getBirthDayAsString() + " (" + demographic.getAgeInYears() + ")" %>"/>
+                                   value="<carlos:encode value='<%= demographic.getBirthDayAsString() + " (" + demographic.getAgeInYears() + ")" %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="demo_hin"
-                                   value="<%=demographic.getHin() + " (" + demographic.getHcType() + ")" %>"/>
+                                   value="<carlos:encode value='<%= demographic.getHin() + " (" + demographic.getHcType() + ")" %>' context="htmlAttribute"/>"/>
                             <tr>
                                 <td valign="top"><b><fmt:message key='form.patientEncounterWorksheet.patient'/></b></td>
                                 <td>
-                                    <b><%=demographic.getFormattedName() %>
-                                    </b> (<%=demographic.getSex().toUpperCase() %>)<br/>
-                                    <%=demographic.getAddress() %><br/>
-                                    <%=demographic.getCity() %>, <%=demographic.getProvince() %>
-                                    , <%=demographic.getPostal() %>
+                                    <b><carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
+                                    </b> (<carlos:encode value='<%= demographic.getSex().toUpperCase() %>' context="html"/>)<br/>
+                                    <carlos:encode value='<%= demographic.getAddress() %>' context="html"/><br/>
+                                    <carlos:encode value='<%= demographic.getCity() %>' context="html"/>, <carlos:encode value='<%= demographic.getProvince() %>' context="html"/>
+                                    , <carlos:encode value='<%= demographic.getPostal() %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.patientId'/></td>
-                                <td><%=demographic.getDemographicNo() %>
+                                <td><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.dob'/></td>
-                                <td><%=demographic.getBirthDayAsString() %>(<%=demographic.getAgeInYears() %>)</td>
+                                <td><carlos:encode value='<%= demographic.getBirthDayAsString() %>' context="html"/>(<carlos:encode value='<%= String.valueOf(demographic.getAgeInYears()) %>' context="html"/>)</td>
                             </tr>
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.hcNumber'/></td>
-                                <td><%=demographic.getHin() %> (<%=demographic.getHcType() %>)</td>
+                                <td><carlos:encode value='<%= demographic.getHin() %>' context="html"/> (<carlos:encode value='<%= demographic.getHcType() %>' context="html"/>)</td>
                             </tr>
                         </table>
                     </td>
@@ -233,13 +233,13 @@
                 <tr>
                     <td valign="top" width="50%">
                         <table border="0" cellspacing="2" cellpadding="2">
-                            <input type="hidden" name="mrp_provider" value="<%=providerName %>"/>
+                            <input type="hidden" name="mrp_provider" value="<carlos:encode value='<%= providerName %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="fam_provider" value="test,test"/>
                             <input type="hidden" name="ref_provider" value="test,test"/>
 
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.provider'/></td>
-                                <td><%=providerName %>
+                                <td><carlos:encode value='<%= providerName %>' context="html"/>
                                 </td>
                             </tr>
                             <tr>
@@ -256,16 +256,16 @@
                         <table border="0" cellspacing="2" cellpadding="2">
                             <% if (hasAppointment) { %>
                                 <input type="hidden" name="appt_date" 
-                                       value="<%=dateFormatter.format(appt.getAppointmentDate()) + " " + timeFormatter.format(appt.getStartTime()) %>"/>
-                                <input type="hidden" name="appt_type" value="<%=appt.getType() %>"/>
-                                <input type="hidden" name="appt_reason" value="<%=appt.getReason() %>"/>
+                                       value="<carlos:encode value='<%= dateFormatter.format(appt.getAppointmentDate()) + " " + timeFormatter.format(appt.getStartTime()) %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="appt_type" value="<carlos:encode value='<%= appt.getType() %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="appt_reason" value="<carlos:encode value='<%= appt.getReason() %>' context="htmlAttribute"/>"/>
                             <% } %>
                         
                             <tr>
                                 <td><fmt:message key='form.patientEncounterWorksheet.apptDate'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
-                                        <%=dateFormatter.format(appt.getAppointmentDate()) %>&nbsp;<%=timeFormatter.format(appt.getStartTime()) %>
+                                        <carlos:encode value='<%= dateFormatter.format(appt.getAppointmentDate()) %>' context="html"/>&nbsp;<carlos:encode value='<%= timeFormatter.format(appt.getStartTime()) %>' context="html"/>
                                     <% } else { %>
                                         N/A
                                     <% } %>
@@ -275,7 +275,7 @@
                                 <td><fmt:message key='form.patientEncounterWorksheet.apptType'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
-                                        <%=appt.getType() %>
+                                        <carlos:encode value='<%= appt.getType() %>' context="html"/>
                                     <% } else { %>
                                         N/A
                                     <% } %>
@@ -285,7 +285,7 @@
                                 <td><fmt:message key='form.patientEncounterWorksheet.reason'/></td>
                                 <td>
                                     <% if (hasAppointment) { %>
-                                        <%=appt.getReason() %>
+                                        <carlos:encode value='<%= appt.getReason() %>' context="html"/>
                                     <% } else { %>
                                         N/A
                                     <% } %>
@@ -296,10 +296,10 @@
                 </tr>
 
                 <tr>
-                    <input type="hidden" name="allergies" value="<%=allergyString.toString() %>"/>
+                    <input type="hidden" name="allergies" value="<carlos:encode value='<%= allergyString.toString() %>' context="htmlAttribute"/>"/>
                     <td colspan="2">
                         <fmt:message key='form.patientEncounterWorksheet.allergies'/><br/>
-                        <%=allergyString.toString() %>
+                        <carlos:encode value='<%= allergyString.toString() %>' context="html"/>
                     </td>
                 </tr>
 
@@ -326,7 +326,7 @@
                             </tr>
                             <tr>
                                 <td>&nbsp;</td>
-                                <td><fmt:message key='form.patientEncounterWorksheet.doctorPrefix'/> <%=loggedInInfo.getLoggedInProvider().getFormattedName() %>
+                                <td><fmt:message key='form.patientEncounterWorksheet.doctorPrefix'/> <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="html"/>
                                 </td>
                             </tr>
                         </table>
