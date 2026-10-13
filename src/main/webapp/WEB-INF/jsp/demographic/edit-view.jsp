@@ -277,7 +277,7 @@
                                                                     for (String key : demoExt.keySet()) {
                                                                         if (key.endsWith("_id")) {
                                                                 %>
-                                                                <input type="hidden" name="<%= key %>"
+                                                                <input type="hidden" name="<%=SafeEncode.forHtmlAttribute(key)%>"
                                                                        value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(key)) %>' context="htmlAttribute"/>"/>
                                                                 <%
                                                                         }
@@ -483,7 +483,7 @@
                                                                 }
                                                             }
                                                         %>
-                                                        <%=enrolledTo %>
+                                                        <%=SafeEncode.forHtmlContent(enrolledTo)%>
                                                         </span>
                                                                     </li>
                                                                     <% } %>
@@ -612,10 +612,10 @@
                                                                         <span class="info"><%=archivedStr %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.dateArchived"/>:</span>
-                                                                        <span class="info"><%=archivedDate %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedDate %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.programArchived"/>:</span>
-                                                                        <span class="info"><%=archivedProgram %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedProgram %>' context="html"/></span>
                                                                     </li>
                                                                 </ul>
                                                             </div>
@@ -644,13 +644,13 @@
                                                                             if (showConsentsThisTime) { %>
 
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.privacyConsent"/>:</span>
-                                                                            <span class="info"><%=privacyConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= privacyConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.informedConsent"/>:</span>
-                                                                            <span class="info"><%=informedConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= informedConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.usConsent"/>:</span>
-                                                                            <span class="info"><%=usSigned %></span>
+                                                                            <span class="info"><carlos:encode value='<%= usSigned %>' context="html"/></span>
                                                                         </li>
 
 
@@ -738,14 +738,14 @@
                                                                     %>
                                                                     <li>
                                                                         <%=hasPrimary%>:
-                                                                        <strong><%=hasPrimaryCarePhysician%>
+                                                                        <strong><%=SafeEncode.forHtmlContent(hasPrimaryCarePhysician)%>
                                                                         </strong>
                                                                     </li>
                                                                     <% }
                                                                         if (hasEmpStatus) {
                                                                     %>
                                                                     <li>
-                                                                        <%=empStatus%>: <strong><%=employmentStatus%>
+                                                                        <%=empStatus%>: <strong><%=SafeEncode.forHtmlContent(employmentStatus)%>
                                                                     </strong>
                                                                     </li>
                                                                     <% }
@@ -1028,7 +1028,7 @@
                                                                                 } else { %>
                                                                                 <fmt:message key="demographic.demographiceditdemographic.formDoctor"/>
                                                                                 <% } %>:
-                                                                                <b><%=providerBean.getProperty(demographic.getProviderNo(), "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(demographic.getProviderNo(), ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for doctor =====
                                                                                     if (provMap.get("doctor") != null) {
@@ -1078,7 +1078,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(resident, ""))) { %>
                                                                             <li>Alt. Provider 1:
-                                                                                <b><%=providerBean.getProperty(resident, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(resident, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov1 =====
                                                                                     if (provMap.get("prov1") != null) {
@@ -1129,7 +1129,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(midwife, ""))) { %>
                                                                             <li>Alt. Provider 2:
-                                                                                <b><%=providerBean.getProperty(midwife, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(midwife, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov2 =====
                                                                                     if (provMap.get("prov2") != null) {
@@ -1180,7 +1180,7 @@
                                                                             <% }
                                                                                 if (StringUtils.isNotEmpty(providerBean.getProperty(nurse, ""))) { %>
                                                                             <li>Alt. Provider 3:
-                                                                                <b><%=providerBean.getProperty(nurse, "")%>
+                                                                                <b><%=SafeEncode.forHtmlContent(providerBean.getProperty(nurse, ""))%>
                                                                                 </b>
                                                                                 <% // ===== quick appointment booking for prov3 =====
                                                                                     if (provMap.get("prov3") != null) {
@@ -1262,24 +1262,24 @@
 							<fmt:message key="demographic.demographiceditdemographic.formMRP"/>
                                                     <% } %>:</span><span class="info">
                                                     <%if (demographic != null && demographic.getProviderNo() != null) {%>
-                                                           <%=providerBean.getProperty(demographic.getProviderNo(), "")%>
+                                                           <%=SafeEncode.forHtmlContent(providerBean.getProperty(demographic.getProviderNo(), ""))%>
                                                     <%}%>
                                                     </span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formNurse"/>:</span><span
-                                                                                class="info"><%=providerBean.getProperty(nurse == null ? "" : nurse, "")%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(nurse == null ? "" : nurse, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formMidwife"/>:</span><span
-                                                                                class="info"><%=providerBean.getProperty(midwife == null ? "" : midwife, "")%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(midwife == null ? "" : midwife, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formResident"/>:</span>
-                                                                            <span class="info"><%=providerBean.getProperty(resident == null ? "" : resident, "")%></span>
+                                                                            <span class="info"><%=SafeEncode.forHtmlContent(providerBean.getProperty(resident == null ? "" : resident, ""))%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>:</span><span
-                                                                                class="info"><%=rd%></span>
+                                                                                class="info"><carlos:encode value='<%= rd %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>:</span><span
-                                                                                class="info"><%=rdohip%></span>
+                                                                                class="info"><carlos:encode value='<%= rdohip %>' context="html"/></span>
                                                                         </li>
                                                                     </ul>
                                                                 </div>
@@ -1308,7 +1308,7 @@
                                                                             for (Admission adm : serviceAdmissions) {
                                                                         %>
                                                                         <li><span class="label">Service:</span><span
-                                                                                class="info"><%=adm.getProgramName()%></span>
+                                                                                class="info"><%=SafeEncode.forHtmlContent(adm.getProgramName())%></span>
                                                                         </li>
 
                                                                         <%

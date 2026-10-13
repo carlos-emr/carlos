@@ -196,6 +196,11 @@
         <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
             <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
         </action>
+        <!-- Administration > SMS (#3836): the page needs _admin.sms r; method=configure and
+             method=sendSystemTest are POST-only and need _admin.sms w (both redirect back). -->
+        <action name="admin/ConfigureSms" class="io.github.carlos_emr.carlos.sms.admin.ConfigureSms2Action">
+            <result name="success">/WEB-INF/jsp/admin/configureSms.jsp</result>
+        </action>
         <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
             <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>
         </action>

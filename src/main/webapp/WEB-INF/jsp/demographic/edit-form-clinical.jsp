@@ -255,9 +255,9 @@
                                                                     for (Provider p : doctors) {
 
                                                                 %>
-                                                                <option value="<%=p.getProviderNo()%>"
+                                                                <option value="<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>"
                                                                         <%=p.getProviderNo().equals(demographic.getProviderNo()) ? "selected" : ""%>>
-                                                                    <%=p.getLastName() + "," + p.getFirstName()%>
+                                                                    <%=SafeEncode.forHtmlContent(p.getLastName() + "," + p.getFirstName())%>
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
@@ -272,9 +272,9 @@
 
                                                                     for (Provider p : nurses) {
                                                                 %>
-                                                                <option value="<%=p.getProviderNo()%>"
+                                                                <option value="<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>"
                                                                         <%=p.getProviderNo().equals(nurse) ? "selected" : ""%>>
-                                                                    <%=p.getLastName() + "," + p.getFirstName()%>
+                                                                    <%=SafeEncode.forHtmlContent(p.getLastName() + "," + p.getFirstName())%>
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
@@ -289,9 +289,9 @@
                                                                 <%
                                                                     for (Provider p : midwifes) {
                                                                 %>
-                                                                <option value="<%=p.getProviderNo()%>"
+                                                                <option value="<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>"
                                                                         <%=p.getProviderNo().equals(midwife) ? "selected" : ""%>>
-                                                                    <%=p.getLastName() + "," + p.getFirstName()%>
+                                                                    <%=SafeEncode.forHtmlContent(p.getLastName() + "," + p.getFirstName())%>
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
@@ -303,9 +303,9 @@
                                                                 <%
                                                                     for (Provider p : doctors) {
                                                                 %>
-                                                                <option value="<%=p.getProviderNo()%>"
+                                                                <option value="<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>"
                                                                         <%=p.getProviderNo().equals(resident) ? "selected" : ""%>>
-                                                                    <%=p.getLastName() + "," + p.getFirstName()%>
+                                                                    <%=SafeEncode.forHtmlContent(p.getLastName() + "," + p.getFirstName())%>
                                                                 </option>
                                                                 <% } %>
                                                             </select></td>
@@ -338,9 +338,9 @@
                                                                     prop = (Properties) vecRef.get(k);
                                                                 %>
                                                                 <option
-                                                                        value="<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>"
+                                                                        value="<%=SafeEncode.forHtmlAttribute(prop.getProperty("last_name")+","+prop.getProperty("first_name"))%>"
                                                                         <%=prop.getProperty("referral_no").equals(rdohip) ? "selected" : ""%>>
-                                                                    <%=prop.getProperty("last_name") + "," + prop.getProperty("first_name")%>
+                                                                    <%=SafeEncode.forHtmlContent(prop.getProperty("last_name") + "," + prop.getProperty("first_name"))%>
                                                                 </option>
                                                                 <% }
 
@@ -355,8 +355,8 @@
                                                                         <% for(int k=0; k<vecRef.size(); k++) {
   		prop= (Properties) vecRef.get(k);
   	%>
-                                                                        if (refName == "<%=prop.getProperty("last_name")+","+prop.getProperty("first_name")%>") {
-                                                                            refNo = '<%=prop.getProperty("referral_no", "")%>';
+                                                                        if (refName == "<%=SafeEncode.forJavaScript(prop.getProperty("last_name")+","+prop.getProperty("first_name"))%>") {
+                                                                            refNo = '<%=SafeEncode.forJavaScript(prop.getProperty("referral_no", ""))%>';
                                                                         }
                                                                         <% } %>
                                                                         document.updatedelete.r_doctor_ohip.value = refNo;
@@ -367,14 +367,14 @@
                                                                 <% } else {%> <input type="text" name="r_doctor"
                                                                                      size="30"
                                                                                      maxlength="40" <%=getDisabled("r_doctor")%>
-                                                                                     value="<%=rd%>"> <% } %>
+                                                                                     value="<%=SafeEncode.forHtmlAttribute(rd)%>"> <% } %>
                                                             </td>
                                                             <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>: </b>
                                                             </td>
                                                             <td align="left"><input type="text"
                                                                                     name="r_doctor_ohip" <%=getDisabled("r_doctor_ohip")%>
                                                                                     size="20" maxlength="6"
-                                                                                    value="<%=rdohip%>"> <% if ("ON".equals(prov)) { %>
+                                                                                    value="<%=SafeEncode.forHtmlAttribute(rdohip)%>"> <% if ("ON".equals(prov)) { %>
                                                                 <a
                                                                         href="javascript:referralScriptAttach2('r_doctor_ohip','r_doctor')"><fmt:message key="demographic.demographiceditdemographic.btnSearch"/>
                                                                     #</a> <% } %>
@@ -399,7 +399,7 @@
                                                                     }
                                                                 %>
                                                                 <input type="hidden" name="initial_rosterstatus"
-                                                                       value="<%=rosterStatus%>"/>
+                                                                       value="<%=SafeEncode.forHtmlAttribute(rosterStatus)%>"/>
                                                                 <select id="roster_status" name="roster_status"
                                                                         style="width: 120px;" <%=getDisabled("roster_status")%>
                                                                         onchange="checkRosterStatus2(); updateEnrolledTo();">
@@ -423,7 +423,7 @@
                                                                         for (String status : demographicDao.getRosterStatuses()) {
                                                                     %>
                                                                     <option
-                                                                            <%=rosterStatus.equals(status) ? " selected" : ""%>><%=status%>
+                                                                            <%=rosterStatus.equals(status) ? " selected" : ""%>><%=SafeEncode.forHtmlContent(status)%>
                                                                     </option>
                                                                     <% }
 
@@ -495,9 +495,9 @@
                                                                         for (Provider p : doctors) {
 
                                                                     %>
-                                                                    <option value="<%=p.getProviderNo()%>"
+                                                                    <option value="<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>"
                                                                             <%=p.getProviderNo().equals(demographic.getRosterEnrolledTo()) ? "selected" : ""%>>
-                                                                        <%=p.getLastName() + "," + p.getFirstName()%>
+                                                                        <%=SafeEncode.forHtmlContent(p.getLastName() + "," + p.getFirstName())%>
                                                                     </option>
                                                                     <% } %>
                                                                 </select>
@@ -558,7 +558,7 @@
                                                                 String patientStatus = demographic.getPatientStatus();
                                                                 if (patientStatus == null) patientStatus = "";%>
                                                             <input type="hidden" name="initial_patientstatus"
-                                                                   value="<%=patientStatus%>">
+                                                                   value="<%=SafeEncode.forHtmlAttribute(patientStatus)%>">
                                                             <select name="patient_status"
                                                                     style="width: 120px" <%=getDisabled("patient_status")%>
                                                                     onChange="updatePatientStatusDate()">
@@ -581,7 +581,7 @@
                                                                     for (String status : demographicDao.search_ptstatus()) {
                                                                 %>
                                                                 <option
-                                                                        <%=status.equals(patientStatus) ? " selected" : ""%>><%=status%>
+                                                                        <%=status.equals(patientStatus) ? " selected" : ""%>><%=SafeEncode.forHtmlContent(status)%>
                                                                 </option>
                                                                 <% }
 
@@ -641,7 +641,7 @@
                                                                                     selected = " selected=\"selected\" ";
                                                                                 }
                                                                 %>
-                                                                <option value="<%=llItem.getValue()%>" <%=selected%>><%=llItem.getLabel()%>
+                                                                <option value="<%=SafeEncode.forHtmlAttribute(llItem.getValue())%>" <%=selected%>><%=SafeEncode.forHtmlContent(llItem.getLabel())%>
                                                                 </option>
                                                                 <%
                                                                             }
@@ -659,7 +659,7 @@
                                                         </td>
                                                         <td align="left"><input type="text" name="chart_no"
                                                                                 size="30"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getChartNo())%>" <%=getDisabled("chart_no")%>>
+                                                                                value="<%=SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demographic.getChartNo()))%>" <%=getDisabled("chart_no")%>>
                                                         </td>
                                                     </tr>
 
@@ -687,12 +687,12 @@
                                                             <input type="text" placeholder="yyyy-mm-dd"
                                                                    name="paper_chart_archived_date"
                                                                    id="paper_chart_archived_date"
-                                                                   value="<%=paperChartIndicatorDate%>">
+                                                                   value="<%=SafeEncode.forHtmlAttribute(paperChartIndicatorDate)%>">
                                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="archive_date_cal">
 
                                                             <input type="hidden" name="paper_chart_archived_program"
                                                                    id="paper_chart_archived_program"
-                                                                   value="<%=paperChartIndicatorProgram%>"/>
+                                                                   value="<%=SafeEncode.forHtmlAttribute(paperChartIndicatorProgram)%>"/>
                                                         </td>
                                                         <td><!-- padding --></td>
                                                         <td><!-- padding --></td>
@@ -831,9 +831,9 @@
                                                         <td align="left">
                                                             <% if (bExtForm) {
                                                                 if (propDemoExtForm[k].indexOf("<select") >= 0) {
-                                                                    out.println(propDemoExtForm[k].replaceAll("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"" + " selected"));
+                                                                    out.println(propDemoExtForm[k].replace("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\"" + " selected"));
                                                                 } else {
-                                                                    out.println(propDemoExtForm[k].replaceAll("value=\"\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))) + "\""));
+                                                                    out.println(propDemoExtForm[k].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_')))) + "\""));
                                                                 }
                                                             } else { %>
                                                             <input type="text"
@@ -841,8 +841,8 @@
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(\" \", \"_\"))) %>' context="htmlAttribute"/>"/>
                                                             <% } %>
                                                             <input type="hidden"
-                                                                   name="<%=propDemoExt[k].replace(' ', '_')%>Orig"
-                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_')))%>"/>
+                                                                   name="<%=SafeEncode.forHtmlAttribute(propDemoExt[k].replace(' ', '_'))%>Orig"
+                                                                   value="<%=SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k].replace(' ', '_'))))%>"/>
                                                         </td>
                                                         <% if ((k + 1) < propDemoExt.length) { %>
                                                         <td align="right"><b>
@@ -851,9 +851,9 @@
                                                         <td align="left">
                                                             <% if (bExtForm) {
                                                                 if (propDemoExtForm[k + 1].indexOf("<select") >= 0) {
-                                                                    out.println(propDemoExtForm[k + 1].replaceAll("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"" + " selected"));
+                                                                    out.println(propDemoExtForm[k + 1].replace("value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\"" + " selected"));
                                                                 } else {
-                                                                    out.println(propDemoExtForm[k + 1].replaceAll("value=\"\"", "value=\"" + StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_'))) + "\""));
+                                                                    out.println(propDemoExtForm[k + 1].replace("value=\"\"", "value=\"" + SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get(propDemoExt[k + 1].replace(' ', '_')))) + "\""));
                                                                 }
                                                             } else { %> <input type="text"
                                                                                name="<carlos:encode value='<%= propDemoExt[k+1].replace(\" \", \"_\") %>' context="htmlAttribute"/>"
@@ -889,13 +889,13 @@
                                                                     <tr>
                                                                         <td width="30%">
                                                                             <input type="hidden" name="usSignedOrig"
-                                                                                   value="<%=StringUtils.defaultString(apptMainBean.getString(demoExt.get("usSigned")))%>"/>
+                                                                                   value="<%=SafeEncode.forHtmlAttribute(StringUtils.defaultString(apptMainBean.getString(demoExt.get("usSigned"))))%>"/>
                                                                             <input type="hidden"
                                                                                    name="privacyConsentOrig"
-                                                                                   value="<%=privacyConsent%>"/>
+                                                                                   value="<%=SafeEncode.forHtmlAttribute(privacyConsent)%>"/>
                                                                             <input type="hidden"
                                                                                    name="informedConsentOrig"
-                                                                                   value="<%=informedConsent%>"/>
+                                                                                   value="<%=SafeEncode.forHtmlAttribute(informedConsent)%>"/>
 
                                                                             <input type="checkbox" name="privacyConsent"
                                                                                    id="privacyConsent"
@@ -1008,10 +1008,11 @@
                                                                                             </c:if>
                                                                                     />
                                                                                     <label for="optout_${carlos:forHtmlAttribute(consentType.type)}"><fmt:message key="demographic.demographiceditdemographic.optOut"/></label>
+                                                                                    <fmt:message key="demographic.demographiceditdemographic.clear" var="consentClearLabel"/>
                                                                                     <input type="button"
                                                                                            name="clearRadio_${carlos:forHtmlAttribute(consentType.type)}_btn"
                                                                                            onclick="consentClearBtn('${carlos:forJavaScript(consentType.type)}')"
-                                                                                           value="<fmt:message key='demographic.demographiceditdemographic.clear'/>"/>
+                                                                                           value="${carlos:forHtmlAttribute(consentClearLabel)}"/>
 
                                                                                         <%-- #3858: an implied record is upgraded only by this deliberate box, never by
                                                                                              re-saving the pre-checked Opt-in radio, which every demographic save posts.
@@ -1074,11 +1075,11 @@
                                                         <td align="right"><b>Meditech ID: </b></td>
                                                         <td align="left"><input type="text" name="meditech_id"
                                                                                 size="30"
-                                                                                value="<%=OtherIdManager.getDemoOtherId(
-									demographic_no, "meditech_id")%>">
+                                                                                value="<%=SafeEncode.forHtmlAttribute(OtherIdManager.getDemoOtherId(
+									demographic_no, "meditech_id"))%>">
                                                             <input type="hidden" name="meditech_idOrig"
-                                                                   value="<%=OtherIdManager.getDemoOtherId(
-									demographic_no, "meditech_id")%>">
+                                                                   value="<%=SafeEncode.forHtmlAttribute(OtherIdManager.getDemoOtherId(
+									demographic_no, "meditech_id"))%>">
                                                         </td>
                                                         <td><!-- padding --></td>
                                                         <td><!-- padding --></td>
@@ -1159,7 +1160,7 @@
                                                                             %>
                                                                             <option value="<%=wln.getId()%>"
                                                                                     <%=wln.getId().toString().equals(listID) ? " selected" : ""%>>
-                                                                                <%=wln.getName()%>
+                                                                                <%=SafeEncode.forHtmlContent(wln.getName())%>
                                                                             </option>
                                                                             <%
                                                                                 }
@@ -1170,7 +1171,7 @@
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 name="waiting_list_note"
-                                                                                                value="<%=wlnote%>"
+                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlnote)%>"
                                                                                 <%=wLReadonly%>></td>
                                                                     </tr>
                                                                     <tr>
@@ -1182,7 +1183,7 @@
                                                                                                 name="waiting_list_referral_date"
                                                                                                 id="waiting_list_referral_date"
                                                                                                 size="11"
-                                                                                                value="<%=wlReferralDate%>" <%=wLReadonly%>><img
+                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>" <%=wLReadonly%>><img
                                                                                 src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                 id="referral_date_cal">
                                                                         </td>
@@ -1246,7 +1247,7 @@
 
                                                                                     for (Program _p : bedP) {
                                                                                 %>
-                                                                                <option value="<%=_p.getId()%>" <%=isProgramSelected(bedAdmission, _p.getId()) %>><%=_p.getName()%>
+                                                                                <option value="<%=_p.getId()%>" <%=isProgramSelected(bedAdmission, _p.getId()) %>><%=SafeEncode.forHtmlContent(_p.getName())%>
                                                                                 </option>
                                                                                 <%
                                                                                     }
@@ -1280,7 +1281,7 @@
                                                                                     <input type="checkbox" name="sp"
                                                                                            id="sp"
                                                                                            value="<%=_p.getId()%>" <%=selected %> <%=(readOnly) ? " disabled=\"disabled\" " : "" %> />
-                                                                                    <label for="sp"><%=_p.getName()%>
+                                                                                    <label for="sp"><%=SafeEncode.forHtmlContent(_p.getName())%>
                                                                                     </label>
                                                                                 </li>
                                                                                 <%}%>
@@ -1309,7 +1310,7 @@
                                                                     <td>
                                                                         <input type="hidden"
                                                                                name="rxInteractionWarningLevelOrig"
-                                                                               value="<%=StringUtils.trimToEmpty(demoExt.get("rxInteractionWarningLevel"))%>"/>
+                                                                               value="<%=SafeEncode.forHtmlAttribute(StringUtils.trimToEmpty(demoExt.get("rxInteractionWarningLevel")))%>"/>
                                                                         <select id="rxInteractionWarningLevel"
                                                                                 name="rxInteractionWarningLevel">
                                                                             <option value="0" <%=(warningLevel.equals("0") ? "selected=\"selected\"" : "") %>>

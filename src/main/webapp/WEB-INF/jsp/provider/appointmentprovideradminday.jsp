@@ -1714,6 +1714,8 @@
                                 <tr>
                                     <td class="infirmaryView" NOWRAP ALIGN="center"
                                         BGCOLOR="<%=bColor?"#bfefff":"silver"%>">
+                                        <%-- Keeps the name in view within its own column (receptionistapptstyle.css). --%>
+                                        <span class="providerNameSticky">
                                         <!-- caisi infirmary view extension modify ffffffffffff-->
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
                                             <%
@@ -1784,6 +1786,7 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                        </span>
                                     </td>
                                 </tr>
                                 <!-- END for the first providers's name -->
