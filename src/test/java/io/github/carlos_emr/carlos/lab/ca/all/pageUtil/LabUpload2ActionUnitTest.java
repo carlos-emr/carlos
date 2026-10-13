@@ -239,7 +239,11 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         handlers.when(() -> HandlerClassFactory.getHandler(anyString())).thenReturn(handler);
         SecretKey messageKey = newMessageKey();
         byte[] ciphertext = encrypt(messageKey, MESSAGE);
-        uploadedPath = Files.createTempFile("labupload-unit", ".enc");
+        // Surefire user properties may update java.io.tmpdir after the JDK's default
+        // temp root was cached. Choose the CURRENT validator root explicitly.
+        Path uploadRoot = Path.of(System.getProperty("java.io.tmpdir")).toRealPath();
+        uploadedPath = Files.createTempFile(uploadRoot, "labupload-unit", ".enc");
+        assertThat(uploadedPath.toRealPath().startsWith(uploadRoot)).isTrue();
         Files.write(uploadedPath, ciphertext);
         uploadedFile = uploadedPath.toFile();
         request.setParameter("key", wrap(messageKey));
@@ -340,6 +344,13 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 return;
             }
             String result = action.execute();
+            // A passing failure response must come from the intended phase, not an earlier
+            // source-validation rejection that happens to share its outcome or status.
+            boolean noStage = EnumSet.of(Case.NO_FILE, Case.INVALID_FILENAME,
+                    Case.SOURCE_REJECTED, Case.STAGING_CREATE_FAILURE).contains(testCase);
+            assertThat(stagedFiles).hasSize(noStage ? 0 : 1);
+            boolean opensEncrypted = !noStage && testCase != Case.STAGING_INSIDE_DOCUMENT_DIR;
+            assertThat(encryptedStreams).hasSize(opensEncrypted ? 1 : 0);
             int code = switch (testCase) {
                 case ACCEPTED, NO_FILE, INVALID_FILENAME, SOURCE_REJECTED, HHS_FILTERED -> 200;
                 case DUPLICATE -> 409;
@@ -405,6 +416,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("outcome")).isNull();
         assertThat(request.getAttribute("audit")).isNull();
         assertThat(stagedFiles).isEmpty();
+        assertThat(encryptedStreams).isEmpty();
         assertThat(saveCalls).isZero();
         verifyNoInteractions(uploadDao, handler);
     }
