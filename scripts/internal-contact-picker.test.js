@@ -78,3 +78,17 @@ for (const kind of ['appt', 'report']) {
     });
   }
 }
+
+test('contact-lifecycle locates a result row by the pick button the picker actually renders', () => {
+  // The browser check filters rows by the per-row button that carries the patient
+  // number. When #3985 renamed that button, the check kept the old name and timed
+  // out on a picker that worked (issue #3682). Pin the two to each other.
+  const rowButton = jsp.match(/<td class="demoId">\s*<input type="button"[^>]*\bname="([^"]+)"\s+value="<%=demo\.getDemographicNo\(\)%>"/);
+  assert(rowButton, 'demographicsearch2apptresults.jsp no longer renders a per-row pick button with the patient number');
+  const check = fs.readFileSync(path.join(__dirname, 'contact-lifecycle-playwright-checks.js'), 'utf8');
+  const located = check.match(/patientSearch\.locator\(`input\[name="([^"]+)"\]\[value="\$\{related\}"\]`\)/);
+  assert(located, 'contact-lifecycle no longer selects the related patient by its row button');
+  assert.equal(located[1], rowButton[1]);
+  assert.notEqual(rowButton[1], 'demographic_no',
+    'a row control named demographic_no collides with the picker form\'s hidden demographic_no field');
+});

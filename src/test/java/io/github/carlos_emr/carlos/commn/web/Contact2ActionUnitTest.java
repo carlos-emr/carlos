@@ -183,6 +183,78 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         });
     }
 
+    /**
+     * Every other write the action dispatches is POST-only too. The installed
+     * get-reject-contact-directory check showed a GET replay of
+     * {@code method=saveContact} renaming a directory contact (issue #3682); the
+     * flag and pharmacy writes had the same gap. Dispatch goes through
+     * {@code execute()}, the route a replayed URL actually takes.
+     */
+    @ParameterizedTest(name = "{1} {0}")
+    @CsvSource({
+            "saveContact, GET", "saveContact, HEAD",
+            "saveProContact, GET", "saveProContact, HEAD",
+            "setEmergencyContact, GET", "setEmergencyContact, HEAD",
+            "setDNC, GET", "setDNC, HEAD",
+            "setMRP, GET", "setMRP, HEAD",
+            "addPharmacy, GET", "addPharmacy, HEAD",
+            "removePharmacy, GET", "removePharmacy, HEAD",
+            "savePharmacyInfo, GET", "savePharmacyInfo, HEAD"
+    })
+    void shouldRejectGetAndHead_beforeAnyDirectoryFlagOrPharmacyWrite(String method, String httpMethod) {
+        registerContactActionBeans();
+        mockRequest.setMethod(httpMethod);
+        addRequestParameter("method", method);
+        addRequestParameter("demographic_no", DEMOGRAPHIC_NO);
+        addRequestParameter("contactId", "7");
+        addRequestParameter("contact.id", "7");
+        addRequestParameter("contact.lastName", "Renamed");
+        withStaticWriteDependencies(() -> {
+            assertThat(new Contact2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+            verifyNoInteractions(mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
+                    mockDemographicContactDao, mockDemographicManager, mockPharmacyManager, mockSecurityInfoManager);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveContact", "saveProContact"})
+    void shouldReachPrivilegeCheck_whenDirectoryContactSaveIsPosted(String method) {
+        registerContactActionBeans();
+        addRequestParameter("method", method);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), any()))
+                .thenReturn(false);
+        withStaticWriteDependencies(() -> {
+            assertThatThrownBy(() -> new Contact2Action().execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            assertThat(mockResponse.getStatus()).isEqualTo(200);
+            verifyNoInteractions(mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
+                    mockDemographicContactDao);
+        });
+    }
+
+    private void withStaticWriteDependencies(Runnable scenario) {
+        // The legacy action caches these beans in static fields on first load, so
+        // point them at this test's mocks for the scenario and put them back after.
+        String[] fields = {"contactDao", "proContactDao", "professionalSpecialistDao", "demographicManager", "pharmacyManager"};
+        Object[] mocks = {mockContactDao, mockProfessionalContactDao, mockProfessionalSpecialistDao,
+                mockDemographicManager, mockPharmacyManager};
+        Object[] previous = new Object[fields.length];
+        for (int i = 0; i < fields.length; i++) {
+            previous[i] = ReflectionTestUtils.getField(Contact2Action.class, fields[i]);
+            ReflectionTestUtils.setField(Contact2Action.class, fields[i], mocks[i]);
+        }
+        try {
+            withContactDao(scenario);
+        } finally {
+            for (int i = 0; i < fields.length; i++) {
+                ReflectionTestUtils.setField(Contact2Action.class, fields[i], previous[i]);
+            }
+        }
+    }
+
     @Test
     void shouldRejectRemoval_whenPatientContextIsMissing() {
         registerContactActionBeans();
