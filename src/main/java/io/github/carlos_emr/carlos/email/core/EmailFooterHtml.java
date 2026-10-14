@@ -101,16 +101,24 @@ public final class EmailFooterHtml {
                 .escapeMode(Entities.EscapeMode.base);
         // An editor leaves a line break at the end; it would only add space below the footer.
         String cleaned = stripLeadingBreaks(stripTrailingBreaks(Jsoup.clean(html, "", ALLOWED, output)).strip());
-        return hasVisibleText(toPlainText(cleaned)) ? cleaned : "";
+        // The footer's own text must be visible: a link address written out in the plain-text
+        // version does not count. The Patient Portal refuses such a clinic footer the same way.
+        return hasVisibleText(Jsoup.parseBodyFragment(cleaned).text()) ? cleaned : "";
     }
 
-    /** Whitespace and invisible formatting alone cannot satisfy a required clinic footer. */
+    /**
+     * Whitespace and invisible formatting alone cannot satisfy a required clinic footer. Like the
+     * Patient Portal's check, any Unicode control (C*) or separator (Z*) character counts as
+     * invisible, including private-use and unassigned code points.
+     */
     public static boolean hasVisibleText(String text) {
         return text != null && text.codePoints().anyMatch(character ->
                 !Character.isWhitespace(character) && !Character.isSpaceChar(character)
                         && !Character.isISOControl(character)
                         && Character.getType(character) != Character.FORMAT
-                        && Character.getType(character) != Character.SURROGATE);
+                        && Character.getType(character) != Character.SURROGATE
+                        && Character.getType(character) != Character.PRIVATE_USE
+                        && Character.getType(character) != Character.UNASSIGNED);
     }
 
     /**

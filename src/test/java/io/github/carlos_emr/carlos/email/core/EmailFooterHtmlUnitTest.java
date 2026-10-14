@@ -123,6 +123,23 @@ class EmailFooterHtmlUnitTest {
         }
 
         @Test
+        @DisplayName("should return empty when the only text is private-use symbols, as the Patient Portal does")
+        void shouldReturnEmpty_whenOnlyPrivateUseCharacters() {
+            // U+F0B7 is the bullet a word processor's Symbol font pastes.
+            assertThat(EmailFooterHtml.clean("<p>\uF0B7 \uE000</p>")).isEmpty();
+            assertThat(EmailFooterHtml.clean("<p>\uF0B7 Clinic</p>")).isEqualTo("<p>\uF0B7 Clinic</p>");
+        }
+
+        @Test
+        @DisplayName("should return empty when a link's address is the only visible text")
+        void shouldReturnEmpty_whenOnlyLinkAddressIsVisible() {
+            // The plain-text version would show the address, but the footer itself shows nothing.
+            assertThat(EmailFooterHtml.clean("<a href=\"https://clinic.example\">\u200B</a>")).isEmpty();
+            assertThat(EmailFooterHtml.clean("<a href=\"https://clinic.example\">Clinic</a>"))
+                    .isEqualTo("<a href=\"https://clinic.example\">Clinic</a>");
+        }
+
+        @Test
         @DisplayName("should drop the line breaks an editor leaves at the end")
         void shouldStripTrailingBreaks_whenEditorLeavesThem() {
             assertThat(EmailFooterHtml.clean("Clinic<br> <br>\n<br>  ")).isEqualTo("Clinic");

@@ -121,6 +121,44 @@ An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 2
 
 **Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer. Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text and its separately recorded prepared/accepted/failed/unknown outcome. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
 
+**Portal footer read credential.** The Portal's web and outbox processes need
+`PATIENT_PORTAL_EMAIL_FOOTER_READ_TOKEN`: a credential derived from CARLOS's `patient_portal.service_token`
+and `patient_portal.clinic_id` that opens only `/ws/portal/email-footer`. If it does not match, CARLOS answers
+401 and the Portal refuses every email. Derive it on the CARLOS server as root. The script reads the override
+properties file (Debian: `/etc/carlos-emr/carlos.properties`), so neither secret appears on a command line, and
+writes the result to a new private file. It expects plain `key=value` lines; CARLOS ignores spaces around the
+value and uses the last line for a key, and so does the script.
+
+```sh
+umask 077
+python3 - /etc/carlos-emr/carlos.properties > /root/portal-footer-read-token <<'EOF'
+import hashlib, hmac, sys
+values = {}
+for line in open(sys.argv[1], encoding="utf-8"):
+    key, sep, value = line.partition("=")
+    if sep and key.strip() in ("patient_portal.service_token", "patient_portal.clinic_id"):
+        values[key.strip()] = value.strip()
+token = values["patient_portal.service_token"].encode("utf-8")
+clinic = values["patient_portal.clinic_id"].encode("utf-8")
+message = b"carlos-portal-email-footer-read-v1\0" + len(clinic).to_bytes(8, "big") + clinic
+print(hmac.new(token, message, hashlib.sha256).hexdigest())
+EOF
+```
+
+Copy the 64-character value into the Portal's private deployment files for web and outbox. Then check it
+from the Portal host, reading the value from a private file there; it stays off the command line here too:
+
+```sh
+nonce=$(python3 -c 'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode())')
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H @<(printf 'Authorization: Bearer %s\n' "$(cat /root/portal-footer-read-token)") \
+  "https://carlos.example.ca/carlos/ws/portal/email-footer?nonce=$nonce"
+```
+
+`200` means the Portal can read the footer. `401`: the credential does not match the current service token and
+clinic id. `503`: no clinic footer is saved, or CARLOS's Portal signing settings are incomplete. Delete
+`/root/portal-footer-read-token` afterwards. Derive a new credential whenever the service token or clinic id changes.
+
 **Web application firewall.** Personal HTML is posted in `footerEmail`; admin clinic HTML uses `clinicFooter`. No broad XSS exemption is added. Test the configured ModSecurity rules and real clinic formatting before production deployment. These checks have not been run in the current private environment.
 ## Local Development
 
