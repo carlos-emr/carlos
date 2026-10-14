@@ -423,7 +423,7 @@ test('shouldUseTheRxCommentNamespaceOnlyInRxMainSources', () => {
 /** Source-only chain reader. This is not a ModSecurity evaluator. */
 function sourceChain(id) {
   const rules = logicalLines(fs.readFileSync(BEFORE_CRS, 'utf8')).map(({ text }) => parseSecRule(text)).filter(Boolean);
-  const start = rules.findIndex((rule) => new RegExp(`(?:^|,)id:${id}(?:,|$)`).test(rule.actions));
+  const start = rules.findIndex((rule) => rule.actions.match(/(?:^|,)id:([0-9]+)(?:,|$)/)?.[1] === id);
   assert.ok(start >= 0, `missing policy rule ${id}`);
   const chain = [];
   for (let i = start; i < rules.length; i += 1) {
