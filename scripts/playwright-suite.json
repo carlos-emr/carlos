@@ -4762,7 +4762,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: choosing a quick list in the Disease Registry report adds none of its codes (quicklistname/quickListName mismatch).",
+      "notes": "Its last step pins issue #4547 (finding 157): a quick list the patient registry marks as its default, opened while the report is up, must not be preselected in the report, so a single-code Add adds only that code.",
       "fixtures": "Owns a FAKE- patient with its dxresearch and partial_date rows and a seeded FAKE-<hex> quick list; removes only owned rows."
     },
     {

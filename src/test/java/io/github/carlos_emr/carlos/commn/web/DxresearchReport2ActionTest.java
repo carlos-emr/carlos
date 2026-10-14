@@ -22,7 +22,10 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
+import io.github.carlos_emr.carlos.commn.model.QuickList;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.commn.dao.MyGroupDao;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
@@ -476,6 +479,82 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
             dxCodeSearchBean result = new dxCodeSearchBean("Description " + value, value);
             result.setType(system);
             return result;
+        }
+    }
+
+    /**
+     * Issue #4547. The patient Disease Registry ({@code dxSetupResearch2Action}) stores, under the
+     * shared {@code allQuickLists} session key, a per-provider handler that marks a default list
+     * "Selected". While the report rendered that key, its quick-list selector came back preselected
+     * after any re-render, and the next single-code Add posted the whole list with it.
+     */
+    @Nested
+    @DisplayName("Report quick-list selector isolation (issue #4547)")
+    class ReportQuickListIsolation {
+
+        private QuickListDao quickListDao;
+
+        @BeforeEach
+        void setUpQuickLists() {
+            quickListDao = mock(QuickListDao.class);
+            replaceSpringUtilsBean(QuickListDao.class, quickListDao);
+            when(quickListDao.findDistinct()).thenReturn(List.of("Diabetes", "Hypertension"));
+            when(quickListDao.findByCodingSystem(null)).thenReturn(List.of(
+                    quickList("Diabetes", "250"), quickList("Hypertension", "401")));
+        }
+
+        @Test
+        @DisplayName("should store the report's own unselected quick lists when the report opens")
+        void shouldStoreUnselectedReportQuickLists_whenReportOpens() throws Exception {
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(mockSession.getAttribute(DxresearchReport2Action.REPORT_QUICK_LISTS))
+                    .isInstanceOfSatisfying(dxQuickListBeanHandler.class, handler ->
+                            assertThat(handler.getDxQuickListBeanVector())
+                                    .extracting("quickListName", "lastUsed")
+                                    .containsExactly(tuple("Diabetes", ""), tuple("Hypertension", "")));
+        }
+
+        @Test
+        @DisplayName("should leave the patient registry's quick lists untouched when the report opens")
+        void shouldLeaveRegistryQuickListsUntouched_whenReportOpens() throws Exception {
+            dxQuickListBeanHandler registryLists = new dxQuickListBeanHandler(TEST_PROVIDER);
+            setSessionAttribute("allQuickLists", registryLists);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(mockSession.getAttribute("allQuickLists")).isSameAs(registryLists);
+            assertThat(mockSession.getAttribute(DxresearchReport2Action.REPORT_QUICK_LISTS))
+                    .isNotSameAs(registryLists);
+        }
+
+        @Test
+        @DisplayName("should add only the single code when the registry has marked a list")
+        void shouldAddOnlySingleCode_whenRegistryMarkedAQuickList() throws Exception {
+            dxQuickListBeanHandler registryLists = new dxQuickListBeanHandler(TEST_PROVIDER);
+            assertThat(registryLists.getDxQuickListBeanVector())
+                    .as("precondition: the registry handler marks a default list")
+                    .extracting("lastUsed").contains("Selected");
+            setSessionAttribute("allQuickLists", registryLists);
+            addRequestParameter("method", "addSearchCode");
+            addRequestParameter("codesystem", "icd9");
+            addRequestParameter("codesearch", "401");
+            when(codingSystemManager.getCodeDescription("icd9", "401")).thenReturn("Essential hypertension");
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode").containsExactly(tuple("icd9", "401"));
+            verify(mockDxresearchDAO, never()).getQuickListItems(argThat(name -> name != null && !name.isEmpty()));
+        }
+
+        private QuickList quickList(String name, String code) {
+            QuickList row = new QuickList();
+            row.setQuickListName(name);
+            row.setCreatedByProvider(TEST_PROVIDER);
+            row.setDxResearchCode(code);
+            row.setCodingSystem("icd9");
+            return row;
         }
     }
 

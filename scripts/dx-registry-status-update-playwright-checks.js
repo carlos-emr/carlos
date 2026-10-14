@@ -12,7 +12,9 @@
 // reactivates the same row; Delete from active archives it (status D); the
 // report's Active/Resolved/Deleted/All filters list exactly the owned rows
 // with DB-identical code, status and start date; Clear empties the code list;
-// a quick list chosen in the report adds its codes.
+// a quick list chosen in the report adds its codes; a quick list the patient
+// registry marks as its default is never preselected in the report, so a
+// single-code Add adds only that code (issue #4547).
 // Fixtures: owned FAKE- patient, its dxresearch/partial_date rows, a seeded
 // quick list FAKE-<hex>; cleanup deletes only those and asserts they are gone.
 // Coverage plan: §2.5 dx-registry-status-update.
@@ -232,6 +234,33 @@ async function workflow(s) {
       'Case-insensitive report criteria changed patient diagnoses');
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
     assert(await codeRows().count() === 0, 'Clear left alphabetic criteria behind');
+  });
+  // Issue #4547: the patient registry stores a quick-list handler that marks a default list
+  // selected. Opened while the report is up, it must not preselect that list in the report,
+  // or the next single-code Add posts the whole list with it.
+  await s.step('a quick list the patient registry marks is never preselected in the report', async () => {
+    const echart = await s.chart();
+    const again = await s.popup(echart, echart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-status-registry-reopen');
+    const markedOption = again.locator('#dxCodeQuicklist select[name="quickList"] option[selected]');
+    assert(await markedOption.count() >= 1, 'Precondition: the patient registry did not mark a default quick list');
+    const marked = await markedOption.first().getAttribute('value');
+    await again.close();
+    const added = [];
+    for (const code of ['401', '272']) {
+      await report.locator('#codingSystem').selectOption('icd9');
+      await typeAutocomplete(report, '#codesearch', CODES[code], { option: new RegExp(`^${code}: `) });
+      assert(await report.locator('select[name="quickListName"]').inputValue() === '',
+        `The report preselected a quick list before adding ${code}`);
+      await submit(report.getByRole('button', { name: 'Add', exact: true }));
+      added.push(code);
+      const shown = await codeRows().evaluateAll(trs => trs.map(tr => tr.querySelectorAll('td')[1].textContent.trim()));
+      assert(JSON.stringify(shown.sort()) === JSON.stringify([...added].sort()),
+        `A single-code Add of ${code} added other criteria: ${shown.join(',')}`);
+      assert(await report.locator('select[name="quickListName"]').inputValue() === '',
+        `After adding ${code} the report preselected quick list "${marked}"`);
+    }
+    await submit(report.getByRole('button', { name: 'Clear', exact: true }));
+    assert(await codeRows().count() === 0, 'Clear left single-code criteria behind');
   });
 }
 

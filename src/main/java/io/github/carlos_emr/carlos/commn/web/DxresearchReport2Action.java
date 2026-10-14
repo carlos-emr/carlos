@@ -102,6 +102,16 @@ public class DxresearchReport2Action extends ActionSupport {
     /** Prefix used by the JSP provider selector for provider group expansion. */
     private static final String GROUP_PREFIX = "_grp_";
 
+    /**
+     * Session key for the quick-list names the report's "Add Dx QuickList" selector offers.
+     *
+     * <p>Deliberately not {@code allQuickLists}: the patient Disease Registry
+     * ({@code dxSetupResearch2Action}) stores a per-provider handler under that key with a default
+     * list marked selected, and while the report rendered it the selector came back preselected,
+     * so the next single-code Add posted the whole list with it (issue #4547).
+     */
+    static final String REPORT_QUICK_LISTS = "dxReportQuickLists";
+
     /** Group name after {@link #GROUP_PREFIX}: alphanumeric/underscore, 1-20 characters (generous upper bound). */
     private static final Pattern GROUP_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,20}$");
 
@@ -196,8 +206,9 @@ public class DxresearchReport2Action extends ActionSupport {
         }
 
         request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty DxRegistedPTInfo object, no user input
+        // The report's own key, never the registry's allQuickLists: see REPORT_QUICK_LISTS.
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();
-        request.getSession().setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- DAO-sourced quick list handler, no user input
+        request.getSession().setAttribute(REPORT_QUICK_LISTS, quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- DAO-sourced quick list handler, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).
