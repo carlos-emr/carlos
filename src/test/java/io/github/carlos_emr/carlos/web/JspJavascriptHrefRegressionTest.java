@@ -102,6 +102,19 @@ class JspJavascriptHrefRegressionTest {
             Pattern.compile("<a\\b[^>]*?href\\s*=\\s*([\"'])#\\1[^>]*?\\bonclick\\s*=", Pattern.CASE_INSENSITIVE);
 
     @Test
+    @DisplayName("should open the inbox consultation popup with a defined window name")
+    void shouldOpenConsultationPopup_withDefinedWindowName() throws Exception {
+        // The inbox's consult link now has a real href: if popupConsultation throws, the browser
+        // follows that href in place. msgConsReq was never defined, so it always threw.
+        for (String file : new String[] {"share/javascript/oscarMDSIndex.js", "WEB-INF/jsp/oscarMDS/documentsInQueues.jsp"}) {
+            assertThat(Files.readString(WEBAPP_ROOT.resolve(file)))
+                    .as(file)
+                    .doesNotContain("window.open(page, msgConsReq")
+                    .contains("window.open(page, 'consultationRequest', windowprops)");
+        }
+    }
+
+    @Test
     @DisplayName("should give converted links a real href or make them buttons")
     void shouldNotUseHashAnchorAsButton_inConvertedPages() throws Exception {
         List<String> offenders = new ArrayList<>();
