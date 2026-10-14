@@ -55,8 +55,15 @@ const CLEAR_STEP = 'Clear Photo in the first photo manager keeps the photo of th
 const sha = bytes => require('node:crypto').createHash('sha256').update(bytes).digest('hex');
 const photo = chart => chart.locator('#rightNavBar img[title="Click to upload a new photo."]');
 const isClientImagePost = r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST';
-/** The patient a manager's form posts: the hidden demographicNo of the form carrying the given method. */
-const postedPatient = (manager, method) => manager.locator(`form:has(input[name="method"][value="${method}"]) input[name="demographicNo"]`);
+/**
+ * The patient a manager's form posts: the value of the one hidden demographicNo in the form carrying the given
+ * method, or null when that form posts none (the page before #4546 posted no patient at all). The form is rendered
+ * by the server, so it is complete once the manager has loaded; no wait is needed.
+ */
+async function postedPatient(manager, method) {
+  const field = manager.locator(`form:has(input[name="method"][value="${method}"]) input[name="demographicNo"]`);
+  return await field.count() === 1 ? field.inputValue() : null;
+}
 /** Accept every dialog on a page the strict recorder does not wire (a throwaway login's); returns their types. */
 function acceptDialogs(page) {
   const types = [];
@@ -185,7 +192,7 @@ async function workflow(s) {
     // Clear Photo posts method=deleteImage with the manager's demographicNo; this GET names the
     // owned patient the same way, so it targets exactly the photo the real form would delete.
     const manager = await openManager();
-    h.assert(await postedPatient(manager, 'deleteImage').inputValue() === patient,
+    h.assert(await postedPatient(manager, 'deleteImage') === patient,
       'Clear Photo does not post the patient the manager was opened for');
     await manager.locator('button.btn-secondary', { hasText: 'Cancel' }).click();
     if (!manager.isClosed()) await manager.waitForEvent('close');
@@ -270,8 +277,7 @@ async function workflow(s) {
       && new URL(managerA.url()).searchParams.get('demographicNo') === patient,
     'The first photo manager is not bound to the first patient');
     for (const method of ['saveImage', 'deleteImage']) {
-      h.assert(await postedPatient(managerA, method).inputValue() === patient
-        && await postedPatient(managerB, method).inputValue() === patientB,
+      h.assert(await postedPatient(managerA, method) === patient && await postedPatient(managerB, method) === patientB,
       `The ${method} form of each photo manager does not post its own patient`);
     }
   });
@@ -312,7 +318,7 @@ async function workflow(s) {
   await s.step('Upload in the first photo manager stores the photo for the first patient and keeps the second', async () => {
     const manager = await openManager();
     await h.gotoApp(managerB, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
-    h.assert(await postedPatient(managerB, 'saveImage').inputValue() === patientB,
+    h.assert(await postedPatient(managerB, 'saveImage') === patientB,
       'The reopened second photo manager does not post the second patient');
     await upload({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: aPhoto }, manager);
     await expectValue(sql, `SELECT CONCAT(COUNT(*),'|',MAX(image_type),'|',MAX(SHA2(FROM_BASE64(contents),256)))
@@ -353,7 +359,7 @@ async function workflow(s) {
     doctor = await signIn(s, login);
     const manager = await doctor.context.newPage();
     await h.gotoApp(manager, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
-    h.assert(await postedPatient(manager, 'deleteImage').inputValue() === patientB,
+    h.assert(await postedPatient(manager, 'deleteImage') === patientB,
       'The locked login\'s photo manager does not post the second patient');
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patientB}`);
     const dialogs = acceptDialogs(manager);
