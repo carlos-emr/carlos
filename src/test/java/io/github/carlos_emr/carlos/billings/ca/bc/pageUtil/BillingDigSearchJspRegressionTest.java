@@ -82,4 +82,13 @@ class BillingDigSearchJspRegressionTest {
             assertThat(jsp).as(name).doesNotContain("<%=" + name + "%>");
         }
     }
+
+    @Test
+    @DisplayName("should close each code link with an end tag")
+    void shouldCloseEachCodeLink_withEndTag() throws IOException {
+        String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
+
+        // The rows used "<a>" where "</a>" was meant, opening a stray empty link after every code.
+        assertThat(jsp).doesNotContain("<a></font>");
+    }
 }
