@@ -868,7 +868,7 @@
 
 
         <style>
-            .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
         </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
