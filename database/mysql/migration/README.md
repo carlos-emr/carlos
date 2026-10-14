@@ -56,9 +56,9 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.52`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.57`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
-location — shared or province — is `V1.0.53`.
+location — shared or province — is `V1.0.58`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
@@ -210,8 +210,9 @@ consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`.
 Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
 adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
 `measurements`. Provider signature identity is enforced by
-`common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
-`V1.0.53`. Apply/merge these forward migrations in version order; if their merge
+`common/V1.0.52__enforce_provider_signature_identity.sql`. Rourke 2020 page III/IV
+immunization notes (#4602) add `common/V1.0.57__preserve_rourke2020_immunization_notes.sql`.
+The next unallocated version is `V1.0.58`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

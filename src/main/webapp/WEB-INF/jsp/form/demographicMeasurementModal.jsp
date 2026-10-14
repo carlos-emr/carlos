@@ -114,6 +114,7 @@
     let measurementTypeMap = {
         'WT': {'name': 'Weight', 'instructions': 'in kg'},
         'HT': {'name': 'Height', 'instructions': 'in cm'},
+        'HEAD': {'name': 'Head circumference', 'instructions': 'in cm'},
         'HR': {'name': 'Heart Rate', 'instructions': 'in BPMB'},
         'BP': {'name': 'Blood Pressure', 'instructions': ''}
     };
@@ -280,7 +281,14 @@
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
-                    if (accepted) document.getElementById(elementId).value = currentValueInput.value;
+                    if (accepted) {
+                        const target = document.getElementById(elementId);
+                        if (target.value !== currentValueInput.value) {
+                            target.value = currentValueInput.value;
+                            // The dialog lives outside the form; notify its autosave and unsaved-change handlers.
+                            target.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
                 });
             }
         });

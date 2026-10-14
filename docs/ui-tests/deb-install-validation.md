@@ -78,6 +78,18 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`eform-admin-crud-playwright-checks.js` fixture cleanup (issue #4408) was run on
+2026-10-08 against 2026.09.0~snapshot26 packages built from the `release/2026.08`
+fix branch (carlos-ctl 1.1.2 built from the pinned commit, because its release
+asset was not downloadable) and installed into an Ubuntu 26.04 container with the demo
+dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`, `:443`). With
+`MYSQL_PASSWORD` set: a passing run **PASS**es and leaves no `Playwright Admin CRUD`
+row; a real SIGTERM sent after the form was created exits 143 and removes it; a run
+forced to fail after creation keeps the form for diagnosis. A configured cleanup that cannot complete (DB user denied) now makes the run **FAIL**
+with exit 1 rather than print PASS over leaked rows, and a Chromium launch failure leaves no
+SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
+the check still **PASS**es, prints a note, and leaves the restored form. The three
+other library forms were untouched in every case.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
@@ -353,6 +365,32 @@ self-signed TLS, services running as their unprivileged accounts?
 
 Testing `http://127.0.0.1:18080/carlos` (Tomcat directly) **bypasses the WAF
 and answers a different question**. Every check below goes through `:443`.
+
+## Focused WAF regressions
+
+For issues #4571–#4575, run `python3 scripts/waf/check-clinical-policy.py
+--evidence-dir /tmp/waf-evidence` from the checkout (the evidence directory must
+be absent or empty). This requires Python 3.10+, Node, nginx, its ModSecurity
+module, and CRS; Ubuntu 26.04 supplies them as `python3 nodejs nginx
+libnginx-mod-http-modsecurity modsecurity-crs`. The `WAF Policy` workflow runs
+the same command and retains the report, policy snapshots, request receipts and
+correlated audit logs. It uses ephemeral loopback listeners and a fixture
+upstream, preserving the shipped policy's blocking, scores and response MIME
+inspection. It checks clinical prose and negative boundaries, including encoded
+path traversal, malformed numeric field names, XSS/SQLi and outbound leaks.
+
+Application validation remains the `front-door` tier's
+`waf-clinical-text-corpus` check. It now runs all 24 rows without expected-failure
+pins for findings 209–213. With the normal suite environment loaded, use
+`npm run test:waf-clinical-text-corpus-playwright`; dedicated aliases also exist
+for individual rows, including `rx-comment-save` and
+`incoming-encounter-reason`. The latter follows both chart redirects and checks
+the patient and exact reason at each hop. Rx comment, name and sig rows use the
+real page's Save Only and verify stored values. Both JSON response rows require
+a complete answer. Keep `EXPECT_FRONT_DOOR=true` and a readable `WAF_AUDIT_LOG`;
+these browser checks also need the documented application, DrugRef and fixture
+prerequisites. A policy-harness pass does not substitute for these application
+checks.
 
 ## Host prerequisites
 

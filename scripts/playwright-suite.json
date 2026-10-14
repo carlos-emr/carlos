@@ -5716,8 +5716,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Rourke 2020 well-baby record and the two growth charts, driven from the Forms menu for an owned infant: Rourke 2020 opens with no error page, script error or failed asset and no unresolved message key; the weights and lengths saved in the measurement dialog are stored in measurements (type, value, instruction, date, provider) and imported into the form; Save stores one row with every typed value on all four pages (and its radio buttons in form_boolean_value) and the saving provider; Save redisplays the record in the same window; a fresh chart's saved-form entry reopens it; both show every value again on every page and the All tab shows the four pages; the Length and Weight and Head Circumference graph PDFs have their expected pages, plot every typed point (counted from the content streams) and draw every page as a non-trivial PNG, plot weights and lengths held only in measurements, and plot the Growth 0-36 rows; Print is a four-page PDF that carries the typed text and values; a second record with a distinct value in every other text box and every radio button and checkbox ticked is stored and shown again. Growth 0-36m and Growth Chart: the same open, keys, save, redisplay, reopen and restore concerns, and every print button (Print Growth, Head Circ(1) and (2); Print Growth for two blocks) answers a one-page PDF that carries the typed text and plots every typed point as a non-trivial PNG. The graph is a PDF, not the PNG the brief assumed; see the script header. This entry asserts every pair not claimed by a variant, so it passes when the rest is sound. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour."
+      "notes": "Rourke 2020 and both growth forms, driven from the Forms menu for an owned infant: open, measure, save, redisplay, reopen, graph and print; every text box and all 1,397 checkbox/radio controls round-trip. The main entry and its concern-specific variants together cover every concern exactly once. Former findings 243–253 are regressions, with no expected failures. Printing the seven page II notes adds labelled continuation pages to the four original pages. Save and Print timings are reported as diagnostics; no machine-dependent timing threshold is asserted.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-head-circumference",
@@ -5741,12 +5741,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 243: head circumference has no measurement dialog (the Ht. and Wt. labels are links, the head circumference cells are not, and the dialog knows only WT, HT, HR and BP). Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 243,
-        "step": "Rourke 2020: head circumference can be saved to measurements from the form like weight and length"
-      }
+      "notes": "Birth and visit head circumference can be saved as HEAD measurements in centimetres and imported into the form. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-measure-date",
@@ -5771,7 +5767,7 @@
         "encounterForm"
       ],
       "notes": "Rourke 2020, pinned to finding 152: the measurement dialog files the UTC date, not the clinician's, shown deterministically by running the browser in a time zone whose date differs from UTC's. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed. Finding 152 is fixed on release/2026.08 by #4443 and the step that was pinned to it passed live on 2026.09.0~snapshot26, so it is now this fix's regression test and the entry carries no expectedFailure.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour."
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-storage",
@@ -5795,12 +5791,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 244: the Immunization boxes of pages III and IV have no column, so what is typed in them is dropped by Save. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 244,
-        "step": "Rourke 2020: every box the form offers can hold what is typed in it"
-      }
+      "notes": "All offered notes, including page III and IV immunization, survive Save and reopen. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-null",
@@ -5824,12 +5816,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 245: the printed record shows the word null in every empty visit-date field. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 245,
-        "step": "Rourke 2020: the printed form leaves an empty visit date blank"
-      }
+      "notes": "Unset visit dates print blank. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-sex",
@@ -5853,12 +5841,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 246: FormRourke2020.toProperties() sets c_male from c_female, so the printed record marks both sexes for a girl and neither for a boy. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 246,
-        "step": "Rourke 2020: the printed form marks the sex of the patient, and only that"
-      }
+      "notes": "Only the patient sex box is marked. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-gestation",
@@ -5882,12 +5866,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 247: the printed gestational age is one week short for a pregnancy of a whole number of weeks. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 247,
-        "step": "Rourke 2020: the printed gestational age is the weeks from the start of pregnancy to the birth"
-      }
+      "notes": "Completed gestational weeks include exact weekly boundaries. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-notes",
@@ -5911,12 +5891,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 248: the seven page II note boxes (Development, Physical Examination and Immunization under the 2, 4 and 6 month columns) that the Jasper template declares a parameter for and never places never reach the printed record. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 248,
-        "step": "Rourke 2020: the printed form carries the notes typed in the page II boxes the template declares for them"
-      }
+      "notes": "The seven page II note boxes print on labelled continuation pages without changing the original four-page checklist. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-dob",
@@ -5940,12 +5916,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Growth 0-36m and Growth Chart, pinned to finding 249: the printed charts leave the DOB line empty. The first (Growth 0-36m) is the pinned step and the Growth Chart shares the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 249,
-        "step": "Growth 0-36m: the printed chart carries the date of birth"
-      }
+      "notes": "Growth 0–36 and Growth Chart PDFs include the date of birth. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-print-bmi",
@@ -5969,12 +5941,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Growth Chart, pinned to finding 250: Print BMI answers HTTP 500 because formGrowthChartPrint.jsp uses the empty __cfgGraphicFile expression before defining it. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 250,
-        "step": "Growth Chart: Print BMI produces a PDF"
-      }
+      "notes": "Print BMI returns a chart PDF. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-graph-title",
@@ -5998,12 +5966,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020, pinned to finding 252: the lower Graph Length and Weight link on page I opens a PDF titled Baby Head Circumference, and the upper one Baby Growth Graph1, for the same chart (formRourke2020p1.jsp passes __title=Baby+Head+Circumference on the lower link). Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 252,
-        "step": "Rourke 2020: both Graph Length and Weight links open a PDF with the same, length-and-weight title"
-      }
+      "notes": "Both page I Length and Weight links give the PDF the same title. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "form-rourke2020-growth-window-title",
@@ -6027,12 +5991,8 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Growth 0-36m, pinned to finding 253: the form window is titled CDC US Growth Charts although its charts are the WHO Growth Charts for Canada (form.growth0_36.title). Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); ROURKE_GROWTH_ONLY and ROURKE_GROWTH_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts (the sweep, a second save with every box ticked, only when it is asserted). The entries: form-rourke2020-growth (everything not below), -head-circumference (243), -measure-date (152), -storage (244), -print-null (245), -print-sex (246), -print-gestation (247), -print-notes (248), -print-dob (249), -print-bmi (250), -graph-title (252), -window-title (253). Finding 251 (Save about 7 s, Print about 11 s) is deliberately not pinned: the timings are unstable and no budget is agreed.",
-      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date pin is deterministic at every hour.",
-      "expectedFailure": {
-        "finding": 253,
-        "step": "Growth 0-36m: the window title does not name the CDC US charts, which the form does not draw"
-      }
+      "notes": "The Growth 0–36 window identifies WHO Growth Charts for Canada. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
       "name": "palliative-care-save-reopen",
@@ -10392,9 +10352,6 @@
     {
       "name": "waf-clinical-text-corpus",
       "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
-      "envSet": {
-        "WAF_CORPUS_SKIP": "tickler-list,tickler-list-response,rx-custom-drug-name,rx-custom-drug-save,rx-update-script,measurement-comment,eform-letter"
-      },
       "tiers": [
         "front-door"
       ],
@@ -10402,7 +10359,7 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 600,
+      "timeoutSec": 900,
       "env": [
         "EXPECT_FRONT_DOOR",
         "MYSQL_PASSWORD",
@@ -10422,7 +10379,7 @@
         "providerLabRouting"
       ],
       "fixtures": "Owned FAKE patient (runWorkflow) and the rows each save writes for it, found by the patient and by an id watermark taken before the corpus is sent and deleted by key after every row (tickler, tickler_comments, drugs, allergies, measurements, preventions with their preventionsExt, appointments, casemgmt_note, messagetbl with its delivery rows above the run's marks, billing_on_cheader1 with its children, eform_data with its eform_values); one owned tickler for the edit, one owned PDF in DOCUMENT_DIR with its document and ctl_document rows, owned Ontario bills (lib/billing seedOwnedBill), and one demo HL7 lab routed to the test login for the acknowledge, whose providerLabRouting row is restored exactly. The lab routing is the only shared row, and lab-acknowledge and the lab macro checks route the same demo lab: this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup asserts each set gone.",
-      "notes": "The clinical phrase corpus (lib/clinical-prose-corpus.js, the same seven sentences clinical-freetext uses) through every route in the plan's list that has a prose WAF exclusion, one row each: tickler add, edit, the list search term and the list answer, Rx special instruction, custom drug name (the rename key-up and the Save Only box) and sig, allergy add, the measurement dialog and the Vitals comment, prevention, document description, lab acknowledge, messenger, appointment add and update, chart note, eForm Rich Text Letter, and the three Ontario billing comment routes (1134-1136; 1137 is BC and out of scope). A route reached through two different arguments or answers is two rows, because a pin names one defect. Each row is a control step (the real UI save with plain text) and a corpus step that saves every phrase at once, the pasted-link phrase first, fitted to the column where it is short, and asserts what the row proves: the stored text byte for byte, or for the two kinds of row that store nothing (the Rx rename goes to a session stash; a search term and a display page are read-only) that the route accepted it, or for the list answer that the message comes back exactly. A WAF 403, or an answer the WAF drops, fails the corpus step with the CRS rule ids read from the ModSecurity audit log (/var/log/carlos-emr/modsec/modsec_audit.log; WAF_AUDIT_LOG to move it). A last step sends the same corpus in an argument no exclusion names and requires the WAF's 403, which proves the rows measured the WAF. Run with EXPECT_FRONT_DOOR=true. This entry runs the fifteen rows that pass; the seven rows with an open finding run on their own below, each pinned to its finding (WAF_CORPUS_SKIP lists them, WAF_CORPUS_ONLY picks one). When a finding is fixed, its entry reports an unexpected pass: drop its expectedFailure and entry and take the row out of the skip list. Billing rows need an OHIP code with a fee (BILLING_CORRECTION_CODE, default A007A); the document row needs DOCUMENT_DIR; the letter row needs the stock Rich Text Letter eForm."
+      "notes": "The clinical phrase corpus (lib/clinical-prose-corpus.js, the same seven sentences clinical-freetext uses) through every route in the plan's list that has a prose WAF exclusion, one row each: tickler add, edit, the list search term and the list answer, Rx special instruction, custom drug name (the rename key-up and the Save Only box) and sig, allergy add, the measurement dialog and the Vitals comment, prevention, document description, lab acknowledge, messenger, appointment add and update, chart note, eForm Rich Text Letter, and the three Ontario billing comment routes (1134-1136; 1137 is BC and out of scope). A route reached through two different arguments or answers is two rows, because a pin names one defect. Each row is a control step (the real UI save with plain text) and a corpus step that saves every phrase at once, the pasted-link phrase first, fitted to the column where it is short, and asserts what the row proves: the stored text byte for byte, or for the two kinds of row that store nothing (the Rx rename goes to a session stash; a search term and a display page are read-only) that the route accepted it, or for the list answer that the message comes back exactly. A WAF 403, or an answer the WAF drops, fails the corpus step with the CRS rule ids read from the ModSecurity audit log (/var/log/carlos-emr/modsec/modsec_audit.log; WAF_AUDIT_LOG to move it). A last step sends the same corpus in an argument no exclusion names and requires the WAF's 403, which proves the rows measured the WAF. Run with EXPECT_FRONT_DOOR=true. This entry runs all 24 rows, including the Rx More comment saved as rxComment_<n> and the incoming encounter reason through both chart redirects. Findings 209-213 (#4571-#4575) are fixed; dedicated row entries remain available for focused regressions without expected-failure pins. Rx Save Only and Save & Print omit the unused search box from their payloads. The real-engine security boundary checks run separately in scripts/waf/check-clinical-policy.py."
     },
     {
       "name": "waf-clinical-text-corpus-eform-letter",
@@ -10453,11 +10410,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The eform-letter row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=eform-letter), pinned to finding 209. Rich Text Letter (exclusion 1045): a letter whose first line is a pasted link with an IP address is refused 403 by CRS 931100 on ARGS:Letter, because rule 1045 does not unhook attack-rfi. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 209,
-        "step": "eForm save (Rich Text Letter): the clinical corpus saves through /eform/addEForm and lands exactly"
-      }
+      "notes": "Types the full clinical corpus, including the leading IP-address PACS URL, into the real Rich Text Letter editor and submits it. Requires the exact stored Letter text; regression for #4571 (finding 209). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-custom-drug-name",
@@ -10488,11 +10441,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-custom-drug-name row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-custom-drug-name), pinned to finding 210. Rx custom drug name (exclusions 1107 and 1108): retyping the name in its own box posts customName to rx/WriteScript (saveCustomName, the session stash), where only the lower-case rx/writeScript is exempt; 403 on ARGS:customName (931100, 932110). The row stops at that key-up post, so it holds this one defect: what Save Only then stores is the rx-custom-drug-save row (finding 211). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 210,
-        "step": "Rx custom drug name (renamed in its own box): the clinical corpus is accepted by /rx/WriteScript"
-      }
+      "notes": "Stages a custom drug and types each length-bounded corpus chunk into its name box. Requires the uppercase WriteScript saveCustomName key-up request to succeed; regression for #4572 (finding 210). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-custom-drug-save",
@@ -10523,11 +10472,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-custom-drug-save row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-custom-drug-save), pinned to finding 211. Rx custom drug name staged from the search box with the corpus (exclusion 1108 covers the staging post) and saved with Save Only: Save Only posts the card's drugName_<n> box to rx/WriteScript, which no rule names. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 211,
-        "step": "Rx custom drug name (staged from the search box, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly"
-      }
+      "notes": "Stages each length-bounded corpus chunk as a custom drug name and clicks Save Only. Requires exact drugs.customName values, including when the search box still contains the name; regression for #4573 (finding 211). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-update-script",
@@ -10558,11 +10503,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-update-script row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-update-script), pinned to finding 211. Rx sig (exclusion 1109): the blur post to rx/UpdateScript passes, but Save Only posts the same text as instructions_<n> to rx/WriteScript, which no rule names; 403 (930100, 930110, 931100, 932100, 932110, 932130, 933100). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 211,
-        "step": "Rx sig (parsed on blur, then Save Only): the clinical corpus saves through /rx/UpdateScript and lands exactly"
-      }
+      "notes": "Types the clinical corpus into the sig, submits its blur update, then clicks Save Only. Requires the complete sig in drugs.special; regression for #4573 (finding 211). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-measurement-comment",
@@ -10593,11 +10534,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The measurement-comment row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=measurement-comment), pinned to finding 212. Vitals comment (the AFTER-CRS comments-<n> pattern): the save lands, but the JSON answer repeats the comment and CRS 953120 drops it on RESPONSE_BODY when the text holds a <? (the wound-measurement phrase). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 212,
-        "step": "measurement comment (Vitals): the clinical corpus saves through /encounter/Measurements and lands exactly"
-      }
+      "notes": "Submits each length-bounded corpus chunk through Vitals. Requires both the successful JSON answer and the exact saved measurement comment, including the literal <?> phrase; regression for #4574 (finding 212). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-tickler-list",
@@ -10628,11 +10565,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The tickler-list row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=tickler-list), pinned to finding 213. Tickler list search (exclusion 1141): the search term travels in the query string, so CRS 930100 and 930110 (path traversal) refuse a term holding ../ on REQUEST_URI_RAW and REQUEST_URI, which a per-argument exclusion cannot reach. The tickler is the plain fixture and only the term carries the corpus, so the list's answer holds nothing a response rule could refuse: the saved message coming back is the tickler-list-response row (finding 212). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 213,
-        "step": "tickler list search (the term): the clinical corpus is accepted by /tickler/ListTicklers"
-      }
+      "notes": "Searches the real tickler list with the corpus, including ../ in the query string. Requires successful JSON and no false match against a plain fixture tickler; regression for #4575 (finding 213). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-tickler-list-response",
@@ -10663,11 +10596,69 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The tickler-list-response row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=tickler-list-response), pinned to finding 212. A tickler whose message holds the corpus (written by SQL) is listed with a plain search term; the list's JSON answer carries the message, and CRS 953120 (a '<?' in the response body) drops it, so the client gets no answer at all. The package has no exclusion for a response body. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 212,
-        "step": "tickler list (the saved message comes back): the clinical corpus comes back through /tickler/ListTicklers exactly"
-      }
+      "notes": "Stores the corpus in an owned tickler and lists it with a plain search term. Requires the complete JSON response and exact echoed message, including <?>; regression for #4574 (finding 212). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
+    },
+    {
+      "name": "waf-clinical-text-corpus-rx-comment-save",
+      "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
+      "envSet": {
+        "WAF_CORPUS_ONLY": "rx-comment-save"
+      },
+      "tiers": [
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "RTL_FORM_NAME",
+        "BILLING_CORRECTION_CODE",
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE",
+        "WAF_CORPUS_ONLY",
+        "WAF_CORPUS_SKIP",
+        "WAF_AUDIT_LOG"
+      ],
+      "notes": "Reveals a custom Rx card’s More panel, types each 255-character-bounded corpus chunk into Comment and clicks Save Only. Requires exact drugs.comment values for rxComment_<n>; regression for #4573 (finding 211). The plain-text UI control runs first; cleanup removes only owned fixtures."
+    },
+    {
+      "name": "waf-clinical-text-corpus-incoming-encounter-reason",
+      "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
+      "envSet": {
+        "WAF_CORPUS_ONLY": "incoming-encounter-reason"
+      },
+      "tiers": [
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "RTL_FORM_NAME",
+        "BILLING_CORRECTION_CODE",
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE",
+        "WAF_CORPUS_ONLY",
+        "WAF_CORPUS_SKIP",
+        "WAF_AUDIT_LOG"
+      ],
+      "notes": "Captures the Master Record E-Chart link, substitutes each corpus chunk into reason, and follows IncomingEncounter → ViewForward → CaseManagementEntry. Requires the exact patient/reason at both redirects and the successful chart body; regression for #4575 (finding 213). The plain-text UI control runs first; cleanup removes only owned fixtures."
     },
     {
       "name": "lab-to-flowsheet",
