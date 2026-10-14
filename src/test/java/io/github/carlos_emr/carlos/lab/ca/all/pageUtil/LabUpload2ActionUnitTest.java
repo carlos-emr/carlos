@@ -306,6 +306,23 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 byte[] ciphertext = Files.readAllBytes(uploadedPath);
                 Files.write(uploadedPath, Arrays.copyOf(ciphertext, ciphertext.length - 1));
             }
+            case CIPHER_AES_BUFFER_FAULT -> {
+                assertThat(Files.size(uploadedPath)).isGreaterThan(128);
+                paths.when(() -> PathValidationUtils.openValidatedUploadInputStream(uploadedFile))
+                        .thenAnswer(call -> {
+                            if (!runRealMethods) return null;
+                            InputStream encrypted = spy((InputStream) call.callRealMethod());
+                            encryptedStreams.add(encrypted);
+                            // CipherInputStream starts with no output buffer. Its first update
+                            // returns byte[], so a second real read is needed before the
+                            // five-argument output-buffer update can fail with ShortBuffer.
+                            doAnswer(read -> {
+                                byte[] buffer = read.getArgument(0);
+                                return encrypted.read(buffer, 0, Math.min(buffer.length, 128));
+                            }).when(encrypted).read(any(byte[].class));
+                            return encrypted;
+                        });
+            }
             case WRAPPED_AES_KEY_SIZE_BAD -> request.setParameter("key",
                     wrap(new SecretKeySpec(new byte[17], "AES")));
             case STAGING_READ_IO_FAULT -> paths.when(() ->
