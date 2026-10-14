@@ -14,6 +14,7 @@
   opens it; applying writes the cleaned HTML into that input and redraws that preview.
   @since 2026-10-08
 --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>

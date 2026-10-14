@@ -1,4 +1,7 @@
 <%-- Saved Portal snapshots only: escaped plaintext, no remote HTML or image. --%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:if test="${portalFooterAuditEnabled}">
     <div class="card shadow-sm rounded mt-4 mb-5">
