@@ -463,6 +463,14 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                             </table>
                         </td>
                     </tr>
+                    <% if (mDSSegmentData.isLoadFailed()) { %>
+                    <%-- A failed query leaves the report partly read; say so rather than show it as complete. --%>
+                    <tr>
+                        <td bgcolor="white" colspan="2">
+                            <div class="FieldData" id="mdsLoadFailed" role="alert" style="color:#a00000; font-weight:bold;"><fmt:message key="oscarMDS.segmentDisplay.msgLoadFailed"/></div>
+                        </td>
+                    </tr>
+                    <% } %>
                     <tr>
                         <td align="center" bgcolor="white" colspan="2">
                             <%
