@@ -68,6 +68,11 @@ class AppointmentArchiveBeforeStatusWriteRegressionTest {
         String body = body("integration/hl7/handlers/PhsStarHandler.java",
                 "public void rescheduleAppointment(", "public void updateAppointmentStatus(");
         assertArchivedBefore(body, "appt.setProviderNo(");
+        // The program mapping can throw HL7Exception; it must be validated before the archive row is
+        // written, or a rejected message leaves a history version that was never replaced.
+        assertThat(body.indexOf("findProgram2()")).as("program validation").isGreaterThanOrEqualTo(0);
+        assertThat(body.indexOf("findProgram2()")).as("program validated before archiving")
+                .isLessThan(body.indexOf("archiveAppointment("));
     }
 
     @Test

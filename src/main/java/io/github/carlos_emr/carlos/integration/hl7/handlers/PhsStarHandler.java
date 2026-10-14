@@ -464,6 +464,20 @@ public class PhsStarHandler extends BasePhsStarHandler {
             throw new HL7Exception("Unable to match providers..cannot make appointment - " + getApptPractitionerNo());
         }
 
+        logger.info("resource unit = " + getApptResourceUnit());
+        logger.info("procedure = " + getProcedureName());
+//		String programId = findProgram(getApptResourceUnit(),getProcedureName());
+        // Resolve and validate the program first: its HL7Exception must fire before anything is
+        // archived or changed, or the archive would gain a version that was never replaced.
+        String programId = findProgram2();
+        Program p = null;
+        if (programId != null) {
+            p = programDao.getProgram(Integer.parseInt(programId));
+            if (p == null) {
+                throw new HL7Exception("System not configured to accept messages for runit " + getApptResourceUnit());
+            }
+        }
+
         // Keep the replaced version in appointmentArchive before moving the appointment (issue #4589).
         appointmentArchiveDao.archiveAppointment(appt);
 
@@ -474,19 +488,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
         appt.setLocation(getApptLocation());
         appt.setType(getApptType());
         appt.setReason(getApptReason());
-
-        logger.info("resource unit = " + getApptResourceUnit());
-        logger.info("procedure = " + getProcedureName());
-//		String programId = findProgram(getApptResourceUnit(),getProcedureName());
-        String programId = findProgram2();
-        Program p = null;
-        if (programId != null) {
-            p = programDao.getProgram(Integer.parseInt(programId));
-            if (p != null) {
-                appt.setProgramId(p.getId());
-            } else {
-                throw new HL7Exception("System not configured to accept messages for runit " + getApptResourceUnit());
-            }
+        if (p != null) {
+            appt.setProgramId(p.getId());
         }
         //TODO: fix the bug in schedule
         appt.setProgramId(0);
