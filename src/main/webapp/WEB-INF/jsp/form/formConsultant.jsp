@@ -265,10 +265,12 @@
                 document.forms[0].t_fax.value = "<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="javaScript"/>";
             </script>
             <div id="textareaDiv" style="position: relative;">
-    <%-- The value must sit flush against both tags: the browser drops only the first newline after
-         <textarea>, so any newline or indentation before </textarea> becomes part of the saved Comments
-         and lengthens the letter on every redisplay + Save (finding 233, #4592). --%>
-    <textarea id="comments" name="comments" class="ta1" rows="60"><carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea>
+    <%-- A newline straight after the opening tag is dropped by the browser, so one is always emitted: a saved value
+         that itself starts with a line break then survives. The value must sit flush against the closing tag; any
+         newline or indentation before it is saved with the letter and lengthens it on every redisplay + Save
+         (finding 233, #4592). --%>
+    <textarea id="comments" name="comments" class="ta1" rows="60">
+<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea>
             </div>
             <div id="buttons">
                 <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>

@@ -12,6 +12,14 @@ const jsp = fs.readFileSync(path.join(__dirname, '..', 'src/main/webapp/WEB-INF/
 test('shouldKeepCommentsFlushAgainstTextareaTags_whenLetterheadRedisplaysSavedValue', () => {
   const m = jsp.match(/<textarea\b[^>]*\bname="comments"[^>]*>([\s\S]*?)<\/textarea>/);
   assert.ok(m, 'comments textarea not found');
-  assert.equal(m[1], m[1].trim(), 'whitespace between the textarea tags and the encoded value is saved with the letter');
-  assert.match(m[1], /^<carlos:encode\b[\s\S]*\/>$/, 'the textarea body must be exactly the encoded comments');
+  // The browser drops exactly one newline after <textarea>; the markup supplies it so a value that itself starts
+  // with a line break is kept, and nothing else may wrap the value.
+  const body = m[1].replace(/^\r?\n/, '');
+  assert.equal(body, body.trim(), 'whitespace between the textarea tags and the encoded value is saved with the letter');
+  assert.match(body, /^<carlos:encode\b[\s\S]*\/>$/, 'the textarea body must be exactly the encoded comments');
+  assert.match(body, /props\.getProperty\("comments",\s*""\)/, 'the textarea must redisplay the saved comments property');
+});
+
+test('shouldEmitOneNewlineAfterTextareaOpen_soALeadingLineBreakInCommentsSurvives', () => {
+  assert.match(jsp, /<textarea\b[^>]*\bname="comments"[^>]*>\r?\n<carlos:encode\b/);
 });
