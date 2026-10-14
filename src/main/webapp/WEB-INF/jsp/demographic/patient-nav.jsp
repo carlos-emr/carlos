@@ -73,7 +73,8 @@
                 <td style="font-weight: bold"><fmt:message key="sms.history.section"/></td>
             </tr>
             <tr id="sms_hx">
-                <td><a href="${carlos:forHtmlAttribute(nav.smsHistoryUrl)}" data-nav-popup="page"
+                <%-- As on the record before: a new tab without JavaScript, the usual popup with it. --%>
+                <td><a href="${carlos:forHtmlAttribute(nav.smsHistoryUrl)}" target="_blank" rel="noopener" data-nav-popup="page"
                        data-popup-height="600" data-popup-width="1500"><fmt:message key="sms.history.title"/></a></td>
             </tr>
         </security:oscarSec>
