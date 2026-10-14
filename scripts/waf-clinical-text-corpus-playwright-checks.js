@@ -464,8 +464,8 @@ function rows(s, ctx) {
 
   all['tickler-list-response'] = () => {
     // The tickler's message is the corpus, written by SQL (saving it through the page is the tickler-add row's business),
-    // behind a plain tag the search finds it by. The list's JSON answer has to carry the message back exactly. The package
-    // has no exclusion for a response body, so CRS 953120 (a "<?" in the answer) is measured here unshielded.
+    // behind a plain tag the search finds it by. The scoped 953120 exclusion must let the successful JSON answer
+    // carry the message back exactly, including a clinical "<?".
     let fixture;
     let captured = null;
     let message = '';
@@ -500,6 +500,22 @@ function rows(s, ctx) {
   const rxUi = {
     page: null,
     card: null,
+    /** Always clean up, retaining the original row failure if cleanup also fails. */
+    async run(work) {
+      let rowFailed = false;
+      try {
+        await this.open();
+        return await work();
+      } catch (error) {
+        rowFailed = true;
+        throw error;
+      } finally {
+        try { await this.close(); } catch (error) {
+          if (!rowFailed) throw error;
+          console.error(`  NOTE Rx cleanup also failed: ${error.message || error}`);
+        }
+      }
+    },
     async open() {
       this.page = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
       await this.page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
@@ -579,8 +595,9 @@ function rows(s, ctx) {
           await page.waitForFunction(() => !document.querySelector('#rxText [id^="drugName_"]'), null, { timeout: 15000 });
         }
       } finally {
-        if (page && !page.isClosed()) await page.close();
-        this.page = null;
+        try {
+          if (page && !page.isClosed()) await page.close();
+        } finally { this.page = null; }
       }
     },
   };
@@ -598,22 +615,20 @@ function rows(s, ctx) {
       fields: spec.fields,
       prepare() { s.cleanup(() => removeDrugs(s)); },
       async control() {
-        await rxUi.open();
-        try {
+        return rxUi.run(async () => {
           const name = `${marker}-RX-${spec.key.replace(/^rx-/, '')}`.slice(0, 60);
           await rxUi.stage(name, '1 tab PO BID x 14 days');
           await rxUi.save();
           await rep.expectCount(s.sql, 'drugs', `demographic_no=${patient} AND customName=${q(name)}`, 1, 'the page\'s own Rx Save did not land');
-        } finally { await rxUi.close(); }
+        });
       },
       watermark: () => { mark = highWater(s, 'drugs', 'drugid')(); },
       async send(values) {
-        await rxUi.open();
-        try {
+        return rxUi.run(async () => {
           const answer = await spec.drive_(values, rxUi);
           // The page's own response, header and all: the front-door assertion reads the real Server header.
           return { status: () => answer.status, text: async () => answer.body, headers: () => answer.headers };
-        } finally { await rxUi.close(); }
+        });
       },
       async landed(values) {
         if (!spec.column) return null;

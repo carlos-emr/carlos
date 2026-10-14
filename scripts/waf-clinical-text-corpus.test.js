@@ -6,6 +6,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
 const waf = require('./lib/waf-corpus');
@@ -24,6 +25,67 @@ const WAF_DIR = path.join(ROOT, 'debian', 'assets', 'modsecurity');
 const BEFORE_CRS = path.join(WAF_DIR, 'REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf');
 const AFTER_CRS = path.join(WAF_DIR, 'RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf');
 const characters = (text) => Array.from(text).length;
+
+function rxLifecycle() {
+  const source = fs.readFileSync(path.join(__dirname, 'waf-clinical-text-corpus-playwright-checks.js'), 'utf8');
+  const start = source.indexOf('  const rxUi = {');
+  const end = source.indexOf('\n  };', start);
+  assert.ok(start >= 0 && end > start);
+  const notes = [];
+  const ui = vm.runInNewContext(`${source.slice(start, end + '\n  };'.length)}\nrxUi;`, {
+    console: { error: (message) => notes.push(message) },
+  });
+  return { ui, notes };
+}
+
+test('shouldAwaitRxCleanup_beforeReturningASuccessfulRow', async () => {
+  const { ui, notes } = rxLifecycle();
+  const calls = [];
+  ui.open = async () => calls.push('open');
+  ui.close = async () => { await Promise.resolve(); calls.push('close'); };
+  assert.equal(await ui.run(async () => { calls.push('row'); return 'saved'; }), 'saved');
+  assert.deepEqual(calls, ['open', 'row', 'close']);
+  assert.deepEqual(notes, []);
+});
+
+test('shouldFailAnOtherwiseSuccessfulRxRow_whenCleanupFails', async () => {
+  const { ui, notes } = rxLifecycle();
+  const cleanupError = new Error('stash is not empty');
+  ui.open = async () => {};
+  ui.close = async () => { throw cleanupError; };
+  await assert.rejects(ui.run(async () => 'saved'), (error) => error === cleanupError);
+  assert.deepEqual(notes, []);
+});
+
+for (const failureAt of ['open', 'row']) {
+  test(`shouldPreserveTheOriginalRxFailure_when${failureAt}AndCleanupBothFail`, async () => {
+    const { ui, notes } = rxLifecycle();
+    const rowError = new Error('WAF 403: CRS 932110; 949110');
+    let cleanupCalled = false;
+    ui.open = async () => { if (failureAt === 'open') throw rowError; };
+    ui.close = async () => { cleanupCalled = true; throw new Error('clearStash failed'); };
+    await assert.rejects(ui.run(async () => { throw rowError; }), (error) => error === rowError);
+    assert.equal(cleanupCalled, true);
+    assert.deepEqual(notes, ['  NOTE Rx cleanup also failed: clearStash failed']);
+  });
+}
+
+for (const failureAt of ['ajax', 'wait', 'close']) {
+  test(`shouldCloseAndReleaseTheRxPage_whenCleanupFailsAt${failureAt}`, async () => {
+    const { ui } = rxLifecycle();
+    const cleanupError = new Error(failureAt);
+    const calls = [];
+    ui.ajax = async () => { calls.push('ajax'); if (failureAt === 'ajax') throw cleanupError; };
+    ui.page = {
+      isClosed: () => false,
+      waitForFunction: async () => { calls.push('wait'); if (failureAt === 'wait') throw cleanupError; },
+      close: async () => { calls.push('close'); if (failureAt === 'close') throw cleanupError; },
+    };
+    await assert.rejects(ui.close(), (error) => error === cleanupError);
+    assert.equal(calls.at(-1), 'close');
+    assert.equal(ui.page, null);
+  });
+}
 
 // ---------------------------------------------------------------------------------------------
 // The corpus

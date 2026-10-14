@@ -316,14 +316,25 @@ class FixtureHandler(BaseHTTPRequestHandler):
         if case is None:
             self.send_error(418, "Unknown harness fixture")
             return
-        size = int(self.headers.get("Content-Length", "0"))
-        if not 0 <= size <= 1024 * 1024:
+        length = self.headers.get("Content-Length", "0")
+        try:
+            if not re.fullmatch(r"[0-9]+", length):
+                raise ValueError("Content-Length must be a nonnegative decimal integer")
+            size = int(length)
+        except ValueError:
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if size > 1024 * 1024:
             self.send_error(413)
             return
         data = self.rfile.read(size)
-        self.server.receipts.setdefault(token, []).append({
-            "method": self.command, "target": self.path, "body": data.decode("ascii"),
-        })
+        receipt = {"method": self.command, "target": self.path,
+                   "body": data.decode("ascii", errors="backslashreplace")}
+        if not data.isascii():
+            # Escaped byte diagnostics must not compare equal to a request
+            # containing the same literal ASCII backslash sequences.
+            receipt["body_non_ascii"] = True
+        self.server.receipts.setdefault(token, []).append(receipt)
         body = response_body(case, token)
         self.send_response(case.response_status)
         self.send_header("Content-Type", case.mime)
@@ -652,12 +663,13 @@ class MechanicsTests(unittest.TestCase):
     """Harness integrity tests, not substitutes for live security checks."""
 
     @staticmethod
-    def fixture_exchange(token, fixtures):
+    def fixture_exchange(token, fixtures, *, method="GET", body=b"", content_length=None):
         # Exercise the real HTTP parser and response writer without listeners.
         handler = FixtureHandler.__new__(FixtureHandler)
-        handler.rfile = io.BytesIO((
-            f"GET /fixture HTTP/1.1\r\nHost: harness.invalid\r\n{HEADER}: {token}\r\n\r\n"
-        ).encode("ascii"))
+        headers = f"{method} /fixture HTTP/1.1\r\nHost: harness.invalid\r\n{HEADER}: {token}\r\n"
+        if content_length is not None:
+            headers += f"Content-Length: {content_length}\r\n"
+        handler.rfile = io.BytesIO((headers + "\r\n").encode("ascii") + body)
         handler.wfile = io.BytesIO()
         handler.server = SimpleNamespace(fixtures=fixtures, receipts={})
         handler.handle_one_request()
@@ -695,6 +707,44 @@ class MechanicsTests(unittest.TestCase):
                 self.assertNotIn(MARKER.encode("ascii"), response)
                 self.assertNotIn(b"X-Injected", response)
                 self.assertEqual(handler.server.receipts, {})
+
+    def test_fixture_rejects_invalid_and_oversized_content_lengths(self):
+        case = Case("fixture", 0, "POST", "/fixture")
+        for length, status in (("invalid", 400), ("", 400), ("-1", 400), ("1.5", 400),
+                               ("+1", 400), ("1_0", 400), ("1e3", 400), ("1048577", 413)):
+            with self.subTest(length=length):
+                response, handler = self.fixture_exchange(
+                    "fixture-id", {"fixture-id": case}, method="POST",
+                    content_length=length, body=b"not-consumed",
+                )
+                self.assertTrue(response.startswith(f"HTTP/1.1 {status} ".encode("ascii")))
+                self.assertNotIn(MARKER.encode("ascii"), response)
+                self.assertEqual(handler.server.receipts, {})
+                self.assertEqual(handler.rfile.read(), b"not-consumed")
+
+    def test_non_ascii_receipt_cannot_match_literal_ascii_escapes(self):
+        token = "fixture-id"
+        for payload in (b"comment=\xff", "comment=café".encode("utf-8")):
+            with self.subTest(payload=payload):
+                escaped = payload.decode("ascii", errors="backslashreplace")
+                case = Case("fixture", 0, "POST", "/fixture", body=escaped)
+                response, handler = self.fixture_exchange(
+                    token, {token: case}, method="POST", body=payload, content_length=str(len(payload)),
+                )
+                self.assertTrue(response.startswith(b"HTTP/1.1 200 "))
+                self.assertEqual(response.split(b"\r\n\r\n", 1)[1], response_body(case, token))
+                receipts = handler.server.receipts[token]
+                self.assertEqual(receipts[0]["body"], escaped)
+                reasons = assess(case, token, 200, response_body(case, token), token, "", receipts, set())
+                self.assertIn("upstream did not receive the exact request once", reasons)
+                literal = escaped.encode("ascii")
+                response, handler = self.fixture_exchange(
+                    token, {token: case}, method="POST", body=literal, content_length=str(len(literal)),
+                )
+                self.assertTrue(response.startswith(b"HTTP/1.1 200 "))
+                self.assertNotEqual(receipts, handler.server.receipts[token])
+                self.assertFalse(assess(case, token, 200, response_body(case, token), token, "",
+                                        handler.server.receipts[token], set()))
 
     def test_relocation_changes_only_filesystem_arguments(self):
         source = '# Include /etc/site/nope\nSecRuleEngine On\nInclude /etc/site/rules.conf\nSecUnicodeMapFile /etc/site/map 20127\nSecAction "id:1,setvar:tx.score=5"\n'
