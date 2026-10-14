@@ -39,6 +39,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
@@ -125,6 +127,9 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
      * ({@code EctAddMeasurementStyleSheet2Action} refuses to overwrite an existing file).
      * The name comes from the database but is still validated as a path component.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: the directory is trusted configuration and the file name is validated
+    // as a single path component and re-checked against that directory by PathValidationUtils below.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "directory from trusted configuration; file name validated with PathValidationUtils")
     private void deleteStoredFile(String location) {
         try {
             String uploadPath = CarlosProperties.getInstance().getProperty("oscarMeasurement_css_upload_path");
