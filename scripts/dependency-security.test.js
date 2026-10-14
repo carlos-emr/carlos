@@ -37,12 +37,53 @@ test('isolated checks cannot pass before asynchronous assertions finish', () => 
     /async assertion failed/);
 });
 
-test('unpatched sprintf and HTTP caching implementations are absent from the locked tree', () => {
-  const {packages} = require('../package-lock.json');
-  for (const name of ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got']) {
-    assert.ok(!Object.keys(packages).some((key) => key.endsWith(`/node_modules/${name}`)
-      || key === `node_modules/${name}`), `${name} must remain removed`);
+/** Assert that npm lockfile package entries contain no removed implementations, including aliases. */
+function assertRemovedPackagesAbsent(packages) {
+  const removed = ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got'];
+  for (const [location, entry] of Object.entries(packages)) {
+    if (!location) continue; // The root project is not an installed dependency.
+    // npm records the real name for aliases; ordinary entries omit it.
+    const name = entry.name ?? location.match(/(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)$/)?.[1];
+    assert.ok(!removed.includes(name), `${name} must remain removed (${location})`);
   }
+}
+
+test('unpatched sprintf and HTTP caching implementations are absent from the locked tree', () => {
+  assertRemovedPackagesAbsent(require('../package-lock.json').packages);
+});
+
+test('removed implementations are rejected under direct, nested and aliased install names', () => {
+  // npm lockfile v3 alias entries retain name/version even when resolved is omitted.
+  const aliases = {
+    'node_modules/sprintf-alias': {name: 'sprintf-js', version: '1.0.3'},
+    'node_modules/@fixture/policy-alias': {name: 'http-cache-semantics', version: '4.2.0'},
+    'node_modules/consumer/node_modules/request-alias': {name: 'cacheable-request', version: '10.2.14'},
+    'node_modules/consumer/node_modules/@fixture/client-alias': {name: 'got', version: '12.6.1'},
+  };
+  for (const [location, entry] of Object.entries(aliases)) {
+    const expected = {name: 'AssertionError', message: `${entry.name} must remain removed (${location})`};
+    assert.throws(() => assertRemovedPackagesAbsent({[location]: entry}), expected);
+    for (const prefix of ['node_modules/', 'node_modules/consumer/node_modules/']) {
+      const direct = `${prefix}${entry.name}`;
+      assert.throws(() => assertRemovedPackagesAbsent({[direct]: {version: entry.version}}), {
+        name: 'AssertionError', message: `${entry.name} must remain removed (${direct})`,
+      });
+    }
+  }
+});
+
+test('allowed packages and aliases are not confused with removed implementations', () => {
+  const {packages} = require('../package-lock.json');
+  assert.doesNotThrow(() => assertRemovedPackagesAbsent({
+    '': {name: 'got', version: '1.0.0'},
+    'node_modules/argparse-upstream': packages['node_modules/argparse-upstream'],
+    'node_modules/gray-matter': packages['node_modules/gray-matter'],
+    'node_modules/@fixture/got': {version: '1.0.0'},
+    'node_modules/consumer/node_modules/got-helper': {version: '1.0.0'},
+    'node_modules/got': {name: '@fixture/allowed-client', version: '1.0.0'},
+    'node_modules/cache-helper': {name: 'http-cache-semantics-helper', version: '1.0.0'},
+    'scripts/npm/local-helper': {name: '@fixture/local-helper', version: '1.0.0'},
+  }));
 });
 
 test('brace consumers retain expansion, compilation, AST and glob behavior', () => {
