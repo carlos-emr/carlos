@@ -221,7 +221,7 @@
             <c:forEach var="row" items="${result}" varStatus="counter">
                 <tr bgcolor="#CEF6CE">
                     <td>${carlos:forHtml(row.invoiceNo)}</td>
-                    <td>${carlos:forHtml(row.invoiceDate)}</td>
+                    <td><fmt:formatDate value="${row.invoiceDate}" pattern="yyyy-MM-dd"/></td>
                     <td>&nbsp;</td>
                     <td>${carlos:forHtml(row.invoiced)}</td>
                     <td>${carlos:forHtml(row.paid)}</td>

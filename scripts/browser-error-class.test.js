@@ -51,3 +51,15 @@ test('eDoc diagnostics omit raw errors and URLs and screenshots require explicit
   assert.match(source, /screenshotDir: process\.env\.EDOC_NAV_SCREENSHOT_DIR \|\| ''/);
   assert.match(source, /if \(!config\.screenshotDir\) return;/);
 });
+
+test('fax workflow failure phases use fixed labels without browser or database content', () => {
+  for (const name of ['signature-stamp', 'reprint-represcribe']) {
+    const source = fs.readFileSync(path.join(__dirname, `rx-fax-${name}-playwright-checks.js`), 'utf8');
+    const assignments = [...source.matchAll(/checkPhase\s*=\s*([^;]+);/g)];
+    assert.ok(assignments.length > 5, `${name} needs enough phases to locate workflow failures`);
+    for (const [, value] of assignments) {
+      assert.match(value, /^(?:'[a-z-]+'|method === 'GET' \? '[a-z-]+' : '[a-z-]+')$/);
+    }
+    assert.ok(source.includes('${checkPhase}: ${browserErrorClass(error)}'));
+  }
+});

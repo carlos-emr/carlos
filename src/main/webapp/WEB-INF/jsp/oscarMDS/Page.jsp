@@ -268,7 +268,17 @@
                         }
                     %>
 
+                    <%-- inboxInline below tells the viewer it is being rendered inline in the inbox
+                         rather than in its own window. It cannot work this out for itself: the
+                         jakarta.servlet.include.* attributes name the INCLUDED resource, not this
+                         page. It uses the flag for the Print button and, after a sign-off, to hide
+                         its own card — there being no window to close here.
+
+                         The comment sits outside the <jsp:include> on purpose: Jasper accepts only
+                         <jsp:param> elements in that body and fails the whole JSP compile on
+                         anything else, including a JSP comment. --%>
                     <jsp:include page="/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp" flush="true">
+                        <jsp:param name="inboxInline" value="true"/>
                         <jsp:param name="id" value="<%=segmentID %>"/>
                         <jsp:param name="segmentID" value="<%=segmentID %>"/>
                         <jsp:param name="providerNo" value="<%=providerNo %>"/>
@@ -368,7 +378,7 @@
                                     duplicateLabIds.append(duplicateLabId);
                                 }
                             %>
-                            <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>',850,1020)"><%=labRead%><%=result.getPatientName()%>
+                            <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=segmentID%>&segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>&demoName=<%=demoName%>&duplicateLabIds=<%=duplicateLabIds.toString()%>&isListView=<%=isListView%>&inWindow=true',850,1020)"><%=labRead%><%=result.getPatientName()%>
                             </a>
                             <% } else {%>
                             <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=segmentID%>&providerNo=<%=providerNo%>&searchProviderNo=<%=searchProviderNo%>&status=<%=status%>')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>

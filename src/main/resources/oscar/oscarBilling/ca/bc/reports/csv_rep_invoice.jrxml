@@ -2,28 +2,28 @@
 <jasperReport name="pdf_rep_invoice" pageWidth="535" pageHeight="842" columnWidth="535" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="startDate" class="java.lang.String" isForPrompting="false">
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="startDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="endDate" class="java.lang.String" isForPrompting="false">
+	<parameter name="endDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="demNoCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="demNoCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billMasterCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billMasterCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="insurers" class="java.lang.String" isForPrompting="false">
+	<parameter name="insurers" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="account" class="java.lang.String" isForPrompting="false">
+	<parameter name="account" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<field name="providerFirstName" class="java.lang.String" />
@@ -42,28 +42,28 @@
 	<field name="accountNo" class="java.lang.String" />
 	<field name="adjustmentCode" class="java.lang.String" />
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="invCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{billMasterNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{billMasterNo})]]></expression>
 	</variable>
 	<variable name="lineCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{billMasterNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{billMasterNo})]]></expression>
 	</variable>
 	<variable name="demoCount" class="java.lang.Integer" calculation="Count">
-		<variableExpression><![CDATA[new Integer($F{demoNo})]]></variableExpression>
+		<expression><![CDATA[new Integer($F{demoNo})]]></expression>
 	</variable>
 	<variable name="balanceTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amtOwing})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amtOwing})]]></expression>
 	</variable>
 	<variable name="subAmt" class="java.lang.Double" resetType="Group" resetGroup="grpAccount" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="subBalance" class="java.lang.Double" resetType="Group" resetGroup="grpAccount" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amtOwing})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amtOwing})]]></expression>
 	</variable>
 	<group name="grpAccount">
-		<groupExpression><![CDATA[$F{accountNo}]]></groupExpression>
+		<expression><![CDATA[$F{accountNo}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>

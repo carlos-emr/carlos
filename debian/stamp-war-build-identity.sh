@@ -41,6 +41,6 @@ for pair in "build.job=$JOB" "build.number=$NUMBER"; do
     printf '%s\n' "$pair" >> "$TMP/$PROPS"
   fi
 done
-# jar (openjdk-21-jdk-headless, already a build dependency) replaces the entry in place.
+# jar (openjdk-25-jdk-headless, already a build dependency) replaces the entry in place.
 jar uf "$WAR" -C "$TMP" "$PROPS"
 echo "stamp-war-build-identity: stamped $JOB $NUMBER into $WAR"

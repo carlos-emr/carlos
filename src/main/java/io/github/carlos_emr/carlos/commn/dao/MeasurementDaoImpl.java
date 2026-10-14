@@ -31,8 +31,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +53,24 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     public MeasurementDaoImpl() {
         super(Measurement.class);
+    }
+
+    @Override
+    public void reassignLabPatient(Measurement measurement, String labNo, int demographicNo) {
+        if (demographicNo <= 0 || measurement == null || !entityManager.contains(measurement)) {
+            throw new IllegalArgumentException("A managed lab measurement and valid patient are required");
+        }
+        // Measurement's lifecycle callback intentionally prohibits editing clinical values.
+        // This constrained correction changes only ownership, never values or annotations.
+        int changed = entityManager.createQuery("update Measurement m set m.demographicId=:patient "
+                + "where m.id=:id and m.demographicId=:previous and exists "
+                + "(select e.id from MeasurementsExt e where e.measurementId=m.id "
+                + "and e.keyVal='lab_no' and e.val=:lab)")
+                .setParameter("patient", demographicNo).setParameter("id", measurement.getId())
+                .setParameter("previous", measurement.getDemographicId()).setParameter("lab", labNo)
+                .executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Lab measurement ownership changed during correction");
+        entityManager.refresh(measurement);
     }
 
     @Override
@@ -669,15 +689,15 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeMeasuringInstrAndDataField(Integer demographicNo, Date dateEntered,
                                                                          String measurementType, String mInstrc, String upper, String lower) {
         String sql = "SELECT dataField FROM measurements " + "WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3"
-                + "AND measuringInstruction = ?4" + "AND dataField < ?5" + "AND dataField > ?6";
+                + " AND demographicNo = ?2" + " AND type = ?3"
+                + " AND measuringInstruction = ?4" + " AND dataField < ?5" + " AND dataField > ?6";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, measurementType);
         query.setParameter(4, mInstrc);
-        query.setParameter(5, upper);
-        query.setParameter(6, lower);
+        query.setParameter(5, new BigDecimal(upper.trim()));
+        query.setParameter(6, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 
@@ -705,14 +725,14 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeAndDataField(Integer demographicNo, Date dateEntered, String type,
                                                            String upper, String lower) {
         String sql = "SELECT dataField FROM measurements WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3" + "AND dataField < ?4"
-                + "AND dataField > ?5";
+                + " AND demographicNo = ?2" + " AND type = ?3" + " AND dataField < ?4"
+                + " AND dataField > ?5";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, type);
-        query.setParameter(4, upper);
-        query.setParameter(5, lower);
+        query.setParameter(4, new BigDecimal(upper.trim()));
+        query.setParameter(5, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 
@@ -724,7 +744,22 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
-    public List<Object[]> findByCreateDate(Date from, Date to) {
+    @SuppressWarnings("unchecked")
+    public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types) {
+        Map<String, List<String>> byType = new HashMap<>();
+        if (types == null || types.isEmpty()) {
+            return byType;
+        }
+        Query query = createQuery("SELECT DISTINCT m.type, m.measuringInstruction", "m", "m.type IN (?1)");
+        query.setParameter(1, types);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            byType.computeIfAbsent((String) row[0], k -> new ArrayList<>()).add((String) row[1]);
+        }
+        return byType;
+    }
+
+    @Override
+    public List<Integer> findByCreateDate(Date from, Date to) {
         Query query = createQuery("SELECT DISTINCT m.demographicId", "m",
                 "m.createDate >= ?1 AND m.createDate <= ?2");
         query.setParameter(1, from);

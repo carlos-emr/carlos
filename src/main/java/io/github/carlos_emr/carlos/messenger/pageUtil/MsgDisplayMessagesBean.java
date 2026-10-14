@@ -512,7 +512,7 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
         try {
             // Build parameterized SQL query
-            String sql = "(select m.messageid is null as isnull, "
+            String sql = "(select not exists (select 1 from msgDemoMap linked where linked.messageID = m.messageid) as isnull, "
                     + "(select map.demographic_no from msgDemoMap map "
                     + "where map.messageID = m.messageid limit 1) as demographic_no, "
                     + "ml.message, ml.status,  m.thesubject, m.thedate, m.theime, m.attachment, m.pdfattachment, m.sentby, m.type "

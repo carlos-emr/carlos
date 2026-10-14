@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -333,7 +334,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "Redirects are same-origin application paths; Locale.ROOT module folding uses a closed ASCII allowlist and rejects all non-matching tokens")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -347,6 +348,17 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("editDocumentNo", "");
             return "failEdit";
         } else if (this.getMode().equals("add")) {
+            // Match the report's closed module allowlist, preventing database
+            // collation aliases from bypassing the demographic authorization branch.
+            String module = this.getFunction() == null ? "" : this.getFunction().trim().toLowerCase(Locale.ROOT);
+            if (!List.of("demographic", "provider", "providers").contains(module)) {
+                throw new SecurityException("Invalid document target module");
+            }
+            this.setFunction(module);
+            if ("demographic".equals(module)) {
+                IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager,
+                        LoggedInInfo.getLoggedInInfoFromSession(request), this.getFunctionId() == null ? null : this.getFunctionId().trim());
+            }
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 try {
@@ -591,6 +603,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
+        // Outside the form-error catch: a denied source must never render its edit
+        // JSP or reach content, reviewer, audit or metadata mutations.
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), this.getMode());
 
         try {
             if (this.getDocDesc().length() == 0) {

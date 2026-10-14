@@ -49,7 +49,7 @@ if(!authed) {
 <%@page import="java.math.BigDecimal" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.VisitReportData" %>
 
-<table class="table table-bordered table-striped table-hover table-sm" style="font-size:12px;">
+<table class="table table-bordered table-striped table-hover table-sm report-print-table report-print-wide" style="font-size:12px;">
 	<thead>
 		<tr>
 		<th bgcolor="#CCCCFF">Provider</th>
@@ -67,7 +67,8 @@ if(!authed) {
 		<th bgcolor="#FFCC00">Nursing Home</th>
 		<th bgcolor="#FFCC00">Home</th>
 	</tr>
-
+	</thead>
+	<tbody>
 	<%
 String cTotal="0",hTotal="0",oTotal="0", mNum="", fNum="";
 String p_last="",p_no="",p_first="", team="", oldteam="";
@@ -216,4 +217,5 @@ for(ReporterRow result : reportProviderDao.search_reportprovider("visitreport", 
 		<td bgcolor="#FFCC00"><%=ABigTotal4%></td>
 		<td bgcolor="#FFCC00"><%=ABigTotal5%></td>
 	</tr>
+</tbody>
 </table>

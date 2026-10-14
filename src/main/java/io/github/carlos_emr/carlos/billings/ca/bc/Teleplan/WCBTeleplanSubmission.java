@@ -39,6 +39,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
+import io.github.carlos_emr.carlos.billings.ca.bc.MSP.HtmlTeleplanHelper;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 
 import java.text.Format;
@@ -61,28 +62,12 @@ public class WCBTeleplanSubmission {
 
     }
 
+    /**
+     * Builds one encoded WCB claim row for the Teleplan submission report; delegates to
+     * {@link HtmlTeleplanHelper#htmlLine} so worker name, PHN and codes are HTML-encoded.
+     */
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent =
-                "<tr>" +
-                        "<td class='bodytext'>" +
-                        "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
-                        Misc.forwardZero(billingMasterNo, 7) +
-                        "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">" +
-                        invNo +
-                        "</a>" +
-                        "</td>" +
-                        "<td class='bodytext'>" + demoName + "</td>" +
-                        "<td class='bodytext'>" + phn + "</td>" +
-                        "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" +
-                        "<td class='bodytext'>" + billingCode + "</td>" +
-                        "<td align='right' class='bodytext'>" + billAmount + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" +
-                        "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" +
-                        "<td class='bodytext'>&nbsp;</td>" +
-                        "</tr>";
-        return htmlContent;
+        return HtmlTeleplanHelper.htmlLine(billingMasterNo, invNo, demoName, phn, dateFormat(serviceDate), billingCode, billAmount, dx1, dx2, dx3);
     }
 
 
@@ -132,15 +117,7 @@ public class WCBTeleplanSubmission {
         }
 
 
-        String ret = "<tr bgcolor='red'><td colspan='11'>"
-                + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
-                + Misc.forwardZero("" + bm.getBillingmasterNo(), 7)
-                + "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">"
-                + m.toString() + "</a>" + "</td></tr>";
-        if ("".equals(m.toString())) {
-            return "";
-        }
-        return ret;
+        return HtmlTeleplanHelper.adjustBillErrorRow("" + bm.getBillingmasterNo(), m.toString());
     }
 
 
