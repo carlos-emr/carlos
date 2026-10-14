@@ -319,8 +319,17 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             // this DAO. Overlay only our recorded writes; never union historical RR row IDs.
             var writes = personalFooterWrites(false);
             if (writes != null) {
-                writes.created.forEach((id, owner) -> { if (providerNo.equals(owner)) ids.add(id);
-                });
+                if (!writes.created.isEmpty()) {
+                    // This transaction's own inserts are visible to its own connection. One read
+                    // classifies them with the same database predicate (name collation, exact owner)
+                    // as the committed discovery above.
+                    @SuppressWarnings("unchecked")
+                    List<Number> own = entityManager.createNativeQuery(
+                            "SELECT `id` FROM `property` WHERE `id` IN (:ids) AND `name` = :name AND `provider_no` = :provider")
+                            .setParameter("ids", writes.created).setParameter("name", "email_footer")
+                            .setParameter("provider", providerNo).getResultList();
+                    own.forEach(id -> ids.add(Math.toIntExact(id.longValue())));
+                }
                 ids.removeAll(writes.deleted);
             }
             var rows = new java.util.ArrayList<UserProperty>();
@@ -348,11 +357,13 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         });
     }
 
-    // The DAO records only its own personal-row writes. The state follows Spring transaction
-    // suspension and is removed on commit or rollback; no historical view or other owner leaks in.
+    // The DAO records the ids of the property rows this transaction inserts or removes through it,
+    // without reading the database: only a footer save classifies them (above), so other property
+    // writes pay no extra query. The state follows Spring transaction suspension and is removed on
+    // commit or rollback; no historical view or other owner leaks in.
     private final Object personalFooterWritesKey = new Object();
     private static final class PersonalFooterWrites {
-        final java.util.Map<Integer, String> created = new java.util.HashMap<>();
+        final java.util.Set<Integer> created = new java.util.HashSet<>();
         final java.util.Set<Integer> deleted = new java.util.HashSet<>();
     }
 
@@ -384,25 +395,27 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         return transactionWrites;
     }
 
-    /** Retain IDs inserted through the property DAO so a joining footer save sees its own writes. */
+    /** Records ids inserted through the property DAO so a joining footer save sees its own writes. */
     @Override
     public void persist(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
         boolean newRow = model instanceof UserProperty property && property.getId() == null;
         super.persist(model);
-        if (newRow && model instanceof UserProperty property
-                && isPersonalEmailFooterRow(property.getProviderNo(), property.getId())) {
+        if (newRow && model instanceof UserProperty property && property.getId() != null) {
             var writes = personalFooterWrites(true);
-            if (writes != null) writes.created.put(property.getId(), property.getProviderNo());
+            if (writes != null) writes.created.add(property.getId());
         }
     }
 
-    /** Retain DAO removals so a joining footer save does not rediscover its uncommitted deletes. */
+    /** Records DAO removals so a joining footer save does not rediscover its uncommitted deletes. */
     @Override
     public void remove(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
-        boolean personal = model instanceof UserProperty property
-                && isPersonalEmailFooterRow(property.getProviderNo(), property.getId());
+        // Record only a removal that happens: a detached row this transaction cannot see is not
+        // deleted, so a footer save must still find it. For a detached row this is the lookup the
+        // base class makes anyway; its own lookup then comes from the persistence context.
+        boolean present = model instanceof UserProperty property && property.getId() != null
+                && (entityManager.contains(property) || entityManager.find(UserProperty.class, property.getId()) != null);
         super.remove(model);
-        if (personal && model instanceof UserProperty property) {
+        if (present && model instanceof UserProperty property) {
             var writes = personalFooterWrites(true);
             if (writes != null) writes.deleted.add(property.getId());
         }

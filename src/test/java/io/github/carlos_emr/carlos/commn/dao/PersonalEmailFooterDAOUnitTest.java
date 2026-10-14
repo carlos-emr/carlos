@@ -41,6 +41,54 @@ class PersonalEmailFooterDAOUnitTest {
         doThrow(other).when(entities).find(Provider.class,"101",LockModeType.PESSIMISTIC_WRITE);
         assertThatThrownBy(()->dao.lockPersonalEmailFooterOwner("101")).isSameAs(other);
     }
+    @Test void shouldReadNothing_whenPersistingOrRemovingAnyUserProperty(){
+        // Footer bookkeeping must not cost every other property write a query: a footer save
+        // classifies the recorded ids itself.
+        var entities=mock(EntityManager.class);
+        var dao=new UserPropertyDAOImpl();
+        ReflectionTestUtils.setField(dao,"entityManager",entities);
+        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();
+        row.setName("email_footer");
+        row.setProviderNo("101");
+        doAnswer(call->{row.setId(7);return null;}).when(entities).persist(row);
+        when(entities.contains(row)).thenReturn(true);
+        dao.persist(row);
+        dao.remove(row);
+        verify(entities).persist(row);
+        verify(entities).remove(row);
+        verify(entities,never()).createQuery(anyString());
+        verify(entities,never()).createQuery(anyString(),any());
+        verify(entities,never()).createNativeQuery(anyString());
+    }
+    @SuppressWarnings("unchecked")
+    @Test void shouldRecordOnlyRemovalsThatHappen_soAnUnseenRowStaysInFooterSave(){
+        var entities=mock(EntityManager.class);
+        var dao=new UserPropertyDAOImpl();
+        ReflectionTestUtils.setField(dao,"entityManager",entities);
+        var unseen=new io.github.carlos_emr.carlos.commn.model.UserProperty();
+        unseen.setId(8);
+        var removed=new io.github.carlos_emr.carlos.commn.model.UserProperty();
+        removed.setId(9);
+        when(entities.contains(removed)).thenReturn(true);
+        // The unseen row is detached and this transaction's lookup cannot find it.
+        var factory=mock(EntityManagerFactory.class);
+        var util=mock(PersistenceUnitUtil.class);
+        when(entities.getEntityManagerFactory()).thenReturn(factory);
+        when(factory.getPersistenceUnitUtil()).thenReturn(util);
+        when(util.getIdentifier(unseen)).thenReturn(8);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            dao.remove(unseen);
+            dao.remove(removed);
+            Object writes=org.springframework.transaction.support.TransactionSynchronizationManager
+                    .getResource(ReflectionTestUtils.getField(dao,"personalFooterWritesKey"));
+            assertThat((java.util.Set<Object>)ReflectionTestUtils.getField(writes,"deleted")).containsExactly(9);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .unbindResourceIfPossible(ReflectionTestUtils.getField(dao,"personalFooterWritesKey"));
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
     @Test void shouldDeleteCurrentOwnerRow_evenWhenEarlierViewCannotFindItsId(){
         var entities=mock(EntityManager.class);
         var query=mock(Query.class);
