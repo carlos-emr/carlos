@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.form.util;
 
-import java.io.ByteArrayOutputStream;
 import java.awt.geom.Rectangle2D;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -97,6 +97,18 @@ class Rourke2020PdfReportIntegrationTest {
         }
         Files.createDirectories(Path.of("target/rourke-pdf"));
         Files.write(Path.of("target/rourke-pdf/notes.pdf"), bytes);
+    }
+
+    @Test
+    void shouldPreserveClinicalSymbolsAndAccentedNames_whenPrintingNotes() throws Exception {
+        Properties values = record("FAKE-Łucja");
+        String note = "weight ≥ 5 kg; temperature ≤ 38°C; Δ weight; Na⁺";
+        values.setProperty("p2_physical2m", note);
+        try (PDDocument pdf = Loader.loadPDF(print(values, List.of(2)))) {
+            PDFTextStripper text = new PDFTextStripper();
+            text.setStartPage(2);
+            assertThat(text.getText(pdf)).contains("FAKE-Łucja", note);
+        }
     }
 
     @Test

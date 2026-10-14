@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
 <jasperReport name="Rourke2020PageIINotes" pageWidth="612" pageHeight="792" columnWidth="540" leftMargin="36" rightMargin="36" topMargin="36" bottomMargin="36">
-    <style name="defaultStyle" default="true" fontName="SansSerif" fontSize="11"/>
+    <style name="defaultStyle" default="true" fontName="DejaVu Sans" fontSize="11"/>
     <parameter name="c_pName"/>
     <parameter name="c_birthDate"/>
     <parameter name="p2_development2m"/>

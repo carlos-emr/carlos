@@ -173,7 +173,8 @@ public final class Frm2Action extends ActionSupport {
 
                     response.setContentType("application/pdf");
                     if (isRourkeForm2020) {
-                        response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2020_" + formId + ".pdf\"");
+                        // Replace the print-progress popup with the PDF viewer.
+                        response.setHeader("Content-Disposition", "inline; filename=\"Rourke2020_" + formId + ".pdf\"");
                     } else {
                         response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2017_" + formId + ".pdf\"");
                     }

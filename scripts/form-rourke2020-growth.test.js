@@ -46,7 +46,10 @@ test('shouldTypeEveryRourkeFieldOnce_withAMarkerWhereTheVisitPrints', () => {
   const fields = check.rourkeFields(MARKER, DOB);
   const names = fields.map(field => field.name);
   assert.equal(new Set(names).size, names.length, 'a field is typed twice');
-  for (const field of fields.filter(item => item.kind === 'text' && item.value.includes(MARKER))) assert.ok(field.value.length <= 40, `${field.name} is longer than the text boxes accept`);
+  for (const field of fields.filter(item => item.kind === 'text' && item.value.includes(MARKER))) {
+    const limit = check.ROURKE_NOTES.includes(field.name) ? 123 : 40;
+    assert.ok(field.value.length <= limit, `${field.name} is longer than the text boxes accept`);
+  }
   assert.ok(fields.every(field => field.kind === 'radio' || typeof field.value === 'string' || field.kind === 'measure'), 'a value is missing');
 });
 
@@ -203,4 +206,40 @@ test('shouldTreatAllRourkeConcernsAsRegressions_afterTheMilestoneFixes', () => {
   const label = check.stepLabel('growthchart', 'printbmi');
   const outcome = claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []);
   assert.equal(claims.claimFailure(outcome, label).label, label);
+});
+
+test('shouldRequireUnicodeNotesToSurvivePrint_withoutAcceptingDroppedGlyphs', () => {
+  const fields = check.rourkeFields(MARKER, DOB);
+  const notes = fields.filter(field => check.ROURKE_NOTES.includes(field.name));
+  assert.ok(notes.some(field => field.value.includes(check.UNICODE_NOTE)), 'the save/reopen/print fixture must exercise Unicode');
+  const printed = notes.map(field => field.value).join('\n');
+  assert.deepEqual(check.missingNoteText(printed.normalize('NFD'), fields), [], 'equivalent Unicode normalization is acceptable');
+  assert.deepEqual(check.missingNoteText(printed.replace(check.UNICODE_NOTE, 'odz'), fields), ['p2_development2m']);
+  for (const symbol of ['≥', '≤']) {
+    assert.ok(printed.includes(symbol), `the clinical symbol ${symbol} must be exercised`);
+    assert.deepEqual(check.missingNoteText(printed.replace(symbol, ''), fields), ['p2_development2m']);
+  }
+});
+
+test('shouldDetectMissingMiddleAndFinalLines_whenNotesSpanContinuationPages', () => {
+  const value = check.overflowNote(MARKER);
+  const lines = value.split('\n');
+  assert.equal(lines.length, 90);
+  assert.equal(new Set(lines).size, lines.length, 'repeated text would hide lost middle lines');
+  assert.ok(Buffer.byteLength(value, 'utf8') < 65535, 'the fixture must fit the existing TEXT column');
+  const fields = [{ name: 'p2_physical2m', value }];
+  const printed = lines.map((line, index) => `${index % 30 === 0 ? '\fPage II notes\n' : ''}${line}`).join('\n');
+  assert.deepEqual(check.missingNoteText(printed, fields), []);
+  for (const index of [0, 45, 89]) {
+    assert.deepEqual(check.missingNoteText(printed.replace(lines[index], ''), fields), ['p2_physical2m'], `lost line ${index + 1} was missed`);
+  }
+});
+
+test('shouldRejectAttachmentDownloadsAndMissingPrintProgress', () => {
+  const pending = { url: 'about:blank', text: 'Preparing Rourke PDF...' };
+  check.judgePrintPending('inline; filename="Rourke2020_17.pdf"', pending);
+  assert.throws(() => check.judgePrintPending('attachment; filename="Rourke2020_17.pdf"', pending), /inline PDF/);
+  for (const invalid of [null, { ...pending, text: '' }, { ...pending, text: '???form.rourke2020.preparingPrint???' }, { ...pending, url: 'https://example.invalid/error' }]) {
+    assert.throws(() => check.judgePrintPending('inline', invalid), /progress message/);
+  }
 });
