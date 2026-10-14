@@ -178,7 +178,21 @@ public final class Frm2Action extends ActionSupport {
                     } else {
                         response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2017_" + formId + ".pdf\"");
                     }
-                    ((JasperReportPdfPrint) rec).PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
+                    try {
+                        ((JasperReportPdfPrint) rec).PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
+                    } catch (RuntimeException | IOException ex) {
+                        log.error("Could not generate form PDF", ex);
+                        if (!response.isCommitted()) {
+                            response.reset();
+                            try {
+                                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not generate form PDF");
+                            } catch (IOException sendError) {
+                                log.error("Could not send PDF generation error response", sendError);
+                            }
+                        }
+                        // Never forward an HTML result over a configured or partial PDF response.
+                        return NONE;
+                    }
                     newID = 0;
                     return null;
                 } else {
