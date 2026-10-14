@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -30,6 +32,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +54,7 @@ class AllergyBlockLoaderUnitTest {
 
     private SecurityInfoManager securityInfoManager;
     private AllergyManager allergyManager;
+    private PartialDateDao partialDateDao;
     private LoggedInInfo info;
     private AllergyBlockLoader loader;
 
@@ -56,8 +62,9 @@ class AllergyBlockLoaderUnitTest {
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
         allergyManager = mock(AllergyManager.class);
+        partialDateDao = mock(PartialDateDao.class);
         info = mock(LoggedInInfo.class);
-        loader = new AllergyBlockLoader(securityInfoManager, allergyManager);
+        loader = new AllergyBlockLoader(securityInfoManager, allergyManager, partialDateDao);
     }
 
     private void allowAllergyRead() {
@@ -132,6 +139,55 @@ class AllergyBlockLoaderUnitTest {
         assertThat(dto.items().get(1).reaction()).isEmpty();
         assertThat(dto.items().get(0).startDate()).isEqualTo(first.getStartDateFormatted());
         assertThat(dto.items().get(1).startDate()).isEmpty();
+    }
+
+    /** Midday local time so the formatted year/month/day cannot shift with the timezone. */
+    private static Date onset(int year, int month, int day) {
+        return Date.from(LocalDate.of(year, month, day).atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant());
+    }
+
+    private Allergy allergyWithOnset(int id, String format) throws Exception {
+        Allergy a = allergy("Penicillin", "3", "Hives");
+        a.setId(id);
+        a.setStartDate(onset(2020, 3, 15));
+        if (format != null) {
+            when(partialDateDao.getPartialDate(PartialDate.ALLERGIES, id, PartialDate.ALLERGIES_STARTDATE))
+                    .thenReturn(new PartialDate(PartialDate.ALLERGIES, id, PartialDate.ALLERGIES_STARTDATE, format));
+        }
+        return a;
+    }
+
+    @Test
+    void shouldShowYearOnly_whenStoredAsYearOnly() throws Exception {
+        allowAllergyRead();
+        Allergy a = allergyWithOnset(11, PartialDate.YEARONLY);
+        when(allergyManager.getActiveAllergies(info, 2)).thenReturn(List.of(a));
+
+        AllergyBlockDto dto = loader.load(info, 2);
+
+        assertThat(dto.items().get(0).startDate()).isEqualTo("2020");
+    }
+
+    @Test
+    void shouldShowYearMonth_whenStoredAsYearMonth() throws Exception {
+        allowAllergyRead();
+        Allergy a = allergyWithOnset(12, PartialDate.YEARMONTH);
+        when(allergyManager.getActiveAllergies(info, 2)).thenReturn(List.of(a));
+
+        AllergyBlockDto dto = loader.load(info, 2);
+
+        assertThat(dto.items().get(0).startDate()).isEqualTo("2020-03");
+    }
+
+    @Test
+    void shouldShowFullDate_whenNoPartialRecord() throws Exception {
+        allowAllergyRead();
+        Allergy a = allergyWithOnset(13, null);
+        when(allergyManager.getActiveAllergies(info, 2)).thenReturn(List.of(a));
+
+        AllergyBlockDto dto = loader.load(info, 2);
+
+        assertThat(dto.items().get(0).startDate()).isEqualTo("2020-03-15");
     }
 
     @Test

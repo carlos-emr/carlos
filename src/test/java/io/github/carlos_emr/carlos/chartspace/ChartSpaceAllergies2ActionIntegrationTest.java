@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.chartspace;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -83,14 +84,14 @@ class ChartSpaceAllergies2ActionIntegrationTest extends CarlosWebTestBase {
         allergyManager = mock(AllergyManager.class);
         action = new ChartSpaceAllergies2Action(
                 new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager),
-                new AllergyBlockLoader(mockSecurityInfoManager, allergyManager));
+                new AllergyBlockLoader(mockSecurityInfoManager, allergyManager, mock(PartialDateDao.class)));
     }
 
     @Test
     @DisplayName("should resolve collaborators from SpringUtils in the no-arg constructor")
     void shouldResolveCollaborators_whenNoArgConstructorUsed() throws Exception {
         replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager));
-        replaceSpringUtilsBean(AllergyBlockLoader.class, new AllergyBlockLoader(mockSecurityInfoManager, allergyManager));
+        replaceSpringUtilsBean(AllergyBlockLoader.class, new AllergyBlockLoader(mockSecurityInfoManager, allergyManager, mock(PartialDateDao.class)));
         allowPrivilege("_eChart", "r");
 
         assertThat(executeAction(new ChartSpaceAllergies2Action())).isEqualTo(ActionSupport.NONE);

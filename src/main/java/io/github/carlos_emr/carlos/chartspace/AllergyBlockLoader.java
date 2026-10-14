@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -43,15 +45,19 @@ public class AllergyBlockLoader {
 
     private final SecurityInfoManager securityInfoManager;
     private final AllergyManager allergyManager;
+    private final PartialDateDao partialDateDao;
 
     /**
      * @param securityInfoManager privilege checker
      * @param allergyManager source of active allergies
+     * @param partialDateDao source of year-only / year-month onset precision
      */
     @Autowired
-    public AllergyBlockLoader(SecurityInfoManager securityInfoManager, AllergyManager allergyManager) {
+    public AllergyBlockLoader(SecurityInfoManager securityInfoManager, AllergyManager allergyManager,
+                              PartialDateDao partialDateDao) {
         this.securityInfoManager = securityInfoManager;
         this.allergyManager = allergyManager;
+        this.partialDateDao = partialDateDao;
     }
 
     /**
@@ -85,6 +91,15 @@ public class AllergyBlockLoader {
         }
 
         List<AllergyBlockDto.Item> items = allergies.stream()
+                .map(a -> {
+                    // One query per allergy, same as the existing Rx code (RxPatientData).
+                    PartialDate pd = partialDateDao.getPartialDate(
+                            PartialDate.ALLERGIES, a.getId(), PartialDate.ALLERGIES_STARTDATE);
+                    if (pd != null) {
+                        a.setStartDateFormat(pd.getFormat());
+                    }
+                    return a;
+                })
                 .map(a -> new AllergyBlockDto.Item(
                         a.getDescription(),
                         a.getSeverityOfReaction(),
