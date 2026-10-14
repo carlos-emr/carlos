@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,13 +42,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,6 +112,20 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         assertThat(created).isNotEqualTo(stored).hasSameBinaryContentAs(stored);
         assertThat(stored).as("the stored document is untouched").exists()
                 .hasBinaryContent("%PDF-1.4 FAKE stored letter".getBytes(StandardCharsets.US_ASCII));
+    }
+
+    @Test
+    @DisplayName("should fail the attachment without naming the file when the copy cannot be made")
+    void shouldFailWithoutFileName_whenCopyCannotBeMade() throws Exception {
+        Path stored = Files.write(documentDir.resolve("FAKE-stored-letter.pdf"),
+                "%PDF-1.4 FAKE stored letter".getBytes(StandardCharsets.US_ASCII));
+        doThrow(new IOException("FAKE no space left for " + stored)).when(nioFileManager).createTempFileFrom(any(), any());
+
+        assertThatThrownBy(() -> emailComposeManager.applicationTempFile(stored))
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageNotContaining("FAKE")
+                .hasCauseInstanceOf(IOException.class);
+        assertThat(stored).exists();
     }
 
     @Test
