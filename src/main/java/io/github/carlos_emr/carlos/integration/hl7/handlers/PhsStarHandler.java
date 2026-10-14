@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
@@ -80,6 +81,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
 
     DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
     AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
@@ -462,6 +464,9 @@ public class PhsStarHandler extends BasePhsStarHandler {
             throw new HL7Exception("Unable to match providers..cannot make appointment - " + getApptPractitionerNo());
         }
 
+        // Keep the replaced version in appointmentArchive before moving the appointment (issue #4589).
+        appointmentArchiveDao.archiveAppointment(appt);
+
         appt.setProviderNo(provider.getProviderNo());
         appt.setAppointmentDate(getApptStartDate());
         appt.setStartTime(getApptStartDate());
@@ -543,6 +548,8 @@ public class PhsStarHandler extends BasePhsStarHandler {
             return;
         }
 
+        // Archive the version being replaced, before the status changes (issue #4589).
+        appointmentArchiveDao.archiveAppointment(appt);
         appt.setStatus(newStatus);
 
         appointmentDao.merge(appt);
