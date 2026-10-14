@@ -929,19 +929,22 @@ async function workflow(s, { select = validatePin() } = {}) {
     // Head circumference. The page gives every weight and length a measurement dialog; the brief asks for the same for head circumference.
     // The pair is the dialog's existence (the pinned assertion). Only when one exists does the body drive the page, and only then
     // does the concern take the page's problems.
-    const hcLink = entry.page.locator(`a[onclick*="displayDemographicMeasurements('p1_hc1w'"]`);
-    const hasDialog = await hcLink.count() > 0;
+    const hcButton = entry.page.locator('button#p1_hc1wLabel[type="button"]');
+    const hasDialog = await hcButton.count() > 0;
     await conclude(entry, 'headcirc', async () => {
       h.assert(hasDialog, 'the Rourke 2020 page has no measurement dialog for head circumference');
       // Require all offered head-circumference cells to use the same measurement workflow.
       const names = ['c_headCirc', 'p1_hc1w', 'p1_hc2w', 'p1_hc1m', 'p2_hc2m', 'p2_hc4m', 'p2_hc6m', 'p3_hc9m', 'p3_hc12m', 'p3_hc15m', 'p4_hc18m', 'p4_hc24m'];
       for (const name of names) {
-        h.assert(await entry.page.locator(`a[onclick*="displayDemographicMeasurements('${name}', 'HEAD'"]`).count() > 0, `${name} has no HEAD measurement link`);
+        const button = entry.page.locator(`button#${name}Label[type="button"][onclick*="displayDemographicMeasurements('${name}', 'HEAD'"]`);
+        h.assert(await button.count() === 1, `${name} must have one native HEAD measurement button`);
+        h.assert(await entry.page.locator(`input#${name}`).getAttribute('aria-labelledby') === `${name}Label`
+          && Boolean((await button.textContent()).trim()), `${name} must be named by its HEAD measurement button`);
       }
       const before = Number(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`));
       await claims.reaching(async () => {
         await openTab(entry.page, 0);
-        await hcLink.first().click();
+        await hcButton.press('Enter');
         await entry.page.locator('#currentMeasurementValue').fill('35.5');
         await entry.page.evaluate(() => formsTimedAutosaver.setChangedFalse());
         await entry.page.locator('.meas-btn-save').click();

@@ -718,6 +718,16 @@
 
     </script>
     <style>
+        #rourke2020-tabs .measurement-button {
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            color: #486ebd;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .panel-page {
             display: flex;
             flex-direction: row;
@@ -748,7 +758,7 @@
     </style>
 </head>
 <body onload="init()">
-<div id="rourkeSaveStatus" role="status" aria-live="polite" style="position:sticky;top:0;background:#fff;z-index:10001"></div>
+<output id="rourkeSaveStatus" aria-live="polite" style="display:block;position:sticky;top:0;background:#fff;z-index:10001"></output>
 <form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname" method="post">
     <div id="rourke2020-tabs">
         <ul id="tab-list">

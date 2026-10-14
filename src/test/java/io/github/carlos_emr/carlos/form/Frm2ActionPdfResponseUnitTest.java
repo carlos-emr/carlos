@@ -45,19 +45,21 @@ class Frm2ActionPdfResponseUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, security);
         when(security.hasPrivilege(eq(info), eq("_form"), eq("w"), isNull())).thenReturn(true);
-        FrmRecord record = mock(FrmRecord.class, withSettings().extraInterfaces(JasperReportPdfPrint.class));
+        FrmRecord formRecord = mock(FrmRecord.class, withSettings().extraInterfaces(JasperReportPdfPrint.class));
         doAnswer(invocation -> {
             printer.PrintJasperPdf(invocation.getArgument(0), info, 1, 7, List.of(1, 2, 3, 4));
             return null;
-        }).when((JasperReportPdfPrint) record).PrintJasperPdf(any(), eq(info), eq(1), eq(7), any());
+        }).when((JasperReportPdfPrint) formRecord).PrintJasperPdf(any(), eq(info), eq(1), eq(7), any());
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
              MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
              MockedConstruction<FrmRecordFactory> factory = mockConstruction(FrmRecordFactory.class,
-                     (created, context) -> when(created.factory("Rourke2020")).thenReturn(record))) {
+                     (created, context) -> when(created.factory("Rourke2020")).thenReturn(formRecord))) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
-            return new Frm2Action().execute();
+            String result = new Frm2Action().execute();
+            assertThat(factory.constructed()).hasSize(1);
+            return result;
         }
     }
 
@@ -95,7 +97,7 @@ class Frm2ActionPdfResponseUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepInlinePdfResponse_whenPrintingSucceeds() {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        assertThat(execute(response, (output, info, demographic, form, pages) -> { })).isNull();
+        assertThat(execute(response, (output, info, demographic, form, pages) -> { })).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("inline; filename=\"Rourke2020_7.pdf\"");

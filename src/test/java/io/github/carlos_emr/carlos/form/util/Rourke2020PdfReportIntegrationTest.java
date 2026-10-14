@@ -20,7 +20,7 @@ import io.github.carlos_emr.carlos.form.model.FormRourke2020;
 @Tag("integration")
 @Tag("report")
 class Rourke2020PdfReportIntegrationTest {
-    private static Properties record(String patient) {
+    private static Properties recordProperties(String patient) {
         Properties values = new Properties();
         values.setProperty("provider_no", "999998");
         values.setProperty("demographic_no", "1");
@@ -43,14 +43,14 @@ class Rourke2020PdfReportIntegrationTest {
     @Test
     void shouldPrintBlankDatesAndCompactBackgrounds_withoutReusingPatientData() throws Exception {
         long coldStart = System.nanoTime();
-        byte[] first = print(record("FAKE-FIRST"), List.of(1, 2, 3, 4));
+        byte[] first = print(recordProperties("FAKE-FIRST"), List.of(1, 2, 3, 4));
         long coldMillis = (System.nanoTime() - coldStart) / 1_000_000;
         long warmStart = System.nanoTime();
-        byte[] second = print(record("FAKE-SECOND"), List.of(1, 2, 3, 4));
+        byte[] second = print(recordProperties("FAKE-SECOND"), List.of(1, 2, 3, 4));
         long warmMillis = (System.nanoTime() - warmStart) / 1_000_000;
         System.out.printf("Rourke PDF: %d bytes; cold %d ms; warm %d ms%n", second.length, coldMillis, warmMillis);
         // A document-size assertion is deterministic; wall-clock timings are diagnostics only.
-        assertThat(first.length).isLessThan(6_000_000);
+        assertThat(first).hasSizeLessThan(6_000_000);
         try (PDDocument pdf = Loader.loadPDF(second)) {
             assertThat(pdf.getNumberOfPages()).isEqualTo(4);
             String text = new PDFTextStripper().getText(pdf);
@@ -62,7 +62,7 @@ class Rourke2020PdfReportIntegrationTest {
                 PDFTextStripperByArea dates = new PDFTextStripperByArea();
                 for (int visit = 0; visit < 3; visit++) {
                     dates.addRegion("visit" + visit,
-                            new Rectangle2D.Float(210 + 530 * visit, dateRows[page], 165, 22));
+                            new Rectangle2D.Double(210 + 530 * visit, dateRows[page], 165, 22));
                 }
                 dates.extractRegions(pdf.getPage(page));
                 for (int visit = 0; visit < 3; visit++) {
@@ -80,7 +80,7 @@ class Rourke2020PdfReportIntegrationTest {
 
     @Test
     void shouldPrintAllSevenNotes_onLabelledContinuationPages() throws Exception {
-        Properties values = record("FAKE-NOTES");
+        Properties values = recordProperties("FAKE-NOTES");
         List<String> fields = List.of("p2_development2m", "p2_development4m", "p2_development6m",
                 "p2_physical2m", "p2_physical4m", "p2_physical6m", "p2_immunization6m");
         for (int i = 0; i < fields.size(); i++) values.setProperty(fields.get(i), "NOTE-" + i + "-PRESERVED");
@@ -101,7 +101,7 @@ class Rourke2020PdfReportIntegrationTest {
 
     @Test
     void shouldPreserveClinicalSymbolsAndAccentedNames_whenPrintingNotes() throws Exception {
-        Properties values = record("FAKE-Łucja");
+        Properties values = recordProperties("FAKE-Łucja");
         String note = "weight ≥ 5 kg; temperature ≤ 38°C; Δ weight; Na⁺";
         values.setProperty("p2_physical2m", note);
         try (PDDocument pdf = Loader.loadPDF(print(values, List.of(2)))) {
@@ -113,7 +113,7 @@ class Rourke2020PdfReportIntegrationTest {
 
     @Test
     void shouldKeepLongNotes_whenContinuationOverflowsOnePage() throws Exception {
-        Properties values = record("FAKE-LONG-NOTES");
+        Properties values = recordProperties("FAKE-LONG-NOTES");
         values.setProperty("p2_development2m", "Clinical note line\n".repeat(120) + "END-OF-LONG-NOTE");
         try (PDDocument pdf = Loader.loadPDF(print(values, List.of(2)))) {
             assertThat(pdf.getNumberOfPages()).isGreaterThan(2);
@@ -123,7 +123,9 @@ class Rourke2020PdfReportIntegrationTest {
 
     @Test
     void shouldRejectUnknownPages_beforeLoadingResources() {
-        assertThatThrownBy(() -> print(record("FAKE-INVALID"), List.of(5)))
+        Properties values = recordProperties("FAKE-INVALID");
+        List<Integer> invalidPages = List.of(5);
+        assertThatThrownBy(() -> print(values, invalidPages))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

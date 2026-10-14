@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
 class FormRourke2020UnitTest {
-    static Properties record() {
+    static Properties recordProperties() {
         Properties values = new Properties();
         values.setProperty("provider_no", "999998");
         values.setProperty("demographic_no", "1");
@@ -21,7 +21,7 @@ class FormRourke2020UnitTest {
     @ParameterizedTest
     @CsvSource(value = {"x|", "|x", "|"}, delimiter = '|', nullValues = "", emptyValue = "")
     void shouldPreserveSexMarkers_whenConvertingToPrintProperties(String male, String female) {
-        Properties values = record();
+        Properties values = recordProperties();
         values.setProperty("c_male", male == null ? "" : male);
         values.setProperty("c_female", female == null ? "" : female);
         assertThat(new FormRourke2020(values).toProperties())
@@ -31,7 +31,7 @@ class FormRourke2020UnitTest {
 
     @Test
     void shouldRetainImmunizationNotes_whenSavingAndRedisplayingAllPages() {
-        Properties values = record();
+        Properties values = recordProperties();
         values.setProperty("p3_immunization", "Page III note\nsecond line <&>");
         values.setProperty("p4_immunization", "Page IV note");
         Properties saved = new FormRourke2020(values).toProperties();

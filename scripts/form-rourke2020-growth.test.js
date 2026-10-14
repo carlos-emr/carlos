@@ -63,6 +63,30 @@ test('shouldGiveEveryMeasurementADateAfterBirth_andExactlyOneTheDefault', () => 
   }
 });
 
+test('shouldNameEveryHeadInputWithItsNativeMeasurementButton', () => {
+  const pages = [
+    ['c_headCirc', 'p1_hc1w', 'p1_hc2w', 'p1_hc1m'],
+    ['p2_hc2m', 'p2_hc4m', 'p2_hc6m'],
+    ['p3_hc9m', 'p3_hc12m', 'p3_hc15m'],
+    ['p4_hc18m', 'p4_hc24m'],
+  ];
+  pages.forEach((names, index) => {
+    const jsp = read(`src/main/webapp/WEB-INF/jsp/form/formRourke2020p${index + 1}.jsp`);
+    const buttons = [...jsp.matchAll(/<button\b[\s\S]*?<\/button>/g)].map(match => match[0]);
+    for (const name of names) {
+      const matching = buttons.filter(button => button.includes(`id="${name}Label"`));
+      assert.equal(matching.length, 1, `${name} needs exactly one associated button`);
+      assert.match(matching[0], /type="button"/, `${name} must not submit the form`);
+      assert.ok(matching[0].includes(`displayDemographicMeasurements('${name}', 'HEAD',`), `${name} must import HEAD`);
+      assert.match(matching[0], /<fmt:message key="[^"]+"\/>/, `${name} needs visible translated text`);
+      assert.doesNotMatch(matching[0], /<label\b/, 'interactive buttons cannot contain input labels');
+      const input = jsp.match(new RegExp(`<input\\b[^>]*\\bname="${name}"[^>]*>`));
+      assert.ok(input, `${name} input is missing`);
+      assert.ok(input[0].includes(`aria-labelledby="${name}Label"`), `${name} needs an explicit accessible name`);
+    }
+  });
+});
+
 test('shouldTypeADateForEveryVisitThatHasAMeasurement_soSaveAcceptsTheForm', () => {
   const fields = check.rourkeFields(MARKER, DOB);
   const measured = fields.filter(field => /^p\d_(ht|wt|hc)\d+[wm]$/.test(field.name)).map(field => field.name.replace(/^(p\d)_(ht|wt|hc)/, '$1_date'));
