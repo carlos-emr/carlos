@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.chartspace;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -64,6 +65,7 @@ class ChartSpaceAllergies2ActionUnitTest {
     private MockHttpServletResponse response;
     private LoggedInInfo info;
     private SecurityInfoManager securityInfoManager;
+    private CaseManagementManager caseManagementManager;
     private AllergyBlockLoader loader;
     private ChartSpaceAllergies2Action action;
 
@@ -78,8 +80,14 @@ class ChartSpaceAllergies2ActionUnitTest {
         session.setAttribute(SESSION_KEY, info);
         ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
         securityInfoManager = mock(SecurityInfoManager.class);
+        caseManagementManager = mock(CaseManagementManager.class);
+        // Everything the validator checks after _eChart r is granted here; each test still grants _eChart itself.
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(2))).thenReturn(true);
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
         loader = mock(AllergyBlockLoader.class);
-        action = new ChartSpaceAllergies2Action(new ChartSpaceRequestValidator(securityInfoManager), loader);
+        action = new ChartSpaceAllergies2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager), loader);
     }
 
     @AfterEach

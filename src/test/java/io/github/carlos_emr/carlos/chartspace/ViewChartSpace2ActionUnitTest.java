@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionContext;
@@ -56,7 +57,9 @@ class ViewChartSpace2ActionUnitTest {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private MockHttpSession session;
+    private LoggedInInfo info;
     private SecurityInfoManager securityInfoManager;
+    private CaseManagementManager caseManagementManager;
     private ViewChartSpace2Action action;
 
     @BeforeEach
@@ -66,10 +69,17 @@ class ViewChartSpace2ActionUnitTest {
         session = new MockHttpSession();
         request.setSession(session);
         request.setMethod("GET");
-        session.setAttribute(SESSION_KEY, mock(LoggedInInfo.class));
+        info = mock(LoggedInInfo.class);
+        session.setAttribute(SESSION_KEY, info);
         ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
         securityInfoManager = mock(SecurityInfoManager.class);
-        action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager));
+        caseManagementManager = mock(CaseManagementManager.class);
+        // Everything the validator checks after _eChart r is granted here; each test still grants _eChart itself.
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(2))).thenReturn(true);
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
+        action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager));
     }
 
     @AfterEach

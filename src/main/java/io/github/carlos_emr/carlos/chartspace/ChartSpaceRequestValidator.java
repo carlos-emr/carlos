@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.chartspace;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,11 +44,24 @@ import java.util.OptionalInt;
  *   <li>a logged-in session must exist, else {@link SecurityException};</li>
  *   <li>{@code demographicNo} must parse (see {@link ChartSpaceParams}), else 400;</li>
  *   <li>{@code _eChart} read must be granted for that patient, else
+ *       {@link SecurityException};</li>
+ *   <li>{@code _demographic} read must be granted for that patient, else
+ *       {@link SecurityException}: the page header shows the patient's name and age;</li>
+ *   <li>{@link SecurityInfoManager#isAllowedAccessToPatientRecord} must allow the
+ *       record (locked or restricted records), else {@link SecurityException};</li>
+ *   <li>unless {@code program_domain.show_echart=true}, the patient must be in the
+ *       provider's program domain or referred into it, else
  *       {@link SecurityException}.</li>
  * </ol>
  *
+ * <p>The last check reproduces the eChart entry policy of
+ * {@code EctIncomingEncounter2Action}: the restriction is on by default and only
+ * the literal {@code "true"} disables it. Unlike the eChart, which forwards to
+ * {@code domain-error.jsp}, ChartSpace throws {@link SecurityException} (the
+ * decision is the same, only the failure surface differs).</p>
+ *
  * <p>Nothing before the privilege check touches data, and the 405 and 400
- * paths never reach {@link SecurityInfoManager}. Block-specific privileges
+ * paths never reach {@link SecurityInfoManager} or {@link CaseManagementManager}. Block-specific privileges
  * (for example {@code _allergy}) are checked by each block's loader, not here.</p>
  *
  * @since 2026-10-08
@@ -55,13 +70,17 @@ import java.util.OptionalInt;
 public class ChartSpaceRequestValidator {
 
     private final SecurityInfoManager securityInfoManager;
+    private final CaseManagementManager caseManagementManager;
 
     /**
-     * @param securityInfoManager privilege checker
+     * @param securityInfoManager privilege and patient-record access checker
+     * @param caseManagementManager program-domain checker
      */
     @Autowired
-    public ChartSpaceRequestValidator(SecurityInfoManager securityInfoManager) {
+    public ChartSpaceRequestValidator(SecurityInfoManager securityInfoManager,
+                                      CaseManagementManager caseManagementManager) {
         this.securityInfoManager = securityInfoManager;
+        this.caseManagementManager = caseManagementManager;
     }
 
     /**
@@ -80,7 +99,9 @@ public class ChartSpaceRequestValidator {
      * @param response current response; receives the 405 or 400 when a check fails
      * @return the validated request, or empty when an error status was already
      *         written to {@code response} (the caller must then return {@code NONE})
-     * @throws SecurityException if there is no session or {@code _eChart r} is missing
+     * @throws SecurityException if there is no session, {@code _eChart r} or
+     *         {@code _demographic r} is missing, the record is not accessible, or the
+     *         patient is outside the provider's program domain
      * @throws IOException if writing the error status fails
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (HTTP method); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -107,6 +128,24 @@ public class ChartSpaceRequestValidator {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", String.valueOf(demographicNo.getAsInt()))) {
             throw new SecurityException("missing required sec object (_eChart)");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", String.valueOf(demographicNo.getAsInt()))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo.getAsInt())) {
+            throw new SecurityException("patient record access denied");
+        }
+
+        // Same policy as EctIncomingEncounter2Action: active unless explicitly set to "true".
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
+            String demographic = String.valueOf(demographicNo.getAsInt());
+            if (!caseManagementManager.isClientInProgramDomain(providerNo, demographic)
+                    && !caseManagementManager.isClientReferredInProgramDomain(providerNo, demographic)) {
+                throw new SecurityException("patient outside program domain");
+            }
         }
 
         return Optional.of(new Validated(loggedInInfo, demographicNo.getAsInt()));

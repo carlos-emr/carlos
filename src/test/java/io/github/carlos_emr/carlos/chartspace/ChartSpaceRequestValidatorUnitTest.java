@@ -21,11 +21,15 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -36,6 +40,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -43,11 +50,16 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ChartSpaceRequestValidator}. They pin the check order
- * shared by every ChartSpace action: method, session, parameter, privilege.
+ * shared by every ChartSpace action: method, session, parameter, privilege,
+ * record access, program domain.
+ *
+ * <p>{@link Isolated}: the tests mutate the process-wide {@code CarlosProperties}
+ * singleton, and Surefire runs test classes in parallel.</p>
  *
  * @since 2026-10-08
  */
 @Tag("unit")
+@Isolated
 class ChartSpaceRequestValidatorUnitTest {
 
     private static final String SESSION_KEY = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -57,7 +69,13 @@ class ChartSpaceRequestValidatorUnitTest {
     private MockHttpSession session;
     private LoggedInInfo info;
     private SecurityInfoManager securityInfoManager;
+    private CaseManagementManager caseManagementManager;
     private ChartSpaceRequestValidator validator;
+
+    private static final String DOMAIN_KEY = "program_domain.show_echart";
+
+    /** Raw original value on the shared singleton (null when undefined), restored after each test. */
+    private Object originalDomainValue;
 
     @BeforeEach
     void setUp() {
@@ -69,7 +87,28 @@ class ChartSpaceRequestValidatorUnitTest {
         info = mock(LoggedInInfo.class);
         session.setAttribute(SESSION_KEY, info);
         securityInfoManager = mock(SecurityInfoManager.class);
-        validator = new ChartSpaceRequestValidator(securityInfoManager);
+        caseManagementManager = mock(CaseManagementManager.class);
+        validator = new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager);
+        // Hashtable read: getProperty(String) would log a missing-key warning and apply defaults.
+        originalDomainValue = CarlosProperties.getInstance().get(DOMAIN_KEY);
+        CarlosProperties.getInstance().remove(DOMAIN_KEY);
+    }
+
+    @AfterEach
+    void restoreProperty() {
+        if (originalDomainValue == null) {
+            CarlosProperties.getInstance().remove(DOMAIN_KEY);
+        } else {
+            CarlosProperties.getInstance().setProperty(DOMAIN_KEY, (String) originalDomainValue);
+        }
+    }
+
+    /** Grants everything the validator checks, so a test can then withdraw one piece. */
+    private void allowAll() {
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(securityInfoManager.hasPrivilege(eq(info), anyString(), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(info, 2)).thenReturn(true);
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
     }
 
     @ParameterizedTest
@@ -83,7 +122,7 @@ class ChartSpaceRequestValidatorUnitTest {
         assertThat(result).isEmpty();
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD");
-        verifyNoInteractions(securityInfoManager);
+        verifyNoInteractions(securityInfoManager, caseManagementManager);
     }
 
     @Test
@@ -120,7 +159,7 @@ class ChartSpaceRequestValidatorUnitTest {
     @Test
     void shouldReturnValidated_whenEverythingChecksOut() throws Exception {
         request.setParameter("demographicNo", "2");
-        when(securityInfoManager.hasPrivilege(info, "_eChart", "r", "2")).thenReturn(true);
+        allowAll();
 
         Optional<ChartSpaceRequestValidator.Validated> result = validator.validate(request, response);
 
@@ -134,8 +173,85 @@ class ChartSpaceRequestValidatorUnitTest {
     void shouldAccept_forHead() throws Exception {
         request.setMethod("HEAD");
         request.setParameter("demographicNo", "2");
-        when(securityInfoManager.hasPrivilege(info, "_eChart", "r", "2")).thenReturn(true);
+        allowAll();
 
         assertThat(validator.validate(request, response)).isPresent();
+    }
+
+    @Test
+    void shouldNotTouchSecurity_whenMethodInvalid() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "2");
+
+        assertThat(validator.validate(request, response)).isEmpty();
+
+        verifyNoInteractions(securityInfoManager, caseManagementManager);
+    }
+
+    @Test
+    void shouldThrow_whenDemographicReadMissing() {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        when(securityInfoManager.hasPrivilege(eq(info), eq("_demographic"), eq("r"), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> validator.validate(request, response))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+        verifyNoInteractions(caseManagementManager);
+    }
+
+    @Test
+    void shouldThrow_whenPatientRecordLocked() {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        when(securityInfoManager.isAllowedAccessToPatientRecord(info, 2)).thenReturn(false);
+
+        assertThatThrownBy(() -> validator.validate(request, response))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("patient record access denied");
+        verifyNoInteractions(caseManagementManager);
+    }
+
+    @Test
+    void shouldThrow_whenPatientOutsideProgramDomain() {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(false);
+        when(caseManagementManager.isClientReferredInProgramDomain("999998", "2")).thenReturn(false);
+
+        assertThatThrownBy(() -> validator.validate(request, response))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("patient outside program domain");
+    }
+
+    @Test
+    void shouldPass_whenPatientInProgramDomain() throws Exception {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
+        when(caseManagementManager.isClientReferredInProgramDomain("999998", "2")).thenReturn(false);
+
+        assertThat(validator.validate(request, response)).isPresent();
+    }
+
+    @Test
+    void shouldPass_whenPatientReferredInProgramDomain() throws Exception {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(false);
+        when(caseManagementManager.isClientReferredInProgramDomain("999998", "2")).thenReturn(true);
+
+        assertThat(validator.validate(request, response)).isPresent();
+    }
+
+    @Test
+    void shouldSkipDomainCheck_whenShowEChartPropertyTrue() throws Exception {
+        request.setParameter("demographicNo", "2");
+        allowAll();
+        CarlosProperties.getInstance().setProperty(DOMAIN_KEY, "true");
+
+        assertThat(validator.validate(request, response)).isPresent();
+
+        verifyNoInteractions(caseManagementManager);
     }
 }

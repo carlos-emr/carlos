@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -63,6 +64,7 @@ class ChartSpaceAllergies2ActionIntegrationTest extends CarlosWebTestBase {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private AllergyManager allergyManager;
+    private CaseManagementManager caseManagementManager;
     private ChartSpaceAllergies2Action action;
 
     @BeforeEach
@@ -71,17 +73,23 @@ class ChartSpaceAllergies2ActionIntegrationTest extends CarlosWebTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
         mockRequest.setMethod("GET");
+        // Record access and program domain are allowed by default; _eChart r stays per-test.
+        caseManagementManager = mock(CaseManagementManager.class);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        allowPrivilege("_demographic", "r");
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), any())).thenReturn(true);
+        when(caseManagementManager.isClientInProgramDomain(anyString(), anyString())).thenReturn(true);
         addRequestParameter("demographicNo", "2");
         allergyManager = mock(AllergyManager.class);
         action = new ChartSpaceAllergies2Action(
-                new ChartSpaceRequestValidator(mockSecurityInfoManager),
+                new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager),
                 new AllergyBlockLoader(mockSecurityInfoManager, allergyManager));
     }
 
     @Test
     @DisplayName("should resolve collaborators from SpringUtils in the no-arg constructor")
     void shouldResolveCollaborators_whenNoArgConstructorUsed() throws Exception {
-        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager));
+        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager));
         replaceSpringUtilsBean(AllergyBlockLoader.class, new AllergyBlockLoader(mockSecurityInfoManager, allergyManager));
         allowPrivilege("_eChart", "r");
 

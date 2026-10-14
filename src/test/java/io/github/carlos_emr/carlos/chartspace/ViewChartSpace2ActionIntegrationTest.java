@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -67,14 +69,22 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
     static final String ENCOUNTER_CONFIG = java.nio.file.Path.of(System.getProperty("basedir", "."),
             "src", "main", "webapp", "WEB-INF", "classes", "struts-encounter.xml").toString();
 
+    private CaseManagementManager caseManagementManager;
+
     @BeforeEach
     void setUpGate() {
         // Deny-all default so each allow-test must grant the specific privilege it relies on.
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
                 .thenReturn(false);
         mockRequest.setMethod("GET");
+        // Record access and program domain are allowed by default; _eChart r stays per-test.
+        caseManagementManager = mock(CaseManagementManager.class);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        allowPrivilege("_demographic", "r");
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), any())).thenReturn(true);
+        when(caseManagementManager.isClientInProgramDomain(anyString(), anyString())).thenReturn(true);
         // The no-arg constructor resolves the validator through SpringUtils.
-        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager));
+        replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager));
     }
 
     @Test
