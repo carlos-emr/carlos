@@ -98,10 +98,10 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
         old.setKeyVal("startDate");
         old.setValue("2020");
         old.setDateValue(new Date(1000));
-        when(extensions.getExtByNote(501L)).thenReturn(List.of(old));
+        when(extensions.getExtByNoteForUpdate(501L)).thenReturn(List.of(old));
         CaseManagementNoteLink link = new CaseManagementNoteLink(CaseManagementNoteLink.DOCUMENT, 77L, 501L);
         link.setOtherId("attachment");
-        when(links.getLinkByNote(501L)).thenReturn(List.of(link));
+        when(links.getLinkByNoteForUpdate(501L)).thenReturn(List.of(link));
 
         CaseManagementNote saved = manager.saveNoteRevisionSimple(edit());
 
@@ -121,6 +121,8 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
         assertThat(attachment.getValue().getTableId()).isEqualTo(77L);
         assertThat(attachment.getValue().getOtherId()).isEqualTo("attachment");
         assertThat(link.getNoteId()).isEqualTo(501L);
+        verify(extensions, never()).getExtByNote(anyLong());
+        verify(links, never()).getLinkByNote(anyLong());
     }
 
     @Test
@@ -175,7 +177,7 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
         CaseManagementNote previous = edit();
         CaseManagementNote submitted = previous.copyForRevision();
         CaseManagementNoteLink link = new CaseManagementNoteLink(CaseManagementNoteLink.DOCUMENT, 77L, 501L);
-        when(links.getLinkByNote(501L)).thenReturn(List.of(link));
+        when(links.getLinkByNoteForUpdate(501L)).thenReturn(List.of(link));
         manager.saveNoteRevisionSimple(submitted);
         ArgumentCaptor<CaseManagementNoteLink> copied = ArgumentCaptor.forClass(CaseManagementNoteLink.class);
         verify(links).save(copied.capture());

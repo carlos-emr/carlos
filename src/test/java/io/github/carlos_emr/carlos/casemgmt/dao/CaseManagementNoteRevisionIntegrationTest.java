@@ -5,15 +5,26 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManagerImpl;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
+import jakarta.persistence.LockModeType;
+import org.hibernate.exception.SnapshotIsolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.test.context.transaction.TestTransaction;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.UnexpectedRollbackException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
+import java.sql.SQLException;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 /** Verifies that chart revisions insert new rows and retain historical associations. */
 class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
@@ -23,6 +34,82 @@ class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBas
     @Autowired
     @Qualifier("CaseManagementNoteLinkDAO")
     private CaseManagementNoteLinkDAO links;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Test
+    void shouldLockCurrentMetadataRows_inTheExistingPrecedenceOrder() {
+        CaseManagementNote note = createNote("1", "Metadata locking");
+        CaseManagementNoteExt older = new CaseManagementNoteExt();
+        older.setNoteId(note.getId());
+        older.setKeyVal("startDate");
+        older.setValue("2020");
+        extensions.save(older);
+        CaseManagementNoteExt newer = new CaseManagementNoteExt();
+        newer.setNoteId(note.getId());
+        newer.setKeyVal("startDate");
+        newer.setValue("2021");
+        extensions.save(newer);
+        CaseManagementNoteLink first = new CaseManagementNoteLink(CaseManagementNoteLink.DOCUMENT, 77L, note.getId());
+        CaseManagementNoteLink second = new CaseManagementNoteLink(CaseManagementNoteLink.DOCUMENT, 78L, note.getId());
+        links.save(first);
+        links.save(second);
+        entityManager.flush();
+        entityManager.clear();
+
+        var currentExtensions = extensions.getExtByNoteForUpdate(note.getId());
+        assertThat(currentExtensions).extracting(CaseManagementNoteExt::getId)
+                .containsExactly(newer.getId(), older.getId());
+        currentExtensions.forEach(row -> assertThat(entityManager.getLockMode(row)).isEqualTo(LockModeType.PESSIMISTIC_WRITE));
+        var currentLinks = links.getLinkByNoteForUpdate(note.getId());
+        assertThat(currentLinks).extracting(CaseManagementNoteLink::getId)
+                .containsExactly(first.getId(), second.getId());
+        currentLinks.forEach(row -> assertThat(entityManager.getLockMode(row)).isEqualTo(LockModeType.PESSIMISTIC_WRITE));
+    }
+
+    @Test
+    void shouldRollBackInsertedRevisionAndMetadata_whenALaterLockingReadFails() {
+        CaseManagementNote original = createNote("1", "Original assessment");
+        String uuid = original.getUuid();
+        CaseManagementNoteExt extension = new CaseManagementNoteExt();
+        extension.setNoteId(original.getId());
+        extension.setKeyVal("startDate");
+        extension.setValue("2020");
+        extensions.save(extension);
+        entityManager.flush();
+        entityManager.clear();
+        CaseManagementNote submitted = caseManagementNoteDAO.getNote(original.getId());
+        entityManager.detach(submitted);
+        submitted.setNote("Unsaved draft");
+
+        CaseManagementNoteLinkDAO failingLinks = mock(CaseManagementNoteLinkDAO.class);
+        when(failingLinks.getLinkByNoteForUpdate(original.getId())).thenThrow(
+                new SnapshotIsolationException("snapshot conflict",
+                        new SQLException("record changed", "HY000", 1020), "select 1"));
+        CaseManagementManagerImpl target = new CaseManagementManagerImpl();
+        target.setCaseManagementNoteDAO(caseManagementNoteDAO);
+        target.setCaseManagementNoteExtDAO(extensions);
+        target.setCaseManagementNoteLinkDAO(failingLinks);
+        ProxyFactory factory = new ProxyFactory(target);
+        factory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
+        CaseManagementManager service = (CaseManagementManager) factory.getProxy();
+
+        assertThatThrownBy(() -> service.saveNoteRevisionSimple(submitted))
+                .isInstanceOf(SnapshotIsolationException.class);
+        Long attemptedId = caseManagementNoteDAO.getMostRecentNote(uuid).getId();
+        assertThat(attemptedId).isNotEqualTo(original.getId());
+        assertThat(extensions.getExtByNote(attemptedId)).hasSize(1);
+        assertThat(submitted.getId()).isEqualTo(original.getId());
+        assertThat(submitted.getNote()).isEqualTo("Unsaved draft");
+
+        // Even a caller attempting to commit must lose every write in the failed transaction.
+        TestTransaction.flagForCommit();
+        assertThatThrownBy(TestTransaction::end).isInstanceOf(UnexpectedRollbackException.class);
+        TestTransaction.start();
+        assertThat(caseManagementNoteDAO.getMostRecentNote(uuid)).isNull();
+        assertThat(extensions.getExtByNote(attemptedId)).isEmpty();
+        assertThat(links.getLinkByNote(attemptedId)).isEmpty();
+    }
 
     @Test
     void shouldRetainOriginalAndRelatedRows_whenDetachedEditIsSavedAsRevision() {

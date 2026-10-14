@@ -243,7 +243,7 @@ async function workflow(s) {
   async function stepHeading(module = 'unresolvedIssues') {
     await s.step(module === 'unresolvedIssues' ? STEP.heading : 'clicking the Resolved Issues heading brings every note back', async () => {
       const chart = await s.chart();
-      await chart.locator(`#${module} .nav-menu-title a`).first().click({ timeout: TIMEOUT });
+      await chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT });
       await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
     });
   }
@@ -381,6 +381,7 @@ async function workflow(s) {
       const chart = await s.chart();
       await leaveChart(chart);
       const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before resolving it');
       sql.execute(`UPDATE casemgmt_issue SET resolved=1 WHERE id=${link.id} AND demographic_no=${patient}`);
       const reopened = await s.chart();
       await reopened.locator('#resolvedIssueslist a.links').first().click({ timeout: TIMEOUT });

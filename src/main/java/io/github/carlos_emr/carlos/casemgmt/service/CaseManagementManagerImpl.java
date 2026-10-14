@@ -231,15 +231,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public String saveNote(CaseManagementCPP cpp, CaseManagementNote note, String cproviderNo, String userName,
                            String lastStr, String roleName) {
         try {
-            return persistNote(cpp, note, cproviderNo, userName, lastStr, roleName);
+            return persistNote(cpp, note, userName, lastStr);
         } catch (NullPointerException e) {
             logger.error("Note is null", e);
             return "Note is null";
         }
     }
 
-    private String persistNote(CaseManagementCPP cpp, CaseManagementNote note, String providerNo,
-            String userName, String lastStr, String roleName) {
+    private String persistNote(CaseManagementCPP cpp, CaseManagementNote note,
+            String userName, String lastStr) {
         if (note == null) {
             throw new NullPointerException("Note is null");
         }
@@ -1752,7 +1752,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             String providerNo, String userName, String lastStr, String roleName) {
         Long previousId = previousRevisionId(note);
         CaseManagementNote revision = previousId == null ? note : note.copyForRevision();
-        String savedText = persistNote(cpp, revision, providerNo, userName, lastStr, roleName);
+        String savedText = persistNote(cpp, revision, userName, lastStr);
         if (revision.getId() == null) {
             throw new IllegalStateException("Note revision was not saved");
         }
@@ -1793,9 +1793,10 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     private void copyRevisionMetadata(Long previousId, CaseManagementNote revision) {
         if (previousId == null) return;
         // Preserve duplicate legacy keys and their ordering; CPP edits update only the new rows.
-        List<CaseManagementNoteExt> extensions = new ArrayList<>(getExtByNote(previousId));
-        Collections.reverse(extensions);
-        for (CaseManagementNoteExt old : extensions) {
+        // The chain lock may see a revision committed after this transaction's first read.
+        // Its metadata must also use locking reads, rather than the older repeatable-read snapshot.
+        List<CaseManagementNoteExt> extensions = caseManagementNoteExtDAO.getExtByNoteForUpdate(previousId);
+        for (CaseManagementNoteExt old : extensions.reversed()) {
             CaseManagementNoteExt copy = new CaseManagementNoteExt();
             copy.setNoteId(revision.getId());
             copy.setKeyVal(old.getKeyVal());
@@ -1804,7 +1805,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             saveNoteExt(copy);
             revision.getExtend().add(copy);
         }
-        List<CaseManagementNoteLink> previousLinks = getLinkByNote(previousId);
+        List<CaseManagementNoteLink> previousLinks = caseManagementNoteLinkDAO.getLinkByNoteForUpdate(previousId);
         for (CaseManagementNoteLink old : previousLinks) {
             CaseManagementNoteLink copy = new CaseManagementNoteLink();
             copy.setNoteId(revision.getId());

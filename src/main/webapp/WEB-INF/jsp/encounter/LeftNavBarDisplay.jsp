@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Renders a configured chart navigation module and its patient-specific items.
+    Features include permission-aware headings, expandable item lists, and issue
+    headings that clear the note filter through the chart's guarded reset handler.
+    Request attributes: DAO supplies the module heading, links and items; navbarName
+    identifies the module and cmd selects its write permission. Optional reloadURL
+    and numToDisplay parameters control refresh and the number of visible items.
+    @since 2026-10-14 (issue-heading reset behavior)
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -186,8 +196,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      } else if ("unresolvedIssues".equals(navbarName) || "resolvedIssues".equals(navbarName)) { %>
         <%-- These two modules clear the notes filter. Keep the handler fixed rather
              than treating the legacy DAO leftURL statement as executable input. --%>
-        <h3><a href="#" onclick="return clearIssueFilter();"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
-        </a></h3>
+        <h3><button type="button" onclick="return clearIssueFilter();"
+                    style="display: block; width: 100%; text-align: left; white-space: nowrap; margin: 0; padding: 1px 10px; border: 0; background: inherit; color: inherit; font: inherit; cursor: pointer;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        </button></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>

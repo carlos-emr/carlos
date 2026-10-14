@@ -999,7 +999,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         try {
             note = caseManagementMgr.saveNoteRevision(cpp, note, providerNo, null, null, null).note();
-        } catch (StaleNoteRevisionException e) {
+        } catch (RuntimeException e) {
+            if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
@@ -1365,7 +1366,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             var savedRevision = caseManagementMgr.saveNoteRevision(cpp, note, providerNo, userName, lastSavedNoteString, roleName);
             note = savedRevision.note();
             savedStr = savedRevision.legacyChartText();
-        } catch (StaleNoteRevisionException e) {
+        } catch (RuntimeException e) {
+            if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
@@ -1695,7 +1697,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note = caseManagementMgr.saveCaseManagementNote(
                     loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
                     userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
-        } catch (StaleNoteRevisionException e) {
+        } catch (RuntimeException e) {
+            if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return -1;
         }
@@ -2053,13 +2056,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         try {
             note = this.caseManagementMgr.saveNoteRevisionSimple(note);
-        } catch (StaleNoteRevisionException e) {
+        } catch (RuntimeException e) {
+            if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
         }
         this.caseManagementMgr.getEditors(note);
         sessionFrm.setCaseNote(note);
-        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): reads a server-created lock from this session; hasNoteLock already checked database and current-session ownership, and the loaded note's demographic matches demo
         if (noteLock != null) {
             noteLock.setNoteId(note.getId());
             casemgmtNoteLockDao.merge(noteLock);
@@ -2185,13 +2189,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         addActionMessage(getText("note.saved"));
 
         String priorNote = this.getNoteId();
+        // Full form posts replace the editor page; retain the raw draft before noteSave normalizes it.
+        String unsavedNoteText = request.getParameter("caseNote_note");
+        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
         Long noteId = noteSave();
-        if (noteId < 0) return null;
-        session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
-
-        if (noteId == -1) {
+        if (noteId < 0) {
+            if (response.getStatus() == HttpServletResponse.SC_CONFLICT) {
+                request.setAttribute("noteRevisionConflict", Boolean.TRUE);
+                request.setAttribute("unsavedNoteText", unsavedNoteText);
+            }
             return "windowCloseError";
         }
+        session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
 
         releaseNoteLock(providerNo, Integer.parseInt(demoNo), noteId);
         this.setMethod("view");
@@ -2749,9 +2758,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         // added by Eugene Petrhin in order to guarantee the DB consistency if user hits Cancel afterwards
-        if (sessionFrm.getCaseNote().getId() != null) {
-            if (noteSave() < 0) return null;
-        }
+        if (sessionFrm.getCaseNote().getId() != null && noteSave() < 0) return null;
 
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {

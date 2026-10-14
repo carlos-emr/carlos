@@ -165,30 +165,35 @@ const CALCULATOR_LINKS = '#header a[onclick*="ViewCalculators"], #header a[href*
 /** The note-template search box, rendered into the chart by ChartNotes.jsp. */
 const TEMPLATE_INPUT = '#enTemplate';
 
-/** Runs before page scripts; retains the earliest complete header, labels only. */
-function installInitialHeaderObserver() {
-  const observer = new MutationObserver(capture);
-  function capture() {
-    const header = document.getElementById('header-top-row');
-    const calculators = document.querySelectorAll('#header a[onclick*="ViewCalculators"], #header a[href*="ViewCalculators"]');
-    const labels = [...document.querySelectorAll('#header #patient-label .label')];
-    // The calculator follows the Java identity block in the server markup. Wait
-    // for its text so a parser chunk containing only its start tag is incomplete.
-    if (!header || !labels.length || !calculators.length || !calculators[0].textContent.trim()) return;
-    window.__encounterInitialHeader = {
-      identityLabelsById: Object.fromEntries(labels.map(label => [label.parentElement.id, label.textContent.trim()])),
-      calculatorCount: calculators.length,
-      calculatorText: calculators[0].textContent.trim(),
-      lang: { page: document.documentElement.getAttribute('lang') || '', header: header.getAttribute('lang') || '' },
-    };
-    observer.disconnect();
-  }
-  observer.observe(document, { childList: true, subtree: true, characterData: true });
-  capture();
+/** Parse the actual navigation response without executing any of its scripts. */
+function parseInitialHeader(html) {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const header = document.getElementById('header-top-row');
+  const calculators = document.querySelectorAll('#header a[onclick*="ViewCalculators"], #header a[href*="ViewCalculators"]');
+  const labels = [...document.querySelectorAll('#header #patient-label .label')];
+  if (!header || !labels.length || !calculators.length || !calculators[0].textContent.trim()) return null;
+  return {
+    identityLabelsById: Object.fromEntries(labels.map(label => [label.parentElement.id, label.textContent.trim()])),
+    calculatorCount: calculators.length,
+    calculatorText: calculators[0].textContent.trim(),
+    lang: { page: document.documentElement.getAttribute('lang') || '', header: header.getAttribute('lang') || '' },
+  };
+}
+
+async function readInitialChartHeader(requests, chartPage) {
+  const matching = requests.filter(request => request.frame() === chartPage.mainFrame());
+  assert(matching.length === 1, 'Expected exactly one chart document response');
+  const response = await matching[0].response();
+  assert(response && response.status() === 200 && /text\/html/i.test(response.headers()['content-type'] || ''),
+    'The initial chart document was not a successful HTML response');
+  // Use the original response, not a second GET that could already have initialized
+  // locale/session state. Popup initial-document replacement can disconnect an init-script
+  // MutationObserver before parsing; the response retains the exact server-rendered labels.
+  return chartPage.evaluate(parseInitialHeader, await response.text());
 }
 
 function assertInitialHeader(language, initial, settled) {
-  assert(initial, 'The initial chart header was not observed before page scripts completed');
+  assert(initial, 'The initial server-rendered chart header is missing');
   assert(JSON.stringify(initial.identityLabelsById) === JSON.stringify(settled.identityLabelsById)
     && initial.calculatorCount === settled.calculatorCount && initial.calculatorText === settled.calculatorText,
   `The ${language.tag} header changed after its initial render (before reload)`);
@@ -329,7 +334,6 @@ async function walkInLanguage(browser, config, language, options) {
   });
   try {
     assert((await context.cookies()).length === 0, 'Locale checks must begin without session cookies');
-    await context.addInitScript(installInitialHeaderObserver);
     const chartRequests = [];
     context.on('request', request => {
       if (request.isNavigationRequest() && new URL(request.url()).pathname.endsWith('/CaseManagementEntry')) {
@@ -351,7 +355,7 @@ async function walkInLanguage(browser, config, language, options) {
     const chartPage = await openChart(context, masterPage, recorder, timeout);
     const firstRequestLanguage = await readChartRequestLanguage(chartRequests, chartPage);
     const header = await readHeader(chartPage, timeout);
-    const initial = await chartPage.evaluate(() => window.__encounterInitialHeader);
+    const initial = await readInitialChartHeader(chartRequests, chartPage);
     assertInitialHeader(language, initial, header);
     assertLanguage(language, header);
     assert(firstRequestLanguage, 'The initial chart request sent no Accept-Language');
@@ -381,7 +385,7 @@ async function walkInLanguage(browser, config, language, options) {
     recorder.requestFailures.push(...addedByReload.filter((entry) => !(entry.resourceType === 'ping'
       && entry.errorText === 'net::ERR_ABORTED')));
     const reloaded = await readHeader(chartPage, timeout);
-    const reloadInitial = await chartPage.evaluate(() => window.__encounterInitialHeader);
+    const reloadInitial = await readInitialChartHeader(chartRequests, chartPage);
     assertInitialHeader(language, reloadInitial, reloaded);
     assertLanguage(language, reloaded);
     const reloadRequestLanguage = await readChartRequestLanguage(chartRequests, chartPage);
@@ -474,4 +478,4 @@ if (require.main === module) {
 }
 
 module.exports = { CALCULATOR_LINKS, IDENTITY_LABELS, LANGUAGES, TEMPLATE_INPUT, assertLanguage,
-  installInitialHeaderObserver, assertInitialHeader, readChartRequestLanguage, main };
+  parseInitialHeader, readInitialChartHeader, assertInitialHeader, readChartRequestLanguage, main };

@@ -1125,7 +1125,7 @@
                                          data-title="${carlos:forHtmlAttribute(eligibilityTitle)}"
                                          data-close="${carlos:forHtmlAttribute(eligibilityClose)}"
                                          data-error="${carlos:forHtmlAttribute(eligibilityError)}">
-                                        <span id="search_spinner" role="status"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
+                                        <output id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></output>
                                         <span id="returnTeleplanMsg"></span>
                                     </div>
                                     <%}%>

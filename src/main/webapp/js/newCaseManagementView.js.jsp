@@ -45,6 +45,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
+<fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
+
+    var noteEditorLabel = "${carlos:forJavaScriptBlock(noteEditorLabel)}";
 
     var ctx;        //url context
     var providerNo;
@@ -1146,14 +1149,14 @@
             var cppDisplay = "";
             for (idx = 0, rows = 0; idx < issueArray.length; idx += 3, ++rows) {
                 if (rows % 2 === 0) {
-                    noteIssueUl += "<li><input type='checkbox' id='issueId' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]);
+                    noteIssueUl += "<li><label><input type='checkbox' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</label>";
                 } else {
-                    noteIssueUl += "&nbsp; <input type='checkbox' id='issueId' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</li>";
+                    noteIssueUl += "&nbsp; <label><input type='checkbox' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</label></li>";
                 }
                 if (cppDisplay == "") cppDisplay = getCPP(issueArray[idx + 1]);
             }
 
-            if (rows % 2 === 0) {
+            if (rows % 2 !== 0) {
                 noteIssueUl += "</li>";
             }
         }
@@ -2354,7 +2357,7 @@ function updateCPPNote() {
         // wrap='soft', never 'hard': a hard-wrapped textarea submits a CRLF at every visual
         // wrap point (Firefox 145+ does so for scripted submissions too), and the server
         // stores those breaks as part of the note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
+        var input = "<textarea cols='84' rows='10' wrap='soft' class='txtArea boxsizingBorder edit-textarea' style='line-height:1.1em;' aria-label='" + escapeNoteText(noteEditorLabel) + "' name='caseNote_note' id='" + caseNote + "'>" + payload + "<\/textarea>";
         $(txt).insertAdjacentHTML('afterbegin', input);
         var printimg = "<div class='tool-button print-button'><img title='Print' id='print" + nId + "' alt='Toggle Print Note' onclick='togglePrint(" + nId + ", event)' style='float:right; margin-right:5px;' src='" + ctx + "/encounter/graphics/printer.png'></div>";
 
@@ -3356,7 +3359,7 @@ function updateCPPNote() {
         // JavaScript string), spliced into markup here: escape it like every other note text.
         // wrap='soft' for the same reason as editNote(): only line breaks the clinician types
         // may reach the saved note (#3955).
-        var input = "<textarea tabindex='7' cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='<fmt:message key="encounter.noteBrowser.encounterNote"/>' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
+        var input = "<textarea cols='84' rows='1' wrap='soft' class='txtArea boxsizingBorder' style='line-height:1.0em;' aria-label='" + escapeNoteText(noteEditorLabel) + "' name='caseNote_note' id='caseNote_note" + safeNoteIdSuffix + "'>" + escapeNoteText(reason) + "<\/textarea>";
         // the extra BR NBSP at the ends are for IE fix for selection box is out of scrolling pane view.
         var div = "<div id='" + id + "' class='newNote'><input type='hidden' id='signed" + safeNewNoteIdx + "' value='false'><input type='hidden' id='editWarn" + safeNewNoteIdx + "' value='false'><div id='n" + safeNewNoteIdx + "'><input type='hidden' id='full" + safeNewNoteIdx + "' value='true'>" +
             "<input type='hidden' id='bgColour" + safeNewNoteIdx + "' value='color:white;background-color:#CCCCFF;'>" + input + "<div class='sig' style='display:inline;' id='" + safeSigId + "'><\/div><\/div><\/div><br \/>&nbsp;<br \/>&nbsp;<br \/>&nbsp;<br \/>";

@@ -201,6 +201,7 @@ test('both fixed issue heading handlers clear the issue constraint and request t
   const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp'), 'utf8');
   const branch = jsp.match(/else if \("unresolvedIssues"\.equals\(navbarName\) \|\| "resolvedIssues"\.equals\(navbarName\)\)[\s\S]*?onclick="([^"]+)"/);
   assert.ok(branch, 'Both issue module names must dispatch to the fixed handler');
+  assert.match(branch[0], /<button type="button"/, 'The filter action must use a native button');
   for (const name of ['unresolvedIssues', 'resolvedIssues']) {
     h.fields.check_issue.value = name;
     vm.runInContext(`(function () { ${branch[1]} })()`, h.context);
@@ -324,4 +325,35 @@ test('assignment controls stay disabled through the sidebar refresh and reenable
   h.context.queuedNoteSave = null; h.context.issueUpdateFailed = false;
   h.context.finishIssueUpdate(true);
   assert.equal(h.input.disabled, false); assert.equal(h.button.disabled, false);
+});
+
+for (const count of [1, 2, 3]) {
+  test(`existing CPP markup labels ${count} checkboxes without duplicate ids or unmatched rows`, () => {
+    const context = { noteIssues: Array.from({length: count}, (_, i) => `${i + 1};TEST;Issue ${i + 1} & <text>`).join(';'), getCPP: () => '' };
+    vm.createContext(context);
+    vm.runInContext(block('    function escapeNoteText(', '    function completeChangeToView(')
+      + block('        var noteIssueUl =', '        var noteInfo ='), context);
+    const html = context.noteIssueUl;
+    assert.equal((html.match(/<label><input type='checkbox' name='issue_id'/g) || []).length, count);
+    assert.equal((html.match(/<\/label>/g) || []).length, count);
+    assert.equal((html.match(/<li>/g) || []).length, Math.ceil(count / 2));
+    assert.equal((html.match(/<\/li>/g) || []).length, Math.ceil(count / 2));
+    assert.doesNotMatch(html, /id='issueId'/);
+    assert.match(html, /&amp; &lt;text&gt;/);
+  });
+}
+
+test('new and existing note textarea names are escaped and keep natural keyboard order', () => {
+  const declarations = source.split('\n').filter(line => line.includes('var input = "<textarea'));
+  assert.equal(declarations.length, 2);
+  for (const declaration of declarations) {
+    const context = { noteEditorLabel: `Encounter "note's" <literal>`, payload: 'edited note',
+      caseNote: 'caseNote_note31', reason: 'new note', safeNoteIdSuffix: '02' };
+    vm.createContext(context);
+    vm.runInContext(block('    function escapeNoteText(', '    function completeChangeToView(') + declaration, context);
+    assert.match(context.input, /aria-label='Encounter &quot;note&#39;s&quot; &lt;literal&gt;'/);
+    assert.doesNotMatch(context.input, /tabindex|<fmt:/);
+    assert.match(context.input, /wrap='soft'/);
+  }
+  assert.match(source, /var noteEditorLabel = "\$\{carlos:forJavaScriptBlock\(noteEditorLabel\)\}"/);
 });

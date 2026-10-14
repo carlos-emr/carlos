@@ -3,67 +3,54 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const { LANGUAGES, installInitialHeaderObserver, assertInitialHeader, readChartRequestLanguage } =
+const { LANGUAGES, parseInitialHeader, readInitialChartHeader, assertInitialHeader, readChartRequestLanguage } =
   require('./encounter-header-i18n-playwright-checks');
 
-function observe() {
-  const state = { labels: [], calculators: [], header: null, lang: 'fr-CA' };
-  const window = {};
-  let callback;
-  let disconnected = false;
-  class MutationObserver {
-    constructor(fn) { callback = fn; }
-    observe() {}
-    disconnect() { disconnected = true; }
-  }
+function snapshot(language = 'fr', { empty = false } = {}) {
   const document = {
-    documentElement: { getAttribute: () => state.lang },
-    getElementById: () => state.header,
-    querySelectorAll: selector => selector.includes('.label') ? state.labels : state.calculators,
+    documentElement: { getAttribute: () => language },
+    getElementById: () => empty ? null : { getAttribute: () => language },
+    querySelectorAll: selector => selector.includes('.label')
+      ? [{ parentElement: { id: 'patient-sex' }, textContent: language === 'fr' ? 'Sexe' : 'Sex' }]
+      : [{ textContent: language === 'fr' ? 'calculatrices' : 'calculators' }],
   };
-  vm.runInNewContext(`(${installInitialHeaderObserver.toString()})()`, { document, window, MutationObserver });
-  return { state, window, mutate() { if (!disconnected) callback(); } };
+  class DOMParser {
+    parseFromString(html, type) { assert.equal(type, 'text/html'); return document; }
+  }
+  return vm.runInNewContext(`(${parseInitialHeader.toString()})('<html>')`, { DOMParser });
 }
 
-function completeHeader(s, language = 'fr') {
-  s.state.lang = language;
-  s.state.header = { getAttribute: () => language };
-  s.state.labels = [{ parentElement: { id: 'patient-sex' }, textContent: language === 'fr' ? 'Sexe' : 'Sex' }];
-  s.state.calculators = [{ textContent: language === 'fr' ? 'calculatrices' : 'calculators' }];
-  s.mutate();
-}
-
-test('shouldWaitForACompleteHeader_whenParserDeliversPartialMarkup', () => {
-  const s = observe();
-  assert.equal(s.window.__encounterInitialHeader, undefined);
-  s.state.header = { getAttribute: () => 'fr-CA' };
-  s.state.labels = [{ parentElement: { id: 'patient-sex' }, textContent: 'Sexe' }];
-  s.state.calculators = [{ textContent: '' }];
-  s.mutate();
-  assert.equal(s.window.__encounterInitialHeader, undefined);
-  completeHeader(s);
-  assert.equal(s.window.__encounterInitialHeader.identityLabelsById['patient-sex'], 'Sexe');
+test('shouldRejectMissingHeader_whenInitialResponseIsNotAChart', () => {
+  assert.equal(snapshot('fr', { empty: true }), null);
+  assert.throws(() => assertInitialHeader(LANGUAGES[0], null, snapshot()), /missing/);
 });
 
-test('shouldRetainEnglishFirstRender_whenLaterScriptsTranslateTheHeader', () => {
-  const s = observe();
-  completeHeader(s, 'en');
-  const first = s.window.__encounterInitialHeader;
-  completeHeader(s, 'fr');
-  assert.equal(first.identityLabelsById['patient-sex'], 'Sex');
-  assert.throws(() => assertInitialHeader(LANGUAGES[0], first, {
-    identityLabelsById: { 'patient-sex': 'Sexe' }, calculatorCount: 1, calculatorText: 'calculatrices',
-  }), /changed after its initial render/);
+test('shouldDetectEnglishInitialResponse_whenLaterScriptsTranslateTheHeader', () => {
+  const initial = snapshot('en');
+  assert.throws(() => assertInitialHeader(LANGUAGES[0], initial, snapshot('fr')), /changed after its initial render/);
 });
 
-test('shouldAcceptFrenchFromFirstRender_whenHeaderRemainsStable', () => {
-  const s = observe();
-  completeHeader(s);
-  const first = s.window.__encounterInitialHeader;
-  assert.doesNotThrow(() => assertInitialHeader(LANGUAGES[0], first, first));
-  assert.throws(() => assertInitialHeader(LANGUAGES[0], null, first), /not observed/);
-  first.lang.header = 'en';
-  assert.throws(() => assertInitialHeader(LANGUAGES[0], first, first), /negotiated/);
+test('shouldAcceptFrenchInitialResponse_whenHeaderRemainsStable', () => {
+  const initial = snapshot();
+  assert.doesNotThrow(() => assertInitialHeader(LANGUAGES[0], initial, initial));
+  initial.lang.header = 'en';
+  assert.throws(() => assertInitialHeader(LANGUAGES[0], initial, initial), /negotiated/);
+});
+
+test('shouldReadTheOriginalNavigationResponse_withoutReissuingTheRequest', async () => {
+  const frame = {};
+  const html = '<html lang="fr"><script>throw new Error("must remain inert")</script></html>';
+  const page = { mainFrame: () => frame, evaluate: async (parser, received) => {
+    assert.equal(parser, parseInitialHeader);
+    assert.equal(received, html);
+    return 'snapshot';
+  } };
+  const request = { frame: () => frame, response: async () => ({ status: () => 200,
+    headers: () => ({ 'content-type': 'text/html;charset=UTF-8' }), text: async () => html }) };
+  assert.equal(await readInitialChartHeader([request], page), 'snapshot');
+  await assert.rejects(() => readInitialChartHeader([request, request], page), /exactly one/);
+  request.response = async () => ({ status: () => 302 });
+  await assert.rejects(() => readInitialChartHeader([request], page), /successful HTML/);
 });
 
 test('shouldReadOnlyChartLanguage_whenOtherPagesAlsoNavigate', async () => {

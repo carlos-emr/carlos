@@ -28,8 +28,8 @@ const html = `<!doctype html><html><body>
 <div id="filter" style="display:none"><input type="checkbox" name="issues" value="12"><input type="checkbox" name="issues" value="13">
 <input type="radio" name="note_sort" value="date"><input type="radio" name="note_sort" value="name">
 <input type="button" value="Hide" onclick="return filter(false)"><input type="button" value="Reset" onclick="return filter(true)"></div></form>
-<a id="unresolvedHeading" href="#" onclick="return clearIssueFilter()">Unresolved Issues</a>
-<a id="resolvedHeading" href="#" onclick="return clearIssueFilter()">Resolved Issues</a><div id="notCPP"></div>
+<button type="button" id="unresolvedHeading" onclick="return clearIssueFilter()">Unresolved Issues</button>
+<button type="button" id="resolvedHeading" onclick="return clearIssueFilter()">Resolved Issues</button><div id="notCPP"></div>
 </body></html>`;
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ['--no-sandbox'] });
@@ -114,7 +114,9 @@ const html = `<!doctype html><html><body>
     for (const control of ['#filter input[value="Reset"]', '#unresolvedHeading', '#resolvedHeading']) {
       await page.locator('input[name="issues"][value="12"]').check();
       await page.locator('input[name="note_sort"][value="date"]').check();
-      await page.locator(control).click();
+      if (control === '#unresolvedHeading') await page.locator(control).press('Enter');
+      else if (control === '#resolvedHeading') await page.locator(control).press('Space');
+      else await page.locator(control).click();
       post = new URLSearchParams(await page.evaluate(() => sent.at(-1)));
       assert.equal(post.get('resetFilter'), 'true');
       assert.equal(post.has('issues'), false); assert.equal(post.has('note_sort'), false);
@@ -122,6 +124,47 @@ const html = `<!doctype html><html><body>
       assert.equal(await page.locator('#notCPP').innerText(), 'listing refreshed');
     }
     console.log('PASS filter open/hide/apply/reset and both heading clicks send cleared filters and refresh notes');
+    const markupChecks = {
+      cpp: block("        var noteIssueUl =", '        var noteInfo ='),
+      textareas: source.split('\n').filter(line => line.includes('var input = "<textarea')),
+      escape: block('    function escapeNoteText(', '    function completeChangeToView('),
+    };
+    assert.equal(markupChecks.textareas.length, 2);
+    await page.evaluate(({cpp, textareas, escape}) => {
+      const escapeText = new Function(escape + '; return escapeNoteText;')();
+      const section = document.createElement('section');
+      section.id = 'accessibilityChecks';
+      document.body.appendChild(section);
+      const renderIssues = new Function('noteIssues', 'getCPP', 'escapeNoteText', cpp + '; return noteIssueUl;');
+      section.innerHTML = renderIssues('12;A;Safety & support;13;B;Patient "quoted" issue;14;C;Third issue', () => '', escapeText);
+      textareas.forEach(declaration => {
+        const render = new Function('noteEditorLabel', 'escapeNoteText', 'payload', 'caseNote', 'reason', 'safeNoteIdSuffix', declaration + '; return input;');
+        section.insertAdjacentHTML('beforeend', render(`Encounter "note's" <literal>`, escapeText,
+          escapeText('edited </textarea><img src=x>'), 'editorAccessibility', 'new </textarea><img src=x>', 'Accessibility'));
+      });
+    }, markupChecks);
+    const accessibility = page.locator('#accessibilityChecks');
+    const checkboxes = accessibility.getByRole('checkbox');
+    assert.equal(await checkboxes.count(), 3);
+    assert.equal(await accessibility.getByRole('checkbox', {name: 'Patient "quoted" issue', exact: true}).isChecked(), true);
+    await accessibility.locator('label').first().click();
+    assert.equal(await accessibility.getByRole('checkbox', {name: 'Safety & support', exact: true}).isChecked(), false);
+    assert.equal(await accessibility.locator('[id="issueId"]').count(), 0);
+    assert.equal(await accessibility.locator('li').count(), 2);
+    const editors = accessibility.getByRole('textbox', {name: `Encounter "note's" <literal>`, exact: true});
+    assert.equal(await editors.count(), 2);
+    for (const editor of await editors.all()) {
+      assert.equal(await editor.getAttribute('tabindex'), null);
+      assert.equal(await editor.getAttribute('wrap'), 'soft');
+    }
+    assert.equal(await accessibility.locator('img').count(), 0);
+    const master = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
+    const spinner = master.match(/<output id="search_spinner">[\s\S]*?<\/output>/);
+    assert.ok(spinner);
+    await accessibility.evaluate((section, html) => section.insertAdjacentHTML('beforeend', html),
+      spinner[0].replace(/<fmt:message[^>]*\/>/, 'Loading fixture'));
+    assert.equal(await accessibility.getByRole('status').innerText(), 'Loading fixture');
+    console.log('PASS native CPP labels, safe editor names/natural tab order, keyboard heading activation, output status');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

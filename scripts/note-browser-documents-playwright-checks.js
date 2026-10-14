@@ -9,7 +9,7 @@
  *   (NoteBrowserDocumentRefile); the note's "rev" link > Note Revision History popup
  *   (CaseManagementEntry method=notehistory, rendering showHistory.jsp).
  * Asserts: each save inserts an immutable casemgmt_note revision and keeps earlier text;
- * the browser lists both owned PDFs and the note, previews the note, and its Print downloads a
+ * the browser lists both owned PDFs and the note, previews the note, and its Print produces a
  * PDF whose text carries the latest revision; Delete/Undelete flip document.status D/A and the
  * lists follow; Refile copies the stored PDF byte-for-byte to INCOMINGDOCUMENT_DIR/1/Refile and
  * leaves the row alone; NoteBrowserDocumentDelete refuses GET; the history popup shows the
@@ -181,15 +181,35 @@ async function workflow(s) {
     h.assert(await listed(docA) === 1 && await listed(docB) === 1, 'The published view does not list both documents again');
   });
 
-  await s.step('Print from the note browser downloads a PDF carrying the latest revision', async () => {
+  await s.step('Print from the note browser produces a PDF carrying the latest revision', async () => {
     await browser.locator('#encounterlist').selectOption(noteId);
     await browser.locator('#printnotesbutton').waitFor({ state: 'visible' });
-    const [popup] = await Promise.all([s.context.waitForEvent('page'), browser.locator('#imgPrintEncounter').click()]);
-    const download = await popup.waitForEvent('download');
-    h.assert(!(await download.failure()), 'The note print download failed');
+    const beforePages = new Set(s.context.pages());
+    const [printRequest] = await Promise.all([
+      s.context.waitForEvent('request', { predicate: request => {
+        const url = new URL(request.url());
+        return request.isNavigationRequest() && url.pathname.endsWith('/CaseManagementEntry')
+          && url.searchParams.get('method') === 'print';
+      }, timeout: 30000 }),
+      browser.locator('#imgPrintEncounter').click(),
+    ]);
+    const url = new URL(printRequest.url());
+    h.assert(printRequest.method() === 'GET' && url.searchParams.get('demographicNo') === patient
+      && url.searchParams.get('notes2print') === noteId, 'The print control requested another patient or revision');
+    // A PDF navigation can become a viewer or a download before the popup event is
+    // delivered. Read the exact URL requested by the real control through the same
+    // authenticated context, independent of the browser's PDF presentation setting.
+    const response = await s.context.request.get(url.href, { maxRedirects: 0 });
     const file = path.join(scratch, 'print.pdf');
-    await download.saveAs(file);
-    if (!popup.isClosed()) await popup.close();
+    try {
+      h.assert(response.status() === 200 && (response.headers()['content-type'] || '').includes('application/pdf'),
+        'The note print response is not a PDF');
+      fs.writeFileSync(file, await response.body());
+    } finally { await response.dispose(); }
+    for (const page of s.context.pages()) {
+      if (!beforePages.has(page) && !page.isClosed()) await page.close();
+    }
+    h.assert(fs.readFileSync(file).subarray(0, 5).toString() === '%PDF-', 'The note print has no PDF signature');
     // The print control is an <input type="image"> inside the page's form: the note browser
     // itself must still be there afterwards, not replaced by that form's submission.
     await browser.locator('#encounterlist').waitFor({ state: 'attached' });
@@ -331,6 +351,26 @@ async function workflow(s) {
     h.assert(await editor.inputValue() === draft, 'The refused save discarded the unsaved draft');
     h.assert(JSON.stringify(sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
       === JSON.stringify(before), 'The refused stale save changed a revision');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+  });
+
+  await s.step('stale Sign & Save presents an encoded recovery copy instead of a blank page', async () => {
+    const before = sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`);
+    const draft = `\n ${marker} unsaved signed draft\n</textarea><script>window.draftExecuted=true</script> & literal text`;
+    await chart.locator('#encMainDiv textarea[name="caseNote_note"]').fill(draft);
+    const mark = failureMark(s.recorder);
+    const [response] = await Promise.all([
+      chart.waitForResponse(isEntry('saveAndExit')),
+      chart.locator('#signSaveImg').first().click(),
+    ]);
+    h.assert(response.status() === 409, `Stale Sign & Save answered HTTP ${response.status()}`);
+    const recovery = chart.locator('#unsaved-note-text');
+    await recovery.waitFor({ state: 'visible' });
+    h.assert(await recovery.inputValue() === draft, 'The recovery page lost or changed the submitted draft');
+    h.assert(await recovery.getAttribute('readonly') !== null, 'The recovery copy should be read-only');
+    h.assert(await chart.evaluate(() => !window.draftExecuted), 'Draft text executed as script in the recovery page');
+    h.assert(JSON.stringify(sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
+      === JSON.stringify(before), 'The refused signed save changed a revision');
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
   });
 }
