@@ -74,6 +74,13 @@ has no patched upstream `braces` release. The override pins
 to reviewed [source commit 305a2e4bfe324bb53c336c1b03387ee1251c926f](https://github.com/dieub/braces-depth-guard/commit/305a2e4bfe324bb53c336c1b03387ee1251c926f).
 This is a third-party backport, not an upstream release or endorsement.
 
+`scripts/npm/braces-compat` forwards the original API to the scoped package.
+This keeps its real name visible in the dependency graph: GitHub dependency
+review treats an npm alias named `braces` as an upstream release and otherwise
+assigns upstream advisories to the fork. The bridge declares the actual scoped
+dependency, so scanners can track advisories for that package without an
+advisory exception or a fabricated upstream version.
+
 Review checked every published file against that source commit, verified the
 registry signature and provenance attestation, and examined the depth/length
 guards and AST-cycle handling. The lockfile pins the tarball integrity:

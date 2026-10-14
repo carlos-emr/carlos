@@ -614,7 +614,8 @@
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "argparse": "file:scripts/npm/argparse-compat"
+    "argparse": "file:scripts/npm/argparse-compat",
+    "braces": "file:scripts/npm/braces-compat"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.9.2",
@@ -672,7 +673,7 @@
     "proxy-addr": "2.0.8",
     "compression": "1.8.2",
     "tinypool": "2.1.2",
-    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
+    "braces": "$braces",
     "argparse": "$argparse",
     "latest-version": "9.0.0"
   }

@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '..');
 const from = (name) => createRequire(require.resolve(name));
 
 function isolated(source, extraEnv = {}) {
-  const result = spawnSync(process.execPath, ['-e', source], {
+  const result = spawnSync(process.execPath, ['--max-old-space-size=256', '-e', source], {
     cwd: root,
     encoding: 'utf8',
     timeout: 15000,
@@ -36,7 +36,11 @@ test('brace consumers retain expansion, compilation, AST and glob behavior', () 
   // https://github.com/dieub/braces-depth-guard/commit/305a2e4bfe324bb53c336c1b03387ee1251c926f
   // Resolve through both real consumers so a second vulnerable copy cannot hide.
   for (const consumer of ['micromatch', 'chokidar']) {
-    const braces = from(consumer)('braces');
+    const consumerRequire = from(consumer);
+    const braces = consumerRequire('braces');
+    const bridgeRequire = createRequire(consumerRequire.resolve('braces'));
+    assert.equal(consumerRequire('braces/package.json').name, '@carlos/braces-compat');
+    assert.equal(braces, bridgeRequire('@dieub/braces-depth-guard'));
     assert.deepEqual(braces.expand('docs/{api,guide}/{01..02}.md'), [
       'docs/api/01.md', 'docs/api/02.md', 'docs/guide/01.md', 'docs/guide/02.md',
     ]);
@@ -61,6 +65,8 @@ test('braces rejects advisory payloads and direct AST depth before stack exhaust
     const {createRequire} = require('node:module');
     for (const consumer of ['micromatch', 'chokidar']) {
       const braces = createRequire(require.resolve(consumer))('braces');
+      // The earlier GHSA-grv7-fg5c-xmjg uses imbalanced input, not a valid pair.
+      assert.throws(() => braces.parse('{'.repeat(4000)), /exceeds max depth/);
       for (const [open, close] of [['{', '}'], ['(', ')']]) {
         const input = open.repeat(4000) + 'a,b' + close.repeat(4000);
         for (const operation of [braces, braces.parse, braces.compile, braces.expand, braces.stringify]) {
@@ -88,7 +94,11 @@ test('braces rejects advisory payloads and direct AST depth before stack exhaust
 
 test('chokidar still watches brace globs after the braces replacement', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-dependency-watch-'));
-  const watcher = require('chokidar').watch(path.join(dir, '*.{md,mdx}'), {ignoreInitial: true});
+  fs.writeFileSync(path.join(dir, 'existing.md'), '# Existing');
+  fs.writeFileSync(path.join(dir, 'ignored.txt'), 'Not Markdown');
+  const seen = [];
+  const watcher = require('chokidar').watch(path.join(dir, '*.{md,mdx}'));
+  watcher.on('add', (file) => seen.push(path.basename(file)));
   t.after(async () => {
     await watcher.close();
     fs.rmSync(dir, {recursive: true, force: true});
@@ -98,6 +108,8 @@ test('chokidar still watches brace globs after the braces replacement', async (t
     watcher.once('ready', () => { clearTimeout(timer); resolve(); });
     watcher.once('error', (error) => { clearTimeout(timer); reject(error); });
   });
+  // ready follows the complete initial scan, so exclusion needs no timed sleep.
+  assert.deepEqual(seen, ['existing.md']);
   const added = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('brace glob did not detect Markdown')), 5000);
     watcher.once('add', (file) => { clearTimeout(timer); resolve(path.basename(file)); });
@@ -226,8 +238,7 @@ test('selector-parser 7 retains CSS transformations and bounds the flat-selector
     (async () => {
       const result = await require('postcss')([require('cssnano')({preset: 'default'})])
         .process('.a, .b { color: #ffffff; margin: 0px 0px 0px 0px; }', {from: undefined});
-      assert.match(result.css, /color:#fff/);
-      assert.match(result.css, /margin:0/);
+      assert.equal(result.css, '.a,.b{color:#fff;margin:0}');
     })().catch((error) => { console.error(error); process.exitCode = 1; });
   `);
 });
