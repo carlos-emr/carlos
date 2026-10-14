@@ -4792,12 +4792,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image. Last, pinned to app-findings-log.md finding 156 (a control step first presses Clear Photo in the first manager and asserts one confirm, the manager closing and the chart reloading; the pinned step then reads only the second patient's photo): with the photo managers of two patients open in one login, Clear Photo in the first must keep the second patient's client_image (ClientImage reads the session-wide clientId, which the manager opened last set, so it deletes the second patient's photo).",
-      "expectedFailure": {
-        "finding": 156,
-        "step": "Clear Photo in the first photo manager keeps the photo of the patient whose manager was opened second"
-      },
-      "fixtures": "Owned FAKE- patient and its client_image rows, plus a second owned FAKE- patient (first name PhotoBravo) with one seeded client_image row; both patients' rows removed."
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image. Last, app-findings-log.md finding 156 (fixed by #4546): each photo manager's forms post their own demographicNo; with the photo managers of two patients open in one login, Clear Photo and Upload in the first act on the first patient and keep the second patient's client_image; a Clear Photo POST that names no patient deletes nothing although another manager was opened last; a doctor login locked out of the second patient (|o| on _demographic$N and _eChart$N) is refused by the application and the photo is kept, while the same login clears an unlocked patient's photo (control).",
+      "fixtures": "Owned FAKE- patient and its client_image rows, plus a second owned FAKE- patient (first name PhotoBravo) with one seeded client_image row, and one throwaway doctor login (lib/authz-read-fixture.js) with its two patient-lock rows on the second patient; the patients' rows, the login and its lock rows are removed and verified gone."
     },
     {
       "name": "note-browser-documents",
