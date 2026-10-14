@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
-import java.text.ParseException;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -96,16 +96,18 @@ public class Hl7textResultsData {
     }
 
     /**
-     * Observation-time layouts the HL7 message parsers hand back, longest first: HL7 OBR-7 may carry
-     * 14 digits (with seconds), 12 (no seconds) or 8 (date only), and the parsers (e.g.
-     * {@code CMLHandler.formatDateTime}) render them as these three shapes. The longest pattern must be
-     * tried first because {@link SimpleDateFormat#parse(String)} ignores trailing text.
+     * Observation-time layouts the HL7 message parsers hand back. HL7 OBR-7 may carry 14 digits (with
+     * seconds), 12 (no seconds), 10 (hour only) or 8 (date only), and the parsers (e.g.
+     * {@code CMLHandler.formatDateTime}, {@code DefaultGenericHandler}) render them as these shapes.
      */
-    private static final String[] OBSERVATION_DATE_PATTERNS = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd"};
+    private static final String[] OBSERVATION_DATE_PATTERNS = {
+            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"};
 
     /**
-     * Parses a handler-formatted observation time, accepting a missing seconds (or time) component so a
-     * result observed in the past is never re-dated to the moment it was filed (issue #4619).
+     * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
+     * component so a result observed in the past is never re-dated to the moment it was filed
+     * (issue #4619). Each layout must match the whole value and be a real calendar time, so a short
+     * layout can never silently swallow the date prefix of a longer or malformed value.
      *
      * @param observationDate the handler's formatted timestamp, may be null
      * @return the parsed instant, or {@code null} when no supported layout matches
@@ -116,11 +118,13 @@ public class Hl7textResultsData {
         }
         String trimmed = observationDate.trim();
         for (String pattern : OBSERVATION_DATE_PATTERNS) {
-            try {
-                // SimpleDateFormat is not thread-safe, so build one per call.
-                return new SimpleDateFormat(pattern).parse(trimmed);
-            } catch (ParseException e) {
-                // try the next, shorter layout
+            // SimpleDateFormat is not thread-safe, so build one per call.
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date parsed = format.parse(trimmed, position);
+            if (parsed != null && position.getIndex() == trimmed.length()) {
+                return parsed;
             }
         }
         return null;

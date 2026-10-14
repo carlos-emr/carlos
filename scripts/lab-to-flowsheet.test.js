@@ -71,11 +71,16 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
     'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value },
     'lab-to-flowsheet-fraction': { pin: 'fraction', finding: 257, step: check.STEP.fraction },
     'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time },
-    'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds },
+    // Finding 262 is fixed (#4619): its entry keeps the pin step but no longer expects it to fail.
+    'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds, fixed: true },
   };
-  for (const [name, { pin, finding, step }] of Object.entries(expected)) {
+  for (const [name, { pin, finding, step, fixed }] of Object.entries(expected)) {
     const entry = byName.get(name);
-    assert.deepEqual(entry.expectedFailure, { finding, step }, `${name} pins another finding or step`);
+    if (fixed) {
+      assert.equal(entry.expectedFailure, undefined, `${name} still expects the fixed finding ${finding} to fail`);
+    } else {
+      assert.deepEqual(entry.expectedFailure, { finding, step }, `${name} pins another finding or step`);
+    }
     assert.equal(entry.envSet && entry.envSet.LAB_FLOWSHEET_PIN, pin, `${name} selects another pin`);
     assert.ok(entry.env.includes('LAB_FLOWSHEET_PIN') && entry.env.includes('LAB_UPLOAD_DOCUMENT_STORE'), `${name} must list the variables the script reads`);
     assert.deepEqual(entry.provinces, ['ON'], `${name} is Ontario scope`);
