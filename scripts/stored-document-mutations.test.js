@@ -171,8 +171,10 @@ function ownedFixture({references = [], discriminator = true} = {}) {
   const data = {document: [['42', hash]], ctl_document: [['123', 'demographic', '42', hash]],
     patientLabRouting: [['11', hash]], providerLabRouting: [['12', hash]], queue_document_link: [['13', hash]]};
   let foreign = false, rollback = false;
+  const residue = []; // the statements lib/document-residue.js executes after each document's atomic cleanup
   const sql = {
     rows(query) {
+      if (query.startsWith('SELECT note_id FROM casemgmt_note_link')) return [];
       if (query.includes('ORDER BY ORDINAL_POSITION')) {
         if (/TABLE_NAME='(?:EFormDocs|consultdocs)'/.test(query)) {
           return discriminator ? [['id'], ['document_no'], ['doctype']] : [['id'], ['document_no']];
@@ -187,6 +189,8 @@ function ownedFixture({references = [], discriminator = true} = {}) {
       throw new Error('Unexpected rows query');
     },
     value(query) {
+      if (query.includes('MAX(id)')) return '0'; // the residue mark's floors
+      if (query.includes('DATE_FORMAT(NOW()')) return '2026-10-09 10:00:00';
       if (query.startsWith('INSERT INTO document')) {assert.equal(callbacks.length, 1); return '42';}
       if (query.includes('START TRANSACTION')) {
         transactions.push(query);
@@ -207,12 +211,16 @@ function ownedFixture({references = [], discriminator = true} = {}) {
       if (query.includes('document_storage') || query.includes('casemgmt_note_link')) return foreign ? '1' : '0';
       throw new Error('Unexpected value query');
     },
-    execute(query) {assert.ok(query.startsWith('INSERT INTO ctl_document'));},
+    execute(query) {
+      if (query.startsWith('INSERT INTO ctl_document')) return;
+      assert.match(query, /^DELETE FROM casemgmt_note_link/, 'only the residue helper deletes outside the atomic transaction');
+      residue.push(query);
+    },
   };
   const session = {sql, marker: 'FAKE-PW1234567890abcdef', patient: '123', provider: '999998',
     cleanup(callback) {callbacks.push(callback);}};
   const fixture = createStoredDocumentFixture(session, '10');
-  return {fixture, session, data, transactions, cleanup: callbacks[0], setForeign() {foreign = true;}, rollback() {rollback = true;},
+  return {fixture, session, data, transactions, residue, cleanup: callbacks[0], setForeign() {foreign = true;}, rollback() {rollback = true;},
     dispose() {
       for (const [key, value] of Object.entries(saved)) {if (value === undefined) delete process.env[key]; else process.env[key] = value;}
       fs.rmSync(store, {recursive: true, force: true}); fs.rmSync(path.dirname(fixture.journal), {recursive: true, force: true});
@@ -230,6 +238,19 @@ test('successful cleanup retains its evidence journal and uses one guarded rollb
     assert.equal(fs.existsSync(env.fixture.sourceFile), false);
     assert.equal(JSON.parse(fs.readFileSync(env.fixture.journal)).phase, 'cleaned');
     assert.equal(env.fixture.isCleaned(), true);
+    // The routing lock is keyed by the document number alone and is in no snapshot: it is removed by the number, after the
+    // atomic transaction, and only if written since the mark taken before the fixture wrote anything.
+    assert.equal(env.residue.length, 1);
+    assert.match(env.residue[0], /DELETE FROM providerLabRoutingLock WHERE lab_no IN \(42\) AND lastUpdateDate >= '2026-10-09 10:00:00'/);
+  } finally {env.dispose();}
+});
+
+test('a cleanup that the transaction refused removes no routing lock', async () => {
+  const env = ownedFixture();
+  try {
+    env.rollback(); env.fixture.closeAfterDrain();
+    await assert.rejects(env.cleanup());
+    assert.deepEqual(env.residue, [], 'the document and its routes are retained, so the lock stays with them');
   } finally {env.dispose();}
 });
 

@@ -174,6 +174,14 @@ async function workflow(s) {
     page.locator(`tr:has(input[name^="provider_no"][value="${providerNo}"]) input[type="checkbox"][name^="${column}"]`);
 
   await s.step('the throwaway day sheet shows both owned providers and moves to the next day', async () => {
+    // The second provider has no ScheduleDate row, and with viewall=0 (or absent, e.g. when
+    // default_schedule_viewall=false) the day sheet hides unscheduled providers other than the
+    // logged-in one. Force the all-provider view; the next-day link carries viewall forward.
+    if (new URL(daySheet.url()).searchParams.get('viewall') !== '1') {
+      await h.gotoApp(daySheet, config.baseUrl,
+        '/provider/providercontrol?view=0&displaymode=day&dboperation=searchappointmentday&viewall=1');
+      await h.assertNotErrorPage(daySheet, 'all-provider day sheet');
+    }
     await ui.clickAndAwaitReload(daySheet, daySheet.locator(NEXT_DAY).first(), {label: 'next day'});
     date = sql.value('SELECT DATE_ADD(CURDATE(), INTERVAL 1 DAY)');
     h.assert((await daySheet.locator('span.dateAppointment').first().innerText()).includes(date), 'The day sheet did not move to tomorrow');

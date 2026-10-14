@@ -62,10 +62,11 @@ async function workflow(s) {
     await chart.waitForFunction(id => { const f = document.querySelector('input[name="noteId"]'); return f && f.value === id; }, noteId, { timeout: 30000 });
     const rows = await probe.waitFor(all => all.some(r => r.action === 'add' && r.content === 'CME note'), 'first note Save');
     const adds = noteRows(rows, 'add');
-    h.assert(adds.length === 1, `The first Save wrote ${adds.length} add/CME note rows, expected 1`);
+    // Audit-row mismatches are recorded, not thrown, so signing, reopening and the privacy check still run.
+    expect(adds.length === 1, `The first Save wrote ${adds.length} add/CME note rows, expected 1`);
     const problems = incomplete(adds, { provider, patient });
-    h.assert(!problems.length, `The add/CME note row is incomplete: ${problems.join(', ')}`);
-    h.assert(adds[0].contentId === noteId, 'The add/CME note row does not name the saved note');
+    expect(!problems.length, `The add/CME note row is incomplete: ${problems.join(', ')}`);
+    expect(adds.some(r => r.contentId === noteId), 'The add/CME note row does not name the saved note');
     afterAdd = probe.mark();
   });
 
@@ -79,13 +80,12 @@ async function workflow(s) {
       'The revised note text did not reach casemgmt_note');
     const rows = await probe.waitFor(all => all.some(r => r.action === 'update' && r.content === 'CME note'), 'second note Save', { after: afterAdd });
     const updates = noteRows(rows, 'update');
-    h.assert(updates.length === 1, `The second Save wrote ${updates.length} update/CME note rows, expected 1`);
-    const problems = incomplete(updates, { provider, patient });
-    h.assert(!problems.length, `The update/CME note row is incomplete: ${problems.join(', ')}`);
-    h.assert(updates[0].contentId === String(sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient}`)),
-      'The update/CME note row does not name the saved note');
     noteId = sql.value(`SELECT MAX(note_id) FROM casemgmt_note WHERE demographic_no=${patient}`);
     probe.own('CME note', noteId);
+    expect(updates.length === 1, `The second Save wrote ${updates.length} update/CME note rows, expected 1`);
+    const problems = incomplete(updates, { provider, patient });
+    expect(!problems.length, `The update/CME note row is incomplete: ${problems.join(', ')}`);
+    expect(updates.some(r => r.contentId === String(noteId)), 'The update/CME note row does not name the saved note');
   });
 
   await s.step('Sign & Save signs the note (audit rows observed)', async () => {

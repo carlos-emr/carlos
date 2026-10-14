@@ -122,6 +122,10 @@ async function main() {
   const marker = `PW-ATTACH-${randomBytes(6).toString('hex')}`;
   const requestIds = () => sql.rows(`SELECT requestId FROM consultationRequests
     WHERE reason LIKE ${h.sqlString(`${marker}%`)}`).map(([id]) => id);
+  // Saving a consultation stores the provider's signature as a DigitalSignature row and points the request's signature_img at it;
+  // deleting the request leaves the row (and its image) behind. Only a row newer than this mark and named by this run's own
+  // requests is the run's to delete.
+  const signatureFloor = Number(sql.value('SELECT IFNULL(MAX(id), 0) FROM DigitalSignature'));
   let browser;
   try {
     const [patient, ownDoc] = sql.rows(`${activeDocumentsSql(accessiblePatientSql('c.module_id'))}
@@ -178,9 +182,16 @@ async function main() {
       try {
         const ids = requestIds();
         if (ids.length) {
+          const signatures = sql.rows(`SELECT DISTINCT signature_img FROM consultationRequests WHERE requestId IN (${ids.join(',')})
+            AND signature_img REGEXP '^[1-9][0-9]*$'`).map(([id]) => id).filter((id) => Number(id) > signatureFloor);
           sql.execute(`DELETE FROM consultdocs WHERE requestId IN (${ids.join(',')});
             DELETE FROM consultationRequestExt WHERE requestId IN (${ids.join(',')});
             DELETE FROM consultationRequests WHERE requestId IN (${ids.join(',')})`);
+          if (signatures.length) {
+            sql.execute(`DELETE FROM DigitalSignature WHERE id IN (${signatures.join(',')}) AND id > ${signatureFloor}`);
+            h.assert(sql.value(`SELECT COUNT(*) FROM DigitalSignature WHERE id IN (${signatures.join(',')})`) === '0',
+              'The signature this run\'s consultation stored was not removed');
+          }
         }
       } finally {
         sql.dispose();

@@ -117,6 +117,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         // An edit must name an existing allergy of this patient before its replacement is
         // persisted. Otherwise a stale or cross-patient form silently becomes a new allergy.
         Integer archiveId = null;
+        Allergy original = null;
         if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
             try {
                 archiveId = Integer.valueOf(allergyToArchive);
@@ -127,22 +128,63 @@ public final class RxAddAllergy2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
-            Allergy original = patient.getAllergy(archiveId);
+            original = patient.getAllergy(archiveId);
             if (original == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return NONE;
-            }
-            // An amendment of an allergy that is no longer active comes from a form opened before
-            // someone else amended or inactivated it. Saving it would add a second active version
-            // beside theirs (issue #4410), so it is refused and the clinician reviews the list.
-            if (original.getArchived()) {
-                response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
         }
 
         String nonDrug = request.getParameter("nonDrug");
 
+        // Retry safety (#3488): the dialogue keeps its entries after a failed save and resubmits
+        // the same saveToken, so a retry whose first attempt actually persisted must not add a
+        // second allergy. Claimed only after every validation above so a rejected request
+        // never burns the token.
+        String saveToken = request.getParameter("saveToken");
+        if (!AllergySaveTokens.isAcceptable(saveToken)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        jakarta.servlet.http.HttpSession session = request.getSession();
+        String fingerprint = AllergySaveTokens.fingerprint(id, name, type, description, startDate,
+                ageOfOnset, severityOfReaction, onSetOfReaction, lifeStage, allergyToArchive, nonDrug,
+                String.valueOf(patient.getDemographicNo()));
+        AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken, fingerprint);
+        if (claim == AllergySaveTokens.Claim.ALREADY_SAVED) {
+            demographicNo = patient.getDemographicNo();
+            return succeed(patient.getDemographicNo());
+        }
+        if (claim == AllergySaveTokens.Claim.IN_PROGRESS || claim == AllergySaveTokens.Claim.PAYLOAD_MISMATCH) {
+            // A mismatch means an earlier attempt with this token may already have been saved with
+            // different values; refuse rather than report values as saved that were never written.
+            // The header tells the dialogue this 409 is not the stale-amendment refusal (#4410):
+            // the allergy may already be recorded, so it must not be reported as NOT saved.
+            response.setHeader("X-Allergy-Save-Token", "conflict");
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        try {
+            // An amendment of an allergy that is no longer active comes from a form opened before
+            // someone else amended or inactivated it. Saving it would add a second active version
+            // beside theirs (issue #4410), so it is refused and the clinician reviews the list.
+            // Checked after the claim: a retry of this dialogue's own amendment that did persist
+            // finds the original archived too, and must be answered by the token as saved.
+            if (original != null && original.getArchived()) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
+            return saveAllergy(patient, id, name, type, description, startDate, ageOfOnset,
+                    severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
+        } finally {
+            AllergySaveTokens.release(session, saveToken);
+        }
+    }
+
+    private String saveAllergy(RxPatientData.Patient patient, String id, String name, String type,
+                               String description, String startDate, String ageOfOnset,
+                               String severityOfReaction, String onSetOfReaction, String lifeStage,
+                               Integer archiveId, String nonDrug, String saveToken) throws IOException {
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
         // regionalIdentifier is exported as a DIN (CDS export, REST), so it is set only from a resolved
@@ -216,6 +258,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
+        // Add (and, for an edit, archive) committed in one transaction: a retry with this token
+        // must not write again.
+        AllergySaveTokens.markSaved(request.getSession(), saveToken);
 
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
@@ -223,6 +268,12 @@ public final class RxAddAllergy2Action extends ActionSupport {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), ip, "" + patient.getDemographicNo(), null);
         }
 
+        return succeed(patient.getDemographicNo());
+    }
+
+    /** Ends a successful save: the redirect back to this patient's allergy list. */
+    private String succeed(int patientDemographicNo) {
+        demographicNo = patientDemographicNo;
         return SUCCESS;
     }
 

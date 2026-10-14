@@ -149,12 +149,19 @@ async function workflow(s) {
     await openDaySheet(bSheet, s.config, query);
     const aEdit = await openEdit(s, s.context, aSheet, cancelId, 'edit-a');
     const bEdit = await openEdit(s, b.context, bSheet, cancelId, 'edit-b');
+    // ENABLE_EDIT_APPT_STATUS decides the status field's shape (as in appointment-lifecycle-playwright-checks.js):
+    // a <select> when enabled (the default), free text that UpdateRecord stores verbatim when set to a non-active value.
     const select = bEdit.locator('select[name="status"]');
-    h.assert(await select.count() > 0, 'The edit popup offers no status select');
-    const options = await select.locator('option').evaluateAll(nodes => nodes.map(n => n.value));
-    const cancelled = options.find(value => value === 'C');
-    h.assert(cancelled, 'The edit popup status select offers no Cancelled option');
-    await select.selectOption(cancelled);
+    const statusText = bEdit.locator('input[type="text"][name="status"]');
+    if (await select.count() > 0) {
+      const options = await select.locator('option').evaluateAll(nodes => nodes.map(n => n.value));
+      const cancelled = options.find(value => value === 'C');
+      h.assert(cancelled, 'The edit popup status select offers no Cancelled option');
+      await select.selectOption(cancelled);
+    } else {
+      h.assert(await statusText.count() > 0, 'The edit popup renders neither a status select nor a status text field');
+      await statusText.fill('C');
+    }
     await Promise.all([
       bEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
       bEdit.locator('#updateButton').click(),

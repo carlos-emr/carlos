@@ -68,6 +68,8 @@
     var FORM_ID = 'RxAddAllergyForm';
     var SAVE_STATUS_CLASS = 'allergySaveStatus';
     var SAVING_ATTRIBUTE = 'data-allergy-saving';
+    // Set by RxAddAllergy2Action on a 409 that answers a reused save token, not a stale amendment.
+    var SAVE_TOKEN_HEADER = 'X-Allergy-Save-Token';
 
     /**
      * The built-in English messages: the fallback for any message the page did not localize.
@@ -188,16 +190,24 @@
      *
      * A 409 from /rx/addAllergy2 itself is the stale-amendment refusal (issue #4410): the allergy
      * this form amends was changed or inactivated elsewhere after the form was opened. Retrying
-     * cannot succeed, so the clinician is sent to review the current list instead.
+     * cannot succeed, so the clinician is sent to review the current list instead. A 409 that
+     * carries the save-token marker header (#3488) is different: an earlier attempt from this
+     * dialogue may already have saved, so it is reported as unconfirmed.
      *
      * @param {number} status the HTTP status, 0 for no answer, or 200 when the answer was not the list
      * @param {Object} [messages] the page's localized messages; English where absent
      * @param {boolean} [afterRedirect] true when the answer is not /rx/addAllergy2's own
+     * @param {boolean} [saveTokenConflict] true when a 409 carries the save-token marker header
      * @returns {string} the message shown in the dialogue
      */
-    function saveFailureMessage(status, messages, afterRedirect) {
+    function saveFailureMessage(status, messages, afterRedirect, saveTokenConflict) {
         var code = Number(status) || 0;
         if (!afterRedirect && code === 409) {
+            // A 409 marked by the save token (#3488) means this dialogue's earlier attempt may
+            // already have saved (with other values) or is still saving, so it is not a refusal.
+            if (saveTokenConflict) {
+                return format(message(messages, 'msgSaveUnconfirmed'), describeStatus(code, messages));
+            }
             return message(messages, 'msgSaveConflict');
         }
         var name = !afterRedirect && code >= 400 && code < 500 ? 'msgSaveRefused' : 'msgSaveUnconfirmed';
@@ -289,11 +299,17 @@
             return response.ok && routeEndsWith(response.url, '/rx/showAllergy');
         }
 
+        /** Whether RxAddAllergy2Action marked this answer as a save-token conflict (#3488). */
+        function isSaveTokenConflict(response) {
+            return !!(response.headers && typeof response.headers.get === 'function'
+                && response.headers.get(SAVE_TOKEN_HEADER) === 'conflict');
+        }
+
         /** Ends a save that was not confirmed: re-enables the form and says why, keeping every value. */
-        function fail(form, submitter, status, afterRedirect) {
+        function fail(form, submitter, status, afterRedirect, saveTokenConflict) {
             setBusy(form, false);
             showMessage(saveStatusRegion(form),
-                saveFailureMessage(status, win.CarlosAllergyDialogMessages, afterRedirect));
+                saveFailureMessage(status, win.CarlosAllergyDialogMessages, afterRedirect, saveTokenConflict));
             // The button was disabled while the request was out, which drops keyboard focus to the
             // page. Put it back so a keyboard user can retry with Enter.
             if (submitter && typeof submitter.focus === 'function') {
@@ -356,7 +372,8 @@
                     return 'saved';
                 }
                 fail(form, submitter, response.ok ? 200 : response.status,
-                    response.redirected === true || !routeEndsWith(response.url, '/rx/addAllergy2'));
+                    response.redirected === true || !routeEndsWith(response.url, '/rx/addAllergy2'),
+                    isSaveTokenConflict(response));
                 return 'failed';
             }, function () {
                 fail(form, submitter, 0);

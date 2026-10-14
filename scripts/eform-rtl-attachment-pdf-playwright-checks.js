@@ -39,6 +39,12 @@
  * A family with nothing to attach is reported as SKIP and does not fail the run unless
  * RTL_REQUIRE_ALL_FAMILIES=1.
  *
+ * The letters are saved for demographic 1 on purpose: what this check asserts is that patient's documents, labs, forms and HRM
+ * reports in the Attach popup, which an owned patient does not have. Every instance it saves, with its values and attachment rows,
+ * is therefore removed again by its number (lib/eform-instance-residue.js: only that patient's instances above a mark taken before
+ * the first save), where the application's own Delete only marks them removed; it used to leave 25 instances, 245 values and 20
+ * attachment rows behind per run. MYSQL_* reaches the database.
+ *
  * Environment: BASE_URL, CHROME_PATH, TEST_USER/TEST_PASSWORD/TEST_PIN, RTL_DEMOGRAPHIC_NO,
  * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER, RTL_HRM_DOCUMENT_NO (default 1).
  */
@@ -47,6 +53,8 @@ const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
 const { settleOperations } = require('./graceful-signal-cancellation');
+const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
   buildArtifactPath,
@@ -405,6 +413,9 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
 
 (async () => {
   const recorder = createRecorder();
+  const sql = createSqlRunner(readConfig().mysql);
+  // Before the first save: the instances saved after this are the run's, and only they are removed.
+  const instanceMark = markEformInstances(sql);
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
     // Only a loopback target (the packaged install's self-signed front door) may skip TLS
@@ -432,6 +443,13 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2).slice(0, 6000));
   } finally {
     await browser.close();
+    try {
+      removeEformInstancesSince(sql, instanceMark, config.demographicNo);
+    } catch (error) {
+      record('cleanup', 'the saved letters were removed', false, String(error && error.message || error));
+    } finally {
+      sql.dispose();
+    }
   }
   const failed = results.filter((r) => !r.ok).length;
   const skipped = results.filter((r) => r.skipped).length;
