@@ -218,6 +218,24 @@ class EmailFooterHtmlUnitTest {
         }
 
         @Test
+        @DisplayName("should place the clinic logo left of its text, below the optional personal footer")
+        void shouldKeepClinicLogoBesideText_belowPersonalFooter() {
+            String html = EmailFooterHtml.toHtmlDocument("Message", "<b>Personal</b>",
+                    "<b>Clinic</b><br>Contact details", "clinic-logo@carlos-emr");
+            var document = org.jsoup.Jsoup.parse(html);
+            var table = document.selectFirst("table[role=presentation]");
+
+            assertThat(table).isNotNull();
+            assertThat(table.select("tr > td")).hasSize(2);
+            assertThat(table.selectFirst("td:first-child img").attr("src"))
+                    .isEqualTo("cid:clinic-logo@carlos-emr");
+            assertThat(table.selectFirst("td:last-child").html())
+                    .contains("<b>Clinic</b>", "<br>", "Contact details");
+            assertThat(table.select("td:first-child").text()).isEmpty();
+            assertThat(html.indexOf("<b>Personal</b>")).isLessThan(html.indexOf("<table"));
+        }
+
+        @Test
         @DisplayName("should keep the message's runs of spaces, indents and tabs in every mail app")
         void shouldKeepSpacing_forMessageText() {
             String html = EmailFooterHtml.toHtmlDocument("  Dose:    2 tabs\n  indented\tx\n\n", "Clinic", null);

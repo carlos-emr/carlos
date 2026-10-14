@@ -103,8 +103,14 @@
                     </c:choose>
                 </p>
             </c:if>
-            <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
-                 data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+            <div class="d-flex align-items-start" style="gap: 12px;">
+                <c:if test="${clinicLogoSet}">
+                    <img src="${ctx}/email/clinicEmailLogo" alt=""
+                         style="display: block; max-width: 160px; height: auto; flex-shrink: 0;"/>
+                </c:if>
+                <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap; min-width: 0;"
+                     data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+            </div>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
                 <form action="${ctx}/admin/saveClinicEmailFooter" method="post" id="clinicFooterForm" class="mt-3">
                     <input type="hidden" name="clinicFooter" id="clinicFooter" value="${carlos:forHtmlAttribute(clinicFooter)}"/>
@@ -118,7 +124,7 @@
         </div>
     </div>
 
-    <%-- The clinic's email footer logo (issue #3981): shown above the footer in patient emails and
+    <%-- The clinic's email footer logo (issue #3981): shown left of the footer text in patient emails and
          carried inside each email. Only _admin writers get the form; everyone else sees the logo. --%>
     <div class="card shadow-sm rounded mt-4 mb-5" id="clinicLogoCard">
         <div class="card-body">

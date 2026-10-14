@@ -634,11 +634,14 @@
                     <div class="card-body">
                         <h5><fmt:message key="email.compose.footer.clinicHeading"/></h5>
                         <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
-                        <c:if test="${not empty clinicFooterLogoPreview}">
-                            <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt="" style="max-width: 600px; height: auto;"/>
-                        </c:if>
-                        <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
-                             data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+                        <div class="d-flex align-items-start" style="gap: 12px;">
+                            <c:if test="${not empty clinicFooterLogoPreview}">
+                                <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt=""
+                                     style="display: block; max-width: 160px; height: auto; flex-shrink: 0;"/>
+                            </c:if>
+                            <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap; min-width: 0;"
+                                 data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+                        </div>
                         <c:if test="${clinicFooterMissing}">
                             <p class="alert alert-warning mt-2"><fmt:message key="email.compose.footer.clinicRequired"/></p>
                         </c:if>

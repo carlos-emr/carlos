@@ -190,7 +190,7 @@ public final class EmailFooterHtml {
 
     /**
      * The formatted version of an email: the message as typed (its line breaks and spacing kept,
-     * nothing in it read as formatting), then the clinic logo when there is one, then the footer.
+     * nothing in it read as formatting), then the clinic footer with its optional logo on the left.
      *
      * @param plainBody the message, or with encryption on the secure-message notice, as plain text
      * @param footerHtml the footer HTML; it is cleaned again here
@@ -203,7 +203,7 @@ public final class EmailFooterHtml {
         return toHtmlDocument(plainBody, "", footerHtml, logoContentId);
     }
 
-    /** The optional personal layer is above the clinic logo and mandatory clinic layer. */
+    /** The optional personal layer is above the mandatory clinic block, whose logo is left of its text. */
     public static String toHtmlDocument(String plainBody, String personalHtml, String footerHtml, String logoContentId) {
         StringBuilder html = new StringBuilder(
                 "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>"
@@ -219,10 +219,18 @@ public final class EmailFooterHtml {
         if (logoContentId != null) {
             // Inline (cid:), never a web address: nothing to host, and no request reveals that
             // the patient opened the email.
-            html.append("<img src=\"cid:").append(SafeEncode.forHtmlAttribute(logoContentId))
-                    .append("\" alt=\"\" style=\"display: block; max-width: 600px; height: auto; margin-bottom: 8px;\">");
+            // A presentation table keeps the logo beside the text in mail apps without flex support.
+            html.append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" dir=\"ltr\""
+                    + " style=\"border-collapse: collapse; font: inherit;\"><tr><td valign=\"top\""
+                    + " style=\"padding-right: 12px;\"><img src=\"cid:")
+                    .append(SafeEncode.forHtmlAttribute(logoContentId))
+                    .append("\" alt=\"\" style=\"display: block; max-width: 160px; height: auto;\"></td>"
+                            + "<td valign=\"top\"><div>").append(clean(footerHtml))
+                    .append("</div></td></tr></table>");
+        } else {
+            html.append("<div>").append(clean(footerHtml)).append("</div>");
         }
-        html.append("<div>").append(clean(footerHtml)).append("</div></body></html>");
+        html.append("</body></html>");
         return html.toString();
     }
 
