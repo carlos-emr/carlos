@@ -37,9 +37,15 @@ async function main() {
     const topBar = all.filter(item => item.identity.ancestorIds.some(id => TOP_BAR_ANCESTORS.includes(id)));
     // One appointment slot is enough: they all share addappointment. Only an EMPTY slot's opener
     // qualifies; a booked appointment's links lead to patient-specific encounter/billing/edit pages.
+    // It must also open without a booking prompt: confirmPopupPage(h, w, url, doConfirm, allowDay, allowWeek) asks a
+    // confirm()/alert() first for a slot whose template code sets doConfirm (Yes/Onc/Day/Wk), which the engine would
+    // report as an unexpected dialog. Only a slot whose doConfirm argument is empty is taken.
+    const opensWithoutPrompt = onclick => !/confirmPopupPage\s*\(/.test(onclick)
+      || /\/appointment\/addappointment[^']*'\s*,\s*''/.test(onclick);
     const slot = all.find(item => item.identity.ancestorIds.includes('providerSchedule')
-      && /\/appointment\/addappointment\b/.test(`${item.identity.onclick || ''} ${item.identity.href || ''}`));
-    if (!slot) console.log('  no empty appointment slot opener on this day sheet; the add-appointment page is not crawled');
+      && /\/appointment\/addappointment\b/.test(`${item.identity.onclick || ''} ${item.identity.href || ''}`)
+      && opensWithoutPrompt(item.identity.onclick || ''));
+    if (!slot) console.log('  no empty, prompt-free appointment slot opener on this day sheet; the add-appointment page is not crawled');
     const items = [...topBar, ...(slot ? [slot] : [])];
     h.assert(items.length >= 10,
       `the schedule offered only ${items.length} top-bar link(s); the catalogue is probably broken`);

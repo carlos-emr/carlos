@@ -51,7 +51,7 @@ function parseRiskNumber(raw, rule) {
     if (!/^(?:[0-9]{1,3}(?:\.[0-9]*)?|\.[0-9]+)$/.test(text)) {
         return null;
     }
-    var value = parseFloat(text);
+    var value = Number.parseFloat(text);
     if (value < rule.min || value > rule.max) {
         return null;
     }
@@ -68,7 +68,7 @@ function riskInputMessage(rule, raw) {
     var text = String(raw === undefined || raw === null ? "" : raw).trim();
     if (rule.whole && /^[0-9]{1,3}$/.test(text)) {
         return "This calculator covers ages " + rule.min + " to " + rule.max
-            + " years; it does not apply to a patient aged " + parseInt(text, 10)
+            + " years; it does not apply to a patient aged " + Number.parseInt(text, 10)
             + ". Nothing has been calculated.";
     }
     return "Enter " + rule.name + " as a " + (rule.whole ? "whole number" : "number")

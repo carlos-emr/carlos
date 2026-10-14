@@ -7,6 +7,7 @@ const {createHash, randomBytes} = require('node:crypto');
 const h = require('./playwright-harness');
 const {fixturePdf} = require('../incoming-pdf-extraction-playwright-checks');
 const {execFileSync} = require('node:child_process');
+const {markDocumentResidue, removeDocumentResidue} = require('./document-residue');
 
 function inspect(file) {
   const pdf = fs.readFileSync(file);
@@ -134,6 +135,9 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
   const filename = `${marker}-stored.pdf`, sourceFile = path.join(store, filename);
   let uncertain = false, initialised = false, closed = false, cleaned = false, transportUncertain = false, baseline, sourceId, journal, acceptedSplitId, recoveryOf;
   const removed = [], metadataReceipts = [];
+  // The routing lock row is keyed by the document number alone and no snapshot below holds it; a fresh run removes the ones it
+  // wrote (lib/document-residue.js). A recovery run did not take the mark, so it leaves the original run's lock rows alone.
+  const residueMark = recovery ? null : markDocumentResidue(sql);
   function checkpoint(phase) {
     if (!journal) return;
     const content = JSON.stringify({marker, patient, provider, program, store, sourceId, acceptedSplitId, uncertain, initialised, closed, cleaned, transportUncertain, phase,
@@ -265,6 +269,7 @@ function createStoredDocumentFixture(session, program, recovery, options = {}) {
       h.assert(sql.value(statements.join('; ')) === '1', 'Atomic stored fixture cleanup refused; all clinical routes retained');
       equal(fileProof(record.file, store), record.fileProof, 'Stored file changed before cleanup');
       fs.unlinkSync(record.file);
+      if (residueMark) removeDocumentResidue(sql, residueMark, [number]);
       removed.push(number); checkpoint('cleanup');
       if (fs.existsSync(cacheConfigured)) {
         const cache = fs.realpathSync(cacheConfigured);

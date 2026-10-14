@@ -18,8 +18,9 @@ async function workflow(s) {
     {name:'[Care]+ Pharmacy', address:'10 Clinic Street', city:'Montréal', postal:'H1A 1A1', phone:'(416) 555-0200', fax:'416.555.0100'},
     {name:'Care Pharmacy', address:'20 Other Street', city:'Toronto', postal:'M1A 1A1', phone:'4165550201', fax:'4165550101'},
   ]) {
-    const id = s.sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,postalCode,phone1,fax,status)
-      VALUES(${sqlString(s.marker + ' ' + fixture.name)},${sqlString(fixture.address)},${sqlString(fixture.city)},'ON',
+    // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
+    const id = s.sql.value(`INSERT INTO pharmacyInfo(uid,name,address,city,province,postalCode,phone1,fax,status)
+      VALUES(0,${sqlString(s.marker + ' ' + fixture.name)},${sqlString(fixture.address)},${sqlString(fixture.city)},'ON',
       ${sqlString(fixture.postal)},${sqlString(fixture.phone)},${sqlString(fixture.fax)},'1'); SELECT LAST_INSERT_ID()`);
     assert(/^[1-9]\d*$/.test(id), 'Pharmacy fixture was not created');
     ids.push(id);

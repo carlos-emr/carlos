@@ -51,6 +51,13 @@ function dispositionProblem(header) {
   return null;
 }
 
+/** The value of the plain filename= parameter (a token, or a quoted-string with backslash escapes undone), or null. */
+function plainFilename(header) {
+  const match = /;\s*filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^\s;"]+))/i.exec(header);
+  if (!match) return null;
+  return match[1] !== undefined ? match[1].replace(/\\(.)/g, '$1') : match[2];
+}
+
 async function workflow(s) {
   const { sql, provider, marker } = s;
   const scratch = x.scratchDir();
@@ -68,8 +75,7 @@ async function workflow(s) {
     plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł',
       folder: `${marker}ExportPlain`, download: `${marker} Export Plain.zip` },
     accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject',
-      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip`,
-      browserDownload: `${marker} Ça _va_ Łódź.zip` },
+      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip` },
     slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash',
       folder: `${marker}WellBaby0_6months`, download: `${marker} Well Baby 0_6 months.zip` },
   };
@@ -102,8 +108,17 @@ async function workflow(s) {
     try { decodedName = extended ? decodeURIComponent(extended[1]) : null; } catch (error) { /* assertion below reports invalid UTF-8 */ }
     h.assert(decodedName === form.download,
       `${label}: download header lost or mangled the form name`);
-    // Chromium replaces quotes in suggested filenames, independently of RFC 5987 decoding.
-    h.assert(file.name === (form.browserDownload ?? form.download), `${label}: browser download name differs: ${JSON.stringify(file.name)}`);
+    // The name a browser without RFC 5987 support would use. A name that is ASCII throughout has to survive
+    // it intact; a name with an accent or a letter outside Latin-1 can only be lossy here, which is why its
+    // filename*= (asserted above) is the contract.
+    if (/^[\x20-\x7e]*$/.test(form.download)) {
+      h.assert(plainFilename(header) === form.download, `${label}: the plain filename= parameter lost or mangled the form name`);
+    }
+    // The download's name is asserted from the response header above, NOT from download.suggestedFilename():
+    // that is the browser's own choice, and it depends on the browser and its locale. Chromium 154 under the
+    // POSIX locale (LANG unset, as in a container) cannot convert a UTF-8 file name to the locale's charset and
+    // names any download whose filename*= is not ASCII "download", while the same header yields
+    // "<name> Ça _va_ Łódź.zip" under C.UTF-8. The header is what the application controls.
     const entries = x.unzip(file.bytes);
     const folder = form.folder;
     const names = Object.keys(entries).sort();

@@ -47,14 +47,10 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.Vector;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -511,76 +507,19 @@ public class RxPrescriptionData {
     }
 
     /**
-     * Returns the newest copy of each equivalent clinical entry, newest first.
-     * Drug identity alone is insufficient: doses, directions, status and dated history
-     * must remain distinguishable. Full prescription history is available separately
-     * through {@link #getPrescriptionsByPatient(int)}.
+     * Returns the patient's medication list, one entry per product and regimen, newest first.
+     * See {@link UniqueMedicationList} for which rows merge and which copy is listed. Full
+     * prescription history is available separately through {@link #getPrescriptionsByPatient(int)}.
      */
     public Prescription[] getUniquePrescriptionsByPatient(int demographicNo) {
-        List<Prescription> result = new ArrayList<>();
-        Set<PrescriptionContent> seen = new HashSet<>();
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
-        List<Drug> drugList = new ArrayList<>(dao.findByDemographicId(demographicNo));
-        drugList.sort(new Drug.ComparatorIdDesc());
-
-        for (Drug drug : drugList) {
-            if (drug.isDeleted()) {
-                continue;
-            }
-            // Do not infer equivalence when the product itself is unidentified.
-            if (hasProductIdentity(drug) && !seen.add(PrescriptionContent.from(drug))) {
-                continue;
-            }
+        List<Prescription> result = new ArrayList<>();
+        for (Drug drug : UniqueMedicationList.select(dao.findByDemographicId(demographicNo))) {
             Prescription prescription = toPrescription(drug, demographicNo);
             prescription.setPosition(drug.getPosition());
             result.add(prescription);
         }
         return result.toArray(new Prescription[0]);
-    }
-
-    private static boolean hasProductIdentity(Drug drug) {
-        return (StringUtils.isNotBlank(drug.getGcnSeqNo()) && !"0".equals(drug.getGcnSeqNo()))
-                || StringUtils.isNotBlank(drug.getCustomName())
-                || StringUtils.isNotBlank(drug.getBrandName())
-                || StringUtils.isNotBlank(drug.getGenericName())
-                || StringUtils.isNotBlank(drug.getRegionalIdentifier());
-    }
-
-    /**
-     * Exact clinical values, excluding row ID, script linkage, display position/visibility and
-     * create/update timestamps. Those bookkeeping fields differ between duplicate rows.
-     * Nulls are retained rather than guessed to mean an empty value or a default.
-     */
-    private record PrescriptionContent(List<Object> product, List<Object> directions, List<Object> history) {
-        private static PrescriptionContent from(Drug drug) {
-            return new PrescriptionContent(
-                    values(drug.getGcnSeqNo(), drug.getBrandName(), drug.getCustomName(), drug.getGenericName(),
-                            drug.getAtc(), drug.getRegionalIdentifier(), drug.getDosage(), drug.getUnit(),
-                            drug.getUnitName(), drug.getDrugForm()),
-                    values(drug.getTakeMin(), drug.getTakeMax(), drug.getFreqCode(), drug.getDuration(),
-                            drug.getDurUnit(), drug.getQuantity(), drug.getRepeat(), drug.isNoSubs(), drug.isPrn(),
-                            drug.getSpecial(), drug.getSpecialInstruction(), drug.getMethod(), drug.getRoute(),
-                            drug.isCustomInstructions(), drug.getRefillDuration(), drug.getRefillQuantity(),
-                            drug.getDispenseInterval(), drug.getDispenseInternal(), drug.getProtocol(),
-                            drug.getPriorRxProtocol(), drug.getETreatmentType(), drug.getRxStatus(), drug.getPharmacyId()),
-                    values(drug.getProviderNo(), drug.getDemographicId(), instant(drug.getRxDate()),
-                            instant(drug.getEndDate()), instant(drug.getWrittenDate()), instant(drug.getLastRefillDate()),
-                            instant(drug.getPickUpDateTime()), drug.isArchived(), drug.getArchivedReason(),
-                            instant(drug.getArchivedDate()), drug.getLongTerm(), drug.getShortTerm(), drug.getPastMed(),
-                            drug.getPatientCompliance(), drug.getStartDateUnknown(), drug.getOutsideProviderName(),
-                            drug.getOutsideProviderOhip(), drug.getComment(), drug.isCustomNote(),
-                            drug.isNonAuthoritative()));
-        }
-
-        private static List<Object> values(Object... values) {
-            // List.of/copyOf reject nullable database fields. The backing array is private.
-            return Collections.unmodifiableList(Arrays.asList(values));
-        }
-
-        private static Long instant(Date date) {
-            // Snapshot mutable dates and compare Date/Timestamp instances consistently.
-            return date == null ? null : date.getTime();
-        }
     }
 
     public Favorite[] getFavorites(String providerNo) {

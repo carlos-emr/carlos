@@ -39,6 +39,13 @@
  * check covers the patient tickler page; both use the shared note dialog helpers.
  * Cleanup is limited to this run's stamped ticklers, notes and their links.
  *
+ * Note links are found by tickler_no alone, and the demo dataset carries tickler
+ * note links whose ticklers it does not ship (#4409). A fresh tickler that reuses
+ * such a tickler_no opens with that stale note, so this check skips any created
+ * tickler with a link older than the run and creates another one. The skipped
+ * ticklers are still this run's and are removed; the inherited links are left as
+ * found.
+ *
  * Defaults are for the local devcontainer:
  *   npm run test:tickler-note-dialog-playwright
  *
@@ -55,7 +62,11 @@
  */
 
 const { chromium } = require('playwright');
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
+const {
+  cleanupTicklerFixture,
+  createTicklerWithoutInheritedNoteLink,
+  readNoteLinkFloor,
+} = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -74,14 +85,17 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_NOTE_${Date.now()}`;
-const messageA = `${stamp}_A note round-trip check`;
-const messageB = `${stamp}_B stale-data leak check`;
+// Upper bound on fixture ticklers skipped for inherited note links. The demo data has
+// links on three ticklers it does not ship, so a handful of attempts is always enough.
+const MAX_FIXTURE_ATTEMPTS = 10;
 const firstNoteText = `${stamp} first note text`;
 const secondNoteText = `${stamp} second note text (edited)`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the first tickler is created; until then the run owns no rows to clean.
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -171,7 +185,10 @@ function assert(condition, message) {
 }
 
 function cleanupTicklerRows() {
-  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, noteTexts: [firstNoteText, secondNoteText] });
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, noteTexts: [firstNoteText, secondNoteText], linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -259,6 +276,25 @@ async function createTickler(context, message) {
   }
   assert(row, `expected a created tickler row for message ${message}`);
   return row.id;
+}
+
+/**
+ * Create a tickler whose tickler_no carries no note link from before this run, so its
+ * note dialog must open blank. Each attempt gets its own message (A1, A2, ...): the
+ * list filter matches substrings, and a skipped tickler must never match the one
+ * under test.
+ */
+function createNotelessTickler(context, label, purpose) {
+  return createTicklerWithoutInheritedNoteLink({
+    sql,
+    linkIdFloor,
+    maxAttempts: MAX_FIXTURE_ATTEMPTS,
+    log: (text) => console.log(`SKIP fixture ${label}: ${text}`),
+    create: async (attempt) => {
+      const message = `${stamp}_${label}${attempt} ${purpose}`;
+      return { id: await createTickler(context, message), message };
+    },
+  });
 }
 
 async function openTicklerList(page) {
@@ -351,7 +387,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
 });
 
 (async () => {
-  cleanupTicklerRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
@@ -370,8 +406,8 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     await login(loginPage);
     await loginPage.close().catch(() => {});
 
-    const ticklerAId = await createTickler(context, messageA);
-    const ticklerBId = await createTickler(context, messageB);
+    const { id: ticklerAId, message: messageA } = await createNotelessTickler(context, 'A', 'note round-trip check');
+    const { id: ticklerBId, message: messageB } = await createNotelessTickler(context, 'B', 'stale-data leak check');
 
     const page = await context.newPage();
     wirePage(page, 'tickler-main');

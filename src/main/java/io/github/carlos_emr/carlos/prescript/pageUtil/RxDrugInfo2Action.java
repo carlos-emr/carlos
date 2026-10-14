@@ -35,6 +35,8 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -101,6 +103,8 @@ public final class RxDrugInfo2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the literal "null" a legacy selector may post; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the literal \"null\" a legacy selector may post; not a security or authorization decision")
     private static String selector(String value) {
         String normalized = StringUtils.trimToNull(value);
         return "null".equalsIgnoreCase(normalized) ? null : normalized;

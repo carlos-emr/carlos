@@ -380,7 +380,7 @@ public class HttpMethodGuardFilter implements Filter {
         String uri = httpRequest.getRequestURI();
         if (uri.indexOf('\0') >= 0) {
             LOGGER.warn("Blocked request with null byte in URI: {} (remote: {})",
-                    uri.replace('\0', '?'), httpRequest.getRemoteAddr());
+                    LogSafe.sanitize(uri.replace('\0', '?')), LogSafe.sanitize(httpRequest.getRemoteAddr()));
             ((HttpServletResponse) response).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request URI");
             return;
         }
