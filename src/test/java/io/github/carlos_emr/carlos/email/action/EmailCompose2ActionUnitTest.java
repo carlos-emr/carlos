@@ -255,6 +255,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest failed = prepare(keyA);
         assertThat(failed.getAttribute("FAKE-result")).isEqualTo("eFormError");
         assertThat(response.getStatus()).as("a failed lookup is not an expired draft").isEqualTo(200);
+        assertThat((String) failed.getAttribute("errorMessage")).as("the lookup error's own text stays off the page")
+                .startsWith("This eForm could not be emailed").doesNotContain("FAKE");
         assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
     }
 

@@ -55,7 +55,7 @@ class EmailFailureMessageUnitTest {
 
     @Test
     @DisplayName("should word each message in the reader's language and end it with the reference")
-    void shouldWordMessage_inReadersLanguage_withReference() {
+    void shouldWordMessageInReadersLanguage_withReference() {
         assertThat(EmailFailureMessage.format(Locale.ENGLISH, EmailFailureMessage.EFORM_ATTACHMENTS_KEY, "FAKE-ref"))
                 .isEqualTo("This eForm could not be emailed because an attachment could not be prepared. "
                         + "Please try again. Reference for your administrator: FAKE-ref");
