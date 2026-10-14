@@ -303,6 +303,8 @@
                 </fieldset>
             </c:if>
         </div>        
+        <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
+                onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
             <input type="button" value="<fmt:message key="encounter.resetFilter.title"/>"
@@ -667,38 +669,8 @@
 </form>
 
 <script type="text/javascript">
-    /**
-     * enable autocomplete for Issue search menus.
-     */
-    jQuery(document).ready(function($) {
-        var autocompleteUrl = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
-        
-        $(".issueAutocomplete").autocomplete({
-            source: function(request, response) {
-                $.get(autocompleteUrl + "&term=" + request.term)
-                    .done(function(data) {
-                        // Transform the data to the format expected by jQuery UI autocomplete
-                        var transformedData = $.map(data, function(item) {
-                            return {
-                                label: item.description.trim() + ' (' + item.code + ')',
-                                value: item.description.trim(),
-                                id: item.id
-                            };
-                        });
-                        response(transformedData);
-                    })
-                    .fail(function(xhr, status, error) {
-                        console.error("Autocomplete request failed:", status, error);
-                        response([]);
-                    });
-            },
-            delay: 100,
-            minLength: 3,
-            select: function (event, ui) {
-                document.getElementById("newIssueId").value = ui.item.id;
-                document.getElementById("newIssueName").value = ui.item.value;
-            }
-        });
+    jQuery(function () {
+        initializeIssueAutocomplete(document);
     });
 </script>
 

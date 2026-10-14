@@ -53,10 +53,6 @@
     var caisiEnabled = false;
     var requireIssue = true;
     var requireObsDate = true;
-    var makeIssue;
-    var defaultDiv;
-    var changeIssueFunc;
-    var addIssueFunc;
     var needToReleaseLock = true;
 
     var X = 10;
@@ -410,6 +406,7 @@
             fullChart = "false";
         }
 
+        destroyNoteIssueAutocomplete();
         $("notCPP").update("Loading...");
         CarlosAjax.request(
             url,
@@ -418,6 +415,7 @@
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
                     if (displayFullChart) {
@@ -1148,9 +1146,9 @@
             var cppDisplay = "";
             for (idx = 0, rows = 0; idx < issueArray.length; idx += 3, ++rows) {
                 if (rows % 2 === 0) {
-                    noteIssueUl += "<li><input type='checkbox' id='issueId' name='issue_id' checked value='" + issueArray[idx] + "'>" + issueArray[idx + 2];
+                    noteIssueUl += "<li><input type='checkbox' id='issueId' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]);
                 } else {
-                    noteIssueUl += "&nbsp; <input type='checkbox' id='issueId' name='issue_id' checked value='" + issueArray[idx] + "'>" + issueArray[idx + 2] + "</li>";
+                    noteIssueUl += "&nbsp; <input type='checkbox' id='issueId' name='issue_id' checked value='" + escapeNoteText(issueArray[idx]) + "'>" + escapeNoteText(issueArray[idx + 2]) + "</li>";
                 }
                 if (cppDisplay == "") cppDisplay = getCPP(issueArray[idx + 1]);
             }
@@ -1336,7 +1334,7 @@ function updateCPPNote() {
         if ($('channel')) $('channel').style.visibility = 'visible';
         $('showEditNote').style.display = 'none';
 
-        var curItems = document.forms["frmIssueNotes"].elements["issueId"];
+        var curItems = document.forms["frmIssueNotes"].querySelectorAll('input[name="issue_id"]');
         if (curItems != null && typeof curItems.length != "undefined") {
             size = curItems.length;
 
@@ -1370,7 +1368,9 @@ function updateCPPNote() {
                     if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
                 onFailure: function (request) {
-                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status);
+                    $('showEditNote').style.display = 'block';
+                    if ($('channel')) $('channel').style.visibility = 'hidden';
+                    alert(savingNoteError + " " + request.status);
                 }
             }
         );
@@ -1755,6 +1755,7 @@ function updateCPPNote() {
     }
 
 
+    var noteIssuesChanged = false;
     var updatedNoteId = -1;  //used to store id of ajax saved note used below
     var selectBoxes = new Object();
     var unsavedNoteWarning;
@@ -1772,7 +1773,7 @@ function updateCPPNote() {
         // check if case note has been changed
         // if so, warn user that changes will be lost if not saved
 
-        if (origCaseNote != $F(id) || origObservationDate != $("observationDate").value) {
+        if (origCaseNote != $F(id) || origObservationDate != $("observationDate").value || noteIssuesChanged) {
             if (!confirm(unsavedNoteWarning))
                 return false;
             else {
@@ -1789,6 +1790,7 @@ function updateCPPNote() {
     }
 
     function finishChangeToView(id, saving, tmp) {
+        noteIssuesChanged = false;
         // The save response can rename the note container to its new database ID.
         var parent = $(id).parentNode.id;
         var nId = parent.substr(1);
@@ -1828,6 +1830,7 @@ function updateCPPNote() {
         if ($("autosaveTime") != null)
             Element.remove("autosaveTime");
 
+        destroyNoteIssueAutocomplete();
         if ($("noteIssues") != null)
             Element.remove("noteIssues");
 
@@ -1851,8 +1854,6 @@ function updateCPPNote() {
             $(encTypeId).update(encType);
 
         }
-        //we can stop listening for add issue here
-        if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
         if (tmp.length == 0)
             tmp = "&nbsp;";
 
@@ -2402,8 +2403,6 @@ function updateCPPNote() {
         //cache existing signature so we can recreate it if ajax call aborted
         sigCache = $(divId).innerHTML;
         ajaxUpdateIssues('edit', divId);
-        addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, divId);
-        if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
         $(txt).style.height = "auto";
 
@@ -2527,18 +2526,21 @@ function updateCPPNote() {
 
     var filterError;
 
-    function resetInputElements(element) {
-        if (Object.prototype.toString.call(element) == "[object NodeList]") {
-            var size = element.length;
-            for (var i = 0; i < size; i++) {
-                element[i].checked = false;
-            }
+    function resetInputElements(elements) {
+        if (!elements) return;
+        // Named form controls can be a single input or a RadioNodeList.
+        if (typeof elements.length === 'number' && !elements.tagName) {
+            Array.from(elements).forEach(function (element) { element.checked = false; });
         } else {
-            element.checked = false;
+            elements.checked = false;
         }
     }
 
     function filter(reset) {
+        if (deferNoteSaveUntilIssues(function () { filter(reset); })) return false;
+        // A filter reload replaces the editor just like opening another note.
+        // Preserve unsaved text and assignments, and honor cancel/save failures.
+        if (!changeToView(caseNote, function () { filter(reset); })) return false;
         var url = ctx + "/CaseManagementEntry";
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
@@ -2551,6 +2553,8 @@ function updateCPPNote() {
         document.forms["caseManagementViewForm"].resetFilter.value = reset;
 
         if (reset) {
+            var checkIssue = document.getElementById('check_issue');
+            if (checkIssue) checkIssue.value = '';
             resetInputElements(document.forms["caseManagementViewForm"].filter_providers);
             resetInputElements(document.forms["caseManagementViewForm"].filter_roles);
             resetInputElements(document.forms["caseManagementViewForm"].note_sort);
@@ -2858,7 +2862,7 @@ function updateCPPNote() {
 
         var url = ctx + "/CaseManagementEntry";
 
-        $("notCPP").update("Loading...");
+        var restoreControls = beginNoteSwitchSave();
 
         CarlosAjax.request(
             url,
@@ -2867,6 +2871,7 @@ function updateCPPNote() {
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
                     if (fullChart == "true") {
@@ -2876,8 +2881,12 @@ function updateCPPNote() {
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").update("Error: " + request.status + request.responseText);
-                }
+                    // In particular, a stale-revision 409 must leave the clinician's
+                    // text and selected issues available to copy or recover.
+                    alert(savingNoteError + " " + request.status);
+                    setTimer();
+                },
+                onComplete: function () { restoreControls(); }
             }
         );
         return false;
@@ -2976,57 +2985,28 @@ function updateCPPNote() {
 
     var changeIssueMsg;
     function changeDiagnosis(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
+        var button = document.getElementById('asgnIssues');
+        if (button) {
+            button.value = changeIssueMsg;
+            button.setAttribute('data-issue-method', 'ajaxChangeDiagnosis');
         }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
+        if ($("issueAutocomplete")) $("issueAutocomplete").focus();
         return false;
     }
 
     function changeDiagnosisResolved(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues-resolved").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
-        }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
-        return false;
+        return changeDiagnosis(issueId);
     }
 
     function changeDiagnosisUnresolved(issueId) {
-        var methodArg = "ajaxChangeDiagnosis";
-        var divIdArg = $("noteIssues-unresolved").up().id;
-        var thisObj = {};
-        changeIssueFunc = updateIssues.bindAsEventListener(thisObj, methodArg, divIdArg);
-
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
-        if ($("asgnIssues")) {
-            $("asgnIssues").value = changeIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', addIssueFunc);
-            Element.observe('asgnIssues', 'click', changeIssueFunc);
-        }
-        if ($("issueAutocomplete")) { $("issueAutocomplete").focus(); }
-        return false;
+        return changeDiagnosis(issueId);
     }
 
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
-        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value)) {
+        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value || noteIssuesChanged)) {
             if (confirm(closeWithoutSaveMsg)) {
                 clearAutoSaveTimer();
                 window.close();
@@ -3039,64 +3019,138 @@ function updateCPPNote() {
         return false;
     }
 
-    function addIssue2CPP(txtField, listItem) {
+    // Bind each newly rendered editor once. AJAX replaces the note controls, while
+    // the CPP dialog keeps its own form throughout the chart's lifetime.
+    var disposeNoteIssueSearch = null;
+    function destroyNoteIssueAutocomplete() {
+        if (disposeNoteIssueSearch) {
+            disposeNoteIssueSearch();
+            disposeNoteIssueSearch = null;
+        }
+    }
 
-        var nodeId = listItem.id;
-        var size = 0;
-        var found = false;
-        var curItems = document.forms["frmIssueNotes"].elements["issueId"];
-
-        if (typeof curItems.length != "undefined") {
-            size = curItems.length;
-
-            for (var idx = 0; idx < size; ++idx) {
-                if (curItems[idx].value == nodeId) {
-                    found = true;
-                    break;
-                }
+    function initializeIssueAutocomplete(root) {
+        jQuery(root).find('.issueAutocomplete').each(function () {
+            var input = this;
+            var form = input.form;
+            if (!form || (form.name !== 'caseManagementEntryForm' && form.id !== 'frmIssueNotes')) return;
+            var search = jQuery(input);
+            if (search.autocomplete('instance')) return;
+            if (form.name === 'caseManagementEntryForm') {
+                destroyNoteIssueAutocomplete();
+                input.disabled = issueUpdatesPending > 0;
+                var assign = document.getElementById('asgnIssues');
+                if (assign) assign.disabled = input.disabled;
+                form.elements.newIssueId.value = '';
+                form.elements.newIssueName.value = '';
+                submitIssues = false;
             }
+            var pendingSearch;
+            var disposed = false;
+            search.autocomplete({
+                source: function (request, response) {
+                    if (pendingSearch) pendingSearch.abort();
+                    pendingSearch = jQuery.get(ctx + '/CaseManagementEntry', {
+                        method: 'issueList', demographicNo: demographicNo,
+                        providerNo: providerNo, term: request.term
+                    }).done(function (data) {
+                        if (disposed || input.isConnected === false) return;
+                        response(jQuery.map(data, function (item) {
+                            return {label: item.description.trim() + ' (' + item.code + ')',
+                                value: item.description.trim(), id: item.id};
+                        }));
+                    }).fail(function () { if (!disposed) response([]); });
+                },
+                delay: 100,
+                minLength: 3,
+                select: function (event, ui) {
+                    if (form.id === 'frmIssueNotes') {
+                        addIssue2CPP(input, {id: ui.item.id, textContent: ui.item.value});
+                    } else {
+                        saveIssueId(input, {id: ui.item.id, textContent: ui.item.value});
+                    }
+                    return false;
+                }
+            });
+            if (form.name === 'caseManagementEntryForm') {
+                disposeNoteIssueSearch = function () {
+                    disposed = true;
+                    if (pendingSearch) pendingSearch.abort();
+                    search.autocomplete('destroy');
+                    search.off('.issueSelection');
+                };
+            }
+            search.on('input.issueSelection', function () {
+                if (form.name === 'caseManagementEntryForm') {
+                    form.elements.newIssueId.value = '';
+                    form.elements.newIssueName.value = '';
+                    submitIssues = false;
+                }
+            });
+        });
+    }
+
+    function addIssue2CPP(txtField, listItem) {
+        var form = txtField.form;
+        var nodeId = String(listItem.id);
+        if (!form || form.id !== 'frmIssueNotes' || !/^[1-9]\d*$/.test(nodeId)) return;
+        var list = form.querySelector('#issueIdList');
+        if (!list) return;
+        var existing = Array.from(form.querySelectorAll('input[name="issue_id"]')).find(function (input) {
+            return input.value === nodeId;
+        });
+        if (existing) {
+            existing.checked = true;
         } else {
-            found = curItems.value == nodeId;
+            var node = document.createElement('li');
+            var label = document.createElement('label');
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.name = 'issue_id';
+            checkbox.value = nodeId;
+            checkbox.checked = true;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(listItem.textContent));
+            node.appendChild(label);
+            list.appendChild(node);
         }
-
-        if (!found) {
-            var node = document.createElement("LI");
-
-            var html = "<input type='checkbox' id='issueId' name='issue_id' checked value='" + nodeId + "'>" + listItem.textContent;
-            $(node).insertAdjacentHTML('afterbegin', html);
-
-            $("issueIdList").appendChild(node);
-            $("issueAutocompleteCPP").value = "";
-
-        }
-
-        $("issueChange").value = true;
+        txtField.value = '';
+        form.elements.issueChange.value = 'true';
     }
 
     function saveIssueId(txtField, listItem) {
-        $("newIssueId").value = listItem.id;
-        $("newIssueName").value = listItem.innerHTML;
-
+        var form = txtField.form;
+        var id = String(listItem.id);
+        if (!form || form.name !== 'caseManagementEntryForm' || !/^[1-9]\d*$/.test(id)) return;
+        form.elements.newIssueId.value = id;
+        form.elements.newIssueName.value = listItem.textContent;
+        txtField.value = listItem.textContent;
         submitIssues = true;
+    }
+
+    function assignNoteIssue(event) {
+        var issues = document.getElementById('noteIssues');
+        var button = document.getElementById('asgnIssues');
+        var signature = issues ? issues.closest('.sig') : null;
+        if (!signature || !button) return false;
+        return updateIssues(event, button.getAttribute('data-issue-method') || 'makeIssue', signature.id);
     }
 
     var pickIssueMsg;
     var assignIssueMsg;
-    function updateIssues(e) {
-        var args = $A(arguments);
-        args.shift();
-
-        if ($("newIssueId").value.length === 0 || ($("issueAutocomplete") && $("issueAutocomplete").value !== $("newIssueName").value))
+    function updateIssues(event, method, div) {
+        Event.stop(event);
+        var form = document.forms['caseManagementEntryForm'];
+        var search = form.querySelector('#issueAutocomplete');
+        if (!search || !/^[1-9]\d*$/.test(form.elements.newIssueId.value)
+                || search.value !== form.elements.newIssueName.value) {
             alert(pickIssueMsg);
-        else
-            ajaxUpdateIssues(args[0], args[1]);
-
-        if ($("asgnIssues") && $F("asgnIssues") !== assignIssueMsg) {
-            $("asgnIssues").value = assignIssueMsg;
-            Element.stopObserving('asgnIssues', 'click', changeIssueFunc);
-            Element.observe('asgnIssues', 'click', addIssueFunc);
+            return false;
         }
-        Event.stop(e);
+        // Repeated clicks must not race two replacements of the same issue fragment.
+        if (issueUpdatesPending > 0) return false;
+        noteIssuesChanged = true;
+        ajaxUpdateIssues(method, div);
         submitIssues = false;
         return false;
     }
@@ -3145,9 +3199,15 @@ function updateCPPNote() {
         return false;
     }
 
+    function setNoteIssueControlsBusy(busy) {
+        if ($("issueAutocomplete")) $("issueAutocomplete").disabled = busy;
+        if ($("asgnIssues")) $("asgnIssues").disabled = busy;
+    }
+
     function finishIssueUpdate(succeeded) {
         issueUpdateFailed = issueUpdateFailed || !succeeded;
         issueUpdatesPending -= 1;
+        setNoteIssueControlsBusy(issueUpdatesPending > 0);
         if (issueUpdatesPending === 0 && queuedNoteSave != null) {
             var queued = queuedNoteSave;
             queuedNoteSave = null;
@@ -3171,6 +3231,7 @@ function updateCPPNote() {
         var p = Form.serialize(frm);
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
+        setNoteIssueControlsBusy(true);
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
             evalScripts: true, postBody: p,
             // onComplete runs after the updater installs the new issue fields.
@@ -3189,6 +3250,7 @@ function updateCPPNote() {
     function onIssueUpdate(complete) {
         if ($("issueAutocomplete")) $("issueAutocomplete").value = "";
         if ($("newIssueId")) $("newIssueId").value = "";
+        if ($("newIssueName")) $("newIssueName").value = "";
 
         // demographicNo is module state; the form does not always render an element
         // with that id. Wait for this second refresh before resuming a queued save.
@@ -3213,15 +3275,18 @@ function updateCPPNote() {
 
 
 
-    var filterShows = false;
     function showFilter() {
+        var panel = document.getElementById('filter');
+        var toggle = document.getElementById('notesFilterToggle');
+        if (!panel || !toggle) return false;
+        var showing = panel.style.display === 'none';
+        panel.style.display = showing ? 'block' : 'none';
+        toggle.setAttribute('aria-expanded', String(showing));
+        return false;
+    }
 
-        if (filterShows)
-            $('filter').classList.add('carlos-collapsed');
-        else
-            $('filter').classList.remove('carlos-collapsed');
-
-        filterShows = !filterShows;
+    function clearIssueFilter() {
+        return filter(true);
     }
 
     function filterCheckBox(checkbox) {
@@ -3323,8 +3388,6 @@ function updateCPPNote() {
 
             origCaseNote = $F(caseNote);
             ajaxUpdateIssues("edit", safeSigId);
-            addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, safeSigId);
-            if ($("asgnIssues")) { Element.observe('asgnIssues', 'click', addIssueFunc); }
 
             //AutoCompleter for Issues
             <%--var issueURL = "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;--%>
@@ -4032,6 +4095,7 @@ function autoSave() {
             if ($("autosaveTime") != null)
                 Element.remove("autosaveTime");
 
+            destroyNoteIssueAutocomplete();
             if ($("noteIssues") != null)
                 Element.remove("noteIssues");
 
@@ -4055,8 +4119,6 @@ function autoSave() {
                 $(encTypeId).update(encType);
 
             }
-            //we can stop listening for add issue here
-            if ($("asgnIssues")) { Element.stopObserving('asgnIssues', 'click', addIssueFunc); }
             if (tmp.length == 0)
                 tmp = "&nbsp;";
 
@@ -4182,6 +4244,7 @@ function autoSave() {
 
         var url = ctx + "/CaseManagementEntry";
 
+        destroyNoteIssueAutocomplete();
         $("notCPP").update("Loading...");
 
         CarlosAjax.request(

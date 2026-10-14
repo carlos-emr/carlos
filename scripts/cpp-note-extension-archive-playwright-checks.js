@@ -32,15 +32,9 @@
  * extension never trips it -- one persist() per request succeeds -- so a
  * one-field check would pass against the broken code and prove nothing.
  *
- * THE ARCHIVE IS THE SECOND HALF, and it is a different trap. Archiving re-runs
- * the same write path over a note that ALREADY has its extension rows, so a
- * plain persist() per save would pile a second row onto every key rather than
- * replace it. The readers disagree about which duplicate wins
- * (CaseManagementNoteExtDAOImpl orders id desc; NotesService.getNote() assigns
- * from every row it walks and ends on the OLDEST), so a duplicate is not
- * cosmetic: it makes an edited date read back as the value it replaced. The
- * check asserts the row COUNT is unchanged after the archive, not merely that
- * the request succeeded.
+ * Archiving creates a new note revision (#4507). The latest revision must carry
+ * one extension row per populated key, and the prior revision and its dates must
+ * remain unchanged. Duplicate keys can otherwise make readers display old values.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, Search, the patient's Master
  * Record, E-Chart, the Social History box's "+", then the dialog's own
@@ -48,7 +42,7 @@
  * the point is partly that the page's own CarlosAjax POST carries its CSRF
  * token and its serialized form exactly as the browser builds them.
  *
- * WHAT IT WRITES, AND REMOVES. One casemgmt_note row and its casemgmt_note_ext
+ * WHAT IT WRITES, AND REMOVES. Two casemgmt_note revisions and their casemgmt_note_ext
  * rows for a FAKE patient this check creates (lib/owned-patient.js: last name = a
  * FAKE-PW run marker), plus the casemgmt_note_lock the chart takes, the patient's
  * casemgmt_issue assignment and CPP summary and eChart rows. The patient used to be
@@ -486,7 +480,7 @@ async function boxErrorText(page) {
 function extensionRows(sql, stamp) {
   return sql.rows(
     `SELECT e.key_val, e.date_value FROM casemgmt_note_ext e `
-    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE LOCATE(${sqlString(stamp)}, n.note) = 1 ORDER BY e.key_val`,
+    + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE n.note_id = (SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1) ORDER BY e.key_val`,
   );
 }
 
@@ -620,8 +614,16 @@ async function main() {
     const archivedRows = extensionRows(sql, stamp);
     assert(archivedRows.length === EXPECTED_KEYS.length,
       `archiving left ${archivedRows.length} extension rows instead of ${EXPECTED_KEYS.length}; `
-      + 'the write path is adding a second row per key rather than updating the one that exists');
-    const archived = sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`);
+      + 'the new revision must carry exactly one row per populated key');
+    const latestId = sqlNumber(sql.value(
+      `SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1`), 'archived revision id');
+    assert(latestId !== noteId, 'archiving overwrote the prior CPP revision');
+    assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`) === '0',
+      'archiving changed the historical CPP revision');
+    const originalRows = sql.rows(`SELECT key_val,date_value FROM casemgmt_note_ext WHERE note_id=${noteId} ORDER BY key_val`);
+    assert(JSON.stringify(originalRows) === JSON.stringify(savedRows), 'archiving changed historical CPP extensions');
+    assert(JSON.stringify(archivedRows) === JSON.stringify(savedRows), 'archiving lost CPP extension values');
+    const archived = sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${latestId}`);
     assert(archived === '1', 'the archive request succeeded but the CPP item is not marked archived');
 
     assertStrictPage(recorder, ['echart']);

@@ -606,7 +606,9 @@
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
     "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js",
     "test:waf-clinical-text-corpus-rx-comment-save-playwright": "WAF_CORPUS_ONLY=rx-comment-save node scripts/waf-clinical-text-corpus-playwright-checks.js",
-    "test:waf-clinical-text-corpus-incoming-encounter-reason-playwright": "WAF_CORPUS_ONLY=incoming-encounter-reason node scripts/waf-clinical-text-corpus-playwright-checks.js"
+    "test:waf-clinical-text-corpus-incoming-encounter-reason-playwright": "WAF_CORPUS_ONLY=incoming-encounter-reason node scripts/waf-clinical-text-corpus-playwright-checks.js",
+    "test:bc-master-record-navigation-playwright": "node scripts/bc-master-record-navigation-playwright-checks.js",
+    "test:echart-issues-filter-browser": "node scripts/echart-issues-filter-browser-check.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

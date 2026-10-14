@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteSaveResult;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -304,6 +305,13 @@ public interface CaseManagementManager {
                                                   List<CaseManagementIssue> issues, String programId);
 
     public void updateNote(CaseManagementNote note);
+
+    /** Saves a chart edit as a new row, retaining the previous revision and its metadata. */
+    CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
+            String providerNo, String userName, String lastStr, String roleName);
+
+    /** Saves an edit whose history text has already been prepared by the caller. */
+    CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note);
 
     public void saveNoteSimple(CaseManagementNote note);
 

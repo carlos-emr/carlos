@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteSaveResult;
+
 import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
@@ -228,73 +230,81 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public String saveNote(CaseManagementCPP cpp, CaseManagementNote note, String cproviderNo, String userName,
                            String lastStr, String roleName) {
-
         try {
-            if (note == null) {
-                throw new NullPointerException("Note is null");
-            }
-
-            String noteStr = note.getNote();
-            String noteHistory = note.getHistory();
-
-            if (noteStr == null) {
-                throw new NullPointerException("Note string is null");
-            }
-
-            noteStr = noteStr.replaceAll("\r\n", "\n");
-            noteStr = noteStr.replaceAll("\r", "\n");
-
-            if (noteHistory == null) {
-                noteHistory = noteStr;
-            } else {
-                noteHistory = noteStr + "\n" + "   ----------------History Record----------------   \n" + noteHistory + "\n";
-            }
-
-            // note.setNote(noteStr);
-            note.setHistory(noteHistory);
-
-            if (caseManagementNoteDAO == null) {
-                throw new NullPointerException("caseManagementNoteDAO is null");
-            }
-
-            caseManagementNoteDAO.saveNote(note);
-
-            // if note is signed we hash it and save hash
-            if (note.isSigned()) {
-                if (note.getId() == null) {
-                    throw new NullPointerException("Note ID is null");
-                }
-                HashAudit hashAudit = new HashAudit();
-                hashAudit.setType(HashAudit.NOTE);
-                hashAudit.setId2(note.getId().toString());
-
-                if (note.getNote() == null) {
-                    throw new NullPointerException("Note string for hashing is null");
-                }
-                hashAudit.makeHash(note.getNote().getBytes());
-
-                if (hashAuditDao == null) {
-                    throw new NullPointerException("hashAuditDao is null");
-                }
-                hashAuditDao.persist(hashAudit);
-            }
-
-            CarlosProperties properties = CarlosProperties.getInstance();
-            if (properties == null) {
-                throw new NullPointerException("CarlosProperties instance is null");
-            }
-
-            if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
-                if (eChartDao == null) {
-                    throw new NullPointerException("eChartDao is null");
-                }
-                return eChartDao.saveEchart(note, cpp, userName, lastStr);
-            }
-
-            return "";
+            return persistNote(cpp, note, cproviderNo, userName, lastStr, roleName);
         } catch (NullPointerException e) {
             logger.error("Note is null", e);
             return "Note is null";
+        }
+    }
+
+    private String persistNote(CaseManagementCPP cpp, CaseManagementNote note, String providerNo,
+            String userName, String lastStr, String roleName) {
+        if (note == null) {
+            throw new NullPointerException("Note is null");
+        }
+
+        String noteStr = note.getNote();
+        String noteHistory = note.getHistory();
+
+        if (noteStr == null) {
+            throw new NullPointerException("Note string is null");
+        }
+
+        noteStr = noteStr.replaceAll("\r\n", "\n");
+        noteStr = noteStr.replaceAll("\r", "\n");
+
+        if (noteHistory == null) {
+            noteHistory = noteStr;
+        } else {
+            noteHistory = noteStr + "\n" + "   ----------------History Record----------------   \n" + noteHistory + "\n";
+        }
+
+        // note.setNote(noteStr);
+        note.setHistory(noteHistory);
+
+        if (caseManagementNoteDAO == null) {
+            throw new NullPointerException("caseManagementNoteDAO is null");
+        }
+
+        caseManagementNoteDAO.saveNote(note);
+
+        auditSignedNote(note);
+
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (properties == null) {
+            throw new NullPointerException("CarlosProperties instance is null");
+        }
+
+        if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
+            if (eChartDao == null) {
+                throw new NullPointerException("eChartDao is null");
+            }
+            return eChartDao.saveEchart(note, cpp, userName, lastStr);
+        }
+
+        return "";
+    }
+
+    private void auditSignedNote(CaseManagementNote note) {
+        // if note is signed we hash it and save hash
+        if (note.isSigned()) {
+            if (note.getId() == null) {
+                throw new NullPointerException("Note ID is null");
+            }
+            HashAudit hashAudit = new HashAudit();
+            hashAudit.setType(HashAudit.NOTE);
+            hashAudit.setId2(note.getId().toString());
+
+            if (note.getNote() == null) {
+                throw new NullPointerException("Note string for hashing is null");
+            }
+            hashAudit.makeHash(note.getNote().getBytes());
+
+            if (hashAuditDao == null) {
+                throw new NullPointerException("hashAuditDao is null");
+            }
+            hashAuditDao.persist(hashAudit);
         }
 
     }
@@ -1738,6 +1748,74 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
+            String providerNo, String userName, String lastStr, String roleName) {
+        Long previousId = previousRevisionId(note);
+        CaseManagementNote revision = previousId == null ? note : note.copyForRevision();
+        String savedText = persistNote(cpp, revision, providerNo, userName, lastStr, roleName);
+        if (revision.getId() == null) {
+            throw new IllegalStateException("Note revision was not saved");
+        }
+        copyRevisionMetadata(previousId, revision);
+        return new CaseManagementNoteSaveResult(revision, savedText);
+    }
+
+    @Override
+    public CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note) {
+        Long previousId = previousRevisionId(note);
+        CaseManagementNote revision = previousId == null ? note : note.copyForRevision();
+        caseManagementNoteDAO.saveNote(revision);
+        auditSignedNote(revision);
+        copyRevisionMetadata(previousId, revision);
+        return revision;
+    }
+
+    private Long previousRevisionId(CaseManagementNote note) {
+        if (note.getUuid() == null || note.getUuid().isBlank()) {
+            if (note.getId() != null) throw new StaleNoteRevisionException();
+            return null;
+        }
+        CaseManagementNote latest = caseManagementNoteDAO.getMostRecentNoteForUpdate(note.getUuid());
+        if (latest == null) {
+            if (note.getId() != null) throw new StaleNoteRevisionException();
+            return null;
+        }
+        if (!Objects.equals(latest.getDemographic_no(), note.getDemographic_no())) {
+            throw new SecurityException("Note UUID belongs to a different demographic");
+        }
+        if (note.getId() != null && !note.getId().equals(latest.getId())) {
+            throw new StaleNoteRevisionException();
+        }
+        // REST annotation clients send a UUID without an ID; retain their existing links too.
+        return latest.getId();
+    }
+
+    private void copyRevisionMetadata(Long previousId, CaseManagementNote revision) {
+        if (previousId == null) return;
+        // Preserve duplicate legacy keys and their ordering; CPP edits update only the new rows.
+        List<CaseManagementNoteExt> extensions = new ArrayList<>(getExtByNote(previousId));
+        Collections.reverse(extensions);
+        for (CaseManagementNoteExt old : extensions) {
+            CaseManagementNoteExt copy = new CaseManagementNoteExt();
+            copy.setNoteId(revision.getId());
+            copy.setKeyVal(old.getKeyVal());
+            copy.setValue(old.getValue());
+            copy.setDateValue(old.getDateValue() == null ? null : new Date(old.getDateValue().getTime()));
+            saveNoteExt(copy);
+            revision.getExtend().add(copy);
+        }
+        List<CaseManagementNoteLink> previousLinks = getLinkByNote(previousId);
+        for (CaseManagementNoteLink old : previousLinks) {
+            CaseManagementNoteLink copy = new CaseManagementNoteLink();
+            copy.setNoteId(revision.getId());
+            copy.setTableName(old.getTableName());
+            copy.setTableId(old.getTableId());
+            copy.setOtherId(old.getOtherId());
+            saveNoteLink(copy);
+        }
+    }
+
+    @Override
     public void saveNoteSimple(CaseManagementNote note) {
         this.caseManagementNoteDAO.saveNote(note);
 
@@ -2430,8 +2508,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         note.setRevision(String.valueOf(revision));
 
         /* save note including add signature */
-        String savedStr = saveNote(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName);
-        addNewNoteLink(note.getId());
+        note = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName).note();
 
         try {
             this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), note.getProgram_no());

@@ -8,7 +8,7 @@
  *   (NoteBrowserDocumentUndelete) > Published > Refile to the default queue
  *   (NoteBrowserDocumentRefile); the note's "rev" link > Note Revision History popup
  *   (CaseManagementEntry method=notehistory, rendering showHistory.jsp).
- * Asserts: each save reaches casemgmt_note and the history column keeps every earlier text;
+ * Asserts: each save inserts an immutable casemgmt_note revision and keeps earlier text;
  * the browser lists both owned PDFs and the note, previews the note, and its Print downloads a
  * PDF whose text carries the latest revision; Delete/Undelete flip document.status D/A and the
  * lists follow; Refile copies the stored PDF byte-for-byte to INCOMINGDOCUMENT_DIR/1/Refile and
@@ -25,6 +25,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const {
   requirePoppler, pdfText, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
@@ -80,6 +81,7 @@ async function workflow(s) {
   await s.step('E-Chart: a note saved and then edited twice keeps every earlier text in its history', async () => {
     chart = await s.chart();
     const editor = chart.locator('#encMainDiv textarea[name="caseNote_note"]');
+    const snapshots = [];
     for (const text of texts) {
       await editor.click();
       await editor.fill(text);
@@ -87,6 +89,15 @@ async function workflow(s) {
       h.assert(saved.status() === 200, `Saving the note answered HTTP ${saved.status()}`);
       await expectValue(sql, `SELECT note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id DESC LIMIT 1`,
         text, 'The edited note text did not reach casemgmt_note');
+      const rows = sql.rows(`SELECT note_id,note,provider_no,signed,signing_provider_no,
+        update_date,observation_date,uuid,appointmentNo FROM casemgmt_note
+        WHERE demographic_no=${patient} ORDER BY note_id`);
+      h.assert(rows.length === snapshots.length + 1, 'Saving an edit overwrote a previous note row');
+      h.assert(JSON.stringify(rows.slice(0, -1)) === JSON.stringify(snapshots),
+        'An edit changed the text, author, signature, timestamps or metadata of a prior revision');
+      snapshots.push(rows.at(-1));
+      const latestId = rows.at(-1)[0];
+      await chart.waitForFunction(id => document.forms.caseManagementEntryForm.elements.noteId.value === id, latestId);
     }
     const [[uuids, latest, history]] = sql.rows(`SELECT COUNT(DISTINCT uuid),MAX(note_id),
       (SELECT history FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id DESC LIMIT 1)
@@ -266,8 +277,7 @@ async function workflow(s) {
   });
 
   await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
-    // Tickler amendments retain the UUID in separate rows, each with cumulative history.
-    // Seed two older rows after the original note/document paths have completed.
+    // The three rows above were created through the editor, each with cumulative history.
     // Copy the persisted metadata too: nullable database defaults are invalid for
     // primitive model fields such as appointmentNo and locked.
     const metadata = ['observation_date', 'demographic_no', 'provider_no', 'uuid', 'program_no',
@@ -275,16 +285,8 @@ async function workflow(s) {
       'reporter_caisi_role', 'reporter_program_team', 'password', 'locked', 'archived', 'position',
       'appointmentNo', 'hourOfEncounterTime', 'minuteOfEncounterTime',
       'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'].join(',');
-    for (const index of [0, 1]) {
-      const cumulative = texts.slice(0, index + 1).reverse().join('\n----------------History Record----------------\n');
-      sql.execute(`INSERT INTO casemgmt_note
-        (update_date, note, history, ${metadata})
-        SELECT DATE_SUB(update_date, INTERVAL ${2 - index} MINUTE),
-          ${h.sqlString(texts[index])}, ${h.sqlString(cumulative)}, ${metadata}
-        FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
-    }
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '3',
-      'The multiple-row history fixture did not create exactly three saved revisions');
+      'The editor did not retain exactly three saved revisions');
     const response = await history.reload();
     h.assert(response.status() === 200, `Multiple-row history answered HTTP ${response.status()}`);
     const stored = history.locator('.note-text-history-content');
@@ -311,6 +313,25 @@ async function workflow(s) {
     h.assert(await stored.count() === 1 && normalize(await stored.innerText()) === normalize(newestHistory),
       'A timestamp tie selected an older cumulative history and omitted the newest revision');
 
+  });
+
+  await s.step('a stale editor cannot supersede a newer revision and retains its unsaved text', async () => {
+    // The last fixture above represents another session saving after this editor opened.
+    const before = sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`);
+    const editor = chart.locator('#encMainDiv textarea[name="caseNote_note"]');
+    const draft = `${marker} unsaved stale edit`;
+    await editor.fill(draft);
+    const mark = failureMark(s.recorder);
+    const dialogs = await h.withExpectedDialogs(chart, async () => {
+      const [saved] = await Promise.all([chart.waitForResponse(isEntry('save')), chart.locator('#saveImg').first().click()]);
+      h.assert(saved.status() === 409, `A stale edit answered HTTP ${saved.status()}, expected a conflict`);
+      await chart.waitForTimeout(300);
+    });
+    h.assert(dialogs.some(dialog => dialog.type === 'alert'), 'The stale save did not report its failure');
+    h.assert(await editor.inputValue() === draft, 'The refused save discarded the unsaved draft');
+    h.assert(JSON.stringify(sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
+      === JSON.stringify(before), 'The refused stale save changed a revision');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
   });
 }
 

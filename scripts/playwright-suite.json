@@ -3108,7 +3108,7 @@
         "HEADER_I18N_DEMOGRAPHIC_NO",
         "HEADER_I18N_TIMEOUT_MS"
       ],
-      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
+      "notes": "Fresh sessions capture the initial chart header before delayed ChartNotes loads, then compare reload: English, French, unsupported German fallback, German followed by French, and browser-native French. Checks rendered labels, locale diagnostics, calculator uniqueness, and template-search translations."
     },
     {
       "name": "echart-note-editor",
@@ -3860,7 +3860,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns one PW<hex> encounter template and the synthetic patient's chart notes; create/edit/delete through Administration > eChart > Insert a Template, inserts it through the chart's Template Search and saves the note.",
-      "notes": "Fails at its last step on 2026.08: Insert a Template ▸ Delete throws DetachedObjectException and deletes nothing."
+      "notes": "Fails at its last step on 2026.08: Insert a Template \u25b8 Delete throws DetachedObjectException and deletes nothing."
     },
     {
       "name": "admin-issue-editor",
@@ -4098,7 +4098,7 @@
       "env": [
         "BILLING_CORRECTION_CODE"
       ],
-      "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record ▸ Billing History; owned rows removed.",
+      "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record \u25b8 Billing History; owned rows removed.",
       "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403)."
     },
     {
@@ -4733,7 +4733,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
-      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
+      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and \u2265/\u2264) and their rows; all removed."
     },
     {
       "name": "demographic-relations-pdf-labels",
@@ -4814,7 +4814,7 @@
         "DOCUMENT_DIR",
         "INCOMINGDOCUMENT_DIR"
       ],
-      "notes": "Verifies note editing, document delete/restore/refile, and printed latest-note content. Stored text history must match the database in newest-first order and render literal markup as text.",
+      "notes": "Saves three immutable note revisions through the chart, checking prior text/authorship/signature/timestamps and new editor IDs, latest-only browse/print, document actions, row and cumulative histories, cross-patient refusal, and stale-editor conflict with draft retention.",
       "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
@@ -4834,7 +4834,7 @@
         "MYSQL_PASSWORD"
       ],
       "notes": "Verifies exact PIN/password and credential-date preservation after enabling and clearing MFA, plus enrolment, refused/accepted challenges, encrypted secret storage, reset GET rejection and re-enrolment. Retains the security editor stylesheet regression guard.",
-      "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
+      "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration \u25b8 Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
       "name": "measurement-map-admin",
@@ -4916,7 +4916,7 @@
         "finding": 149,
         "step": "hovering a Row Display row whose result, units and range carry markup builds no element from them"
       },
-      "fixtures": "Owned patient; a two-test lab and a one-test markup lab, both created through Inbox ▸ Create Lab under owned accessions (the markup lab's stored HL7 text is then rewritten by SQL); labs, routing and measurement rows removed."
+      "fixtures": "Owned patient; a two-test lab and a one-test markup lab, both created through Inbox \u25b8 Create Lab under owned accessions (the markup lab's stored HL7 text is then rewritten by SQL); labs, routing and measurement rows removed."
     },
     {
       "name": "session-heartbeat-timeout",
@@ -5085,7 +5085,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
+      "notes": "Fails on 2026.08: Billing Reconciliation \u25b8 Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
     },
     {
@@ -5716,7 +5716,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2020 and both growth forms, driven from the Forms menu for an owned infant: open, measure, save, redisplay, reopen, graph and print; every text box and all 1,397 checkbox/radio controls round-trip. The main entry and its concern-specific variants together cover every concern exactly once. Former findings 243–253 are regressions, with no expected failures. Printing the seven page II notes adds labelled continuation pages to the four original pages. Save and Print timings are reported as diagnostics; no machine-dependent timing threshold is asserted.",
+      "notes": "Rourke 2020 and both growth forms, driven from the Forms menu for an owned infant: open, measure, save, redisplay, reopen, graph and print; every text box and all 1,397 checkbox/radio controls round-trip. The main entry and its concern-specific variants together cover every concern exactly once. Former findings 243\u2013253 are regressions, with no expected failures. Printing the seven page II notes adds labelled continuation pages to the four original pages. Save and Print timings are reported as diagnostics; no machine-dependent timing threshold is asserted.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5741,7 +5741,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Birth and visit head circumference can be saved as HEAD measurements in centimetres and imported into the form. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Birth and visit head circumference can be saved as HEAD measurements in centimetres and imported into the form. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5791,7 +5791,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "All offered notes, including page III and IV immunization, survive Save and reopen. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "All offered notes, including page III and IV immunization, survive Save and reopen. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5816,7 +5816,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Unset visit dates print blank. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Unset visit dates print blank. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5841,7 +5841,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Only the patient sex box is marked. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Only the patient sex box is marked. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5866,7 +5866,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Completed gestational weeks include exact weekly boundaries. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Completed gestational weeks include exact weekly boundaries. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5891,7 +5891,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The seven page II note boxes print on labelled continuation pages without changing the original four-page checklist. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "The seven page II note boxes print on labelled continuation pages without changing the original four-page checklist. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5916,7 +5916,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Growth 0–36 and Growth Chart PDFs include the date of birth. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Growth 0\u201336 and Growth Chart PDFs include the date of birth. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5941,7 +5941,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Print BMI returns a chart PDF. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Print BMI returns a chart PDF. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5966,7 +5966,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Both page I Length and Weight links give the PDF the same title. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "Both page I Length and Weight links give the PDF the same title. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -5991,7 +5991,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The Growth 0–36 window identifies WHO Growth Charts for Canada. Regression for #4601–#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
+      "notes": "The Growth 0\u201336 window identifies WHO Growth Charts for Canada. Regression for #4601\u2013#4611. Each entry claims its own concern; together with the main entry they cover the full workflow.",
       "fixtures": "Owned synthetic infant patient (an 18-month-old girl, given an address, phone, health-card and roster record), one marker-named encounterForm registration per form under test, and measurement rows the check saves through the Rourke dialog or inserts for the owned patient; cleanup deletes the patient's rows from formRourke2020 (and its form_boolean_value rows), formGrowth0_36 and formGrowthChart, its measurements and the registrations, and asserts all of it gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The browser runs in a time zone whose calendar date differs from the UTC date, so the measurement-date check is deterministic at every hour."
     },
     {
@@ -6122,7 +6122,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds one marker-named mygroup (test provider + three active demo providers, names copied from provider); uses three more demo providers as add targets; cleanup deletes every row of the marker group and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD…' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
+      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD\u2026' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
     },
     {
       "name": "get-reject-rourke-form",
@@ -6178,7 +6178,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration ▸ Manage eForms; cleanup deletes it and asserts it.",
+      "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration \u25b8 Manage eForms; cleanup deletes it and asserts it.",
       "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
     },
     {
@@ -6254,7 +6254,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates one marker-named document queue (and its _queue.<id> secObjectName) through Administration ▸ Add New Queue; cleanup deletes queue/secObjectName rows carrying the two marker names and asserts it.",
+      "fixtures": "Creates one marker-named document queue (and its _queue.<id> secObjectName) through Administration \u25b8 Add New Queue; cleanup deletes queue/secObjectName rows carrying the two marker names and asserts it.",
       "notes": "Expected to FAIL at the last step 'queue creation refused GET/HEAD and no queue carries the replayed name' until documentManager/inboxManage method=addNewQueue rejects GET (today a GET creates a queue and security object with _edoc read)."
     },
     {
@@ -6684,7 +6684,7 @@
       "timeoutSec": 180,
       "env": [],
       "notes": "Regression #4141: the static colour picker retains its opener, renders the palette and returns the selected colour to Manage Code Styles.",
-      "fixtures": "Read-only (opens Administration ▸ Billing ▸ Manage Code Styles; saves nothing)."
+      "fixtures": "Read-only (opens Administration \u25b8 Billing \u25b8 Manage Code Styles; saves nothing)."
     },
     {
       "name": "popup-opener-rx-drug-search",
@@ -6713,7 +6713,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Passes on 2026.08 (E-Chart ▸ Measurements ▸ Vitals ▸ Submit posts the reading into the open note through window.opener.postMessage, chart not reloaded).",
+      "notes": "Passes on 2026.08 (E-Chart \u25b8 Measurements \u25b8 Vitals \u25b8 Submit posts the reading into the open note through window.opener.postMessage, chart not reloaded).",
       "fixtures": "Owns the synthetic patient; cleanup deletes its measurements (and measurementsExt) rows and asserts they are gone."
     },
     {
@@ -8562,7 +8562,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext and pdffonts. Nothing leaves the host.",
-      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, ≥ and ≤ comparisons, and Polish Ł. Every font must be embedded."
+      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, \u2265 and \u2264 comparisons, and Polish \u0141. Every font must be embedded."
     },
     {
       "name": "export-content-dashboard-csv",
@@ -8576,7 +8576,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zoë / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
+      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zo\u00eb / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
       "notes": "Regression coverage for #4174: validates exact UTF-8 byte length and complete RFC 4180 field round trips, including accents, quotes, line breaks, NULL email values and the last row."
     },
     {
@@ -10627,7 +10627,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "Reveals a custom Rx card’s More panel, types each 255-character-bounded corpus chunk into Comment and clicks Save Only. Requires exact drugs.comment values for rxComment_<n>; regression for #4573 (finding 211). The plain-text UI control runs first; cleanup removes only owned fixtures."
+      "notes": "Reveals a custom Rx card\u2019s More panel, types each 255-character-bounded corpus chunk into Comment and clicks Save Only. Requires exact drugs.comment values for rxComment_<n>; regression for #4573 (finding 211). The plain-text UI control runs first; cleanup removes only owned fixtures."
     },
     {
       "name": "waf-clinical-text-corpus-incoming-encounter-reason",
@@ -10658,7 +10658,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "Captures the Master Record E-Chart link, substitutes each corpus chunk into reason, and follows IncomingEncounter → ViewForward → CaseManagementEntry. Requires the exact patient/reason at both redirects and the successful chart body; regression for #4575 (finding 213). The plain-text UI control runs first; cleanup removes only owned fixtures."
+      "notes": "Captures the Master Record E-Chart link, substitutes each corpus chunk into reason, and follows IncomingEncounter \u2192 ViewForward \u2192 CaseManagementEntry. Requires the exact patient/reason at both redirects and the successful chart body; regression for #4575 (finding 213). The plain-text UI control runs first; cleanup removes only owned fixtures."
     },
     {
       "name": "lab-to-flowsheet",
@@ -10675,8 +10675,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "A lab created in CARLOS flows into the patient's measurements, the Diabetes Flowsheet and the Health Tracker (coverage plan: lab-to-flowsheet). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox ▸ Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry ▸ Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. LAST AND PINNED to finding 258: the flowsheet's A1C row links to the lab it came from; measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it, and the row only opens the Add Measurement form for the value (and 'Entered By: Automatic', provider 0). Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
+      "notes": "A lab created in CARLOS flows into the patient's measurements, the Diabetes Flowsheet and the Health Tracker (coverage plan: lab-to-flowsheet). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox \u25b8 Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry \u25b8 Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. LAST AND PINNED to finding 258: the flowsheet's A1C row links to the lab it came from; measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it, and the row only opens the Add Measurement form for the value (and 'Entered By: Automatic', provider 0). Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 258,
         "step": "the Diabetes Flowsheet A1C row links to the lab it came from"
@@ -10700,8 +10700,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "A result whose first five characters are all digits or one of + , - . / : ; < = > ? is filed as a measurement with the value the lab sent, pinned to finding 256 (today it is cut to its first four characters). The same labs as lab-to-flowsheet are created first (the within-target and above-target A1C labs) and every step of that path passes; then, LAST, a third lab of its own is created through Inbox ▸ Create Lab with CML 3180 Creatinine 112.5 umol/L, a code the flowsheets map (the FLOWSHEET type SCR) and not the A1C, so a fix of finding 257 that normalises A1C fractions at import cannot decide this pin, and a typed measurement of another type is never seen by the A1C steps that count rows. A control step asserts that the lab is stored, matched to the patient and routed to the submitting provider and that its result is a measurement of type SCR with lab_no, identifier 3180, name, unit and date. PINNED, right after it: the measurement holds 112.5; today it holds 112., because the shipped HL7_LAB_MEASUREMENT_FILTER has the alternative ^([+-\\\\?]{1,4}), and in a character class +-\\? is a range (0x2B-0x3F, the digits and '.'), so Matcher.find()/group() keeps the first four characters of any result whose first five characters are digits or those symbols. Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010; the third is the creatinine), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
+      "notes": "A result whose first five characters are all digits or one of + , - . / : ; < = > ? is filed as a measurement with the value the lab sent, pinned to finding 256 (today it is cut to its first four characters). The same labs as lab-to-flowsheet are created first (the within-target and above-target A1C labs) and every step of that path passes; then, LAST, a third lab of its own is created through Inbox \u25b8 Create Lab with CML 3180 Creatinine 112.5 umol/L, a code the flowsheets map (the FLOWSHEET type SCR) and not the A1C, so a fix of finding 257 that normalises A1C fractions at import cannot decide this pin, and a typed measurement of another type is never seen by the A1C steps that count rows. A control step asserts that the lab is stored, matched to the patient and routed to the submitting provider and that its result is a measurement of type SCR with lab_no, identifier 3180, name, unit and date. PINNED, right after it: the measurement holds 112.5; today it holds 112., because the shipped HL7_LAB_MEASUREMENT_FILTER has the alternative ^([+-\\\\?]{1,4}), and in a character class +-\\? is a range (0x2B-0x3F, the digits and '.'), so Matcher.find()/group() keeps the first four characters of any result whose first five characters are digits or those symbols. Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third is the creatinine), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 256,
         "step": "a creatinine result of five characters is filed as a measurement with the value the lab sent"
@@ -10726,7 +10726,7 @@
         "LAB_FLOWSHEET_PIN"
       ],
       "notes": "A result observed in the noon hour is filed as a measurement with the time of day the lab gave, pinned to finding 259. Two labs are created (the within-target A1C observed at 12:15 and the above-target A1C with the unmapped test, as in lab-to-flowsheet). The control steps assert the labs' routing, that every A1C result is a measurement of type A1C with lab_no, identifier, unit, date, value and the observation time the lab gave (measurementsExt datetime, 2026-06-15 12:15:00), and that the unmapped test carries no flowsheet type. PINNED, right after them: the measurement's dateObserved is the time the lab gave; today it is 2026-06-15 00:15:00, because Hl7textResultsData parses the 24-hour observation time with the 12-hour pattern yyyy-MM-dd hh:mm:ss, which reads 12 as hour 0 (every other hour survives, and the date is right; the order of same-day results is not: two A1C labs on one day, 6.1 at 08:00 and 7.9 at 12:30, left the Measurements module showing 6.1). Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 259,
         "step": "a result observed in the noon hour is filed as a measurement with the time of day the lab gave"
@@ -10750,8 +10750,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "The Diabetes Flowsheet flags an A1C reported as a fraction above its target, pinned to finding 257. Three labs are created (the within-target and above-target A1C labs of lab-to-flowsheet, and one that reports the A1C as a fraction, 0.095 = 9.5%). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox ▸ Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry ▸ Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The control steps are the flowsheet row listed under the fraction lab's date and the percentage above the target flagged while the one within it is not. PINNED, right after them: the 0.095 row is flagged; today it carries no colour, because omdDiabetesFlowsheet.xml flags only a value above 7 and its rule for a value between 0.07 and 2 is commented out (the A1C measurement type is seeded as Range:0.040-0.200 and diab-A1C.drl handles both). Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
+      "notes": "The Diabetes Flowsheet flags an A1C reported as a fraction above its target, pinned to finding 257. Three labs are created (the within-target and above-target A1C labs of lab-to-flowsheet, and one that reports the A1C as a fraction, 0.095 = 9.5%). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox \u25b8 Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry \u25b8 Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The control steps are the flowsheet row listed under the fraction lab's date and the percentage above the target flagged while the one within it is not. PINNED, right after them: the 0.095 row is flagged; today it carries no colour, because omdDiabetesFlowsheet.xml flags only a value above 7 and its rule for a value between 0.07 and 2 is commented out (the A1C measurement type is seeded as Range:0.040-0.200 and diab-A1C.drl handles both). Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 257,
         "step": "the Diabetes Flowsheet flags an A1C reported as a fraction above its target"
@@ -10775,8 +10775,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "A lab uploaded with an observation time that has no seconds is filed as a measurement observed at that time, pinned to finding 262. The same two labs as lab-to-flowsheet are created first and every step of that path passes; then, LAST, a CML HL7 file is uploaded through Inbox ▸ HL7 Lab Upload (type CML) for the owned patient: one A1C result with OBR-7 of 12 digits (202608200945, 2026-08-20 09:45, a morning hour so the 12-hour pattern of finding 259 cannot touch it). Create Lab always writes seconds (CMLLabHL7Generator, 14 digits), so only a file reaches this path. A control step asserts the upload reports 'Uploaded successfully', the lab is stored under its accession and matched to the patient, and its result is a measurement of type A1C with lab_no, identifier 3767 and unit, whose measurementsExt datetime is the time the file gave ('2026-08-20 09:45'). PINNED, right after it: the measurement's dateObserved is the time the file gave; today it is the upload time, because CMLHandler.formatDateTime returns 'yyyy-MM-dd HH:mm' for a 12-digit time (and 'yyyy-MM-dd' for 8 digits), Hl7textResultsData parses with 'yyyy-MM-dd hh:mm:ss', the parse throws and the catch files new Date(). The chart's Measurements module then titles that A1C with today's date. Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010), one uploaded CML HL7 file (a unique accession and file name, written to a temporary directory the run removes) with the lab it stores, one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). The upload archives its file under LAB_UPLOAD_DOCUMENT_STORE (LabUpload.<file name>.<millis>) and writes a fileUploadCheck row. Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), the upload's checksum row and archive by its unique file name, then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
+      "notes": "A lab uploaded with an observation time that has no seconds is filed as a measurement observed at that time, pinned to finding 262. The same two labs as lab-to-flowsheet are created first and every step of that path passes; then, LAST, a CML HL7 file is uploaded through Inbox \u25b8 HL7 Lab Upload (type CML) for the owned patient: one A1C result with OBR-7 of 12 digits (202608200945, 2026-08-20 09:45, a morning hour so the 12-hour pattern of finding 259 cannot touch it). Create Lab always writes seconds (CMLLabHL7Generator, 14 digits), so only a file reaches this path. A control step asserts the upload reports 'Uploaded successfully', the lab is stored under its accession and matched to the patient, and its result is a measurement of type A1C with lab_no, identifier 3767 and unit, whose measurementsExt datetime is the time the file gave ('2026-08-20 09:45'). PINNED, right after it: the measurement's dateObserved is the time the file gave; today it is the upload time, because CMLHandler.formatDateTime returns 'yyyy-MM-dd HH:mm' for a 12-digit time (and 'yyyy-MM-dd' for 8 digits), Hl7textResultsData parses with 'yyyy-MM-dd hh:mm:ss', the parse throws and the catch files new Date(). The chart's Measurements module then titles that A1C with today's date. Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one uploaded CML HL7 file (a unique accession and file name, written to a temporary directory the run removes) with the lab it stores, one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). The upload archives its file under LAB_UPLOAD_DOCUMENT_STORE (LabUpload.<file name>.<millis>) and writes a fileUploadCheck row. Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), the upload's checksum row and archive by its unique file name, then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 262,
         "step": "a result uploaded with an observation time that has no seconds is filed as a measurement observed at that time"
@@ -10823,6 +10823,24 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "bc-master-record-navigation",
+      "script": "scripts/bc-master-record-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "BC_NAV_SEARCH",
+        "BC_NAV_DEMOGRAPHIC_NO"
+      ],
+      "notes": "Clicks BC master-record navigation at 1280x720 and 1600x1000; eligibility opens only on activation in a dialog. Browser intercepts eligibility responses before reaching the app, so no external Teleplan request occurs.",
+      "fixtures": "Uses an existing synthetic patient and releases only its own chart locks; no clinical writes."
     }
   ]
 }

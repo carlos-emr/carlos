@@ -183,6 +183,11 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         if (leftCfg != null) { %>
         <h3><a href="javascript:void(0)" onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
+<%      } else if ("unresolvedIssues".equals(navbarName) || "resolvedIssues".equals(navbarName)) { %>
+        <%-- These two modules clear the notes filter. Keep the handler fixed rather
+             than treating the legacy DAO leftURL statement as executable input. --%>
+        <h3><a href="#" onclick="return clearIssueFilter();"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        </a></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>

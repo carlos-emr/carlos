@@ -171,6 +171,18 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     }
 
     @Override
+    public CaseManagementNote getMostRecentNoteForUpdate(String uuid) {
+        // Lock in a stable order so competing edits serialize on the same logical note.
+        // This is a current locking read, including under MariaDB's REPEATABLE READ isolation.
+        List<CaseManagementNote> revisions = entityManager().createQuery(
+                "select n from CaseManagementNote n where n.uuid = :uuid order by n.id", CaseManagementNote.class)
+                .setParameter("uuid", uuid)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return revisions.isEmpty() ? null : revisions.getLast();
+    }
+
+    @Override
     public List<CaseManagementNote> getNotesByUUID(String uuid) {
         String hql = "select cmn from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.id";
         @SuppressWarnings("unchecked")

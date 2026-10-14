@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
 import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
@@ -996,8 +997,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             cpp.setDemographic_no(demographicNo);
         }
 
-        caseManagementMgr.saveNote(cpp, note, providerNo, null, null, null);
-        caseManagementMgr.addNewNoteLink(note.getId());
+        try {
+            note = caseManagementMgr.saveNoteRevision(cpp, note, providerNo, null, null, null).note();
+        } catch (StaleNoteRevisionException e) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
 
         HashMap<String, Object> hashMap = new HashMap<String, Object>();
         hashMap.put("id", note.getId());
@@ -1355,8 +1360,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             cpp.setDemographic_no(demo);
         }
         cpp = copyNote2cpp(cpp, note);
-        String savedStr = caseManagementMgr.saveNote(cpp, note, providerNo, userName, lastSavedNoteString, roleName);
-        caseManagementMgr.addNewNoteLink(note.getId());
+        String savedStr;
+        try {
+            var savedRevision = caseManagementMgr.saveNoteRevision(cpp, note, providerNo, userName, lastSavedNoteString, roleName);
+            note = savedRevision.note();
+            savedStr = savedRevision.legacyChartText();
+        } catch (StaleNoteRevisionException e) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
         logger.debug("Saved note");
         caseManagementMgr.saveCPP(cpp, providerNo);
         /* remember the str written into echart */
@@ -1679,11 +1691,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setUpdate_date(now);
 
-        note = caseManagementMgr.saveCaseManagementNote(
-                loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
-                userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
+        try {
+            note = caseManagementMgr.saveCaseManagementNote(
+                    loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
+                    userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
+        } catch (StaleNoteRevisionException e) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return -1;
+        }
         caseManagementMgr.getEditors(note);
         this.setCaseNote(note);
+        sessionFrm.setCaseNote(note);
 
         //update lock to new note id
         CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by demographic scope
@@ -1864,6 +1882,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         long noteId = noteSave();
+        if (noteId < 0) return null;
 
         /* prepare the message */
         addActionMessage(getText("note.saved"));
@@ -1916,6 +1935,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = true;
         } else {
             note = this.caseManagementMgr.getNote(request.getParameter("nId"));
+            if (note == null || !demo.equals(note.getDemographic_no())) {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return null;
+            }
             history = note.getHistory();
             history = "---------History Record---------" + history;
             newNote = false;
@@ -2028,14 +2051,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setMinuteOfEncTransportationTime(Integer.valueOf(minuteOfEncTransportationTime));
         }
 
-        // check if previous note is doc note.
-        Long prevNoteId = note.getId();
-
-        this.caseManagementMgr.saveNoteSimple(note);
+        try {
+            note = this.caseManagementMgr.saveNoteRevisionSimple(note);
+        } catch (StaleNoteRevisionException e) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return null;
+        }
         this.caseManagementMgr.getEditors(note);
-
-        if (prevNoteId != null) {
-            caseManagementMgr.addNewNoteLink(prevNoteId);
+        sessionFrm.setCaseNote(note);
+        CasemgmtNoteLock noteLock = (CasemgmtNoteLock) session.getAttribute("casemgmtNoteLock" + demo);
+        if (noteLock != null) {
+            noteLock.setNoteId(note.getId());
+            casemgmtNoteLockDao.merge(noteLock);
         }
 
         try {
@@ -2159,6 +2186,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String priorNote = this.getNoteId();
         Long noteId = noteSave();
+        if (noteId < 0) return null;
         session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
 
         if (noteId == -1) {
@@ -2722,7 +2750,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // added by Eugene Petrhin in order to guarantee the DB consistency if user hits Cancel afterwards
         if (sessionFrm.getCaseNote().getId() != null) {
-            noteSave();
+            if (noteSave() < 0) return null;
         }
 
         String ajax = request.getParameter("ajax");

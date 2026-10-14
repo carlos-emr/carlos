@@ -96,6 +96,9 @@ public interface CaseManagementNoteDAO {
      */
     public CaseManagementNote getMostRecentNote(String uuid);
 
+    /** Locks a revision chain until the caller's transaction completes. */
+    CaseManagementNote getMostRecentNoteForUpdate(String uuid);
+
     /**
      * Retrieves a list of case management notes associated with the specified UUID.
      */
