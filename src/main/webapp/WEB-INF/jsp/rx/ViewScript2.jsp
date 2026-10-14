@@ -1760,7 +1760,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="#" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>'); return false;">
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= rx.getGenericName() %>' context="uriComponent"/>" onclick="ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>'); return false;">
 						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%

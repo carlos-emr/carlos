@@ -579,7 +579,7 @@
                                                                         <a href="javascript:window.close()"><% } else { // we were called from lab module
                                                                         %></a>
                                                                         <c:set var="__enc_19"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
-                                                                        <a href="#" onclick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow'); return false;">
+                                                                        <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_19}' context="htmlAttribute"/>&amp;name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %>
                                                                             <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                         </a>
@@ -1138,7 +1138,7 @@
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScriptAttribute"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a></td>
                     <td align="right"><carlos:encode value='<%= handler.getOBXResult(j, k) %>' context="htmlWithBreakMarkers"/>
                     </td>
@@ -1191,11 +1191,11 @@
                     if (isUnstructuredDoc && !isEmbeddedDocumentResult && !isUndisplayableEmbeddedDocument) {
                         if (handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (obxCount > 1)) {%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScriptAttribute"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>'); return false;"></a><%
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"></a><%
 	                                   				}
 	                                   			else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScriptAttribute"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>'); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                     </a><%}%>
                             <%if(isVIHARtf){
 												    //create bytes from the rtf string
@@ -1233,7 +1233,7 @@
                         if (handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount > 1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k - 1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))) {
                     %>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                            href="#" onclick="popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&demo=<carlos:encode value='<%= demographicID %>' context="javaScriptAttribute"/>&labType=HL7&identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>'); return false;"></a><%
+                            href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%=URLEncoder.encode(obxName, StandardCharsets.UTF_8)%>&amp;demo=<carlos:encode value='<%= demographicID %>' context="uriComponent"/>&amp;labType=HL7&amp;identifier=<%=URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)%>" onclick="popupStart('660','900',this.href); return false;"></a><%
 	                                   				}
 	                               				else{%>
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a

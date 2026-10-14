@@ -72,6 +72,9 @@
 
         -->
     </script>
+<style>
+    .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+</style>
 </head>
 <body bgcolor="#FFFFFF" text="#000000"
       onLoad="window.setTimeout('Refresh()',3000)" topmargin="0"
@@ -205,9 +208,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
-                <a></font></td>
+                                  size="2"> <button
+                    type="button" class="link-button" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>');"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
@@ -233,9 +236,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
-                <a></font></td>
+                                  size="2"> <button
+                    type="button" class="link-button" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>');"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
@@ -260,9 +263,9 @@
         %>
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
-                <a></font></td>
+                                  size="2"> <button
+                    type="button" class="link-button" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>');"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
+                </button></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode2)%>"
                                                    value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc2)%>" size="60"> <input type="submit"

@@ -449,7 +449,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="#" onclick="popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>'); return false;">
+								href="ViewAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href); return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -462,7 +462,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="#" onclick="popupViewAttach(700,960,'ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>'); return false;">
+								href="ViewPDFAttach?attachId=<carlos:encode value='<%= id %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href); return false;">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
@@ -641,9 +641,9 @@ function fmtOscarMsg() {
 								<%
                                     String demoKeyJs = SafeEncode.forJavaScriptAttribute((String) (pageContext.getAttribute("demographicNumber")+""));
                                     %>
-                                    <a href="#" onclick="popupViewAttach(700,960,'../demographic/DemographicEdit?demographic_no=<%=demoKeyJs%>'); return false;"><fmt:message key="global.M" /></a>
+                                    <a href="../demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") + "" %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href); return false;"><fmt:message key="global.M" /></a>
                                     <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../encounter/IncomingEncounter?demographicNo=<%=demoKeyJs%>&curProviderNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScript"/>');return false;"><fmt:message key="global.E" /></a>
-                                    <a href="#" onclick="popupViewAttach(700,960,'../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScriptAttribute"/>&demographicNo=<%=demoKeyJs%>'); return false;">Rx</a>
+                                    <a href="../rx/choosePatient?providerNo=<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="uriComponent"/>&amp;demographicNo=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") + "" %>' context="uriComponent"/>" onclick="popupViewAttach(700,960,this.href); return false;">Rx</a>
                                 </span>
 								</td>
 								<td class="DoNotPrint">
@@ -658,7 +658,7 @@ function fmtOscarMsg() {
 							<tr>
 								<td></td>
 								<td><a class="DoNotPrint"
-									href="#" onclick="popupStart(400,850,'../demographic/DemographicApptHistory?demographic_no=<%=demoKeyJs%>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist'); return false;"
+									href="../demographic/DemographicApptHistory?demographic_no=<carlos:encode value='<%= pageContext.getAttribute("demographicNumber") + "" %>' context="uriComponent"/>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" onclick="popupStart(400,850,this.href,'ApptHist'); return false;"
 									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="encounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>

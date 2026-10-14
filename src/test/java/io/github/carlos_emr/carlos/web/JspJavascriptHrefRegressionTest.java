@@ -78,8 +78,41 @@ class JspJavascriptHrefRegressionTest {
             }
         }
         assertThat(offenders)
-                .as("move these to href=\"#\" onclick=\"...; return false;\"")
+                .as("use a real href with onclick=\"...(this.href); return false;\", or a <button type=\"button\"> for an action")
                 .isEmpty();
+    }
+
+    /**
+     * Pages converted away from javascript: links. An anchor with href="#" and an onclick is still a
+     * button dressed as a link (Sonar Web:S6844): a popup gets its real URL as the href and opens
+     * this.href, and an action on the page is a button.
+     */
+    private static final List<String> CONVERTED_PAGES = List.of(
+            "admin/demographicmergerecord.jsp", "billing/CA/BC/billStatus.jsp", "billing/CA/BC/billingDigSearch.jsp",
+            "billing/CA/BC/genTAS00.jsp", "billing/CA/BC/genTAS00ByOfficeNo.jsp", "billing/CA/BC/genTAS01.jsp",
+            "billing/CA/ON/billingDigSearch.jsp", "billing/CA/ON/billingON3rdPayments.jsp", "casemgmt/attachClient.jsp",
+            "encounter/immunization/config/AdministrateImmunizationSets.jsp",
+            "encounter/oscarConsultationRequest/DisplayDemographicConsultationRequests.jsp",
+            "form/formpalliativecare.jsp", "lab/CA/ALL/labDisplay.jsp", "lab/CA/ALL/labDisplayAjax.jsp",
+            "lab/CA/BC/demo_select.jsp", "lab/CA/BC/labDisplay.jsp", "lab/CA/ON/CMLDisplay.jsp", "lab/DemographicLab.jsp",
+            "messenger/ViewMessage.jsp", "oscarMDS/Index.jsp", "oscarMDS/OpenEChart.jsp", "oscarMDS/Page.jsp",
+            "oscarMDS/SegmentDisplay.jsp", "rx/ChooseDrug.jsp", "rx/StaticScript2.jsp", "rx/ViewScript2.jsp",
+            "rx/WriteScript.jsp", "tickler/ticklerDemoMain.jsp", "web/inboxhub/InboxhubTopbar.jsp");
+    private static final Pattern HASH_ANCHOR_WITH_ONCLICK =
+            Pattern.compile("<a\\b[^>]*?href\\s*=\\s*([\"'])#\\1[^>]*?\\bonclick\\s*=", Pattern.CASE_INSENSITIVE);
+
+    @Test
+    @DisplayName("should give converted links a real href or make them buttons")
+    void shouldNotUseHashAnchorAsButton_inConvertedPages() throws Exception {
+        List<String> offenders = new ArrayList<>();
+        for (String page : CONVERTED_PAGES) {
+            String text = Files.readString(WEBAPP_ROOT.resolve("WEB-INF/jsp").resolve(page));
+            Matcher m = HASH_ANCHOR_WITH_ONCLICK.matcher(text);
+            while (m.find()) {
+                offenders.add(page + ":" + (1 + (int) text.substring(0, m.start()).chars().filter(c -> c == '\n').count()));
+            }
+        }
+        assertThat(offenders).as("href=\"#\" anchors with an onclick").isEmpty();
     }
 
     /** Finds the closing quote, ignoring quotes inside JSP scriptlets, EL and custom-tag elements. */

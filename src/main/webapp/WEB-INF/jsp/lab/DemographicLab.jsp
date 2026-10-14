@@ -302,7 +302,7 @@
                                 }
                                 if (labLabel == null || labLabel.isEmpty()) labLabel = StringUtils.trimToEmpty(result.getDiscipline());
                             %>
-                            <a href="#" onclick="reportWindow('<%=SafeEncode.forJavaScriptAttribute(labUrl)%>'); return false;">
+                            <a href="<%=SafeEncode.forHtmlAttribute(labUrl)%>" onclick="reportWindow(this.href); return false;">
                                 <%=SafeEncode.forHtmlContent(labLabel)%>
                             </a>
                         </td>
