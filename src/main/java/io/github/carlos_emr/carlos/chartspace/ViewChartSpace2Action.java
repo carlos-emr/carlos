@@ -109,10 +109,15 @@ public class ViewChartSpace2Action extends ActionSupport {
 
         request.setAttribute("demographicNo", validated.get().demographicNo());
         request.setAttribute("csPatientName", patient.getFullName());
-        // Already localized by Demographic ("45 years"); null/blank means no usable date of birth.
-        String age = patient.getAgeAsOf(new Date(), request.getLocale());
-        if (age != null && !age.isBlank()) {
-            request.setAttribute("csPatientAge", age);
+        // getAgeAsOf substitutes "1900" for an empty year of birth, which would show a fabricated
+        // age of ~126 years, so only ask for an age when a year of birth is actually recorded.
+        String yearOfBirth = patient.getYearOfBirth();
+        if (yearOfBirth != null && !yearOfBirth.isBlank()) {
+            // Already localized by Demographic ("45 years"); null/blank means no usable date of birth.
+            String age = patient.getAgeAsOf(new Date(), request.getLocale());
+            if (age != null && !age.isBlank()) {
+                request.setAttribute("csPatientAge", age);
+            }
         }
         return SUCCESS;
     }

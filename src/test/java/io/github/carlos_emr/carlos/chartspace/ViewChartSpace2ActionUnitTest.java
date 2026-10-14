@@ -184,6 +184,30 @@ class ViewChartSpace2ActionUnitTest {
         assertThat(request.getAttribute("csPatientAge")).isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "   "})
+    void shouldOmitPatientAge_whenYearOfBirthBlank(String yearOfBirth) throws Exception {
+        assertAgeOmittedForYearOfBirth(yearOfBirth);
+    }
+
+    @Test
+    void shouldOmitPatientAge_whenYearOfBirthNull() throws Exception {
+        assertAgeOmittedForYearOfBirth(null);
+    }
+
+    // Demographic.getAgeAsOf substitutes 1900 for an empty year, which would show a fabricated age.
+    private void assertAgeOmittedForYearOfBirth(String yearOfBirth) throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        Demographic noYear = fakePatient();
+        noYear.setYearOfBirth(yearOfBirth);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(noYear);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csPatientName")).isEqualTo("FAKE-Family, FAKE-Given");
+        assertThat(request.getAttribute("csPatientAge")).isNull();
+    }
+
     @Test
     void shouldReturn404_whenPatientDoesNotExist() throws Exception {
         request.setParameter("demographicNo", "2");
