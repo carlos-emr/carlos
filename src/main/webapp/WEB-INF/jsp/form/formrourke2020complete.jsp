@@ -46,7 +46,10 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="form.rourke2020.saving" var="rourkeSavingMessage"/>
+<fmt:message key="form.rourke2020.preparingPrint" var="rourkePreparingPrintMessage"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
@@ -290,7 +293,7 @@
             const printTarget = 'rourke2020Print' + Date.now();
             const printWindow = window.open('', printTarget);
             if (printWindow) {
-                printWindow.document.body.textContent = '<fmt:message key="form.rourke2020.preparingPrint"/>';
+                printWindow.document.body.textContent = '<carlos:encode value="${rourkePreparingPrintMessage}" context="javascript"/>';
             }
             document.forms["frmP1"].target = printWindow ? printTarget : '_blank';
 
@@ -783,7 +786,7 @@
             reset();
             document.getElementById("frmP1").action += "?submit=save";
             if (confirm("<fmt:message key='global.msgWannaSave'/>")) {
-                document.getElementById('rourkeSaveStatus').textContent = '<fmt:message key="form.rourke2020.saving"/>';
+                document.getElementById('rourkeSaveStatus').textContent = '<carlos:encode value="${rourkeSavingMessage}" context="javascript"/>';
                 document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
@@ -799,7 +802,7 @@
             reset();
             document.getElementById("frmP1").action += "?submit=exit";
             if (confirm("<fmt:message key='global.msgSaveExit'/>")) {
-                document.getElementById('rourkeSaveStatus').textContent = '<fmt:message key="form.rourke2020.saving"/>';
+                document.getElementById('rourkeSaveStatus').textContent = '<carlos:encode value="${rourkeSavingMessage}" context="javascript"/>';
                 document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();

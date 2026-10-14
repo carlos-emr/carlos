@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.form.util;
 
 import java.io.ByteArrayOutputStream;
+import java.awt.geom.Rectangle2D;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Properties;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.text.PDFTextStripperByArea;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +55,22 @@ class Rourke2020PdfReportIntegrationTest {
             assertThat(pdf.getNumberOfPages()).isEqualTo(4);
             String text = new PDFTextStripper().getText(pdf);
             assertThat(text).contains("FAKE-SECOND", "08/01/2026").doesNotContain("FAKE-FIRST", "null");
+            // Inspect each visit's actual printed date box. Whole-document searches
+            // cannot distinguish a blank field from a default date or placeholder.
+            int[] dateRows = {340, 335, 335, 320};
+            for (int page = 0; page < dateRows.length; page++) {
+                PDFTextStripperByArea dates = new PDFTextStripperByArea();
+                for (int visit = 0; visit < 3; visit++) {
+                    dates.addRegion("visit" + visit,
+                            new Rectangle2D.Float(210 + 530 * visit, dateRows[page], 165, 22));
+                }
+                dates.extractRegions(pdf.getPage(page));
+                for (int visit = 0; visit < 3; visit++) {
+                    assertThat(dates.getTextForRegion("visit" + visit).strip())
+                            .as("date on page %s, visit %s", page + 1, visit + 1)
+                            .isEqualTo(page == 0 && visit == 0 ? "08/01/2026" : "");
+                }
+            }
             assertThat(pdf.getPage(0).getMediaBox().getWidth()).isEqualTo(1700);
             assertThat(pdf.getPage(0).getMediaBox().getHeight()).isEqualTo(2200);
         }
