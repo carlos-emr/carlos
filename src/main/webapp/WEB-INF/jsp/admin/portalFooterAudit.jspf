@@ -1,4 +1,5 @@
 <%-- Saved Portal snapshots only: escaped plaintext, no remote HTML or image. --%>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${portalFooterAuditEnabled}">
     <div class="card shadow-sm rounded mt-4 mb-5">
         <div class="card-body">
