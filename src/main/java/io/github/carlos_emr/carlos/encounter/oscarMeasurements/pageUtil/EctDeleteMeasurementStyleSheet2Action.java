@@ -29,7 +29,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,6 +45,9 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -73,25 +78,37 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
             MeasurementCSSLocationDao lDao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
 
             if (deleteCheckbox != null) {
-                for (int i = 0; i < deleteCheckbox.length; i++) {
-                    List<MeasurementGroupStyle> styles = dao.findByCssId(ConversionUtils.fromIntString(deleteCheckbox[i]));
+                // Refuse the whole request before deleting anything if any selected
+                // style sheet is still mapped by a measurement group.
+                for (String id : deleteCheckbox) {
+                    Integer cssId = ConversionUtils.fromIntString(id);
+                    MeasurementCSSLocation location = lDao.find(cssId);
+                    if (location != null && !dao.findByCssId(cssId).isEmpty()) {
+                        List<String> errors = new ArrayList<>();
+                        // Error bundle contains embedded <li>...</li> and the JSP renders
+                        // actionErrors unencoded, so HTML-encode the DB-sourced {0} value
+                        // before substitution to prevent breakout of the list-item context.
+                        errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet",
+                                new String[]{Encode.forHtml(location.getLocation())}));
+                        request.setAttribute("actionErrors", errors);
+                        return "error";
+                    }
+                }
 
-                    for (MeasurementGroupStyle style : styles) {
-                        MeasurementCSSLocation location = lDao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
-                        if (location != null) {
-                            List<String> errors = new ArrayList<>();
-                            // Error bundle contains embedded <li>...</li> and the JSP renders
-                            // actionErrors unencoded, so HTML-encode the DB-sourced {0} value
-                            // before substitution to prevent breakout of the list-item context.
-                            errors.add(getText("error.encounter.Measurements.cannotDeleteStyleSheet",
-                                    new String[]{Encode.forHtml(location.getLocation())}));
-                            request.setAttribute("actionErrors", errors);
-                            return "error";
+                for (String id : deleteCheckbox) {
+                    Integer cssId = ConversionUtils.fromIntString(id);
+                    MeasurementCSSLocation location = lDao.find(cssId);
+                    if (location == null) {
+                        // Orphaned group mappings whose style sheet is already gone.
+                        for (MeasurementGroupStyle style : dao.findByCssId(cssId)) {
+                            // The query's DAO transaction has ended. Reload by ID
+                            // inside remove's transaction instead of deleting its detached result.
+                            dao.remove(style.getId());
                         }
-
-                        // The query's DAO transaction has ended. Reload by ID
-                        // inside remove's transaction instead of deleting its detached result.
-                        dao.remove(style.getId());
+                    } else {
+                        // No group maps it (checked above): remove the style sheet itself.
+                        lDao.remove(location.getId());
+                        deleteStoredFile(location.getLocation());
                     }
                 }
             }
@@ -100,6 +117,26 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
 
         } else {
             throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+        }
+    }
+
+    /**
+     * Best-effort removal of the uploaded CSS file so the same name can be uploaded again
+     * ({@code EctAddMeasurementStyleSheet2Action} refuses to overwrite an existing file).
+     * The name comes from the database but is still validated as a path component.
+     */
+    private void deleteStoredFile(String location) {
+        try {
+            String uploadPath = CarlosProperties.getInstance().getProperty("oscarMeasurement_css_upload_path");
+            if (location == null || uploadPath == null || uploadPath.trim().isEmpty()) {
+                return;
+            }
+            File uploadDir = new File(uploadPath);
+            File target = PathValidationUtils.validatePath(
+                    PathValidationUtils.validatePathComponent(location, "styleSheet"), uploadDir);
+            Files.deleteIfExists(target.toPath());
+        } catch (IOException | RuntimeException e) {
+            MiscUtils.getLogger().warn("Could not remove uploaded measurement style sheet file", e);
         }
     }
 
