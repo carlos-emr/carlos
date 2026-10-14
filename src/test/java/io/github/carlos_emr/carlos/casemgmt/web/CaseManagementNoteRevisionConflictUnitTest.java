@@ -81,8 +81,10 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         form.setIssueCheckList(new ArrayList<>());
         request.getSession().setAttribute("caseManagementEntryForm101", form);
         WebApplicationContext context = mock(WebApplicationContext.class);
-        when(context.getBean(ProgramManager.class)).thenReturn(mock(ProgramManager.class));
-        when(context.getBean(AdmissionManager.class)).thenReturn(mock(AdmissionManager.class));
+        ProgramManager programManager = mock(ProgramManager.class);
+        AdmissionManager admissionManager = mock(AdmissionManager.class);
+        when(context.getBean(ProgramManager.class)).thenReturn(programManager);
+        when(context.getBean(AdmissionManager.class)).thenReturn(admissionManager);
         doReturn(context).when(action).getSpringContext();
         doReturn("Unsaved draft").when(action).getCaseNote_note();
         doReturn("Note saved").when(action).getText("note.saved");

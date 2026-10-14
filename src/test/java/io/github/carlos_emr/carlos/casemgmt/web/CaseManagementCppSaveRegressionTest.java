@@ -272,27 +272,21 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
-    @DisplayName("reopening a saved note for editing should HTML-escape the decoded text inside the textarea markup")
-    void shouldEscapeDecodedNote_whenBuildingEditorMarkup() throws IOException {
-        // renderedNoteText() hands back the raw note, and editNote() splices it into
-        // "<textarea ...>" + payload + "</textarea>" through insertAdjacentHTML. Unescaped, a
-        // note holding "</textarea><img onerror=...>" would close the element and run when
-        // the next clinician opened it. Escaped, the textarea's RCDATA decodes it back to the
-        // clinician's text.
+    @DisplayName("new and reopened note editors should assign raw text through the textarea value")
+    void shouldAssignRawNoteValue_whenBuildingEditors() throws IOException {
+        // Keep decoded notes and appointment reasons out of HTML construction. The Node
+        // and Chromium checks exercise literal closing tags, leading newlines and submission.
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
-
+        int createTextarea = js.indexOf("function createNoteTextarea(id, value, editing)");
         int editNote = js.indexOf("function editNote(e)");
-        int escaped = js.indexOf("payload = escapeNoteText(payload);", editNote);
-        int spliced = js.indexOf("id='\" + caseNote + \"'>\" + payload + \"<\\/textarea>\"", editNote);
-        assertThat(editNote).as("editNote() is defined").isGreaterThanOrEqualTo(0);
-        assertThat(escaped).as("editNote() escapes the payload").isGreaterThan(editNote);
-        assertThat(spliced).as("editNote() splices the payload into the textarea markup").isGreaterThan(escaped);
-
-        // newNote() builds its textarea the same way from the pre-populated reason (an
-        // appointment reason, decoded into a JavaScript string), so it gets the same escape.
+        assertThat(createTextarea).as("the shared editor builder is defined").isGreaterThanOrEqualTo(0);
+        assertThat(editNote).as("editNote() follows the builder").isGreaterThan(createTextarea);
+        assertThat(js.substring(createTextarea, editNote))
+                .contains("document.createElement(\"textarea\")", "input.value = value;")
+                .doesNotContain("innerHTML", "insertAdjacentHTML");
         assertThat(js)
-                .contains("id='caseNote_note\" + safeNoteIdSuffix + \"'>\" + escapeNoteText(reason) + \"<\\/textarea>\"")
-                .doesNotContain("+ \"'>\" + reason + \"<\\/textarea>\"");
+                .contains("createNoteTextarea(caseNote, payload, true)")
+                .contains("createNoteTextarea(\"caseNote_note\" + safeNoteIdSuffix, reason, false)");
     }
 
     @Test

@@ -343,17 +343,30 @@ for (const count of [1, 2, 3]) {
   });
 }
 
-test('new and existing note textarea names are escaped and keep natural keyboard order', () => {
-  const declarations = source.split('\n').filter(line => line.includes('var input = "<textarea'));
-  assert.equal(declarations.length, 2);
-  for (const declaration of declarations) {
-    const context = { noteEditorLabel: `Encounter "note's" <literal>`, payload: 'edited note',
-      caseNote: 'caseNote_note31', reason: 'new note', safeNoteIdSuffix: '02' };
-    vm.createContext(context);
-    vm.runInContext(block('    function escapeNoteText(', '    function completeChangeToView(') + declaration, context);
-    assert.match(context.input, /aria-label='Encounter &quot;note&#39;s&quot; &lt;literal&gt;'/);
-    assert.doesNotMatch(context.input, /tabindex|<fmt:/);
-    assert.match(context.input, /wrap='soft'/);
+test('new and existing note textareas preserve raw values, names and natural keyboard order', () => {
+  const label = `Encounter "note's" <literal>`;
+  const context = { noteEditorLabel: label, document: { createElement: tag => {
+    assert.equal(tag, 'textarea');
+    return { style: {}, attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } };
+  } } };
+  vm.createContext(context);
+  vm.runInContext(block('    function createNoteTextarea(', '    function editNote('), context);
+  for (const editing of [false, true]) {
+    for (const value of ['', '\nleading newline', '\n\n<&> &amp; "quoted" </textarea><img src=x> 🩺\n']) {
+      const input = context.createNoteTextarea('caseNote_note02', value, editing);
+      assert.equal(input.value, value);
+      assert.equal(input.attributes['aria-label'], label);
+      assert.equal(input.id, 'caseNote_note02');
+      assert.equal(input.name, 'caseNote_note');
+      assert.equal(input.wrap, 'soft');
+      assert.equal(input.cols, 84);
+      assert.equal(input.rows, editing ? 10 : 1);
+      assert.equal(input.className, 'txtArea boxsizingBorder' + (editing ? ' edit-textarea' : ''));
+      assert.equal(input.style.lineHeight, editing ? '1.1em' : '1.0em');
+      assert.equal(input.attributes.tabindex, undefined);
+      assert.equal(input.innerHTML, undefined);
+      assert.equal(input.textContent, undefined);
+    }
   }
   assert.match(source, /var noteEditorLabel = "\$\{carlos:forJavaScriptBlock\(noteEditorLabel\)\}"/);
 });

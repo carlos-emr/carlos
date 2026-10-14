@@ -126,22 +126,45 @@ const html = `<!doctype html><html><body>
     console.log('PASS filter open/hide/apply/reset and both heading clicks send cleared filters and refresh notes');
     const markupChecks = {
       cpp: block("        var noteIssueUl =", '        var noteInfo ='),
-      textareas: source.split('\n').filter(line => line.includes('var input = "<textarea')),
+      textarea: block('    function createNoteTextarea(', '    function editNote('),
+      editInsertion: block('        var input = createNoteTextarea(caseNote', '        if ($F(isFull) == "true") {'),
+      newMarkup: block('        ++newNoteCounter;', '        if (changeToView(caseNote, function () { newNote(null); }))'),
+      newInsertion: block('            document.getElementById("encMainDiv").insertAdjacentHTML', '            $(safeSigId).addClassName'),
       escape: block('    function escapeNoteText(', '    function completeChangeToView('),
     };
-    assert.equal(markupChecks.textareas.length, 2);
-    await page.evaluate(({cpp, textareas, escape}) => {
+    await page.evaluate(({cpp, textarea, editInsertion, newMarkup, newInsertion, escape}) => {
       const escapeText = new Function(escape + '; return escapeNoteText;')();
       const section = document.createElement('section');
       section.id = 'accessibilityChecks';
       document.body.appendChild(section);
       const renderIssues = new Function('noteIssues', 'getCPP', 'escapeNoteText', cpp + '; return noteIssueUl;');
       section.innerHTML = renderIssues('12;A;Safety & support;13;B;Patient "quoted" issue;14;C;Third issue', () => '', escapeText);
-      textareas.forEach(declaration => {
-        const render = new Function('noteEditorLabel', 'escapeNoteText', 'payload', 'caseNote', 'reason', 'safeNoteIdSuffix', declaration + '; return input;');
-        section.insertAdjacentHTML('beforeend', render(`Encounter "note's" <literal>`, escapeText,
-          escapeText('edited </textarea><img src=x>'), 'editorAccessibility', 'new </textarea><img src=x>', 'Accessibility'));
-      });
+      const createTextarea = new Function('noteEditorLabel', textarea + '; return createNoteTextarea;')(`Encounter "note's" <literal>`);
+      const form = document.createElement('form');
+      section.appendChild(form);
+      form.id = 'encMainDiv';
+      const text = '\n\nleading &amp; <literal> "quoted" </textarea><img src=x> 🩺\n';
+      const byId = id => document.getElementById(id);
+      const renderNew = new Function('createNoteTextarea', '$', 'reason', 'var newNoteCounter = 0;' + newMarkup + newInsertion + '; return input;');
+      const newInput = renderNew(createTextarea, byId, text);
+      if (newInput.id !== 'caseNote_note01' || newInput.parentNode.id !== 'n01' || newInput.nextSibling.id !== 'sig01') {
+        throw new Error('New note editor/signature placement changed');
+      }
+      if (newInput.previousSibling.id !== 'bgColour01' || form.querySelector('#full01').value !== 'true') {
+        throw new Error('New note hidden controls changed');
+      }
+      const existing = document.createElement('div');
+      existing.id = 'n31';
+      existing.innerHTML = '<div class="sig" id="sig31">existing signature</div>';
+      form.appendChild(existing);
+      const renderEdit = new Function('createNoteTextarea', '$', 'payload', 'caseNote', 'txt', 'nId', 'ctx', editInsertion + '; return input;');
+      const editInput = renderEdit(createTextarea, byId, text, 'caseNote_note31', 'n31', '31', '');
+      if (editInput.nextSibling.id !== 'sig31' || editInput.previousSibling.className !== 'tool-button print-button') {
+        throw new Error('Existing note print/editor/signature placement changed');
+      }
+      if (newInput.value !== text || editInput.value !== text) throw new Error('DOM insertion changed the raw note value');
+      const submitted = new FormData(form).getAll('caseNote_note');
+      if (submitted.length !== 2 || submitted.some(value => value !== text)) throw new Error('Form serialization changed a note');
     }, markupChecks);
     const accessibility = page.locator('#accessibilityChecks');
     const checkboxes = accessibility.getByRole('checkbox');
@@ -156,15 +179,17 @@ const html = `<!doctype html><html><body>
     for (const editor of await editors.all()) {
       assert.equal(await editor.getAttribute('tabindex'), null);
       assert.equal(await editor.getAttribute('wrap'), 'soft');
+      assert.equal(await editor.inputValue(), '\n\nleading &amp; <literal> "quoted" </textarea><img src=x> 🩺\n');
     }
-    assert.equal(await accessibility.locator('img').count(), 0);
+    assert.equal(await accessibility.locator('img').count(), 1, 'Only the existing print icon is allowed');
+    assert.equal(await accessibility.locator('img').getAttribute('id'), 'print31');
     const master = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
     const spinner = master.match(/<output id="search_spinner">[\s\S]*?<\/output>/);
     assert.ok(spinner);
     await accessibility.evaluate((section, html) => section.insertAdjacentHTML('beforeend', html),
       spinner[0].replace(/<fmt:message[^>]*\/>/, 'Loading fixture'));
     assert.equal(await accessibility.getByRole('status').innerText(), 'Loading fixture');
-    console.log('PASS native CPP labels, safe editor names/natural tab order, keyboard heading activation, output status');
+    console.log('PASS native CPP labels, raw note values/leading newlines, safe editor names/natural tab order, keyboard heading activation, output status');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
