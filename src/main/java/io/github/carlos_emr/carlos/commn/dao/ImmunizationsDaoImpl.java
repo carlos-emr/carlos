@@ -33,10 +33,15 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Date;
+import java.util.Objects;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class ImmunizationsDaoImpl extends AbstractDaoImpl<Immunizations> implements ImmunizationsDao {
@@ -53,5 +58,37 @@ public class ImmunizationsDaoImpl extends AbstractDaoImpl<Immunizations> impleme
         List<Immunizations> results = q.getResultList();
 
         return results;
+    }
+
+    @Override
+    @Transactional
+    public boolean replaceCurrent(Integer demographicNo, String providerNo, String xml, int expectedVersion) {
+        Objects.requireNonNull(xml, "Schedule XML is required");
+        if (expectedVersion < 0) {
+            throw new IllegalArgumentException("Invalid schedule version");
+        }
+        // Lock the stable patient row, including when no schedule exists yet. Every
+        // schedule writer uses this transaction, so insert/archive is one operation.
+        if (entityManager.find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE) == null) {
+            return false;
+        }
+        List<Immunizations> current = entityManager.createQuery(
+                "SELECT i FROM Immunizations i WHERE i.demographicNo=:patient AND i.archived=0", Immunizations.class)
+                .setParameter("patient", demographicNo).setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+        int version = current.stream().mapToInt(Immunizations::getId).max().orElse(0);
+        if (version != expectedVersion) {
+            return false;
+        }
+        for (Immunizations previous : current) {
+            previous.setArchived(1);
+        }
+        Immunizations next = new Immunizations();
+        next.setDemographicNo(demographicNo);
+        next.setProviderNo(providerNo);
+        next.setImmunizations(xml);
+        next.setSaveDate(new Date());
+        next.setArchived(0);
+        entityManager.persist(next);
+        return true;
     }
 }

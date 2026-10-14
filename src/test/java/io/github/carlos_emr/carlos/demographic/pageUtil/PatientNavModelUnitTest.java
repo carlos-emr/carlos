@@ -90,7 +90,8 @@ class PatientNavModelUnitTest {
         assertThat(nav.getDocumentsUrl()).isEqualTo(
                 "/ctx/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=123");
         assertThat(nav.getDocumentBrowserUrl()).isEqualTo(
-                "/ctx/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=123&categorykey=Private+Documents");
+                "/ctx/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=123&categorykey=private");
+        assertThat(nav.getSmsHistoryUrl()).isEqualTo("/ctx/sms/ViewSmsHistory?demographic_no=123");
     }
 
     @Test

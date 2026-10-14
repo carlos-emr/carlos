@@ -50,7 +50,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -59,8 +58,6 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -76,8 +73,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         int nbPatient = 0;
 
         if (!validateForm()) {
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializeFrequencyOfRelevantTestsCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         addHeading(headings, request);
@@ -112,22 +109,33 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         String[] endDateD = this.getEndDateD();
         String[] frequencyCheckbox = this.getFrequencyCheckbox();
         boolean valid = true;
+        // The hidden type/instruction fields are echoes of the session definitions; anything else
+        // is a tampered request and its row is skipped, here and in the report loop.
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (frequencyCheckbox != null) {
 
             for (int i = 0; i < frequencyCheckbox.length; i++) {
-                int ctr = Integer.parseInt(frequencyCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(frequencyCheckbox[i], CdmReportSelectionValidator.length(startDateD),
+                        CdmReportSelectionValidator.length(endDateD));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateD[ctr];
                 String endDate = endDateD[ctr];
-                String measurementType = (String) this.getValue("measurementTypeD" + ctr);
+                String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeD" + ctr));
+                if (measurementType == null) {
+                    continue;
+                }
 
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", new String[]{measurementType}));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", new String[]{measurementType}));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
@@ -150,21 +158,32 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         String[] frequencyCheckbox = this.getFrequencyCheckbox();
 
         RptMeasurementsData mData = new RptMeasurementsData();
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (frequencyCheckbox != null) {
             try {
 
                 for (int i = 0; i < frequencyCheckbox.length; i++) {
-                    int ctr = Integer.parseInt(frequencyCheckbox[i]);
+                    // The index is request data: parse and range-check it before any array access.
+                    int ctr = selection.acceptedRow(frequencyCheckbox[i], CdmReportSelectionValidator.length(startDateD),
+                            CdmReportSelectionValidator.length(endDateD), CdmReportSelectionValidator.length(exactly),
+                            CdmReportSelectionValidator.length(moreThan), CdmReportSelectionValidator.length(lessThan));
+                    if (ctr < 0) {
+                        continue;
+                    }
                     String startDate = startDateD[ctr];
                     String endDate = endDateD[ctr];
                     int exact = exactly[ctr];
                     int more = moreThan[ctr];
                     int less = lessThan[ctr];
 
-                    String measurementType = (String) this.getValue("measurementTypeD" + ctr);
-                    String sNumMInstrc = (String) this.getValue("mNbInstrcsD" + ctr);
-                    int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                    // Only a type the server rendered for this row may drive the patient-wide queries.
+                    String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeD" + ctr));
+                    if (measurementType == null) {
+                        continue;
+                    }
+                    // The posted value(mNbInstrcsDN) count is ignored: the rendered list bounds the loop.
+                    int iNumMInstrc = selection.instructionCount(ctr);
                     ArrayList patients = mData.getPatientsSeen(startDate, endDate);
                     int nbPatients = patients.size();
 
@@ -178,7 +197,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                         int nbLess = 0;
                         int nbTest = 0;
 
-                        String mInstrc = (String) this.getValue("mInstrcsCheckboxD" + ctr + j);
+                        String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckboxD" + ctr + j));
                         if (mInstrc != null) {
                             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
                             for (int k = 0; k < nbPatients; k++) {
@@ -235,8 +254,14 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         values.put(key, value);
     }
 
+    /**
+     * Returns a {@code value(key)} form field. Struts 7 never binds these names through
+     * {@link #setValue}, so the posted request parameter is the source; see
+     * {@link MappedFormValues}.
+     */
     public Object getValue(String key) {
-        return values.get(key);
+        Object value = values.get(key);
+        return value != null ? value : MappedFormValues.get(request, key);
     }
 
     private String[] patientSeenCheckbox;
@@ -335,5 +360,10 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     public int[] getLessThan() {
         return lessThan;
+    }
+
+    @StrutsParameter
+    public void setLessThan(int[] lessThan) {
+        this.lessThan = lessThan;
     }
 }

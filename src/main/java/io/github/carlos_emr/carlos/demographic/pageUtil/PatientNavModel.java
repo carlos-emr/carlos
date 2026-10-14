@@ -210,6 +210,10 @@ public final class PatientNavModel {
         return in.contextPath() + "/waitinglist/SetupDisplayPatientWaitingList?demographic_no=" + no();
     }
 
+    public String getSmsHistoryUrl() {
+        return in.contextPath() + "/sms/ViewSmsHistory?demographic_no=" + no();
+    }
+
     public String getBillingHistoryUrl() {
         return in.contextPath() + "/billing/CA/ON/ViewBillingONHistory?demographic_no=" + no();
     }
@@ -276,7 +280,7 @@ public final class PatientNavModel {
 
     public String getDocumentBrowserUrl() {
         return in.contextPath() + "/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid="
-                + no() + "&categorykey=" + enc("Private Documents");
+                + no() + "&categorykey=private";
     }
 
     public String getEformsUrl() {

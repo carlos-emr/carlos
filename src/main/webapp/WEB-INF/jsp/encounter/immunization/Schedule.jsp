@@ -53,12 +53,14 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Immunizations" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
     String sDoc = null;
+    Immunizations currentSchedule = null;
     String demoNo = request.getParameter("demographic_no");
     String last_name = "";
     String first_name = "";
@@ -82,7 +84,8 @@
     }
 
     if (demoNo != null) {
-        sDoc = new EctImmImmunizationData().getImmunizations(demoNo);
+        currentSchedule = new EctImmImmunizationData().getCurrentSchedule(demoNo);
+        sDoc = currentSchedule == null ? null : currentSchedule.getImmunizations();
     }
     if (sDoc == null) {
         String redirect = "loadConfig";
@@ -110,7 +113,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:message key="encounter.immunization.Schedule.title"/></title>
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
     <script language="javascript">
@@ -261,6 +264,7 @@
                     <tr>
                         <td>
 
+                            <input type="hidden" name="scheduleVersion" value="<%= currentSchedule.getId() %>"/>
                             <input type="hidden" name="xmlDoc" value='<%= UtilMisc.encode64(UtilXML.toXML(doc)) %>'/>
                             <%
 
@@ -289,20 +293,10 @@
 
                                 <% if (!status.equals("deleted")) { %>
                                 <a href="javascript:void(0)"
-                                   onclick="if(confirm('Are you sure you want to delete this record ?')){document.getElementById('scheduleForm_<%=i%>').submit()}">del</a>
-                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
-                                    <input type="hidden" name="method" value="delete"/>
-                                    <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
-                                </form>
+                                   onclick="if(confirm('Are you sure you want to delete this record ?')){submitScheduleMutation('delete', <%=i%>)}">del</a>
                                 <%} else {%>
                                 <a href="javascript:void(0)"
-                                   onclick="if(confirm('Are you sure you want to restore this record ?')){document.getElementById('restoreForm_<%=i%>').submit()}">restore</a>
-                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule" style="display:none">
-                                    <input type="hidden" name="method" value="restore"/>
-                                    <input type="hidden" name="tblSet" value="<%=i%>"/>
-                                    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
-                                </form>
+                                   onclick="if(confirm('Are you sure you want to restore this record ?')){submitScheduleMutation('restore', <%=i%>)}">restore</a>
                                 <%}%>
 
                             </div>
@@ -451,6 +445,13 @@
                             }
                         %>
                             <script language="javascript">
+                                function submitScheduleMutation(method, index) {
+                                    var form = document.getElementById('scheduleMutationForm');
+                                    form.elements.namedItem('method').value = method;
+                                    form.elements.namedItem('tblSet').value = index;
+                                    form.submit();
+                                }
+
                                 function formSubmit(action) {
                                     document.forms[0].hdnAction.value = action;
                                     document.forms[0].submit();
@@ -484,5 +485,12 @@
     </tr>
 </table>
 
+<%-- Keep this separate from the save form: HTML does not permit nested forms. --%>
+<form id="scheduleMutationForm" method="post" action="${pageContext.request.contextPath}/encounter/immunization/deleteSchedule" style="display:none">
+    <input type="hidden" name="scheduleVersion" value="<%= currentSchedule.getId() %>"/>
+    <input type="hidden" name="method"/>
+    <input type="hidden" name="tblSet"/>
+    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
+</form>
 </body>
 </html>

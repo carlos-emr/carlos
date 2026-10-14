@@ -104,6 +104,7 @@ class PatientNavSharingRegressionTest {
         assertThat(guardsOf(nav, "nav.echartUrl")).containsExactly("_eChart r");
         assertThat(guardsOf(nav, "nav.preventionsUrl")).containsExactly("_eChart r", "_prevention r");
         assertThat(guardsOf(nav, "nav.ticklerUrl")).containsExactly("_tickler r");
+        assertThat(guardsOf(nav, "nav.smsHistoryUrl")).containsExactly("_sms r");
         assertThat(guardsOf(nav, "nav.portalUrl")).containsExactly("_portal.invite,_portal.account r");
         assertThat(guardsOf(nav, "nav.getArFormUrl('AR1')")).containsExactly("_form r");
         assertThat(guardsOf(nav, "nav.inboxManagerUrl")).containsExactly("_edoc r");

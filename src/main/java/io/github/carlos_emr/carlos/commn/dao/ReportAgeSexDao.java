@@ -41,6 +41,13 @@ public interface ReportAgeSexDao extends AbstractDao<ReportAgeSex> {
 
     void deleteAllByDate(Date reportDate);
 
+    /**
+     * Appends report rows for patients born in or after the supplied year, using the
+     * database's current date for both the report date and age in completed years.
+     * Age increments on the birthday. Existing report rows are not removed.
+     *
+     * @param yearOfBirth inclusive lower bound for the stored birth year
+     */
     void populateAll(String yearOfBirth);
 
     Long count_reportagesex_roster(String roster, String sex, String providerNo, int age, Date dateStarted, Date dateEnded);

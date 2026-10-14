@@ -293,6 +293,53 @@ class ClinicalProseWafExclusionRegressionTest {
         return rule;
     }
 
+    static Stream<Arguments> legacyLabelExclusions() {
+        return Stream.of(Arguments.of("1046", "label", 1, List.of("label", "Label")),
+                Arguments.of("1047", "label2", 1, List.of("label2")),
+                Arguments.of("1048", "label", 2, List.of("label", "Label")),
+                Arguments.of("1049", "patientlabel", 1, List.of("patientlabel")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("legacyLabelExclusions")
+    @DisplayName("legacy label exceptions should require a unique historical value on POST saves")
+    void shouldLimitLegacyLabelExclusion_toUniqueHistoricalPostValues(
+            String ruleId, String group, int count, List<String> fields) throws IOException {
+        String rule = readExclusionRule(ruleId);
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/eform/addEForm(?:[;?]|$)\"")
+                .contains("\"id:" + ruleId + ",phase:2,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@streq POST\" \"t:none,chain\"")
+                .contains("SecRule &ARGS:" + group + " \"@eq " + count + "\" \"t:none,chain\"")
+                .doesNotContain("ctl:ruleRemoveById=", "ctl:ruleRemoveByTag=", "ctl:ruleRemoveTargetByTag=");
+        Matcher target = Pattern.compile("ctl:[^\\\"\\s,]+").matcher(rule);
+        assertThat(target.results().map(java.util.regex.MatchResult::group).toList())
+                .containsExactlyElementsOf(fields.stream().map(field -> "ctl:ruleRemoveTargetById=933210;ARGS:" + field).toList());
+
+        String selector = count == 2 ? "Label" : fields.size() == 2 ? "[lL]abel" : fields.getFirst();
+        String prefix = "SecRule ARGS:/^(?-i:" + selector + ")$/ \"@rx ";
+        if (count == 2) {
+            for (String field : fields) {
+                assertThat(rule).contains("SecRule &ARGS:/^(?-i:" + field + ")$/ \"@eq 1\" \"t:none,chain\"");
+            }
+            assertThat(rule).contains("SecRule ARGS:/^(?-i:label)$/ \"@rx ")
+                    .contains("\"t:none,chain\"\n    SecRule ARGS:/^(?-i:Label)$/");
+        }
+        int patternStart = rule.indexOf(prefix) + prefix.length();
+        assertThat(rule.indexOf(prefix)).isGreaterThanOrEqualTo(0);
+        String regex = rule.substring(patternStart, rule.indexOf('"', patternStart));
+        // Java already matches Unicode code points; (*UTF) is the equivalent PCRE2 input mode.
+        Pattern historical = Pattern.compile(regex.replace("(*UTF)", ""));
+        assertThat(historical.matcher("DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR").matches()).isTrue();
+        assertThat(historical.matcher("O'NEILL, JOSÉ\n12 Main St, Toronto, ON N3R 1Q0\nTel:555-555-5555(H)  (W)\n15/06/1985(M) HIN:7999962999CR\n").matches()).isTrue();
+        assertThat(historical.matcher("DOE, JANE \\n12 Main St, Toronto, ON \\nTel:555-555-5555(H) 555-555-5555(W) \\n15/06/1985(F) HIN:7999962999CR").matches()).isTrue();
+        for (String other : List.of("ordinary label", "$f('id')", "<?php phpinfo(); ?>",
+                "DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR; $f('id')",
+                "$f('id') DOE, JANE Tel:705-647-4399(W) 15/06/1985(M) HIN:7999962999CR")) {
+            assertThat(historical.matcher(other).matches()).as("nonhistorical value remains inspected").isFalse();
+        }
+    }
+
     @Test
     @DisplayName("per-row prose fields should be exempted by anchored regex patterns, and nothing broader")
     void shouldExemptPerRowFields_byAnchoredPatternOnly() throws IOException {

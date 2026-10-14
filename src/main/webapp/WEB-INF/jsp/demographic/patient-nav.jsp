@@ -66,6 +66,17 @@
                 <td><a href="${carlos:forHtmlAttribute(nav.waitingListUrl)}"><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a></td>
             </tr>
         </c:if>
+        <%-- Patient SMS history (#3839); the action re-checks _sms and _demographic for this patient.
+             It sits after the waiting-list row so that link stays under the appointment heading. --%>
+        <security:oscarSec roleName="${nav.roleName}" objectName="_sms" rights="r">
+            <tr class="Header">
+                <td style="font-weight: bold"><fmt:message key="sms.history.section"/></td>
+            </tr>
+            <tr id="sms_hx">
+                <td><a href="${carlos:forHtmlAttribute(nav.smsHistoryUrl)}" data-nav-popup="page"
+                       data-popup-height="600" data-popup-width="1500"><fmt:message key="sms.history.title"/></a></td>
+            </tr>
+        </security:oscarSec>
         <security:oscarSec roleName="${nav.roleName}" objectName="_billing" rights="r">
             <tr class="Header">
                 <td style="font-weight: bold"><fmt:message key="admin.admin.billing"/></td>

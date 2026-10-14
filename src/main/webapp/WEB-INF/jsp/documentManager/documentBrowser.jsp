@@ -27,6 +27,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        The Document Browser: one module owner's (patient or provider) documents in a list with
+        an inline preview, opened from the Documents report's Browse link or the master record
+        (documentManager/ViewDocumentBrowser).
+
+    Features:
+        Single-document preview and details, two-or-more PDF combined preview, Add Tickler,
+        Edit, Delete / Undelete and Refile (POSTed to the DocumentDelete / DocumentUndelete /
+        DocumentRefile actions).
+
+    Parameters:
+        function, functionid  the module and its owner (demographic and demographic_no).
+        categorykey           scope token "private" or "public"; legacy report headings are
+                              still recognised but never re-emitted (they carried the name).
+        view, viewstatus, sortorder  list filters; winwidth / winheight popup size.
+
+    @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
+--%>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -68,11 +87,18 @@
     }
 %>
 
+<%-- The report's legacy categorykey was its localized heading; resolve the same labels the
+     same way so a legacy link from a non-English session is still recognised. --%>
+<fmt:message key="dms.documentReport.msgPrivateDocuments" var="legacyPrivateLabel"/>
+<fmt:message key="dms.documentReport.msgPublicDocuments" var="legacyPublicLabel"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     String demographicID = request.getParameter("demographicID");
+    // Null-safe: ViewDocumentBrowserRead2Action rejects a missing key, but a forward that
+    // skips that gate must still render the "not supported" branch rather than an NPE.
     String categoryKey = request.getParameter("categorykey");
+    if (categoryKey == null) categoryKey = "";
     // errorMessage is populated by DocumentRefile2Action via a redirect query
     // param when a refile throws. Read it here so the alert block below renders.
     String errorMessage = request.getParameter("errorMessage");
@@ -143,10 +169,30 @@
         sortorder = "Content";
     }
 
-    if (categoryKey.indexOf("Private") >= 0) {
+    // categorykey selects the document set. Callers send the stable tokens "private" /
+    // "public". The legacy form was the report's display heading ("<LAST, FIRST> Private
+    // Documents"), which put the patient's name into the URL and access logs. Legacy headings
+    // are still recognised, in English or by the session's localized label (a French heading
+    // never contained "Private"), so old bookmarks and in-flight redirects keep working, but
+    // the page only ever re-emits the token.
+    String legacyPrivateLabel = (String) pageContext.getAttribute("legacyPrivateLabel");
+    String legacyPublicLabel = (String) pageContext.getAttribute("legacyPublicLabel");
+    String categoryScope = null;
+    if ("private".equals(categoryKey) || categoryKey.indexOf("Private") >= 0
+            || (legacyPrivateLabel != null && !legacyPrivateLabel.isEmpty() && categoryKey.endsWith(legacyPrivateLabel))) {
+        categoryScope = "private";
+    } else if ("public".equals(categoryKey) || categoryKey.indexOf("Public") >= 0
+            || (legacyPublicLabel != null && !legacyPublicLabel.isEmpty() && categoryKey.endsWith(legacyPublicLabel))) {
+        categoryScope = "public";
+    }
+    if (categoryScope != null) {
+        categoryKey = categoryScope;
+    }
+
+    if ("private".equals(categoryScope)) {
         docs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PRIVATE, sort, viewstatus);
 
-    } else if (categoryKey.indexOf("Public") >= 0) {
+    } else if ("public".equals(categoryScope)) {
         docs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PUBLIC, sort, viewstatus);
 
     } else {%>
@@ -345,16 +391,19 @@ Remote documents not supported
             } else if (selected.length == 1) {
                 var docidindexend = selected[0].value.indexOf('-');
                 docid = selected[0].value.substring(0, docidindexend);
+                // The refile control is hidden for HTML documents, so the single-selection
+                // branch needs this document's own content type (it was previously read from
+                // the undeclared multi-select loop variable and was always undefined).
+                var doctype = selected[0].value.substring(docidindexend + 1, selected[0].value.length);
 
                 showPageImg(docid);
                 var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "visible";
-                if (doctype == "text/html") {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "hidden";
-                } else {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "visible";
+                // The Refile control is only rendered in the published view; the deleted view
+                // offers Undelete instead, so there may be nothing to show or hide.
+                var refile = document.getElementById("refilebutton");
+                if (refile) {
+                    refile.style.visibility = (doctype == "text/html") ? "hidden" : "visible";
                 }
 
             }
@@ -395,14 +444,12 @@ Remote documents not supported
             if (doctype == 'text/html') {
                 <c:set var="__enc_2"><carlos:encode value='<%= module %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_3"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(450,                
- 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_2}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_3}' context="javaScript"/>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_2}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_3}' context="javaScript"/>', 'EditDoc');
             } else {
 
                 <c:set var="__enc_4"><carlos:encode value='<%= module %>' context="uriComponent"/></c:set>
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/docume                
-ntManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode value='${__enc_4}' context="javaScript"/>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
@@ -421,7 +468,13 @@ ntManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<carlos:encode 
         <tr>
             <td align="left" valign="top" style="width: 400px">
                 <oscar:nameage demographicNo="<%=moduleid%>"/><br>
+                <% if ("private".equals(categoryScope)) { %>
+                <fmt:message key="dms.documentReport.msgPrivateDocuments"/>
+                <% } else if ("public".equals(categoryScope)) { %>
+                <fmt:message key="dms.documentReport.msgPublicDocuments"/>
+                <% } else { %>
                 <carlos:encode value='<%= categoryKey %>' context="html"/>
+                <% } %>
                 <br>
 
                 <input type="hidden" name="viewstatus" value="<carlos:encode value='<%= viewstatus %>' context="htmlAttribute"/>">

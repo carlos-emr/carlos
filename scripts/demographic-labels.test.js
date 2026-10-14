@@ -73,11 +73,16 @@ test('the settings item is not asserted to be a PDF, because it is not one', () 
 
 test('an optional item says why it may be absent', () => {
   for (const item of MENU_ITEMS.filter((candidate) => candidate.optional)) {
-    assert.match(item.optional, /property/,
-      `${item.label} must name the property that gates it`);
+    assert.match(item.optional, /property|permission/,
+      `${item.label} must name the property or permission that gates it`);
   }
   // And that property really is what gates it in the JSP.
   assert.match(MENU_JSP, /getProperty\("showSexualHealthLabel", "false"\)/);
+  const letters = MENU_ITEMS.find((item) => item.label === 'Generate Letters');
+  assert.ok(letters, 'the letters selection page must stay covered');
+  assert.equal(letters.pdf, false, 'letter selection is HTML, not a generated PDF');
+  assert.match(letters.optional, /_report read permission/);
+  assert.match(MENU_JSP, /objectName="_report" rights="r">/);
 });
 
 test('a real PDF passes every gate', () => {

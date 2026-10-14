@@ -27,6 +27,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        The E-Chart's Note Browser: one patient's private documents and encounter notes side by
+        side, opened from the chart's "Browse Notes" control (casemgmt/ViewNoteBrowser).
+
+    Features:
+        Document list with preview, Add Tickler, Edit, Delete / Undelete and Refile (the mutations
+        POST the DisplayDoc form to the casemgmt/NoteBrowserDocument* actions); encounter-note
+        list with preview and Print. The view-status, sort and doc-type filters re-open this
+        GET-only gate with a GET built from the filter fields, never by POSTing the form.
+
+    Parameters:
+        demographic_no  the patient (required; _eChart r and the _eChart$<demo> lock apply).
+        view            document type filter, raw ("all" for every type).
+        viewstatus      active | deleted | all.
+        sortorder       Content | Observation | Update.
+        FirstTime       "1" on the first open, to size and place the popup.
+
+    @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
+--%>
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -49,7 +69,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
-<%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
+<%@page import="java.util.Date, java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -57,6 +77,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%-- nosemgrep: carlos.jsp-scriptlet-xss.variable-request -- demographicID is only passed raw as the demographicNo attribute of <oscar:nameage>, which parses it as an integer (skipping on failure) and SafeEncode-encodes its output; every HTML/URL output of it uses <carlos:encode>. --%>
 <%
     if (session.getAttribute("userrole") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -96,7 +117,9 @@
     if (request.getParameter("view") != null) {
         view = request.getParameter("view");
     }
-    view = URLDecoder.decode(view, "UTF-8");
+    // No second URLDecoder pass: every caller (the doc-type links, the filter reload's
+    // URLSearchParams GET and the mutation actions' redirects) sends the raw type once
+    // encoded, and decoding again turned a literal "+" in a type name into a space.
 
     String module = "demographic";
 
@@ -140,16 +163,31 @@
             }
         }
 
+        // casemgmt/ViewNoteBrowser is a GET/HEAD-only view gate (ViewClinical2Action answers 405
+        // to anything else), so the view/status/sort filters re-open the page with a GET built
+        // from the filter fields only. Submitting the DisplayDoc form would POST, and its
+        // CSRFGuard token must never be copied into a GET URL. The form itself stays POST for
+        // the delete/undelete/refile mutation actions.
+        function reloadNoteBrowser() {
+            var form = document.DisplayDoc;
+            var params = new URLSearchParams();
+            params.set('demographic_no', form.demographic_no.value);
+            params.set('view', form.view.value);
+            params.set('viewstatus', form.viewstatus.value);
+            params.set('sortorder', form.sortorder.value);
+            window.location.href = '<%= request.getContextPath() %>/casemgmt/ViewNoteBrowser?' + params.toString();
+        }
+
         function ReLoadDoc() {
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
             document.DisplayDoc.sortorder.value = document.DisplayDoc.selsortorder.options[document.DisplayDoc.selsortorder.selectedIndex].value;
-            document.DisplayDoc.submit();
+            reloadNoteBrowser();
         }
 
         function LoadView(viewstr) {
             document.DisplayDoc.view.value = viewstr;
             document.DisplayDoc.viewstatus.value = document.DisplayDoc.selviewstatus.options[document.DisplayDoc.selviewstatus.selectedIndex].value;
-            document.DisplayDoc.submit();
+            reloadNoteBrowser();
         }
 
         function DeleteDoc() {
@@ -240,8 +278,7 @@
         }
 
         <c:set var="__enc_1"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-        function showEncounter(enc            
-List) {
+        function showEncounter(encList) {
             var url2 = '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=displayNotes&demographicNo=<carlos:encode value='${__enc_1}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false';
             var iframe = document.createElement('iframe');
             iframe.src = url2;
@@ -324,12 +361,11 @@ List) {
                 showPageImg(docid, doctype);
                 var div_ref = document.getElementById("docbuttons");
                 div_ref.style.visibility = "visible";
-                if (doctype == "text/html") {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "hidden";
-                } else {
-                    var div_ref = document.getElementById("refilebutton");
-                    div_ref.style.visibility = "visible";
+                // The Refile control is only rendered in the published view; the deleted view
+                // offers Undelete instead, so there may be nothing to show or hide.
+                var refile = document.getElementById("refilebutton");
+                if (refile) {
+                    refile.style.visibility = (doctype == "text/html") ? "hidden" : "visible";
                 }
             }
         }
@@ -405,8 +441,7 @@ List) {
                 }
 
                 <c:set var="__enc_2"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                po                
-pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
+                popup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=print&demographicNo=<carlos:encode value='${__enc_2}' context="javaScript"/>' + encList + '&printCPP=false&printRx=false', 'PrintEncounter');
             }
         }
 
@@ -426,13 +461,11 @@ pup(700, 960, '<%=request.getContextPath()%>' + '/CaseManagementEntry?method=pri
 
             if (doctype == 'text/html') {
                 <c:set var="__enc_4"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(450, 600, '<%= request.getContextPath() %>/docum                
-entManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
+                popup(450, 600, '<%= request.getContextPath() %>/documentManager/ViewAddEditHtml?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_4}' context="javaScript"/>', 'EditDoc');
             } else {
 
                 <c:set var="__enc_5"><carlos:encode value='<%= demographicID %>' context="uriComponent"/></c:set>
-                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocumen                
-t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
+                popup(350, 500, '<%= request.getContextPath() %>/documentManager/ViewEditDocument?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode value='${__enc_5}' context="javaScript"/>', 'EditDoc');
             }
         }
 
@@ -510,12 +543,12 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
                     <input type="hidden" name="queueId" value="<%=queueId%>">
 
                     <a
-                            href="#" onclick="LoadView('all')"><%=view.equals("all") ? "<b>" : ""%>
+                            href="#" onclick="LoadView('all'); return false;"><%=view.equals("all") ? "<b>" : ""%>
                         All<%=view.equals("all") ? "</b>" : ""%>
                     </a> <% for (int i3 = 0; i3 < doctypes.size(); i3++) {%>
                     | <a
                         href="#"
-                        onclick="LoadView('<%=URLEncoder.encode((String) doctypes.get(i3),"UTF-8")%>')"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
+                        onclick="LoadView('<carlos:encode value='<%= (String) doctypes.get(i3) %>' context="javaScriptAttribute"/>'); return false;"><%=view.equals(doctypes.get(i3)) ? "<b>" : ""%><carlos:encode value='<%= (String) doctypes.get(i3) %>' context="html"/><%=view.equals(doctypes.get(i3)) ? "</b>" : ""%>
                 </a>
                     <%}%>
                 </fieldset>
@@ -550,10 +583,19 @@ t?editDocumentNo=' + docid + '&function=<%=module%>&functionid=<carlos:encode va
 
 
                 <div id="docinfo"></div>
-                <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
-                                                  onclick="PrintEncounter();"
-                                                  title='<fmt:message key="encounter.Index.btnPrint"/>'
-                                                  id="imgPrintEncounter"></div>
+                <%-- Print must not be a submit control (issue #4368). It used to be an image
+                     input, a submit control that inside DisplayDoc also POSTed the form to the
+                     GET/HEAD-only ViewNoteBrowser gate, replacing the note browser with a 405.
+                     A "return false" in onclick only helped while PrintEncounter() ran without
+                     throwing, so it is a type="button" control now: it can never submit the
+                     form, and DisplayDoc is left with no submit control at all (its only POSTs
+                     are the explicit document.DisplayDoc.submit() calls of the mutations). --%>
+                <div id="printnotesbutton"><button type="button" id="imgPrintEncounter"
+                                                   onclick="PrintEncounter();"
+                                                   title='<fmt:message key="encounter.Index.btnPrint"/>'
+                                                   style="border:0;background:none;padding:0;cursor:pointer;"><img
+                        src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
+                        alt='<fmt:message key="encounter.Index.btnPrint"/>'></button></div>
             </td>
             <td valign="top">
                 <fieldset>

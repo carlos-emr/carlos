@@ -203,7 +203,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -276,7 +276,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         try {
             file = PathValidationUtils.validateExistingPath(file, allowedDir);
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             // File might be in temp directory from Teleplan API
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                 throw new SecurityException("File access not allowed outside designated directory");
@@ -396,7 +396,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         int sequenceNumber = -1;
         try {
             sequenceNumber = Integer.parseInt(sequence);
-        } catch (Exception e) {
+        } catch (Exception _) {
             //TODO: ADDED ERROR MESSAGE ABOUT THE NUMBER NOT BEING A NUMBER!
             return SUCCESS;
         }
@@ -442,7 +442,11 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         if (log.isDebugEnabled()) {
+            // File.canRead() returns a boolean.
+            // nosemgrep: carlos.crlf-injection-logs
             log.debug("File is Readable: {}", f.canRead());
+            // File.exists() returns a boolean.
+            // nosemgrep: carlos.crlf-injection-logs
             log.debug("File exists: {}", f.exists());
             log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
         }
@@ -566,6 +570,8 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.checkElig(phn, dateofbirthyyyy, dateofbirthmm, dateofbirthdd, dateofserviceyyyy, dateofservicemm, dateofservicedd, patientvisitcharge, lasteyeexam, patientrestriction);
         log.debug("{}", LogSafe.sanitize(tr.getResult()));
+        // isSuccess() returns a boolean, not raw response text.
+        // nosemgrep: carlos.crlf-injection-logs
         log.debug("isSuccess: {}", tr.isSuccess());
         log.debug("{}", LogSafe.sanitize(tr.toString()));
         request.setAttribute("Result", tr.getResult());
@@ -579,7 +585,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             File allowedDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
             try {
                 file = PathValidationUtils.validateExistingPath(file, allowedDir);
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 // File might be in temp directory from Teleplan API
                 if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
                     throw new SecurityException("File access not allowed outside designated directory");

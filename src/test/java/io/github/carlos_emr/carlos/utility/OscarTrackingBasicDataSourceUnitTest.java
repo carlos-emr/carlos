@@ -25,6 +25,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -53,11 +54,11 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         when(delegate.isClosed()).thenReturn(false);
         Connection trackedConnection = track(delegate);
 
-        assertThat(OscarTrackingBasicDataSource.debugMap).containsKey(trackedConnection);
+        assertThat(debugMap()).containsKey(trackedConnection);
 
         OscarTrackingBasicDataSource.clearTrackingState();
 
-        assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+        assertThat(debugMap()).isEmpty();
         verify(delegate).close();
     }
 
@@ -82,6 +83,13 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
                 .getDeclaredMethod("trackConnection", Connection.class);
         trackConnection.setAccessible(true);
         return (Connection) trackConnection.invoke(null, delegate);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Connection, StackTraceElement[]> debugMap() throws Exception {
+        Field field = OscarTrackingBasicDataSource.class.getDeclaredField("debugMap");
+        field.setAccessible(true);
+        return (Map<Connection, StackTraceElement[]>) field.get(null);
     }
 
     @SuppressWarnings("unchecked")

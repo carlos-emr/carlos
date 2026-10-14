@@ -74,15 +74,21 @@
  * (the reaction description) on two different forms -- exactly the shape that
  * CRS has blocked before on other surfaces.
  *
+ * FIXTURE. The allergies are recorded for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker)
+ * and removes with every allergy row it wrote, by the patient's key. It used to record them for DEMO patient 2 and "inactivate"
+ * them afterwards through the allergy list, which only sets archived=1: two archived rows stayed on the demo patient on every run.
+ * The inactivation through the list is still driven (it is the application's own removal path) and the rows are then deleted.
+ * The second prescribing tab opens ALLERGY_OTHER_DEMOGRAPHIC_NO (a demo patient) read-only.
+ *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN
- * Optional: ALLERGY_DEMOGRAPHIC_NO (default 2), ALLERGY_SEARCH_TERM (default
- *   "amoxicillin"), ALLERGY_ALLERGEN (default "AMOXICILLIN"),
+ * Optional: MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup),
+ *   ALLERGY_SEARCH_TERM (default "amoxicillin"), ALLERGY_ALLERGEN (default "AMOXICILLIN"),
  *   ALLERGY_CUSTOM_ALLERGEN (default "CLARITHROMYCIN"),
  *   ALLERGY_EXPECT_UNCHECKED=true with an unknown custom allergen to require
  *   an explicit unresolved-check JSON result and visible Not checked notice,
- *   ALLERGY_OTHER_DEMOGRAPHIC_NO (default 1, or 2 when testing patient 1) for
- *   a read-only second prescribing tab that must not change the first tab's check,
+ *   ALLERGY_OTHER_DEMOGRAPHIC_NO (default 1) for a read-only second prescribing tab
+ *   that must not change the first tab's check,
  *   ALLERGY_DRUG_TERM (default
  *   "biaxin", a macrolide -- the free-text allergen's class),
  *   ALLERGY_TYPED_DRUG_TERM (default "amoxil", a penicillin -- the typed
@@ -92,6 +98,8 @@
 const { chromium } = require('playwright');
 const { randomUUID } = require('node:crypto');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const h = require('./lib/playwright-harness');
+const { ALLERGY_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNoPageErrors,
@@ -113,8 +121,9 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.ALLERGY_SCREENSHOT_DIR || '/tmp',
 };
-const demographicNo = process.env.ALLERGY_DEMOGRAPHIC_NO || '2';
-const otherDemographicNo = process.env.ALLERGY_OTHER_DEMOGRAPHIC_NO || (demographicNo === '1' ? '2' : '1');
+// The owned patient the allergies are recorded for, created in main (never a demo patient).
+let demographicNo = null;
+const otherDemographicNo = process.env.ALLERGY_OTHER_DEMOGRAPHIC_NO || '1';
 // Use a typed name present in both the demo and current DPD reference. Legacy
 // AHFS parent names such as PENICILLINS can disappear after a DPD refresh;
 // those need an explicit unresolved-check notice, not a fabricated match.
@@ -143,9 +152,7 @@ const typedReaction = `Rash typed check ${runMarker}`;
 const freeTextReaction = `Rash free-text check ${runMarker}`;
 const attemptedReactionMarkers = [];
 
-assert(/^\d+$/.test(demographicNo), `ALLERGY_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
-assert(/^\d+$/.test(otherDemographicNo) && Number(otherDemographicNo) !== Number(demographicNo),
-  'ALLERGY_OTHER_DEMOGRAPHIC_NO must identify a different numeric patient');
+assert(/^\d+$/.test(otherDemographicNo), 'ALLERGY_OTHER_DEMOGRAPHIC_NO must be numeric');
 // The drug picker debounces and only fires at minLength 3; a shorter term never
 // reaches the server and every assertion below would be vacuous.
 assert(drugTerm.length >= 3, `ALLERGY_DRUG_TERM must be at least 3 characters, got "${drugTerm}"`);
@@ -241,7 +248,13 @@ async function recordAllergy(page, marker, cancellation) {
   const cancellation = createGracefulSignalCancellation();
   let browser;
   let context;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
   try {
+    // The owned patient first, so every path below reaches its removal in the finally.
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch({
       ...getLaunchOptions(config.chromePath),
       // Keep Chromium available to finally; Playwright otherwise closes it on
@@ -597,6 +610,15 @@ async function recordAllergy(page, marker, cancellation) {
         if (browser) await browser.close();
       }
     } finally {
+      try {
+        // After the browser is gone: every allergy row (the archived ones included) and the patient, by the patient's key.
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ALLERGY_ROWS);
+      } catch (removeError) {
+        console.error('allergy-rx-alert fixture removal FAILED:', removeError.message);
+        process.exitCode = 1;
+      } finally {
+        sql.dispose();
+      }
       if (cancellation.exitCode) process.exitCode = cancellation.exitCode;
       cancellation.dispose();
     }

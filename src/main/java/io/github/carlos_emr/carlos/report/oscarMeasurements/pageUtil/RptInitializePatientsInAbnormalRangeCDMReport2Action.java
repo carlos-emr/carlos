@@ -48,17 +48,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends ActionSupport {
+    private static final String INVALID_VALUE_MESSAGE = "oscarReport.CDMReport.msgInvalidValue";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -75,8 +73,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
         if (!validateForm()) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsInAbnormalRangeCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         if (patientSeenCheckbox != null) {
@@ -109,34 +107,54 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         String[] lowerBound = this.getLowerBound();
         String[] abnormalCheckbox = this.getAbnormalCheckbox();
         boolean valid = true;
+        // The hidden type/instruction fields are echoes of the session definitions; anything else
+        // is a tampered request and its row is skipped, here and in the report loop.
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (abnormalCheckbox != null) {
 
             for (int i = 0; i < abnormalCheckbox.length; i++) {
-                int ctr = Integer.parseInt(abnormalCheckbox[i]);
+                // The index is request data: parse and range-check it before any array access.
+                int ctr = selection.acceptedRow(abnormalCheckbox[i], CdmReportSelectionValidator.length(startDateC),
+                        CdmReportSelectionValidator.length(endDateC), CdmReportSelectionValidator.length(upperBound),
+                        CdmReportSelectionValidator.length(lowerBound));
+                if (ctr < 0) {
+                    continue;
+                }
                 String startDate = startDateC[ctr];
                 String endDate = endDateC[ctr];
                 String upper = upperBound[ctr];
                 String lower = lowerBound[ctr];
-                String measurementType = (String) this.getValue("measurementTypeC" + ctr);
-                String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
-                int iNumMInstrc = Integer.parseInt(sNumMInstrc);
-                String upperMsg = "The upper bound value of " + measurementType;
-                String lowerMsg = "The lower bound value of " + measurementType;
+                String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeC" + ctr));
+                if (measurementType == null) {
+                    continue;
+                }
+                // The aggregate is also queried when no instruction checkbox is selected.
+                if (new RptCheckGuideline().getValidation(measurementType) == 1
+                        && (RptCheckGuideline.numericValue(upper) == null
+                        || RptCheckGuideline.numericValue(lower) == null)) {
+                    addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{measurementType}));
+                    valid = false;
+                    continue;
+                }
+                // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
+                int iNumMInstrc = selection.instructionCount(ctr);
+                String upperMsg = getText("oscarReport.CDMReport.msgUpperBoundValue", new String[]{measurementType});
+                String lowerMsg = getText("oscarReport.CDMReport.msgLowerBoundValue", new String[]{measurementType});
 
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
                 for (int j = 0; j < iNumMInstrc; j++) {
 
-                    String mInstrc = (String) this.getValue("mInstrcsCheckboxC" + ctr + j);
+                    String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckboxC" + ctr + j));
                     if (mInstrc != null) {
                         List<Validations> vs = ectValidation.getValidationType(measurementType, mInstrc);
                         String regExp = null;
@@ -145,25 +163,27 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
                         if (!vs.isEmpty()) {
                             Validations v = vs.iterator().next();
-                            dMax = v.getMaxValue();
-                            dMin = v.getMinValue();
+                            // A non-numeric rule (Yes/No/NA, Provided/Revised/Reviewed) stores no bounds; unboxing
+                            // its NULL max/min into a double threw before any report line was produced.
+                            dMax = v.getMaxValue() != null ? v.getMaxValue() : 0;
+                            dMin = v.getMinValue() != null ? v.getMinValue() : 0;
                             regExp = v.getRegularExp();
                         }
 
                         if (!ectValidation.isInRange(dMax, dMin, upper)) {
-                            addActionError(getText("errors.range", new String[]{upperMsg, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{upperMsg, Double.toString(dMin), Double.toString(dMax)}));
 
                             valid = false;
                         } else if (!ectValidation.isInRange(dMax, dMin, lower)) {
-                            addActionError(getText("errors.range", new String[]{lowerMsg, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{lowerMsg, Double.toString(dMin), Double.toString(dMax)}));
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, upper)) {
-                            addActionError(getText("errors.invalid", new String[]{upperMsg}));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{upperMsg}));
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, lower)) {
-                            addActionError(getText("errors.invalid", lowerMsg));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{lowerMsg}));
 
                             valid = false;
                         } else if (!ectValidation.isValidBloodPressure(regExp, upper)) {
@@ -196,21 +216,32 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         String[] abnormalCheckbox = this.getAbnormalCheckbox();
         RptCheckGuideline checkGuideline = new RptCheckGuideline();
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+        CdmReportSelectionValidator selection = CdmReportSelectionValidator.fromSession(request);
 
         if (abnormalCheckbox != null) {
             try {
                 MiscUtils.getLogger().debug("the length of abnormal range checkbox is " + abnormalCheckbox.length);
 
                 for (int i = 0; i < abnormalCheckbox.length; i++) {
-                    int ctr = Integer.parseInt(abnormalCheckbox[i]);
-                    MiscUtils.getLogger().debug("the value of abnormal range Checkbox is: " + abnormalCheckbox[i]);
+                    // The index is request data: parse and range-check it before any array access.
+                    int ctr = selection.acceptedRow(abnormalCheckbox[i], CdmReportSelectionValidator.length(startDateC),
+                            CdmReportSelectionValidator.length(endDateC), CdmReportSelectionValidator.length(upperBound),
+                            CdmReportSelectionValidator.length(lowerBound));
+                    if (ctr < 0) {
+                        continue;
+                    }
+                    MiscUtils.getLogger().debug("the value of abnormal range Checkbox is: " + ctr);
                     String startDate = startDateC[ctr];
                     String endDate = endDateC[ctr];
                     String upper = upperBound[ctr];
                     String lower = lowerBound[ctr];
-                    String measurementType = (String) this.getValue("measurementTypeC" + ctr);
-                    String sNumMInstrc = (String) this.getValue("mNbInstrcsC" + ctr);
-                    int iNumMInstrc = Integer.parseInt(sNumMInstrc);
+                    // Only a type the server rendered for this row may drive the patient-wide queries.
+                    String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeC" + ctr));
+                    if (measurementType == null) {
+                        continue;
+                    }
+                    // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
+                    int iNumMInstrc = selection.instructionCount(ctr);
                     double nbMetGL = 0;
                     double metGLPercentage = 0;
 
@@ -218,7 +249,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                         metGLPercentage = 0;
                         nbMetGL = 0;
 
-                        String mInstrc = (String) this.getValue("mInstrcsCheckboxC" + ctr + j);
+                        String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckboxC" + ctr + j));
                         if (mInstrc != null) {
                             List<Object[]> os = dao.findLastEntered(ConversionUtils.fromDateString(startDate),
                                     ConversionUtils.fromDateString(endDate), measurementType, mInstrc);
@@ -374,8 +405,14 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         values.put(key, value);
     }
 
+    /**
+     * Returns a {@code value(key)} form field. Struts 7 never binds these names through
+     * {@link #setValue}, so the posted request parameter is the source; see
+     * {@link MappedFormValues}.
+     */
     public Object getValue(String key) {
-        return values.get(key);
+        Object value = values.get(key);
+        return value != null ? value : MappedFormValues.get(request, key);
     }
 
     private String[] patientSeenCheckbox;

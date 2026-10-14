@@ -40,6 +40,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
@@ -82,7 +83,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -204,6 +209,8 @@ function assert(condition, message) {
   }
 }
 
+const testContexts = new Set();
+
 async function record(name, fn) {
   const start = Date.now();
   try {
@@ -213,6 +220,13 @@ async function record(name, fn) {
   } catch (error) {
     failures.push({ name, error });
     console.log(`FAIL ${name}: ${error.message}`);
+  } finally {
+    // A failed assertion must not leave its browser processes alive while later
+    // checks run, especially on a memory-constrained validation VM.
+    for (const context of testContexts) {
+      await context.close().catch(() => {});
+    }
+    testContexts.clear();
   }
 }
 
@@ -229,7 +243,9 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
+  const context = await browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
+  testContexts.add(context);
+  return context;
 }
 
 async function login(page, password = testPassword) {
@@ -273,6 +289,18 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not look like a schedule page`);
 }
 
+// This check rewrites the seeded test user's password row, so an interrupted run
+// would leave carlosdoc on a throwaway password (issue #3600). A finally does not
+// run when the process is killed; this does. restoreOriginal() is a no-op until the
+// original row has been captured, and the cleartext MySQL password file goes too.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    restoreOriginal();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
   Object.assign(original, securityRow());
   if (!baselineHash) {
@@ -283,6 +311,7 @@ async function expectSchedulePage(page, label) {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -328,10 +357,12 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      // logoutPage submits its logout form after a delay. Wait for the final login
+      // page so that pending submission cannot abort the next route's navigation.
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
       await gotoApp(page, '/billing/CA/ON/ViewBillingONMRI', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
     });
@@ -532,6 +563,8 @@ async function expectSchedulePage(page, label) {
       console.log(`Restored ${testUser} security row`);
     } finally {
       cleanupMysqlDefaultsFile();
+      // Last, so a signal arriving during the restore still reaches the handler.
+      signalHandlers.dispose();
     }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {
@@ -548,6 +581,7 @@ async function expectSchedulePage(page, label) {
   } catch (restoreError) {
     console.error(`Restore failed: ${restoreError.stack || restoreError}`);
   } finally {
+    signalHandlers.dispose();
     cleanupMysqlDefaultsFile();
   }
   process.exit(1);

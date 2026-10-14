@@ -31,19 +31,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import java.lang.reflect.Field;
+import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Integration tests for {@link ExcludeDemographicHandler}.
@@ -55,65 +59,56 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-03-07
  */
-@Disabled("Production code issue: ExcludeDemographicHandler constructor calls SpringUtils.getBean(DemographicExtDao.class) " +
-        "which returns a mock in test context. The handler needs a real DemographicExtDao to persist/query exclusions. " +
-        "Also, Demographic entity has many short VARCHAR columns that EntityDataGenerator overflows.")
+@Isolated // The legacy handler caches its DAO statically; restore it after each test.
 @Tag("integration")
 @Tag("dashboard")
 @DisplayName("ExcludeDemographicHandler integration tests")
 class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
-    private static DemographicDao demographicDao;
-    private static ExcludeDemographicHandler excludeDemographicHandler;
+    @Autowired private DemographicDao demographicDao;
+    @Autowired private DemographicExtDao demographicExtDao;
+    private ExcludeDemographicHandler excludeDemographicHandler;
     private static final String PROVIDER_NO = "100";
-    private static List<Integer> demoNos = new ArrayList<>();
+    private final List<Integer> demoNos = new ArrayList<>();
+    private Field cachedDao;
+    private Object previousDao;
 
-    @BeforeAll
-    static void setUpBeforeAll() throws Exception {
-        demographicDao = SpringUtils.getBean(DemographicDao.class);
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
-        Provider provider = new Provider();
-        provider.setProviderNo(PROVIDER_NO);
-
+    @BeforeEach
+    void setUpHandler() throws Exception {
+        // Seed valid clinical fields inside the test transaction, not random strings in
+        // short legacy columns or shared records committed by a static BeforeAll.
         for (int i = 0; i < 10; i++) {
             Demographic demographic = new Demographic();
-            EntityDataGenerator.generateTestDataForModelClass(demographic);
-            demographic.setDemographicNo(null);
-            demographic.setProvider(provider);
+            demographic.setFirstName("Synthetic" + i);
+            demographic.setLastName("ExclusionFixture");
+            demographic.setProviderNo(PROVIDER_NO);
             demographic.setSex("F");
             demographic.setMonthOfBirth("06");
             demographic.setDateOfBirth("20");
             demographic.setYearOfBirth("1985");
-            demographic.setVer("CD");
-            demographic.setRosterTerminationReason("NR");
-            demographic.setPostal("K1A0B1");
-            demographic.setResidentialPostal("K1A0B1");
-            demographic.setResidentialProvince("ON");
-            demographic.setProvince("ON");
-            demographic.setHin("");
-            demographic.setPhone("");
-            demographic.setPhone2("");
-            demographic.setChartNo("");
-            demographic.setSin("");
-            demographic.setRosterEnrolledTo("");
-            demographic.setFamilyDoctor("");
-            demographic.setPcnIndicator("");
-            demographic.setTitle("");
-            demographic.setOfficialLanguage("");
-            demographic.setSpokenLanguage("");
-            demographic.setCountryOfOrigin("");
-            demographic.setNewsletter("");
-            demographic.setRosterStatus("");
-            demographic.setPatientStatus("");
-            demographic.setHcType("");
+            demographic.setPatientStatus("AC");
             demographicDao.save(demographic);
             demoNos.add(demographic.getDemographicNo());
         }
-
-        loggedInInfo.setLoggedInProvider(provider);
+        hibernateTemplate.flush();
+        cachedDao = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
+        cachedDao.setAccessible(true);
+        previousDao = cachedDao.get(null);
+        cachedDao.set(null, demographicExtDao);
+        LoggedInInfo info = new LoggedInInfo();
+        info.setLoggedInProvider(new Provider(PROVIDER_NO));
         excludeDemographicHandler = new ExcludeDemographicHandler();
-        excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
+        excludeDemographicHandler.setLoggedinInfo(info);
+        // Requested dashboard provider is a presentation preference; exercise exclusions
+        // against the actual DAO without requiring an unrelated preference/session fixture.
+        Field dashboard = ExcludeDemographicHandler.class.getDeclaredField("dashboardManager");
+        dashboard.setAccessible(true);
+        dashboard.set(excludeDemographicHandler, mock(DashboardManager.class));
+    }
+
+    @AfterEach
+    void restoreCachedDao() throws Exception {
+        if (cachedDao != null) cachedDao.set(null, previousDao);
     }
 
     @Test

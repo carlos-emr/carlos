@@ -301,6 +301,8 @@ public class ManageEmails2Action extends ActionSupport {
      *   <li>Refreshes all email attachments by re-rendering PDF documents</li>
      *   <li>Retrieves patient consent status and email addresses</li>
      *   <li>Populates request attributes for the email compose page</li>
+     *   <li>Binds the attachments to this window's own one-time compose submission token, together
+     *       with the logged email's patient as trusted context, for the send (#4425)</li>
      * </ul>
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
