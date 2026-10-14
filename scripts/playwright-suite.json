@@ -2875,7 +2875,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
+      "fixtures": "Creates and removes an owned FAKE-PW patient; grants _newCasemgmt.episode to the test login's provider number for the run (the seeded roles deny the Episode module) and restores it; local disposable database only."
     },
     {
       "name": "record-access",
@@ -2893,7 +2893,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes owned patients, an episode and scratchpad versions; requires a second provider in a local disposable database."
+      "fixtures": "Creates and removes owned patients, an episode and scratchpad versions; grants _newCasemgmt.episode to the test login's provider number for the run (the seeded roles deny the Episode module) and restores it; requires a second provider in a local disposable database."
     },
     {
       "name": "diagnosis-flowsheet",
