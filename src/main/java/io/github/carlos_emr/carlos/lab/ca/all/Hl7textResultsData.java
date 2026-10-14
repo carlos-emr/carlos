@@ -97,12 +97,12 @@ public class Hl7textResultsData {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
         String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
         String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
         String min = Integer.toString(calender.get(Calendar.MINUTE));
         String second = Integer.toString(calender.get(Calendar.SECOND));
         String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
