@@ -34,8 +34,6 @@ async function checkViewport(browser, config, viewport) {
   // send a real request. Holding the response proves the menu opens while loading.
   await context.route('**/billing/CA/BC/ManageTeleplan**', async route => {
     requests += 1;
-    const url = new URL(route.request().url());
-    h.assert(url.searchParams.get('method') === 'checkElig', 'Unexpected eligibility request');
     await new Promise(resolve => { pendingResponses.push(resolve); });
     await route.fulfill({ contentType: 'text/html', body: '<p id="eligibility-test-result">Eligibility test response</p>' });
   });
@@ -68,10 +66,24 @@ async function checkViewport(browser, config, viewport) {
     await invoice.close();
 
     await assertCenterIsClickable(trigger);
-    await Promise.all([
+    const [eligibilityRequest] = await Promise.all([
       masterPage.waitForRequest(request => request.url().includes('/billing/CA/BC/ManageTeleplan'), { timeout: TIMEOUT }),
       trigger.click(),
     ]);
+    // Inspect the intercepted browser request, including the real CSRFGuard XHR hook.
+    // The server's verb guard is covered separately with mocked Teleplan dependencies.
+    h.assert(eligibilityRequest.method() === 'POST', 'Eligibility must POST to the guarded action');
+    const headers = await eligibilityRequest.allHeaders();
+    h.assert(headers['content-type']?.startsWith('application/x-www-form-urlencoded'),
+      'Eligibility parameters must be form encoded');
+    const parameters = new URLSearchParams(eligibilityRequest.postData() || '');
+    h.assert(parameters.getAll('method').length === 1 && parameters.get('method') === 'checkElig',
+      'Eligibility POST must contain method=checkElig');
+    const demographic = await masterPage.locator('#menu2').getAttribute('data-demographic');
+    h.assert(demographic && parameters.getAll('demographic').length === 1 && parameters.get('demographic') === demographic,
+      'Eligibility POST must contain the displayed patient demographic');
+    h.assert(Boolean(headers['csrf-token']) && !headers['csrf-token'].includes(','),
+      'The existing CSRFGuard XHR hook must supply one CSRF token header');
     const dialog = masterPage.locator('.ui-dialog').filter({ has: masterPage.locator('#menu2') });
     await dialog.waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(requests === 1, 'Opening eligibility must send exactly one request');
@@ -112,7 +124,7 @@ async function main() {
   try {
     for (const viewport of VIEWPORTS) await checkViewport(browser, config, viewport);
   } finally { await browser.close(); }
-  return 'BC navigation centre clicks and explicit eligibility dialog verified at 1280x720 and 1600x1000; eligibility response stubbed, no external integration tested';
+  return 'BC navigation centre clicks, eligibility POST parameters and CSRF header verified at 1280x720 and 1600x1000; eligibility response stubbed, no external integration tested';
 }
 if (require.main === module) h.runCheck({ name: 'bc-master-record-navigation', run: main });
 module.exports = { VIEWPORTS, assertCenterIsClickable, checkViewport, main };

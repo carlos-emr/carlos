@@ -23,9 +23,10 @@ const html = `<!doctype html><html><body>
 <input name="newIssueId" id="newIssueId"><input name="newIssueName" id="newIssueName">${noteControls}</form>
 <form id="frmIssueNotes"><input name="issueChange"><input id="issueAutocompleteCPP" class="issueAutocomplete">
 <ul id="issueIdList"></ul></form>
-<form name="caseManagementViewForm"><input name="method"><input name="resetFilter"><input id="check_issue" value="99">
+<form name="caseManagementViewForm"><input name="method"><input name="resetFilter"><input id="check_issue" name="check_issue" value="99">
 <button type="button" id="notesFilterToggle" aria-expanded="false" onclick="return showFilter()">Filter</button>
 <div id="filter" style="display:none"><input type="checkbox" name="issues" value="12"><input type="checkbox" name="issues" value="13">
+<input type="checkbox" name="filter_providers" value="200"><input type="checkbox" name="filter_roles" value="7">
 <input type="radio" name="note_sort" value="date"><input type="radio" name="note_sort" value="name">
 <input type="button" value="Hide" onclick="return filter(false)"><input type="button" value="Reset" onclick="return filter(true)"></div></form>
 <button type="button" id="unresolvedHeading" onclick="return clearIssueFilter()">Unresolved Issues</button>
@@ -51,9 +52,19 @@ const html = `<!doctype html><html><body>
     await page.addScriptTag({ content: `
       var ctx='', demographicNo='1', providerNo='2', fullChart='true', issueUpdatesPending=0, submitIssues=false;
       var caseNote=''; function deferNoteSaveUntilIssues() {return false;} function changeToView() {return true;}
+      var replaceFiltersOnResponse=true;
       var sent=[], assignments=[]; var pickIssueMsg='Pick an issue';
       var $=function(id) { var el=typeof id==='string'?document.getElementById(id):id;
-        if(el) el.update=function(html) { this.innerHTML=html; }; return el; };
+        if(el) el.update=function(html) {
+          this.innerHTML=html;
+          if (window.replaceFiltersOnResponse) {
+            var previous=document.forms.caseManagementViewForm;
+            var replacement=previous.cloneNode(true);
+            replacement.querySelectorAll('input').forEach(function(control) {control.checked=false;});
+            replacement.querySelector('#check_issue').value='';
+            previous.replaceWith(replacement);
+          }
+        }; return el; };
       var Event={stop:function(event) {event.preventDefault();event.stopPropagation();}};
       var Form={serialize:function(form) {return jQuery(form).serialize();}};
       var CarlosAjax={request:function(url, options) {sent.push(options.postBody);
@@ -63,6 +74,7 @@ const html = `<!doctype html><html><body>
       ${block('    var disposeNoteIssueSearch =', '    var ajaxRequest;')}
       ${block('    function resetInputElements(', '// find index of month')}
       ${block('    function showFilter(', '    function filterCheckBox(')}
+      ${block('    function setIssueCheckbox(', '    function assignNoteAjax(')}
       initializeIssueAutocomplete(document);
     ` });
     async function pick(selector) {
@@ -108,22 +120,95 @@ const html = `<!doctype html><html><body>
     assert.equal(await page.locator('#filter').isVisible(), false);
     await page.locator('#notesFilterToggle').click();
     await page.locator('input[name="issues"][value="12"]').check();
+    await page.locator('input[name="filter_providers"]').check();
+    await page.locator('input[name="filter_roles"]').check();
+    await page.locator('input[name="note_sort"][value="date"]').check();
     await page.locator('#filter input[value="Hide"]').click();
     let post = new URLSearchParams(await page.evaluate(() => sent.at(-1)));
     assert.equal(post.get('issues'), '12'); assert.equal(post.get('resetFilter'), 'false');
+    assert.equal(await page.locator('#check_issue').inputValue(), '99');
+    for (const name of ['issues', 'filter_providers', 'filter_roles', 'note_sort']) {
+      assert.equal(await page.locator(`input[name="${name}"]:checked`).count(), 1, 'Apply lost ' + name);
+    }
     for (const control of ['#filter input[value="Reset"]', '#unresolvedHeading', '#resolvedHeading']) {
       await page.locator('input[name="issues"][value="12"]').check();
       await page.locator('input[name="note_sort"][value="date"]').check();
+      await page.locator('input[name="filter_providers"]').check();
+      await page.locator('input[name="filter_roles"]').check();
+      await page.locator('#check_issue').fill('99');
       if (control === '#unresolvedHeading') await page.locator(control).press('Enter');
       else if (control === '#resolvedHeading') await page.locator(control).press('Space');
       else await page.locator(control).click();
       post = new URLSearchParams(await page.evaluate(() => sent.at(-1)));
-      assert.equal(post.get('resetFilter'), 'true');
-      assert.equal(post.has('issues'), false); assert.equal(post.has('note_sort'), false);
-      assert.equal(await page.locator('input:checked').count(), 1, 'Only the unrelated CPP selection stays checked');
+      const reset = control.includes('Reset');
+      assert.equal(post.get('resetFilter'), String(reset));
+      assert.equal(post.has('issues'), false);
+      assert.equal(post.get('check_issue'), '');
+      for (const [name, value] of [['filter_providers', '200'], ['filter_roles', '7'], ['note_sort', 'date']]) {
+        assert.equal(post.get(name), reset ? null : value);
+        assert.equal(await page.locator(`input[name="${name}"]:checked`).count(), reset ? 0 : 1);
+      }
+      assert.equal(await page.locator('#frmIssueNotes input:checked').count(), 1);
       assert.equal(await page.locator('#notCPP').innerText(), 'listing refreshed');
     }
-    console.log('PASS filter open/hide/apply/reset and both heading clicks send cleared filters and refresh notes');
+    await page.evaluate(() => setIssueCheckbox('13'));
+    assert.equal(await page.locator('input[name="issues"][value="13"]').isChecked(), true,
+      'A sidebar issue must remain selectable after checked states were restored');
+    await page.locator('#filter input[value="Hide"]').click();
+    post = new URLSearchParams(await page.evaluate(() => sent.at(-1)));
+    assert.deepEqual(post.getAll('issues'), ['13']);
+    assert.equal(post.get('filter_providers'), '200');
+    assert.equal(post.get('filter_roles'), '7');
+    assert.equal(post.get('note_sort'), 'date');
+    console.log('PASS filter open/hide/apply/reset; both headings retain provider/role/sort after form replacement and clear only issues');
+    await page.addScriptTag({ content: `
+      var noteSwitchSavePending=false, issueUpdateFailed=false, queuedNoteSave=null, noteIssuesChanged=true;
+      var updateIssueError='Issue update failed', noteSavingMessage='Saving', unsavedNoteWarning='Save draft?';
+      var origCaseNote='', origObservationDate='date';
+      var $F=function(id) {return $(id).value;};
+      ${block('    function changeToView(', '    function finishChangeToView(')}
+      ${block('    function deferNoteSaveUntilIssues(', '    function ajaxUpdateIssues(')}
+    ` });
+    await page.evaluate(() => {
+      const form = document.forms.caseManagementEntryForm;
+      const host = document.createElement('div'); host.id = 'n999'; form.appendChild(host);
+      const date = document.createElement('input'); date.id = 'observationDate'; date.value = 'date'; form.appendChild(date);
+      const view = document.forms.caseManagementViewForm;
+      const snapshot = () => new URLSearchParams(new FormData(view)).toString();
+      window.alert = () => {};
+      for (const outcome of ['pending issues', 'issue failure', 'save pending', 'cancel', 'save failure', 'success']) {
+        host.innerHTML = '<textarea id="guardEditor">dirty draft</textarea>';
+        caseNote = 'guardEditor'; noteIssuesChanged = true;
+        issueUpdatesPending = ['pending issues', 'success'].includes(outcome) ? 1 : 0;
+        issueUpdateFailed = outcome === 'issue failure'; noteSwitchSavePending = outcome === 'save pending'; queuedNoteSave = null;
+        view.querySelectorAll('input[type="checkbox"]').forEach(input => {input.checked = true;});
+        view.querySelector('input[name="note_sort"][value="date"]').checked = true;
+        document.getElementById('check_issue').value = '99';
+        const before = snapshot(); const count = sent.length; const saves = [];
+        window.confirm = () => outcome !== 'cancel';
+        window.ajaxSaveNote = (sig, id, text, done) => saves.push(done);
+        window.finishChangeToView = id => document.getElementById(id).remove();
+        document.getElementById('unresolvedHeading').click();
+        if (snapshot() !== before || sent.length !== count) throw new Error(outcome + ' changed filters before the save');
+        if (outcome === 'save failure') saves[0](false);
+        if (outcome !== 'success') {
+          if (snapshot() !== before || document.getElementById('guardEditor').value !== 'dirty draft') throw new Error(outcome + ' lost draft/filter state');
+          continue;
+        }
+        finishIssueUpdate(true);
+        if (snapshot() !== before || saves.length !== 1) throw new Error('Pending issue completion changed filters before saving');
+        saves[0](true);
+        const post = new URLSearchParams(sent.at(-1));
+        if (sent.length !== count + 1 || post.get('resetFilter') !== 'false' || post.get('check_issue') !== '' || post.has('issues')) {
+          throw new Error('Successful save did not clear exactly the issue constraints');
+        }
+        for (const [name, value] of [['filter_providers', '200'], ['filter_roles', '7'], ['note_sort', 'date']]) {
+          if (post.get(name) !== value) throw new Error('Successful save lost ' + name);
+        }
+      }
+      host.remove(); date.remove(); caseNote = '';
+    });
+    console.log('PASS heading guards preserve filters/draft on pending/cancel/failure and retain non-issue filters after save');
     const markupChecks = {
       cpp: block("        var noteIssueUl =", '        var noteInfo ='),
       textarea: block('    function createNoteTextarea(', '    function editNote('),

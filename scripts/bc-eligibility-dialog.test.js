@@ -64,7 +64,7 @@ test('shouldDoNothing_whenServerOmitsThePermittedBCControl', () => {
   assert.equal(setup({ permitted: false }).requests.length, 0);
 });
 
-test('shouldOpenImmediatelyAndRenderResult_onExplicitClick', () => {
+test('shouldPostEligibilityParametersAndRenderResult_onExplicitClick', () => {
   const s = setup();
   assert.equal(s.trigger.fire('click').prevented, true);
   assert.equal(s.visible(), true);
@@ -73,7 +73,7 @@ test('shouldOpenImmediatelyAndRenderResult_onExplicitClick', () => {
   assert.equal(s.spinner.hidden, false);
   assert.equal(s.requests.length, 1);
   assert.deepEqual(s.requests[0].config, {
-    url: '/carlos/billing/CA/BC/ManageTeleplan', method: 'GET', dataType: 'html', cache: false,
+    url: '/carlos/billing/CA/BC/ManageTeleplan', method: 'POST', dataType: 'html', cache: false,
     timeout: 30000, data: { demographic: '123', method: 'checkElig' },
   });
   s.requests[0].settle(true, '<p>Eligible (test response)</p>');

@@ -187,6 +187,10 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(id), 'The casemgmt_issue fixture was not created');
       sql.execute(`INSERT INTO casemgmt_issue_notes (id, note_id) VALUES (${id}, ${notes.a})`);
       h.assert(caseIssue(issueId, notes.a) !== null, 'The seeded link is not readable through casemgmt_issue_notes');
+      if (PIN === 'heading') {
+        // Distinct owned dates make retained ascending sort observable, independent of save timing.
+        sql.execute(`UPDATE casemgmt_note SET observation_date=CASE note_id WHEN ${notes.a} THEN '2026-08-01 10:00:00' ELSE '2026-08-02 10:00:00' END WHERE note_id IN (${notes.a},${notes.b}) AND demographic_no=${patient}`);
+      }
     });
   }
 
@@ -220,8 +224,8 @@ async function workflow(s) {
     });
   }
 
-  async function stepClickFilters() {
-    await s.step('clicking the issue in the Issues module lists only the linked note', async () => {
+  async function stepClickFilters(label = 'clicking the issue in the Issues module lists only the linked note') {
+    await s.step(label, async () => {
       const chart = await s.chart();
       const before = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`));
       const filterPost = candidate => chartSaveRequest('edit')(candidate.request())
@@ -243,8 +247,58 @@ async function workflow(s) {
   async function stepHeading(module = 'unresolvedIssues') {
     await s.step(module === 'unresolvedIssues' ? STEP.heading : 'clicking the Resolved Issues heading brings every note back', async () => {
       const chart = await s.chart();
-      await chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT });
-      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+      if (PIN !== 'heading') {
+        await chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT });
+        await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list every note', 8000);
+        return;
+      }
+      const link = caseIssue(issueId, notes.a);
+      h.assert(link !== null && /^[1-9]\d*$/.test(link.id), 'The seeded issue link is missing before clearing its heading filter');
+      const [provider, role] = sql.rows(`SELECT provider_no, reporter_caisi_role FROM casemgmt_note WHERE note_id=${notes.a}`)[0];
+      h.assert(/^\d+$/.test(provider) && /^\d+$/.test(role), 'The note fixture has no provider/role filter values');
+      await chart.locator('#notesFilterToggle').click();
+      const retained = { filter_providers: provider, filter_roles: role, note_sort: 'observation_date_asc' };
+      for (const [name, value] of Object.entries(retained)) {
+        await chart.locator(`#filter input[name="${name}"][value="${value}"]`).check();
+      }
+      await chart.locator(`#filter input[name="issues"][value="${link.id}"]`).check();
+      // Exercise the legacy hidden constraint as well as the visible issue checkbox.
+      await chart.locator('#check_issue').evaluate((input, value) => { input.value = value; }, `${link.id}.${issueId}`);
+      const previousFilter = await chart.locator('#filter').elementHandle();
+      const [applied] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator('#filter input[type="button"][value="Hide"]').click(),
+      ]);
+      h.assert(applied.status() === 200, 'Applying provider/role/sort and issue filters failed');
+      await chart.waitForFunction(element => !element.isConnected, previousFilter, { timeout: TIMEOUT });
+      await previousFilter.dispose();
+      await waitForListed(chart, [notes.a], 'Applying the selected filters did not retain only the issue-linked note');
+      for (const [name, value] of Object.entries({...retained, issues: link.id})) {
+        h.assert(await chart.locator(`#filter input[name="${name}"][value="${value}"]`).isChecked(),
+          `Apply lost the selected ${name} before the heading was clicked`);
+      }
+      h.assert(await chart.locator('#check_issue').inputValue() === `${link.id}.${issueId}`,
+        'Apply lost the legacy issue constraint before the heading was clicked');
+      const [response] = await Promise.all([
+        chart.waitForResponse(candidate => chartSaveRequest('edit')(candidate.request())
+          && new URLSearchParams(candidate.request().postData() || '').get('ajaxview') === 'ajaxView', { timeout: TIMEOUT }),
+        chart.locator(`#${module} .nav-menu-title button`).first().click({ timeout: TIMEOUT }),
+      ]);
+      h.assert(response.status() === 200, 'Clearing the issue filter failed');
+      const data = new URLSearchParams(response.request().postData() || '');
+      h.assert(data.get('resetFilter') === 'false' && data.get('check_issue') === '' && !data.has('issues'),
+        'The heading did not clear both issue controls without resetting every filter');
+      for (const [name, value] of Object.entries(retained)) {
+        h.assert(data.get(name) === value, `The heading discarded the selected ${name}`);
+      }
+      await waitForListed(chart, [notes.a, notes.b], 'After the heading was clicked the notes area does not list both matching notes', 8000);
+      h.assert((await listedIds(chart)).join(',') === [notes.a, notes.b].join(','), 'The heading lost ascending note sort order');
+      const selected = await chart.locator('#filter input:checked').evaluateAll(inputs => inputs.map(input => ({name: input.name, value: input.value})));
+      const missing = Object.entries(retained).filter(([name, value]) => !selected.some(input => input.name === name && input.value === value)).map(([name]) => name);
+      h.assert(missing.length === 0, `The refreshed filter controls lost selections: ${missing.join(', ')}`);
+      h.assert(await chart.locator('#check_issue').inputValue() === '' && selected.every(input => input.name !== 'issues'),
+        'The refreshed filter controls retained an issue constraint');
     });
   }
 
@@ -377,6 +431,7 @@ async function workflow(s) {
     await stepClickFilters();
     // Finding 226. The click is the behaviour under test: the heading's handler is a syntax error, so nothing changes.
     await stepHeading();
+    await stepClickFilters('after filter restoration, the sidebar issue still narrows the list to its linked note');
     await s.step('(fixture) resolving the owned issue exposes its Resolved Issues module link', async () => {
       const chart = await s.chart();
       await leaveChart(chart);

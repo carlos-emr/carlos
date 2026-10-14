@@ -2548,11 +2548,11 @@ function updateCPPNote() {
         }
     }
 
-    function filter(reset) {
-        if (deferNoteSaveUntilIssues(function () { filter(reset); })) return false;
+    function filter(reset, clearIssues) {
+        if (deferNoteSaveUntilIssues(function () { filter(reset, clearIssues); })) return false;
         // A filter reload replaces the editor just like opening another note.
         // Preserve unsaved text and assignments, and honor cancel/save failures.
-        if (!changeToView(caseNote, function () { filter(reset); })) return false;
+        if (!changeToView(caseNote, function () { filter(reset, clearIssues); })) return false;
         var url = ctx + "/CaseManagementEntry";
         var params = "ajaxview=ajaxView&fullChart=" + fullChart;
         document.forms["caseManagementEntryForm"].method.value = "edit";
@@ -2564,17 +2564,26 @@ function updateCPPNote() {
         document.forms["caseManagementViewForm"].method.value = "view";
         document.forms["caseManagementViewForm"].resetFilter.value = reset;
 
-        if (reset) {
+        // Heading clicks clear only issue constraints, after navigation can proceed.
+        if (reset || clearIssues) {
             var checkIssue = document.getElementById('check_issue');
             if (checkIssue) checkIssue.value = '';
+            resetInputElements(document.forms["caseManagementViewForm"].issues);
+        }
+        if (reset) {
             resetInputElements(document.forms["caseManagementViewForm"].filter_providers);
             resetInputElements(document.forms["caseManagementViewForm"].filter_roles);
             resetInputElements(document.forms["caseManagementViewForm"].note_sort);
-            resetInputElements(document.forms["caseManagementViewForm"].issues);
         }
 
         var caseMgtEntryfrm = document.forms["caseManagementEntryForm"];
         var caseMgtViewfrm = document.forms["caseManagementViewForm"];
+        var filterNames = ['filter_providers', 'filter_roles', 'note_sort', 'issues'];
+        var selectedFilters = Array.from(caseMgtViewfrm.elements).filter(function (control) {
+            return control.checked && filterNames.indexOf(control.name) !== -1;
+        }).map(function (control) { return {name: control.name, value: control.value}; });
+        var legacyIssueControl = document.getElementById('check_issue');
+        var selectedLegacyIssue = legacyIssueControl ? legacyIssueControl.value : '';
 
         // Serialize caseMgtEntryfrm excluding demographicNo field, this is to avoid duplicate demographicNo
         var clonedForm = caseMgtEntryfrm.cloneNode(true);
@@ -2595,6 +2604,20 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    // The response replaces the form with unchecked controls. Restore the
+                    // applied state before the deferred initial note load, including an empty Reset.
+                    var refreshedForm = document.forms["caseManagementViewForm"];
+                    if (refreshedForm) {
+                        Array.from(refreshedForm.elements).forEach(function (control) {
+                            if (filterNames.indexOf(control.name) !== -1) {
+                                control.checked = selectedFilters.some(function (selected) {
+                                    return selected.name === control.name && selected.value === control.value;
+                                });
+                            }
+                        });
+                    }
+                    var refreshedIssueControl = document.getElementById('check_issue');
+                    if (refreshedIssueControl) refreshedIssueControl.value = selectedLegacyIssue;
                 },
                 onFailure: function (request) {
                     $("notCPP").update("Error: " + request.status);
@@ -3298,7 +3321,7 @@ function updateCPPNote() {
     }
 
     function clearIssueFilter() {
-        return filter(true);
+        return filter(false, true);
     }
 
     function filterCheckBox(checkbox) {
@@ -4180,7 +4203,7 @@ function autoSave() {
     function setIssueCheckbox(val) {
         jQuery("input[name='issues']").each(function () {
             if (jQuery(this).val() == val)
-                jQuery(this).attr("checked", "checked");
+                jQuery(this).prop("checked", true);
         });
     }
 

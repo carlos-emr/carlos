@@ -36,9 +36,10 @@
         panel.setAttribute('aria-busy', 'true');
         spinner.hidden = false;
         result.textContent = '';
+        // CSRFGuard's existing XMLHttpRequest hook supplies the CSRF header.
         $.ajax({
             url: panel.dataset.url,
-            method: 'GET',
+            method: 'POST',
             dataType: 'html',
             cache: false,
             timeout: 30000,

@@ -180,8 +180,13 @@ function parseInitialHeader(html) {
   };
 }
 
+function isChartNavigation(request) {
+  // An initial popup navigation may exist before Playwright can associate its frame.
+  return request.isNavigationRequest() && new URL(request.url()).pathname.endsWith('/CaseManagementEntry');
+}
+
 async function readInitialChartHeader(requests, chartPage) {
-  const matching = requests.filter(request => request.frame() === chartPage.mainFrame());
+  const matching = requests.filter(isChartNavigation);
   assert(matching.length === 1, 'Expected exactly one chart document response');
   const response = await matching[0].response();
   assert(response && response.status() === 200 && /text\/html/i.test(response.headers()['content-type'] || ''),
@@ -203,8 +208,8 @@ function assertInitialHeader(language, initial, settled) {
 }
 
 /** Request object stays local; diagnostics retain only language, never URL/query/cookies. */
-async function readChartRequestLanguage(requests, chartPage) {
-  const matching = requests.filter(request => request.frame() === chartPage.mainFrame());
+async function readChartRequestLanguage(requests) {
+  const matching = requests.filter(isChartNavigation);
   assert(matching.length === 1, 'Expected exactly one initial chart document request in this fresh session');
   return (await matching[0].allHeaders())['accept-language'] || '';
 }
@@ -336,7 +341,7 @@ async function walkInLanguage(browser, config, language, options) {
     assert((await context.cookies()).length === 0, 'Locale checks must begin without session cookies');
     const chartRequests = [];
     context.on('request', request => {
-      if (request.isNavigationRequest() && new URL(request.url()).pathname.endsWith('/CaseManagementEntry')) {
+      if (isChartNavigation(request)) {
         chartRequests.push(request);
       }
     });
@@ -353,7 +358,7 @@ async function walkInLanguage(browser, config, language, options) {
       searchTerm, preferredDemographicNo, timeout,
     });
     const chartPage = await openChart(context, masterPage, recorder, timeout);
-    const firstRequestLanguage = await readChartRequestLanguage(chartRequests, chartPage);
+    const firstRequestLanguage = await readChartRequestLanguage(chartRequests);
     const header = await readHeader(chartPage, timeout);
     const initial = await readInitialChartHeader(chartRequests, chartPage);
     assertInitialHeader(language, initial, header);
@@ -388,7 +393,7 @@ async function walkInLanguage(browser, config, language, options) {
     const reloadInitial = await readInitialChartHeader(chartRequests, chartPage);
     assertInitialHeader(language, reloadInitial, reloaded);
     assertLanguage(language, reloaded);
-    const reloadRequestLanguage = await readChartRequestLanguage(chartRequests, chartPage);
+    const reloadRequestLanguage = await readChartRequestLanguage(chartRequests);
     assert(firstRequestLanguage === reloadRequestLanguage,
       `The chart request language changed from ${JSON.stringify(firstRequestLanguage)} on first open `
       + `to ${JSON.stringify(reloadRequestLanguage)} on reload`);

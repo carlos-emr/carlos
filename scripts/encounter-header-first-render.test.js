@@ -6,6 +6,11 @@ const vm = require('node:vm');
 const { LANGUAGES, parseInitialHeader, readInitialChartHeader, assertInitialHeader, readChartRequestLanguage } =
   require('./encounter-header-i18n-playwright-checks');
 
+function chartNavigation(overrides = {}) {
+  return { isNavigationRequest: () => true,
+    url: () => 'https://fixture.test/carlos/CaseManagementEntry?method=setUpMainEncounter', ...overrides };
+}
+
 function snapshot(language = 'fr', { empty = false } = {}) {
   const document = {
     documentElement: { getAttribute: () => language },
@@ -38,15 +43,14 @@ test('shouldAcceptFrenchInitialResponse_whenHeaderRemainsStable', () => {
 });
 
 test('shouldReadTheOriginalNavigationResponse_withoutReissuingTheRequest', async () => {
-  const frame = {};
   const html = '<html lang="fr"><script>throw new Error("must remain inert")</script></html>';
-  const page = { mainFrame: () => frame, evaluate: async (parser, received) => {
+  const page = { evaluate: async (parser, received) => {
     assert.equal(parser, parseInitialHeader);
     assert.equal(received, html);
     return 'snapshot';
   } };
-  const request = { frame: () => frame, response: async () => ({ status: () => 200,
-    headers: () => ({ 'content-type': 'text/html;charset=UTF-8' }), text: async () => html }) };
+  const request = chartNavigation({ response: async () => ({ status: () => 200,
+    headers: () => ({ 'content-type': 'text/html;charset=UTF-8' }), text: async () => html }) });
   assert.equal(await readInitialChartHeader([request], page), 'snapshot');
   await assert.rejects(() => readInitialChartHeader([request, request], page), /exactly one/);
   request.response = async () => ({ status: () => 302 });
@@ -54,11 +58,23 @@ test('shouldReadTheOriginalNavigationResponse_withoutReissuingTheRequest', async
 });
 
 test('shouldReadOnlyChartLanguage_whenOtherPagesAlsoNavigate', async () => {
-  const frame = {};
-  const page = { mainFrame: () => frame };
-  const chart = { frame: () => frame, allHeaders: async () => ({ 'accept-language': 'fr-CA,fr;q=0.9', cookie: 'secret' }) };
-  assert.equal(await readChartRequestLanguage([{ frame: () => ({}) }, chart], page), 'fr-CA,fr;q=0.9');
-  await assert.rejects(() => readChartRequestLanguage([chart, chart], page), /exactly one/);
+  const chart = chartNavigation({ allHeaders: async () => ({ 'accept-language': 'fr-CA,fr;q=0.9', cookie: 'secret' }) });
+  const otherPage = chartNavigation({ url: () => 'https://fixture.test/carlos/demographic/demographiccontrol.jsp' });
+  const chartAjax = chartNavigation({ isNavigationRequest: () => false });
+  assert.equal(await readChartRequestLanguage([otherPage, chartAjax, chart]), 'fr-CA,fr;q=0.9');
+  await assert.rejects(() => readChartRequestLanguage([chart, chart]), /exactly one/);
+  await assert.rejects(() => readChartRequestLanguage([otherPage, chartAjax]), /exactly one/);
+});
+
+test('shouldReadInitialPopupDocumentAndLanguage_whenItsFrameIsNotAvailable', async () => {
+  const html = '<html lang="fr">original chart document</html>';
+  const request = chartNavigation({
+    frame: () => { throw new Error('Frame for this navigation request is not available'); },
+    allHeaders: async () => ({ 'accept-language': 'fr-CA' }),
+    response: async () => ({ status: () => 200, headers: () => ({ 'content-type': 'text/html' }), text: async () => html }),
+  });
+  assert.equal(await readInitialChartHeader([request], { evaluate: async (_, text) => text }), html);
+  assert.equal(await readChartRequestLanguage([request]), 'fr-CA');
 });
 
 test('shouldRunNativeFrenchFirst_withoutAHeaderRewrite', () => {

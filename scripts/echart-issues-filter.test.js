@@ -67,7 +67,7 @@ function harness() {
   const context = { document, jQuery, ctx: '/carlos', fullChart: 'true', demographicNo: '100', providerNo: '200',
     submitIssues: false, issueUpdatesPending: 0, Event: { stop() {} }, alert: msg => alerts.push(msg),
     ajaxUpdateIssues: (method, div) => updates.push({ method, div }), $: id => fields[id],
-    filter: reset => { requests.push({ reset }); return false; } };
+    filter: (reset, clearIssues) => { requests.push({ reset, clearIssues }); return false; } };
   vm.createContext(context);
   vm.runInContext(block('    var changeIssueMsg;', '    var closeWithoutSaveMsg;')
     + block('    var disposeNoteIssueSearch =', '    var ajaxRequest;')
@@ -196,7 +196,7 @@ test('filter show and hide follow the rendered state after AJAX replaces the pan
   }
 });
 
-test('both fixed issue heading handlers clear the issue constraint and request the full list', () => {
+test('both fixed issue heading handlers request only the issue constraint to clear', () => {
   const h = harness();
   const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp'), 'utf8');
   const branch = jsp.match(/else if \("unresolvedIssues"\.equals\(navbarName\) \|\| "resolvedIssues"\.equals\(navbarName\)\)[\s\S]*?onclick="([^"]+)"/);
@@ -206,7 +206,8 @@ test('both fixed issue heading handlers clear the issue constraint and request t
     h.fields.check_issue.value = name;
     vm.runInContext(`(function () { ${branch[1]} })()`, h.context);
     assert.equal(h.fields.check_issue.value, name, 'Heading must not mutate filters before the save guard');
-    assert.equal(h.requests.at(-1).reset, true);
+    assert.equal(h.requests.at(-1).reset, false);
+    assert.equal(h.requests.at(-1).clearIssues, true);
   }
 });
 
@@ -370,3 +371,98 @@ test('new and existing note textareas preserve raw values, names and natural key
   }
   assert.match(source, /var noteEditorLabel = "\$\{carlos:forJavaScriptBlock\(noteEditorLabel\)\}"/);
 });
+
+function headingFilterHarness() {
+  const h = harness(); const saves = [];
+  const view = { method: {value: ''}, resetFilter: {value: 'false'},
+    filter_providers: [element('input', {checked: true, value: '200'}), element('input', {checked: false, value: '201'})],
+    filter_roles: [element('input', {checked: true, value: '7'}), element('input', {checked: false, value: '8'})],
+    note_sort: [element('input', {checked: false, value: 'date'}), element('input', {checked: true, value: 'name'})],
+    issues: [element('input', {checked: true, value: '73'}), element('input', {checked: true, value: '74'})] };
+  view.elements = ['filter_providers', 'filter_roles', 'note_sort', 'issues'].flatMap(name => view[name].map(field => Object.assign(field, {name})));
+  h.document.forms.caseManagementViewForm = view;
+  for (const name of ['method', 'note_edit', 'noteId', 'ajax', 'chain']) h.note[name] = { value: 'original' };
+  h.note.cloneNode = () => h.note;
+  h.fields.editor = {value: 'dirty draft', parentNode: {id: 'n31'}};
+  h.fields.observationDate = {value: 'same date'};
+  Object.assign(h.context, {caseNote: 'editor', origCaseNote: '', origObservationDate: 'same date', noteIssuesChanged: true,
+    noteSwitchSavePending: false, issueUpdateFailed: false, queuedNoteSave: null,
+    updateIssueError: 'Issue update failed', noteSavingMessage: 'Saving', unsavedNoteWarning: 'Save draft?',
+    $F: id => h.fields[id].value, confirm: () => true,
+    ajaxSaveNote: (sig, id, text, done) => saves.push(done),
+    finishChangeToView: () => { delete h.fields.editor; h.context.noteIssuesChanged = false; },
+    Form: {serialize: form => JSON.stringify(form === view ? view : h.note.elements)},
+    CarlosAjax: {request: (url, options) => h.requests.push(options)} });
+  vm.runInContext(block('    function filter(', '// find index of month')
+    + block('    function changeToView(', '    function finishChangeToView(')
+    + block('    function deferNoteSaveUntilIssues(', '    function ajaxUpdateIssues('), h.context);
+  return {...h, view, saves, snapshot: () => JSON.stringify([view, h.fields.check_issue, h.note.elements])};
+}
+
+for (const outcome of ['pending issues', 'issue failure', 'save pending', 'cancel', 'save failure']) {
+  test(`issue heading preserves every filter and the dirty editor on ${outcome}`, () => {
+    const h = headingFilterHarness(); const before = h.snapshot();
+    h.context.issueUpdatesPending = outcome === 'pending issues' ? 1 : 0;
+    h.context.issueUpdateFailed = outcome === 'issue failure';
+    h.context.noteSwitchSavePending = outcome === 'save pending';
+    h.context.confirm = () => outcome !== 'cancel';
+    assert.equal(h.context.clearIssueFilter(), false);
+    if (outcome === 'pending issues') {
+      assert.equal(h.snapshot(), before);
+      h.context.finishIssueUpdate(false);
+    }
+    if (outcome === 'save failure') h.saves[0](false);
+    assert.equal(h.snapshot(), before);
+    assert.equal(h.fields.editor.value, 'dirty draft');
+    assert.equal(h.requests.length, 0);
+  });
+}
+
+test('issue heading resumes after pending assignments and successful save, clearing only issue controls', () => {
+  const h = headingFilterHarness(); const before = h.snapshot();
+  h.context.issueUpdatesPending = 1;
+  h.context.clearIssueFilter();
+  assert.equal(h.saves.length, 0); assert.equal(h.snapshot(), before);
+  h.context.finishIssueUpdate(true);
+  assert.equal(h.saves.length, 1); assert.equal(h.snapshot(), before);
+  h.saves[0](true);
+  assert.equal(h.fields.check_issue.value, '');
+  assert.ok(h.view.issues.every(field => !field.checked));
+  assert.deepEqual(h.view.filter_providers.map(field => field.checked), [true, false]);
+  assert.deepEqual(h.view.filter_roles.map(field => field.checked), [true, false]);
+  assert.deepEqual(h.view.note_sort.map(field => field.checked), [false, true]);
+  assert.equal(h.view.resetFilter.value, false);
+  assert.equal(h.requests.length, 1);
+});
+
+test('explicit Reset still clears provider, role, sort and both issue controls', () => {
+  const h = headingFilterHarness();
+  delete h.fields.editor;
+  h.context.filter(true);
+  for (const name of ['filter_providers', 'filter_roles', 'note_sort', 'issues']) {
+    assert.ok(h.view[name].every(field => !field.checked));
+  }
+  assert.equal(h.fields.check_issue.value, '');
+  assert.equal(h.view.resetFilter.value, true);
+  assert.equal(h.requests.length, 1);
+});
+
+for (const mode of ['apply', 'heading', 'reset']) {
+  test(`${mode} restores its resulting selections and legacy issue value after replacing the form`, () => {
+    const h = headingFilterHarness();
+    delete h.fields.editor;
+    h.context.filter(mode === 'reset', mode === 'heading');
+    const selectedLegacyIssue = h.fields.check_issue.value;
+    const replacement = headingFilterHarness().view;
+    replacement.elements.forEach(field => { field.checked = false; });
+    h.fields.notCPP = { update() {
+      h.document.forms.caseManagementViewForm = replacement;
+      h.fields.check_issue = {value: ''};
+    } };
+    h.requests[0].onSuccess({responseText: 'replacement filter form'});
+    for (const name of ['filter_providers', 'filter_roles', 'note_sort', 'issues']) {
+      assert.deepEqual(replacement[name].map(field => field.checked), h.view[name].map(field => field.checked));
+    }
+    assert.equal(h.fields.check_issue.value, selectedLegacyIssue);
+  });
+}
