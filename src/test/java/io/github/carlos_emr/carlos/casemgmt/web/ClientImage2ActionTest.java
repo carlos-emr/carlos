@@ -82,14 +82,14 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     private File tempUploadFile;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
 
         request = new MockHttpServletRequest();
         request.setMethod("POST");
         response = new MockHttpServletResponse();
         request.setParameter("method", "saveImage");
-        // The Client Image Manager posts the patient it was opened for (issue #4546).
+        // Issue #4546: the Client Image Manager posts the patient it was opened for
         request.setParameter("demographicNo", "123");
 
         registerMock(ClientImageManager.class, clientImageManager);

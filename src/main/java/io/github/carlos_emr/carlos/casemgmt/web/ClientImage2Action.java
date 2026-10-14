@@ -219,7 +219,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         }
         try {
             return Integer.valueOf(values[0]);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             // Ten digits above Integer.MAX_VALUE.
             return null;
         }
