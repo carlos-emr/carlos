@@ -2752,3 +2752,19 @@ Two more harness notes from the review round that followed, both on the same sna
   a console error "Failed to load resource ... 400" from the Save that finding 254 refuses sometimes lands inside the window in
   which the check reads the page's problems. It does so with the old wait and with the wait for the Save navigation that
   CodeRabbit asked for (4 runs each, 1 of 4 failed elsewhere in each), so it predates that change. It is not fixed here.
+
+### Patient photo bound to the posted patient (2026-10-14, issue #4546)
+
+`ClientImage2Action` now acts on the `demographicNo` that each form of the Client Image Manager posts, never on the
+session-wide `clientId`, and checks `_demographic` w for that patient plus `isAllowedAccessToPatientRecord` first
+(finding 156). Run against a `2026.09.0~snapshot26` package built from the fix branch and installed fresh into an
+Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean; the installer's transient "NOT ready to use"
+came from an nginx reload in a sandbox without IPv6 and left no marker): `patient-photo-upload` **PASS**, all 15
+steps, including the finding-156 step, Upload in the first of two open managers, a CSRF-valid Clear Photo POST that
+names no patient, and a doctor login locked out of the second patient (refused 403, photo kept; the unlocked control
+clears). Through the suite runner it is a plain PASS with no expected-failure pin, and the smoke tier passed 12 of
+12. With the pre-fix `ClientImage2Action.class` and `uploadimage.jsp` swapped into the installed webapp (Tomcat's
+compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo does not post the patient the manager
+was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
+itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
+patient-less POST was answered as a success and the locked login was served (HTTP 200).
