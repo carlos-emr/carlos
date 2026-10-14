@@ -8,8 +8,8 @@
 // Three forms, one owned FAKE infant (an 18-month-old girl, so every Rourke visit date, up to the 18-month one,
 // is in the past):
 //   Rourke 2020   formRourke2020 (+ form_boolean_value for its radio buttons): four pages behind jQuery tabs,
-//                 a "Graph Length and Weight" and a "Graph Head Circumference" link, Print = a four-page Jasper PDF;
-//   Growth 0-36m  formGrowth0_36 ("CDC US Growth Charts" in its title): ten rows of date, age, weight, length,
+//                 a "Graph Length and Weight" and a "Graph Head Circumference" link, Print = four original Jasper pages plus page II note continuation pages;
+//   Growth 0-36m  formGrowth0_36 ("WHO Growth Charts for Canada" in its title): ten rows of date, age, weight, length,
 //                 head circumference; Print Growth, Head Circ(1) and Head Circ(2) answer WHO chart PDFs;
 //   Growth Chart  formGrowthChart ("WHO Growth Charts", 2 to 20 years): rows of date, age, stature, weight, BMI;
 //                 Print Growth and Print BMI answer WHO chart PDFs. (The form takes any typed ages, so the infant
@@ -38,7 +38,7 @@
 //   graphmeasure   (Rourke) weights and lengths that exist only in `measurements` are plotted too;
 //   graphgrowth    (Rourke) the Growth 0-36 rows are plotted on the Rourke graphs ("Rourke will graph input here");
 //   graphtitle     (Rourke) the two Graph Length and Weight links open PDFs with the same, length-and-weight title (252);
-//   print       Print produces a PDF that carries the typed text (Rourke: four pages; every typed number and text);
+//   print       Print produces a PDF that carries the typed text (Rourke: four pages plus notes; every typed number and text);
 //   printnull, printsex, printgestation, printnotes   (Rourke) the printed record leaves an empty visit date blank,
 //                  marks the patient's sex (in the box the template places it in) and only that, prints the gestational age
 //                  the dates give (read from the box the template places it in), and carries the notes typed in the seven
@@ -193,7 +193,8 @@ const ROURKE_HEAD_POINTS = 12;
 /** Pages of each PDF the application answers: the Length and Weight graph adds the 2 to 19 years chart, which an infant leaves empty. */
 const ROURKE_LENGTH_WEIGHT_PAGES = 2;
 const ROURKE_HEAD_PAGES = 1;
-const ROURKE_PRINT_PAGES = 4;
+// This fixture fills all seven page II notes, so it also prints one continuation page.
+const ROURKE_PRINT_PAGES = 5;
 const GROWTH_PRINT_PAGES = 1;
 
 /** The rows of a Growth form: `cells` (text names, per row), at most `rows` of them, each with a comment. */
@@ -264,44 +265,10 @@ function validatePin(env = process.env) {
   return claims.effectiveClaims({ only: env[ONLY], except: env[EXCEPT], onlyVariable: ONLY, exceptVariable: EXCEPT }, CLAIM_FORMS);
 }
 
-/*
- * The step labels are literals on purpose where a manifest pins them: expectedFailure.step is checked against the
- * script's own text (run-playwright-suite.js validateExpectedFailure), and a label assembled at run time cannot be found
- * there. scripts/form-claims.test.js proves each literal equals the generated label, so the table cannot drift from
- * the wording below.
- */
-const PINNED = Object.freeze({
-  'rourke2020.headcirc': 'Rourke 2020: head circumference can be saved to measurements from the form like weight and length',
-  'rourke2020.printnull': 'Rourke 2020: the printed form leaves an empty visit date blank',
-  'rourke2020.printsex': 'Rourke 2020: the printed form marks the sex of the patient, and only that',
-  'rourke2020.printgestation': 'Rourke 2020: the printed gestational age is the weeks from the start of pregnancy to the birth',
-  'rourke2020.printnotes': 'Rourke 2020: the printed form carries the notes typed in the page II boxes the template declares for them',
-  'rourke2020.graphtitle': 'Rourke 2020: both Graph Length and Weight links open a PDF with the same, length-and-weight title',
-  'rourke2020.storage': 'Rourke 2020: every box the form offers can hold what is typed in it',
-  'growth036.title': 'Growth 0-36m: the window title does not name the CDC US charts, which the form does not draw',
-  'growth036.printdob': 'Growth 0-36m: the printed chart carries the date of birth',
-  'growthchart.printbmi': 'Growth Chart: Print BMI produces a PDF',
-});
-/*
- * What each pinned pair declares about the browser problems its concern takes (lib/form-claims.js ASSERTION_ONLY). Every pin here
- * is on an assertion (a missing dialog, a title, a PDF, a printed value), so no browser problem is the pair's own failure: once
- * the defect is fixed, a stray problem that ends the concern reads as other browser problems and cannot keep the pin "known".
- * scripts/form-claims.test.js requires every PINNED pair to be declared here.
- */
-const KNOWN = Object.freeze({
-  'rourke2020.headcirc': claims.ASSERTION_ONLY,
-  'rourke2020.printnull': claims.ASSERTION_ONLY,
-  'rourke2020.printsex': claims.ASSERTION_ONLY,
-  'rourke2020.printgestation': claims.ASSERTION_ONLY,
-  'rourke2020.printnotes': claims.ASSERTION_ONLY,
-  'rourke2020.graphtitle': claims.ASSERTION_ONLY,
-  'rourke2020.storage': claims.ASSERTION_ONLY,
-  'growth036.title': claims.ASSERTION_ONLY,
-  'growth036.printdob': claims.ASSERTION_ONLY,
-  'growthchart.printbmi': claims.ASSERTION_ONLY,
-});
-/** What the pair declares about browser problems: the signature of the one it is pinned to, claims.ASSERTION_ONLY, or nothing. */
-const knownProblem = (key, concern) => KNOWN[claims.claimKey(key, concern)];
+// Kept as the common form-claims test interface; all former defects are regressions.
+const PINNED = Object.freeze({});
+// All former pins are regressions now; no browser failures are expected.
+const knownProblem = () => undefined;
 const CONCERN_STEP = Object.freeze({
   open: 'opens from the Forms menu with no error page, script error or failed asset',
   keys: 'shows no unresolved message key',
@@ -914,8 +881,12 @@ async function workflow(s, { select = validatePin() } = {}) {
     const hcLink = entry.page.locator(`a[onclick*="displayDemographicMeasurements('p1_hc1w'"]`);
     const hasDialog = await hcLink.count() > 0;
     await conclude(entry, 'headcirc', async () => {
-      h.assert(hasDialog, 'the Rourke 2020 page has no measurement dialog for head circumference: the head circumference cells (c_headCirc, p1_hc1w and the rest) are not links, and the dialog knows only WT, HT, HR and BP');
-      // A dialog exists, so import through it and require a stored row: the pair keeps meaning something once the gap closes.
+      h.assert(hasDialog, 'the Rourke 2020 page has no measurement dialog for head circumference');
+      // Require all offered head-circumference cells to use the same measurement workflow.
+      const names = ['c_headCirc', 'p1_hc1w', 'p1_hc2w', 'p1_hc1m', 'p2_hc2m', 'p2_hc4m', 'p2_hc6m', 'p3_hc9m', 'p3_hc12m', 'p3_hc15m', 'p4_hc18m', 'p4_hc24m'];
+      for (const name of names) {
+        h.assert(await entry.page.locator(`a[onclick*="displayDemographicMeasurements('${name}', 'HEAD'"]`).count() > 0, `${name} has no HEAD measurement link`);
+      }
       const before = Number(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`));
       await claims.reaching(async () => {
         await openTab(entry.page, 0);
@@ -924,6 +895,8 @@ async function workflow(s, { select = validatePin() } = {}) {
         await entry.page.locator('.meas-btn-save').click();
       });
       await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`, String(before + 1), 'the head circumference dialog stored no measurement');
+      const heads = sql.rows(measurementRows).filter(row => row[0] === 'HEAD');
+      h.assert(heads.length === 1 && heads[0][1] === '35.5' && heads[0][2] === 'in cm' && heads[0][4] === provider, 'head circumference must retain its HEAD type, centimetre value and saving provider');
     }, { take: hasDialog });
     // The date the dialog files by default, judged against the clinician's own calendar (the context's zone, see zoneWhereTodayDiffersFromUtc).
     // It compares two dates and drives no page, so it takes no browser problem. It is blocked unless the date the dialog filed was read.

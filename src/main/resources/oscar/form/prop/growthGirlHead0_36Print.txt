@@ -1,3 +1,4 @@
+dateOfBirth : left, 397, 77, 0, BaseFont.HELVETICA, 8
 patientName		: left, 400, 63, 0, BaseFont.HELVETICA, 8
 recordNo		: left, 530, 76, 0, BaseFont.HELVETICA, 8
 #motherStature	: left, 300, 581, 0, BaseFont.HELVETICA, 8

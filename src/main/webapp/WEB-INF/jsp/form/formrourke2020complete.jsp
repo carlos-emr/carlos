@@ -287,7 +287,12 @@
         function onPrintAll() {
             document.forms["frmP1"].action = "<%= request.getContextPath() %>/form/formname?__title=Rourke+Baby+Report&__cfgfile=Rourke2020printCfgPg1&__cfgfile=Rourke2020printCfgPg2&__cfgfile=Rourke2020printCfgPg3&__cfgfile=Rourke2020printCfgPg4&__template=Rourke2020";
             document.forms["frmP1"].action += "&submit=printAllJasperReport";
-            document.forms["frmP1"].target = "_blank";
+            const printTarget = 'rourke2020Print' + Date.now();
+            const printWindow = window.open('', printTarget);
+            if (printWindow) {
+                printWindow.document.body.textContent = '<fmt:message key="form.rourke2020.preparingPrint"/>';
+            }
+            document.forms["frmP1"].target = printWindow ? printTarget : '_blank';
 
             return true;
         }
@@ -740,6 +745,7 @@
     </style>
 </head>
 <body onload="init()">
+<div id="rourkeSaveStatus" role="status" aria-live="polite" style="position:sticky;top:0;background:#fff;z-index:10001"></div>
 <form id="frmP1" name="frmP1" action="${pageContext.request.contextPath}/form/formname" method="post">
     <div id="rourke2020-tabs">
         <ul id="tab-list">
@@ -777,6 +783,8 @@
             reset();
             document.getElementById("frmP1").action += "?submit=save";
             if (confirm("<fmt:message key='global.msgWannaSave'/>")) {
+                document.getElementById('rourkeSaveStatus').textContent = '<fmt:message key="form.rourke2020.saving"/>';
+                document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
             }
@@ -791,6 +799,8 @@
             reset();
             document.getElementById("frmP1").action += "?submit=exit";
             if (confirm("<fmt:message key='global.msgSaveExit'/>")) {
+                document.getElementById('rourkeSaveStatus').textContent = '<fmt:message key="form.rourke2020.saving"/>';
+                document.getElementById('frmP1').setAttribute('aria-busy', 'true');
                 formsTimedAutosaver.setChangedFalse();
                 document.forms["frmP1"].submit();
             }

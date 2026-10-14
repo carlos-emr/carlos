@@ -11,7 +11,7 @@ const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIn
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
 
-function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
+function setup(history = null, saveResult = {success:true}, DateImpl = Date, type = 'WT') {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.classList = { add() {}, remove() {} }; }
     appendChild(child) { this.children.push(child); return child; }
@@ -39,7 +39,7 @@ function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
   }};
   const context = vm.createContext({ document, jQuery, Date: DateImpl, setTimeout() {}, requestAnimationFrame: callback => callback() });
   vm.runInContext(source, context);
-  context.displayDemographicMeasurements('weight', 'WT', '17', '2026-01-01', '42');
+  context.displayDemographicMeasurements('weight', type, '17', '2026-01-01', '42');
   document.getElementById('currentMeasurementValue').value = '3.75';
   document.getElementById('currentMeasurementObservationDate').value = '2026-01-08';
   const click = className => body.find(element => element.className === className).listeners.click();
@@ -177,4 +177,15 @@ test('history uses the server-formatted observation day when the browser zone di
   } finally {
     if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
   }
+});
+
+
+test('Head circumference saves HEAD in centimetres and imports the value', () => {
+  const f = setup(null, {success: true}, Date, 'HEAD');
+  f.document.getElementById('currentMeasurementValue').value = '35.5';
+  f.click('meas-btn-save');
+  assert.equal(f.requests[1].url, '/carlos/encounter/MeasurementData?action=saveMeasurement&demographicNo=17&appointmentNo=42&type=HEAD');
+  assert.deepEqual(JSON.parse(JSON.stringify(f.requests[1].data)), {value: '35.5', instruction: 'in cm', dateObserved: '2026-01-08'});
+  assert.equal(f.target.value, '35.5');
+  closed(f);
 });

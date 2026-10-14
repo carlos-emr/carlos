@@ -114,6 +114,7 @@
     let measurementTypeMap = {
         'WT': {'name': 'Weight', 'instructions': 'in kg'},
         'HT': {'name': 'Height', 'instructions': 'in cm'},
+        'HEAD': {'name': 'Head circumference', 'instructions': 'in cm'},
         'HR': {'name': 'Heart Rate', 'instructions': 'in BPMB'},
         'BP': {'name': 'Blood Pressure', 'instructions': ''}
     };

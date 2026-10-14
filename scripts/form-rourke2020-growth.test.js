@@ -143,8 +143,8 @@ test('shouldHaveAStepLabelForEveryConcern_andPinTheTitlesOnTheirOwnPairs', () =>
   for (const form of check.claimForms) {
     for (const concern of form.concerns) assert.match(check.generatedLabel(form.key, concern), /^[A-Z][^:]*: \S/, `${form.key}.${concern} has no label`);
   }
-  assert.equal(check.stepLabel('rourke2020', 'graphtitle'), check.PINNED['rourke2020.graphtitle']);
-  assert.equal(check.stepLabel('growth036', 'title'), check.PINNED['growth036.title']);
+  assert.equal(check.stepLabel('rourke2020', 'graphtitle'), check.generatedLabel('rourke2020', 'graphtitle'));
+  assert.equal(check.stepLabel('growth036', 'title'), check.generatedLabel('growth036', 'title'));
   assert.ok(check.claimForms.find(form => form.key === 'rourke2020').concerns.includes('graphtitle'));
   assert.ok(check.claimForms.find(form => form.key === 'growth036').concerns.includes('title'));
 });
@@ -197,15 +197,10 @@ test('shouldTreatARefusalBeforeTheEndpointAsAPrecondition_andAnErrorPageAsTheDef
   for (const status of [200, 204, 400, 404, 405, 500, 502, 503]) assert.equal(check.refusedBeforeTheEndpoint(status), false, `HTTP ${status}`);
 });
 
-test('shouldDeclareHowEveryPinnedPairTreatsBrowserProblems_andPinEachOnItsAssertion', () => {
-  // Every pin of this check is on an assertion: a browser problem that ends the concern must never read as the pinned defect.
-  for (const claim of Object.keys(check.PINNED)) {
-    const [key, concern] = claim.split('.');
-    assert.equal(check.knownProblem(key, concern), claims.ASSERTION_ONLY, `${claim} declares nothing about browser problems`);
-  }
-  const problems = claims.outcomeOf(null, ['console error: Failed to load resource: the server responded with a status of 404']);
-  const pinned = check.PINNED['growthchart.printbmi'];
-  assert.equal(claims.claimFailure(problems, pinned, check.knownProblem('growthchart', 'printbmi')).label, `${pinned} (other browser problems)`);
-  assert.equal(claims.claimFailure(claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []), pinned, check.knownProblem('growthchart', 'printbmi')).label, pinned,
-    'the assertion itself still holds the pin');
+test('shouldTreatAllRourkeConcernsAsRegressions_afterTheMilestoneFixes', () => {
+  assert.deepEqual(check.PINNED, {});
+  assert.equal(check.knownProblem('growthchart', 'printbmi'), undefined);
+  const label = check.stepLabel('growthchart', 'printbmi');
+  const outcome = claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []);
+  assert.equal(claims.claimFailure(outcome, label).label, label);
 });
