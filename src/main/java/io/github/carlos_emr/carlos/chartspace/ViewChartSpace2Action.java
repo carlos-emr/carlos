@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,6 +33,7 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.Optional;
 
 /**
@@ -40,6 +43,9 @@ import java.util.Optional;
  * the requested patient, after validating the {@code demographicNo} parameter.
  * Check order is the contract: HTTP method, logged-in session, parameter
  * validity (400), privilege, then request attribute and view result.</p>
+ *
+ * <p>After the checks pass it loads the patient through {@code DemographicManager} (a missing
+ * patient is a 404) and exposes the full name and localized age for the page title and heading.</p>
  *
  * <p>GET/HEAD only: the page is a pure view and must never mutate state, so
  * every other method is rejected with 405 before any other work.</p>
@@ -58,6 +64,7 @@ public class ViewChartSpace2Action extends ActionSupport {
     public static final String SPRING_BEAN_NAME = "viewChartSpace2Action";
 
     private final transient ChartSpaceRequestValidator validator;
+    private final transient DemographicManager demographicManager;
 
     /**
      * Creates the action for Struts-managed instantiation paths, resolving
@@ -66,17 +73,19 @@ public class ViewChartSpace2Action extends ActionSupport {
      * @throws org.springframework.beans.BeansException if a required bean is unavailable
      */
     public ViewChartSpace2Action() {
-        this(SpringUtils.getBean(ChartSpaceRequestValidator.class));
+        this(SpringUtils.getBean(ChartSpaceRequestValidator.class), SpringUtils.getBean(DemographicManager.class));
     }
 
     /**
      * Creates the action with explicit collaborators for Spring injection and tests.
      *
      * @param validator shared ChartSpace request checks
+     * @param demographicManager privilege-aware patient lookup for the page header
      */
     @Autowired
-    public ViewChartSpace2Action(ChartSpaceRequestValidator validator) {
+    public ViewChartSpace2Action(ChartSpaceRequestValidator validator, DemographicManager demographicManager) {
         this.validator = validator;
+        this.demographicManager = demographicManager;
     }
 
     @Override
@@ -89,7 +98,22 @@ public class ViewChartSpace2Action extends ActionSupport {
             return NONE;
         }
 
+        // Only after the validator has passed: the lookup re-checks _demographic r per patient.
+        Demographic patient = demographicManager.getDemographic(validated.get().loggedInInfo(),
+                validated.get().demographicNo());
+        if (patient == null) {
+            // Direct response: own the error and end Struts processing. No identifiers in the message.
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+
         request.setAttribute("demographicNo", validated.get().demographicNo());
+        request.setAttribute("csPatientName", patient.getFullName());
+        // Already localized by Demographic ("45 years"); null/blank means no usable date of birth.
+        String age = patient.getAgeAsOf(new Date(), request.getLocale());
+        if (age != null && !age.isBlank()) {
+            request.setAttribute("csPatientAge", age);
+        }
         return SUCCESS;
     }
 }

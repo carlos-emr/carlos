@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.chartspace;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,6 +46,7 @@ import java.io.InputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -70,6 +73,7 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
             "src", "main", "webapp", "WEB-INF", "classes", "struts-encounter.xml").toString();
 
     private CaseManagementManager caseManagementManager;
+    private DemographicManager demographicManager;
 
     @BeforeEach
     void setUpGate() {
@@ -85,6 +89,10 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
         when(caseManagementManager.isClientInProgramDomain(anyString(), anyString())).thenReturn(true);
         // The no-arg constructor resolves the validator through SpringUtils.
         replaceSpringUtilsBean(ChartSpaceRequestValidator.class, new ChartSpaceRequestValidator(mockSecurityInfoManager, caseManagementManager));
+        demographicManager = mock(DemographicManager.class);
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), anyInt()))
+                .thenReturn(new Demographic(2, "FAKE-Given", "FAKE-Family"));
+        replaceSpringUtilsBean(DemographicManager.class, demographicManager);
     }
 
     @Test
@@ -95,6 +103,18 @@ class ViewChartSpace2ActionIntegrationTest extends CarlosWebTestBase {
 
         assertThat(executeAction(new ViewChartSpace2Action())).isEqualTo(ActionSupport.SUCCESS);
         verifySecurityCheck("_eChart", "r");
+        assertThat(mockRequest.getAttribute("csPatientName")).isEqualTo("FAKE-Family, FAKE-Given");
+    }
+
+    @Test
+    @DisplayName("should return 404 when the patient does not exist")
+    void shouldReturn404_whenPatientMissing() throws Exception {
+        addRequestParameter("demographicNo", "2");
+        allowPrivilege("_eChart", "r");
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), anyInt())).thenReturn(null);
+
+        assertThat(executeAction(new ViewChartSpace2Action())).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
     }
 
     @Test

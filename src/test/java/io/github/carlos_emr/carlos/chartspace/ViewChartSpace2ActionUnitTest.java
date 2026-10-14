@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.chartspace;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionContext;
@@ -41,6 +43,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +65,7 @@ class ViewChartSpace2ActionUnitTest {
     private LoggedInInfo info;
     private SecurityInfoManager securityInfoManager;
     private CaseManagementManager caseManagementManager;
+    private DemographicManager demographicManager;
     private ViewChartSpace2Action action;
 
     @BeforeEach
@@ -79,7 +85,18 @@ class ViewChartSpace2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), eq("2"))).thenReturn(true);
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(2))).thenReturn(true);
         when(caseManagementManager.isClientInProgramDomain("999998", "2")).thenReturn(true);
-        action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager));
+        demographicManager = mock(DemographicManager.class);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(fakePatient());
+        action = new ViewChartSpace2Action(new ChartSpaceRequestValidator(securityInfoManager, caseManagementManager),
+                demographicManager);
+    }
+
+    private static Demographic fakePatient() {
+        Demographic d = new Demographic(2, "FAKE-Given", "FAKE-Family");
+        d.setYearOfBirth("1980");
+        d.setMonthOfBirth("01");
+        d.setDateOfBirth("01");
+        return d;
     }
 
     @AfterEach
@@ -142,5 +159,56 @@ class ViewChartSpace2ActionUnitTest {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    void shouldSetPatientNameAndAge_whenPatientExists() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csPatientName")).isEqualTo("FAKE-Family, FAKE-Given");
+        assertThat((String) request.getAttribute("csPatientAge")).isNotBlank();
+    }
+
+    @Test
+    void shouldOmitPatientAge_whenAgeUnavailable() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        Demographic noAge = spy(fakePatient());
+        when(noAge.getAgeAsOf(any(java.util.Date.class), any(java.util.Locale.class))).thenReturn(null);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(noAge);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("csPatientName")).isEqualTo("FAKE-Family, FAKE-Given");
+        assertThat(request.getAttribute("csPatientAge")).isNull();
+    }
+
+    @Test
+    void shouldReturn404_whenPatientDoesNotExist() throws Exception {
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), eq("2"))).thenReturn(true);
+        when(demographicManager.getDemographic(any(), eq(2))).thenReturn(null);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(request.getAttribute("csPatientName")).isNull();
+    }
+
+    @Test
+    void shouldNotLookUpPatient_whenValidatorDenies() {
+        request.setParameter("demographicNo", "2");
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+        verify(demographicManager, never()).getDemographic(any(), any(Integer.class));
+    }
+
+    @Test
+    void shouldNotLookUpPatient_whenMethodRejected() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "2");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verifyNoInteractions(demographicManager);
     }
 }

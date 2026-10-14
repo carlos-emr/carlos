@@ -103,6 +103,16 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
   assert(state !== 'LOADING', `${label}: allergies card stayed in LOADING`);
   await assertAnnouncer(page, label);
 
+  // The patient is identified in <title> and <h1>; read from the DOM, no hardcoded name.
+  const identity = await page.evaluate(() => ({
+    title: document.title.trim(),
+    heading: (document.querySelector('h1.cs-title') || { textContent: '' }).textContent.trim(),
+  }));
+  assert(identity.title.length > 0 && identity.title !== 'ChartSpace',
+    `${label}: <title> is empty or the plain ChartSpace title`);
+  assert(identity.heading.length > 0 && identity.heading !== 'ChartSpace',
+    `${label}: <h1> is empty or the plain ChartSpace title`);
+
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,

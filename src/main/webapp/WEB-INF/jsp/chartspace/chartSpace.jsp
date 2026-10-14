@@ -27,7 +27,10 @@
   Purpose: static frame for the ChartSpace chart view. Blocks (currently only
            Allergies) are loaded and rendered client-side by js/chartspace/*.
   Request attribute: demographicNo (Integer), set by the gate action after its
-           security check. No patient name or other PHI is rendered here.
+           security check.
+  Request attributes: csPatientName (full name, "Last, First") and csPatientAge (localized,
+           optional), both set by the gate action. Only name and age are rendered, in the
+           title and heading; no date of birth, sex, HIN or MRP.
   No CSRF bootstrap include: the page performs no POST (read-only JSON GET).
   @since 2026-10-09
 --%>
@@ -63,13 +66,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><carlos:encode value="${csTitle}"/></title>
+    <title><carlos:encode value="${csPatientName}"/> - <carlos:encode value="${empty csPatientAge ? '' : csPatientAge.concat(' - ')}"/><carlos:encode value="${csTitle}"/></title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/chartspace.css">
 </head>
 <body class="cs-page">
 <header class="cs-header">
-    <h1 class="cs-title"><carlos:encode value="${csTitle}"/></h1>
+    <h1 class="cs-title"><carlos:encode value="${csPatientName}"/>
+        <span class="cs-patient-age"><carlos:encode value="${csPatientAge}"/></span></h1>
     <button type="button" id="cs-hidden-toggle" class="btn btn-outline-secondary btn-sm"
             aria-expanded="false" aria-controls="cs-hidden-panel" data-has-data="false" disabled>
         <carlos:encode value="${csBtnHidden}"/> (0)

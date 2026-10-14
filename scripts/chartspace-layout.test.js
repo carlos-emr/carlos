@@ -65,6 +65,14 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   assert.ok(jsp.includes('<%@ taglib uri="carlos" prefix="carlos" %>'));
   ['<e:', 'Encode.', '<c:out'].forEach((s) => assert.ok(!jsp.includes(s), s));
   assert.ok(!/(src|href)="[^"]*\.jsp"/.test(jsp));
+  // Patient identity: title and heading come from csPatientName/csPatientAge, always via carlos:encode.
+  const title = /<title>([\s\S]*?)<\/title>/.exec(jsp)[1];
+  assert.ok(title.includes('<carlos:encode value="${csPatientName}"/>'), 'title uses csPatientName');
+  assert.ok(title.includes('csPatientAge') && !title.includes('<c:'), 'title uses csPatientAge without the core taglib');
+  const h1 = /<h1 class="cs-title">([\s\S]*?)<\/h1>/.exec(jsp)[1];
+  assert.ok(h1.includes('<carlos:encode value="${csPatientName}"/>'), 'h1 uses csPatientName');
+  assert.ok(/<span class="cs-patient-age">\s*<carlos:encode value="\$\{csPatientAge\}"\/>\s*<\/span>/.test(h1),
+    'h1 renders the age in its own span');
   const ctx = '${pageContext.request.contextPath}';
   assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/css/bootstrap.min.css'));
   assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'));
