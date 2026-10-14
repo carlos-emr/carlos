@@ -338,6 +338,112 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             assertThat(found).isNull();
         }
 
+        /*
+         * Issue #4129: actions load an entity in one DAO call and delete it in another, so remove()
+         * receives an instance read in an earlier transaction. Hibernate 7 throws
+         * DetachedObjectException for a bare EntityManager.remove() on such an instance; detach()
+         * reproduces that state inside this test's single transaction.
+         */
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete entity when detached entity provided")
+        void shouldDeleteEntity_whenDetachedEntityProvided() {
+            // Given
+            Integer id = facility1.getId();
+            entityManager.detach(facility1);
+            assertThat(entityManager.contains(facility1)).isFalse();
+
+            // When
+            facilityDao.remove(facility1);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Then
+            assertThat(facilityDao.find(id)).isNull();
+            assertThat(facilityDao.find(facility2.getId())).isNotNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should not write detached field changes when removing a detached entity")
+        void shouldNotMergeDetachedState_whenDetachedEntityRemoved() {
+            // Given: a detached copy whose fields were changed after it left the context
+            Integer id = facility1.getId();
+            entityManager.detach(facility1);
+            facility1.setName("Changed After Detach");
+
+            // When
+            facilityDao.remove(facility1);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Then: the row is gone and no other row picked up the detached state
+            assertThat(facilityDao.find(id)).isNull();
+            Long renamed = entityManager.createQuery(
+                    "select count(f) from Facility f where f.name = :name", Long.class)
+                    .setParameter("name", "Changed After Detach")
+                    .getSingleResult();
+            assertThat(renamed).isZero();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete entity when detached uninitialized proxy provided")
+        void shouldDeleteEntity_whenDetachedProxyProvided() {
+            // Given: a lazy reference that is detached before it is ever initialized
+            Integer id = facility1.getId();
+            entityManager.clear();
+            Facility reference = entityManager.getReference(Facility.class, id);
+            entityManager.detach(reference);
+
+            // When
+            facilityDao.remove(reference);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Then
+            assertThat(facilityDao.find(id)).isNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should do nothing when detached entity row was already deleted")
+        void shouldDoNothing_whenDetachedEntityAlreadyDeleted() {
+            // Given: a detached copy whose row another transaction already deleted
+            Integer id = facility1.getId();
+            int countBefore = facilityDao.getCountAll();
+            entityManager.detach(facility1);
+            entityManager.createQuery("delete from Facility f where f.id = :id")
+                    .setParameter("id", id)
+                    .executeUpdate();
+
+            // When / Then: no exception and no row resurrected
+            assertThatCode(() -> {
+                facilityDao.remove(facility1);
+                entityManager.flush();
+            }).doesNotThrowAnyException();
+            entityManager.clear();
+            assertThat(facilityDao.find(id)).isNull();
+            assertThat(facilityDao.getCountAll()).isEqualTo(countBefore - 1);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should ignore new unpersisted entity when removed")
+        void shouldIgnoreNewEntity_whenNeverPersisted() {
+            // Given
+            Facility unsaved = new Facility();
+            unsaved.setName("Never Saved");
+            int countBefore = facilityDao.getCountAll();
+
+            // When / Then: JPA treats removing a new instance as a no-op
+            assertThatCode(() -> {
+                facilityDao.remove(unsaved);
+                entityManager.flush();
+            }).doesNotThrowAnyException();
+            assertThat(facilityDao.getCountAll()).isEqualTo(countBefore);
+        }
+
         @Test
         @Tag("delete")
         @DisplayName("should return true when removing by existing ID")

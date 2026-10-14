@@ -84,6 +84,36 @@ public class ProgramDaoIntegrationTest extends CarlosTestBase {
         return p;
     }
 
+    @Test
+    @DisplayName("should treat nullable legacy program flags as false while preserving explicit true values")
+    void shouldLoadNullableLegacyFlags_withoutChangingBooleanApi() {
+        Program program = saveAndFlush(createProgram("Legacy nullable flags", Program.SERVICE_TYPE,
+                Program.PROGRAM_STATUS_ACTIVE));
+        Integer id = program.getId();
+        entityManager.createNativeQuery("UPDATE program SET holdingTank=NULL, allowBatchAdmission=NULL, "
+                + "allowBatchDischarge=NULL, hic=NULL, userDefined=NULL WHERE id=:id").setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        Program loaded = dao.getProgram(id);
+        assertThat(loaded.isUserDefined()).isTrue();
+        assertThat(loaded.isHoldingTank()).isFalse();
+        assertThat(loaded.isAllowBatchAdmission()).isFalse();
+        assertThat(loaded.isAllowBatchDischarge()).isFalse();
+        assertThat(loaded.isHic()).isFalse();
+        loaded.setUserDefined(false);
+        loaded.setHoldingTank(true);
+        loaded.setAllowBatchAdmission(true);
+        loaded.setAllowBatchDischarge(true);
+        loaded.setHic(true);
+        entityManager.flush();
+        entityManager.clear();
+        Program persisted = dao.getProgram(id);
+        assertThat(persisted.isUserDefined()).isFalse();
+        assertThat(persisted.isHoldingTank()).isTrue();
+        assertThat(persisted.isAllowBatchAdmission()).isTrue();
+        assertThat(persisted.isAllowBatchDischarge()).isTrue();
+        assertThat(persisted.isHic()).isTrue();
+    }
+
     @Nested
     @DisplayName("Save and Retrieve Tests")
     class SaveAndRetrieveTests {

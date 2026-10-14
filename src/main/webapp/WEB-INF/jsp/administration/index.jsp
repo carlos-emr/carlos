@@ -246,16 +246,50 @@
             height: 100%;
         }
 
+        /* The framed reports (PHCP, billing reconciliation) are paginated by the
+           shell, whose page margin applies to them; their own @page rule does not. */
+        @page {
+            margin: 12mm;
+        }
+
         @media print {
             /*this is so the link locatons don't display*/
             a:link:after, a:visited:after {
                 content: "";
+            }
+
+            /* Print the panel, not the shell around it (#3342). The accordion
+               column is already d-print-none. The schedule menu (scheduleNav=1)
+               is classed noprint, but only print.css gave that class a rule and
+               this shell never loads print.css, so it printed. Without the side
+               column the content pane would keep its 9/12 width and leave a
+               blank strip down the left of every page. */
+            #firstTable, .noprint {
+                display: none !important;
+            }
+
+            #main-wrapper {
+                margin-top: 0 !important;
+            }
+
+            #dynamic-content {
+                flex: 0 0 100%;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                overflow: visible;
             }
         }
     </style>
 
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+    <%-- Panels arrive through $("#dynamic-content").load(), which inserts their
+         forms inside a container; CSRFGuard's observer only tokenises inserted
+         nodes that are themselves forms, so panel POSTs went out without a
+         token (#4130). This helper tokenises forms in any inserted subtree. --%>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
     <oscar:customInterface section="main"/> <!--needs to be in header-->
 </head>

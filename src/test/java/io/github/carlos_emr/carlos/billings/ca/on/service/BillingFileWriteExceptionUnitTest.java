@@ -75,6 +75,16 @@ class BillingFileWriteExceptionUnitTest {
     }
 
     @Test
+    @DisplayName("should allow callers to initialize the cause after using the message-only constructor")
+    void shouldAllowCauseInitialization_whenUsingMessageOnlyConstructor() {
+        BillingFileWriteException failure = new BillingFileWriteException("internal diagnostic");
+        IOException cause = new IOException("internal cause");
+        failure.initCause(cause);
+        assertThat(failure.getCause()).isSameAs(cause);
+        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.GENERAL);
+    }
+
+    @Test
     void shouldAllowNullCause_forInputContract() {
         // Some throw sites (e.g. createBillingFileStr) wrap a generic Exception
         // and pass it as cause; others (validation pre-checks) may throw with

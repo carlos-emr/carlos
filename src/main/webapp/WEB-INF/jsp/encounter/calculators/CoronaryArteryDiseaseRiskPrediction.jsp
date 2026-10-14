@@ -861,9 +861,8 @@
             Artery Disease Risk Prediction
         </td>
         <td style="text-align: right"><a
-                href="javascript:
-                    popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">About</a>
-            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">License</a>
+                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener">About</a>
+            | <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener">License</a>
         </td>
     </tr>
     <tr>

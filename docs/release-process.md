@@ -104,6 +104,9 @@ Confirming DCO sign off for all commits at <full-pr-head-sha>
 ```
 
 Any subsequent push changes the PR head SHA and requires a new confirmation.
+If the original PR `DCO Sign-Off` workflow already failed before the comment
+was posted, rerun that failed workflow so its check result also reflects the
+current attestation; the issue-comment run updates the DCO status separately.
 
 ## Supported-release fix cycle
 
@@ -144,8 +147,20 @@ Then:
 2. On the preparation branch, change the Maven project version from the planned
    snapshot to the exact release and change `project.scm.tag` from `HEAD` to the
    same exact value.
-3. Run and pass all required checks. Merge the preparation PR with a merge
-   commit into the publication target selected above.
+3. Run and pass all required checks. Verify the CLI release named by
+   `debian/carlos-ctl.pin` is published and its asset passes both integrity
+   and provenance verification:
+
+   ```bash
+   debian/fetch-carlos-ctl.sh "$(mktemp -d)"
+   ```
+
+   Run with authenticated `gh` and without `CARLOS_CTL_DEB` or
+   `CARLOS_CTL_SKIP_ATTESTATION`. A green PR that used the pin's fallback
+   commit validates source compatibility only; it does not establish that
+   the required release asset exists. Publish the CLI release first, then
+   repeat this check. Then merge the preparation PR with a merge commit into
+   the publication target selected above.
 4. Fetch the merged target and confirm that its head commit, `pom.xml` version,
    and SCM tag are the exact values intended for publication.
 5. Create and push an annotated tag on that exact commit. For example:
@@ -208,6 +223,26 @@ Each GitHub release contains:
 - `carlos-VERSION.war.sha256`
 - `carlos-VERSION-cyclonedx.json`
 - `carlos-VERSION-cyclonedx.json.sha256`
+- the Debian packages, each with a `.sha256` and a provenance attestation, added
+  by the `Debian Packages` workflow before the release is published:
+  `carlos-emr_DEBVERSION_amd64.deb` (carries the eForm renderer's x86-64
+  Chromium) and `carlos-emr-drugref_DEBVERSION_all.deb`. DEBVERSION is the tag
+  with every `-` written as `.` (for example `2026.08.0.alpha14`). Through
+  2026.08.0-alpha13 the main package was `_all` and the renderer a real `_amd64`
+  package; 2026.08.0-alpha14 through alpha17 also shipped an empty transitional
+  `carlos-emr-eform-renderer_DEBVERSION_all.deb`, which is no longer built; see
+  `docs/install-deb.md`.
+- `carlos-ctl_CTLVERSION_all.deb` and its `.sha256`: the release of
+  [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) that
+  `debian/carlos-ctl.pin` names, downloaded, verified (checksum and
+  attestation) and re-attached by the same workflow. It is attested by the
+  carlos-ctl release workflow, not by this repository's: verify it with
+  `--repo carlos-emr/carlos-ctl`. The `Debian Packages` workflow refuses to
+  finish a release whose pinned `carlos-ctl` release does not exist yet, so
+  cut the `carlos-ctl` release (and move the pin) before tagging CARLOS. The
+  pin is the version a release SHIPS; `carlos-emr`'s `Depends: carlos-ctl
+  (>= ...)` in `debian/control` is the oldest CLI its maintainer scripts can
+  run with, and is raised only when they start using a new verb or flag.
 
 GitHub source archives supplement but do not replace the compiled WAR. Verify a
 download before deployment:
@@ -217,6 +252,8 @@ sha256sum --check carlos-VERSION.war.sha256
 sha256sum --check carlos-VERSION-cyclonedx.json.sha256
 gh attestation verify carlos-VERSION.war --repo carlos-emr/carlos
 gh attestation verify carlos-VERSION-cyclonedx.json --repo carlos-emr/carlos
+gh attestation verify carlos-emr_DEBVERSION_amd64.deb --repo carlos-emr/carlos
+gh attestation verify carlos-ctl_CTLVERSION_all.deb --repo carlos-emr/carlos-ctl
 ```
 
 Alpha, beta, and release-candidate versions are GitHub prereleases. Only stable

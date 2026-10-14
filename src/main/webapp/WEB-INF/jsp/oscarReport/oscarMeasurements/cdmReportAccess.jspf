@@ -1,0 +1,13 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+     INPUT results can be selected before execute() by parameter conversion errors. --%>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%
+    LoggedInInfo cdmUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (cdmUser == null || !SpringUtils.getBean(SecurityInfoManager.class)
+            .hasPrivilege(cdmUser, "_report", "r", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+%>

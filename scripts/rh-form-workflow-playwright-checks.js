@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
@@ -23,6 +24,8 @@ async function workflow(s) {
   h.assert(definition.length === 1, 'RH form registration is ambiguous');
   if (Number(definition[0][1]) <= 0) throw new h.SkipCheck('Enable the RH Form in Administration > Select Forms');
   const formName = definition[0][0];
+  const rollbackTriggers = [];
+  s.cleanup(() => rollbackTriggers.forEach(name => s.sql.execute(`DROP TRIGGER IF EXISTS ${name}`)));
   const formCount = `SELECT COUNT(*) FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient}`;
   s.cleanup(() => {
     s.sql.execute(`DELETE FROM formRhImmuneGlobulin WHERE demographic_no=${s.patient} AND provider_no=${h.sqlString(s.provider)};
@@ -30,7 +33,7 @@ async function workflow(s) {
     h.assert(s.sql.value(formCount) === '0', 'Unexpected RH form rows remain on the owned patient');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM workflow WHERE demographic_no=${h.sqlString(s.patient)}`) === '0', 'Unexpected workflow rows remain on the owned patient');
   });
-  const chart = await s.chart();
+  let chart = await s.chart();
   await chart.locator('#menuTitle1 a').hover();
   let page = await s.popup(chart, chart.getByRole('link', { name: formName, exact: true }), 'rh-new-form');
   let workflowId;
@@ -51,10 +54,25 @@ async function workflow(s) {
     h.assert(await page.locator('[name="formId"]').inputValue() === row[0], 'Success page reopened a different form record');
   });
   await s.step('reopen through the chart and update the existing pregnancy', async () => {
-    await page.close(); await chart.reload({ waitUntil: 'domcontentloaded' }); await waitForNavbars(chart, 20000);
-    const links = chart.locator('a[onclick*="/form/forwardshortcutname"]');
-    h.assert(await links.count() === 1, 'Owned patient should have exactly one saved form link');
-    page = await s.popup(chart, links.first(), 'rh-reopen');
+    await page.close();
+    // A fresh chart page rather than chart.reload(): leaving the encounter fires its
+    // unload beacon to CaseManagementEntry, which the browser reports as an aborted
+    // "ping" request and the strict page recorder counts as a failure.
+    const refreshed = await s.context.newPage();
+    await refreshed.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+    await waitForNavbars(refreshed, 20000);
+    chart = refreshed;
+    // One navbar ENTRY, not one anchor: LeftNavBarDisplay.jsp renders each saved form as a
+    // title link plus a "...date" suffix link with the same target, and the suffix overlays
+    // the end of a long title, so count the entries and click the title's visible left edge.
+    const entries = chart.locator('#leftNavBar li, #rightNavBar li')
+      .filter({ has: chart.locator('a[onclick*="/form/forwardshortcutname"]') });
+    // The navbars fill their sections asynchronously after waitForNavbars returns; wait for the
+    // forms section to render its entry before counting, or a slow load reads as zero.
+    await entries.first().waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
+    h.assert(await entries.count() === 1, 'Owned patient should have exactly one saved form entry');
+    page = await ui.clickOpensPopup(chart, entries.first().locator('a[onclick*="/form/forwardshortcutname"]').first(),
+      { context: s.context, recorder: s.recorder, label: 'rh-reopen', timeout: 20000, position: { x: 8, y: 9 } });
     h.assert(await page.locator('[name="comments"]').inputValue() === s.marker, 'Reopened RH form lost comments');
     await page.locator('[name="state"]').selectOption('2');
     await page.locator('[name="comments"]').fill(s.marker + ' edited'); await save();
@@ -75,17 +93,34 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT current_state FROM workflow WHERE ID=${workflowId}`) === '2', 'Rejected request changed the workflow');
   });
   await s.step('roll back workflow and form together when the database rejects a form value', async () => {
-    h.assert(/STRICT_(?:TRANS|ALL)_TABLES/.test(s.sql.value('SELECT @@GLOBAL.sql_mode')), 'Strict SQL mode is required for the truncation failure probe');
+    const suffix = s.marker.replace(/[^A-Za-z0-9_]/g, '_');
+    for (const operation of ['INSERT', 'UPDATE']) {
+      const name = `rh_rollback_${operation.toLowerCase()}_${suffix}`;
+      rollbackTriggers.push(name);
+      // Scoped to the owned patient so a concurrent save, or a trigger stranded by an
+      // interrupted run, never blocks RH writes for anyone else.
+      s.sql.execute(`DELIMITER //
+        CREATE TRIGGER ${name} BEFORE ${operation} ON formRhImmuneGlobulin
+        FOR EACH ROW BEGIN
+          IF NEW.demographic_no=${s.patient} THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='RH rollback probe';
+          END IF;
+        END//`);
+    }
     const count = s.sql.value(formCount);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    const response = await s.context.request.post(new URL('form/RHPrevention', s.config.baseUrl.href + '/').href, {
-      form: { 'CSRF-TOKEN': token, demographic_no: s.patient, workflowId, state: '3', edd: '2027-02-01',
-        form_class: 'RhImmuneGlobulin', motherSurname: 'Synthetic'.repeat(20), comments: s.marker },
-    });
-    h.assert(response.status() === 500, 'Rejected form data did not report a visible server failure');
-    h.assert(s.sql.value(formCount) === count, 'Failed save inserted an RH form');
-    h.assert(s.sql.value(`SELECT CONCAT(current_state,':',DATE(completion_date)) FROM workflow WHERE ID=${workflowId}`) === '2:2027-01-01',
-      'Workflow mutation was committed despite the failed form save');
+    try {
+      const response = await s.context.request.post(new URL('form/RHPrevention', s.config.baseUrl.href + '/').href, {
+        form: { 'CSRF-TOKEN': token, demographic_no: s.patient, workflowId, state: '3', edd: '2027-02-01',
+          form_class: 'RhImmuneGlobulin', motherSurname: 'Synthetic', comments: s.marker },
+      });
+      h.assert(response.status() === 500, 'Rejected form data did not report a visible server failure');
+      h.assert(s.sql.value(formCount) === count, 'Failed save inserted an RH form');
+      h.assert(s.sql.value(`SELECT CONCAT(current_state,':',DATE(completion_date)) FROM workflow WHERE ID=${workflowId}`) === '2:2027-01-01',
+        'Workflow mutation was committed despite the failed form save');
+    } finally {
+      for (const name of rollbackTriggers) s.sql.execute(`DROP TRIGGER IF EXISTS ${name}`);
+    }
   });
 }
 if (require.main === module) runWorkflow('rh-form-workflow', workflow);

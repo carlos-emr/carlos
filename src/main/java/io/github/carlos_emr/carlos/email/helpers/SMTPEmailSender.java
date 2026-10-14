@@ -639,7 +639,9 @@ public class SMTPEmailSender implements OutboundEmailTransport {
             }
             return parsedPort;
         } catch (NumberFormatException e) {
-            throw new EmailSendingException(invalidCredentialsMessage, e);
+            // No cause: report the sanitized message only, never the parser exception or the
+            // stored configuration value it would quote (release #3929 transport-config hardening).
+            throw new EmailSendingException(invalidCredentialsMessage);
         }
     }
 

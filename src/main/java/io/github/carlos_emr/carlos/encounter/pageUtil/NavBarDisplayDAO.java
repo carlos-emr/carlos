@@ -85,6 +85,7 @@ public class NavBarDisplayDAO {
     private String reloadUrl = null;
     private String divId = null;
 
+    private boolean trackHeadingPopups;
     private PopupConfig leftPopup;
     private PopupConfig rightPopup;
     private final ArrayList<PopupConfig> popUpMenuConfigs = new ArrayList<>();
@@ -255,6 +256,14 @@ public class NavBarDisplayDAO {
     }
 
     // --- Structured popup configuration methods (defense-in-depth, issue #1386) ---
+
+    public boolean isTrackHeadingPopups() {
+        return trackHeadingPopups;
+    }
+
+    public void setTrackHeadingPopups(boolean trackHeadingPopups) {
+        this.trackHeadingPopups = trackHeadingPopups;
+    }
 
     /**
      * Sets structured popup configuration for the left heading link.

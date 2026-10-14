@@ -31,21 +31,19 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.util.Collections;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
  * Unit tests for {@link ExcludeDemographicHandler} JSON input validation.
@@ -60,23 +58,22 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Tag("unit")
 @Tag("dashboard")
 @DisplayName("ExcludeDemographicHandler unit tests")
-class ExcludeDemographicHandlerUnitTest {
+@org.junit.jupiter.api.parallel.Isolated
+class ExcludeDemographicHandlerUnitTest extends CarlosUnitTestBase {
 
-    private static MockedStatic<SpringUtils> springUtilsMock;
-    private static DemographicExtDao mockDao;
-    private static ExcludeDemographicHandler handler;
+    private Object originalDao;
 
-    @BeforeAll
-    static void setUpBeforeAll() throws Exception {
+    private DemographicExtDao mockDao;
+    private ExcludeDemographicHandler handler;
+
+    @BeforeEach
+    void prepareHandler() throws Exception {
         mockDao = mock(DemographicExtDao.class);
         when(mockDao.getDemographicExtByKeyAndValue(anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
 
-        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
-        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
-                .thenReturn(mockDao);
-        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
-                .thenReturn(mock(DashboardManager.class));
+        registerMock(DemographicExtDao.class, mockDao);
+        registerMock(DashboardManager.class, mock(DashboardManager.class));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
         Provider provider = new Provider();
@@ -91,14 +88,15 @@ class ExcludeDemographicHandlerUnitTest {
         // Use reflection to ensure the mock is injected regardless of load order.
         Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
         daoField.setAccessible(true);
+        originalDao = daoField.get(null);
         daoField.set(null, mockDao);
     }
 
-    @AfterAll
-    static void tearDownAfterAll() {
-        if (springUtilsMock != null) {
-            springUtilsMock.close();
-        }
+    @AfterEach
+    void restoreDao() throws Exception {
+        Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
+        daoField.setAccessible(true);
+        daoField.set(null, originalDao);
     }
 
     @Nested
@@ -110,95 +108,102 @@ class ExcludeDemographicHandlerUnitTest {
             Mockito.clearInvocations(mockDao);
         }
 
+        private void assertParsedIds(Integer... expected) {
+            var ids = org.mockito.ArgumentCaptor.forClass(Integer.class);
+            verify(mockDao, times(expected.length)).addKeyIfAbsentSince(anyString(), ids.capture(),
+                    anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(expected), ids.getAllValues());
+        }
+
         @Test
         @DisplayName("should parse plain comma-separated integers")
         void shouldParseCommaSeparatedIntegers() {
             handler.excludeDemoIds("1,2,3", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            assertParsedIds(1, 2, 3);
         }
 
         @Test
         @DisplayName("should parse bracket-wrapped integer array")
         void shouldParseBracketWrappedIntegers() {
             handler.excludeDemoIds("[10,20,30]", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            assertParsedIds(10, 20, 30);
         }
 
         @Test
         @DisplayName("should parse single integer without brackets")
         void shouldParseSingleInteger() {
             handler.excludeDemoIds("42", "testIndicator");
-            verify(mockDao, times(1)).addKey(anyString(), anyInt(), anyString(), anyString());
+            assertParsedIds(42);
         }
 
         @Test
         @DisplayName("should reject JSON object injection payload")
         void shouldRejectJsonObjectInjection() {
             handler.excludeDemoIds("{\"key\":\"value\"}", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject script injection payload")
         void shouldRejectScriptInjection() {
             handler.excludeDemoIds("<script>alert(1)</script>", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject string values in array")
         void shouldRejectStringValues() {
             handler.excludeDemoIds("[\"malicious\",\"payload\"]", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject nested array payload")
         void shouldRejectNestedArrayPayload() {
             handler.excludeDemoIds("[[1,2],[3,4]]", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject string injection between brackets")
         void shouldRejectStringInjectionBetweenBrackets() {
             handler.excludeDemoIds("1,2],\"injected\":[3", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject consecutive commas")
         void shouldRejectConsecutiveCommas() {
             handler.excludeDemoIds("1,,3", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle null jsonString gracefully")
         void shouldHandleNullInput() {
             handler.excludeDemoIds((String) null, "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle empty jsonString gracefully")
         void shouldHandleEmptyInput() {
             handler.excludeDemoIds("", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle integers with whitespace")
         void shouldHandleIntegersWithWhitespace() {
             handler.excludeDemoIds(" 1 , 2 , 3 ", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            assertParsedIds(1, 2, 3);
         }
 
         @Test
         @DisplayName("should reject integer overflow values gracefully")
         void shouldRejectIntegerOverflow() {
             handler.excludeDemoIds("99999999999999999999", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
     }
 

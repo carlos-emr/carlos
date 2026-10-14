@@ -1,7 +1,7 @@
 # Custom Semgrep Taint-Mode Rule: CRLF Injection in Logs
 #
 # Replaces three built-in Semgrep rules that produce false positives because
-# they do not recognize LogSanitizer.sanitize() as a valid CRLF neutralizer:
+# they do not recognize LogSafe.sanitize() as a valid CRLF neutralizer:
 #
 #   - java.servlets.security.crlf-injection-logs-deepsemgrep.crlf-injection-logs-deepsemgrep
 #   - java.servlets.security.crlf-injection-logs.crlf-injection-logs
@@ -17,7 +17,7 @@ rules:
     message: >
       When data from an untrusted source is put into a logger and not
       neutralized correctly, an attacker could forge log entries or
-      include malicious content. Use LogSanitizer.sanitize() to escape
+      include malicious content. Use LogSafe.sanitize() to escape
       control characters before logging user-supplied values.
     severity: ERROR
     languages: [java]
@@ -40,20 +40,85 @@ rules:
               metavariable: $METHOD
               regex: ^(getParameter|getQueryString|getHeader|getRequestURI|getRequestURL|getPathInfo|getCookies|getRemoteAddr|getRemoteHost)$
     pattern-sanitizers:
-      # Project sanitizer — delegates to OWASP Encode.forJava() which escapes
-      # CR, LF, and all other control characters.
-      - pattern: LogSanitizer.sanitize(...)
-      - pattern: io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(...)
+      # Project sanitizers — io.github.carlos_emr.carlos.utility.LogSafe.
+      #
+      # The class is LogSafe, not LogSanitizer. There has never been a
+      # LogSanitizer type in this repository, so the previous patterns matched
+      # nothing and every correctly-sanitized log call was still reported.
+      #
+      # Only methods that provably neutralize CR (0x0D) and LF (0x0A) are
+      # listed here. Adding a non-neutralizing helper would silence real
+      # CWE-117 findings, so each entry below records why it is safe.
+
+      # sanitize(String) / sanitize(String,int) -> Encode.forJava(), which
+      # escapes CR, LF and every other control character.
+      - pattern: LogSafe.sanitize(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSafe.sanitize(...)
+
+      # sanitizeUri(String) strips ;jsessionid-style path parameters, then
+      # delegates to sanitize(String).
+      - pattern: LogSafe.sanitizeUri(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSafe.sanitizeUri(...)
+
+      # sanitizeObject(Object) delegates to sanitize(String); its toString()
+      # failure fallbacks are string literals plus a class name.
+      - pattern: LogSafe.sanitizeObject(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(...)
+
+      # sanitizeForDisplay(String) neutralizes by deletion rather than by
+      # escaping: it removes [\p{Cntrl}\u0085\u2028\u2029]. Java's \p{Cntrl} is
+      # ASCII-only without UNICODE_CHARACTER_CLASS, so U+0085 NEXT LINE — a line
+      # terminator for java.util.regex and Unicode-aware log viewers — is listed
+      # explicitly alongside U+2028/U+2029; without it an attacker could still
+      # forge a log line through this helper. Intended for operator-facing
+      # messages that may later be logged, so it is a valid CWE-117 barrier.
+      - pattern: LogSafe.sanitizeForDisplay(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSafe.sanitizeForDisplay(...)
+
+      # exceptionTrace(Throwable) cuts taint rather than escaping it: it never
+      # calls Throwable.toString()/getMessage(), emitting only exception class
+      # names and sanitize()-escaped stack frames. The newlines it does emit are
+      # server-generated structure, never attacker-controlled.
+      - pattern: LogSafe.exceptionTrace(...)
+      - pattern: io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(...)
+
+      # Static-import forms of the same helpers.
       - patterns:
           - pattern-inside: |
-              import static io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize;
+              import static io.github.carlos_emr.carlos.utility.LogSafe.sanitize;
               ...
           - pattern: sanitize(...)
       - patterns:
           - pattern-inside: |
-              import static io.github.carlos_emr.carlos.utility.LogSanitizer.*;
+              import static io.github.carlos_emr.carlos.utility.LogSafe.sanitizeUri;
               ...
-          - pattern: sanitize(...)
+          - pattern: sanitizeUri(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject;
+              ...
+          - pattern: sanitizeObject(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSafe.sanitizeForDisplay;
+              ...
+          - pattern: sanitizeForDisplay(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace;
+              ...
+          - pattern: exceptionTrace(...)
+      - patterns:
+          - pattern-inside: |
+              import static io.github.carlos_emr.carlos.utility.LogSafe.*;
+              ...
+          - pattern-either:
+              - pattern: sanitize(...)
+              - pattern: sanitizeUri(...)
+              - pattern: sanitizeObject(...)
+              - pattern: sanitizeForDisplay(...)
+              - pattern: exceptionTrace(...)
+
       # OWASP Encoder direct usage also neutralizes CRLF.
       - pattern: Encode.forJava(...)
       - pattern: org.owasp.encoder.Encode.forJava(...)

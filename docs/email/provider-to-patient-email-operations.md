@@ -37,12 +37,15 @@ separate chart composer is implemented, reviewed, and documented.
   handles the eForm Email button, valid-recipient checks, consent prompt, and
   hidden `emailEForm=true` submit flag.
 - `src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java`
-  saves the eForm and moves email options, attachment selections, and patient
-  context into session state for the compose redirect.
+  saves the eForm and stages its email options, attachment selections, and
+  patient context as one draft in the session under a one-time key, which its
+  redirect to the compose action carries (`&draft=<key>`, #4101). Two windows
+  that save close together therefore each open their own compose. At most eight
+  drafts wait per session; staging a ninth drops the oldest.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
   requires `_email` and read access to the patient (`_demographic`, including
   per-patient restrictions), and works in two steps. The first request takes
-  the staged session state once, prepares the attachments and the one-time send
+  the draft for its key once, prepares the attachments and the one-time send
   token, and redirects to `email/emailComposeAction?composeView=<id>`. That view
   URL loads consent, recipients and active sender accounts and renders the
   compose screen. Refreshing it shows the same compose screen, password and
@@ -57,8 +60,12 @@ separate chart composer is implemented, reviewed, and documented.
   - Tomcat restarted, or the request reached another server, because the
     prepared state is held in that server's memory.
 
+  The first request itself shows the expired message when its key is missing,
+  already used, or was dropped.
+
   If preparing the attachments or storing the state fails, the provider is
-  returned to the eForm with a generic error instead.
+  returned to the eForm with a generic error instead, and the draft is kept
+  under its key, so refreshing that page tries again.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`

@@ -84,6 +84,17 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public List<Appointment> findByDateRange(Date startTime, Date endTime);
 
+    /**
+     * Finds requested dates blocked by an overlapping Do Not Book slot for the template's
+     * provider and program. Start/end times are inclusive; C and D slots are inactive,
+     * matching the Add Appointment popup. Only dates, not appointment entities, are loaded.
+     *
+     * @param template requested provider, program and time interval
+     * @param dates candidate dates (recurrence callers supply at most 366)
+     * @return distinct blocked dates, or an empty list for no candidates or conflicts
+     */
+    List<Date> findDoNotBookDates(Appointment template, List<Date> dates);
+
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo);
 
     public List<Appointment> getByProviderAndDay(Date date, String providerNo);
@@ -143,7 +154,42 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     void streamPatientAppointments(String providerNo, Date from, Date to,
                                    Consumer<PatientAppointmentExportRow> rowConsumer);
 
+    /**
+     * Lists appointments that still need billing for one provider and date range,
+     * newest first. Billed ({@code B*}), No-Show ({@code N*}) and Cancelled
+     * ({@code C*}) appointments are excluded, matching the Ontario "new report"
+     * unbilled query ({@link #findBillingOnNewReportUnbilledRows}).
+     *
+     * <p>Equivalent to {@code findUnbilledAppointments(providerNo,
+     * startDate, endDate, false, false)}.</p>
+     *
+     * @param providerNo appointment provider number
+     * @param startDate inclusive start of the appointment-date range
+     * @param endDate inclusive end of the appointment-date range
+     * @return unbilled, non-cancelled, attended-or-pending appointments
+     */
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate);
+
+    /**
+     * Lists appointments that still need billing, with opt-in inclusion of
+     * No-Show and Cancelled appointments for clinics that bill for missed visits.
+     *
+     * <p>Billed ({@code B*}) appointments and appointments without a patient
+     * ({@code demographic_no = 0}) are always excluded. Status prefixes are
+     * matched case-sensitively ({@code appointment.status} is
+     * {@code utf8mb4_bin}), so lowercase custom statuses such as {@code c}
+     * ("Customized 3") are never mistaken for Cancelled.</p>
+     *
+     * @param providerNo appointment provider number
+     * @param startDate inclusive start of the appointment-date range
+     * @param endDate inclusive end of the appointment-date range
+     * @param includeNoShow {@code true} to keep {@code N*} (No-Show) appointments
+     * @param includeCancelled {@code true} to keep {@code C*} (Cancelled) appointments
+     * @return matching appointments ordered by date then start time, newest first
+     * @since 2026-09-26
+     */
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
+                                                             boolean includeNoShow, boolean includeCancelled);
 
     public List<Appointment> findByDateAndProvider(Date date, String provider_no);
 

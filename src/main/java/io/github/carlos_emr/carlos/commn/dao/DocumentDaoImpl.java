@@ -60,6 +60,26 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
 
     @Override
+    public void updatePageCount(Integer documentNo, int pageCount) {
+        if (documentNo == null || documentNo <= 0 || pageCount <= 0) throw new IllegalArgumentException("Invalid document page count");
+        int changed = entityManager.createQuery("update Document d set d.numberofpages=:pages where d.documentNo=:id and d.status<>:deleted")
+                .setParameter("pages", pageCount).setParameter("id", documentNo).setParameter("deleted", 'D').executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Document is no longer available");
+        // JPQL bulk updates invalidate the second-level cache but bypass managed
+        // instances. Refresh under the acquired row lock so later flushes cannot
+        // write the caller's pre-wait metadata/classification back over another edit.
+        Document current = entityManager.find(Document.class, documentNo);
+        if (current != null) entityManager.refresh(current);
+    }
+
+    @Override
+    public Document findForPageMutation(Integer documentNo) {
+        Document document = entityManager.find(Document.class, documentNo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (document != null) entityManager.refresh(document, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return document;
+    }
+
+    @Override
     public List<Object[]> getCtlDocsAndDocsByDemoId(Integer demoId, Module moduleName, DocumentType docType) {
         Query query = entityManager.createQuery("SELECT c, d FROM CtlDocument c, Document d WHERE c.id.module = ?1 AND c.id.documentNo = d.documentNo AND d.doctype = ?2 AND c.id.moduleId = ?3");
         query.setParameter(1, moduleName.name().toLowerCase());

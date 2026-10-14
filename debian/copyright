@@ -78,8 +78,9 @@ Comment:
  These two files carry no upstream code; they pin and fetch it. The binary they
  produce is described below.
  .
- The carlos-emr-eform-renderer BINARY package ships a prebuilt Chromium and
- chromedriver under /usr/lib/carlos-emr/chromium. They are NOT in this source
+ The carlos-emr BINARY package ships a prebuilt Chromium and chromedriver
+ under /usr/lib/carlos-emr/chromium (through 2026.08.0~alpha13 they were in
+ the separate carlos-emr-eform-renderer package). They are NOT in this source
  package: debian/rules downloads the revision pinned in debian/chromium.pin from
  the upstream Chromium continuous-build archive and verifies its sha256 before
  unpacking it.

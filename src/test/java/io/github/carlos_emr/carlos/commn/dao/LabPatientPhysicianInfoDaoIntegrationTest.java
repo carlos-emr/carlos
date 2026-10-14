@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +31,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import java.util.List;
 
@@ -52,6 +56,9 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private LabPatientPhysicianInfoDao labPatientPhysicianInfoDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -92,6 +99,87 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
             labPatientPhysicianInfoDao.persist(entity);
             long count = labPatientPhysicianInfoDao.getCountAll();
             assertThat(count).isEqualTo(1);
+        }
+    }
+
+    /**
+     * {@code findByPatientName} backs the legacy CML/MDS Inbox search. A patient without a health
+     * card number (NULL HIN) must still be found when the HIN search field is blank, and must not
+     * match a non-blank HIN search.
+     */
+    @Nested
+    @DisplayName("Patient search without a health card number")
+    class PatientSearchWithoutHealthNumber {
+
+        private static final String PROVIDER = "999998";
+        private static final String LAB_TYPE = "CML";
+
+        private int routeLabWithoutHin(String lastName) throws Exception {
+            return routeLab(lastName, null);
+        }
+
+        private int routeLab(String lastName, String hin) throws Exception {
+            LabPatientPhysicianInfo info = new LabPatientPhysicianInfo();
+            EntityDataGenerator.generateTestDataForModelClass(info);
+            info.setPatientLastName(lastName);
+            info.setPatientFirstName("Fixture");
+            info.setPatientHin(hin);
+            labPatientPhysicianInfoDao.persist(info);
+
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(info.getId());
+            routing.setLabType(LAB_TYPE);
+            routing.setProviderNo(PROVIDER);
+            routing.setStatus("N");
+            entityManager.persist(routing);
+            entityManager.flush();
+            return info.getId();
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should find a lab by name when the patient has no HIN and the HIN field is blank")
+        void shouldFindLab_whenPatientHinIsNull() throws Exception {
+            int labNo = routeLabWithoutHin("Nullhincml");
+
+            List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Nullhincml", "", "");
+
+            assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should find a lab by name when the patient has a HIN and the HIN field is blank")
+        void shouldFindLab_whenHinFieldIsBlank() throws Exception {
+            int labNo = routeLab("Withhincml", "9876543210");
+
+            List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Withhincml", "", "");
+
+            assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should find a lab when its exact HIN is searched")
+        void shouldFindLab_whenExactHinIsSearched() throws Exception {
+            int labNo = routeLab("Exacthincml", "9876543211");
+
+            List<Object[]> results = labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Exacthincml", "", "9876543211");
+
+            assertThat(results).extracting(row -> ((LabPatientPhysicianInfo) row[0]).getId()).containsExactly(labNo);
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should not match a patient without a HIN when a health number is searched")
+        void shouldExcludeNullHinPatient_whenHealthNumberIsSearched() throws Exception {
+            routeLabWithoutHin("Nullhincmlsearched");
+
+            assertThat(labPatientPhysicianInfoDao.findByPatientName("N", LAB_TYPE, PROVIDER,
+                    "Nullhincmlsearched", "", "12345")).isEmpty();
         }
     }
 }

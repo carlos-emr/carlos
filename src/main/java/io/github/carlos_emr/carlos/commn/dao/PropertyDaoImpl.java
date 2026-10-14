@@ -61,6 +61,20 @@ public class PropertyDaoImpl extends AbstractDaoImpl<Property> implements Proper
         return query.getResultList();
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<Property> findByNameForUpdate(String name) {
+        List<Property> rows = entityManager.createQuery(
+                        "select p from Property p where p.name=?1", Property.class)
+                .setParameter(1, name)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (Property row : rows) {
+            entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return rows;
+    }
+
     /**
      * Find a property by name where the providers number is null. This identifies a globally set property that is not tied to a specific providers.
      * This is more of a legacy function, since most new global properties should be added to SystemPreferences instead.

@@ -2,28 +2,28 @@
 <jasperReport name="pdf_rep_account_rec" pageWidth="535" pageHeight="842" columnWidth="535" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="startDate" class="java.lang.String" isForPrompting="false">
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="startDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="endDate" class="java.lang.String" isForPrompting="false">
+	<parameter name="endDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="demNoCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="demNoCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billMasterCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billMasterCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="insurers" class="java.lang.String" isForPrompting="false">
+	<parameter name="insurers" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="account" class="java.lang.String" isForPrompting="false">
+	<parameter name="account" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<field name="providerFirstName" class="java.lang.String" />
@@ -42,34 +42,34 @@
 	<field name="accountName" class="java.lang.String" />
 	<field name="expString" class="java.lang.String" />
 	<variable name="four" class="java.lang.Double" resetType="Group" resetGroup="status" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("4")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("4")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="three" class="java.lang.Double" resetType="Group" resetGroup="status" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("3")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("3")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="two" class="java.lang.Double" resetType="Group" resetGroup="status" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("2")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("2")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="one" class="java.lang.Double" resetType="Group" resetGroup="status" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("1")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("1")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="grpAmt" class="java.lang.Double" resetType="Group" resetGroup="status" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<variable name="fourGtotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("4")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("4")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="threeGtotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("3")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("3")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="twoGtotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("2")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("2")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<variable name="oneGtotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{serviceDateRange}.equals("1")?new Double($F{amount}):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{serviceDateRange}.equals("1")?new Double($F{amount}):new Double(0)]]></expression>
 	</variable>
 	<group name="status">
-		<groupExpression><![CDATA[$F{reason}]]></groupExpression>
+		<expression><![CDATA[$F{reason}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
