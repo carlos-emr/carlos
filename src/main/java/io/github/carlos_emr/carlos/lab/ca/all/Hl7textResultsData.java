@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -64,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -91,6 +93,37 @@ public class Hl7textResultsData {
 
     private Hl7textResultsData() {
         // no one should instantiate this
+    }
+
+    /**
+     * Observation-time layouts the HL7 message parsers hand back, longest first: HL7 OBR-7 may carry
+     * 14 digits (with seconds), 12 (no seconds) or 8 (date only), and the parsers (e.g.
+     * {@code CMLHandler.formatDateTime}) render them as these three shapes. The longest pattern must be
+     * tried first because {@link SimpleDateFormat#parse(String)} ignores trailing text.
+     */
+    private static final String[] OBSERVATION_DATE_PATTERNS = {"yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd"};
+
+    /**
+     * Parses a handler-formatted observation time, accepting a missing seconds (or time) component so a
+     * result observed in the past is never re-dated to the moment it was filed (issue #4619).
+     *
+     * @param observationDate the handler's formatted timestamp, may be null
+     * @return the parsed instant, or {@code null} when no supported layout matches
+     */
+    static Date parseObservationDate(String observationDate) {
+        if (observationDate == null) {
+            return null;
+        }
+        String trimmed = observationDate.trim();
+        for (String pattern : OBSERVATION_DATE_PATTERNS) {
+            try {
+                // SimpleDateFormat is not thread-safe, so build one per call.
+                return new SimpleDateFormat(pattern).parse(trimmed);
+            } catch (ParseException e) {
+                // try the next, shorter layout
+            }
+        }
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -244,11 +277,13 @@ public class Hl7textResultsData {
                     /*
                      * This should be the OBR date - not the date the lab or measurement was received.
                      */
-                    try {
-                        m.setDateObserved(simpleDateFormat.parse(observationDate));
-                    } catch (Exception e) {
-                        m.setDateObserved(new Date());
+                    Date observed = parseObservationDate(observationDate);
+                    if (observed == null) {
+                        logger.warn("Unparseable HL7 observation time for lab " + LogSafe.sanitize(lab_no)
+                                + "; filing the measurement as observed now");
+                        observed = new Date();
                     }
+                    m.setDateObserved(observed);
 
                     m.setAppointmentNo(0);
 
