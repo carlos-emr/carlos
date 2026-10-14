@@ -125,7 +125,9 @@
     }
     DemographicData demoData = new DemographicData();
     String nameAge = demoData.getNameAgeString(loggedInInfo, demographic_no);
-    Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
+    // One patient lookup for all the per-type loops below, instead of one or more per type.
+    PreventionPageData pageData = new PreventionPageData(loggedInInfo, demographic_no);
+    Demographic demo = pageData.getDemographic();
     String hin = demo.getHin() + demo.getVer();
     String mrp = demo.getProviderNo();
     PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
@@ -139,7 +141,7 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
-    Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, Integer.valueOf(demographic_no));
+    Date demographicDateOfBirth = pageData.getDateOfBirth();
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
     PreventionDS pf = SpringUtils.getBean(PreventionDS.class);
@@ -909,9 +911,9 @@
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);
                         String prevName = h.get("name");
-                        ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
+                        ArrayList<Map<String,Object>> alist = pageData.getPreventionData(prevName);
 
-                        boolean show = pdc.display(loggedInInfo, h, demographic_no,alist.size());
+                        boolean show = pdc.display(h, demo, alist.size());
                         if(!show){
                             Map<String,Object> h2 = new HashMap<String,Object>();
                             h2.put("prev",h);
@@ -1116,7 +1118,7 @@
                                        onclick="var el=document.getElementById('<%="prev"+setNum%>'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                        style="font-size: xx-small;">show/hide</a>
                                     <div class="preventionSet"
-                                         <%=pdc.getDisplay(loggedInInfo, setHash,demographic_no)%>;
+                                         <%=pdc.getDisplay(setHash, demo)%>;
                                     " id="<%="prev" + setNum%>">
                                     <%
                                         for (int i = 0; i < prevs.length; i++) {
@@ -1137,7 +1139,7 @@
                                         </div>
                                         <%
                                             String prevType = h.get("name");
-                                            ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.valueOf(demographic_no));
+                                            ArrayList<Map<String, Object>> alist = pageData.getPreventionData(prevType);
 
                                             String result;
                                             for (int k = 0; k < alist.size(); k++) {
@@ -1180,7 +1182,7 @@
                 for (int i = 0; i < prevList.size(); i++) {
                     HashMap<String, String> h = prevList.get(i);
                     String prevName = h.get("name");
-                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
+                    ArrayList<Map<String, Object>> alist = pageData.getPreventionData(prevName);
 
                     if (alist.size() > 0) { %>
             <input type="hidden" id="preventionHeader<%=i%>"

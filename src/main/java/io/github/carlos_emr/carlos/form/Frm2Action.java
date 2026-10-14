@@ -173,13 +173,13 @@ public final class Frm2Action extends ActionSupport {
 
                     response.setContentType("application/pdf");
                     if (isRourkeForm2020) {
-                        response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2020_" + formId + ".pdf\"");
+                        // Replace the print-progress popup with the PDF viewer.
+                        response.setHeader("Content-Disposition", "inline; filename=\"Rourke2020_" + formId + ".pdf\"");
                     } else {
                         response.setHeader("Content-Disposition", "attachment; filename=\"Rourke2017_" + formId + ".pdf\"");
                     }
-                    ((JasperReportPdfPrint) rec).PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
-                    newID = 0;
-                    return null;
+                    writeJasperPdf((JasperReportPdfPrint) rec, loggedInInfo, demographicNo, formId, pagesToPrint);
+                    return NONE;
                 } else {
                     props = rec.getFormRecord(loggedInInfo, Integer.parseInt(request.getParameter("demographic_no")), formId);
 
@@ -340,6 +340,27 @@ public final class Frm2Action extends ActionSupport {
         request.setAttribute("saveSuccess", saveSuccess);
 
         return actionForward;
+    }
+
+    private void writeJasperPdf(JasperReportPdfPrint report, LoggedInInfo loggedInInfo,
+                               Integer demographicNo, Integer formId, List<Integer> pagesToPrint) {
+        try {
+            report.PrintJasperPdf(response.getOutputStream(), loggedInInfo, demographicNo, formId, pagesToPrint);
+        } catch (RuntimeException | IOException ex) {
+            sendPdfError(ex);
+        }
+    }
+
+    private void sendPdfError(Exception failure) {
+        log.error("Could not generate form PDF", failure);
+        // Never forward an HTML result over a configured or partial PDF response.
+        if (response.isCommitted()) return;
+        response.reset();
+        try {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Could not generate form PDF");
+        } catch (IOException sendError) {
+            log.error("Could not send PDF generation error response", sendError);
+        }
     }
 
     /**
