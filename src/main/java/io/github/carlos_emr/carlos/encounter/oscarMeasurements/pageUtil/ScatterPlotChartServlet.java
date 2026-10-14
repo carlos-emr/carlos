@@ -60,6 +60,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
  * such as blood pressure and vitals in the encounter view.
@@ -84,6 +87,45 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
         if (demographicNo == null && bean != null) {
             demographicNo = bean.getDemographicNo();
+        }
+
+        // Security fix (issue #2623): patient-scoped authorization check,
+        // mirroring the pattern in MeasurementData2Action.java (measurements/web).
+        //
+        // A missing demographicNo is rejected outright, before any privilege
+        // check runs: hasPrivilege() falls back to a general role check when
+        // demographicNo is null, which would reopen the IDOR gap this fix is
+        // meant to close (flagged by automated review on this PR).
+        if (demographicNo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+        // isAllowedAccessToPatientRecord() is checked in addition to
+        // hasPrivilege() as defense-in-depth: it enforces explicit
+        // patient-level access locks (e.g. chart restrictions) independently
+        // of role-based privilege. Note this does not fully close the
+        // deeper limitation that hasPrivilege() can fall back to a general
+        // role check when no patient-specific role mapping exists for this
+        // demographicNo -- that is existing, shared behavior used across
+        // many other files in this codebase and is out of scope for this
+        // narrowly-scoped fix; flagged separately to the maintainer.
+        Integer demographicNoInt;
+        try {
+            demographicNoInt = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {
