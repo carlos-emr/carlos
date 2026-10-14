@@ -722,10 +722,17 @@ passphrases, and server-acknowledged cancellation. On Resend it requires the use
 own footer, cleaned, rather than the footer kept on the log, and a read-only clinic
 footer. It does not send email and removes only its owned logs and footer. With no
 sender or no clinic footer configured, it also requires an explicit warning and a
-disabled Send button. Both checks require a disposable local database and reject
-non-loopback `MYSQL_HOST` values. Email recovery also requires a loopback
-`BASE_URL`, even when the shared remote-target opt-in is set, because its
-fixtures belong to the local database.
+disabled Send button. Without a usable sender or recipient the page locks the whole
+form, the footer editor included; the check then verifies the lock, and its editing
+checks run only on an install that has both (its PASS line says which). Both checks
+require a disposable local database and reject non-loopback `MYSQL_HOST` values.
+Email recovery also requires a loopback `BASE_URL`, even when the shared remote-target
+opt-in is set, because its fixtures belong to the local database.
+
+The clinic email footer is mandatory, so the checks that press Send
+(`eform-email-two-windows`, `eform-email-attachment-binding`, `admin-email-config`) save an
+owned FAKE clinic footer when none is saved and remove it afterwards; a saved clinic footer is
+used as it is (`scripts/lib/clinic-email-footer-fixture.js`).
 
 For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
 `CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser

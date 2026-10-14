@@ -73,6 +73,12 @@ async function assertResendFooters(compose) {
   } else {
     assert((await compose.locator('#clinicFooterPreview').innerText()).trim().length > 0, 'Clinic footer card is blank');
   }
+  // Without a usable sender or recipient the page locks the whole form, the footer editor too (a
+  // fresh install has no sender). Then check the lock; the editing checks need an install with both.
+  if (await compose.locator('#footerEmailEdit').isDisabled()) {
+    assert(await compose.locator('#btnSend').isDisabled(), 'The footer editor is locked but Send is not');
+    return 'locked';
+  }
 
   await compose.locator('#footerEmailEdit').click();
   const modal = compose.locator('#footerEditorModal');
@@ -110,6 +116,7 @@ async function assertResendFooters(compose) {
     assert(await footer.inputValue() === cleanFooter, 'Switching sender replaced the footer');
     await compose.locator('#senderEmailAddress').selectOption(current);
   }
+  return 'edited';
 }
 
 (async () => {
@@ -117,6 +124,7 @@ async function assertResendFooters(compose) {
   const recorder = createRecorder();
   const ids = [];
   const ownFooter = { providerNo: null, id: null };
+  let footerEditor = 'not reached';
   let browser;
   try {
     await cancellation.run(async () => {
@@ -176,7 +184,7 @@ async function assertResendFooters(compose) {
         await assertNotErrorPage(compose, 'email copy');
         assert(await compose.locator('#message').inputValue() === 'Synthetic recovery message',
           'Copying a legacy log lost its message when the optional encrypted field was null');
-        await assertResendFooters(compose);
+        footerEditor = await assertResendFooters(compose);
         assert(await compose.locator('#emailResendWarning').isVisible(), 'Unconfirmed delivery warning is missing');
         const passphrase = await compose.locator('#emailPDFPassword').inputValue();
         const composeToken = await compose.locator('input[name="emailPDFPasswordToken"]').inputValue();
@@ -203,7 +211,7 @@ async function assertResendFooters(compose) {
         'Copy/cancel unexpectedly archived or sent the fixture');
       assert(recorder.badResponses.filter(r => r.status >= 500).length === 0, 'Email recovery produced a server error');
       assert(recorder.pageErrors.length === 0, 'Email recovery produced an uncaught browser error');
-      console.log('PASS email recovery: fresh-send rejection, stale warning/resolve, own footer on resend, separate random compose secrets, and acknowledged cancellation; no email sent');
+      console.log(`PASS email recovery: fresh-send rejection, stale warning/resolve, own footer on resend (footer editor: ${footerEditor}), separate random compose secrets, and acknowledged cancellation; no email sent`);
     });
   } catch (error) {
     console.error('FAIL email recovery Playwright check');
