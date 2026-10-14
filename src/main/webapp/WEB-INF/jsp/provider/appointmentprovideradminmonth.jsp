@@ -153,6 +153,15 @@
         providerview = request.getParameter("providerview") == null ? (mygroupno.equals(".default") ? curProvider_no : ("_grp_" + mygroupno)) : request.getParameter("providerview");
     }
     //String providerview = request.getParameter("providerview")==null?curProvider_no:request.getParameter("providerview") ;
+
+    // A week number opens the week view (the day sheet with weekView=true), which shows exactly
+    // one provider. "All providers" and a group have no single provider, and providerview is a
+    // request parameter, so a value that is not an existing provider gets no link either: those
+    // week numbers stay plain text instead of leading to a sheet for nobody (issue #4540).
+    String weekViewProviderNo = ScheduleWeekLink.singleProvider(providerview);
+    if (weekViewProviderNo != null && providerDao.getProvider(weekViewProviderNo) == null) {
+        weekViewProviderNo = null;
+    }
     int NameMaxLen = 15;
 %>
 <%
@@ -315,6 +324,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.provider.web.ScheduleWeekLink" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 
@@ -824,12 +834,14 @@
                                                     out.println("</tr>");
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
+                                                            // Any day of the row will do: the week view starts at the beginning of its week.
+                                                            String weekHref = weekViewProviderNo == null ? null
+                                                                    : ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewProviderNo);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
-                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='<%= request.getContextPath() %>/provider/providercontrol?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
-                                                        <%=(i + 1)%>
-                                            </font></td>
+                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a
+                                                    href="<carlos:encode value='<%= weekHref %>' context="htmlAttribute"/>"><%=(i + 1)%></a><% } else { %><%=(i + 1)%><% } %></font></td>
                                             <%
                                                     continue;
                                                 }
@@ -928,12 +940,14 @@
                                                     out.println("</tr>");
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
+                                                            // Any day of the row will do: the week view starts at the beginning of its week.
+                                                            String weekHref = weekViewProviderNo == null ? null
+                                                                    : ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewProviderNo);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
-                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'> <a
-                                                    href='<%= request.getContextPath() %>/provider/providercontrol?<%=caisi%>year=<%=year%>&month=<%=MyDateFormat.getDigitalXX(month)%>&day=<%=dateGrid[i][j+1]==0?1:dateGrid[i][j+1]%>&view=<%=view==0?"0":("1&curProvider="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProvider")))+"&curProviderName="+SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("curProviderName"))) )%>&displaymode=week&dboperation=searchapptweek'>
-                                                        <%=(i + 1)%>
-                                            </font></td>
+                                                    FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a
+                                                    href="<carlos:encode value='<%= weekHref %>' context="htmlAttribute"/>"><%=(i + 1)%></a><% } else { %><%=(i + 1)%><% } %></font></td>
                                             <%
                                                     continue;
                                                 }

@@ -292,6 +292,7 @@
     "test:my-groups-playwright": "node scripts/my-groups-playwright-checks.js",
     "test:retired-provider-history-playwright": "node scripts/retired-provider-history-playwright-checks.js",
     "test:schedule-views-playwright": "node scripts/schedule-views-playwright-checks.js",
+    "test:schedule-month-week-links-playwright": "node scripts/schedule-month-week-links-playwright-checks.js",
     "test:waiting-list-playwright": "node scripts/waiting-list-playwright-checks.js",
     "test:appointment-search-history-playwright": "node scripts/appointment-search-history-playwright-checks.js",
     "test:report-query-by-example-playwright": "node scripts/report-query-by-example-playwright-checks.js",
