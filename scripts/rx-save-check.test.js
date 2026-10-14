@@ -79,7 +79,7 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
         validateWrittenDate: () => true, validateRxDate: () => true,
         setPharmacyId() {}, ctx: '/carlos',
         document: { getElementById: () => ({}) },
-        FormData: class {}, URLSearchParams: class { toString() { return 'drugName_42=draft'; } },
+        FormData: class { delete() {} }, URLSearchParams: class { toString() { return 'drugName_42=draft'; } },
         CarlosAjax: { request(url, options) { calls.push({url, options}); } },
         refreshDrugProfile() {}, clearStashDisplay() { cleared++; },
         reportRefusedSave() {},
@@ -96,3 +96,39 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     assert.equal(cleared, 1);
     assert.equal(calls.length, 1, 'a post-save clear can destroy another window\'s newer draft');
 });
+
+for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContinue']) {
+    test(`${name} omits search text while preserving every prescription field`, () => {
+        const fields = [
+            ['searchString', 'http://10.0.0.5/pacs/study'],
+            ['drugName_42', "Patient's custom medication"], ['instructions_42', '1 tab PO BID'],
+            ['comment_42', 'Wound <?> follow up'], ['demographicNo', '123'],
+            ['draftRevision_42', '7'], ['csrfToken', 'test-token'], ['selected', '1'], ['selected', '2'],
+        ];
+        const form = {};
+        const calls = [];
+        const context = {
+            validateWrittenDate: () => true, validateRxDate: () => true,
+            setPharmacyId() {}, ctx: '/carlos',
+            document: { getElementById(id) { assert.equal(id, 'drugForm'); return form; } },
+            FormData: class extends URLSearchParams {
+                constructor(element) { assert.equal(element, form); super(fields); }
+            }, URLSearchParams,
+            CarlosAjax: { request(url, options) { calls.push({url, options}); } },
+            reportRefusedSave() {},
+        };
+        const code = (name === 'updateSaveAllDrugsPrintContinue'
+            ? slice('function updateSaveAllDrugsPrintContinue(', 'function updateSaveAllDrugsContinue(')
+            : slice('function updateSaveAllDrugsContinue(', '/**'))
+            .replace(/<%if \(CarlosProperties[\s\S]*?<%}%>/, '');
+        vm.runInNewContext(code, context);
+        context[name]();
+        assert.equal(calls.length, 1);
+        const posted = new URLSearchParams(calls[0].options.postBody);
+        assert.equal(posted.has('searchString'), false);
+        const expected = fields.filter(([key]) => key !== 'searchString');
+        if (name === 'updateSaveAllDrugsContinue') expected.push(['clearSaved', 'true']);
+        assert.deepEqual([...posted], expected);
+        assert.equal(fields[0][1], 'http://10.0.0.5/pacs/study', 'the search box is not cleared by serialization');
+    });
+}

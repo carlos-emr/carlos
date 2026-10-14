@@ -14,8 +14,8 @@
  * record's Alert/Notes); every other check saves marker text that never scores, so a WAF false
  * positive on a clinician's note would first show up in the field as a bare 403.
  *
- * WHAT IT DOES. One row per route and per defect (lib/waf-corpus-rows.js: 22 rows over 20 of the package's 62 exclusion
- * rules and one after-CRS pattern; the tickler list and the custom Rx drug name are two rows each, see that file). Each row is two steps:
+ * WHAT IT DOES. One row per route and per defect (lib/waf-corpus-rows.js), including each Rx Save Only prose field,
+ * both directions of the tickler list and the encounter-entry query string. Each row is two steps:
  *   1. a CONTROL step drives the real UI save with plain marker text. That proves the page, the route
  *      and the fixture work through the front door, and for a row that replays it captures the request
  *      the page sent, so the route and the argument names are the page's own and not a guess;
@@ -54,9 +54,11 @@
  * tickler, and the rows each save writes (found by the patient and by an id watermark taken before the
  * corpus is sent). Cleanup deletes them by key and asserts they are gone. No clinic-wide state is changed.
  */
+const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { watchFrontDoor } = require('./lib/front-door-checks');
 const boundary = require('./lib/boundary-values');
 const fam = require('./lib/mutation-families');
@@ -69,13 +71,14 @@ const rep = require('./lib/mutation-replay');
 const waf = require('./lib/waf-corpus');
 const { FACTS, controlStepLabel, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
 
-/**
- * What a row's exclusion is called in a message: the numbered rule(s), the after-CRS pattern a row without one relies on,
- * or, for a row that measures the response body, the fact that the package has no exclusion for one.
- */
+/** The request and response exclusions relevant to a row's diagnostic. */
 const exclusionOf = (row) => {
-  if (row.rules.length) return `exclusion ${row.rules.join('/')}`;
-  return row.afterCrs ? `the after-CRS pattern ${row.afterCrs.join(' ')}` : 'no exclusion (the package has none for a response body)';
+  const parts = [];
+  if (row.rules.length) parts.push(`exclusion ${row.rules.join('/')}`);
+  if (row.afterCrs) parts.push(`the after-CRS pattern ${row.afterCrs.join(' ')}`);
+  const responseRules = FACTS[row.key].responseRules;
+  if (responseRules) parts.push(`response exclusion ${responseRules.join('/')}`);
+  return parts.join('; ') || 'no exclusion';
 };
 
 /** What a row's corpus step proves, in the words of the progress line and of a failure (the row's `outcome`, see lib/waf-corpus-rows.js). */
@@ -538,6 +541,13 @@ function rows(s, ctx) {
       await box.fill(text);
       return this.ajax('rx/WriteScript', (r) => /parameterValue=saveCustomName/.test(r.request().postData() || ''), () => box.press('End'));
     },
+    /** Reveal the card's More panel and type its comment, which Save Only posts as comment_<n>. */
+    async comment(text) {
+      const box = this.page.locator(`#comment_${this.card}`);
+      if (!(await box.isVisible())) await this.page.locator(`#moreLessWord_${this.card}`).click();
+      await box.waitFor({ state: 'visible', timeout: 15000 });
+      await box.fill(text);
+    },
     /** Save Only: the page posts every card's boxes to rx/WriteScript updateSaveAllDrugs. */
     async save() {
       const page = this.page;
@@ -577,7 +587,8 @@ function rows(s, ctx) {
   function rxRow(spec) {
     let mark = 0;
     return {
-      key: spec.key, title: spec.title, rules: spec.rules, route: spec.route, method: spec.method, drive: spec.drive,
+      key: spec.key, title: spec.title, rules: spec.rules, afterCrs: spec.afterCrs,
+      route: spec.route, method: spec.method, drive: spec.drive,
       fields: spec.fields,
       prepare() { s.cleanup(() => removeDrugs(s)); },
       async control() {
@@ -663,10 +674,83 @@ function rows(s, ctx) {
     },
   });
 
+  all['rx-comment-save'] = () => rxRow({
+    key: 'rx-comment-save', ...FACTS['rx-comment-save'],
+    drive: 'typed: real UI (Rx ▸ custom drug ▸ More ▸ Comment, Save Only)',
+    fields: [{ name: 'comment', column: 'comment', limit: 255, joiner: ' ' }], column: 'comment',
+    stored: (values) => values.comment, match: (stored, wanted) => stored === wanted,
+    async drive_(values, ui) {
+      await ui.stage(`${marker}-RX-COMMENT`, '1 tab PO BID x 14 days');
+      await ui.comment(values.comment);
+      return ui.save();
+    },
+  });
+
+  all['incoming-encounter-reason'] = () => {
+    const { route } = FACTS['incoming-encounter-reason'];
+    let captured;
+    let redirects;
+    let finalUrl;
+    let requestRoute;
+    return {
+      key: 'incoming-encounter-reason', ...FACTS['incoming-encounter-reason'],
+      drive: 'replay: real Master Record E-Chart entry, then its GET with a clinical reason and both chart redirects',
+      fields: [{ name: 'reason', limit: 255, joiner: ' ' }],
+      prepare() {},
+      async control() {
+        const [request, chart] = await Promise.all([
+          s.context.waitForEvent('request', {
+            predicate: (request) => request.method() === 'GET' && new URL(request.url()).pathname === pathOf(route),
+            timeout: 30000,
+          }),
+          openChart(s.context, s.master, s.recorder, 30000),
+        ]);
+        try {
+          await waitForNavbars(chart, 30000);
+          captured = new URL(request.url());
+          h.assert(captured.searchParams.get('demographicNo') === String(patient), 'the encounter entry targets another patient');
+        } finally { await chart.close(); }
+      },
+      watermark() {},
+      async send(values) {
+        const url = new URL(captured);
+        url.searchParams.set('reason', values.reason);
+        redirects = [];
+        finalUrl = null;
+        let current = url;
+        for (const nextRoute of ['casemgmt/ViewForward', 'CaseManagementEntry', null]) {
+          requestRoute = current.pathname;
+          const response = await s.context.request.get(current.toString(), { maxRedirects: 0, failOnStatusCode: false });
+          finalUrl = new URL(response.url());
+          if (response.status() !== 302 || !nextRoute) return response;
+          const location = response.headers().location;
+          h.assert(location, 'the encounter redirect has no location');
+          const next = new URL(location, current);
+          h.assert(next.origin === baseUrl.origin && next.pathname === pathOf(nextRoute),
+            'the encounter entry redirected outside the expected patient chart');
+          redirects.push(next);
+          current = next;
+        }
+      },
+      requestRoute() { return requestRoute; },
+      async landed(values, answer) {
+        if (redirects.length !== 2 || redirects.some((redirect) => redirect.searchParams.get('reason') !== values.reason
+          || redirect.searchParams.get('demographicNo') !== String(patient))) return 'a chart redirect lost the patient or exact clinical reason';
+        return answer.status === 200 && finalUrl?.pathname === pathOf('CaseManagementEntry')
+          && finalUrl.searchParams.get('method') === 'setUpMainEncounter' && /id=["']cppBoxes["']/.test(answer.body)
+          ? null : 'the encounter entry did not reach the chart through both redirects';
+      },
+    };
+  };
+
   all['allergy-add'] = () => familyRow(s, ctx, {
     key: 'allergy-add', ...FACTS['allergy-add'],
     drive: 'replay: real UI (Rx ▸ Allergies ▸ Custom Allergy), then the captured POST',
-    family: fam.allergyAdd(s), table: 'allergies', idColumn: 'allergyid', scope: owned,
+    family: {
+      ...fam.allergyAdd(s),
+      // A corpus save is a new intent, not a retry of the completed control.
+      aim: () => ({ overrides: { saveToken: randomUUID() } }),
+    }, table: 'allergies', idColumn: 'allergyid', scope: owned,
     fields: [{ name: 'reactionDescription', column: 'reaction' }],
     cleanup: () => {
       s.sql.execute(`DELETE FROM allergies WHERE ${owned}`);
@@ -720,6 +804,20 @@ function rows(s, ctx) {
   all['prevention-add'] = () => {
     // Prevention comments and the reason are stored as key/value rows (preventionsExt), one per key.
     const family = fam.preventionAdd(s);
+    family.aim = async (captured) => {
+      // Prevention's token is issued by the server and bound to this form.
+      // Reload the captured form to obtain a new intent; reusing the control's
+      // completed token correctly returns its old result without another write.
+      const formUrl = new URL(captured.headers.referer);
+      h.assert(formUrl.origin === baseUrl.origin && formUrl.pathname === pathOf('prevention/ViewAddPreventionData')
+        && formUrl.searchParams.get('demographic_no') === String(patient), 'the prevention form does not target the owned patient');
+      const response = await s.context.request.get(formUrl.toString(), { maxRedirects: 0, failOnStatusCode: false });
+      h.assert(response.status() === 200, 'the prevention form did not reload for a fresh save token');
+      const input = (await response.text()).match(/<input\b[^>]*\bname=["']carlosPreventionSubmission["'][^>]*>/i)?.[0];
+      const token = input?.match(/\bvalue=["']([a-f0-9-]{36})["']/i)?.[1];
+      h.assert(token && token !== captured.body.get('carlosPreventionSubmission'), 'no fresh prevention submission token was issued');
+      return { overrides: { carlosPreventionSubmission: token } };
+    };
     let mark = 0;
     const fields = [{ name: 'comments', column: 'val' }, { name: 'reason', column: 'val' }];
     return familyRow(s, ctx, {
@@ -1136,14 +1234,16 @@ async function workflow(s) {
       row.watermark();
       const argNames = row.fields.map((field) => field.name).join(', ');
       for (const [n, values] of requests.entries()) {
-        const where = `${s.config.baseUrl.pathname.replace(/\/$/, '')}/${row.route}`;
+        let where = `${s.config.baseUrl.pathname.replace(/\/$/, '')}/${row.route}`;
         const position = `request ${n + 1} of ${requests.length}`;
         const mark = audit.mark();
         let response;
         try {
           response = await row.send(values);
+          where = row.requestRoute?.() || where;
         } catch (error) {
           if (error instanceof RowFailure) throw error;
+          where = row.requestRoute?.() || where;
           // nginx cannot turn a response it has already started into a 403, so a CRS OUTBOUND rule
           // (response-body inspection) drops the connection instead: the client sees no answer at all.
           const { rules } = await audit.rulesSince(mark, where, { method: row.method || 'POST' });
@@ -1154,13 +1254,13 @@ async function workflow(s) {
             : 'the client got no answer';
           throw new RowFailure(`WAF dropped the RESPONSE of ${row.method || 'POST'} /${row.route} (${position}; ${fate}): `
             + `the response echoes the clinician's prose from ${argNames} and CRS rule(s) ${rules.join('; ')} blocked it `
-            + `(${row.response ? exclusionOf(row) : `${exclusionOf(row)} covers the request only`})`);
+            + `(${exclusionOf(row)})`);
         }
         const status = response.status();
         const body = await response.text().catch(() => '');
         if (h.isWafPage(status, body)) {
           const { rules, note } = await audit.rulesSince(mark, where, { method: row.method || 'POST' });
-          throw new RowFailure(`WAF 403 on ${row.method || 'POST'} /${row.route} (${position}): ${exclusionOf(row)} did not cover the clinician's `
+          throw new RowFailure(`WAF 403 on ${row.method || 'POST'} ${where} (${position}): ${exclusionOf(row)} did not cover the clinician's `
             + `prose in ${argNames}; CRS rule(s): ${rules.length ? rules.join('; ') : `unknown (${note})`}`);
         }
         if (status >= 400) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}), not a success: the front door let the prose through and the application refused it`);

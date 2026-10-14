@@ -10352,9 +10352,6 @@
     {
       "name": "waf-clinical-text-corpus",
       "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
-      "envSet": {
-        "WAF_CORPUS_SKIP": "tickler-list,tickler-list-response,rx-custom-drug-name,rx-custom-drug-save,rx-update-script,measurement-comment,eform-letter"
-      },
       "tiers": [
         "front-door"
       ],
@@ -10362,7 +10359,7 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 600,
+      "timeoutSec": 900,
       "env": [
         "EXPECT_FRONT_DOOR",
         "MYSQL_PASSWORD",
@@ -10382,7 +10379,7 @@
         "providerLabRouting"
       ],
       "fixtures": "Owned FAKE patient (runWorkflow) and the rows each save writes for it, found by the patient and by an id watermark taken before the corpus is sent and deleted by key after every row (tickler, tickler_comments, drugs, allergies, measurements, preventions with their preventionsExt, appointments, casemgmt_note, messagetbl with its delivery rows above the run's marks, billing_on_cheader1 with its children, eform_data with its eform_values); one owned tickler for the edit, one owned PDF in DOCUMENT_DIR with its document and ctl_document rows, owned Ontario bills (lib/billing seedOwnedBill), and one demo HL7 lab routed to the test login for the acknowledge, whose providerLabRouting row is restored exactly. The lab routing is the only shared row, and lab-acknowledge and the lab macro checks route the same demo lab: this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup asserts each set gone.",
-      "notes": "The clinical phrase corpus (lib/clinical-prose-corpus.js, the same seven sentences clinical-freetext uses) through every route in the plan's list that has a prose WAF exclusion, one row each: tickler add, edit, the list search term and the list answer, Rx special instruction, custom drug name (the rename key-up and the Save Only box) and sig, allergy add, the measurement dialog and the Vitals comment, prevention, document description, lab acknowledge, messenger, appointment add and update, chart note, eForm Rich Text Letter, and the three Ontario billing comment routes (1134-1136; 1137 is BC and out of scope). A route reached through two different arguments or answers is two rows, because a pin names one defect. Each row is a control step (the real UI save with plain text) and a corpus step that saves every phrase at once, the pasted-link phrase first, fitted to the column where it is short, and asserts what the row proves: the stored text byte for byte, or for the two kinds of row that store nothing (the Rx rename goes to a session stash; a search term and a display page are read-only) that the route accepted it, or for the list answer that the message comes back exactly. A WAF 403, or an answer the WAF drops, fails the corpus step with the CRS rule ids read from the ModSecurity audit log (/var/log/carlos-emr/modsec/modsec_audit.log; WAF_AUDIT_LOG to move it). A last step sends the same corpus in an argument no exclusion names and requires the WAF's 403, which proves the rows measured the WAF. Run with EXPECT_FRONT_DOOR=true. This entry runs the fifteen rows that pass; the seven rows with an open finding run on their own below, each pinned to its finding (WAF_CORPUS_SKIP lists them, WAF_CORPUS_ONLY picks one). When a finding is fixed, its entry reports an unexpected pass: drop its expectedFailure and entry and take the row out of the skip list. Billing rows need an OHIP code with a fee (BILLING_CORRECTION_CODE, default A007A); the document row needs DOCUMENT_DIR; the letter row needs the stock Rich Text Letter eForm."
+      "notes": "The clinical phrase corpus (lib/clinical-prose-corpus.js, the same seven sentences clinical-freetext uses) through every route in the plan's list that has a prose WAF exclusion, one row each: tickler add, edit, the list search term and the list answer, Rx special instruction, custom drug name (the rename key-up and the Save Only box) and sig, allergy add, the measurement dialog and the Vitals comment, prevention, document description, lab acknowledge, messenger, appointment add and update, chart note, eForm Rich Text Letter, and the three Ontario billing comment routes (1134-1136; 1137 is BC and out of scope). A route reached through two different arguments or answers is two rows, because a pin names one defect. Each row is a control step (the real UI save with plain text) and a corpus step that saves every phrase at once, the pasted-link phrase first, fitted to the column where it is short, and asserts what the row proves: the stored text byte for byte, or for the two kinds of row that store nothing (the Rx rename goes to a session stash; a search term and a display page are read-only) that the route accepted it, or for the list answer that the message comes back exactly. A WAF 403, or an answer the WAF drops, fails the corpus step with the CRS rule ids read from the ModSecurity audit log (/var/log/carlos-emr/modsec/modsec_audit.log; WAF_AUDIT_LOG to move it). A last step sends the same corpus in an argument no exclusion names and requires the WAF's 403, which proves the rows measured the WAF. Run with EXPECT_FRONT_DOOR=true. This entry runs all 24 rows, including the Rx More comment saved as comment_<n> and the incoming encounter reason through both chart redirects. Findings 209-213 (#4571-#4575) are fixed; dedicated row entries remain available for focused regressions without expected-failure pins. Rx Save Only and Save & Print omit the unused search box from their payloads. The real-engine security boundary checks run separately in scripts/waf/check-clinical-policy.py."
     },
     {
       "name": "waf-clinical-text-corpus-eform-letter",
@@ -10413,11 +10410,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The eform-letter row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=eform-letter), pinned to finding 209. Rich Text Letter (exclusion 1045): a letter whose first line is a pasted link with an IP address is refused 403 by CRS 931100 on ARGS:Letter, because rule 1045 does not unhook attack-rfi. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 209,
-        "step": "eForm save (Rich Text Letter): the clinical corpus saves through /eform/addEForm and lands exactly"
-      }
+      "notes": "Types the full clinical corpus, including the leading IP-address PACS URL, into the real Rich Text Letter editor and submits it. Requires the exact stored Letter text; regression for #4571 (finding 209). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-custom-drug-name",
@@ -10448,11 +10441,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-custom-drug-name row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-custom-drug-name), pinned to finding 210. Rx custom drug name (exclusions 1107 and 1108): retyping the name in its own box posts customName to rx/WriteScript (saveCustomName, the session stash), where only the lower-case rx/writeScript is exempt; 403 on ARGS:customName (931100, 932110). The row stops at that key-up post, so it holds this one defect: what Save Only then stores is the rx-custom-drug-save row (finding 211). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 210,
-        "step": "Rx custom drug name (renamed in its own box): the clinical corpus is accepted by /rx/WriteScript"
-      }
+      "notes": "Stages a custom drug and types each length-bounded corpus chunk into its name box. Requires the uppercase WriteScript saveCustomName key-up request to succeed; regression for #4572 (finding 210). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-custom-drug-save",
@@ -10483,11 +10472,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-custom-drug-save row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-custom-drug-save), pinned to finding 211. Rx custom drug name staged from the search box with the corpus (exclusion 1108 covers the staging post) and saved with Save Only: Save Only posts the card's drugName_<n> box to rx/WriteScript, which no rule names. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 211,
-        "step": "Rx custom drug name (staged from the search box, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly"
-      }
+      "notes": "Stages each length-bounded corpus chunk as a custom drug name and clicks Save Only. Requires exact drugs.customName values, including when the search box still contains the name; regression for #4573 (finding 211). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-rx-update-script",
@@ -10518,11 +10503,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The rx-update-script row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=rx-update-script), pinned to finding 211. Rx sig (exclusion 1109): the blur post to rx/UpdateScript passes, but Save Only posts the same text as instructions_<n> to rx/WriteScript, which no rule names; 403 (930100, 930110, 931100, 932100, 932110, 932130, 933100). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 211,
-        "step": "Rx sig (parsed on blur, then Save Only): the clinical corpus saves through /rx/UpdateScript and lands exactly"
-      }
+      "notes": "Types the clinical corpus into the sig, submits its blur update, then clicks Save Only. Requires the complete sig in drugs.special; regression for #4573 (finding 211). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-measurement-comment",
@@ -10553,11 +10534,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The measurement-comment row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=measurement-comment), pinned to finding 212. Vitals comment (the AFTER-CRS comments-<n> pattern): the save lands, but the JSON answer repeats the comment and CRS 953120 drops it on RESPONSE_BODY when the text holds a <? (the wound-measurement phrase). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 212,
-        "step": "measurement comment (Vitals): the clinical corpus saves through /encounter/Measurements and lands exactly"
-      }
+      "notes": "Submits each length-bounded corpus chunk through Vitals. Requires both the successful JSON answer and the exact saved measurement comment, including the literal <?> phrase; regression for #4574 (finding 212). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-tickler-list",
@@ -10588,11 +10565,7 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The tickler-list row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=tickler-list), pinned to finding 213. Tickler list search (exclusion 1141): the search term travels in the query string, so CRS 930100 and 930110 (path traversal) refuse a term holding ../ on REQUEST_URI_RAW and REQUEST_URI, which a per-argument exclusion cannot reach. The tickler is the plain fixture and only the term carries the corpus, so the list's answer holds nothing a response rule could refuse: the saved message coming back is the tickler-list-response row (finding 212). The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 213,
-        "step": "tickler list search (the term): the clinical corpus is accepted by /tickler/ListTicklers"
-      }
+      "notes": "Searches the real tickler list with the corpus, including ../ in the query string. Requires successful JSON and no false match against a plain fixture tickler; regression for #4575 (finding 213). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
     },
     {
       "name": "waf-clinical-text-corpus-tickler-list-response",
@@ -10623,11 +10596,69 @@
         "WAF_CORPUS_SKIP",
         "WAF_AUDIT_LOG"
       ],
-      "notes": "The tickler-list-response row of waf-clinical-text-corpus on its own (WAF_CORPUS_ONLY=tickler-list-response), pinned to finding 212. A tickler whose message holds the corpus (written by SQL) is listed with a plain search term; the list's JSON answer carries the message, and CRS 953120 (a '<?' in the response body) drops it, so the client gets no answer at all. The package has no exclusion for a response body. The control step before it (the real UI save with plain text) is a separate step, so a failure there reads failed-elsewhere, and so does any failure of the UI drive that is not a WAF refusal.",
-      "expectedFailure": {
-        "finding": 212,
-        "step": "tickler list (the saved message comes back): the clinical corpus comes back through /tickler/ListTicklers exactly"
-      }
+      "notes": "Stores the corpus in an owned tickler and lists it with a plain search term. Requires the complete JSON response and exact echoed message, including <?>; regression for #4574 (finding 212). The plain-text control is separate and must pass. EXPECT_FRONT_DOOR=true verifies the real nginx response header; WAF refusals include correlated audit-rule diagnostics."
+    },
+    {
+      "name": "waf-clinical-text-corpus-rx-comment-save",
+      "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
+      "envSet": {
+        "WAF_CORPUS_ONLY": "rx-comment-save"
+      },
+      "tiers": [
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "RTL_FORM_NAME",
+        "BILLING_CORRECTION_CODE",
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE",
+        "WAF_CORPUS_ONLY",
+        "WAF_CORPUS_SKIP",
+        "WAF_AUDIT_LOG"
+      ],
+      "notes": "Reveals a custom Rx card’s More panel, types each 255-character-bounded corpus chunk into Comment and clicks Save Only. Requires exact drugs.comment values for comment_<n>; regression for #4573 (finding 211). The plain-text UI control runs first; cleanup removes only owned fixtures."
+    },
+    {
+      "name": "waf-clinical-text-corpus-incoming-encounter-reason",
+      "script": "scripts/waf-clinical-text-corpus-playwright-checks.js",
+      "envSet": {
+        "WAF_CORPUS_ONLY": "incoming-encounter-reason"
+      },
+      "tiers": [
+        "front-door"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXPECT_FRONT_DOOR",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "RTL_FORM_NAME",
+        "BILLING_CORRECTION_CODE",
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE",
+        "WAF_CORPUS_ONLY",
+        "WAF_CORPUS_SKIP",
+        "WAF_AUDIT_LOG"
+      ],
+      "notes": "Captures the Master Record E-Chart link, substitutes each corpus chunk into reason, and follows IncomingEncounter → ViewForward → CaseManagementEntry. Requires the exact patient/reason at both redirects and the successful chart body; regression for #4575 (finding 213). The plain-text UI control runs first; cleanup removes only owned fixtures."
     },
     {
       "name": "lab-to-flowsheet",

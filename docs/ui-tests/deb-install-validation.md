@@ -366,6 +366,32 @@ self-signed TLS, services running as their unprivileged accounts?
 Testing `http://127.0.0.1:18080/carlos` (Tomcat directly) **bypasses the WAF
 and answers a different question**. Every check below goes through `:443`.
 
+## Focused WAF regressions
+
+For issues #4571–#4575, run `python3 scripts/waf/check-clinical-policy.py
+--evidence-dir /tmp/waf-evidence` from the checkout (the evidence directory must
+be absent or empty). This requires Python 3.10+, Node, nginx, its ModSecurity
+module, and CRS; Ubuntu 26.04 supplies them as `python3 nodejs nginx
+libnginx-mod-http-modsecurity modsecurity-crs`. The `WAF Policy` workflow runs
+the same command and retains the report, policy snapshots, request receipts and
+correlated audit logs. It uses ephemeral loopback listeners and a fixture
+upstream, preserving the shipped policy's blocking, scores and response MIME
+inspection. It checks clinical prose and negative boundaries, including encoded
+path traversal, malformed numeric field names, XSS/SQLi and outbound leaks.
+
+Application validation remains the `front-door` tier's
+`waf-clinical-text-corpus` check. It now runs all 24 rows without expected-failure
+pins for findings 209–213. With the normal suite environment loaded, use
+`npm run test:waf-clinical-text-corpus-playwright`; dedicated aliases also exist
+for individual rows, including `rx-comment-save` and
+`incoming-encounter-reason`. The latter follows both chart redirects and checks
+the patient and exact reason at each hop. Rx comment, name and sig rows use the
+real page's Save Only and verify stored values. Both JSON response rows require
+a complete answer. Keep `EXPECT_FRONT_DOOR=true` and a readable `WAF_AUDIT_LOG`;
+these browser checks also need the documented application, DrugRef and fixture
+prerequisites. A policy-harness pass does not substitute for these application
+checks.
+
 ## Host prerequisites
 
 - LXD with a VM-capable storage pool and a NAT bridge (the VM needs outbound

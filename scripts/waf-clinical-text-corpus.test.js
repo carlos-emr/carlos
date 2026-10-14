@@ -10,7 +10,7 @@ const path = require('node:path');
 const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
 const waf = require('./lib/waf-corpus');
 const { FACTS, OUTCOMES, ROW_ORDER, controlStepLabel, corpusStepFor, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
-const { exemptArguments, logicalLines } = require('./lib/waf-exclusion-rules');
+const { exemptArguments, logicalLines, parseSecRule } = require('./lib/waf-exclusion-rules');
 
 /*
  * waf-clinical-text-corpus saves the clinical phrase corpus through every route that has a prose WAF exclusion.
@@ -182,7 +182,7 @@ test('shouldTestEveryExclusionTheBriefNames_exceptTheBritishColumbiaOne', () => 
   const named = ['1104', '1105', '1108', '1109', '1113', '1116', '1117', '1118', '1120', '1123', '1125', '1126', '1010', '1030', '1040', '1045', '1134', '1135', '1136'];
   for (const id of named) assert.ok(covered.has(id), `no row tests exclusion ${id}`);
   assert.ok(!covered.has('1137'), '1137 is the British Columbia reprocess route: no BC work is in scope (issue #4439)');
-  assert.ok(covered.has('1141'), 'the tickler list search term is covered too (exclusion 1141 unhooks search[value], the term going out; the saved message coming back is the separate tickler-list-response row, which no exclusion reaches)');
+  assert.ok(covered.has('1141'), 'the tickler list search term is covered too (exclusion 1141 unhooks search[value], the term going out; the saved message coming back is the separate tickler-list-response row)');
 });
 
 test('shouldNameAnExistingRuleOnTheRowsRoute_forEveryRow', () => {
@@ -204,25 +204,24 @@ test('shouldFillOnlyArgumentsTheRulesUnhook_forEveryRowWithRules', () => {
   }
 });
 
-test('shouldRelyOnTheAfterCrsPattern_whenARowHasNoNumberedRule', () => {
+test('shouldRelyOnTheAfterCrsPattern_whenARowNamesDynamicFields', () => {
   // The parsed rules, not the file text: one exemption per (tag, pattern) pair, so another tag's exemption of the
   // same pattern, or this tag's exemption of another pattern, cannot stand in for it (comments are skipped too).
   const exemptions = afterCrsExemptions(AFTER_CRS);
   for (const [key, fact] of Object.entries(FACTS)) {
-    // A response row measures a rule that reads the answer; the package has no exclusion to rely on there.
-    if (fact.rules.length || fact.response) continue;
+    // A response row measures a rule that reads the answer; its exception is checked separately below.
+    if (fact.response || (fact.rules.length && !fact.afterCrs)) continue;
     assert.ok(fact.afterCrs && fact.afterCrs.length, `${key}: a row without a rule names the after-CRS pattern it relies on`);
     for (const pattern of fact.afterCrs) {
-      for (const tag of ['attack-sqli', 'attack-rce', 'attack-injection-php', 'attack-protocol', 'attack-lfi', 'attack-rfi']) {
+      for (const tag of fact.afterCrsTags || ['attack-sqli', 'attack-rce', 'attack-injection-php', 'attack-protocol', 'attack-lfi', 'attack-rfi']) {
         assert.ok(exemptions.some((e) => e.tag === tag && `!ARGS:${e.arg}` === pattern), `${key}: ${tag} ${pattern} is not in the after-CRS file`);
       }
     }
   }
 });
 
-// The open findings, held against the conf. Each asserts the state the finding asks for, so it fails (and is
-// reported as a todo) while the defect stands and the run says so the day the conf is fixed. A fix may take
-// any shape, so each looks for "some rule on this route unhooks this argument", not for one rule id.
+// Source contracts for findings 209-211. These inspect configuration targets;
+// they do not execute CRS signatures or prove that a browser request succeeds.
 
 /** The tag family each CRS rule id belongs to, for an exemption written ctl:ruleRemoveTargetById. */
 const FAMILY_OF_RULE = {
@@ -243,8 +242,12 @@ function afterCrsExemptions(file) {
 function argumentNames(arg, sample) {
   const regex = /^\/(.*)\/$/.exec(arg);
   if (!regex) return arg === sample;
+  // Rx patterns explicitly disable ModSecurity's implicit caseless matching
+  // and use PCRE's absolute end. Translate only those constructs for this JS
+  // source check; the real-engine harness independently verifies their scope.
+  const pattern = regex[1].replaceAll('(?-i:', '(?:').replaceAll('\\z', '$(?![\\s\\S])');
   // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- the pattern is an argument written in this repository's own WAF exclusion rule files, never request data
-  try { return new RegExp(regex[1]).test(sample); } catch { return false; }
+  try { return new RegExp(pattern).test(sample); } catch { return false; }
 }
 
 /**
@@ -255,11 +258,12 @@ function argumentNames(arg, sample) {
  * name MATCHES the sample, so "instructions_" in a comment, or a literal `instructions_` that no real box
  * (instructions_288452) is called, unhooks nothing.
  */
-function familiesUnhooked(route, sample, { rules = before, exemptions = afterCrsExemptions(AFTER_CRS) } = {}) {
+function familiesUnhooked(route, sample, { rules = before, exemptions = afterCrsExemptions(AFTER_CRS), method = 'POST' } = {}) {
   const families = new Set();
   for (const rule of rules.values()) {
     // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- rule.route comes from this repository's own WAF exclusion rule files, never request data
     if (!new RegExp(`^${rule.route}$`).test(route)) continue;
+    if (rule.methods.size && !rule.methods.has(method)) continue;
     for (const [arg, tags] of rule.removals) {
       if (!argumentNames(arg, sample)) continue;
       for (const tag of tags) {
@@ -304,14 +308,14 @@ test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_1', { rules, exemptions: [{ tag: 'attack-rfi', arg: '/^drugName_[0-9]+$/' }] })].sort(), ['attack-lfi', 'attack-rfi']);
 });
 
-test('shouldUnhookAttackRfiOnLetter_whenTheRichTextLetterIsSaved', { todo: 'finding 209' }, () => {
+test('shouldUnhookAttackRfiOnLetter_whenTheRichTextLetterIsSaved', () => {
   // A letter that starts with a pasted link with an IP address trips 931100 (attack-rfi) on ARGS:Letter.
   assert.ok(familiesUnhooked('eform/addEForm', 'Letter').has('attack-rfi'));
 });
 
 /**
- * What finding 210 still lacks: the families the corpus trips on ARGS:customName (931100 attack-rfi and 932110 attack-rce)
- * that no rule unhooks on `rx/WriteScript`, the route the page posts the rename to. 1107 covers `rx/writeScript` (a different
+ * Finding 210's contract: the families the corpus trips on ARGS:customName (931100 attack-rfi and 932110 attack-rce)
+ * that must be unhooked on `rx/WriteScript`, the route the page posts the rename to. 1107 covers `rx/writeScript` (a different
  * route: the match is case-sensitive), and unhooking only one family still leaves the other to refuse the name.
  */
 function missingForCustomName(options) {
@@ -320,9 +324,9 @@ function missingForCustomName(options) {
 }
 
 /**
- * What finding 211 still lacks: for each of the three boxes Save Only posts (`drugName_<n>`, `instructions_<n>`,
+ * Finding 211's contract: for each of the three boxes Save Only posts (`drugName_<n>`, `instructions_<n>`,
  * `comment_<n>`, the id changes per card), the families the corpus trips (930100/930110 attack-lfi, 931100 attack-rfi,
- * 932100/932110/932130 attack-rce, 933100 attack-injection-php) that nothing unhooks on `rx/WriteScript`.
+ * 932100/932110/932130 attack-rce, 933100 attack-injection-php) that must be unhooked on `rx/WriteScript`.
  */
 function missingForSaveOnlyBoxes(options) {
   const missing = [];
@@ -335,17 +339,155 @@ function missingForSaveOnlyBoxes(options) {
   return missing;
 }
 
-test('shouldUnhookCustomNameOnTheRoutePageWritesTo_whenACustomDrugIsRenamed', { todo: 'finding 210' }, () => {
+test('shouldUnhookCustomNameOnTheRoutePageWritesTo_whenACustomDrugIsRenamed', () => {
   assert.deepEqual(missingForCustomName(), []);
 });
 
-test('shouldUnhookTheSaveOnlyBoxes_whenAPrescriptionHoldsProse', { todo: 'finding 211' }, () => {
+test('shouldUnhookTheSaveOnlyBoxes_whenAPrescriptionHoldsProse', () => {
   assert.deepEqual(missingForSaveOnlyBoxes(), []);
 });
 
-// The two todo tests above must not start passing on anything short of the fix: a comment, one family, the lower-case
+test('shouldKeepOtherArgumentsAndMethodsInspected_forLetterAndCustomName', () => {
+  for (const [route, arg] of [['eform/addEForm', 'Letter'], ['rx/WriteScript', 'customName']]) {
+    for (const method of ['GET', 'HEAD', 'PUT', 'DELETE']) {
+      assert.equal(familiesUnhooked(route, arg, { method }).has('attack-rfi'), false, `${method} ${route}`);
+    }
+    assert.equal(familiesUnhooked(`${route}Extra`, arg).has('attack-rfi'), false);
+    assert.equal(familiesUnhooked('tickler/ListTicklers', arg).has('attack-rfi'), false);
+    for (const other of ['randomId', 'quantity_288452', 'attachmentId', 'efmfid']) {
+      assert.equal(familiesUnhooked(route, other).has('attack-rfi'), false, `${route} ${other}`);
+    }
+  }
+  assert.equal(familiesUnhooked('rx/WriteScript', 'customName').has('attack-xss'), false);
+});
+
+test('shouldExcludeOnlyNumericCardNamesAndObservedFamilies_forSaveOnly', () => {
+  const expected = ['attack-injection-php', 'attack-lfi', 'attack-rce', 'attack-rfi'];
+  for (const field of ['drugName', 'instructions', 'comment']) {
+    for (const id of ['0', '1', '288452', '2147483647']) {
+      assert.deepEqual([...familiesUnhooked('rx/WriteScript', `${field}_${id}`)].sort(), expected);
+    }
+    for (const other of [`${field}_`, `${field}_-1`, `${field}_1.5`, `${field}_x`, `${field}_１`,
+      `x${field}_1`, `${field}_1extra`, `${field}_1[]`, `${field}_1\n`, `${field.toUpperCase()}_1`]) {
+      assert.deepEqual([...familiesUnhooked('rx/WriteScript', other)], [], other);
+    }
+  }
+  // These config-time patterns are intentionally global. A source contract must
+  // not pretend they are conditional on the Save Only route or method.
+  assert.deepEqual([...familiesUnhooked('unrelated/Route', 'comment_123', { method: 'GET' })].sort(), expected);
+});
+
+/** Source-only chain reader. This is not a ModSecurity evaluator. */
+function sourceChain(id) {
+  const rules = logicalLines(fs.readFileSync(BEFORE_CRS, 'utf8')).map(({ text }) => parseSecRule(text)).filter(Boolean);
+  const start = rules.findIndex((rule) => new RegExp(`(?:^|,)id:${id}(?:,|$)`).test(rule.actions));
+  assert.ok(start >= 0, `missing policy rule ${id}`);
+  const chain = [];
+  for (let i = start; i < rules.length; i += 1) {
+    chain.push(rules[i]);
+    if (!/(?:^|,)chain(?:,|$)/.test(rules[i].actions)) return chain;
+  }
+  assert.fail(`unterminated chain ${id}`);
+}
+
+test('shouldLimitPhpOpeningTagException_toSuccessfulJsonOnTheTwoClinicalResponses', () => {
+  for (const [id, route, method] of [
+    ['1072', 'encounter/Measurements', 'POST'], ['1073', 'tickler/ListTicklers', 'GET'],
+  ]) {
+    const chain = sourceChain(id);
+    assert.equal(chain.length, 4);
+    assert.equal(chain[0].variables, 'REQUEST_URI');
+    assert.equal(chain[0].operator, `@rx ^/carlos/${route}(?:[;?]|$)`);
+    assert.match(chain[0].actions, /(?:^|,)phase:3(?:,|$)/);
+    assert.deepEqual(chain.slice(1, 3).map((rule) => [rule.variables, rule.operator]), [
+      ['REQUEST_METHOD', `@streq ${method}`], ['RESPONSE_STATUS', '@streq 200'],
+    ]);
+    assert.ok(chain.slice(0, -1).every((rule) => !rule.actions.includes('ctl:')), 'no early removal');
+    const mime = chain.at(-1);
+    assert.equal(mime.variables, 'RESPONSE_HEADERS:Content-Type');
+    assert.equal(mime.actions, 't:none,t:lowercase,ctl:ruleRemoveTargetById=953120;RESPONSE_BODY');
+    const pattern = new RegExp(mime.operator.slice('@rx '.length));
+    for (const contentType of ['application/json', 'application/json; charset=UTF-8', 'APPLICATION/JSON']) {
+      assert.ok(pattern.test(contentType.toLowerCase()), contentType);
+    }
+    for (const contentType of ['', 'text/html', 'text/plain', 'application/jsonp', 'application/json-extra', 'text/application/json']) {
+      assert.equal(pattern.test(contentType), false, contentType);
+    }
+  }
+  const mainConf = fs.readFileSync(path.join(WAF_DIR, 'main.conf'), 'utf8');
+  assert.match(mainConf, /^SecResponseBodyAccess On$/m);
+  assert.match(mainConf, /^SecResponseBodyMimeType .*application\/json/m);
+});
+
+test('shouldReplaceOnlyTraversalUriTargets_withSeparateRawAndDecodedPathsOnClinicalGetRoutes', () => {
+  const chain = sourceChain('1071');
+  assert.equal(chain.length, 4);
+  assert.equal(chain[0].variables, 'REQUEST_URI');
+  assert.equal(chain[0].operator, '@rx ^/carlos/(?:encounter/IncomingEncounter|tickler/ListTicklers|casemgmt/ViewForward|CaseManagementEntry)(?:[;?]|$)');
+  assert.match(chain[0].actions, /(?:^|,)phase:1(?:,|$)/);
+  assert.equal(chain[1].variables, 'REQUEST_METHOD');
+  assert.equal(chain[1].operator, '@streq GET');
+  assert.ok(chain.slice(0, -1).every((rule) => !rule.actions.includes('ctl:') && !rule.actions.includes('setvar:')));
+  assert.equal(chain[2].variables, '&ARGS:/[^a-zA-Z0-9_.\\[\\]-]/');
+  assert.equal(chain[2].operator, '@eq 0');
+  const unusualName = new RegExp(chain[2].variables.slice('&ARGS:/'.length, -1));
+  for (const name of ['search[value]', 'reason', 'columns[0][data]', 'method', 'a.b-c_1']) {
+    assert.equal(unusualName.test(name), false, name);
+  }
+  for (const name of ['../../file', '%2e%2e%2f', 'x\\..\\y', 'a\u0000b', 'a\nb']) {
+    assert.equal(unusualName.test(name), true, `${JSON.stringify(name)} retains whole-URI inspection`);
+  }
+  const capture = chain.at(-1);
+  assert.equal(capture.variables, 'REQUEST_URI_RAW');
+  assert.equal(capture.operator, '@rx ^([^?]+)');
+  assert.match(capture.actions, /^t:none,capture,/);
+  assert.ok(capture.actions.includes("setvar:'tx.carlos_clinical_raw_path=%{TX.1}'"));
+  assert.deepEqual([...capture.actions.matchAll(/ctl:[^,\s]+/g)].map((match) => match[0]), [
+    'ctl:ruleRemoveTargetById=930100;REQUEST_URI_RAW',
+  ]);
+  const rawPath = new RegExp(capture.operator.slice('@rx '.length));
+  for (const route of ['tickler/ListTicklers', 'encounter/IncomingEncounter', 'casemgmt/ViewForward', 'CaseManagementEntry']) {
+    for (const suffix of ['', ';/../../etc/passwd', ';slot=%3f/../../private', ';%252f%252e%252e%252fprivate',
+      ';slot=/%25%32%65%25%32%65%25%32%66private', ';slot=/%25%32e%25%32e%25%32fprivate']) {
+      const pathPart = `/carlos/${route}${suffix}`;
+      assert.equal(rawPath.exec(`${pathPart}?search[value]=../../images/ecg.png`)[1], pathPart,
+        'capture must preserve every raw path byte for the real CRS transformations');
+    }
+  }
+  const updates = logicalLines(fs.readFileSync(AFTER_CRS, 'utf8')).map(({ text }) => text)
+    .filter((text) => /^SecRuleUpdateTargetById\s/.test(text));
+  assert.deepEqual(updates, [
+    'SecRuleUpdateTargetById 930100 "TX:carlos_clinical_raw_path"',
+    'SecRuleUpdateTargetById 930110 "TX:carlos_clinical_decoded_path"',
+  ], 'original CRS targets are not removed globally and unrelated rules are untouched');
+});
+
+test('shouldRestoreTheInitialUriDecode_for930110WithoutResplittingTheDecodedPath', () => {
+  const chain = sourceChain('1074');
+  assert.equal(chain.length, 2);
+  assert.equal(chain[0].variables, '&TX:carlos_clinical_raw_path');
+  assert.equal(chain[0].operator, '@eq 1', 'only requests whose complete 1071 chain matched qualify');
+  assert.equal(chain[0].actions, 'id:1074,phase:1,pass,nolog,t:none,chain');
+  const capture = chain[1];
+  assert.equal(capture.variables, 'TX:carlos_clinical_raw_path', 'split off the raw query before decoding');
+  assert.equal(capture.operator, '@rx (?s)^(.+)\\z');
+  assert.equal(capture.actions.replace(/,\s+/g, ','), "t:none,t:urlDecode,capture,setvar:'tx.carlos_clinical_decoded_path=%{TX.1}',ctl:ruleRemoveTargetById=930110;REQUEST_URI",
+    'restore exactly one percent-decode and remove the original target only after replacement capture');
+  const source = fs.readFileSync(BEFORE_CRS, 'utf8');
+  assert.ok(source.indexOf('id:1071,') < source.indexOf('id:1074,'));
+  // Source-only capture boundary check, not a substitute for the nginx/CRS
+  // nested-encoding probes: a decoded ? or newline must not truncate the path.
+  const wholePath = new RegExp(capture.operator.slice('@rx (?s)'.length).replace('\\z', '$(?![\\s\\S])'), 's');
+  for (const decodedPath of ['/carlos/tickler/ListTicklers;slot=?/../../private',
+    '/carlos/tickler/ListTicklers;slot=\n/../../private', '/carlos/tickler/ListTicklers;slot=\u0000/../../private']) {
+    assert.equal(wholePath.exec(decodedPath)[1], decodedPath);
+  }
+});
+
+// The two regressions above must not pass on anything short of the fix: a comment, one family, the lower-case
 // route, a literal box name or a single box is not enough, and the full set of rules is. They run against a synthetic
-// conf, so they are real tests and not todos.
+// conf. Regex ctl targets here test the reader only; libmodsecurity rejects
+// that runtime syntax, so deployed numeric patterns belong AFTER-CRS.
 function confWith(ctls, route = 'rx/WriteScript') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'waf-fix-'));
   const conf = path.join(dir, 'before.conf');
@@ -446,7 +588,6 @@ test('shouldRunThroughTheFrontDoorTierOnly_forEveryEntryOfTheCheck', () => {
 
 test('shouldPinEachOpenFindingToItsOwnRowsCorpusStep_andLeaveTheMainEntryUnpinned', () => {
   assert.equal(main.expectedFailure, undefined, 'the main entry runs the rows that pass');
-  assert.ok(pinned.length >= 1);
   for (const entry of pinned) {
     const [row] = selectedKeys({ WAF_CORPUS_ONLY: entry.envSet.WAF_CORPUS_ONLY });
     assert.equal(entry.envSet.WAF_CORPUS_ONLY, row, `${entry.name} runs exactly one row`);
@@ -460,12 +601,30 @@ test('shouldPinEachOpenFindingToItsOwnRowsCorpusStep_andLeaveTheMainEntryUnpinne
   }
 });
 
+test('shouldNotPinFixedMilestoneFindings_anywhereInTheManifest', () => {
+  for (const entry of MANIFEST) {
+    assert.ok(![209, 210, 211, 212, 213].includes(Number(entry.expectedFailure?.finding)),
+      `${entry.name}: findings 209-213 must fail normally if they regress`);
+  }
+});
+
+test('shouldKeepDedicatedEntriesAndAliases_forRxCommentAndIncomingEncounterReason', () => {
+  for (const row of ['rx-comment-save', 'incoming-encounter-reason']) {
+    const name = `waf-clinical-text-corpus-${row}`;
+    const matches = entries.filter((entry) => entry.name === name);
+    assert.equal(matches.length, 1, `${name}: exactly one dedicated entry`);
+    assert.deepEqual(matches[0].envSet, { WAF_CORPUS_ONLY: row });
+    assert.equal(matches[0].expectedFailure, undefined);
+    assert.equal(PACKAGE[`test:${name}-playwright`], `WAF_CORPUS_ONLY=${row} node ${matches[0].script}`);
+  }
+});
+
 test('shouldSayWhatEachRowProves_withoutClaimingASaveForARowThatWritesNothing', () => {
   // The tickler search term goes out and nothing is stored; the Rx rename goes to a session stash; the invoice display only
   // shows. Each is "accepted". The tickler list answer is judged on the message coming back ("echoed"); the rest store.
-  for (const key of ['tickler-list', 'rx-custom-drug-name', 'billing-on-display']) assert.equal(outcomeOf(key), 'accepted', key);
+  for (const key of ['tickler-list', 'rx-custom-drug-name', 'billing-on-display', 'incoming-encounter-reason']) assert.equal(outcomeOf(key), 'accepted', key);
   assert.equal(outcomeOf('tickler-list-response'), 'echoed');
-  for (const key of ['tickler-add', 'tickler-edit', 'rx-custom-drug-save', 'rx-update-script', 'chart-note', 'eform-letter']) assert.equal(outcomeOf(key), 'stored', key);
+  for (const key of ['tickler-add', 'tickler-edit', 'rx-custom-drug-save', 'rx-update-script', 'rx-comment-save', 'chart-note', 'eform-letter']) assert.equal(outcomeOf(key), 'stored', key);
   for (const key of ROW_ORDER) {
     const { verb, tail } = OUTCOMES[outcomeOf(key)];
     if (outcomeOf(key) !== 'stored') assert.ok(!/lands exactly|saves through/.test(`${verb}${tail}`), `${key}: a row that stores nothing must not say it saved`);
@@ -480,17 +639,19 @@ test('shouldReadTheRealServerHeader_forEveryReplayedAndTypedRow', () => {
   assert.match(source, /headers: \(\) => answer\.headers/, 'the Rx rows hand back the page\'s own response headers');
 });
 
-test('shouldSkipInTheMainEntryExactlyTheRowsThatArePinned', () => {
-  const skipped = main.envSet.WAF_CORPUS_SKIP.split(',').sort();
-  assert.deepEqual(skipped, pinned.map((entry) => entry.envSet.WAF_CORPUS_ONLY).sort());
-  assert.deepEqual(selectedKeys(main.envSet).sort(), ROW_ORDER.filter((key) => !skipped.includes(key)).sort());
+test('shouldRunAll24RowsInTheMainEntry_withoutSkipsOrPins', () => {
+  assert.equal(ROW_ORDER.length, 24);
+  assert.equal(main.expectedFailure, undefined);
+  assert.ok(!main.envSet?.WAF_CORPUS_ONLY, 'the main entry must not narrow the row selection');
+  assert.ok(!main.envSet?.WAF_CORPUS_SKIP, 'the main entry must not skip rows');
+  assert.deepEqual(selectedKeys(main.envSet || {}), ROW_ORDER);
 });
 
 test('shouldGiveEveryEntryTheNpmAliasThatRunsIt_withTheSameRowSelector', () => {
   for (const entry of entries) {
     const alias = `test:${entry.name}-playwright`;
     assert.ok(PACKAGE[alias], `${entry.name}: no npm alias ${alias}`);
-    const [selector, value] = Object.entries(entry.envSet)[0];
-    assert.equal(PACKAGE[alias], `${selector}=${value} node ${entry.script}`);
+    const environment = Object.entries(entry.envSet || {}).map(([selector, value]) => `${selector}=${value} `).join('');
+    assert.equal(PACKAGE[alias], `${environment}node ${entry.script}`);
   }
 });
