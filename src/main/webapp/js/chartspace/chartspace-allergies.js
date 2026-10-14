@@ -77,22 +77,58 @@
     };
   }
 
+  // Upper bound for the allergies request; a hung request ends as the ERROR state.
+  var LOAD_TIMEOUT_MS = 15000;
+
   /**
    * GET the block data. Always resolves: the parsed JSON on success, or
    * {status: 'ERROR'} for a non-ok status, a non-JSON content type, a body that
-   * does not parse, or a network failure.
+   * does not parse, a network failure, or no answer within LOAD_TIMEOUT_MS.
+   *
+   * The optional fourth parameter exists for tests only:
+   * options = {timeoutMs, setTimeoutImpl, clearTimeoutImpl}. Production callers
+   * pass three arguments.
+   *
+   * At the deadline the request is aborted through AbortController when the
+   * browser has one, and the result is forced to ERROR regardless, so a fetch
+   * implementation that ignores the signal cannot leave the block loading.
+   * The timer is always cleared.
    */
-  function load(contextPath, demographicNo, fetchImpl) {
+  function load(contextPath, demographicNo, fetchImpl, options) {
     var doFetch = fetchImpl || (typeof root.fetch === 'function' ? root.fetch.bind(root) : null);
     var failure = { status: 'ERROR' };
     if (!doFetch) {
       return Promise.resolve(failure);
     }
+    var opts = options || {};
+    var timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : LOAD_TIMEOUT_MS;
+    var setTimer = opts.setTimeoutImpl || function (fn, ms) { return setTimeout(fn, ms); };
+    var clearTimer = opts.clearTimeoutImpl || function (id) { clearTimeout(id); };
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
     var url = contextPath + '/encounter/chartspace/allergies?demographicNo=' +
       encodeURIComponent(demographicNo);
-    return Promise.resolve()
+    var timerId = null;
+
+    var deadline = new Promise(function (resolve) {
+      timerId = setTimer(function () {
+        if (controller) {
+          try {
+            controller.abort();
+          } catch (e) {
+            // Aborting is best effort; the race below still ends the wait.
+          }
+        }
+        resolve(failure);
+      }, timeoutMs);
+    });
+
+    var request = Promise.resolve()
       .then(function () {
-        return doFetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        var init = { credentials: 'same-origin', headers: { Accept: 'application/json' } };
+        if (controller) {
+          init.signal = controller.signal;
+        }
+        return doFetch(url, init);
       })
       .then(function (response) {
         var type = response && response.headers && response.headers.get('content-type');
@@ -104,6 +140,14 @@
       .catch(function () {
         return failure;
       });
+
+    return Promise.race([request, deadline]).then(function (result) {
+      clearTimer(timerId);
+      return result;
+    }, function () {
+      clearTimer(timerId);
+      return failure;
+    });
   }
 
   function element(tag, className, content) {

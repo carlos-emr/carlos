@@ -99,6 +99,59 @@ test('load encodes the demographic id in the query string', async () => {
   assert.equal(url, '/carlos/encounter/chartspace/allergies?demographicNo=2%26x%3D1');
 });
 
+// Fake timers: the deadline fires only when the test calls fire().
+function fakeTimers() {
+  const timers = { cleared: [], callbacks: new Map(), next: 1 };
+  timers.setTimeoutImpl = (fn, ms) => { const id = timers.next++; timers.callbacks.set(id, { fn, ms }); return id; };
+  timers.clearTimeoutImpl = (id) => { timers.cleared.push(id); timers.callbacks.delete(id); };
+  timers.fire = () => { for (const { fn } of [...timers.callbacks.values()]) { fn(); } };
+  return timers;
+}
+
+test('load resolves ERROR when the request never settles', async () => {
+  const timers = fakeTimers();
+  const pending = allergies.load('/carlos', 2, () => new Promise(() => {}),
+    { timeoutMs: 50, setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(timers.callbacks.size, 1);
+  assert.equal([...timers.callbacks.values()][0].ms, 50);
+  timers.fire();
+  assert.deepEqual(await pending, { status: 'ERROR' });
+  assert.equal(timers.cleared.length, 1);
+});
+
+test('load does not time out a fast response', async () => {
+  const timers = fakeTimers();
+  const body = { status: 'EMPTY', items: [] };
+  const result = await allergies.load('/carlos', 2, async () => fakeResponse({ body }),
+    { setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+  assert.deepEqual(result, body);
+  assert.equal([...timers.callbacks.values()].length, 0);
+  assert.equal(timers.cleared.length, 1);
+});
+
+test('load aborts the request on timeout when AbortController exists', async () => {
+  const timers = fakeTimers();
+  let signal;
+  const pending = allergies.load('/carlos', 2, (url, init) => { signal = init.signal; return new Promise(() => {}); },
+    { setTimeoutImpl: timers.setTimeoutImpl, clearTimeoutImpl: timers.clearTimeoutImpl });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(signal, 'fetch receives a signal');
+  assert.equal(signal.aborted, false);
+  timers.fire();
+  assert.deepEqual(await pending, { status: 'ERROR' });
+  assert.equal(signal.aborted, true);
+});
+
+test('load uses a 15 second default deadline', async () => {
+  const timers = fakeTimers();
+  let seenMs;
+  await allergies.load('/carlos', 2, async () => fakeResponse(),
+    { setTimeoutImpl: (fn, ms) => { seenMs = ms; return timers.setTimeoutImpl(fn, ms); },
+      clearTimeoutImpl: timers.clearTimeoutImpl });
+  assert.equal(seenMs, 15000);
+});
+
 // Behavioural render tests: load the block against the fake DOM. The module
 // captures `window` as its root at require time, so it is re-required fresh.
 const { FakeDocument, byTag, byClass } = require('./chartspace-fake-dom.js');
