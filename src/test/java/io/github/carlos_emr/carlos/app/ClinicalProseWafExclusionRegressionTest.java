@@ -76,7 +76,7 @@ class ClinicalProseWafExclusionRegressionTest {
             "^waitingListBean[[][0-9]+[]][.]note$");
     /** Rx Save Only: exempt exactly the four observed families; retain SQLi, protocol and XSS. */
     private static final List<String> RX_CARD_PROSE_PATTERNS = List.of(
-            "^(?-i:drugName_[0-9]+)\\z", "^(?-i:instructions_[0-9]+)\\z", "^(?-i:comment_[0-9]+)\\z");
+            "^(?-i:drugName_[0-9]+)\\z", "^(?-i:instructions_[0-9]+)\\z", "^(?-i:rxComment_[0-9]+)\\z");
     private static final String[] RX_CARD_ATTACK_TAGS = {
             "attack-lfi", "attack-rfi", "attack-rce", "attack-injection-php"};
     /** The only non-prose exclusions the AFTER-CRS file may carry (CSRF token, session cookie). */
@@ -441,7 +441,7 @@ class ClinicalProseWafExclusionRegressionTest {
     @Test
     @DisplayName("Rx numeric patterns should reject case variants and trailing newlines even with caseless selectors")
     void shouldLimitRxPatterns_toExactNumericCardNames() {
-        List<String> fields = List.of("drugName", "instructions", "comment");
+        List<String> fields = List.of("drugName", "instructions", "rxComment");
         for (int i = 0; i < fields.size(); i++) {
             String field = fields.get(i);
             // libmodsecurity collection selectors default to caseless. Java's
@@ -451,9 +451,40 @@ class ClinicalProseWafExclusionRegressionTest {
             for (String name : List.of(field + "_0", field + "_288452")) {
                 assertThat(pattern.matcher(name).find()).as("numeric card field %s", name).isTrue();
             }
-            for (String name : List.of(field.toUpperCase(java.util.Locale.ROOT) + "_1", field + "_1\n",
+            for (String name : List.of("comment_1", "comment_288452",
+                    field.toUpperCase(java.util.Locale.ROOT) + "_1", field + "_1\n",
                     field + "_1extra", "x" + field + "_1", field + "_", field + "_-1", field + "_１")) {
                 assertThat(pattern.matcher(name).find()).as("lookalike field %s stays inspected", name).isFalse();
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("growth-form and legacy Rx comment names should not inherit global exclusions")
+    void shouldKeepGrowthFormCommentNamesOutsideGlobalExclusions() throws IOException {
+        for (String form : List.of("formGrowth0_36.jsp", "formGrowthChart.jsp")) {
+            String source = Files.readString(resolveProjectPath(
+                    Path.of("src", "main", "webapp", "WEB-INF", "jsp", "form", form)), StandardCharsets.UTF_8);
+            assertThat(source).as("actual shared numeric argument on %s", form)
+                    .contains("name=\"comment_<%=i%>\"")
+                    .contains("/form/formname\" method=\"post\"");
+        }
+        // Read actual config-time targets rather than only the expected Rx table.
+        // Runtime CRS behavior is independently checked by the engine harness.
+        Matcher targets = Pattern.compile(
+                "^SecRuleUpdateTargetByTag\\s+\"[^\"]+\"\\s+\"!ARGS:([^\"]+)\"", Pattern.MULTILINE)
+                .matcher(Files.readString(AFTER_CRS_EXCLUSIONS, StandardCharsets.UTF_8));
+        while (targets.find()) {
+            String target = targets.group(1);
+            // PCRE accepts [[] and []] as literal bracket classes; Java needs
+            // escaped brackets. Translate those two existing policy constructs.
+            Pattern pattern = target.startsWith("/") && target.endsWith("/")
+                    ? Pattern.compile(target.substring(1, target.length() - 1)
+                            .replace("[[]", "\\[").replace("[]]", "\\]"), Pattern.CASE_INSENSITIVE)
+                    : Pattern.compile("^" + Pattern.quote(target) + "\\z");
+            for (String name : List.of("comment_0", "comment_1", "comment_9", "comment_16", "comment_288452")) {
+                assertThat(pattern.matcher(name).find())
+                        .as("global target %s must not exempt shared/legacy %s", target, name).isFalse();
             }
         }
     }

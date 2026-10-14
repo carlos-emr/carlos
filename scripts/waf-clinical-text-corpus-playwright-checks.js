@@ -541,7 +541,7 @@ function rows(s, ctx) {
       await box.fill(text);
       return this.ajax('rx/WriteScript', (r) => /parameterValue=saveCustomName/.test(r.request().postData() || ''), () => box.press('End'));
     },
-    /** Reveal the card's More panel and type its comment, which Save Only posts as comment_<n>. */
+    /** Reveal the card's More panel and type its comment, which Save Only posts as rxComment_<n>. */
     async comment(text) {
       const box = this.page.locator(`#comment_${this.card}`);
       if (!(await box.isVisible())) await this.page.locator(`#moreLessWord_${this.card}`).click();
@@ -570,12 +570,18 @@ function rows(s, ctx) {
     },
     /** Leave no staged card behind: a card that was never saved would ride along on the next row's Save. */
     async close() {
-      if (this.page && !this.page.isClosed()) {
-        await this.page.evaluate(() => (typeof resetStash === 'function' ? resetStash() : null)).catch(() => {});
-        await this.page.waitForTimeout(500);
-        await this.page.close().catch(() => {});
+      const page = this.page;
+      try {
+        if (page && !page.isClosed()) {
+          await this.ajax('rx/deleteRx', (response) => new URL(response.url()).pathname === pathOf('rx/deleteRx')
+            && new URL(response.url()).searchParams.get('parameterValue') === 'clearStash',
+          () => page.evaluate(() => resetStash()));
+          await page.waitForFunction(() => !document.querySelector('#rxText [id^="drugName_"]'), null, { timeout: 15000 });
+        }
+      } finally {
+        if (page && !page.isClosed()) await page.close();
+        this.page = null;
       }
-      this.page = null;
     },
   };
 
@@ -666,7 +672,12 @@ function rows(s, ctx) {
     drive: 'typed: real UI (Rx ▸ custom drug ▸ sig typed and left, Save Only)',
     // The sig is a single-line box; Save Only stores it inside drugs.special beside the drug name and quantity.
     fields: [{ name: 'instruction', column: 'special', joiner: ' ' }], column: 'special',
-    stored: (values) => values.instruction, match: (stored, wanted) => stored.includes(wanted),
+    stored: (values) => values.instruction,
+    match: (stored, wanted) => {
+      const lines = stored.split(/\r?\n/);
+      return lines.length === 3 && lines[0] === `${marker}-RX-SG` && lines[1] === wanted
+        && /^Qty:.* Repeats:[0-9]+$/.test(lines[2]);
+    },
     async drive_(values, ui) {
       await ui.stage(`${marker}-RX-SG`, null);
       await ui.sig(values.instruction);
@@ -1081,7 +1092,8 @@ function rows(s, ctx) {
     key: 'billing-on-save', ...FACTS['billing-on-save'],
     drive: 'replay: real UI (day sheet ▸ Bill ▸ review ▸ Save), then the captured POST against a fresh owned appointment',
     family: fam.billingOnSave(s), table: 'billing_on_cheader1', idColumn: 'id', scope: owned,
-    fields: [{ name: 'comment', column: 'comment1' }],
+    // Save also mirrors this text to appointment.billing_notes (varchar(255)).
+    fields: [{ name: 'comment', column: 'comment1', limit: 255 }],
     cleanup: () => removeBills(s),
   });
 
@@ -1271,7 +1283,7 @@ async function workflow(s) {
         if (problem !== null) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}) but ${OUTCOME_TEXT[outcomeOf(row.key)].unmet}: ${problem}`);
       }
       const outcome = OUTCOME_TEXT[outcomeOf(row.key)];
-      console.log(`  ${outcome.done} ${row.key} (${row.rules.length ? row.rules.join('/') : row.afterCrs ? 'after-CRS' : 'no exclusion'}): ${requests.length} request(s) with ${argNames} ${outcome.detail} [${row.drive}]`);
+      console.log(`  ${outcome.done} ${row.key} (${exclusionOf(row)}): ${requests.length} request(s) with ${argNames} ${outcome.detail} [${row.drive}]`);
     }, { judged: true });
   });
 

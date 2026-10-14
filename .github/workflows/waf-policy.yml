@@ -40,7 +40,7 @@ jobs:
       image: ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
     env:
       DEBIAN_FRONTEND: noninteractive
-      WAF_EVIDENCE: ${{ runner.temp }}/waf-policy-evidence
+      WAF_EVIDENCE: /tmp/waf-policy-evidence
     steps:
       - name: Install real-engine dependencies
         id: dependencies

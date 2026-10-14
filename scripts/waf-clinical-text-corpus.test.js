@@ -279,7 +279,7 @@ function familiesUnhooked(route, sample, { rules = before, exemptions = afterCrs
 test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
   const conf = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'waf-families-')), 'before.conf');
   fs.writeFileSync(conf, [
-    '# 9000: drugName_ instructions_ comment_ are only mentioned in this comment',
+    '# 9000: drugName_ instructions_ rxComment_ are only mentioned in this comment',
     'SecRule REQUEST_URI "@rx ^/carlos/rx/WriteScript(?:[;?]|$)" \\',
     '    "id:9001,phase:1,pass,nolog,chain"',
     '    SecRule REQUEST_METHOD "@streq POST" \\',
@@ -300,7 +300,7 @@ test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
   const rules = exemptArguments(conf);
   const none = { rules, exemptions: [] };
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'instructions_288452', none)], [], 'a literal prefix is not the box');
-  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'comment_288452', none)], [], 'a comment unhooks nothing');
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'rxComment_288452', none)], [], 'a comment unhooks nothing');
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_288452', none)], ['attack-lfi']);
   assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'customName', none)], ['attack-rfi'], 'an exemption by rule id counts for its family');
   assert.deepEqual([...familiesUnhooked('rx/writeScript', 'customName', none)], ['attack-rce'], 'route names are case-sensitive');
@@ -325,12 +325,12 @@ function missingForCustomName(options) {
 
 /**
  * Finding 211's contract: for each of the three boxes Save Only posts (`drugName_<n>`, `instructions_<n>`,
- * `comment_<n>`, the id changes per card), the families the corpus trips (930100/930110 attack-lfi, 931100 attack-rfi,
+ * `rxComment_<n>`, the id changes per card), the families the corpus trips (930100/930110 attack-lfi, 931100 attack-rfi,
  * 932100/932110/932130 attack-rce, 933100 attack-injection-php) that must be unhooked on `rx/WriteScript`.
  */
 function missingForSaveOnlyBoxes(options) {
   const missing = [];
-  for (const box of ['drugName_', 'instructions_', 'comment_']) {
+  for (const box of ['drugName_', 'instructions_', 'rxComment_']) {
     const families = familiesUnhooked('rx/WriteScript', `${box}288452`, options);
     for (const family of ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php']) {
       if (!families.has(family)) missing.push(`ARGS:${box}<n> still inspected for ${family}`);
@@ -363,7 +363,7 @@ test('shouldKeepOtherArgumentsAndMethodsInspected_forLetterAndCustomName', () =>
 
 test('shouldExcludeOnlyNumericCardNamesAndObservedFamilies_forSaveOnly', () => {
   const expected = ['attack-injection-php', 'attack-lfi', 'attack-rce', 'attack-rfi'];
-  for (const field of ['drugName', 'instructions', 'comment']) {
+  for (const field of ['drugName', 'instructions', 'rxComment']) {
     for (const id of ['0', '1', '288452', '2147483647']) {
       assert.deepEqual([...familiesUnhooked('rx/WriteScript', `${field}_${id}`)].sort(), expected);
     }
@@ -374,7 +374,50 @@ test('shouldExcludeOnlyNumericCardNamesAndObservedFamilies_forSaveOnly', () => {
   }
   // These config-time patterns are intentionally global. A source contract must
   // not pretend they are conditional on the Save Only route or method.
-  assert.deepEqual([...familiesUnhooked('unrelated/Route', 'comment_123', { method: 'GET' })].sort(), expected);
+  assert.deepEqual([...familiesUnhooked('unrelated/Route', 'rxComment_123', { method: 'GET' })].sort(), expected);
+});
+
+test('shouldKeepGrowthAndLegacyRxCommentNamesInspected_afterRxUsesItsOwnNamespace', () => {
+  const formRules = exemptArguments(path.join(WAF_DIR, 'REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf'));
+  const rules = new Map([...before, ...formRules]);
+  for (const name of ['formGrowth0_36.jsp', 'formGrowthChart.jsp']) {
+    const source = fs.readFileSync(path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/form', name), 'utf8');
+    assert.ok(source.includes('name="comment_<%=i%>"'), `${name}: the collision fixture still posts the shared name`);
+    assert.ok(source.includes('/form/formname" method="post"'), `${name}: check the actual form route`);
+  }
+  // This is a source contract, not a CRS evaluation. Include the generated
+  // form policy so a new literal or regex exemption there cannot hide the gap.
+  for (const route of ['form/formname', 'rx/WriteScript', 'unrelated/Route']) {
+    for (const method of ['POST', 'GET']) {
+      for (const id of ['0', '1', '9', '16', '288452']) {
+        assert.deepEqual([...familiesUnhooked(route, `comment_${id}`, { rules, method })], [],
+          `${method} ${route}: shared/legacy comment_${id} must retain inspection`);
+      }
+    }
+  }
+});
+
+test('shouldUseTheRxCommentNamespaceOnlyInRxMainSources', () => {
+  const mainRoot = path.join(ROOT, 'src/main');
+  const pending = [mainRoot];
+  const consumers = [];
+  while (pending.length) {
+    const directory = pending.pop();
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) pending.push(file);
+      else if (entry.isFile() && /\.(?:java|jspf?|js|tag|xml|html|xhtml|properties|json)$/.test(entry.name)
+        && fs.readFileSync(file, 'utf8').includes('rxComment_')) {
+        consumers.push(path.relative(mainRoot, file).split(path.sep).join('/'));
+      }
+    }
+  }
+  for (const file of consumers) {
+    assert.match(file, /^(?:java\/io\/github\/carlos_emr\/carlos\/prescript\/|webapp\/WEB-INF\/jsp\/rx\/)/,
+      `${file}: the global exclusion's Rx namespace must not acquire an unrelated consumer`);
+  }
+  assert.ok(consumers.includes('java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java'));
+  assert.ok(consumers.includes('webapp/WEB-INF/jsp/rx/prescribe.jsp'));
 });
 
 /** Source-only chain reader. This is not a ModSecurity evaluator. */
@@ -492,7 +535,7 @@ function confWith(ctls, route = 'rx/WriteScript') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'waf-fix-'));
   const conf = path.join(dir, 'before.conf');
   fs.writeFileSync(conf, [
-    `# a comment that mentions customName, drugName_, instructions_ and comment_ unhooks nothing`,
+    `# a comment that mentions customName, drugName_, instructions_ and rxComment_ unhooks nothing`,
     `SecRule REQUEST_URI "@rx ^/carlos/${route}(?:[;?]|$)" \\`,
     '    "id:9001,phase:1,pass,nolog,chain"',
     '    SecRule REQUEST_METHOD "@streq POST" \\',
@@ -523,11 +566,11 @@ test('shouldNotCallFinding211Fixed_untilEveryBoxIsUnhookedForEveryScoringFamily'
   assert.equal(missingForSaveOnlyBoxes({ rules: new Map(), exemptions: [] }).length, 12, 'nothing unhooked: 3 boxes x 4 families');
   assert.equal(missingForSaveOnlyBoxes(confWith(all('instructions_'))).length, 12, 'a literal prefix is not the box, whose name carries the card id');
   assert.equal(missingForSaveOnlyBoxes(confWith(all(pattern('instructions')))).length, 8, 'one box of three');
-  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box)).slice(0, 3)))).length, 3, 'three families of four');
-  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box))), 'rx/writeScript')).length, 12, 'the lower-case route is the other route');
-  assert.deepEqual(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box))))), []);
-  assert.deepEqual(missingForSaveOnlyBoxes(confWith(all('/^(?:drugName|instructions|comment)_[0-9]+$/'))), [], 'one pattern for the three boxes');
-  assert.deepEqual(missingForSaveOnlyBoxes({ rules: new Map(), exemptions: families.map((tag) => ({ tag, arg: '/^(?:drugName|instructions|comment)_[0-9]+$/' })) }), [],
+  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'rxComment'].flatMap((box) => all(pattern(box)).slice(0, 3)))).length, 3, 'three families of four');
+  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'rxComment'].flatMap((box) => all(pattern(box))), 'rx/writeScript')).length, 12, 'the lower-case route is the other route');
+  assert.deepEqual(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'rxComment'].flatMap((box) => all(pattern(box))))), []);
+  assert.deepEqual(missingForSaveOnlyBoxes(confWith(all('/^(?:drugName|instructions|rxComment)_[0-9]+$/'))), [], 'one pattern for the three boxes');
+  assert.deepEqual(missingForSaveOnlyBoxes({ rules: new Map(), exemptions: families.map((tag) => ({ tag, arg: '/^(?:drugName|instructions|rxComment)_[0-9]+$/' })) }), [],
     'an AFTER-CRS pattern, which applies on every route');
 });
 

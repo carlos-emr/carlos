@@ -27,7 +27,9 @@ assertions belong in Playwright.
 
 Numeric Rx names follow the existing global AFTER-CRS pattern precedent. Route
 and method negatives therefore target literal fields; malformed numeric names,
-nonprose fields and XSS pin the dynamic-name boundaries.
+nonprose fields and XSS pin the dynamic-name boundaries. Rx comments use the
+rxComment_<n> namespace; legacy comment_<n> remains inspected on Rx and growth
+form submissions, where that name is also used.
 
 Exit: 0 all selected checks passed; 1 regression; 2 setup/configuration error;
 130 interrupted. --evidence-dir must be absent or empty; it retains snapshots,
@@ -41,6 +43,7 @@ import argparse
 import hashlib
 import html
 import http.client
+import io
 import json
 from pathlib import Path
 import re
@@ -55,6 +58,7 @@ import time
 import unittest
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from types import SimpleNamespace
 from urllib.parse import urlencode
 import uuid
 
@@ -105,9 +109,10 @@ def request_case(name, issue, route, field, value, method="POST", extra=(), **kw
 
 def load_corpus(node, root):
     source = root / "scripts/lib/clinical-prose-corpus.js"
-    result = subprocess.run(
+    # Operator-selected local Node/corpus paths; fixed script and argv, no shell or fixture HTTP input.
+    result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         [node, "-e", "process.stdout.write(JSON.stringify(require(process.argv[1]).PROSE_CORPUS))", str(source)],
-        capture_output=True, text=True, timeout=10, check=True,
+        capture_output=True, text=True, timeout=10, check=True, shell=False,
     )
     phrases = json.loads(result.stdout)
     if not phrases or not all(isinstance(p.get("text"), str) for p in phrases):
@@ -121,14 +126,17 @@ def load_corpus(node, root):
 
 def build_cases(phrases, corpus):
     cases = []
+    # Preserve diagnostic case names while the submitted Rx comment name is
+    # distinct from comment_<n> used by the unrelated growth forms.
+    rx_fields = {"instructions": "instructions", "drugName": "drugName", "comment": "rxComment"}
     # Every phrase separately diagnoses a failure hidden by a combined score;
     # the combined case proves the complete corpus survives in one field.
     variants = [("full", corpus)] + [(f"phrase-{i + 1}", p["text"]) for i, p in enumerate(phrases)]
     fields = [
         ("letter", 4571, LETTER, "Letter", "POST", ()),
         ("custom-name", 4572, RX, "customName", "POST", (("parameterValue", "saveCustomName"), ("randomId", "522730"))),
-        *[(f"rx-{field}", 4573, RX + "?parameterValue=updateSaveAllDrugs", field + "_522730", "POST", ())
-          for field in ("instructions", "drugName", "comment")],
+        *[(f"rx-{name}", 4573, RX + "?parameterValue=updateSaveAllDrugs", field + "_522730", "POST", ())
+          for name, field in rx_fields.items()],
         ("tickler-search", 4575, TICKLERS, "search[value]", "GET", ()),
         ("encounter-reason", 4575, ENCOUNTER, "reason", "GET", ()),
         ("encounter-forward", 4575, FORWARD, "reason", "GET", ()),
@@ -152,25 +160,45 @@ def build_cases(phrases, corpus):
     cases.append(request_case("custom-name-xss", 4572, RX, "customName", XSS,
                               expect="inbound", signatures=("941100", "941110")))
 
-    for field in ("instructions", "drugName", "comment"):
+    for name, field in rx_fields.items():
         for number in ("0", "17", "987654321"):
-            cases.append(request_case(f"{field}-numeric-{number}", 4573, RX + "?parameterValue=updateSaveAllDrugs",
+            cases.append(request_case(f"{name}-numeric-{number}", 4573, RX + "?parameterValue=updateSaveAllDrugs",
                                       f"{field}_{number}", corpus))
         # Both anchoring edges, a missing suffix, signs, decimals and letters.
         for i, malformed in enumerate((f"{field}_", f"{field}_abc", f"{field}_1x", f"x{field}_12",
                                        f"{field}_-1", f"{field}_1.2", f"{field}_12_extra",
                                        f"{field}_1\n", f"{field.upper()}_1")):
-            cases.append(request_case(f"{field}-malformed-{i + 1}", 4573, RX, malformed, RFI, **inbound))
+            cases.append(request_case(f"{name}-malformed-{i + 1}", 4573, RX, malformed, RFI, **inbound))
         for i, route in enumerate((RX, RX + "Evil", "/carlos/unrelated")):
-            cases.append(request_case(f"{field}-xss-{i + 1}", 4573, route, field + "_522730", XSS,
+            cases.append(request_case(f"{name}-xss-{i + 1}", 4573, route, field + "_522730", XSS,
                                       expect="inbound", signatures=("941100", "941110")))
-        cases.append(request_case(f"{field}-sqli-still-inspected", 4573, RX, field + "_522730", "1' OR 1=1--",
+        cases.append(request_case(f"{name}-sqli-still-inspected", 4573, RX, field + "_522730", "1' OR 1=1--",
                                   expect="inbound", signatures=("942100",)))
     cases.append(Case("rx-all-three-names", 4573, "POST", RX + "?parameterValue=updateSaveAllDrugs",
-                      urlencode([(f"{field}_522730", corpus) for field in ("instructions", "drugName", "comment")])))
+                      urlencode([(f"{field}_522730", corpus) for field in rx_fields.values()])))
     cases.append(request_case("rx-nonprose-random-id", 4573, RX, "randomId", RFI, **inbound))
     for field in ("quantity_522730", "repeats_522730"):
         cases.append(request_case(f"rx-nonprose-{field}", 4573, RX, field, RFI, **inbound))
+
+    # Both growth JSPs POST to form/formname with their form_class/form_link
+    # selectors; testing the page URL would miss a global numeric-name bypass.
+    legacy_comments = [
+        ("growth-0-36-comment", "/carlos/form/formname", "comment_1",
+         (("form_class", "Growth0_36"), ("form_link", "formGrowth0_36.jsp"), ("submit", "save"))),
+        ("growth-chart-comment", "/carlos/form/formname", "comment_1",
+         (("form_class", "GrowthChart"), ("form_link", "formGrowthChart.jsp"), ("submit", "save"))),
+        ("rx-legacy-comment", RX + "?parameterValue=updateSaveAllDrugs", "comment_522730", ()),
+    ]
+    for name, route, field, extra in legacy_comments:
+        cases.append(request_case(f"{name}-plain", 4573, route, field, "Routine follow up.", extra=extra))
+        for family, value, signatures in (
+            ("rfi", RFI, ("931100",)),
+            ("lfi", TRAVERSAL, ("930100", "930110")),
+            ("rce", "x;cat /private", ("932100", "932110")),
+            ("php", "<?php echo 1;", ("933100",)),
+        ):
+            cases.append(request_case(f"{name}-{family}", 4573, route, field, value, extra=extra,
+                                      expect="inbound", signatures=signatures))
 
     for name, extra in (("missing-method", ()), ("save", (("method", "save"),)),
                         ("duplicate-method", (("method", "setUpMainEncounter"), ("method", "save"))),
@@ -281,6 +309,9 @@ class FixtureHandler(BaseHTTPRequestHandler):
 
     def handle_fixture(self):
         token = self.headers.get(HEADER, "")
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,80}", token):
+            self.send_error(418, "Invalid harness fixture token")
+            return
         case = self.server.fixtures.get(token)
         if case is None:
             self.send_error(418, "Unknown harness fixture")
@@ -297,7 +328,9 @@ class FixtureHandler(BaseHTTPRequestHandler):
         self.send_response(case.response_status)
         self.send_header("Content-Type", case.mime)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header(MARKER, token)
+        # Keep explicit CR/LF removal at the header sink as defense in depth,
+        # even though validation above rejects them before fixture lookup.
+        self.send_header(MARKER, token.replace("\r", "").replace("\n", ""))
         self.send_header("Connection", "close")
         self.end_headers()
         try:
@@ -564,7 +597,8 @@ def run_engine(prefix, args, cases, report):
         report["ports"] = {"nginx": port, "upstream": upstream}
         nginx_config(prefix, args, port, upstream)
         command = [args.nginx, "-p", str(prefix) + "/", "-c", str(prefix / "nginx.conf"), "-e", str(prefix / "logs/error.log")]
-        result = subprocess.run(command + ["-t"], capture_output=True, text=True, timeout=args.startup_timeout)
+        # Operator-selected nginx and private config paths; argv only, no shell or fixture HTTP input.
+        result = subprocess.run(command + ["-t"], capture_output=True, text=True, timeout=args.startup_timeout, shell=False)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         (prefix / "logs/config-test.log").write_text(result.stdout + result.stderr)
         if result.returncode:
             raise RuntimeError("nginx -t failed:\n" + result.stdout + result.stderr)
@@ -574,7 +608,8 @@ def run_engine(prefix, args, cases, report):
         thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True)
         thread.start()
         with (prefix / "logs/process.log").open("w") as output:
-            process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
+            # Same operator-selected executable/private config argv; no shell or fixture HTTP input.
+            process = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT, shell=False)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         report["nginx_pid"] = process.pid
         readiness = Case("readiness", 0, "GET", "/carlos/harness-ready")
         token = "ready-" + uuid.uuid4().hex
@@ -615,6 +650,51 @@ def run_engine(prefix, args, cases, report):
 
 class MechanicsTests(unittest.TestCase):
     """Harness integrity tests, not substitutes for live security checks."""
+
+    @staticmethod
+    def fixture_exchange(token, fixtures):
+        # Exercise the real HTTP parser and response writer without listeners.
+        handler = FixtureHandler.__new__(FixtureHandler)
+        handler.rfile = io.BytesIO((
+            f"GET /fixture HTTP/1.1\r\nHost: harness.invalid\r\n{HEADER}: {token}\r\n\r\n"
+        ).encode("ascii"))
+        handler.wfile = io.BytesIO()
+        handler.server = SimpleNamespace(fixtures=fixtures, receipts={})
+        handler.handle_one_request()
+        return handler.wfile.getvalue(), handler
+
+    def test_fixture_marker_preserves_valid_registered_tokens(self):
+        case = Case("fixture", 0, "GET", "/fixture")
+        for token in ("ready-" + "a" * 32, "waf-0123456789ab-0001"):
+            with self.subTest(token=token):
+                response, handler = self.fixture_exchange(token, {token: case})
+                headers, body = response.split(b"\r\n\r\n", 1)
+                self.assertTrue(headers.startswith(b"HTTP/1.1 200 "))
+                self.assertIn(f"{MARKER}: {token}".encode("ascii"), headers.split(b"\r\n"))
+                self.assertEqual(body, response_body(case, token))
+                self.assertEqual(handler.server.receipts, {
+                    token: [{"method": "GET", "target": "/fixture", "body": ""}],
+                })
+        response, handler = self.fixture_exchange("unknown-token", {})
+        self.assertTrue(response.startswith(b"HTTP/1.1 418 "))
+        self.assertNotIn(MARKER.encode("ascii"), response)
+        self.assertEqual(handler.server.receipts, {})
+
+    def test_fixture_marker_rejects_hostile_and_folded_headers(self):
+        case = Case("fixture", 0, "GET", "/fixture")
+        tokens = ("", "waf_test", "waf test", "a" * 81, "waf-test\x00", "waf-test\x7f",
+                  "waf-test\r\n X-Injected: yes", "waf-test\r\n\tX-Injected: yes",
+                  "waf-test\n X-Injected: yes", "waf-test\r X-Injected: yes")
+        for token in tokens:
+            with self.subTest(token=token):
+                # Register even the hostile key: membership alone must not
+                # allow a folded header to reach the response or a receipt.
+                response, handler = self.fixture_exchange(token, {token: case})
+                self.assertEqual(handler.headers.get(HEADER), token)
+                self.assertTrue(response.startswith(b"HTTP/1.1 418 "))
+                self.assertNotIn(MARKER.encode("ascii"), response)
+                self.assertNotIn(b"X-Injected", response)
+                self.assertEqual(handler.server.receipts, {})
 
     def test_relocation_changes_only_filesystem_arguments(self):
         source = '# Include /etc/site/nope\nSecRuleEngine On\nInclude /etc/site/rules.conf\nSecUnicodeMapFile /etc/site/map 20127\nSecAction "id:1,setvar:tx.score=5"\n'
@@ -747,7 +827,8 @@ def main(argv=None):
             prefix = Path(temporary)
             try:
                 report.update(prepare_prefix(prefix, args))
-                version = subprocess.run([args.nginx, "-V"], capture_output=True, text=True, timeout=5)
+                # Operator-selected local nginx executable with a fixed flag; no shell or fixture HTTP input.
+                version = subprocess.run([args.nginx, "-V"], capture_output=True, text=True, timeout=5, shell=False)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
                 report["nginx_version"] = version.stdout + version.stderr
                 report["module"] = {"path": str(args.module), "sha256": hashlib.sha256(args.module.read_bytes()).hexdigest()}
                 report["corpus"] = phrases

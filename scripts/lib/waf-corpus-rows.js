@@ -94,9 +94,9 @@ const FACTS = {
   'rx-comment-save': {
     title: 'Rx comment (More, then Save Only)',
     corpusStep: 'Rx comment (More, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
-    rules: [], afterCrs: ['!ARGS:/^(?-i:comment_[0-9]+)\\z/'],
+    rules: [], afterCrs: ['!ARGS:/^(?-i:rxComment_[0-9]+)\\z/'],
     afterCrsTags: ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php'],
-    route: 'rx/WriteScript', method: 'POST', args: ['comment_<n>'],
+    route: 'rx/WriteScript', method: 'POST', args: ['rxComment_<n>'],
   },
   'incoming-encounter-reason': {
     title: 'encounter entry (reason in the query string)',

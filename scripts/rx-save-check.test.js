@@ -102,7 +102,7 @@ for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContin
         const fields = [
             ['searchString', 'http://10.0.0.5/pacs/study'],
             ['drugName_42', "Patient's custom medication"], ['instructions_42', '1 tab PO BID'],
-            ['comment_42', 'Wound <?> follow up'], ['demographicNo', '123'],
+            ['rxComment_42', 'Wound <?> follow up'], ['demographicNo', '123'],
             ['draftRevision_42', '7'], ['csrfToken', 'test-token'], ['selected', '1'], ['selected', '2'],
         ];
         const form = {};
