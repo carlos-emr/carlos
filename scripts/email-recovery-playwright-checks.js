@@ -73,6 +73,8 @@ async function assertResendFooters(compose) {
   } else {
     assert((await compose.locator('#clinicFooterPreview').innerText()).trim().length > 0, 'Clinic footer card is blank');
   }
+  // The stored footer carries a script: nothing from it may run when the page renders.
+  assert(await compose.evaluate(() => window.__footerScriptRan === undefined), 'A stored footer script ran on the compose screen');
   // Without a usable sender or recipient the page locks the whole form, the footer editor too (a
   // fresh install has no sender). Then check the lock; the editing checks need an install with both.
   if (await compose.locator('#footerEmailEdit').isDisabled()) {
