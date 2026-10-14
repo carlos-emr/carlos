@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.dao.MdsNTEDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsOBRDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsOBXDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsPV1Dao;
-import io.github.carlos_emr.carlos.commn.dao.MdsZLBDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZMCDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZMNDao;
 import io.github.carlos_emr.carlos.commn.dao.MdsZRGDao;
@@ -69,7 +68,6 @@ class MDSSegmentDataUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUpDaos() {
         mshDao = createAndRegisterMock(MdsMSHDao.class);
-        createAndRegisterMock(MdsZLBDao.class);
         createAndRegisterMock(MdsPV1Dao.class);
         createAndRegisterMock(ProviderLabRoutingDao.class);
         zmnDao = createAndRegisterMock(MdsZMNDao.class);
@@ -151,6 +149,25 @@ class MDSSegmentDataUnitTest extends CarlosUnitTestBase {
         assertThat(glucose.units).isEqualTo("mmol/L");
         assertThat(glucose.observationValue).isEqualTo("7.7");
         assertThat(glucose.labID).isEqualTo("FK");
+    }
+
+    @Test
+    @DisplayName("should list no results under a report group that files no result codes")
+    void shouldListNoResults_forReportGroupWithoutResultCodes() {
+        when(zrgDao.findById(SEGMENT)).thenReturn(rows(
+                new Object[] {"FAKE CHEMISTRY", "CHEM", 1L, "", "1"},
+                new Object[] {"FAKE COMMENTS", "NOTES", 1L, "", "2"}));
+        when(zmnDao.findResultCodes(SEGMENT, "CHEM")).thenReturn(List.of("FKGLU"));
+        when(zmnDao.findResultCodes(SEGMENT, "NOTES")).thenReturn(List.of());
+        // An empty code list is no filter at all to the OBR and OBX queries: every row of the report.
+        when(obrDao.findByIdAndResultCodes(any(), anyList())).thenReturn(rows(new Object[] {1, "20260102083000"}));
+        when(obxDao.findByIdObrAndCodes(any(), any(), anyList())).thenReturn(
+                rows(new Object[] {1, "XFKGLU^Glucose", "7.7", "HI", "F", "FK^Fake"}));
+
+        MDSSegmentData data = populate();
+
+        assertThat(data.headersArray.get(0).groupedReportsArray).hasSize(1);
+        assertThat(data.headersArray.get(1).groupedReportsArray).isEmpty();
     }
 
     @Test

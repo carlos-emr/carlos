@@ -183,6 +183,11 @@ public class MDSSegmentData {
             MdsOBRDao obrDao = SpringUtils.getBean(MdsOBRDao.class);
             for (int i = 0; i < headersArray.size(); i++) {
                 List<String> resultCodes = zmnDao.findResultCodes(segment, headersArray.get(i).reportSequence);
+                if (resultCodes.isEmpty()) {
+                    // The OBR and OBX queries read an empty code list as no filter, which would list
+                    // every result of the report again under a group that files none.
+                    continue;
+                }
                 for (Object[] ooo : obrDao.findByIdAndResultCodes(segment, resultCodes)) {
                     // obrID is an int column; observationDateTime is the raw HL7 timestamp string
                     // GroupedReports parses.
