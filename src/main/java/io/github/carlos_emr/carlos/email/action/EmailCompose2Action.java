@@ -673,7 +673,6 @@ public class EmailCompose2Action extends ActionSupport {
         }
     }
 
-    /** Shows the expired page. It changes nothing, so it is safe from both prepare and view. */
     /** The bundle text for {@code messageKey} in the reader's language, or in English if it has none. */
     private String getLocalizedMessage(String messageKey) {
         try {
@@ -684,6 +683,7 @@ public class EmailCompose2Action extends ActionSupport {
         }
     }
 
+    /** Shows the expired page. It changes nothing, so it is safe from both prepare and view. */
     private String composeExpired() {
         request.setAttribute("errorMessage", EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
         return COMPOSE_EXPIRED_RESULT;
