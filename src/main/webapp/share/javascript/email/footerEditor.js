@@ -85,6 +85,9 @@
     // As on the server: a link address with control or invisible formatting characters loses its
     // address, so the address a reader sees is the one the link goes to.
     var HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}\uFFFD]/u;
+    // As on the server (EmailFooterHtml.hasVisibleText) and in the Patient Portal: a footer needs a
+    // character outside the Unicode control (C*) and separator (Z*) categories in its own text.
+    var VISIBLE_CHARACTER = /[^\p{C}\p{Z}]/u;
 
     function dropHiddenCharacterAddresses(node, data) {
         if (data.attrName === 'href' && HIDDEN_CHARACTERS.test(data.attrValue)) {
@@ -100,7 +103,8 @@
         window.DOMPurify.addHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
         try {
             var value = stripEmptyTail(window.DOMPurify.sanitize(html, ALLOWED));
-            return textFromCleanedHtml(value) === '' ? '' : value;
+            // A link address written out in the plain-text version is not text the footer shows.
+            return VISIBLE_CHARACTER.test(textFromCleanedHtml(value, false)) ? value : '';
         } finally {
             window.DOMPurify.removeHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);
         }
@@ -112,7 +116,8 @@
     }
 
     // Already cleaned by the caller: keep visible-empty detection out of a clean/toText recursion.
-    function textFromCleanedHtml(html) {
+    // withAddresses false leaves out the link addresses the plain-text version writes after a link.
+    function textFromCleanedHtml(html, withAddresses) {
         var holder = document.createElement('div');
         holder.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- callers pass only DOMPurify-sanitized footer
         var out = '';
@@ -135,7 +140,7 @@
                     if (child.nodeName === 'A') {
                         var href = child.getAttribute('href') || '';
                         var address = /^mailto:/i.test(href) ? href.substring(7) : href;
-                        if (address && child.textContent.trim() !== address) {
+                        if (withAddresses !== false && address && child.textContent.trim() !== address) {
                             out += ' <' + address + '>';
                         }
                     } else if (BLOCKS[child.nodeName]) {

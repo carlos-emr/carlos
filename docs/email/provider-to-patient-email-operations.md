@@ -127,7 +127,8 @@ and `patient_portal.clinic_id` that opens only `/ws/portal/email-footer`. If it 
 401 and the Portal refuses every email. Derive it on the CARLOS server as root. The script reads the override
 properties file (Debian: `/etc/carlos-emr/carlos.properties`), so neither secret appears on a command line, and
 writes the result to a new private file. It expects plain `key=value` lines; CARLOS ignores spaces around the
-value and uses the last line for a key, and so does the script.
+value and uses the last line for a key, and so does the script. It does not decode Java properties escapes, so a
+service token containing `\` gives a credential that does not match (the check below then answers 401).
 
 ```sh
 umask 077
@@ -146,9 +147,9 @@ EOF
 ```
 
 Copy the 64-character value into the Portal's private deployment files for web and outbox. Then check it
-from the Portal host, reading the value from a private file there; it stays off the command line here too:
+from the Portal host with bash, reading the value from a private file there; it stays off the command line here too:
 
-```sh
+```bash
 nonce=$(python3 -c 'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode())')
 curl -sS -o /dev/null -w '%{http_code}\n' \
   -H @<(printf 'Authorization: Bearer %s\n' "$(cat /root/portal-footer-read-token)") \

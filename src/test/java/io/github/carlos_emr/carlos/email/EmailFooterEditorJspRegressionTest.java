@@ -74,6 +74,10 @@ class EmailFooterEditorJspRegressionTest {
                 .contains("window.DOMPurify.addHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);")
                 .contains("window.DOMPurify.removeHook('uponSanitizeAttribute', dropHiddenCharacterAddresses);")
                 .contains("|| HIDDEN_CHARACTERS.test(address)) {")
+                // Empty means what the server and the Patient Portal mean: no character outside the
+                // Unicode C* and Z* categories in the footer's own text (link addresses do not count).
+                .contains("var VISIBLE_CHARACTER = /[^\\p{C}\\p{Z}]/u;")
+                .contains("return VISIBLE_CHARACTER.test(textFromCleanedHtml(value, false)) ? value : '';")
                 // Without DOMPurify nothing is put into the page as HTML, and editing is switched off.
                 .contains("if (!window.DOMPurify || !html) {")
                 .contains("opener.disabled = true;")
