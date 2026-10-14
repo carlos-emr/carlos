@@ -285,6 +285,8 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             action.setPhone("555-0152");
             action.setInstitution("0");
             action.setDepartment("0");
+            // AddSpecialist.jsp always posts these selects; the action unboxes hideFromView.
+            action.setHideFromView(Boolean.FALSE);
 
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
