@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.provider.web;
 
+import java.util.Map;
+import java.util.function.Function;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -36,8 +39,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code displaymode=week&dboperation=searchapptweek}. That display mode has never been
  * in the {@code providercontrol.jsp} dispatch table, so every click answered the 404
  * error page. The week view that does exist is the day sheet with {@code weekView=true}
- * for one provider, the same page the "W" button on a provider column opens; these tests
- * pin that the month view now targets it, and only when the month shows one provider.
+ * for one provider; these tests pin that the month view now targets it, that it asks the
+ * sheet for the provider the month shows (the sheet otherwise lists the viewer's saved
+ * group and would render another provider's week), and that it links only when the sheet
+ * can show that provider.
  *
  * @since 2026-10-14
  */
@@ -47,6 +52,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ScheduleWeekLinkUnitTest {
 
     private static final String CONTEXT = "/carlos";
+
+    /** Providers that exist, by provider number, with the name the day sheet prints for them. */
+    private static final Map<String, String> PROVIDERS = Map.of(
+            "999998", "Doe, Jane",
+            "100001", "Roe, Rick");
+
+    private static final Function<String, String> NAME_OF = PROVIDERS::get;
 
     @Nested
     @DisplayName("singleProvider")
@@ -81,17 +93,74 @@ class ScheduleWeekLinkUnitTest {
     }
 
     @Nested
+    @DisplayName("weekTarget")
+    class WeekTarget {
+
+        @Test
+        @DisplayName("should resolve the provider and the name the day sheet prints")
+        void shouldResolveProviderAndName_forExistingSingleProvider() {
+            ScheduleWeekLink.Target target = ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF);
+
+            assertThat(target).isNotNull();
+            assertThat(target.providerNo()).isEqualTo("100001");
+            assertThat(target.providerName()).isEqualTo("Roe, Rick");
+        }
+
+        @Test
+        @DisplayName("should return null when the month shows several providers")
+        void shouldReturnNull_whenMonthShowsSeveralProviders() {
+            assertThat(ScheduleWeekLink.weekTarget("all", ".default", NAME_OF)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget("_grp_7", ".default", NAME_OF)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget(null, ".default", NAME_OF)).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when the provider does not exist")
+        void shouldReturnNull_whenProviderDoesNotExist() {
+            assertThat(ScheduleWeekLink.weekTarget("424242", ".default", NAME_OF)).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when the viewer's saved view is pinned to another provider")
+        void shouldReturnNull_whenSavedViewIsAnotherProvider() {
+            // The day sheet shows the provider saved as the schedule view whatever the URL asks
+            // for, so a link for a different provider would open the wrong provider's week.
+            assertThat(ScheduleWeekLink.weekTarget("100001", "999998", NAME_OF)).isNull();
+        }
+
+        @Test
+        @DisplayName("should resolve the provider when the saved view is that same provider")
+        void shouldResolveProvider_whenSavedViewIsSameProvider() {
+            assertThat(ScheduleWeekLink.weekTarget("999998", "999998", NAME_OF))
+                    .extracting(ScheduleWeekLink.Target::providerNo)
+                    .isEqualTo("999998");
+        }
+
+        @Test
+        @DisplayName("should resolve the provider when the saved view is a group, the default or unset")
+        void shouldResolveProvider_whenSavedViewIsNotAProvider() {
+            assertThat(ScheduleWeekLink.weekTarget("100001", "clinic-team", NAME_OF)).isNotNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF)).isNotNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", null, NAME_OF)).isNotNull();
+        }
+    }
+
+    @Nested
     @DisplayName("href")
     class Href {
 
-        @Test
-        @DisplayName("should target the day sheet week view for the provider")
-        void shouldTargetDaySheetWeekView_forSingleProvider() {
-            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, "999998");
+        private final ScheduleWeekLink.Target jane = new ScheduleWeekLink.Target("999998", "Doe, Jane");
 
-            // The same parameters the "W" button (goWeekView) sends from the day sheet.
+        @Test
+        @DisplayName("should open the provider alone on the day sheet in week view")
+        void shouldTargetDaySheetWeekView_forSingleProvider() {
+            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, jane);
+
+            // view=1 with curProvider/curProviderName is how the sheet is asked for one provider
+            // (the zoom view); weekView=true/provider_no/viewall are the "W" button's parameters.
             assertThat(href).isEqualTo(
-                    "/carlos/provider/providercontrol?year=2026&month=10&day=4&view=0"
+                    "/carlos/provider/providercontrol?year=2026&month=10&day=4"
+                            + "&view=1&curProvider=999998&curProviderName=Doe%2C%20Jane"
                             + "&displaymode=day&dboperation=searchappointmentday&viewall=1"
                             + "&weekView=true&provider_no=999998");
         }
@@ -99,7 +168,7 @@ class ScheduleWeekLinkUnitTest {
         @Test
         @DisplayName("should never use the retired week display mode")
         void shouldNotUseRetiredWeekMode_forAnyProvider() {
-            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, "999998");
+            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, jane);
 
             assertThat(href)
                     .doesNotContain("displaymode=week")
@@ -107,28 +176,32 @@ class ScheduleWeekLinkUnitTest {
         }
 
         @Test
-        @DisplayName("should return null when the month shows several providers")
-        void shouldReturnNull_whenMonthShowsSeveralProviders() {
-            assertThat(ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, "all")).isNull();
-            assertThat(ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, "_grp_7")).isNull();
+        @DisplayName("should return null without a target")
+        void shouldReturnNull_forMissingTarget() {
             assertThat(ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, null)).isNull();
         }
 
         @Test
-        @DisplayName("should encode the provider number as a URL query component")
-        void shouldEncodeProviderNumber_inQueryString() {
-            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, "9 9&weekView=false#x");
+        @DisplayName("should encode the provider number and name as URL query components")
+        void shouldEncodeProviderNumberAndName_inQueryString() {
+            ScheduleWeekLink.Target hostile =
+                    new ScheduleWeekLink.Target("9 9&weekView=false#x", "O'Brien & <b>Sons</b>");
+
+            String href = ScheduleWeekLink.href(CONTEXT, 2026, 10, 4, hostile);
 
             assertThat(href)
+                    .contains("&curProvider=9%209%26weekView%3Dfalse%23x&")
                     .endsWith("&weekView=true&provider_no=9%209%26weekView%3Dfalse%23x")
-                    .doesNotContain("provider_no=9 9")
-                    .doesNotContain("#");
+                    .contains("&curProviderName=O%27Brien%20%26%20%3Cb%3ESons%3C%2Fb%3E&")
+                    .doesNotContain(" ")
+                    .doesNotContain("#")
+                    .doesNotContain("<");
         }
 
         @Test
-        @DisplayName("should carry the first day of the week row so the sheet can snap to its week")
+        @DisplayName("should carry the given date without padding so the sheet can snap to its week")
         void shouldKeepGivenDate_withoutPadding() {
-            String href = ScheduleWeekLink.href(CONTEXT, 2027, 1, 31, "100001");
+            String href = ScheduleWeekLink.href(CONTEXT, 2027, 1, 31, jane);
 
             assertThat(href).contains("year=2027&month=1&day=31&");
         }
@@ -136,9 +209,10 @@ class ScheduleWeekLinkUnitTest {
         @Test
         @DisplayName("should build a root-relative link when the context path is empty")
         void shouldBuildRootRelativeLink_forRootContext() {
-            String href = ScheduleWeekLink.href("", 2026, 10, 4, "999998");
-
-            assertThat(href).startsWith("/provider/providercontrol?year=2026&month=10&day=4&");
+            assertThat(ScheduleWeekLink.href("", 2026, 10, 4, jane))
+                    .startsWith("/provider/providercontrol?year=2026&month=10&day=4&");
+            assertThat(ScheduleWeekLink.href(null, 2026, 10, 4, jane))
+                    .startsWith("/provider/providercontrol?year=2026&month=10&day=4&");
         }
     }
 }

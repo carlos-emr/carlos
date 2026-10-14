@@ -158,10 +158,13 @@
     // one provider. "All providers" and a group have no single provider, and providerview is a
     // request parameter, so a value that is not an existing provider gets no link either: those
     // week numbers stay plain text instead of leading to a sheet for nobody (issue #4540).
-    String weekViewProviderNo = ScheduleWeekLink.singleProvider(providerview);
-    if (weekViewProviderNo != null && providerDao.getProvider(weekViewProviderNo) == null) {
-        weekViewProviderNo = null;
-    }
+    // The day sheet lists the providers of the viewer's SAVED schedule view, not of providerview,
+    // so the target also needs that saved view: see ScheduleWeekLink for why.
+    ScheduleWeekLink.Target weekViewTarget = ScheduleWeekLink.weekTarget(providerview, providerPreference.getMyGroupNo(),
+            providerNo -> {
+                Provider weekViewProvider = providerDao.getProvider(providerNo);
+                return weekViewProvider == null ? null : weekViewProvider.getFullName();
+            });
     int NameMaxLen = 15;
 %>
 <%
@@ -835,9 +838,8 @@
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
                                                             // Any day of the row will do: the week view starts at the beginning of its week.
-                                                            String weekHref = weekViewProviderNo == null ? null
-                                                                    : ScheduleWeekLink.href(request.getContextPath(), year, month,
-                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewProviderNo);
+                                                            String weekHref = ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewTarget);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
                                                     FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a
@@ -941,9 +943,8 @@
                                                     for (int j = -1; j < 7; j++) {
                                                         if (j == -1) {
                                                             // Any day of the row will do: the week view starts at the beginning of its week.
-                                                            String weekHref = weekViewProviderNo == null ? null
-                                                                    : ScheduleWeekLink.href(request.getContextPath(), year, month,
-                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewProviderNo);
+                                                            String weekHref = ScheduleWeekLink.href(request.getContextPath(), year, month,
+                                                                    dateGrid[i][j + 1] == 0 ? 1 : dateGrid[i][j + 1], weekViewTarget);
                                             %>
                                             <td align='center' bgcolor='#FOFOFO'><font
                                                     FACE='VERDANA,ARIAL,HELVETICA' SIZE='2'><% if (weekHref != null) { %><a

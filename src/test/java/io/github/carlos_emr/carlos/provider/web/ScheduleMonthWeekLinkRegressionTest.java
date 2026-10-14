@@ -88,12 +88,14 @@ class ScheduleMonthWeekLinkRegressionTest {
     }
 
     @Test
-    @DisplayName("should only offer week links for a provider that exists")
-    void shouldCheckProviderExists_beforeOfferingWeekLinks() throws IOException {
+    @DisplayName("should resolve the week target from the viewer's saved schedule view and real providers")
+    void shouldResolveWeekTarget_fromSavedViewAndExistingProviders() throws IOException {
         String month = Files.readString(MONTH_JSP, StandardCharsets.UTF_8);
 
+        // The sheet a week number opens lists the viewer's SAVED view, not the month's providerview,
+        // so the target must know the saved view, and a provider number must belong to a real provider.
         assertThat(month)
-                .contains("ScheduleWeekLink.singleProvider(providerview)")
-                .contains("providerDao.getProvider(weekViewProviderNo) == null");
+                .contains("ScheduleWeekLink.weekTarget(providerview, providerPreference.getMyGroupNo(),")
+                .contains("providerDao.getProvider(");
     }
 }
