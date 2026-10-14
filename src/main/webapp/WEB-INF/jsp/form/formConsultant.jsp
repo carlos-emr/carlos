@@ -166,7 +166,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Phone:</TD>
+                                <TD align="left"><label for="t_phone">Phone:</label></TD>
                                 <TD align="left">
 
                                     <INPUT value="<carlos:encode value='<%= props.getProperty("t_phone", "") %>' context="htmlAttribute"/>" id="t_phone" name="t_phone"
@@ -176,7 +176,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Fax:</TD>
+                                <TD align="left"><label for="t_fax">Fax:</label></TD>
                                 <TD align="left">
 
                                     <INPUT value="<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="htmlAttribute"/>" id="t_fax" name="t_fax"

@@ -106,9 +106,12 @@ public class EmailCompose2Action extends ActionSupport {
         "emailAttachmentList"
     };
 
-    /** Shown when no draft is staged under the request's key: missing, already used, or dropped (#4101). */
-    static final String COMPOSE_EXPIRED_MESSAGE = "This email window has expired or was already opened."
-            + " Close it and email the eForm again.";
+    /**
+     * Result for a request whose key finds no usable draft: missing, unknown, already used, or dropped
+     * for a newer save (#4101). The eForm error page needs an eForm to show anything, and there is none
+     * here, so this has its own page, worded from the bundle, naming no patient, eForm or key.
+     */
+    static final String DRAFT_EXPIRED_RESULT = "draftExpired";
 
 
     /**
@@ -117,8 +120,9 @@ public class EmailCompose2Action extends ActionSupport {
      * This method serves as the main entry point for the Struts2 action and delegates to
      * prepareComposeEFormMailer() to handle the email composition preparation logic.
      *
-     * @return String the Struts2 result name, either "compose" for successful preparation
-     *         or "eFormError" if PDF generation fails
+     * @return String the Struts2 result name: "compose" for successful preparation,
+     *         {@link #DRAFT_EXPIRED_RESULT} if there is no usable draft for the window's key, or
+     *         "eFormError" if PDF generation fails
      * @see #prepareComposeEFormMailer()
      */
     public String execute() {
@@ -152,9 +156,10 @@ public class EmailCompose2Action extends ActionSupport {
      * The eForm save stages an {@link EmailComposeStaging.Draft} (template id, patient, message,
      * options and attachment selections) under a one-time key passed as the {@code draft}
      * parameter. This takes exactly that draft, once, and reads nothing else from the session, so
-     * another window's save cannot change it. A missing, reused or dropped key shows the error page
-     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If preparing the
-     * attachments fails, the draft goes back under its key, so refreshing retries.
+     * another window's save cannot change it. A missing, unknown, reused or dropped key shows the
+     * "draft expired" page ({@link #DRAFT_EXPIRED_RESULT}), never another window's draft. If any later step of
+     * preparing the compose fails (the patient, consent, recipient or sender lookups, the PDF
+     * password, or the attachments), the draft goes back under its key, so refreshing retries.
      *
      * Request Parameters:
      * <ul>
@@ -200,10 +205,11 @@ public class EmailCompose2Action extends ActionSupport {
      * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
      * returns the "eFormError" result with a descriptive error message. This prevents incomplete
      * emails from being composed when required attachments cannot be generated. Without a usable
-     * draft for the request's key, it returns "eFormError" with {@link #COMPOSE_EXPIRED_MESSAGE}.
+     * draft for the request's key, it returns {@link #DRAFT_EXPIRED_RESULT} with HTTP 410.
      *
      * @return String the Struts2 result name: "compose" for successful preparation,
-     *         "eFormError" if there is no draft for the key or PDF generation fails for any attachment
+     *         {@link #DRAFT_EXPIRED_RESULT} if there is no usable draft for the key, or "eFormError" if
+     *         PDF generation fails for any attachment
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
@@ -222,7 +228,7 @@ public class EmailCompose2Action extends ActionSupport {
         String draftKey = request.getParameter(EmailComposeStaging.DRAFT_PARAMETER);
         EmailComposeStaging.Draft draft = EmailComposeStaging.take(session, draftKey);
         if (draft == null) {
-            return emailComposeError(request, COMPOSE_EXPIRED_MESSAGE);
+            return draftExpired();
         }
         // Fields that versions before #4101 staged one by one; nothing reads them now.
         cleanupEmailSessionAttributes(request);
@@ -245,7 +251,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         Integer demographicNo = parseDemographicNo(demographicId);
         if (demographicNo == null) {
-            return emailComposeError(request, COMPOSE_EXPIRED_MESSAGE);
+            // The eForm save only stages a draft for a patient, so this should not happen; staff see
+            // the expired page, and the log says why (no ids: the value itself is not trusted).
+            logger.warn("eForm email draft had no usable patient number; showing the draft-expired page");
+            return draftExpired();
         }
 
         // Validate the draft's fid is numeric if provided
@@ -257,20 +266,27 @@ public class EmailCompose2Action extends ActionSupport {
             fid = null;
         }
 
-        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-
-        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
-        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
-
-        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
-
-        if (emailPDFPassword == null) {
-            emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
-            emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
-        }
-
+        // Every lookup from here on runs after take() has consumed the draft, so all of them sit
+        // inside the restoring try: a transient failure (a database error, for one) must leave the
+        // window retryable rather than reporting it as expired on refresh.
+        String[] emailConsent;
+        String receiverName;
+        List<?>[] receiverEmailList;
+        List<EmailConfig> senderAccounts;
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
+            emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+
+            receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+            receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
+
+            senderAccounts = emailComposeManager.getAllSenderAccounts();
+
+            if (emailPDFPassword == null) {
+                emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
+                emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
+            }
+
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms));
             emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
@@ -356,6 +372,17 @@ public class EmailCompose2Action extends ActionSupport {
         for (String key : EMAIL_SESSION_KEYS) {
             session.removeAttribute(key);
         }
+    }
+
+    /**
+     * Shows the "draft expired" page: this window's one-time draft is gone, so 410 Gone. The page
+     * tells staff to close the window and email the eForm again.
+     *
+     * @return {@link #DRAFT_EXPIRED_RESULT}
+     */
+    private String draftExpired() {
+        response.setStatus(HttpServletResponse.SC_GONE);
+        return DRAFT_EXPIRED_RESULT;
     }
 
     /**

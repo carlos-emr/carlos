@@ -34,6 +34,13 @@
  *
  * Requires pdftotext from poppler-utils to inspect the actual PDF content and positions.
  *
+ * FIXTURE. The eForm is opened for, and downloads as, a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker) and removes. It used to open demo patient 1: the download stores an eForm instance for the patient the
+ * form was opened for, and the admin library's Delete only marks the TEMPLATE removed (status 0), so every run left an
+ * eform_data row with its eform_values for demo patient 1 and a soft-deleted eform row. Cleanup now deletes, by the patient's key
+ * and by the run's unique form name, the instances and their values, the template row and the patient, and asserts each gone.
+ * The database is reached with MYSQL_*.
+ *
  * Defaults are for the local devcontainer:
  *   node scripts/eform-render-playwright-checks.js
  *
@@ -53,6 +60,8 @@ const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -374,6 +383,10 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   const screenshotPath = buildArtifactPath(screenshotDir, artifactBaseName);
   let importedFid = null;
   let managerPage = null;
+  // The owned patient the eForm is opened for (never a demo patient), created before anything else is written.
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let patient = null;
 
   const launchOptions = {
     headless: true,
@@ -383,8 +396,12 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  let browser = null;
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1100, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
@@ -404,7 +421,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(managerPreviewState.patientLast === 'TemplateSeed', `Manager preview did not render template-stored field data: ${managerPreviewState.patientLast}`);
     await managerPreview.close();
 
-    const popup = await openImportedEform(context, importedFid, '1');
+    const popup = await openImportedEform(context, importedFid, patient);
     await assertNotErrorPage(popup, 'render-pipeline eForm popup');
 
     await popup.fill('#patient_nameL', 'Playwright');
@@ -485,7 +502,29 @@ function assertDisplayImageFetchesSucceeded(imageName) {
       await managerPage.close().catch(() => {});
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
-    await browser.close();
+    if (browser) await browser.close();
+    try {
+      removeFixtureRows();
+    } finally {
+      sql.dispose();
+    }
+  }
+
+  /**
+   * The rows the run wrote, by key. The instance the download stored carries the patient's key; the template carries the run's
+   * unique form name (the admin Delete soft-deletes it, so the row stays until it is removed here). Every one is asserted gone.
+   */
+  function removeFixtureRows() {
+    if (patient === null) return;
+    const q = h.sqlString;
+    sql.execute(`DELETE FROM eform_values WHERE fdid IN (SELECT fdid FROM eform_data WHERE demographic_no=${patient});
+      DELETE FROM eform_data WHERE demographic_no=${patient};
+      DELETE FROM eform WHERE form_name=${q(importedFormName)}`);
+    assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM eform WHERE form_name=${q(importedFormName)})
+      + (SELECT COUNT(*) FROM eform_data WHERE form_name=${q(importedFormName)})`) === '0',
+    'The eForm instances or the template this run created were not removed');
+    removeOwnedPatient(sql, patient, ownedMarker);
   }
 })().catch((error) => {
   console.error('FAIL app-backed eForm render pipeline Playwright check');

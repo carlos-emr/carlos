@@ -46,7 +46,7 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     //These error codes are considered irrelevant in the sense that while an error code is being returned, these specific errors
     //can be safely ignored, and do not require further review.
     //
-    //This string should be in a format appropriate for an SQL statement X in irrelevantErrorCodes (se usage)
+    //Bound as a collection for the JPQL IN clauses below (see usage).
     //EV = "Check health card for current version code", which is essentially when the pt's ohip card is about to expire
     //55 = "Deduction is an adjustment on an earlier account"
     //57 = "This payment is an adjustment on an earlier account"
@@ -56,7 +56,11 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     //I6 = Premium not applicable
     //V8 = This service paid at lower fee as per stated OHIP policy
     //In addition to this list, the functions that use this string may have additional situations hardcoded; search for use of this string directly
-    private static String irrelevantErrorCodes = "('EV','55','57','HM','30','B2','I6','V8')";
+    // Bound as a collection parameter: JPQL "IN ?4" with a single String would
+    // compare the code to the literal text of the list and never match, so
+    // claims carrying these explanatory codes were never settled.
+    private static final java.util.List<String> IRRELEVANT_ERROR_CODES =
+            java.util.List.of("EV", "55", "57", "HM", "30", "B2", "I6", "V8");
 
     public RaDetailDaoImpl() {
         super(RaDetail.class);
@@ -180,12 +184,12 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     @Override
     public List<RaDetail> search_raerror35(Integer raHeaderNo, String error1, String error2, String providerOhipNo) {
-        Query query = entityManager.createQuery("SELECT rad from RaDetail rad WHERE rad.raHeaderNo = ?1 and rad.errorCode<>'' and rad.errorCode<>?2 and rad.errorCode<>?3 and not rad.errorCode in ?4 and (rad.serviceCode<>'Q200A' or rad.errorCode<>'I9') and rad.providerOhipNo like ?5");
+        Query query = entityManager.createQuery("SELECT rad from RaDetail rad WHERE rad.raHeaderNo = ?1 and rad.errorCode<>'' and rad.errorCode<>?2 and rad.errorCode<>?3 and rad.errorCode not in (?4) and (rad.serviceCode<>'Q200A' or rad.errorCode<>'I9') and rad.providerOhipNo like ?5");
 
         query.setParameter(1, raHeaderNo);
         query.setParameter(2, error1);
         query.setParameter(3, error2);
-        query.setParameter(4, irrelevantErrorCodes);
+        query.setParameter(4, IRRELEVANT_ERROR_CODES);
         query.setParameter(5, providerOhipNo);
 
 
@@ -197,12 +201,12 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
 
     @Override
     public List<Integer> search_ranoerror35(Integer raHeaderNo, String error1, String error2, String providerOhipNo) {
-        Query query = entityManager.createQuery("select distinct rad.billingNo from RaDetail rad where rad.raHeaderNo=?1 and (rad.errorCode='' or rad.errorCode=?2 or rad.errorCode=?3 or rad.errorCode in ?4 or (rad.serviceCode='Q200A' and rad.errorCode='I9')) and rad.providerOhipNo like ?5");
+        Query query = entityManager.createQuery("select distinct rad.billingNo from RaDetail rad where rad.raHeaderNo=?1 and (rad.errorCode='' or rad.errorCode=?2 or rad.errorCode=?3 or rad.errorCode in (?4) or (rad.serviceCode='Q200A' and rad.errorCode='I9')) and rad.providerOhipNo like ?5");
 
         query.setParameter(1, raHeaderNo);
         query.setParameter(2, error1);
         query.setParameter(3, error2);
-        query.setParameter(4, irrelevantErrorCodes);
+        query.setParameter(4, IRRELEVANT_ERROR_CODES);
         query.setParameter(5, providerOhipNo);
 
 

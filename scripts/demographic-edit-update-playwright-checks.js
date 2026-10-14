@@ -34,12 +34,15 @@
  * ENTERED THE WAY A CLINIC ENTERS IT: login, the schedule's Search control, the
  * patient row, the record's Edit link. Not a demographic URL.
  *
- * IT MUTATES, SO IT RESTORES. It edits an existing demo patient rather than
- * creating one (demographic-add-playwright-checks.js covers creation, and
- * deleting a patient is far messier than restoring five columns). The original
- * values are captured before the edit and written back in a finally, whether the
- * assertions passed or threw. Only the columns this check touched are restored,
- * and only for the one demographic_no it edited.
+ * IT MUTATES, SO IT OWNS ITS PATIENT. It edits a FAKE patient it creates
+ * (lib/owned-patient.js: last name = a FAKE-PW run marker) and deletes by that
+ * patient's key in a finally, whether the assertions passed or threw. It used to edit
+ * DEMO patient 2 and write back the five columns it had filled; but a Master Record save
+ * is not a round trip of those five: it also rewrites the record's province and
+ * newsletter codes, files a demographicArchive row for the previous state and stamps
+ * lastUpdateDate, so a restore of five columns could never put the demo record back
+ * (the residue audit and a comparison with the demo artifact found exactly that for
+ * demo patient 1). Deleting the owned patient and the rows it filed leaves nothing.
  *
  * NO REAL PATIENT DATA IS WRITTEN: every value is obviously synthetic and carries
  * this run's marker, and no value is ever logged -- the diagnostics name the
@@ -49,8 +52,6 @@
  *   npm run test:demographic-edit-update-playwright
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
- *   DEMOGRAPHIC_EDIT_SEARCH=FAKE-        surname prefix to search for
- *   DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO=2    prefer this patient from the results
  *   DEMOGRAPHIC_EDIT_TIMEOUT_MS=20000
  *
  * IMPLEMENTS: coverage plan section 2.4, `demographic-edit-update`
@@ -63,6 +64,7 @@ const {
   runCheck, sqlString,
 } = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopup } = require('./lib/playwright-ui');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /*
@@ -176,10 +178,10 @@ async function auditRows(context, masterPage, recorder, timeout) {
 
 async function main() {
   const config = readConfig();
-  const searchTerm = process.env.DEMOGRAPHIC_EDIT_SEARCH || 'FAKE-';
-  const preferredDemographicNo = process.env.DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO || '2';
   const timeout = Number(process.env.DEMOGRAPHIC_EDIT_TIMEOUT_MS || '20000');
   const marker = `EDIT${Date.now()}`;
+  // The owned patient's run marker is its last name: the schedule's Search finds it by that.
+  const ownedMarker = newOwnedMarker();
 
   const recorder = createRecorder();
   const sql = createSqlRunner(config.mysql);
@@ -196,14 +198,19 @@ async function main() {
   }
 
   let demographicNo = null;
+  let ownedPatient = null;
   let original = null;
   let fields = [];
 
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name = ${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    // Recorded before anything else can fail, so the finally below always finds it.
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     const context = await newContext(browser, config);
     const schedulePage = await login(context, config, recorder);
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
-      searchTerm, preferredDemographicNo, timeout,
+      searchTerm: ownedMarker, preferredDemographicNo: ownedPatient, timeout,
     });
 
     // Take the id from the page the UI landed on, not from the environment: the
@@ -211,9 +218,8 @@ async function main() {
     const landed = masterPage.url().match(/demographic_no=(\d+)/);
     assert(landed, 'Could not determine which patient the Master Record opened');
     [, demographicNo] = landed;
-    assert(demographicNo === String(preferredDemographicNo),
-      'The configured demographic was not returned by search; narrow DEMOGRAPHIC_EDIT_SEARCH '
-      + 'and set DEMOGRAPHIC_EDIT_DEMOGRAPHIC_NO before running this mutating check');
+    assert(demographicNo === String(ownedPatient),
+      'The schedule\'s Search opened a patient other than the one this check created, so it will not edit it');
 
     // The audit trail as it stands BEFORE the edit, so the new row can be found
     // by difference rather than by guessing at its timestamp.
@@ -370,24 +376,16 @@ async function main() {
     // without saying who it happened to, and cost nothing.
     return { fields: fields.map((field) => field.input) };
   } finally {
-    // EVERY CAPTURED COLUMN, not only the edited ones. UNTOUCHED_COLUMN is
-    // captured and asserted precisely because the application might clobber it,
-    // and restoring only `fields` meant that when it DID -- the one case the
-    // assertion exists to catch -- the assertion threw and this block left the
-    // shared test patient permanently modified. The check for fixture
-    // corruption must not be the thing that leaves fixture corruption behind.
+    // After the browser is gone: the owned patient, its archive and extension rows and the chart rows the page filed, by the
+    // patient's key (and only while its last name is still this run's marker). Nothing of the demo dataset is written, so there
+    // is nothing to restore; the originals captured above exist for the "untouched column" assertion alone.
     try {
-      if (demographicNo && original) {
-        const assignments = Object.keys(original)
-          .map((column) => `\`${column}\` = ${original[column] === null ? 'NULL' : sqlString(original[column])}`)
-          .join(', ');
-        if (assignments) {
-          sql.execute(`UPDATE demographic SET ${assignments} WHERE demographic_no = ${Number(demographicNo)}`);
-        }
+      await browser.close().catch(() => {});
+      if (ownedPatient) {
+        removeOwnedPatient(sql, ownedPatient, ownedMarker);
       }
     } finally {
       sql.dispose();
-      await browser.close().catch(() => {});
     }
   }
 }

@@ -352,6 +352,10 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Inbox queue admin (#4428): the view methods permit GET; method=addNewQueue inserts a queue
+        // and its security object and must be a POST with _edoc write. Covered by
+        // DmsInboxManage2ActionUnitTest (shouldReturn405_whenAddNewQueueIsNotPost).
+        "io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action",
         // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
         // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
         "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",

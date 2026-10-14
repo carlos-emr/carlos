@@ -234,6 +234,15 @@ public class RxPatientData {
         }
 
         public void addAllergy(java.util.Date entryDate, Allergy allergy) {
+            // One transaction: the two DAOs commit separately otherwise, and a failure of the
+            // partial-date write would leave a committed allergy row that an idempotent retry
+            // (#3488) would then insert a second time.
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> persistAllergy(entryDate, allergy));
+        }
+
+        /** Writes the allergy and its partial date; callers supply the transaction. */
+        private void persistAllergy(java.util.Date entryDate, Allergy allergy) {
             allergy.setEntryDate(entryDate);
             allergyDao.persist(allergy);
             partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
@@ -260,7 +269,7 @@ public class RxPatientData {
                         if (allergyDao.archiveIfActive(originalId, getDemographicNo()) != 1) {
                             return Boolean.FALSE;
                         }
-                        addAllergy(entryDate, replacement);
+                        persistAllergy(entryDate, replacement);
                         return Boolean.TRUE;
                     });
             return Boolean.TRUE.equals(amended);

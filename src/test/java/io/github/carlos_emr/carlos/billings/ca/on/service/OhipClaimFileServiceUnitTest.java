@@ -630,4 +630,108 @@ class OhipClaimFileServiceUnitTest {
         field.setAccessible(true);
         field.set(entity, id);
     }
+
+    @Test
+    void shouldRetainPriorOutputUnderLegacyTimestampName_afterCommittedRegeneration() throws IOException {
+        // OSCAR 19 renamed the previous OHIP file to <name>.<epochMillis>; operators
+        // find the prior submission there, and no hidden rollback copy is left behind.
+        Path original = tempDir.resolve("claim.retain.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.retain.txt");
+        service.backupFileForRollback();
+        service.writeFile("replacement");
+
+        service.retainFileBackup();
+
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        try (var files = Files.list(tempDir)) {
+            var names = files.map(path -> path.getFileName().toString()).sorted().toList();
+            assertThat(names).hasSize(2);
+            assertThat(names).anySatisfy(name -> assertThat(name).matches("claim\\.retain\\.txt\\.\\d{13}"));
+            assertThat(names).noneMatch(name -> name.startsWith(".ohip-preview-"));
+        }
+        try (var files = Files.list(tempDir)) {
+            Path retained = files.filter(path -> path.getFileName().toString().endsWith(".txt") == false).findFirst().orElseThrow();
+            assertThat(retained).hasContent("prior claim output");
+        }
+        // A second call is a no-op: the backup has already been handed over.
+        service.retainFileBackup();
+    }
+
+    @Test
+    void shouldKeepRollbackCopyAndNotThrow_whenRetainingBackupFails() throws IOException {
+        // Best effort after a committed regeneration: a failure here must not reach the
+        // caller, which would otherwise report the committed disk as uncertain.
+        Path original = tempDir.resolve("claim.keep.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.keep.txt");
+        service.backupFileForRollback();
+        service.writeFile("replacement");
+        CarlosProperties.getInstance().remove("HOME_DIR");
+        try {
+            service.retainFileBackup();
+        } finally {
+            CarlosProperties.getInstance().put("HOME_DIR", tempDir.toString() + File.separator);
+        }
+
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        try (var files = Files.list(tempDir)) {
+            assertThat(files.map(path -> path.getFileName().toString()))
+                    .anyMatch(name -> name.startsWith(".ohip-preview-"));
+        }
+        // The hand-over is still pending, so a later restore can use the rollback copy.
+        service.restoreRenamedFile();
+        assertThat(original).hasContent("prior claim output");
+    }
+
+    @Test
+    void shouldReportOutputFilePresence_forConfiguredOhipFilename() throws IOException {
+        service.setOhipFilename("claim.exists.txt");
+        assertThat(service.outputFileExists()).isFalse();
+
+        Files.writeString(tempDir.resolve("claim.exists.txt"), "");
+
+        assertThat(service.outputFileExists()).isTrue();
+    }
+
+    @Test
+    void shouldTransliterateAccentedLetters_forHealthCardName() {
+        // The spec forbids special characters; deleting the letter (the old \\W strip)
+        // changed "Côté" into "CT". Transliterate, then drop what is still not A-Z/0-9.
+        assertThat(OhipClaimFileService.mohName("Côté")).isEqualTo("COTE");
+        assertThat(OhipClaimFileService.mohName(" Hélène-Marie ")).isEqualTo("HELENEMARIE");
+        assertThat(OhipClaimFileService.mohName("O'Brien")).isEqualTo("OBRIEN");
+        assertThat(OhipClaimFileService.mohName(null)).isEmpty();
+    }
+
+    @Test
+    void shouldUpperCaseAsciiLettersOnly_forAlphabeticFields() {
+        assertThat(OhipClaimFileService.upperAscii("a001a")).isEqualTo("A001A");
+        assertThat(OhipClaimFileService.upperAscii("mn")).isEqualTo("MN");
+        assertThat(OhipClaimFileService.upperAscii("é")).isEqualTo("é");
+        assertThat(OhipClaimFileService.upperAscii(null)).isNull();
+    }
+
+    @Test
+    void shouldReportOversizedValueAsFatal_insteadOfThrowing() {
+        // A 7-character referral number used to throw StringIndexOutOfBounds and
+        // surface as a "file write" failure; it is a data error on the claim.
+        service.setErrorFatalMsg("");
+        String padded = service.rightJustify(" ", 6, "1234567");
+
+        assertThat(padded).hasSize(6);
+        assertThat(service.getErrorFatalMsg()).contains("7 characters").contains("6-character field")
+                .doesNotContain("1234567");
+    }
+
+    @Test
+    void shouldTreatMissingOutputFileAsEmptyDedupSet_whenRegenerating() throws IOException {
+        // A disk whose file was never written (failed generation) or was removed:
+        // nothing to dedup against, so regeneration can write it instead of failing.
+        service.setOhipFilename("never-written.txt");
+
+        service.readInBillingNo();
+
+        assertThat(service.getErrorFatalMsg()).isEmpty();
+    }
 }

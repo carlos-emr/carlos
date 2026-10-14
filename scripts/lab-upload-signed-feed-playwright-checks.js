@@ -158,7 +158,9 @@ async function workflow(session) {
         sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
           DELETE FROM measurements WHERE id IN (${ids})`);
       }
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+      // The upload path also writes a providerLabRoutingLock row for each lab it files; nothing else removes it.
+      sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
+        DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
