@@ -358,10 +358,12 @@ public class EmailSend2Action extends ActionSupport {
             // Missing personal input is a deliberately empty layer, never the combined EmailLog footer.
             String personal = EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL));
             SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
-                    .saveOwnFooter(user.getLoggedInProviderNo(), personal);
+                    .saveOwnFooter(user.getLoggedInProviderNo(), personal, request.getParameter("personalFooterRevision"));
             io.github.carlos_emr.carlos.log.LogAction.addLog(user.getLoggedInProviderNo(),
                     io.github.carlos_emr.carlos.log.LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
             request.setAttribute(personal.isEmpty() ? "footerSavedEmpty" : "footerSavedAsMine", true);
+        } catch (io.github.carlos_emr.carlos.email.core.EmailFooterService.StaleFooterException failure) {
+            request.setAttribute("footerSaveAsMineStale", true);
         } catch (RuntimeException failure) {
             logger.warn("Email accepted; personal footer update could not be confirmed; cause={}",
                     failure.getClass().getSimpleName());
@@ -448,6 +450,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
         request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
         request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(
@@ -493,6 +496,7 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
         // The footer as submitted, cleaned as it would be sent: a retry keeps what staff sent.
         request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit

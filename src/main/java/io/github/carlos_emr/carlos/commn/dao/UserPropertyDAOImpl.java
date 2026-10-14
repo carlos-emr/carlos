@@ -208,7 +208,9 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             // locking read no longer fits its read view. Give the admin action the established
             // optimistic-conflict outcome; never retry in this already-aborted transaction.
             Throwable cause = failure;
-            for (int depth = 0; cause != null && depth < 16; depth++, cause = cause.getCause()) {
+            for (int depth = 0;
+            cause != null && depth < 16;
+            depth++, cause = cause.getCause()) {
                 if (cause instanceof java.sql.SQLException sql && sql.getErrorCode() == 1020) {
                     throw new jakarta.persistence.OptimisticLockException(
                             "Clinic email footer settings changed concurrently", failure);
@@ -317,7 +319,8 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             // this DAO. Overlay only our recorded writes; never union historical RR row IDs.
             var writes = personalFooterWrites(false);
             if (writes != null) {
-                writes.created.forEach((id, owner) -> { if (providerNo.equals(owner)) ids.add(id); });
+                writes.created.forEach((id, owner) -> { if (providerNo.equals(owner)) ids.add(id);
+                });
                 ids.removeAll(writes.deleted);
             }
             var rows = new java.util.ArrayList<UserProperty>();
@@ -335,8 +338,11 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
                 }
                 Object[] value = values.get(0);
                 var row = new UserProperty();
-                row.setId(id); row.setName((String) value[1]); row.setProviderNo(providerNo);
-                row.setValue((String) value[3]); rows.add(row);
+                row.setId(id);
+                row.setName((String) value[1]);
+                row.setProviderNo(providerNo);
+                row.setValue((String) value[3]);
+                rows.add(row);
             }
             return rows;
         });
@@ -428,7 +434,9 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
                 throw new jakarta.persistence.OptimisticLockException("Personal footer row changed concurrently");
             }
             // Keep an earlier managed instance consistent without refreshing or clearing other data.
-            if (managed != null) { managed.setName("email_footer"); managed.setValue(property.getValue()); }
+            if (managed != null) { managed.setName("email_footer");
+            managed.setValue(property.getValue());
+            }
             return updated;
         });
     }
@@ -470,7 +478,9 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             // MariaDB strict snapshot mode aborts this transaction on a changed row. Preserve the
             // winner and surface a retryable conflict; never retry inside the aborted transaction.
             var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
-            for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            for (Throwable cause = failure;
+            cause != null && seen.add(cause);
+            cause = cause.getCause()) {
                 if (cause instanceof java.sql.SQLException sql && sql.getErrorCode() == 1020) {
                     throw new jakarta.persistence.OptimisticLockException("Personal footer changed concurrently", failure);
                 }

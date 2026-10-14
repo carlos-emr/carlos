@@ -20,7 +20,6 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
-import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -471,9 +470,12 @@ public class ManageEmails2Action extends ActionSupport {
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
         // A resend is a new email. Its historical combined footer remains audit-only;
         // the new optional personal text is the current user's default; the clinic preview is current.
-        request.setAttribute("footerEmail", SpringUtils.getBean(
-                io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
-                .ownFooter(loggedInInfo.getLoggedInProviderNo()));
+        String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo());
+        request.setAttribute("footerEmail", personalDefault);
+        request.setAttribute("personalFooterRevision",
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf(
+                        loggedInInfo.getLoggedInProviderNo(), personalDefault));
         io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());

@@ -47,7 +47,9 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
 
     SaveMyEmailFooter2Action(SecurityInfoManager security, EmailFooterService personal,
             ClinicEmailFooterService clinic) {
-        this.security = security; this.personal = personal; this.clinic = clinic;
+        this.security = security;
+        this.personal = personal;
+        this.clinic = clinic;
     }
 
     @Override
@@ -59,26 +61,41 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
         if (!"POST".equals(request.getMethod())) {
-            response.setHeader("Allow", "POST"); response.sendError(405); return NONE;
+            response.setHeader("Allow", "POST");
+            response.sendError(405);
+            return NONE;
         }
         String operation = request.getParameter("footerAction");
         String value;
         if ("save".equals(operation)) {
             value = request.getParameter("myFooter");
             if (value == null || value.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
-                response.sendError(400); return NONE;
+                response.sendError(400);
+                return NONE;
             }
         } else if ("clear".equals(operation)) {
             value = "";
-        } else { response.sendError(400); return NONE; }
+        } else {
+            response.sendError(400);
+            return NONE;
+        }
         try {
-            personal.saveOwnFooter(user.getLoggedInProviderNo(), value);
+            personal.saveOwnFooter(user.getLoggedInProviderNo(), value, request.getParameter("personalFooterRevision"));
+        } catch (EmailFooterService.StaleFooterException failure) {
+            ViewMyEmailFooter2Action.expose(request, personal.ownFooter(user.getLoggedInProviderNo()), clinic);
+            request.setAttribute("myFooterStale", true);
+            request.setAttribute("myFooterAttempted", EmailFooterHtml.toPlainText(EmailFooterHtml.clean(value)));
+            return INPUT;
         } catch (EmailFooterService.FooterTooLongException failure) {
             ViewMyEmailFooter2Action.expose(request, EmailFooterHtml.clean(value), clinic);
-            request.setAttribute("myFooterTooLong", true); return INPUT;
+            request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
+            request.setAttribute("myFooterTooLong", true);
+            return INPUT;
         } catch (ConcurrencyFailureException | jakarta.persistence.PersistenceException failure) {
             ViewMyEmailFooter2Action.expose(request, EmailFooterHtml.clean(value), clinic);
-            request.setAttribute("myFooterSaveConflict", true); return INPUT;
+            request.setAttribute("personalFooterRevision", request.getParameter("personalFooterRevision"));
+            request.setAttribute("myFooterSaveConflict", true);
+            return INPUT;
         }
         LogAction.addLog(user.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterOwn", "",
                 request.getRemoteAddr());

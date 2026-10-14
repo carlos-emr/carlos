@@ -490,7 +490,11 @@ public class PersonaService extends AbstractServiceImpl {
                 }
                 try {
                     SpringUtils.getBean(EmailFooterService.class)
-                            .saveOwnFooter(provider.getProviderNo(), value.textValue());
+                            .saveOwnFooter(provider.getProviderNo(), value.textValue(),
+                                    json.hasNonNull("personalFooterRevision")
+                                            ? json.get("personalFooterRevision").asText() : null);
+                } catch (EmailFooterService.StaleFooterException failure) {
+                    return RestResponse.errorResponse("Personal footer changed; open your personal footer and review it before saving");
                 } catch (EmailFooterService.FooterTooLongException failure) {
                     return RestResponse.errorResponse("Personal footer is too long");
                 } catch (ConcurrencyFailureException | PersistenceException failure) {

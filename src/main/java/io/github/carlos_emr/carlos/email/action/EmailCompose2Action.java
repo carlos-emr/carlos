@@ -469,6 +469,9 @@ public class EmailCompose2Action extends ActionSupport {
         String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
                 .ownFooter(loggedInInfo.getLoggedInProviderNo());
         request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail(), personalDefault));
+        request.setAttribute("personalFooterRevision",
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf(
+                        loggedInInfo.getLoggedInProviderNo(), personalDefault));
         io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, context.clinicFooter());
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());

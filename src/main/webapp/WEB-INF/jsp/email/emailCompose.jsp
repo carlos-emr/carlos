@@ -617,6 +617,7 @@
                     </div>
                     <div class="card-body border-top">
                         <div class="form-check">
+                            <input type="hidden" name="personalFooterRevision" value="${carlos:forHtmlAttribute(personalFooterRevision)}"/>
                             <input type="checkbox" class="form-check-input" id="saveFooterAsMine" name="saveFooterAsMine"
                                    value="true" ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
                             <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
@@ -822,7 +823,7 @@
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed and not footerSaveAsMineStale}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
@@ -853,9 +854,12 @@
             <c:if test="${footerSavedAsMine}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedAsMine"/></p></c:if>
             <c:if test="${footerSavedEmpty}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedEmpty"/></p></c:if>
             <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
-            <c:if test="${footerSaveAsMineFailed}">
+            <c:if test="${footerSaveAsMineFailed or footerSaveAsMineStale}">
                 <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
-                    <fmt:message key="email.compose.footer.saveAsMineFailed"/>
+                    <c:choose>
+                        <c:when test="${footerSaveAsMineStale}"><fmt:message key="email.compose.footer.saveAsMineStale"/></c:when>
+                        <c:otherwise><fmt:message key="email.compose.footer.saveAsMineFailed"/></c:otherwise>
+                    </c:choose>
                     <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"><fmt:message key="email.compose.footer.myFooterLink"/></a>
                 </div>
             </c:if>

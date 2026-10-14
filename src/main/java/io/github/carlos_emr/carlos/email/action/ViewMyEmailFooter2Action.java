@@ -43,7 +43,9 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
 
     ViewMyEmailFooter2Action(SecurityInfoManager security, EmailFooterService personal,
             ClinicEmailFooterService clinic) {
-        this.security = security; this.personal = personal; this.clinic = clinic;
+        this.security = security;
+        this.personal = personal;
+        this.clinic = clinic;
     }
 
     @Override
@@ -59,6 +61,8 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
 
     static void expose(HttpServletRequest request, String footer, ClinicEmailFooterService clinic) {
         request.setAttribute("myFooter", footer);
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        request.setAttribute("personalFooterRevision", EmailFooterService.revisionOf(providerNo, footer));
         ClinicEmailFooterService.expose(request, clinic.snapshot());
     }
 }

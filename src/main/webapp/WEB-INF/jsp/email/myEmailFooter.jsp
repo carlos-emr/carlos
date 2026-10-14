@@ -2,6 +2,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <fmt:setBundle basename="oscarResources"/>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
@@ -23,7 +24,16 @@
     <c:if test="${myFooterSaveConflict}">
         <div class="alert alert-danger" role="alert"><fmt:message key="email.myFooter.saveConflict"/></div>
     </c:if>
+    <c:if test="${myFooterStale}">
+        <div class="alert alert-warning" role="alert"><fmt:message key="email.myFooter.stale"/></div>
+        <details class="mb-3">
+            <summary><fmt:message key="email.myFooter.unsavedText"/></summary>
+            <pre style="white-space: pre-wrap;"><c:out value="${myFooterAttempted}"/></pre>
+        </details>
+    </c:if>
     <form action="${ctx}/email/saveMyEmailFooter" method="post" id="myFooterForm">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+        <input type="hidden" name="personalFooterRevision" value="${carlos:forHtmlAttribute(personalFooterRevision)}"/>
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span id="myFooterLabel"><fmt:message key="email.myFooter.label"/></span>
             <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"

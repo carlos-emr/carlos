@@ -233,7 +233,7 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
         currentFooterProvider();
         var properties=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
-        var response=request().path("/persona/updatePreference").post("{\"key\":\"email_footer\",\"value\":\"FAKE Personal\"}");
+        var response=request().path("/persona/updatePreference").post("{\"key\":\"email_footer\",\"value\":\"FAKE Personal\",\"personalFooterRevision\":\"" + io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("100", "") + "\"}");
         assertThat(response.getStatus()).isEqualTo(403);
         org.mockito.Mockito.verifyNoInteractions(properties);
     }
@@ -254,15 +254,20 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
         var footer=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
         registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class,footer);
-        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();row.setId(7);row.setName(alias);
+        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();
+        row.setId(7);
+        row.setName(alias);
         when(properties.getProp("100",alias)).thenReturn(row);
         when(properties.isPersonalEmailFooterRow("100",7)).thenReturn(true);
         var json=new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
-        json.put("key",alias);json.put("value","FAKE Personal");json.put("providerNo","202");
+        json.put("key",alias);
+        json.put("value","FAKE Personal");
+        json.put("providerNo","202");
+        json.put("personalFooterRevision", io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("100", ""));
         var response=request().path("/persona/updatePreference").post(json);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(responseJson(response).at("/status").asText()).isEqualTo("SUCCESS");
-        org.mockito.Mockito.verify(footer).saveOwnFooter("100","FAKE Personal");
+        org.mockito.Mockito.verify(footer).saveOwnFooter("100","FAKE Personal", io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("100", ""));
         org.mockito.Mockito.verify(properties,org.mockito.Mockito.never()).merge(org.mockito.ArgumentMatchers.any());
     }
 
@@ -273,11 +278,14 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
         var footer=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
         registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class,footer);
-        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();row.setId(7);row.setName(alias);
+        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();
+        row.setId(7);
+        row.setName(alias);
         when(properties.getProp("100",alias)).thenReturn(row);
         when(properties.isPersonalEmailFooterRow("100",7)).thenReturn(true);
         var json=new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
-        json.put("key",alias);json.put("value","FAKE Forged Personal");
+        json.put("key",alias);
+        json.put("value","FAKE Forged Personal");
         var response=request().path("/persona/updatePreference").post(json);
         assertThat(response.getStatus()).isEqualTo(403);
         org.mockito.Mockito.verify(properties,org.mockito.Mockito.never()).merge(org.mockito.ArgumentMatchers.any());

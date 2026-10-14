@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import java.util.Comparator;
 import java.util.List;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,20 +45,30 @@ public class EmailFooterService {
         if (providerNo == null || providerNo.isBlank()) {
             return "";
         }
-        return properties.getAllProperties(USER_FOOTER, List.of(providerNo)).stream()
+        return footerOf(properties.getAllProperties(USER_FOOTER, List.of(providerNo)));
+    }
+
+    private static String footerOf(List<UserProperty> rows) {
+        return rows.stream()
                 .min(Comparator.comparing(UserProperty::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(row -> EmailFooterHtml.clean(row.getValue())).orElse("");
     }
 
-    /** Serialize only this user's saves, including first creation; clinic settings are never read. */
+    /** Compare the displayed personal value under the owner lock before changing it. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void saveOwnFooter(String providerNo, String footer) {
+    public void saveOwnFooter(String providerNo, String footer, String expectedRevision) {
         if (providerNo == null || providerNo.isBlank() || footer == null) {
             throw new IllegalArgumentException("Personal footer owner and value are required");
         }
         String cleaned = withinLimit(footer);
+        if (expectedRevision == null || !expectedRevision.matches("[a-f0-9]{64}")) {
+            throw new StaleFooterException();
+        }
         properties.lockPersonalEmailFooterOwner(providerNo);
         var rows = properties.findPersonalEmailFooterForUpdate(providerNo);
+        if (!revisionOf(providerNo, footerOf(rows)).equals(expectedRevision)) {
+            throw new StaleFooterException();
+        }
         if (cleaned.isEmpty()) {
             rows.forEach(row -> properties.deletePersonalEmailFooterRow(providerNo, row.getId()));
             return;
@@ -69,6 +80,19 @@ public class EmailFooterService {
         row.setValue(cleaned);
         if (changed) properties.savePersonalEmailFooterRow(providerNo, row);
         rows.stream().skip(1).forEach(duplicate -> properties.deletePersonalEmailFooterRow(providerNo, duplicate.getId()));
+    }
+
+    /** A content fingerprint scoped to the authenticated owner, including an empty default. */
+    public static String revisionOf(String providerNo, String footer) {
+        return DigestUtils.sha256Hex(providerNo + "\u0000" + EmailFooterHtml.clean(footer));
+    }
+
+    public static final class StaleFooterException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        public StaleFooterException() {
+            super("Personal footer changed since it was displayed");
+        }
     }
 
     static String withinLimit(String footer) {
