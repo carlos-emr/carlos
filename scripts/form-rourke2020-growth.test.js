@@ -73,6 +73,7 @@ test('shouldNameEveryHeadInputWithItsNativeMeasurementButton', () => {
   pages.forEach((names, index) => {
     const jsp = read(`src/main/webapp/WEB-INF/jsp/form/formRourke2020p${index + 1}.jsp`);
     const buttons = [...jsp.matchAll(/<button\b[\s\S]*?<\/button>/g)].map(match => match[0]);
+    const inputs = [...jsp.matchAll(/<input\b[^>]*>/g)].map(match => match[0]);
     for (const name of names) {
       const matching = buttons.filter(button => button.includes(`id="${name}Label"`));
       assert.equal(matching.length, 1, `${name} needs exactly one associated button`);
@@ -80,9 +81,9 @@ test('shouldNameEveryHeadInputWithItsNativeMeasurementButton', () => {
       assert.ok(matching[0].includes(`displayDemographicMeasurements('${name}', 'HEAD',`), `${name} must import HEAD`);
       assert.match(matching[0], /<fmt:message key="[^"]+"\/>/, `${name} needs visible translated text`);
       assert.doesNotMatch(matching[0], /<label\b/, 'interactive buttons cannot contain input labels');
-      const input = jsp.match(new RegExp(`<input\\b[^>]*\\bname="${name}"[^>]*>`));
-      assert.ok(input, `${name} input is missing`);
-      assert.ok(input[0].includes(`aria-labelledby="${name}Label"`), `${name} needs an explicit accessible name`);
+      const matchingInputs = inputs.filter(input => input.includes(`name="${name}"`));
+      assert.equal(matchingInputs.length, 1, `${name} needs exactly one input`);
+      assert.ok(matchingInputs[0].includes(`aria-labelledby="${name}Label"`), `${name} needs an explicit accessible name`);
     }
   });
 });

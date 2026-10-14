@@ -16,10 +16,11 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.carlos_emr.carlos.form.model.FormRourke2020;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 
 @Tag("integration")
 @Tag("report")
-class Rourke2020PdfReportIntegrationTest {
+class Rourke2020PdfReportIntegrationTest extends CarlosTestBase {
     private static Properties recordProperties(String patient) {
         Properties values = new Properties();
         values.setProperty("provider_no", "999998");

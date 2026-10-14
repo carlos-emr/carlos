@@ -13,7 +13,7 @@ function send(entries) {
   class FormFixture extends FormData {
     constructor(element) {
       super();
-      for (const [key, value] of element.entries) this.append(key, value);
+      for (const entry of element.entries) this.append(...entry);
     }
   }
   const context = vm.createContext({ document: { getElementById: () => form }, setInterval() {},
@@ -35,11 +35,13 @@ test('large text-only records autosave with ordinary form encoding and preserve 
   assert.deepEqual([...decoded], [...entries, ['submit', 'autosaveAjax']]);
 });
 
-test('forms with a file retain multipart upload behavior and leave the boundary to the browser', () => {
-  const file = new File(['FAKE attachment'], 'fake.txt', { type: 'text/plain' });
-  const request = send([['csrf', 'FAKE-token'], ['attachment', file]]);
+test('forms with a file retain multipart upload behavior and leave the boundary to the browser', async () => {
+  const file = new Blob(['FAKE attachment'], { type: 'text/plain' });
+  const request = send([['csrf', 'FAKE-token'], ['attachment', file, 'fake.txt']]);
   assert.equal(request.headers['Content-Type'], undefined);
   assert.ok(request.body instanceof FormData);
   assert.equal(request.body.get('attachment').name, 'fake.txt');
+  assert.equal(request.body.get('attachment').type, 'text/plain');
+  assert.equal(await request.body.get('attachment').text(), 'FAKE attachment');
   assert.equal(request.body.get('submit'), 'autosaveAjax');
 });

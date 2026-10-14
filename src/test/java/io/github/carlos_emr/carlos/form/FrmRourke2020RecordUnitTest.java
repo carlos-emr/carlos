@@ -4,13 +4,14 @@ package io.github.carlos_emr.carlos.form;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.Month;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
-class FrmRourke2020RecordUnitTest {
+class FrmRourke2020RecordUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"-1,0", "0,0", "6,0", "7,1", "279,39", "280,40", "283,40", "287,41"})
     void shouldCountCompletedWeeks_atCalendarBoundaries(int days, int weeks) {
