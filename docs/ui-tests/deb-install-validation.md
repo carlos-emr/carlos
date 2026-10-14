@@ -90,6 +90,15 @@ with exit 1 rather than print PASS over leaked rows, and a Chromium launch failu
 SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
 the check still **PASS**es, prints a note, and leaves the restored form. The three
 other library forms were untouched in every case.
+`form-catalog-smoke-letterhead-restore` (issue #4592, finding 233) lost its expected-failure pin on
+2026-10-14. It was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag, Maven artifact downloads limited with
+`-Dmaven.artifact.threads=2` because Maven Central answered 429 to the default parallelism) and installed
+fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean, `:443`). Result:
+**PASS**, 7 of 7 Letterhead steps, and the full `form-catalog-smoke` entry still passes. With the pre-fix
+`formConsultant.jsp` swapped into the installed webapp the check **FAILS** at "Letterhead: the redisplayed and
+the reopened form show every saved value again". A Comments value that itself begins with a line break is
+pinned statically by `scripts/letterhead-comments-textarea.test.js`, not by this browser check.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
