@@ -112,6 +112,10 @@ async function checkWidth(page, baseUrl, demographicNo, viewport) {
     `${label}: <title> is empty or the plain ChartSpace title`);
   assert(identity.heading.length > 0 && identity.heading !== 'ChartSpace',
     `${label}: <h1> is empty or the plain ChartSpace title`);
+  // The middle dot separates name, age and title only when the heading carries an age.
+  const hasAge = (await page.locator('h1.cs-title .cs-patient-age').textContent() || '').replace('\u00b7', '').trim().length > 0;
+  assert(identity.title.includes('\u00b7') === hasAge,
+    `${label}: <title> separator does not match the presence of an age`);
 
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

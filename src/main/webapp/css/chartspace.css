@@ -25,6 +25,7 @@
 .cs-page { padding: 1rem; background: #f8f9fa; }
 .cs-header { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-bottom: 1rem; }
 .cs-title { font-size: 1.25rem; margin: 0; }
+.cs-patient-age { font-weight: 400; color: inherit; margin-left: .25rem; }
 
 .cs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; }
 .cs-layout > * { min-width: 0; }

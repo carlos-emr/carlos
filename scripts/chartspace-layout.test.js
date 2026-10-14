@@ -68,11 +68,16 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   // Patient identity: title and heading come from csPatientName/csPatientAge, always via carlos:encode.
   const title = /<title>([\s\S]*?)<\/title>/.exec(jsp)[1];
   assert.ok(title.includes('<carlos:encode value="${csPatientName}"/>'), 'title uses csPatientName');
-  assert.ok(title.includes('csPatientAge') && !title.includes('<c:'), 'title uses csPatientAge without the core taglib');
+  const sepEl = "${empty csPatientAge ? '' : ' &middot; '}";
+  assert.ok(title.includes(sepEl + '<carlos:encode value="${csPatientAge}"/> &middot; <carlos:encode value="${csTitle}"/>'),
+    'title separates name, age and ChartSpace with a constant separator outside carlos:encode');
+  assert.ok(!title.includes('<c:') && !title.includes('.concat('), 'title uses no core taglib or concat');
   const h1 = /<h1 class="cs-title">([\s\S]*?)<\/h1>/.exec(jsp)[1];
   assert.ok(h1.includes('<carlos:encode value="${csPatientName}"/>'), 'h1 uses csPatientName');
-  assert.ok(/<span class="cs-patient-age">\s*<carlos:encode value="\$\{csPatientAge\}"\/>\s*<\/span>/.test(h1),
-    'h1 renders the age in its own span');
+  assert.ok(h1.includes('<span class="cs-patient-age">' +
+    "${empty csPatientAge ? '' : '<span aria-hidden=" + '"true"' + ">&middot;</span> '}" +
+    '<carlos:encode value="${csPatientAge}"/></span>'),
+    'h1 renders an aria-hidden separator only with an age, then the encoded age, in its own span');
   const ctx = '${pageContext.request.contextPath}';
   assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/css/bootstrap.min.css'));
   assert.ok(jsp.includes(ctx + '/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'));
@@ -95,6 +100,15 @@ test('JSP renders the hidden toggle disabled in static HTML', () => {
   const m = readJsp().match(/<button[^>]*id="cs-hidden-toggle"[^>]*>/);
   assert.ok(m, 'toggle tag present');
   assert.match(m[0], /\sdisabled(\s|>|=)/);
+});
+
+test('CSS styles the patient age as normal-weight, name-coloured text', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, '../src/main/webapp/css/chartspace.css'), 'utf8');
+  const m = /\.cs-patient-age\s*\{([^}]*)\}/.exec(css);
+  assert.ok(m, '.cs-patient-age rule present');
+  ['font-weight: 400', 'color: inherit', 'margin-left: .25rem'].forEach((d) => assert.ok(m[1].includes(d), d));
 });
 
 test('JSP drops the unused core taglib and the redundant setLocale', () => {
