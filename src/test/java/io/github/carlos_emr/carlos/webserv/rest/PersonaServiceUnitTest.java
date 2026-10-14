@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -41,6 +43,13 @@ import org.mockito.quality.Strictness;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -182,4 +191,120 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
 
         verify(mockUserPropertyDao, never()).saveProp(any(UserProperty.class));
     }
+    private ObjectNode preference(String key,String value) {
+        var json=new ObjectMapper().createObjectNode();json.put("key",key);json.put("value",value);return json;
+    }
+    private UserProperty allowExistingFooter() {
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_pref"),eq("u"),isNull())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(true);
+        var row=new UserProperty();row.setId(7);row.setName("email_footer");row.setProviderNo(PROVIDER_NO);row.setValue("Old personal");
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,"email_footer")).thenReturn(row);
+        when(mockUserPropertyDao.isPersonalEmailFooterRow(PROVIDER_NO,7)).thenReturn(true);
+        when(mockUserPropertyDao.findPersonalEmailFooterForUpdate(PROVIDER_NO)).thenReturn(List.of(row));
+        registerMock(EmailFooterService.class,new EmailFooterService(mockUserPropertyDao));return row;
+    }
+    @Test void shouldDenyLegacyFooterUpdate_whenEmailWriteIsMissing() {
+        allowExistingFooter();
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(false);
+        assertThatThrownBy(()->service.updatePreference(preference("email_footer","Forged personal")))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        verifyNoInteractions(mockUserPropertyDao);
+    }
+    @Test void shouldDenyLegacyFooterUpdate_whenPreferencePermissionIsMissing() {
+        allowExistingFooter();
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_pref"),eq("u"),isNull())).thenReturn(false);
+        assertThatThrownBy(()->service.updatePreference(preference("email_footer","Forged personal")))
+                .isInstanceOf(RuntimeException.class).hasMessage("Access Denied");
+        verifyNoInteractions(mockUserPropertyDao);
+    }
+    @Test void shouldCleanLegacyFooterUpdate_forCurrentOwnerDespiteForgedOwnerAndClinicFields() {
+        var row=allowExistingFooter();
+        var json=preference("email_footer","<b>Personal</b><script>unsafe()</script>");
+        json.put("providerNo","202");json.put("clinicFooter","Forged clinic");
+        assertThat(service.updatePreference(json).getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+        assertThat(row.getValue()).isEqualTo("<b>Personal</b>");
+        verify(mockUserPropertyDao).lockPersonalEmailFooterOwner(PROVIDER_NO);
+        verify(mockUserPropertyDao).savePersonalEmailFooterRow(PROVIDER_NO,row);
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).findClinicEmailFooter();
+    }
+    @Test void shouldKeepLegacyFooterUnchanged_whenValueIsTooLong() {
+        var row=allowExistingFooter();
+        var result=service.updatePreference(preference("email_footer","x".repeat(EmailData.FOOTER_MAX_LENGTH+1)));
+        assertThat(result.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        assertThat(result.getError().getMessage()).isEqualTo("Personal footer is too long");
+        assertThat(row.getValue()).isEqualTo("Old personal");
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+        verify(mockUserPropertyDao,never()).merge(any());
+    }
+    @Test void shouldKeepLegacyFooterUnchanged_whenValueIsMissingNullOrNontext() {
+        var row=allowExistingFooter();
+        var missing=preference("email_footer","");missing.remove("value");
+        var explicitNull=preference("email_footer","");explicitNull.putNull("value");
+        var number=preference("email_footer","");number.put("value",123);
+        for(var json:List.of(missing,explicitNull,number))
+            assertThat(service.updatePreference(json).getStatus()).isEqualTo(ResponseStatus.ERROR);
+        assertThat(row.getValue()).isEqualTo("Old personal");
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+        verify(mockUserPropertyDao,never()).merge(any());
+    }
+    @Test void shouldClearOnlyOwnLegacyFooter_whenExplicitBlankIsAuthorized() {
+        allowExistingFooter();
+        assertThat(service.updatePreference(preference("email_footer","")).getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+        verify(mockUserPropertyDao).deletePersonalEmailFooterRow(PROVIDER_NO,7);
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).findClinicEmailFooter();
+    }
+    @Test void shouldPreserveOrdinaryPreferenceUpdates_withoutEmailWritePermission() {
+        allowExistingFooter();
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(false);
+        var row=new UserProperty();row.setId(9);row.setProviderNo(PROVIDER_NO);row.setName("dashboard.expiredTicklersOnly");
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,row.getName())).thenReturn(row);
+        assertThat(service.updatePreference(preference(row.getName(),"true")).getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+        assertThat(row.getValue()).isEqualTo("true");verify(mockUserPropertyDao).merge(row);
+        verify(mockSecurityInfoManager,never()).hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull());
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+    }
+    @Test void shouldPreserveMissingPreferenceResponse_whenLegacyFooterHasNoRow() {
+        allowExistingFooter();when(mockUserPropertyDao.getProp(PROVIDER_NO,"email_footer")).thenReturn(null);
+        var result=service.updatePreference(preference("email_footer","Personal"));
+        assertThat(result.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        assertThat(result.getError().getMessage()).isEqualTo("Preference not found");
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+    }
+    @Test void shouldReturnNeutralSaveError_whenLegacyFooterHitsTransactionConflict() {
+        var row=allowExistingFooter();
+        doThrow(new jakarta.persistence.OptimisticLockException("FAKE private exception detail"))
+                .when(mockUserPropertyDao).lockPersonalEmailFooterOwner(PROVIDER_NO);
+        var result=service.updatePreference(preference("email_footer","Personal"));
+        assertThat(result.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        assertThat(result.getError().getMessage()).isEqualTo("Personal footer could not be saved; try again");
+        assertThat(row.getValue()).isEqualTo("Old personal");
+        verify(mockUserPropertyDao,never()).savePersonalEmailFooterRow(any(),any());
+        verify(mockUserPropertyDao,never()).merge(any());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldDenyResolvedFooterAlias_whenEmailWriteIsMissing(String alias) {
+        var row=allowExistingFooter();row.setName(alias);
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,alias)).thenReturn(row);
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(false);
+        assertThatThrownBy(()->service.updatePreference(preference(alias,"Forged personal")))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertThat(row.getValue()).isEqualTo("Old personal");
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+    }
+    @ParameterizedTest @ValueSource(strings={"EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldRouteResolvedFooterAlias_throughAuthorizedOwnService(String alias) {
+        var row=allowExistingFooter();row.setName(alias);
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,alias)).thenReturn(row);
+        var json=preference(alias,"<b>Personal</b><script>unsafe()</script>");json.put("providerNo","202");
+        assertThat(service.updatePreference(json).getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+        assertThat(row.getValue()).isEqualTo("<b>Personal</b>");assertThat(row.getName()).isEqualTo("email_footer");
+        verify(mockUserPropertyDao).savePersonalEmailFooterRow(PROVIDER_NO,row);
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).findClinicEmailFooter();
+    }
+
 }

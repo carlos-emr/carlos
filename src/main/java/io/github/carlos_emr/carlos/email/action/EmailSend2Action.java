@@ -240,6 +240,7 @@ public class EmailSend2Action extends ActionSupport {
 
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
@@ -299,12 +300,40 @@ public class EmailSend2Action extends ActionSupport {
         EmailLog emailLog = sendResult.getEmailLog();
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
+    }
+
+    /** Optional personal-default update never changes this attempt's frozen combined footer. */
+    void saveFooterAsMineIfAsked(LoggedInInfo user, boolean accepted) {
+        if (!"true".equals(request.getParameter("saveFooterAsMine"))) {
+            return;
+        }
+        if (!accepted) {
+            request.setAttribute("footerSaveAsMineNotDone", true);
+            return;
+        }
+        try {
+            if (!securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_email)");
+            }
+            // Missing personal input is a deliberately empty layer, never the combined EmailLog footer.
+            String personal = EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL));
+            SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                    .saveOwnFooter(user.getLoggedInProviderNo(), personal);
+            io.github.carlos_emr.carlos.log.LogAction.addLog(user.getLoggedInProviderNo(),
+                    io.github.carlos_emr.carlos.log.LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
+            request.setAttribute(personal.isEmpty() ? "footerSavedEmpty" : "footerSavedAsMine", true);
+        } catch (RuntimeException failure) {
+            logger.warn("Email accepted; personal footer update could not be confirmed; cause={}",
+                    failure.getClass().getSimpleName());
+            request.setAttribute("footerSaveAsMineFailed", true);
+        }
     }
 
     /** Replaces a consumed attempt with fresh secret state only after a definite failure. */

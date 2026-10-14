@@ -615,6 +615,16 @@
                         <div id="footerEmailPreview" class="footer-editor-mail" style="white-space: pre-wrap;" aria-labelledby="footerEmailLabel"
                              data-empty-text="<fmt:message key='email.footerEditor.none'/>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText(EmailFooterHtml.clean((String) request.getAttribute("footerEmail")))) %></div>
                     </div>
+                    <div class="card-body border-top">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="saveFooterAsMine" name="saveFooterAsMine"
+                                   value="true" ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
+                            <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
+                        </div>
+                        <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" class="small">
+                            <fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        <c:if test="${footerSaveAsMineNotDone}"><p class="form-text text-warning"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
+                    </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
                     </div>
@@ -812,7 +822,7 @@
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
@@ -840,6 +850,15 @@
                     </div>
                 </c:otherwise>
             </c:choose>
+            <c:if test="${footerSavedAsMine}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedAsMine"/></p></c:if>
+            <c:if test="${footerSavedEmpty}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedEmpty"/></p></c:if>
+            <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
+            <c:if test="${footerSaveAsMineFailed}">
+                <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
+                    <fmt:message key="email.compose.footer.saveAsMineFailed"/>
+                    <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                </div>
+            </c:if>
             <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>
         </c:if>
     </div>
@@ -893,6 +912,7 @@
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')
+                    && !document.getElementById('footerSaveAsMineFailed')
                     && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.
