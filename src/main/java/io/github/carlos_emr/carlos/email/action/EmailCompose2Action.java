@@ -297,13 +297,19 @@ public class EmailCompose2Action extends ActionSupport {
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(
                         request, loggedInInfo, java.nio.file.Path.of(attachment.getFilePath())));
             }
+        } catch (SecurityException e) {
+            // A missing privilege is a refusal, not a preparation failure: it goes to the access-denied
+            // page rather than the generic "try again" message. The draft still goes back, like any
+            // failure after take().
+            restoreDraft.run();
+            throw e;
         } catch (PDFGenerationException | RuntimeException e) {
             // The exception's text can name a file or repeat document content, so neither the log nor
             // the page gets it: the log has its class and a reference, the page a fixed message with
             // the same reference for staff to quote.
             String reference = EmailFailureMessage.newReference();
             // exceptionTrace gives the types and code locations, never a message.
-            logger.error("Unable to prepare eForm email attachments; causeType={}, reference={}{}",
+            logger.error("Unable to prepare the eForm email; causeType={}, reference={}{}",
                     e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
             restoreDraft.run();
             return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),

@@ -107,11 +107,11 @@ public class EmailComposeManager {
      * @param attachedEForms String[] array of EForm IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any EForm
-     * @throws RuntimeException if the user lacks the required _eform READ privilege
+     * @throws SecurityException if the user lacks the required _eform READ privilege
      */
     public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         List<String> attachedEFormIds = convertToList(attachedEForms);
@@ -140,11 +140,11 @@ public class EmailComposeManager {
      * @param attachedDocuments String[] array of EDoc IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any electronic document
-     * @throws RuntimeException if the user lacks the required _edoc READ privilege
+     * @throws SecurityException if the user lacks the required _edoc READ privilege
      */
     public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_edoc)");
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         List<String> attachedEDocIds = convertToList(attachedDocuments);
@@ -170,11 +170,11 @@ public class EmailComposeManager {
      * @param attachedLabs String[] array of lab result IDs to attach to the email
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any laboratory result
-     * @throws RuntimeException if the user lacks the required _lab READ privilege
+     * @throws SecurityException if the user lacks the required _lab READ privilege
      */
     public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+            throw new SecurityException("missing required sec object (_lab)");
         }
 
         List<String> attachedLabIds = convertToList(attachedLabs);
@@ -238,12 +238,12 @@ public class EmailComposeManager {
      * @param demographicId Integer the patient demographic ID associated with the forms
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
      * @throws PDFGenerationException if PDF rendering fails for any clinical form
-     * @throws RuntimeException if the user lacks the required _form READ privilege for the specified demographic
+     * @throws SecurityException if the user lacks the required _form READ privilege for the specified demographic
      */
     public List<EmailAttachment> prepareFormAttachments(HttpServletRequest request, HttpServletResponse response, String[] attachedForms, Integer demographicId) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ, String.valueOf(demographicId))) {
-            throw new RuntimeException("missing required sec object (_form)");
+            throw new SecurityException("missing required sec object (_form)");
         }
 
         List<String> attachedFormIds = convertToList(attachedForms);
@@ -287,11 +287,11 @@ public class EmailComposeManager {
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param demographicId Integer the patient demographic ID to check consent for
      * @return String[] array with two elements: [0] consent type name, [1] consent status description
-     * @throws RuntimeException if the user lacks the required _email READ privilege
+     * @throws SecurityException if the user lacks the required _email READ privilege
      */
     public String[] getEmailConsentStatus(LoggedInInfo loggedInInfo, Integer demographicId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         String UNKNOWN = "Unknown", OPTIN = "Explicit Opt-In", OPTOUT = "Explicit Opt-Out";

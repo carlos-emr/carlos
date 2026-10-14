@@ -32,6 +32,7 @@ import org.springframework.mock.web.MockHttpSession;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -257,6 +258,20 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).as("a failed lookup is not an expired draft").isEqualTo(200);
         assertThat((String) failed.getAttribute("errorMessage")).as("the lookup error's own text stays off the page")
                 .startsWith("This eForm could not be emailed").doesNotContain("FAKE");
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
+    @DisplayName("should refuse to the access-denied page, not the retry message, when an attachment privilege is missing")
+    void shouldRethrowRefusal_whenAttachmentPrivilegeMissing() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenReturn(file("A"));
+        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_edoc)"))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> prepare(keyA)).isInstanceOf(SecurityException.class);
+        // Like any failure after take(), the window keeps its draft.
         assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
     }
 
