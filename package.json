@@ -147,6 +147,7 @@
     "test:prevention-add-data-playwright": "node scripts/prevention-add-data-playwright-checks.js",
     "test:form-rourke2017-playwright": "node scripts/form-rourke2017-playwright-checks.js",
     "test:form-labreq-practitioner-no-playwright": "node scripts/form-labreq-practitioner-no-playwright-checks.js",
+    "test:form-consultant-print-playwright": "node scripts/form-consultant-print-playwright-checks.js",
     "test:form-asset-paths-playwright": "node scripts/form-asset-paths-playwright-checks.js",
     "test:allergy-save-retry-playwright": "node scripts/allergy-save-retry-playwright-checks.js",
     "test:allergy-add-penicillin-playwright": "node scripts/allergy-add-penicillin-playwright-checks.js",

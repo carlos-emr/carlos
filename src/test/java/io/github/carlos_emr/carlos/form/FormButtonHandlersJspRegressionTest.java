@@ -27,7 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -41,6 +44,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -57,6 +61,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * closed without the confirmation, even from Exit. In {@code formCounseling.jsp} the repeated
  * line used {@code var}, which parses, so Save and Save and Exit asked the same question twice
  * and only the second answer counted.</p>
+ *
+ * <p>Once the handlers ran again, Print on the consultant letter still saved (#4370): it was a
+ * submit button, and answering OK to "Do you wish to make changes?" returned {@code true} after
+ * setting {@code submit=save}, so going back to edit the letter also saved it. Print and Exit are
+ * now plain buttons, and only Save and Save and Exit post the form. The node scenarios drive the
+ * handlers against a stand-in for the page; {@code scripts/form-consultant-print-playwright-checks.js}
+ * covers the same behaviour in a browser against a running server.</p>
  *
  * @since 2026-10-06
  */
@@ -86,6 +97,11 @@ class FormButtonHandlersJspRegressionTest {
     private static final Pattern FUNCTION_START = Pattern.compile("\\bfunction\\s+(\\w+)\\s*\\(");
     private static final Pattern LEXICAL_DECLARATION = Pattern.compile("\\b(?:let|const)\\s+(\\w+)");
     private static final Pattern CONFIRM_CALL = Pattern.compile("confirm\\([^;\\n]*\\)");
+    private static final Pattern INPUT_TAG = Pattern.compile("<input\\b[^<>]*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ID_ATTRIBUTE = Pattern.compile("(?<![\\w-])id\\s*=\\s*['\"]([\\w-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern TYPE_ATTRIBUTE = Pattern.compile("(?<![\\w-])type\\s*=\\s*['\"]([\\w-]+)['\"]",
+            Pattern.CASE_INSENSITIVE);
 
     /** Parses one block as a classic browser script, as a {@code <script>} element is parsed. */
     private static final String SCRIPT_PARSE = """
@@ -112,6 +128,93 @@ class FormButtonHandlersJspRegressionTest {
             const missing = process.argv.slice(3).filter(name => typeof context[name] !== 'function');
             if (missing.length) {
                 console.log('not defined: ' + missing.join(', '));
+                process.exit(2);
+            }
+            """;
+
+    /**
+     * Runs the consultant letter's handler block against a stand-in for its page and presses one
+     * button (#4370). argv[3] names the scenario: print-ok and print-cancel press Print and answer its
+     * "make changes?" question, save-ok presses Save and answers OK, exit-ok presses Exit and answers
+     * OK. The stand-in starts in the layout the page loads with. Prints each unmet expectation and
+     * exits 2.
+     */
+    private static final String CONSULTANT_PROBE = """
+            const fs = require('fs');
+            const vm = require('vm');
+            const [scriptPath, scenario] = process.argv.slice(2);
+            const elements = new Map();
+            const element = (id) => {
+                if (!elements.has(id)) {
+                    elements.set(id, { id, style: {}, value: '', innerHTML: '', children: [],
+                        appendChild(child) { this.children.push(child); return child; } });
+                }
+                return elements.get(id);
+            };
+            element('textDiv').style.visibility = 'hidden';
+            element('textDiv').style.position = 'absolute';
+            element('textareaDiv').style.position = 'relative';
+            const letter = 'Dear colleague,\\nThank you for seeing this patient.';
+            element('comments').value = letter;
+            // forms[0].submit is the hidden input named "submit", which shadows HTMLFormElement.submit().
+            const form = { submit: { value: 'exit' } };
+            const posted = [];
+            form.requestSubmit = () => posted.push('requestSubmit');
+            const seen = { prints: 0, questions: [], closed: false };
+            const answer = !scenario.endsWith('-cancel');
+            const context = vm.createContext({
+                document: {
+                    forms: [form],
+                    getElementById: element,
+                    createTextNode: (text) => ({ text }),
+                    createElement: (tag) => ({ tag }),
+                },
+                confirm: (question) => { seen.questions.push(question); return answer; },
+            });
+            context.window = context;
+            context.print = () => { seen.prints++; };
+            context.close = () => { seen.closed = true; };
+            new vm.Script(fs.readFileSync(scriptPath, 'utf8')).runInContext(context, { timeout: 5000 });
+
+            const failures = [];
+            const expect = (ok, what) => { if (!ok) failures.push(what); };
+            const shown = (id) => element(id).style.visibility !== 'hidden';
+            const style = (id) => JSON.stringify(element(id).style);
+            if (scenario.startsWith('print-')) {
+                const result = context.onPrint();
+                expect(result === false, 'onPrint() returned ' + result + '; from a submit button that posts the form');
+                expect(form.submit.value === 'exit', 'onPrint() set the form to submit=' + form.submit.value);
+                expect(posted.length === 0, 'onPrint() submitted the form');
+                expect(seen.prints === 1, 'onPrint() called window.print() ' + seen.prints + ' times');
+                expect(seen.questions.join() === 'global.msgDoYouWishMakeChanges',
+                    'onPrint() asked ' + JSON.stringify(seen.questions));
+                expect(shown('buttons'), 'the buttons stayed hidden');
+                expect(element('comments').value === letter, 'the letter text changed');
+                if (answer) {
+                    expect(shown('textareaDiv') && element('textareaDiv').style.position === 'relative',
+                        'OK did not put the editor back in the page flow: textareaDiv ' + style('textareaDiv'));
+                    expect(!shown('textDiv') && element('textDiv').style.position === 'absolute',
+                        'OK left the print copy shown or in the page flow: textDiv ' + style('textDiv'));
+                    expect(shown('dating') && shown('searching'), 'OK left the date picker or the referral search hidden');
+                } else {
+                    expect(shown('textDiv') && !shown('textareaDiv'), 'Cancel left the print view');
+                    expect(element('textDiv').children.length === 3, 'the print copy does not hold both lines of the letter');
+                }
+            } else if (scenario === 'save-ok') {
+                const result = context.onSave();
+                expect(result === true, 'onSave() returned ' + result + ', so Save would not post the form');
+                expect(form.submit.value === 'save', 'onSave() set the form to submit=' + form.submit.value);
+                expect(seen.questions.join() === 'global.msgWannaSave', 'onSave() asked ' + JSON.stringify(seen.questions));
+            } else if (scenario === 'exit-ok') {
+                const result = context.onExit();
+                expect(result === false, 'onExit() returned ' + result + '; from a submit button that posts the form');
+                expect(form.submit.value === 'exit' && posted.length === 0, 'onExit() prepared or sent a post');
+                expect(seen.closed, 'OK on Exit did not close the window');
+            } else {
+                failures.push('unknown scenario ' + scenario);
+            }
+            if (failures.length) {
+                console.log(failures.join('\\n'));
                 process.exit(2);
             }
             """;
@@ -180,6 +283,39 @@ class FormButtonHandlersJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should let only Save and Save & Exit submit the consultant letter (#4370)")
+    void shouldSubmitOnlyFromSaveButtons_onConsultantLetter() throws IOException {
+        Map<String, String> types = inputTypesById("formConsultant.jsp");
+
+        assertThat(types).as("button types on formConsultant.jsp")
+                .containsEntry("savebut", "submit")
+                .containsEntry("saveexitbut", "submit")
+                .containsEntry("exitbut", "button")
+                .containsEntry("printbut", "button");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"print-ok", "print-cancel", "save-ok", "exit-ok"})
+    @DisplayName("should save the consultant letter only when Save is confirmed (#4370)")
+    void shouldSaveOnlyFromSave_whenConsultantHandlersRunInNode(String scenario)
+            throws IOException, InterruptedException {
+        assumeTrue(nodeIsAvailable(), "node is not on the PATH; the button-type check still ran");
+
+        String handlerBlock = inlineScriptBlocks("formConsultant.jsp").stream()
+                .filter(block -> block.contains("function onPrint("))
+                .findFirst()
+                .orElse(null);
+        assertThat(handlerBlock).as("block declaring onPrint in formConsultant.jsp").isNotNull();
+        Path script = scratchDir.resolve("consultant-handlers.js");
+        Files.writeString(script, handlerBlock, StandardCharsets.UTF_8);
+        Path probe = scratchDir.resolve("consultant-probe.js");
+        Files.writeString(probe, CONSULTANT_PROBE, StandardCharsets.UTF_8);
+
+        assertNodeSucceeds(List.of("node", probe.toString(), script.toString(), scenario),
+                "consultant letter " + scenario);
+    }
+
+    @Test
     @DisplayName("should report repeated declarations and prompts in the #1805/#1806 shapes")
     void shouldReportRepeats_forTheIssueShapes() {
         String broken = """
@@ -216,8 +352,8 @@ class FormButtonHandlersJspRegressionTest {
         return blocks;
     }
 
-    /** The page's inline scripts, with server output replaced, in the shape the browser receives. */
-    private static List<String> inlineScriptBlocks(String jsp) throws IOException {
+    /** The page with server output replaced, in the shape the browser receives. */
+    private static String renderedPage(String jsp) throws IOException {
         String source = Files.readString(FORM_JSP_DIR.resolve(jsp), StandardCharsets.UTF_8);
         source = JSP_COMMENT.matcher(source).replaceAll("");
         source = JSP_EXPRESSION.matcher(source).replaceAll(PLACEHOLDER);
@@ -227,7 +363,27 @@ class FormButtonHandlersJspRegressionTest {
             Matcher key = MESSAGE_KEY.matcher(tag.group());
             return Matcher.quoteReplacement(key.find() ? key.group(1) : tag.group());
         });
-        source = PREFIXED_SELF_CLOSING_TAG.matcher(source).replaceAll(PLACEHOLDER);
+        return PREFIXED_SELF_CLOSING_TAG.matcher(source).replaceAll(PLACEHOLDER);
+    }
+
+    /** The {@code type} of each {@code <input>} with an id, keyed by that id. */
+    private static Map<String, String> inputTypesById(String jsp) throws IOException {
+        Map<String, String> types = new LinkedHashMap<>();
+        Matcher input = INPUT_TAG.matcher(renderedPage(jsp));
+        while (input.find()) {
+            Matcher id = ID_ATTRIBUTE.matcher(input.group());
+            Matcher type = TYPE_ATTRIBUTE.matcher(input.group());
+            if (id.find()) {
+                // An <input> without a type is a text field.
+                types.put(id.group(1), type.find() ? type.group(1).toLowerCase(Locale.ROOT) : "text");
+            }
+        }
+        return types;
+    }
+
+    /** The page's inline scripts, with server output replaced, in the shape the browser receives. */
+    private static List<String> inlineScriptBlocks(String jsp) throws IOException {
+        String source = renderedPage(jsp);
 
         List<String> blocks = new ArrayList<>();
         Matcher script = SCRIPT_BLOCK.matcher(source);

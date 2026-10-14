@@ -269,11 +269,13 @@
 <carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/>
     </textarea>
             </div>
+            <%-- Only Save and Save & Exit submit (#4370). Exit and Print are plain buttons, so not
+                 even a script error can make them post the form with its hidden submit=exit (#4345). --%>
             <div id="buttons">
                 <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
                 <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
-                <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
-                <input id="printbut" type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
+                <input id="exitbut" type="button" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
+                <input id="printbut" type="button" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
             </div>
         </body>
         <style type="text/css">
@@ -320,8 +322,9 @@
 
 
         <script type="text/javascript">
+            // Print never saves (#4370). After printing, OK on "Do you wish to make changes?" goes
+            // back to editing and Cancel keeps the print view; Save or Save & Exit stores the letter.
             function onPrint() {
-                document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
                 setVisibility('textDiv', 'visible');
@@ -346,7 +349,9 @@
 
                 const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
                 if (ret) {
-                    setStyle('textareaDiv', 'position', 'absolute');
+                    // Restore the layout the page loads with. OK used to submit, and the reload hid
+                    // that this left the editor out of the page flow, on top of the buttons.
+                    setStyle('textareaDiv', 'position', 'relative');
                     setStyle('textDiv', 'position', 'absolute');
                     setVisibility('textDiv', 'hidden');
                     setVisibility('textareaDiv', 'visible');
@@ -356,7 +361,7 @@
                 } else {
                     setVisibility('buttons', 'visible');
                 }
-                return (ret);
+                return false;
             }
 
             function onSave() {

@@ -1527,6 +1527,23 @@
       ]
     },
     {
+      "name": "form-consultant-print",
+      "script": "scripts/form-consultant-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "Issue #4370: on the consultant letter (Letterhead) form, Print never saves. Opened from a marker-named Forms-menu registration of the shipped ../form/formConsultant.jsp. Print then Cancel keeps the print view; Print then OK returns to editing (the Comments box visible, the box and the buttons not overlapping and each clickable, the print copy hidden); Exit then Cancel keeps the form open; none of the three posts form/formname or stores a formConsult row. Save then OK posts submit=save once, stores the typed letter and redisplays it. On the saved record, an edit followed by Print then OK posts nothing and leaves the stored letter unchanged, and Exit then OK closes the window without posting.",
+      "fixtures": "Owned synthetic patient and one marker-named encounterForm registration; cleanup deletes the owned patient's formConsult rows and the registration and asserts both gone. The registration is clinic-wide (the shipped Letterhead row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "form-rourke2017",
       "script": "scripts/form-rourke2017-playwright-checks.js",
       "tiers": [
