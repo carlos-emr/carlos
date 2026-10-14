@@ -8,12 +8,18 @@ const os = require('node:os');
 const path = require('node:path');
 const {createRequire} = require('node:module');
 const {spawnSync} = require('node:child_process');
+const {randomUUID} = require('node:crypto');
 
 const root = path.resolve(__dirname, '..');
 const from = (name) => createRequire(require.resolve(name));
 
+/** Run a bounded child check and require its awaited assertions to finish. */
 function isolated(source, extraEnv = {}) {
-  const result = spawnSync(process.execPath, ['--max-old-space-size=256', '-e', source], {
+  const completion = `dependency-check-${randomUUID()}`;
+  const program = `(async () => {\n${source}\n})().then(() => {
+    console.log(${JSON.stringify(completion)});
+  }, (error) => { console.error(error); process.exitCode = 1; });`;
+  const result = spawnSync(process.execPath, ['--max-old-space-size=256', '-e', program], {
     cwd: root,
     encoding: 'utf8',
     timeout: 15000,
@@ -21,7 +27,15 @@ function isolated(source, extraEnv = {}) {
   });
   assert.ifError(result.error);
   assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.ok(result.stdout.split(/\r?\n/).includes(completion), 'isolated check did not report completion');
 }
+
+test('isolated checks cannot pass before asynchronous assertions finish', () => {
+  isolated('await Promise.resolve();');
+  assert.throws(() => isolated('await new Promise(() => {});'), /did not report completion/);
+  assert.throws(() => isolated('await Promise.resolve(); throw new Error("async assertion failed");'),
+    /async assertion failed/);
+});
 
 test('unpatched sprintf and HTTP caching implementations are absent from the locked tree', () => {
   const {packages} = require('../package-lock.json');
@@ -172,7 +186,7 @@ test('update-notifier fetches version metadata through the replacement without H
         versions: {[version]: {name: 'carlos-dependency-fixture', version}}
       }), {headers: {'content-type': 'application/json', 'set-cookie': 'fixture=private'}});
     };
-    (async () => {
+    await (async () => {
       const {default: updateNotifier} = await import('update-notifier');
       const notifier = updateNotifier({pkg: {name: 'CARLOS-dependency-fixture', version: '1.0.0'}, distTag: 'next'});
       assert.equal(typeof notifier.notify, 'function');
@@ -181,7 +195,7 @@ test('update-notifier fetches version metadata through the replacement without H
       assert.deepEqual(first, {latest: '2.4.0', current: '1.0.0', type: 'major', name: 'CARLOS-dependency-fixture'});
       assert.equal(second.latest, '3.0.0');
       assert.equal(requests, 2);
-    })().catch((error) => { console.error(error); process.exitCode = 1; });
+    })();
   `, {NODE_ENV: 'test', npm_config_registry: 'https://registry.npmjs.org/'});
 });
 
@@ -192,19 +206,27 @@ test('Tinypool keeps Docusaurus worker options and ignores polluted execution op
     const malicious = path.join(dir, 'unselected.cjs');
     const preload = path.join(dir, 'preload.cjs');
     const marker = path.join(dir, 'unexpected-preload');
-    fs.writeFileSync(legitimate, "const {workerData} = require('node:worker_threads'); module.exports = (n) => n * workerData[1].factor;");
+    fs.writeFileSync(legitimate, `
+      const {workerData} = require('node:worker_threads');
+      const assert = require('node:assert/strict');
+      module.exports = (n) => {
+        assert.equal(process.env.CARLOS_DEPENDENCY_POLLUTED_ENV, undefined);
+        return n * workerData[1].factor;
+      };
+    `);
     fs.writeFileSync(malicious, 'module.exports = () => -1;');
     fs.writeFileSync(preload, `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'executed');`);
     for (const pollution of ['execArgv', 'env', 'filename']) {
       isolated(`
         const assert = require('node:assert/strict');
         const fs = require('node:fs');
-        (async () => {
+        await (async () => {
           const {default: Tinypool} = await import('tinypool');
           const key = ${JSON.stringify(pollution)};
           const values = {execArgv: ['--require', ${JSON.stringify(preload)}],
-            env: {NODE_OPTIONS: '--require=' + ${JSON.stringify(preload)}},
+            env: {NODE_OPTIONS: '--require=' + ${JSON.stringify(preload)}, CARLOS_DEPENDENCY_POLLUTED_ENV: 'polluted'},
             filename: ${JSON.stringify(malicious)}};
+          delete process.env.CARLOS_DEPENDENCY_POLLUTED_ENV;
           Object.prototype[key] = values[key];
           let pool;
           try {
@@ -218,7 +240,7 @@ test('Tinypool keeps Docusaurus worker options and ignores polluted execution op
             delete Object.prototype[key];
             if (pool) await pool.destroy();
           }
-        })().catch((error) => { console.error(error); process.exitCode = 1; });
+        })();
       `);
     }
   } finally {
@@ -235,10 +257,10 @@ test('selector-parser 7 retains CSS transformations and bounds the flat-selector
     let count = 0;
     parser((root) => root.walkClasses(() => count++)).processSync('.a'.repeat(50000));
     assert.equal(count, 50000);
-    (async () => {
+    await (async () => {
       const result = await require('postcss')([require('cssnano')({preset: 'default'})])
         .process('.a, .b { color: #ffffff; margin: 0px 0px 0px 0px; }', {from: undefined});
       assert.equal(result.css, '.a,.b{color:#fff;margin:0}');
-    })().catch((error) => { console.error(error); process.exitCode = 1; });
+    })();
   `);
 });

@@ -9,6 +9,7 @@ const upstream = require('argparse-upstream');
 // and its Python-2.0 license remain untouched in the registry dependency.
 // Source: https://github.com/nodeca/argparse/blob/2.0.1/argparse.js
 // Remove this adapter when gray-matter no longer needs the js-yaml 3 CLI API.
+/** Preserve the legacy version option while delegating parsing to argparse 2. */
 function ArgumentParser(options = {}) {
   const {version, ...rest} = options;
   const parser = new upstream.ArgumentParser(rest);
