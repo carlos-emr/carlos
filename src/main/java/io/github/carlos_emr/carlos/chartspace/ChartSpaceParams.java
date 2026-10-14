@@ -53,7 +53,12 @@ public final class ChartSpaceParams {
             return OptionalInt.empty();
         }
         // 10 digits can exceed int range, so parse as long before narrowing.
-        long value = Long.parseLong(raw);
+        final long value;
+        try {
+            value = Long.parseLong(raw);
+        } catch (NumberFormatException e) {
+            return OptionalInt.empty();
+        }
         if (value < 1 || value > Integer.MAX_VALUE) {
             return OptionalInt.empty();
         }
