@@ -186,7 +186,7 @@
 
     BillingONExtDao billingOnExtDao = (BillingONExtDao) SpringUtils.getBean(BillingONExtDao.class);
     CarlosProperties pros = CarlosProperties.getInstance();
-    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     String apptStatusHere = pros.getProperty("appt_status_here");
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
@@ -260,11 +260,14 @@
 
 <html>
     <head>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+        <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
 
         <style>
 
@@ -343,7 +346,7 @@
             <% } %>
         </style>
         <% } %>
-        <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+        <% if (statusEditable) { %>
         <style>
             <% for (int i = 0; i < allStatus.size(); i++) {
                 if (((AppointmentStatus)allStatus.get(i)).getStatus().equals(statusCode)) { curSelect=i;}
@@ -387,7 +390,7 @@
             function onButRepeat() {
                 if (calculateEndTime()) {
                     document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking";
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
@@ -445,7 +448,7 @@
                 }
                 document.EDITAPPT.displaymode.value = 'Update Appt';
                 document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
             function upCaseCtrl(ctrl) {
@@ -618,6 +621,10 @@
                 document.EDITAPPT.chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
+                CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
@@ -631,7 +638,7 @@
             <% } %>
 
             function onCut() {
-                document.EDITAPPT.submit();
+                CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);
             }
 
 
@@ -672,8 +679,8 @@
                 document.getElementById("search_mode").value = 'search_name';
 
                 var keyObj = document.forms['EDITAPPT'].keyword;
-                var keyVal = keyObj.value;
-                console.log(keyVal);
+                var keyVal = keyObj.value.trim();
+                keyObj.value = keyVal;
 
                 // start with the loosest pattern
                 // address pattern 293 Meridian
@@ -703,22 +710,25 @@
                     document.getElementById("search_mode").value = "search_phone";
                 }
 
-                // DOB yyyy-mm-dd with varying delimiters
-                const reDOB = /^(19|20)\d\d([\/.-\s])(0[1-9]|1[012])[\/.-\s](0[1-9]|[12]\d|3[01])$/;
-                if (reDOB.exec(keyVal)) {
-                    const yyyy = keyVal.substring(0, 4);
-                    const mm = keyVal.substring(5, 7);
-                    const dd = keyVal.substring(8);
-                    const dob = yyyy + "-" + mm + "-" + dd;
+                // Reject date-shaped invalid input before handing it to the picker.
+                // Ordinary names and street addresses remain general searches.
+                const dob = /^[0-9]{8}$/.test(keyVal)
+                    ? CarlosDobSearch.format(keyVal) : keyVal.replace(/[/. ]/g, '-');
+                if (CarlosDobSearch.isValid(dob)) {
                     keyObj.value = dob;
                     document.getElementById("search_mode").value = "search_dob";
+                } else if (/^[0-9%./ -]+$/.test(keyVal)
+                        && (/^(?:[0-9]{4}|%)(?:[-/. ]|$)/.test(keyVal) || /^[0-9]{8}$/.test(keyVal))) {
+                    alert('${carlos:forJavaScript(dobFormatMessage)}');
+                    return false;
                 }
 
                 //swipe pattern
-                if (keyVal.indexOf('%b610054') === 0 && keyVal.length > 18) {
+                if (/^%b610054[0-9]{10}/.test(keyVal)) {
                     keyObj.value = keyVal.substring(8, 18);
                     document.getElementById("search_mode").value = "search_hin";
                 }
+                return true;
             }
 
             jQuery(document).ready(function () {
@@ -730,6 +740,12 @@
             jQuery(document).ready(function () {
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
+
+                // Keeps #keyword and #demographic_no/#mrp in step and refreshes the patient
+                // banners on every link: commits a highlighted row on blur/submit and
+                // reconciles a hand-edited name (issue #3883). See
+                // js/appointmentPatientLink.js for the semantics.
+                var patientLink = CarlosAppointmentPatientLink.attach(document);
 
                 jQuery("#keyword").autocomplete({
                     source: function (req, res) {
@@ -744,43 +760,15 @@
                     minLength: 2,
 
                     focus: function (event, ui) {
-                        jQuery("#keyword").val(ui.item.formattedName);
+                        patientLink.highlight(ui.item);
                         return false;
                     },
                     select: function (event, ui) {
-                        jQuery("#demographic_no").val(ui.item.value);
-                        jQuery("#mrp").val(ui.item.provider);
-                        jQuery("#keyword").val(ui.item.formattedName);
-
-                        // Update patient alert banner
-                        var patientAlert = ui.item.alert || "";
-                        var alertBanner = document.getElementById('patientAlertBanner');
-                        if (alertBanner) {
-                            document.getElementById('patientAlertText').textContent = patientAlert;
-                            alertBanner.style.display = patientAlert ? '' : 'none';
-                        }
-
-                        // Update patient status banner
-                        var rawStatus = ui.item.status || "";
-                        var rawRoster = ui.item.rosterStatus || "";
-                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                        var statusBanner = document.getElementById('patientStatusBanner');
-                        if (statusBanner) {
-                            var statusTextEl = document.getElementById('patientStatusText');
-                            if (displayStatus || displayRoster) {
-                                var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
-                                var parts = [];
-                                if (displayStatus) parts.push(displayStatus);
-                                if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                                statusTextEl.textContent = parts.join("\u00a0");
-                                statusBanner.style.display = '';
-                            } else {
-                                statusBanner.style.display = 'none';
-                            }
-                        }
-
+                        patientLink.commit(ui.item);
                         return false;
+                    },
+                    close: function (event) {
+                        patientLink.menuClosed(event);
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
@@ -1066,7 +1054,7 @@
                         <input type="hidden" name="ptstatus" value="active">
                         <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-primary" style="margin-bottom:10px;"
                                formaction="<%=request.getContextPath() %>/demographic/DemographicSearch"
-                               onclick="parseSearch();document.forms['EDITAPPT'].displaymode.value='Search '"
+                               onclick="if (!parseSearch()) return false; document.forms['EDITAPPT'].displaymode.value='Search '"
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
@@ -1178,7 +1166,7 @@
                 <%
                     origDate = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createDate");
                     String lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getUpdateDateTime()) : request.getParameter("updatedatetime");
-                    if (lastDateTime == null) {
+                    if (StringUtils.isBlank(lastDateTime)) {
                         lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createdatetime");
                     }
 
@@ -1192,13 +1180,13 @@
                     }
                     // Convert String to Java LocalDateTime
                     DateTimeFormatter pattern1 = DateTimeFormatter.ofPattern("yyyy-M-d H:m:s");
-                    LocalDateTime origDT = LocalDateTime.parse(origDate, pattern1);
-                    LocalDateTime lastDT = LocalDateTime.parse(lastDateTime, pattern1);
+                    LocalDateTime origDT = StringUtils.isBlank(origDate) ? null : LocalDateTime.parse(origDate, pattern1);
+                    LocalDateTime lastDT = StringUtils.isBlank(lastDateTime) ? null : LocalDateTime.parse(lastDateTime, pattern1);
                     //LocalDateTime strDT = LocalDateTime.parse(strDateTime,pattern1);
                     // Get localized pattern for UI
                     DateTimeFormatter pattern2 = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(request.getLocale()).withZone(ZoneId.systemDefault());
-                    String dateString1 = pattern2.format(origDT);
-                    String dateString2 = pattern2.format(lastDT);
+                    String dateString1 = origDT == null ? "" : pattern2.format(origDT);
+                    String dateString2 = lastDT == null ? "" : pattern2.format(lastDT);
                     //String dateString3 = pattern2.format(strDT); watch for non padded seconds etc
 
                 %>
@@ -1234,14 +1222,20 @@
     <table class="table table-sm">
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formStatus"/>:</label>
+                        <label id="apptStatusLabel" for="apptStatusSelect"><fmt:message key="Appointment.formStatus"/>:</label>
                     </td>
                     <td>
                         <%
 
-                            if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+                            if (statusEditable) { %>
 
-                <select name="status" class="form-select" style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(curSelect)).getColor() %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                <%-- curSelect stays -1 when the appointment's status was deactivated in the status
+                     editor (allStatus holds active rows only). Keep that status as the selected
+                     first option so saving the form does not silently change it. --%>
+                <select name="status" id="apptStatusSelect" class="form-select" style="background-color:<carlos:encode value='<%= curSelect >= 0 ? ((AppointmentStatus)allStatus.get(curSelect)).getColor() : "" %>' context="cssString"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                            <% if (curSelect < 0 && statusCode != null && !statusCode.isEmpty()) { %>
+                            <option value="<carlos:encode value='<%= statusCode + signOrVerify %>' context="htmlAttribute"/>" SELECTED><carlos:encode value='<%= statusCode + signOrVerify %>' context="html"/></option>
+                            <% } %>
                             <% for (int i = 0; i < allStatus.size(); i++) { %>
                             <option class="<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                     style="background-color:<carlos:encode value='<%= ((AppointmentStatus)allStatus.get(i)).getColor() %>' context="cssString"/>"
@@ -1252,9 +1246,9 @@
                         </select> <%
                     } else {
                         if (importedStatus == null || importedStatus.trim().equals("")) { %>
-              	<input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
+              	<input type="text" class="form-control" name="status" aria-labelledby="apptStatusLabel" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" > <%
                     } else { %>
-                <input type="text" class="form-control" name="status" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
+                <input type="text" class="form-control" name="status" aria-labelledby="apptStatusLabel" value="<carlos:encode value='<%= statusCode %>' context="htmlAttribute"/>" >
                 <input type="text"  class="form-control" TITLE="Imported Status" value="<carlos:encode value='<%= importedStatus %>' context="htmlAttribute"/>" readonly> <%
                             }
                         }
@@ -1447,7 +1441,7 @@
                     <input type="button"
                            name="noShowButton" id="noShowButton" class="btn btn-secondary"
                            value="<fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
+                           onClick="document.EDITAPPT.action='<%=request.getContextPath() %>/appointment/UpdateRecord';document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';CarlosAppointmentPatientLink.submitForm(document.EDITAPPT);">
                     <br>
                     <a class="btn"
                        onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentviewrecordcard?appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
@@ -1456,10 +1450,10 @@
                        onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=850,width=1000,resizable=yes,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-scissors"></i>&nbsp;<fmt:message key="appointment.appointmentedit.cut"/></a>
                     <a class="btn"
-                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">
+                       onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/appointmentcopyrecord';document.forms['EDITAPPT'].displaymode.value='Copy';localStorage.setItem('copyPaste','1');CarlosAppointmentPatientLink.submitForm(document.forms['EDITAPPT']);">
                         <i class="fa-solid fa-copy"></i>&nbsp;<fmt:message key="appointment.appointmentedit.copy"/> </a>
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="button" id="repeatButton" class="btn"

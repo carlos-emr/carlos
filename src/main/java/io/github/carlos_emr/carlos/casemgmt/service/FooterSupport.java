@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.IOException;
 
 import io.github.carlos_emr.carlos.commn.printing.FontSettings;
@@ -44,7 +46,7 @@ import org.openpdf.text.pdf.PdfPageEventHelper;
  * methods (e.g. {@code onEndPage}) to render their specific footer content
  * using the font and offset provided by this class.
  *
- * <p>Defaults to Helvetica 12pt, WinAnsi encoding, not embedded.
+ * <p>Defaults to embedded DejaVu Sans 12pt with Unicode encoding.
  *
  * @see PageNumberStamper
  * @see PromoTextStamper
@@ -57,7 +59,7 @@ public abstract class FooterSupport extends PdfPageEventHelper {
     private BaseFont font;
 
     /**
-     * Creates a new instance with Helvetica 12pt as the default base font.
+     * Creates a new instance with embedded Unicode 12pt as the default base font.
      */
     public FooterSupport() {
         super();
@@ -76,7 +78,7 @@ public abstract class FooterSupport extends PdfPageEventHelper {
      */
     public void setFont(String fontName, String encoding, boolean isEmbedded) {
         try {
-            font = BaseFont.createFont(fontName, encoding, isEmbedded);
+            font = PdfFonts.createFont(fontName, encoding, isEmbedded);
         } catch (DocumentException | IOException e) {
             throw new RuntimeException("Unable to create base font: " + fontName + " / " + encoding, e);
         }

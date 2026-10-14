@@ -54,13 +54,19 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultDocsDao consultDocsDao;
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted) {
         ConsultDocs doc = new ConsultDocs();
         doc.setRequestId(requestId);
         doc.setDocumentNo(documentNo);
         doc.setDocType(docType);
         doc.setDeleted(deleted);
-        consultDocsDao.persist(doc);
+        // Read/filter fixtures include pre-migration bare lab rows. New lab writes are
+        // validated separately by LabAttachmentSourceDaoIntegrationTest.
+        if ("L".equals(docType)) entityManager.persist(doc);
+        else consultDocsDao.persist(doc);
         return doc;
     }
 

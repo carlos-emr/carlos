@@ -425,6 +425,8 @@ public class BillingOnReviewViewModelAssembler {
                 String codeFee = nullToEmpty(item.getCodeFee());
                 String codeTotalStr = nullToEmpty(item.getCodeTotal());
                 String warning = nullToEmpty(item.getMsg());
+                // A failed numeric/fee calculation must never offer a save with a placeholder zero.
+                if (!warning.isEmpty()) parseFailed[0] = true;
                 String codeAt = nullToEmpty(item.getCodeAt());
 
                 String gstFlag = gstRep.getGstFlag(codeName, billReferalDate);

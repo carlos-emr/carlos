@@ -41,6 +41,8 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,14 +57,20 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
 
+    private String configuredUrl;
+    private Boolean defaultUseInformationSchema;
+
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
     public static final Logger logger = MiscUtils.getLogger();
-    public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
+    // Private: callers copy it under its own lock (the synchronizedMap contract), so no outside
+    // code may hold that lock.
+    private static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
     private static final ThreadLocal<HashSet<Connection>> connections = new ThreadLocal<HashSet<Connection>>();
     private static final Set<HashSet<Connection>> trackedThreadConnectionSets = Collections.synchronizedSet(
             Collections.newSetFromMap(new IdentityHashMap<HashSet<Connection>, Boolean>()));
@@ -181,6 +189,34 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     @Override
     public synchronized void setUrl(String url) {
+        configuredUrl = url;
+        applyConfiguredUrl();
+    }
+
+    /**
+     * Optional distribution default. An explicit JDBC URL option or driver
+     * connection property retains its normal precedence. Null leaves the
+     * driver's own default unchanged, including when a previous default is cleared.
+     *
+     * @param value nullable default for Connector/J's metadata implementation
+     */
+    public synchronized void setDefaultUseInformationSchema(Boolean value) {
+        defaultUseInformationSchema = value;
+        if (configuredUrl != null) {
+            applyConfiguredUrl();
+        }
+    }
+
+    private void applyConfiguredUrl() {
+        String url = configuredUrl;
+        if (url == null) {
+            super.setUrl(null);
+            return;
+        }
+        if (defaultUseInformationSchema != null && !hasExplicitMetadataOption(url)) {
+            url += (url.contains("?") ? "&" : "?")
+                    + "useInformationSchema=" + defaultUseInformationSchema;
+        }
         logger.warn("Setting mysql connection timezone. System timezone: " + TimeZone.getDefault().getID());
         // find serverTimezone jdbc parameter
         Pattern p = Pattern.compile("(serverTimezone=)(.*?)(?=&|$)");
@@ -198,6 +234,22 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + safeTimezoneId;
         }
         super.setUrl(url);
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: ASCII JDBC option-name matching, not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison with the fixed ASCII JDBC metadata option name preserves explicit operator settings")
+    private static boolean hasExplicitMetadataOption(String url) {
+        int query = url.indexOf('?');
+        if (query < 0) {
+            return false;
+        }
+        for (String parameter : url.substring(query + 1).split("&")) {
+            String name = parameter.split("=", 2)[0];
+            if ("useInformationSchema".equalsIgnoreCase(URLDecoder.decode(name, StandardCharsets.UTF_8))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static class TrackingJdbcConnection implements Connection {

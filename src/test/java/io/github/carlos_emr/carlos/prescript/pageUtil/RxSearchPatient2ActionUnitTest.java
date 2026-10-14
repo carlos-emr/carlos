@@ -13,8 +13,10 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -32,6 +34,7 @@ import org.mockito.MockitoAnnotations;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,12 +55,18 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private MockedStatic<RxPatientData> patientDataMock;
+    private MockedStatic<RxPatientData> rxPatientDataMock;
     private AutoCloseable mocks;
     private final Map<String, Object> requestAttributes = new HashMap<>();
 
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
+    @Mock
+    private DemographicManager mockDemographicManager;
+    @Mock
+    private AllergyDao mockAllergyDao;
+    @Mock
+    private PartialDateDao mockPartialDateDao;
     @Mock
     private LoggedInInfo mockLoggedInInfo;
     @Mock
@@ -69,12 +78,12 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        // Static class initialization still needs these beans when this suite runs first.
-        registerMock(DemographicManager.class, mock(DemographicManager.class));
-        registerMock(AllergyDao.class, mock(AllergyDao.class));
-        // Isolate the action from RxPatientData's application-lifetime static bean cache.
-        // Other action suites may initialize that cache with their own mock manager.
-        patientDataMock = mockStatic(RxPatientData.class);
+        // Bootstrap RxPatientData if this test loads it first. Search is mocked at the
+        // action's collaborator boundary: its static manager may belong to an earlier test.
+        registerMock(DemographicManager.class, mockDemographicManager);
+        registerMock(AllergyDao.class, mockAllergyDao);
+        registerMock(PartialDateDao.class, mockPartialDateDao);
+        rxPatientDataMock = mockStatic(RxPatientData.class);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -95,8 +104,8 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (patientDataMock != null) {
-            patientDataMock.close();
+        if (rxPatientDataMock != null) {
+            rxPatientDataMock.close();
         }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
@@ -110,41 +119,76 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectBlankSurnameSearchWithoutCallingPatientLookup() {
+    void shouldRejectBlankSurname_withoutCallingPatientLookup() {
         when(mockRequest.getParameter("surname")).thenReturn("   ");
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED)).isEqualTo(Boolean.TRUE);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_SURNAME)).isEqualTo("");
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "");
         assertThat((RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS)).isEmpty();
-        patientDataMock.verifyNoInteractions();
+        rxPatientDataMock.verifyNoInteractions();
     }
 
     @Test
-    void shouldPopulateSearchResultsForMatchingSurname() {
-        RxPatientData.Patient first = mock(RxPatientData.Patient.class);
-        RxPatientData.Patient second = mock(RxPatientData.Patient.class);
+    void shouldPopulateSearchResults_forMatchingSurname() {
+        Demographic first = new Demographic();
+        first.setDemographicNo(101);
+        first.setFirstName("Alice");
+        first.setLastName("Smith");
+        Demographic second = new Demographic();
+        second.setDemographicNo(202);
+        second.setFirstName("Bob");
+        second.setLastName("Smith");
+
         when(mockRequest.getParameter("surname")).thenReturn(" Smith ");
-        patientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""))
-                .thenReturn(new RxPatientData.Patient[] {first, second});
+        RxPatientData.Patient[] expected = {
+                new RxPatientData.Patient(first), new RxPatientData.Patient(second)
+        };
+        rxPatientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""))
+                .thenReturn(expected);
 
         String result = action.execute();
         RxPatientData.Patient[] results =
                 (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED)).isEqualTo(Boolean.TRUE);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_SURNAME)).isEqualTo("Smith");
-        assertThat(results).containsExactly(first, second);
-        patientDataMock.verify(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""));
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "Smith");
+        assertThat(results).isSameAs(expected);
+        rxPatientDataMock.verify(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", ""));
+        assertThat(results[0].getDemographicNo()).isEqualTo(101);
+        assertThat(results[0].getFirstName()).isEqualTo("Alice");
+        assertThat(results[1].getDemographicNo()).isEqualTo(202);
+        assertThat(results[1].getFirstName()).isEqualTo("Bob");
     }
 
     @Test
-    void shouldExposeEmptyResultsForNoMatches() {
+    void shouldUseCurrentManager_whenSpringContextChanges() {
+        rxPatientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "Smith", "")).thenCallRealMethod();
+        when(mockRequest.getParameter("surname")).thenReturn("Smith");
+        when(mockDemographicManager.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of());
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        var replacement = mock(DemographicManager.class);
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(303);
+        when(replacement.searchDemographic(mockLoggedInInfo, "Smith,")).thenReturn(List.of(patient));
+        registerMock(DemographicManager.class, replacement);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        RxPatientData.Patient[] results =
+                (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
+        assertThat(results).hasSize(1);
+        assertThat(results[0].getDemographicNo()).isEqualTo(303);
+        org.mockito.Mockito.verify(replacement).searchDemographic(mockLoggedInInfo, "Smith,");
+    }
+
+    @Test
+    void shouldExposeEmptyResults_forNoMatches() {
         when(mockRequest.getParameter("surname")).thenReturn("NoMatches");
-        patientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "NoMatches", ""))
+        rxPatientDataMock.when(() -> RxPatientData.PatientSearch(mockLoggedInInfo, "NoMatches", ""))
                 .thenReturn(new RxPatientData.Patient[0]);
 
         String result = action.execute();
@@ -152,19 +196,19 @@ class RxSearchPatient2ActionUnitTest extends CarlosUnitTestBase {
                 (RxPatientData.Patient[]) requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_RESULTS);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED)).isEqualTo(Boolean.TRUE);
-        assertThat(requestAttributes.get(RxSearchPatient2Action.ATTR_SEARCH_SURNAME)).isEqualTo("NoMatches");
+        assertThat(requestAttributes).containsEntry(RxSearchPatient2Action.ATTR_SEARCH_PERFORMED, Boolean.TRUE)
+                .containsEntry(RxSearchPatient2Action.ATTR_SEARCH_SURNAME, "NoMatches");
         assertThat(results).isEmpty();
     }
 
     @Test
-    void shouldThrowWhenDemographicReadPrivilegeDenied() {
+    void shouldThrow_whenDemographicReadPrivilegeDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
                 .thenReturn(false);
 
         assertThatThrownBy(() -> action.execute())
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_demographic");
-        patientDataMock.verifyNoInteractions();
+        rxPatientDataMock.verifyNoInteractions();
     }
 }

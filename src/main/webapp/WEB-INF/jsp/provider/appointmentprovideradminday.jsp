@@ -1538,7 +1538,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
@@ -1752,7 +1752,7 @@
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
@@ -1797,7 +1797,10 @@
                                         <!-- caisi infirmary view exteion add -->
                                         <!--  fffffffffffffffffffffffffffffffffffffffffff-->
                                         <caisi:isModuleLoad moduleName="caisi">
-                                            <jsp:include page="infirmarydemographiclist.jspf"/>
+                                            <jsp:include page="infirmarydemographiclist.jsp">
+                                                <jsp:param name="userAvail" value="<%= userAvail %>"/>
+                                                <jsp:param name="strDate" value="<%= strDate %>"/>
+                                            </jsp:include>
                                         </caisi:isModuleLoad>
 
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -2390,7 +2393,7 @@
 
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
-                                                            <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager?id=<%=demographic_no%>'
+                                                            <a href="${pageContext.servletContext.contextPath}/PMmodule/ClientManager?id=<%=demographic_no%>"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 

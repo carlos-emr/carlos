@@ -167,6 +167,8 @@ public class FlywaySchemaValidator implements InitializingBean {
         return configured;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Locale.ROOT folding is followed by an exact ON/BC configuration allowlist.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT folding followed by an exact ON/BC configuration allowlist")
     private static String normalizeBillregion(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;

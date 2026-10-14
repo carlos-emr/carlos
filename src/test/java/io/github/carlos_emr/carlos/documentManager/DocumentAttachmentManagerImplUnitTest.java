@@ -219,4 +219,25 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
             assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(flattened)).contains("FLATTEN-SENTINEL");
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP"})
+    void shouldRejectUnsupportedSourceBeforeRendering_whenLabIdCouldCollideWithHl7(String source) throws Exception {
+        var lab = new io.github.carlos_emr.carlos.lab.ca.on.LabResultData(source);
+        lab.setSegmentID("77");
+        ArrayList<Object> packet = new ArrayList<>();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> manager.attachLabPDFs(null, List.of(lab), packet))
+                .isInstanceOf(PDFGenerationException.class).hasMessageContaining("source");
+        verify(manager, never()).renderDocument(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB),
+                org.mockito.ArgumentMatchers.anyInt());
+        assertThat(packet).isEmpty();
+    }
+
+    @Test
+    void shouldRejectUnavailableLab_whenSourceNeedsConfirmation() {
+        var lab = new io.github.carlos_emr.carlos.lab.ca.on.LabResultData();
+        lab.setAttachmentUnavailable(true);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> manager.attachLabPDFs(null, List.of(lab), new ArrayList<>()))
+                .isInstanceOf(PDFGenerationException.class).hasMessageContaining("unresolved");
+    }
 }

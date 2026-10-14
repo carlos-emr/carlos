@@ -54,6 +54,23 @@ import org.xml.sax.SAXException;
 @Tag("fast")
 class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    void shouldServeMohStylesheets_withoutBypassingBillingActions() throws Exception {
+        String exclusion = collectConstants(parseXml(resolveProjectPath(STRUTS_XML)))
+                .get("struts.action.excludePattern");
+        for (String context : List.of("", "/carlos")) {
+            for (String stylesheet : List.of("ES", "OU")) {
+                assertThat((context + "/billing/CA/ON/" + stylesheet + ".xsl").matches(exclusion)).isTrue();
+                assertThat(resolveProjectPath(Path.of("src/main/webapp/billing/CA/ON/" + stylesheet + ".xsl")))
+                        .isRegularFile();
+            }
+            for (String route : List.of("billingLreport", "BillingDocumentErrorReportUpload",
+                    "InrUpdateINRbilling", "DbUpdateINRbilling", "unlisted.xsl")) {
+                assertThat((context + "/billing/CA/ON/" + route).matches(exclusion)).isFalse();
+            }
+        }
+    }
+
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final String EXPECTED_STRUTS_DOCTYPE =
             "<!DOCTYPE struts PUBLIC \"-//Apache Software Foundation//DTD Struts Configuration 6.5//EN\" "
@@ -148,9 +165,14 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         Map<String, List<String>> stockStacks = describeStacks(strutsDefault);
         Map<String, List<String>> carlosStacks = describeStacks(parent);
         assertThat(carlosStacks.keySet()).containsExactlyInAnyOrder("carlosDefaultStack", "carlosBasicStack");
+        List<String> expectedDefaultStack = withCarlosException(stockStacks.get("defaultStack"));
+        // COOP is set by the servlet filter for actions, static resources, forwards and errors.
+        // Struts' coop interceptor would overwrite it and sever legitimate popup openers.
+        assertThat(expectedDefaultStack).anyMatch(entry -> entry.startsWith("coop "));
+        expectedDefaultStack.removeIf(entry -> entry.startsWith("coop "));
         assertThat(carlosStacks)
-                .as("carlosDefaultStack must be struts-default's defaultStack with carlosException in the exception slot")
-                .containsEntry("carlosDefaultStack", withCarlosException(stockStacks.get("defaultStack")))
+                .as("carlosDefaultStack must replace exception logging and delegate COOP to the servlet filter")
+                .containsEntry("carlosDefaultStack", expectedDefaultStack)
                 .as("carlosBasicStack must be struts-default's basicStack with carlosException in the exception slot")
                 .containsEntry("carlosBasicStack", withCarlosException(stockStacks.get("basicStack")));
 
@@ -502,7 +524,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
         try {
             dbf.setAttribute(name, value);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
         }
     }

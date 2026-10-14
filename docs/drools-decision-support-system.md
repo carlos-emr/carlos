@@ -176,6 +176,7 @@ Compiled `KieBase` instances are cached in `RuleBaseFactory` to avoid expensive 
 | **Concurrency** | `ReentrantReadWriteLock` | Concurrent reads; serialized writes |
 | **Key strategy (RuleBaseCreator)** | `"RuleBaseCreator:" + SHA-256(fullDrlString)` | Content-addressed: identical DRL → cache hit |
 | **Key strategy (DSGuidelineDrools)** | Guideline's `ruleBaseFactoryKey` (JPA ID-based) | Invalidated on `@PostUpdate` |
+| **Key strategy (flowsheet `ds_rules`)** | `"MeasurementFlowSheet:" + SHA-256(drlFileText)` | Content-addressed: flowsheets sharing a file (e.g. `diab.drl`) compile it once; an edited `MEASUREMENT_DS_DIRECTORY` file takes effect on the next flowsheet reload |
 | **Key strategy (prevention)** | Private `static KieBase` field | `PreventionDSImpl` bypasses `RuleBaseFactory`; reloaded via `reloadRuleBase()` |
 
 ### KieSession Lifecycle
@@ -336,7 +337,17 @@ These rules check whether clinical measurements are overdue for recording. They 
 
 **Referenced by**: `<flowsheet ds_rules="...">` attribute in XML config files.
 
-**Also generated programmatically** by `Recommendation` objects parsed from `<rules>/<recommendation>` elements in flowsheet XML. These generate DRL via `Recommendation.getRuleBaseElement()` and are compiled together by `MeasurementFlowSheet.loadRuleBase()`.
+**Also generated programmatically** by `Recommendation` objects parsed from `<rules>/<recommendation>` elements in flowsheet XML. These generate DRL via `Recommendation.getRuleBaseElement()` and are compiled together by `MeasurementFlowSheet.loadRuleBase()`. When a flowsheet definition has both, the compiled item recommendations **replace** the `ds_rules` file: `omdDiabetesFlowsheet.xml` (diab2), `hivFlowsheet.xml`, `omdCOPDFlowsheet.xml` and `omdHypertensionFlowsheet.xml` run their item recommendations, not their `ds_rules` file.
+
+**Customized flowsheets** (provider, patient or clinic `flowsheet_customization` rows) are copies of the base definition made by `MeasurementTemplateFlowSheetConfig.makeNewFlowsheet()`. The copy shares the base's compiled `ds_rules` rule base (`MeasurementFlowSheet.useFlowsheetRulesOf()`) and keeps the file name, so `getExportFlowsheet()` re-declares it. If the base runs only its `ds_rules` file, recommendations a customization adds (for example a warning saved through Update Flowsheet) run **alongside** the file rather than replacing it (`loadCustomizedRuleBase()`); a base whose items carry recommendations keeps the replacement behaviour above. Before #4433 the copy dropped `ds_rules`, so customizing CDM Indicators, Asthma, CHF, CKD or INR silently removed every flowsheet-level warning and recommendation. The export also dropped the `<rules>` of prevention items (Flu, Td, PAP, MAM and the other immunization and screening reminders on Diabetes, HIV and the Periodic Health Visit); it now writes them for every item.
+
+What customized copies do, and what they cannot do:
+
+- A customization's rules cannot switch off a `ds_rules` rule. When both cover the same measurement, the Recommendations list shows both messages; the item's own tooltip shows the customization's message, because those rules fire after the file's.
+- Hiding an item (a DELETE customization) hides its column, not its decision support. `TemplateFlowSheetPage.jspf` and `TemplateFlowSheetPrint.jsp` load readings for every item, hidden ones included, as `HealthTrackerPage.jspf` and `DSDemographicAccess.flowsheetUptoDateAny()` already did. Without those readings, a rule about a hidden item that is up to date would report it as never recorded.
+- `DSDemographicAccess.flowsheetUptoDateAny()` evaluates the customized copy. A guideline that tests whether a flowsheet is up to date therefore now sees the `ds_rules` warnings for customized patients; before #4433 it counted those patients as up to date.
+
+`FlowsheetCopyRuleRetentionUnitTest` exports every shipped flowsheet and checks that each item's recommendations and colour rules compile to the same DRL as the shipped definition.
 
 ### 2. Per-Item Decision Support Rules
 
@@ -644,7 +655,7 @@ For the full Drools DRL language reference, see the [Drools Documentation](https
 
 ### Drools 7.74.1 → 10.1.0 (Jakarta EE Migration)
 
-Drools was upgraded from 7.74.1.Final to 10.1.0 for Jakarta EE compatibility. Drools 10.1.0 requires JDK 17+ (CARLOS uses JDK 21).
+Drools was upgraded from 7.74.1.Final to 10.1.0 for Jakarta EE compatibility. Drools 10.1.0 requires JDK 17+ (CARLOS uses JDK 25).
 
 **Key changes:**
 1. **Replaced `KieHelper` with standard KIE API**: `DroolsHelper.createKieBaseFromDrl()` uses the standard `KieServices` -> `KieFileSystem` -> `KieBuilder` -> `KieContainer` pipeline.

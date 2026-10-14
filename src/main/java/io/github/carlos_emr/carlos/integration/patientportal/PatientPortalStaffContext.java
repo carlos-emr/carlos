@@ -63,6 +63,8 @@ public record PatientPortalStaffContext(
 
     /** Read saved Portal email footer attempts after actual CARLOS admin authorization. */
     public static final String PERMISSION_EMAIL_AUDIT_READ = "portal.email.audit.read";
+    /** Create, list and withdraw patient booking prompts. */
+    public static final String PERMISSION_BOOKING_PROMPT_MANAGE = "portal.booking_prompt.manage";
 
     private static final Set<String> SUPPORTED_PERMISSIONS =
             Set.of(
@@ -71,7 +73,8 @@ public record PatientPortalStaffContext(
                     PERMISSION_ACCOUNT_MANAGE,
                     PERMISSION_SECRET_MANAGE,
                     PERMISSION_CONTACT_REVIEW,
-                    PERMISSION_EMAIL_AUDIT_READ);
+                    PERMISSION_EMAIL_AUDIT_READ,
+                    PERMISSION_BOOKING_PROMPT_MANAGE);
 
     /** Matches {@code MAX_PERMISSION_COUNT} in the portal's {@code staff_identity.py}. */
     public static final int MAX_PERMISSION_COUNT = 32;

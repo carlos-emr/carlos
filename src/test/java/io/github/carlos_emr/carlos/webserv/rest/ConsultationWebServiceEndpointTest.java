@@ -122,6 +122,23 @@ class ConsultationWebServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "clinicDAO", mockClinicDAO);
         injectDependency(service, "userPropertyDAO", mockUserPropertyDAO);
         injectDependency(service, "consultationServiceDao", mockConsultationServiceDao);
+        // Patient-scoped consultation read and chart access are granted in these endpoint tests.
+        io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager =
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        org.mockito.Mockito.when(securityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        org.mockito.Mockito.when(securityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        injectDependency(service, "securityInfoManager", securityInfoManager);
+        // Attachment listing filters attached rows by the consultation patient (issue #3867); a real
+        // ownership service over mocked lookups keeps the endpoint wiring realistic.
+        injectDependency(service, "attachmentOwnershipService", new io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService(
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.EFormDataDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.class)));
         return service;
     }
 

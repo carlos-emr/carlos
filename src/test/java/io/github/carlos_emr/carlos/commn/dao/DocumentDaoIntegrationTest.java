@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -69,8 +70,9 @@ import static org.assertj.core.api.Assertions.*;
  *   <li>{@code findByDemographicAndFilename}: native SQL parameter order swapped (param 1 = demographicId, param 2 = filename, but query expects filename first)</li>
  * </ul>
  *
- * <p><strong>Not tested:</strong> {@code findDocuments} (deprecated, requires EDocUtil static
- * initialization with many SpringUtils beans), {@code findConstultDocsDocsAndProvidersByModule}
+ * <p><strong>Not tested:</strong> {@code findDocuments}'s public listing ({@code includePublic})
+ * and {@code since} filter (only the private per-patient listing the note browser uses is
+ * covered), {@code findConstultDocsDocsAndProvidersByModule}
  * (requires HBM Provider entity access via {@code p.ProviderNo} HQL property),
  * {@code findCtlDocsAndDocsByModuleCreatorResponsibleAndDates} (has JPQL syntax bugs:
  * missing space before AND, uses {@code c.documentNo} instead of {@code c.id.documentNo}).</p>
@@ -793,6 +795,23 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should bind hostile provider text without broadening document access")
+        void shouldTreatHostileProviderTextAsLiteralParameter() {
+            Document authorized = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("consult", "999002", 'A', DEMO_ID);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Both rows satisfy patient, date and program filters. An interpolated OR clause
+            // would expose them; a bound provider value must instead match neither row.
+            assertThat(documentDao.findByProgramProviderDemographicUpdateDate(
+                    1, "' OR '1'='1", DEMO_ID, yesterday, 10)).isEmpty();
+            assertThat(documentDao.findByProgramProviderDemographicUpdateDate(
+                    1, PROVIDER_NO, DEMO_ID, yesterday, 10))
+                    .extracting(Document::getDocumentNo).containsExactly(authorized.getDocumentNo());
+        }
+
+        @Test
         @DisplayName("should respect items limit")
         void shouldRespectLimit_whenMoreRowsAvailable() {
             // Given
@@ -1139,6 +1158,136 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getDocfilename()).isEqualTo("test.pdf");
+        }
+    }
+
+    // ========================================================================
+    // findDocuments — the note browser's document list (EDocUtil.listDocs)
+    // ========================================================================
+
+    /**
+     * {@code findDocuments} is the query behind the note browser ({@code casemgmt/noteBrowser.jsp}
+     * through {@code EDocUtil.listDocs}): its view-status select maps to includeDeleted /
+     * includeActive ({@code deleted} / {@code active}, neither for {@code all}), its doc-type view to
+     * docType, and its sort select to an {@link EDocSort} (Content, Update = DATE, Observation).
+     * The three documents carry the dates of {@code scripts/note-browser-controls-playwright-checks.js},
+     * so each sort gives a distinct order and this test pins the query results that browser check
+     * sees (issue #4368). {@code EDocUtil.listDocs} then applies its facility and program
+     * filtering, which this DAO test does not exercise.
+     */
+    @Nested
+    @DisplayName("findDocuments")
+    @Tag("query")
+    @Tag("filter")
+    class FindDocuments {
+
+        private static final String MODULE = "demographic";
+
+        private Document docA;
+        private Document docB;
+        private Document docC;
+
+        @BeforeEach
+        void seedNoteBrowserDocuments() {
+            // content / update / observation; B is the deleted one, C the only "lab" document.
+            docA = createListedDocument("others", 'A', DEMO_ID, 0, date(2025, 1, 1), date(2025, 3, 1), date(2025, 2, 1));
+            docB = createListedDocument("others", 'D', DEMO_ID, 0, date(2025, 2, 1), date(2025, 1, 1), date(2025, 3, 1));
+            docC = createListedDocument("lab", 'A', DEMO_ID, 0, date(2025, 3, 1), date(2025, 2, 1), date(2025, 1, 1));
+            entityManager.clear();
+        }
+
+        private Document createListedDocument(String doctype, char status, Integer demoId, int public1,
+                                              Date content, Date update, Date observation) {
+            Document doc = createDocument(doctype, PROVIDER_NO, status);
+            doc.setPublic1(public1);
+            doc.setContentdatetime(content);
+            doc.setObservationdate(observation);
+            entityManager.persist(doc);
+            entityManager.flush();
+            // @PrePersist and @PreUpdate stamp updatedatetime with the current time, so the
+            // fixture's update date is written to the row directly.
+            entityManager.createNativeQuery("UPDATE document SET updatedatetime = :updated WHERE document_no = :id")
+                    .setParameter("updated", update)
+                    .setParameter("id", doc.getDocumentNo())
+                    .executeUpdate();
+            createCtlDocument(MODULE, demoId, doc.getDocumentNo());
+            return doc;
+        }
+
+        private List<Integer> listed(String docType, boolean includeDeleted, boolean includeActive, EDocSort sort) {
+            return documentDao.findDocuments(MODULE, String.valueOf(DEMO_ID), docType, false,
+                            includeDeleted, includeActive, sort, null)
+                    .stream()
+                    .map(row -> ((Document) row[1]).getDocumentNo())
+                    .toList();
+        }
+
+        @Test
+        @DisplayName("should list the newest content date first for the Content sort")
+        void shouldListNewestContentDateFirst_forContentSort() {
+            assertThat(listed("all", false, false, EDocSort.CONTENTDATE))
+                    .containsExactly(docC.getDocumentNo(), docB.getDocumentNo(), docA.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should list the latest update first for the Update sort")
+        void shouldListLatestUpdateFirst_forUpdateSort() {
+            assertThat(listed("all", false, false, EDocSort.DATE))
+                    .containsExactly(docA.getDocumentNo(), docC.getDocumentNo(), docB.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should list the newest observation date first for the Observation sort")
+        void shouldListNewestObservationFirst_forObservationSort() {
+            assertThat(listed("all", false, false, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docB.getDocumentNo(), docA.getDocumentNo(), docC.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should list only deleted documents for the Deleted status")
+        void shouldListOnlyDeletedDocuments_forDeletedStatus() {
+            assertThat(listed("all", true, false, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docB.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should leave out deleted documents, in sort order, for the Published status")
+        void shouldLeaveOutDeletedDocuments_forPublishedStatus() {
+            assertThat(listed("all", false, true, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docA.getDocumentNo(), docC.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should keep the doc-type view and the sort under every status")
+        void shouldKeepDocTypeAndSort_forEveryStatus() {
+            assertThat(listed("others", false, false, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docB.getDocumentNo(), docA.getDocumentNo());
+            assertThat(listed("others", true, false, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docB.getDocumentNo());
+            assertThat(listed("others", false, true, EDocSort.OBSERVATIONDATE))
+                    .containsExactly(docA.getDocumentNo());
+        }
+
+        @Test
+        @DisplayName("should list only the patient's own private documents")
+        void shouldListOnlyPatientsPrivateDocuments_forPrivateListing() {
+            // Given: another patient's document and a public document for this patient
+            int otherDemo = DEMO_ID + 1;
+            createDemographic(otherDemo);
+            createListedDocument("others", 'A', otherDemo, 0, today, today, today);
+            createListedDocument("others", 'A', DEMO_ID, 1, today, today, today);
+            entityManager.clear();
+
+            // Then: neither appears in this patient's private listing
+            assertThat(listed("all", false, false, EDocSort.CONTENTDATE))
+                    .containsExactly(docC.getDocumentNo(), docB.getDocumentNo(), docA.getDocumentNo());
+        }
+
+        private Date date(int year, int month, int day) {
+            Calendar cal = Calendar.getInstance();
+            cal.clear();
+            cal.set(year, month - 1, day, 9, 0, 0);
+            return cal.getTime();
         }
     }
 }

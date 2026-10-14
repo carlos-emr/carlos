@@ -1,7 +1,9 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %>
+<%@ page import="java.util.UUID" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -57,9 +59,18 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%-- Standalone page only: when this form is injected into the allergy page, that page loads
+             the same script, since nothing from this head survives the injection (#3355, #3488). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
@@ -72,7 +83,7 @@
 
         <%
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
-            RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+            RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
             if (patient == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
@@ -128,8 +139,8 @@
                        height="100%">
                     <tr>
                         <td width="0%" valign="top">
-                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
-                                    href="<%= request.getContextPath() %>/rx/showAllergy"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
+                            <div class="DivCCBreadCrumbs"><a href="<%= request.getContextPath() %>/rx/searchDrug?demographicNo=${bean.demographicNo}"> <fmt:message key="SearchDrug.title"/></a>&nbsp;&gt;&nbsp; <a
+                                    href="<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<carlos:encode value='<%= String.valueOf(bean.getDemographicNo()) %>' context="uriComponent"/>"> <fmt:message key="EditAllergies.title"/></a>&nbsp;&gt;&nbsp; <b><fmt:message key="AddReaction.title"/></b></div>
                         </td>
                     </tr>
                     <!----Start new rows here-->
@@ -144,7 +155,17 @@
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
                             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <%-- One token per rendered dialogue, resent unchanged on every retry by
+                                 rx-allergy-dialog.js (it posts the whole form). The server saves at most
+                                 one allergy per token, so retrying after a failed or unconfirmed save
+                                 cannot duplicate the record (#3488). --%>
+                            <input type="hidden" name="saveToken" id="saveToken"
+                                   value="<carlos:encode value='<%= UUID.randomUUID().toString() %>' context="htmlAttribute"/>"/>
                             <input type="hidden" name="formDemographicNo"
+                                   value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
+                            <%-- The write target: RxAddAllergy2Action resolves the bean from this and
+                                 requires formDemographicNo to name the same patient (#3875). --%>
+                            <input type="hidden" name="demographicNo"
                                    value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
 
                             <script type="text/javascript">
@@ -316,6 +337,14 @@
 
                                 <tr>
                                     <td>
+                                        <%-- A save the server does not confirm is reported here and the
+                                             entered values stay in this form for a retry (#3488). --%>
+                                        <div class="allergySaveStatus" role="alert" aria-live="assertive" style="display:none"></div>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>
                                         <input type="submit" name="submit" value="Add Allergy" class="ControlPushButton" onclick="return doSubmit()"/>
                                         <input type=button class="ControlPushButton" id="cancelAddReactionButton"
                                                onclick="window.location='<%= request.getContextPath() %>/rx/showAllergy?demographicNo=<%=bean.getDemographicNo() %>'"
@@ -330,7 +359,9 @@
                     <tr>
                         <td>
                             <%
-                                String sBack = request.getContextPath() + "/rx/showAllergy";
+                                // The patient is an int, so appending it needs no encoding; showAllergy refuses a request
+                                // that names no patient (#3908).
+                                String sBack = request.getContextPath() + "/rx/showAllergy?demographicNo=" + bean.getDemographicNo();
                             %> <input type=button class="ControlPushButton"
                                       onclick="window.location.href='<%=sBack%>';"
                                       value="Back to View Allergies"/></td>

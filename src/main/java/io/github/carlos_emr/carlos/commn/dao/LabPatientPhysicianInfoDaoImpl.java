@@ -58,14 +58,17 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
 
     @Override
     public List<Object[]> findByPatientName(String status, String labType, String providerNo, String patientLastName, String patientFirstName, String patientHealthNumber) {
-        String sql = "SELECT lpp, plr FROM LabPatientPhysicianInfo lpp, ProviderLabRoutingModel plr WHERE plr.status like :status AND plr.providerNo like :providerNo AND plr.labType = :labType AND lpp.patientLastName LIKE :lastName AND lpp.patientFirstName LIKE :firstName AND lpp.patientHin LIKE :hin AND plr.labNo = lpp.id";
+        // COALESCE: a NULL HIN or name never satisfies LIKE, so a blank search would drop the patient.
+        String sql = "SELECT lpp, plr FROM LabPatientPhysicianInfo lpp, ProviderLabRoutingModel plr WHERE plr.status like :status AND plr.providerNo like :providerNo AND plr.labType = :labType AND COALESCE(lpp.patientLastName, '') LIKE :lastName AND COALESCE(lpp.patientFirstName, '') LIKE :firstName AND COALESCE(lpp.patientHin, '') LIKE :hin AND plr.labNo = lpp.id";
         Query q = entityManager.createQuery(sql);
         q.setParameter("status", "%" + status + "%");
         q.setParameter("providerNo", "".equals(providerNo) ? "%" : providerNo);
         q.setParameter("labType", labType);
         q.setParameter("lastName", patientLastName + "%");
         q.setParameter("firstName", patientFirstName + "%");
-        q.setParameter("hin", patientHealthNumber);
+        // A blank HIN field means "any HIN", as the other Inbox searches bind it; a non-blank one
+        // keeps its exact-match meaning, which a patient without a HIN never satisfies.
+        q.setParameter("hin", patientHealthNumber == null || patientHealthNumber.isEmpty() ? "%" : patientHealthNumber);
         return q.getResultList();
     }
 
