@@ -32,7 +32,9 @@ body, html {
 }
 
 #mastercontainer #buildercontainer #builderContainerWindow img,
-#mastercontainer #pickercontainer #pickercontainerWindow img {
+#mastercontainer #pickercontainer #pickercontainerWindow img,
+#mastercontainer #buildercontainer #builderContainerWindow canvas,
+#mastercontainer #pickercontainer #pickercontainerWindow canvas {
     max-width: 100%;
     height: auto;
     width: auto \9;
@@ -92,6 +94,7 @@ body, html {
     display: flex;
     flex-wrap: nowrap;
     flex-direction: row;
+    align-items: center;
 
 }
 
@@ -219,6 +222,15 @@ body, html {
     background: lightred;
 }
 
+#pickertools li[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+#split-save-status {
+    margin: 8px 15px;
+}
+
 .ui-dialog img {
     margin-top: 5px;
     box-shadow: 0px 1px 3px #333333;
@@ -242,4 +254,3 @@ body, html {
 .jog-control {
     display: inline;
 }
-

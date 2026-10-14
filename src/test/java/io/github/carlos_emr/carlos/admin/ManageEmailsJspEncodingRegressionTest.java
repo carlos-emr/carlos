@@ -79,7 +79,7 @@ class ManageEmailsJspEncodingRegressionTest {
                 .contains("emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable")
                 .contains("admin.manageEmails.pendingDetail")
                 .contains("emailStatusResult.status eq 'PENDING' and empty emailStatusDetail")
-                .contains("<i class=\"fa-solid fa-lock\"></i> Encrypted")
+                .contains("<i class=\"fa-solid fa-lock\"></i> <fmt:message key=\"admin.manageEmails.card.encrypted\"/>")
                 .doesNotContain("emailStatusResult.password");
         assertThat(manageJsp)
                 .contains(".status-tag-pending")

@@ -192,8 +192,6 @@
                                 <% if (!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
                                 <a href="#" onclick="popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/ViewCreateLab'); return false;"
                                    style="color: #FFFFFF;"><fmt:message key="global.createLab"/></a>
-                                <a href="#" onclick="popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/Statement'); return false;"
-                                   style="color: #FFFFFF;">HRM Status/Upload</a>
                                 <% } %>
                             </td>
                         </tr>
@@ -796,6 +794,8 @@
 
 </div> <!--  end wrapper  -->
 
+<script src="${pageContext.servletContext.contextPath}/js/documentImageLoader.js"></script>
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <div id="dialog"></div>

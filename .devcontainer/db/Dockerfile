@@ -14,6 +14,7 @@ LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 COPY ./.devcontainer/db/scripts/populate_db.sh /docker-entrypoint-initdb.d/populate_db.sh
 RUN mkdir /scripts
 COPY ./.devcontainer/db/scripts/development.sql /scripts/development.sql
+COPY ./.devcontainer/db/scripts/reapply_security_migrations.sh /scripts/reapply_security_migrations.sh
 COPY ./.devcontainer/db/scripts/development_privileges.sql /scripts/development_privileges.sql
 COPY ./.devcontainer/db/scripts/demo-name-sanitization.sql /scripts/demo-name-sanitization.sql
 COPY ./.devcontainer/db/scripts/demo-name-sanitization-on.sql /scripts/demo-name-sanitization-on.sql
@@ -34,7 +35,7 @@ RUN chmod 755 /scripts
 RUN mkdir -p /var/lib/CarlosDocument && chown -R mysql:mysql /var/lib/CarlosDocument
 
 # Normalize script line endings without requiring extra apt packages.
-RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/populate_db.sh /database/mysql/*.sh
+RUN sed -i 's/\r$//' /docker-entrypoint-initdb.d/populate_db.sh /database/mysql/*.sh /scripts/reapply_security_migrations.sh
 
 # Ports
 EXPOSE 3306

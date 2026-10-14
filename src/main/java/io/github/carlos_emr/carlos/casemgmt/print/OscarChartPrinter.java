@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.print;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -142,7 +144,7 @@ public class OscarChartPrinter implements java.io.Closeable {
 
     /**
      * Creates a new chart printer and initialises the PDF document with Letter page size
-     * and Helvetica fonts.
+     * and embedded Unicode fonts.
      *
      * @param request HttpServletRequest providing session context and patient attributes
      * @param os OutputStream to which the finished PDF will be written
@@ -158,7 +160,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
         document.open();
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
     }

@@ -32,6 +32,11 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -42,8 +47,30 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings("unchecked")
 public class ConsultResponseDocDaoImpl extends AbstractDaoImpl<ConsultResponseDoc> implements ConsultResponseDocDao {
-    public ConsultResponseDocDaoImpl() {
+    private final PatientLabRoutingDao patientLabRoutingDao;
+
+    @Autowired
+    public ConsultResponseDocDaoImpl(PatientLabRoutingDao patientLabRoutingDao) {
         super(ConsultResponseDoc.class);
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
+
+    @Override
+    public void persist(AbstractModel<?> model) {
+        ConsultResponseDoc attachment = (ConsultResponseDoc) model;
+        if (ConsultResponseDoc.DOCTYPE_LAB.equals(attachment.getDocType())) {
+            var owner = entityManager.find(ConsultationResponse.class,
+                    attachment.getResponseId());
+            if (owner == null || owner.getDemographicNo() == null) {
+                throw new IllegalArgumentException("Lab attachment parent is missing");
+            }
+            String selection = attachment.getLabType() == null ? Integer.toString(attachment.getDocumentNo())
+                    : attachment.getLabType() + ":" + attachment.getDocumentNo();
+            var reference = LabAttachmentReference.resolve(
+                    selection, owner.getDemographicNo(), patientLabRoutingDao);
+            attachment.setLabType(reference.source());
+        }
+        super.persist(model);
     }
 
     public ConsultResponseDoc findByResponseIdDocNoDocType(Integer responseId, Integer documentNo, String docType) {
@@ -68,7 +95,7 @@ public class ConsultResponseDocDaoImpl extends AbstractDaoImpl<ConsultResponseDo
     }
 
     public List<Object[]> findLabs(Integer consultResponseId) {
-        Query q = entityManager.createQuery("SELECT crd, plr FROM ConsultResponseDoc crd, PatientLabRouting plr WHERE plr.labNo = crd.documentNo AND crd.responseId = ?1 AND crd.docType = ?2 AND crd.deleted IS NULL ORDER BY crd.documentNo");
+        Query q = entityManager.createQuery("SELECT crd, plr FROM ConsultResponseDoc crd, PatientLabRouting plr WHERE plr.labNo = crd.documentNo AND plr.labType = crd.labType AND EXISTS (select owner.id from ConsultationResponse owner where owner.id = crd.responseId and owner.demographicNo = plr.demographicNo) AND crd.responseId = ?1 AND crd.docType = ?2 AND crd.deleted IS NULL ORDER BY crd.documentNo");
         q.setParameter(1, consultResponseId);
         q.setParameter(2, ConsultResponseDoc.DOCTYPE_LAB);
         return q.getResultList();

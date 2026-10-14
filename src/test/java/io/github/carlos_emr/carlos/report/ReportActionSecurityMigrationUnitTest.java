@@ -52,6 +52,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -262,6 +264,37 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("RptByExamplesFavorite deletes the verified ID rather than the detached entity")
+    void shouldDeleteVerifiedFavoriteId_whenFavoriteBelongsToCurrentProvider() throws Exception {
+        authorizeFavoritePost();
+        ReportByExamplesFavorite favorite = favorite(42, "999998", "Mine", "select 1");
+        when(favoritesDao.find(42)).thenReturn(favorite);
+        when(favoritesDao.remove((Object) 42)).thenReturn(true);
+
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId("42");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(favoritesDao).remove((Object) 42);
+        verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao).findByProvider("999998");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-number", "2147483648"})
+    void shouldRejectFavoriteDelete_whenIdentifierIsInvalid(String id) {
+        authorizeFavoritePost();
+        RptByExamplesFavorite2Action action = new RptByExamplesFavorite2Action();
+        action.setToDelete("true");
+        action.setId(id);
+
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("Invalid favorite selection");
+        verifyNoInteractions(favoritesDao);
+    }
+
+    @Test
     @DisplayName("RptByExamplesFavorite rejects deletion of another provider's favorite")
     void shouldRejectFavoriteDelete_whenFavoriteBelongsToAnotherProvider() {
         authorizeFavoritePost();
@@ -276,6 +309,7 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("Favorite does not belong to the current provider");
         verify(favoritesDao, never()).remove(favorite);
+        verify(favoritesDao, never()).remove((Object) 42);
     }
 
     @Test
@@ -373,28 +407,110 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("UploadTemplates passes LoggedInInfo when adding and editing templates")
-    void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() {
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+    @DisplayName("UploadTemplates passes LoggedInInfo and the uploaded document when adding and editing templates")
+    void shouldPassLoggedInInfo_whenAddingAndEditingTemplates() throws Exception {
+        authorizeTemplateUpload();
+        String xml = "<report title=\"FAKE\" description=\"FAKE\"><query>SELECT 1</query></report>";
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) -> {
-            when(mock.addTemplate(null, "", loggedInInfo)).thenReturn("added");
-            when(mock.updateTemplate(null, "42", "", loggedInInfo)).thenReturn("updated");
+            when(mock.addTemplate(null, xml, loggedInInfo)).thenReturn("added");
+            when(mock.updateTemplate(null, "42", xml, loggedInInfo)).thenReturn("updated");
         })) {
             request.setParameter("action", "add");
-            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            UploadTemplates2Action add = new UploadTemplates2Action();
+            add.setTemplateFile(uploadedTemplate(xml));
+            assertThat(add.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(request.getAttribute("message")).isEqualTo("added");
 
             request.setParameter("action", "edit");
             request.setParameter("templateid", "42");
-            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+            UploadTemplates2Action edit = new UploadTemplates2Action();
+            edit.setTemplateFile(uploadedTemplate(xml));
+            assertThat(edit.execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(request.getAttribute("message")).isEqualTo("updated");
 
             assertThat(reportManagers.constructed()).hasSize(2);
-            verify(reportManagers.constructed().get(0)).addTemplate(null, "", loggedInInfo);
-            verify(reportManagers.constructed().get(1)).updateTemplate(null, "42", "", loggedInInfo);
+            verify(reportManagers.constructed().get(0)).addTemplate(null, xml, loggedInInfo);
+            verify(reportManagers.constructed().get(1)).updateTemplate(null, "42", xml, loggedInInfo);
         }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates refuses GET before reading or storing anything")
+    void shouldReturn405_whenUploadTemplatesIsNotPost() throws Exception {
+        authorizeTemplateUpload();
+        request.setMethod("GET");
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates names an empty file instead of parsing nothing")
+    void shouldReportEmptyUpload_whenTemplateFileIsEmpty() throws Exception {
+        authorizeTemplateUpload();
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(""));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("message")).isEqualTo("Error: The uploaded template file is empty");
+            assertThat(request.getAttribute("submittedXml")).isNull();
+            verifyNoInteractions(reportManagers.constructed().toArray());
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates shows a refused upload in the editor so it can be fixed")
+    void shouldReshowUploadedXml_whenUploadRefused() throws Exception {
+        authorizeTemplateUpload();
+        String xml = "<report title=\"FAKE\" description=\"FAKE\"><query>DELETE FROM demographic</query></report>";
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class, (mock, context) ->
+                when(mock.addTemplate(null, xml, loggedInInfo))
+                        .thenReturn("Error: The <query> was refused: Only SELECT statements are allowed"))) {
+            request.setParameter("action", "add");
+            UploadTemplates2Action upload = new UploadTemplates2Action();
+            upload.setTemplateFile(uploadedTemplate(xml));
+            assertThat(upload.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("submittedXml")).isEqualTo(xml);
+        }
+    }
+
+    @Test
+    @DisplayName("UploadTemplates requires _report write, not just read, to store a template")
+    void shouldRequireReportWrite_whenUploadingTemplates() {
+        authorizeTemplateUpload();
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(false);
+        request.setParameter("action", "add");
+
+        try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class)) {
+            assertThatThrownBy(() -> new UploadTemplates2Action().execute())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_report)");
+            assertThat(reportManagers.constructed()).isEmpty();
+        }
+    }
+
+    private void authorizeTemplateUpload() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        request.setMethod("POST");
+    }
+
+    /** A Struts-style multipart temp file (upload_*.tmp in java.io.tmpdir), deleted on exit. */
+    private static java.io.File uploadedTemplate(String xml) throws java.io.IOException {
+        java.io.File file = java.io.File.createTempFile("upload_", ".tmp");
+        file.deleteOnExit();
+        java.nio.file.Files.writeString(file.toPath(), xml);
+        return file;
     }
 
     private void assertMissingLoggedInInfoFails(ActionSupport action) {
@@ -447,6 +563,9 @@ class ReportActionSecurityMigrationUnitTest extends CarlosUnitTestBase {
         }
         verify(reporter).generateReport(request);
 
+        // Uploading is a write: POST and _report write (checked after the read gate counted above).
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)).thenReturn(true);
         request.setParameter("action", "noop");
         assertThat(new UploadTemplates2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("message")).isEqualTo("Error: No file uploaded");

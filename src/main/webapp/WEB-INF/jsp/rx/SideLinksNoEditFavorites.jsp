@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
@@ -42,9 +43,21 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-    RxSessionBean bean2 = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+    // This fragment is shared by prescription and allergy pages. Authorize each clinical
+    // section separately: lacking allergy access must not terminate an authorized Rx page.
+    RxSessionBean bean2 = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
+    RxSessionBean rxSidebarAllergyBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
+    if (bean2 == null) bean2 = rxSidebarAllergyBean;
+    if (bean2 == null) {
+        // No Rx open for the request's patient (or a malformed demographicNo): nothing to render,
+        // and never another patient's (#3908).
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
 
-    Allergy[] allergies = RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request), bean2.getDemographicNo()).getActiveAllergies();
+    Allergy[] allergies = rxSidebarAllergyBean == null ? new Allergy[0]
+            : RxPatientData.getPatient(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    rxSidebarAllergyBean.getDemographicNo()).getActiveAllergies();
     String alle = "";
     if (allergies.length > 0) {
         alle = "Red";
@@ -55,6 +68,7 @@
 
 <div class="PropSheetMenu">
 
+    <% if (rxSidebarAllergyBean != null) { %>
     <security:oscarSec roleName="<%=roleName$%>" objectName="_allergy" rights="r" reverse="<%=false%>">
 
         <p class="PropSheetLevel1CurrentItem<%=alle%>"><fmt:message key="oscarRx.sideLinks.msgAllergies"/></p>
@@ -69,6 +83,7 @@
 
 
     </security:oscarSec>
+    <% } %>
 
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/></p>
     <p class="PropSheetMenuItemLevel1">
@@ -90,7 +105,7 @@
 <script type="text/javascript">
 
     function goSD3(favoriteId) {
-        location.href = "<%= request.getContextPath() %>/rx/searchDrug?usefav=true&favid=" + favoriteId;
+        location.href = "<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&usefav=true&favid=" + encodeURIComponent(favoriteId);
     }
 
 </script>

@@ -55,6 +55,15 @@ class BillingErrorPageNavigationUnitTest {
                 .noneMatch(link -> link.attr("href").endsWith("/provider/providercontrol"));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("billingErrorPages")
+    @DisplayName("should use fixed public guidance for every error source and withhold diagnostic context")
+    void shouldWithholdRawDiagnostics_whenBillingErrorPageRendered(Path jspPath) throws Exception {
+        String jsp = readJsp(jspPath);
+        assertThat(jsp).contains("PublicExceptionDetails.message(", "carlosIncidentId")
+                .doesNotContain(".getMessage()", ".context()", "${entry.value}");
+    }
+
     @Test
     @DisplayName("should not embed JSP syntax in scriptlet comments")
     void shouldNotEmbedJspSyntax_whenDocumentingErrorSources() throws Exception {

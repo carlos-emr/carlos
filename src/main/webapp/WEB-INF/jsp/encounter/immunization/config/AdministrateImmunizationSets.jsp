@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -135,7 +136,7 @@
                                               value="<%=id%>"/></td>
                         <td width="70%"><a
                                 href="#" onclick="popupImmunizationSet(768,1024,'encounter/immunization/config/ImmunizationSetDisplay?setId=<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(id))%>'); return false;">
-                            <%=name%>
+                            <carlos:encode value='<%= name %>' context="html"/>
                         </a></td>
                         <td align="center"><%=createDate%>
                         </td>

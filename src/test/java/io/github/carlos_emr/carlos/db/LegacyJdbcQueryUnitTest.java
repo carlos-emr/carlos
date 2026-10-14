@@ -193,6 +193,27 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse file-access clauses whatever whitespace separates their words")
+    void shouldRejectFileAccessClauses_withAnyWhitespaceBetweenWords() {
+        // MariaDB accepts a newline or a tab between INTO and OUTFILE as readily as a space.
+        List<String> fileAccess = List.of(
+                "select * from demographic into\noutfile '/tmp/out'",
+                "select * from demographic INTO\tOUTFILE '/tmp/out'",
+                "select * from demographic into  \r\n dumpfile '/tmp/out'",
+                "select * from demographic load\ndata infile '/tmp/in'");
+
+        for (String sql : fileAccess) {
+            assertThatThrownBy(() -> validateSafeSelectQuery(sql)).as("generic: %s", sql)
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> LegacyJdbcQuery.trustedReportSelectSql(sql)).as("report: %s", sql)
+                    .isInstanceOf(SQLException.class);
+        }
+        // A column that merely starts with the word is not a file-access clause.
+        assertThatCode(() -> LegacyJdbcQuery.trustedReportSelectSql("select into_date, loaded from demographic"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("shouldRejectDirectSqlExecutionBoundary")
     void shouldReject_directSqlExecutionBoundary() {
         assertThatThrownBy(() -> LegacyJdbcQuery.queryResults("select demographic_no from demographic"))

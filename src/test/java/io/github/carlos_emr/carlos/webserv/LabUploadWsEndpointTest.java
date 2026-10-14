@@ -76,6 +76,7 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
     private MockedStatic<Utilities> utilitiesMock;
 
     private LabUploadWs ws;
+    private io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager transactions;
 
     @Override
     protected Object getServiceBean() {
@@ -91,6 +92,8 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
 
     @BeforeEach
     void setUpMocks() {
+        transactions = new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager();
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         carlosPropertiesMock = mockStatic(CarlosProperties.class);
         fileUploadCheckMock = mockStatic(FileUploadCheck.class);
         handlerClassFactoryMock = mockStatic(HandlerClassFactory.class);
@@ -117,8 +120,10 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
 
         @DisplayName("should return success JSON when lab upload succeeds")
         void shouldReturnSuccessJson_whenLabUploadSucceeds() {
-            fileUploadCheckMock.when(() -> FileUploadCheck.addFile(anyString(), any(InputStream.class), anyString()))
-                .thenReturn(1);
+            fileUploadCheckMock.when(() -> FileUploadCheck.storeSavedFileIfNew(any(java.io.File.class),
+                            any(java.io.File.class), anyString(), anyString(), any(FileUploadCheck.ContentStore.class)))
+                .thenAnswer(invocation -> invocation.<FileUploadCheck.ContentStore>getArgument(4).store(1)
+                        ? FileUploadCheck.StoreOutcome.STORED : FileUploadCheck.StoreOutcome.REJECTED);
             handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("CLS"))
                 .thenReturn(messageHandler);
             when(messageHandler.parse(any(LoggedInInfo.class), anyString(), anyString(), anyInt(), anyString()))
@@ -161,7 +166,7 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
         @DisplayName("should return success JSON when PDF upload succeeds")
         void shouldReturnSuccessJson_whenPdfUploadSucceeds() {
             utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString()))
-                .thenReturn("/tmp/test.pdf");
+                .thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "test.pdf").getPath());
             handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC"))
                 .thenReturn(messageHandler);
             when(messageHandler.parse(any(LoggedInInfo.class), anyString(), anyString(), anyInt(), anyString()))
@@ -171,6 +176,63 @@ class LabUploadWsEndpointTest extends CarlosSoapTestBase {
             String result = proxy.uploadPDF("report.pdf", "PDF-content".getBytes(), "999");
 
             assertThat(result).contains("\"success\":1");
+            assertThat(transactions.commits).isEqualTo(1);
         }
+
+        @Test
+        void shouldReturnFailureAndRollBack_whenPdfHandlerRejectsUpload() {
+            utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString())).thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "synthetic.pdf").getPath());
+            handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC")).thenReturn(messageHandler);
+            when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+                assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                return null;
+            });
+            String result = createClient(LabUploadWs.class).uploadPDF("synthetic.pdf", "SYNTHETIC".getBytes(), "999");
+            assertThat(result).contains("\"success\":0");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+
+        @Test
+        void shouldRemoveSavedPdf_whenPdfHandlerRejectsUpload() throws Exception {
+            java.nio.file.Path documentDir = java.nio.file.Files.createTempDirectory("carlos-4086-");
+            java.nio.file.Path saved = java.nio.file.Files.writeString(documentDir.resolve("DocUpload.synthetic.1.pdf"), "%PDF-1.4");
+            try {
+                when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+                fileUploadCheckMock.when(() -> FileUploadCheck.discardOnRollback(any(), any())).thenCallRealMethod();
+                fileUploadCheckMock.when(() -> FileUploadCheck.discardUnreferenced(any(), any())).thenCallRealMethod();
+                utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString())).thenReturn(saved.toString());
+                handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC")).thenReturn(messageHandler);
+                when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+
+                String result = createClient(LabUploadWs.class).uploadPDF("synthetic.pdf", "SYNTHETIC".getBytes(), "999");
+
+                assertThat(result).contains("\"success\":0");
+                // No document row references the PDF after the rollback, so it is not left behind.
+                assertThat(saved).doesNotExist();
+            } finally {
+                java.nio.file.Files.deleteIfExists(saved);
+                java.nio.file.Files.deleteIfExists(documentDir);
+            }
+        }
+    }
+
+    @Test
+    void shouldRollBackGeneratedDocuments_whenFhirHandlerRejectsUpload() {
+        utilitiesMock.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "synthetic.json").getPath());
+        handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("FHIR_COMMUNICATION_REQUEST")).thenReturn(messageHandler);
+        java.util.concurrent.atomic.AtomicInteger completion = new java.util.concurrent.atomic.AtomicInteger(-1);
+        when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCompletion(int status) { completion.set(status); }
+                    });
+            return null;
+        });
+        String result = createClient(LabUploadWs.class).uploadDocumentReference("synthetic.json", "SYNTHETIC".getBytes(), "999");
+        assertThat(result).contains("\"success\":0");
+        assertThat(completion.get()).isEqualTo(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
     }
 }

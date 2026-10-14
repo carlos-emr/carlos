@@ -66,6 +66,11 @@ public class EformLogError2Action extends ActionSupport {
      * @throws Exception if an error occurs during error logging or parameter processing
      */
     public String execute() throws Exception {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
             throw new SecurityException("missing required sec object (_eform)");

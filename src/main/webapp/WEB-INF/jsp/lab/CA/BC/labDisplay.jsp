@@ -620,8 +620,7 @@ href="#" onclick="popupStart(360, 680, '${pageContext.request.contextPath}/oscar
                             <input type="button"
                                    value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    <c:set var="__enc_4"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/></c:set>
-                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/Se                                   
-archPatient?labType=BCP&segmentID=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
+                                   onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=BCP&segmentID=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
                             <% } %>
                         </td>
                         <td width="50%" valign="center" align="left"><span

@@ -39,7 +39,23 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+import java.math.BigDecimal;
+
 public class RptCheckGuideline {
+
+    /** Numeric binding prevents VARCHAR readings from being compared lexicographically. */
+    static BigDecimal numericValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value.trim());
+        } catch (NumberFormatException _) {
+            return null;
+        }
+    }
+
+
 
     public RptCheckGuideline() {
     }
@@ -56,7 +72,9 @@ public class RptCheckGuideline {
             String validation = mt.getValidation();
 
             Validations v = vDao.find(ConversionUtils.fromIntString(validation));
-            if (v != null && v.isNumeric()) {
+            // isNumeric is NULL on non-numeric rules (Yes/No/NA, Provided/Revised/Reviewed); unboxing
+            // it threw and aborted the whole CDM report.
+            if (v != null && Boolean.TRUE.equals(v.isNumeric())) {
                 return 1;
             } else {
                 return 0;
@@ -141,35 +159,60 @@ public class RptCheckGuideline {
     }
 
     /*****************************************************************************************
-     * Check if the yes/no question met guideline 
+     * Check if a non-numeric (yes/no or categorical) reading met guideline.
+     *
+     * <p>A yes/no guideline keeps its original matching. Any other guideline is a categorical
+     * value, such as the Asthma Action Plan's {@code Provided}, {@code Revised} or
+     * {@code Reviewed} (issue #3893). A reading meets it when it holds the same value, ignoring
+     * surrounding whitespace. Without this branch every categorical reading counted as not
+     * meeting the guideline.</p>
      *
      * @return boolean
      ******************************************************************************************/
     public boolean isYesNoMetGuideline(String dataEntry, String guideline) {
-        boolean passAllTests = false;
+        boolean passAllTests;
 
         MiscUtils.getLogger().debug("this is yes/no question");
-        if (guideline.compareTo("YES") == 0 || guideline.compareTo("yes") == 0
-                || guideline.compareTo("Y") == 0 || guideline.compareTo("Yes") == 0) {
-            if (dataEntry.compareTo("YES") == 0 || dataEntry.compareTo("yes") == 0
-                    || dataEntry.compareTo("Y") == 0 || dataEntry.compareTo("Yes") == 0) {
-                passAllTests = true;
-                MiscUtils.getLogger().debug("Pass yesno test");
-            } else {
-                passAllTests = false;
-                MiscUtils.getLogger().debug("fail yesno test");
-            }
-        } else if (guideline.compareTo("NO") == 0 || guideline.compareTo("No") == 0
-                || guideline.compareTo("N") == 0 || guideline.compareTo("no") == 0) {
-            if (dataEntry.compareTo("NO") == 0 || dataEntry.compareTo("No") == 0
-                    || dataEntry.compareTo("N") == 0 || dataEntry.compareTo("no") == 0) {
-                passAllTests = true;
-                MiscUtils.getLogger().debug("Pass yesno test");
-            } else {
-                passAllTests = false;
-                MiscUtils.getLogger().debug("fail yesno test");
-            }
+        if (isYes(guideline)) {
+            passAllTests = isYes(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass yesno test" : "fail yesno test");
+        } else if (isNo(guideline)) {
+            passAllTests = isNo(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass yesno test" : "fail yesno test");
+        } else if (isNotApplicable(guideline)) {
+            // The seeded Yes/No/NA rule accepts both "NA" and "NotApplicable" for the same answer,
+            // so a not-applicable guideline matches either spelling, as the yes and no branches do
+            // for theirs. Legacy AACP readings recorded under that rule may hold either form.
+            passAllTests = isNotApplicable(dataEntry);
+            MiscUtils.getLogger().debug(passAllTests ? "Pass NA test" : "fail NA test");
+        } else {
+            // Categorical guideline: the validation rule that accepted it is case-sensitive, so
+            // an exact match is the same comparison the reading itself was validated with.
+            // A blank guideline names no category, so it must not "match" blank readings.
+            passAllTests = !guideline.isBlank() && dataEntry != null && guideline.trim().equals(dataEntry.trim());
         }
         return passAllTests;
+    }
+
+    /** The exact yes spellings the seeded Yes/No rules accept ({@code YES|yes|Yes|Y}). */
+    private static boolean isYes(String value) {
+        return value != null && ("YES".equals(value) || "yes".equals(value) || "Y".equals(value) || "Yes".equals(value));
+    }
+
+    /** The exact no spellings the seeded Yes/No rules accept ({@code NO|no|No|N}). */
+    private static boolean isNo(String value) {
+        return value != null && ("NO".equals(value) || "No".equals(value) || "N".equals(value) || "no".equals(value));
+    }
+
+    /**
+     * Whether a guideline or reading is one of the not-applicable spellings the seeded
+     * {@code Yes/No/NA} validation rule accepts ({@code NA} or {@code NotApplicable}).
+     */
+    private static boolean isNotApplicable(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        return trimmed.equals("NA") || trimmed.equals("NotApplicable");
     }
 }

@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -73,6 +74,7 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -151,7 +153,7 @@ public class CaseManagementPrint {
      * @param printLabs boolean true to include laboratory results (HL7 reports)
      * @param printPreventions boolean true to include prevention/immunization records
      * @param printAllergies boolean true to include patient allergy information
-     * @param useDateRange boolean true to filter notes by date range (requires startDate and endDate)
+     * @param useDateRange boolean true to filter notes and labs by date range (requires startDate and endDate)
      * @param startDate Calendar the start date for date range filtering (inclusive); may be null if useDateRange is false
      * @param endDate Calendar the end date for date range filtering (inclusive); may be null if useDateRange is false
      * @param request HttpServletRequest the servlet request containing session data and parameters
@@ -167,9 +169,11 @@ public class CaseManagementPrint {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
+
         // Get all or date range noteIds.
         if (printAllNotes && useDateRange) {
-            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), startDate.getTime(), endDate.getTime());
+            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), Date.from(printRange.startInclusive()), Date.from(printRange.endExclusive()));
             noteIds = dateRangeNotes.stream()
                 .map(note -> note.getId().toString())
                 .toArray(String[]::new);
@@ -215,28 +219,10 @@ public class CaseManagementPrint {
             Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
         }
 
-        // Filter notes by date range if specified and not already filtered by caseManagementMgr
-        if (useDateRange && (startDate != null && endDate != null) && !printAllNotes) {
-            logger.debug("Filtering notes by date range - start date: " + startDate + ", end date: " + endDate);
-
+        if (printRange != null && !printAllNotes) {
             notes = notes.stream()
-                .filter(cmn -> {
-                    Date noteDate = cmn.getObservation_date();
-                    if (noteDate == null) {
-                        logger.debug("Note " + cmn.getId() + " has null observation date - excluding");
-                        return false;
-                    }
-
-                    boolean afterStart = !startDate.getTime().after(noteDate);
-                    boolean beforeEnd = !endDate.getTime().before(noteDate);
-                    boolean inRange = afterStart && beforeEnd;
-
-                    logger.debug("Note " + cmn.getId() + " date " + noteDate +
-                        " - after start: " + afterStart + ", before end: " + beforeEnd + ", in range: " + inRange);
-
-                    return inRange;
-                })
-                .collect(Collectors.toList());
+                    .filter(note -> printRange.contains(note.getObservation_date()))
+                    .collect(Collectors.toList());
         }
 
         List<CaseManagementNote> issueNotes;
@@ -268,6 +254,10 @@ public class CaseManagementPrint {
                 }
                 cpp.put(issueCode, issueNotes);
             }
+            // CPP notes already rendered in their sections must not repeat in the notes body.
+            Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
+                    .map(CaseManagementNote::getId).collect(Collectors.toSet());
+            notes.removeIf(note -> printedCppIds.contains(note.getId()));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
@@ -277,9 +267,12 @@ public class CaseManagementPrint {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
                 String[] issueIds = getIssueIds(issues); // new String[issues.size()];
                 othermeds = caseManagementMgr.getNotes(demono, issueIds);
-            } else {
-                othermeds = cpp.get("OMeds");
+                // Rx-only printing renders Other Meds here, so omit those notes from the body.
+                Set<Long> printedMedicationIds = othermeds.stream().map(CaseManagementNote::getId)
+                        .collect(Collectors.toSet());
+                notes.removeIf(note -> printedMedicationIds.contains(note.getId()));
             }
+            // When CPP is selected, it already renders Other Meds; Rx prints prescriptions only.
         }
 
         List<Prevention> preventions = null;
@@ -289,7 +282,9 @@ public class CaseManagementPrint {
 
         List<Allergy> allergies = null;
         if (printAllergies) {
-            allergies = allergyDao.findAllergies(demographicNo);
+            // Keep the existing severity order while excluding allergies removed from the chart.
+            allergies = allergyDao.findAllergies(demographicNo).stream()
+                    .filter(allergy -> !allergy.getArchived()).toList();
         }
 
         SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
@@ -354,7 +349,9 @@ public class CaseManagementPrint {
                 LinkedHashMap<String, LabResultData> accessionMap = new LinkedHashMap<String, LabResultData>();
                 for (int i = 0; i < labs.size(); i++) {
                     LabResultData result = labs.get(i);
-                    if (result.isHL7TEXT()) {
+                    // Filter before accession de-duplication so an out-of-range version
+                    // cannot hide a report that belongs to the selected calendar days.
+                    if (result.isHL7TEXT() && (printRange == null || printRange.contains(result.getDateObj()))) {
                         if (result.accessionNumber == null || result.accessionNumber.equals("")) {
                             accessionMap.put("noAccessionNum" + i + result.labType, result);
                         } else {
@@ -365,8 +362,6 @@ public class CaseManagementPrint {
                 }
 
                 for (LabResultData result : accessionMap.values()) {
-                    //Date d = result.getDateObj();
-                    // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     // Each lab is rendered into the application temp directory, as every other
                     // LabPDFCreator caller does, NOT under DOCUMENT_DIR: addEmbeddedDocuments()
@@ -410,12 +405,12 @@ public class CaseManagementPrint {
                 }
 
             }
-            ConcatPDF.concatRequired(pdfDocs, os);
+            mergeCompletePdf(pdfDocs, os);
         } catch (IOException | RuntimeException e) {
             // Missing inputs fail before the response stream is written. Propagate assembly failures
             // instead of returning a successful incomplete PDF. The Struts direct-response caller
             // resets an uncommitted response and sends a real error;
-            // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
+            // the REST StreamingOutput caller returns HTTP 500. Mapped to IOException per the method contract.
             logger.error("Chart print generation failed ({})", e.getClass().getSimpleName());
             throw new IOException("Failed to generate complete chart print PDF");
         } finally {
@@ -531,7 +526,7 @@ public class CaseManagementPrint {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
@@ -609,7 +604,7 @@ public class CaseManagementPrint {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: " + criteria);
+            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
@@ -745,6 +740,21 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException failure) {
             // Keep cleaning every PHI-bearing file and preserve the original print failure.
             logger.warn("Could not close temporary chart print stream ({})", failure.getClass().getSimpleName());
+        }
+    }
+
+    /** Assemble completely before committing either HTTP endpoint's response. */
+    static void mergeCompletePdf(List<Object> inputs, OutputStream response) throws IOException {
+        File complete = PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf");
+        try {
+            try (OutputStream staged = Files.newOutputStream(complete.toPath())) {
+                ConcatPDF.concatRequired(inputs, staged);
+            }
+            Files.copy(complete.toPath(), response);
+        } finally {
+            if (!deleteTempPdf(complete, "completed chart print PDF")) {
+                deleteTempPdf(complete, "completed chart print PDF (retry)");
+            }
         }
     }
 
