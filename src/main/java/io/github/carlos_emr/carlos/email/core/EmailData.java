@@ -333,9 +333,9 @@ public class EmailData {
      * Returns the plain-text body the transport sends: the body, then one blank line, then the
      * footer as plain text ({@link EmailFooterHtml#toPlainText}).
      *
-     * <p>Without a footer the body is exactly as it is, so an email without a footer is
-     * byte-for-byte what it was before footers existed, and is sent as plain text only. With
-     * encryption on, the body is the fixed secure-message notice, so the footer follows the notice
+     * <p>Without a footer the body is returned unchanged. EmailManager refuses a send while no
+     * clinic footer is saved (issue #3981), so a new email always carries one; the footer-less
+     * result only applies to an EmailData built outside that send path. With encryption on, the body is the fixed secure-message notice, so the footer follows the notice
      * in clear text; it is never part of the encrypted PDF.</p>
      *
      * @return String the transmitted body
@@ -354,7 +354,8 @@ public class EmailData {
      * Returns the formatted (HTML) version the transport sends alongside the plain-text body: the
      * body, the clinic logo when one is attached ({@link #getFooterLogo()}), then the footer.
      *
-     * @return the HTML document, or null for an email without a footer, which is sent as plain text
+     * @return the HTML document, or null for an EmailData without a footer (never a new send, which
+     *         always carries the clinic footer)
      * @since 2026-10-08
      */
     public String getTransmittedHtml() {

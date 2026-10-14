@@ -715,10 +715,13 @@ The health-care-team run also covers installations without an `other` specialty
 entry; the form must render with an unspecified role instead of failing.
 
 `email-recovery-playwright-checks.js` creates two synthetic email logs for demo
-patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this). It checks the in-flight-send
-recovery guard, stale-delivery warning and resolution, fresh compose passphrases,
-and server-acknowledged cancellation. It does not send email and removes only its
-owned logs. With no sender configured, it also requires an explicit warning and
+patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this) and a personal email footer for
+the test user; it refuses to start if that user already has one. It checks the
+in-flight-send recovery guard, stale-delivery warning and resolution, fresh compose
+passphrases, and server-acknowledged cancellation. On Resend it requires the user's
+own footer, cleaned, rather than the footer kept on the log, and a read-only clinic
+footer. It does not send email and removes only its owned logs and footer. With no
+sender or no clinic footer configured, it also requires an explicit warning and a
 disabled Send button. Both checks require a disposable local database and reject
 non-loopback `MYSQL_HOST` values. Email recovery also requires a loopback
 `BASE_URL`, even when the shared remote-target opt-in is set, because its

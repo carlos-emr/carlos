@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -34,10 +35,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.function.Supplier;
+import org.apache.logging.log4j.Logger;
 
 /** Read-only provider of the current mandatory clinic footer to the portal's mail worker. */
 @WebServlet(name = "PortalClinicEmailFooter", urlPatterns = "/ws/portal/email-footer")
 public final class PortalClinicEmailFooterServlet extends HttpServlet {
+    private static final Logger logger = MiscUtils.getLogger();
     private final Supplier<PatientPortalSettings> settings;
     private final Supplier<ClinicEmailFooterSnapshot> footers;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -81,13 +84,16 @@ public final class PortalClinicEmailFooterServlet extends HttpServlet {
                     .signEmailFooter(configured, query.substring(6), footers.get());
             byte[] bytes = mapper.writeValueAsBytes(mapper.createObjectNode().put("assertion", assertion));
             if (bytes.length > PortalClinicEmailFooterProtocol.MAX_RESPONSE_BYTES) {
+                logger.warn("Portal clinic email footer refused: the signed response exceeds the size limit");
                 refuse(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE);
                 return;
             }
             response.setStatus(HttpServletResponse.SC_OK);
             response.getOutputStream().write(bytes);
         } catch (RuntimeException failure) {
-            // Do not echo or log authorization, query, configured secrets or footer contents.
+            // Do not echo or log authorization, query, configured secrets or footer contents: the
+            // exception class alone tells an operator whether settings, signing or the footer failed.
+            logger.warn("Portal clinic email footer unavailable ({})", failure.getClass().getName());
             refuse(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE);
         }
     }

@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot;
 import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import java.security.KeyFactory;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -183,7 +184,14 @@ class PortalClinicEmailFooterServletUnitTest {
     void shouldFailClosed_whenConfiguredFooterOrSigningSettingsCannotBeRead() throws Exception {
         var response = new MockHttpServletResponse();
         var unavailable = new PortalClinicEmailFooterServlet(() -> { throw new IllegalStateException("private secret detail"); }, footers);
-        unavailable.service(request("GET", "nonce=" + NONCE, bearer()), response);
+        try (LogCapture logs = LogCapture.forLogger(PortalClinicEmailFooterServlet.class)) {
+            unavailable.service(request("GET", "nonce=" + NONCE, bearer()), response);
+
+            // The operator sees which kind of failure it was, never its message, the token or the nonce.
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0)).contains("java.lang.IllegalStateException")
+                    .doesNotContain("private secret detail", bearer().substring(7), NONCE);
+        }
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString()).doesNotContain("private secret detail");
         verifyNoInteractions(footers);

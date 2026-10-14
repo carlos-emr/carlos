@@ -82,7 +82,6 @@ class ViewPortalEmailFooterAuditUnitTest {
         when(audit.read(any(),eq(history.date()),isNull())).thenReturn(history);
         assertThat(action().execute()).isEqualTo("success");
         assertThat(request.getAttribute("portalFooterAudit")).isSameAs(history);
-        assertThat(history.attempts().get(0).footerText()).isEqualTo("FAKE Saved Old Clinic");
         assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Current Clinic");
     }
     @Test void shouldRefuseInvalidOrDuplicateDateAndCursor_beforePortal() throws Exception {
@@ -119,7 +118,7 @@ class ViewPortalEmailFooterAuditUnitTest {
         var doc=org.jsoup.Jsoup.parse(jsp);
         assertThat(doc.select("details")).hasSize(2);
         assertThat(doc.select("details[open]")).isEmpty();
-        assertThat(jsp).contains("<c:out value=\"${attempt.footerText}\"/>")
-                .doesNotContain("escapeXml=\"false\"", "innerHTML", "${clinicFooter}", "<img");
+        assertThat(jsp).contains("<carlos:encode value=\"${attempt.footerText}\"/>")
+                .doesNotContain("<c:out", "escapeXml=\"false\"", "innerHTML", "${clinicFooter}", "<img");
     }
 }
