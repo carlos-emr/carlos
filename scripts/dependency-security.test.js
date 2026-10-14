@@ -37,13 +37,29 @@ test('isolated checks cannot pass before asynchronous assertions finish', () => 
     /async assertion failed/);
 });
 
-/** Assert that npm lockfile package entries contain no removed implementations, including aliases. */
+/** Reject removed npm identities, following links and inferring names when npm omits them. */
 function assertRemovedPackagesAbsent(packages) {
   const removed = ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got'];
-  for (const [location, entry] of Object.entries(packages)) {
+  const packageName = (location) => {
+    const seen = new Set();
+    while (true) {
+      assert.ok(!seen.has(location), `Cyclic npm lockfile link target (${location})`);
+      seen.add(location);
+      assert.ok(Object.hasOwn(packages, location), `Missing npm lockfile link target (${location})`);
+      const entry = packages[location];
+      if (!entry.link) {
+        // Local targets can live outside node_modules; preserve any scope in the final path.
+        const name = entry.name ?? location.match(/(?:^|\/)((?:@[^/]+\/)?[^/]+)$/)?.[1];
+        assert.ok(typeof name === 'string' && name.length > 0, `Missing npm package identity (${location})`);
+        return name;
+      }
+      assert.equal(typeof entry.resolved, 'string', `Missing npm lockfile link target (${location})`);
+      location = entry.resolved; // Link targets are relative to the lockfile root.
+    }
+  };
+  for (const location of Object.keys(packages)) {
     if (!location) continue; // The root project is not an installed dependency.
-    // npm records the real name for aliases; ordinary entries omit it.
-    const name = entry.name ?? location.match(/(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)$/)?.[1];
+    const name = packageName(location);
     assert.ok(!removed.includes(name), `${name} must remain removed (${location})`);
   }
 }
@@ -84,6 +100,49 @@ test('allowed packages and aliases are not confused with removed implementations
     'node_modules/cache-helper': {name: 'http-cache-semantics-helper', version: '1.0.0'},
     'scripts/npm/local-helper': {name: '@fixture/local-helper', version: '1.0.0'},
   }));
+});
+
+test('removed implementations are rejected behind local npm links', () => {
+  // npm 10.9.9 Arborist serialization omits name when a local target's folder matches it.
+  for (const [name, version] of Object.entries({
+    'sprintf-js': '1.0.3', 'http-cache-semantics': '4.2.0', 'cacheable-request': '10.2.14', got: '12.6.1',
+  })) {
+    const target = `vendor/${name}`;
+    assert.throws(() => assertRemovedPackagesAbsent({
+      '': {name: 'fixture', version: '1.0.0', dependencies: {'client-alias': `file:${target}`}},
+      'node_modules/client-alias': {resolved: target, link: true},
+      [target]: {version},
+    }), {name: 'AssertionError', message: `${name} must remain removed (node_modules/client-alias)`});
+  }
+});
+
+test('local npm links use allowed target identities instead of removed install names', () => {
+  // Both target shapes were verified with npm 10.9.9's lockfile serializer.
+  assert.doesNotThrow(() => assertRemovedPackagesAbsent({
+    '': {name: 'fixture', version: '1.0.0', dependencies: {
+      got: 'file:vendor/allowed-client', 'sprintf-js': 'file:vendor/@fixture/got',
+    }},
+    'node_modules/got': {resolved: 'vendor/allowed-client', link: true},
+    'vendor/allowed-client': {name: '@fixture/allowed-client', version: '1.0.0'},
+    'node_modules/sprintf-js': {resolved: 'vendor/@fixture/got', link: true},
+    'vendor/@fixture/got': {version: '1.0.0'},
+  }));
+});
+
+test('npm links with missing targets fail closed', () => {
+  for (const entry of [{link: true}, {link: true, resolved: 'vendor/missing'}, {link: true, resolved: 'toString'}]) {
+    assert.throws(() => assertRemovedPackagesAbsent({'node_modules/client-alias': entry}),
+      {name: 'AssertionError', message: /Missing npm lockfile link target/});
+  }
+});
+
+test('npm links with cyclic targets fail closed', () => {
+  for (const target of ['node_modules/client-alias', 'vendor/cycle']) {
+    assert.throws(() => assertRemovedPackagesAbsent({
+      'node_modules/client-alias': {link: true, resolved: target},
+      'vendor/cycle': {link: true, resolved: 'node_modules/client-alias'},
+    }), {name: 'AssertionError', message: /Cyclic npm lockfile link target/});
+  }
 });
 
 test('brace consumers retain expansion, compilation, AST and glob behavior', () => {
