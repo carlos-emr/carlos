@@ -24609,6 +24609,9 @@
   "patientLabRouting": [
    "lab_no"
   ],
+  "pharmacyInfo": [
+   "uid"
+  ],
   "prescribe": [
    "demographic_no"
   ],
@@ -58812,6 +58815,9 @@
     ],
     "patientLabRouting": [
      "lab_no"
+    ],
+    "pharmacyInfo": [
+     "uid"
     ],
     "prescribe": [
      "demographic_no"

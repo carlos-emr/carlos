@@ -35,6 +35,17 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * A second mapping of the {@code favorites} table, kept for the callers that read and copy a provider's favourites
+ * with the table's own column names ({@code CopyFavorites2Action}, {@code FavoritesDao}). {@link Favorite} is the
+ * mapping the Rx favourite editor writes through; the two describe the same row.
+ *
+ * <p>Every {@code NOT NULL} column that has no database default has to be mapped here, because an insert through
+ * this entity cannot name a column it does not know. {@code dispenseInternal} is one: without the mapping the
+ * column was omitted from the insert, so a permissive {@code sql_mode} silently stored 0 (losing the source
+ * favourite's flag when a favourite was copied) and a strict {@code sql_mode} rejected the row with error 1364
+ * (issue #3151).
+ */
 @Entity
 @Table(name = "favorites")
 public class Favorites extends AbstractModel<Integer> {
@@ -108,6 +119,8 @@ public class Favorites extends AbstractModel<Integer> {
     private boolean customInstructions;
 
     private String unitName;
+
+    private boolean dispenseInternal = false;
 
     public Integer getId() {
         return id;
@@ -317,5 +330,12 @@ public class Favorites extends AbstractModel<Integer> {
         this.unitName = unitName;
     }
 
+    public boolean isDispenseInternal() {
+        return dispenseInternal;
+    }
+
+    public void setDispenseInternal(boolean dispenseInternal) {
+        this.dispenseInternal = dispenseInternal;
+    }
 
 }

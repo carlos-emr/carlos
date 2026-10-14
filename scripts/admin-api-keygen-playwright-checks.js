@@ -12,9 +12,12 @@
  * manager returns the owned service's private key (no-store JSON) as base64 PKCS#8 that
  * pairs with the stored public key, and audits the read. Last (fails today): its two
  * buttons must reach routes inside the application context and save/open.
+ * Last (pinned to app-findings-log.md finding 163): a GET of admin/ViewKeygenCreateKey that names a
+ * service must be refused and register no key pair; the page's own form posts, and the sibling
+ * update action refuses GET, but createKey.jsp creates the pair for any request that carries a name.
  * Fixtures: the client is created through the UI; the publicKeys row is seeded with a
  * fresh RSA-2048 pair (Create New Key has no working entry). Cleanup deletes only the
- * marker rows (ServiceClient, publicKeys, their audit rows) and asserts they are gone.
+ * marker rows (ServiceClient, publicKeys incl. the one a GET may create, their audit rows) and asserts they are gone.
  */
 const crypto = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -39,12 +42,15 @@ async function workflow(s) {
   const clientHigh = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM ServiceClient'));
   const ownedClient = `id>${clientHigh} AND name LIKE ${h.sqlString(marker + '%')}`;
   const service = marker;
+  // The service name the GET probe of finding 163 sends; createKey.jsp accepts letters, digits, . _ -
+  const probeService = `${marker}-get`;
+  const ownedServices = `service IN (${h.sqlString(service)},${h.sqlString(probeService)})`;
   const keyAudit = `action='read' AND content='PublicKey' AND contentId=${h.sqlString(service)}`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM ServiceClient WHERE ${ownedClient}; DELETE FROM publicKeys WHERE service=${h.sqlString(service)};
+    sql.execute(`DELETE FROM ServiceClient WHERE ${ownedClient}; DELETE FROM publicKeys WHERE ${ownedServices};
       DELETE FROM log WHERE ${keyAudit}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE ${ownedClient})
-      + (SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(service)}) + (SELECT COUNT(*) FROM log WHERE ${keyAudit})`) === '0',
+      + (SELECT COUNT(*) FROM publicKeys WHERE ${ownedServices}) + (SELECT COUNT(*) FROM log WHERE ${keyAudit})`) === '0',
     'Owned REST client, key or audit rows were not removed');
   });
 
@@ -248,6 +254,27 @@ async function workflow(s) {
       problems.push(`Create New Key opened ${createPath} instead of the Key Pair Creation page`);
     }
     h.assert(!problems.length, `Key manager buttons do not reach their routes: ${problems.join('; ')}`);
+  });
+
+  // The precondition of the pinned step below, in a step of its own: a probe service name that is already taken
+  // would make the refusal and the row count mean nothing, and must not read as the known failure.
+  await s.step('no key pair is registered under the probe service name', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(probeService)}`) === '0',
+      'A key pair is already registered under the probe service name');
+  });
+
+  // Pinned: holds only the assertion finding 163 breaks. The route is the one the Create New Key
+  // button opened in the step above (so it exists and is served by the application); the request is
+  // the same address with a name, sent as a GET. assertRefused requires the application's 403/405 and
+  // an unchanged publicKeys row count together, and never echoes the body (a created key's private
+  // half is in it).
+  await s.step('a GET of Create Key that names a service is refused and registers no key pair', async () => {
+    const owned = `service=${h.sqlString(probeService)}`;
+    const before = sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/ViewKeygenCreateKey'),
+      {params: {name: probeService, type: 'FAKEPW'}, maxRedirects: 0, failOnStatusCode: false});
+    await h.assertRefused(s, {response, table: 'publicKeys', where: owned, before,
+      label: 'GET admin/ViewKeygenCreateKey?name='});
   });
 }
 

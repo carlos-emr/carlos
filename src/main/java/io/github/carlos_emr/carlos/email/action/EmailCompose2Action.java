@@ -14,6 +14,7 @@ import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailComposeStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -57,6 +58,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * The eForm save stages one immutable draft in the HTTP session under a one-time key and redirects
  * here with that key (#4101). This action takes exactly that draft, once, and transfers it to request
  * attributes for JSP rendering, so two windows that save close together each open their own email.
+ * The attachments it prepares are staged the same way, under a new one-time key bound to the draft's
+ * patient that the page posts back to the send (#4425), so one window's compose cannot change what
+ * another window sends.
  *
  * Security Considerations:
  * <ul>
@@ -95,7 +99,9 @@ public class EmailCompose2Action extends ActionSupport {
         "isEmailAttachmentEncrypted", "isEmailAutoSend",
         "openEFormAfterEmail", "senderEmail", "subjectEmail",
         "bodyEmail", "encryptedMessageEmail",
-        "emailPatientChartOption"
+        "emailPatientChartOption",
+        // The session-wide attachment list that versions before #4425 kept.
+        "emailAttachmentList"
     };
 
     /** Shown when no draft is staged under the request's key: missing, already used, or dropped (#4101). */
@@ -137,7 +143,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>Prepares all attachment types: eForms, eDocuments, labs, forms, HRM documents</li>
      *   <li>Sanitizes attachment filenames for security</li>
      *   <li>Transfers the draft's values to request attributes for JSP rendering</li>
-     *   <li>Stores the prepared attachments in the session for the send</li>
+     *   <li>Stages the prepared attachments under this window's own key for the send (#4425)</li>
      * </ol>
      *
      * Session State Consumed:
@@ -145,8 +151,9 @@ public class EmailCompose2Action extends ActionSupport {
      * options and attachment selections) under a one-time key passed as the {@code draft}
      * parameter. This takes exactly that draft, once, and reads nothing else from the session, so
      * another window's save cannot change it. A missing, reused or dropped key shows the error page
-     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If preparing the
-     * attachments fails, the draft goes back under its key, so refreshing retries.
+     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If any later step of
+     * preparing the compose fails (the patient, consent, recipient or sender lookups, the PDF
+     * password, or the attachments), the draft goes back under its key, so refreshing retries.
      *
      * Request Parameters:
      * <ul>
@@ -169,12 +176,14 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
+     *   <li>emailAttachmentList (List&lt;EmailAttachment&gt;) - prepared and sanitized attachments, for display</li>
+     *   <li>emailAttachmentKey (String) - the one-time key the send uses to take this window's attachments</li>
      * </ul>
      *
-     * Session Attributes Set:
-     * <ul>
-     *   <li>emailAttachmentList (List&lt;EmailAttachment&gt;) - prepared and sanitized attachments</li>
-     * </ul>
+     * Session State Written:
+     * The prepared attachments are staged in {@link EmailAttachmentStaging} under a new one-time key,
+     * bound to this draft's patient (#4425). Nothing session-wide is overwritten, so composing for
+     * another patient in another window cannot change what this window sends.
      *
      * Security Features:
      * <ul>
@@ -247,20 +256,27 @@ public class EmailCompose2Action extends ActionSupport {
             fid = null;
         }
 
-        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-
-        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
-        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
-
-        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
-
-        if (emailPDFPassword == null) {
-            emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
-            emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
-        }
-
+        // Every lookup from here on runs after take() has consumed the draft, so all of them sit
+        // inside the restoring try: a transient failure (a database error, for one) must leave the
+        // window retryable rather than reporting it as expired on refresh.
+        String[] emailConsent;
+        String receiverName;
+        List<?>[] receiverEmailList;
+        List<EmailConfig> senderAccounts;
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
+            emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+
+            receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+            receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
+
+            senderAccounts = emailComposeManager.getAllSenderAccounts();
+
+            if (emailPDFPassword == null) {
+                emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
+                emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
+            }
+
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms));
             emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
@@ -300,7 +316,13 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("isEmailEncrypted", staged.isEmailEncrypted());
         request.setAttribute("isEmailAttachmentEncrypted", staged.isEmailAttachmentEncrypted());
         request.setAttribute("isEmailAutoSend", staged.isEmailAutoSend());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
+        // Stage this window's attachments under its own key, bound to this patient (#4425). The send
+        // takes exactly this entry, so another window's compose or resend cannot change what this
+        // window sends.
+        EmailAttachmentStaging.Staged stagedAttachments =
+                EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
+        request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
 
         return "compose";
     }

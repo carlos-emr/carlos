@@ -35,13 +35,21 @@
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
  * the documented stamps.js 404 on stock installs.
  *
+ * The letters are saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker): nothing it
+ * asserts depends on a demo patient's records (the Preventions button is checked for either a table or the empty-list message).
+ * The patient, the saved instances and their values are removed by the patient's key afterwards, where the application's own
+ * Delete only marks an instance removed; it used to leave six instances and 56 values on demo patient 1 per run. MYSQL_* reaches
+ * the database.
+ *
  * Environment: BASE_URL (default http://127.0.0.1:8080/carlos), TEST_USER/TEST_PASSWORD/TEST_PIN,
- * RTL_DEMOGRAPHIC_NO (default 1), RTL_FORM_NAME (default "Rich Text Letter"), RTL_TEMPLATE_NAME
+ * RTL_FORM_NAME (default "Rich Text Letter"), RTL_TEMPLATE_NAME
  * (optional, e.g. MissedAppointment.rtl), RTL_SCREENSHOT_DIR (default /tmp), CHROME_PATH (optional).
  */
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   assertNoPageErrors,
@@ -65,7 +73,8 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  demographicNo: process.env.RTL_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
   templateName: process.env.RTL_TEMPLATE_NAME || '',
@@ -198,7 +207,16 @@ async function savedFdid(page) {
   const step = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`); };
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const printLog = [];
+  const sql = createSqlRunner(readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  let ownedPatient = null;
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
     // A self-signed front door is only acceptable on the loopback install the runbook describes;
     // a remote HTTPS target must present a certificate the test user actually trusts.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
@@ -363,6 +381,13 @@ async function savedFdid(page) {
     results.push({ name: 'harness', ok: false });
   } finally {
     await browser.close();
+    try {
+      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+    } catch (error) {
+      step('the saved letters and the owned patient were removed', false, error.message);
+    } finally {
+      sql.dispose();
+    }
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

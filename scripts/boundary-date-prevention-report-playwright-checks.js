@@ -38,8 +38,10 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM demographicQueryFavourites WHERE queryName=${q(queryName)})`) === '0', 'Owned prevention fixtures were not removed');
   });
   for (const [name, date] of Object.entries(DAYS)) {
+    // demographic.last_name is varchar(30) and the marker is 23 characters: `${marker}-P` plus the whole key "before" is 31,
+    // which a strict sql_mode rejects (error 1406). Five characters of the key keep the three surnames distinct.
     const id = sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,hin,lastUpdateDate)
-      VALUES (${q(`${marker}-P${name}`)},'Prev','1950','06','15','F','AC',${q(provider)},'ON','ON','NR','',NOW()); SELECT LAST_INSERT_ID()`);
+      VALUES (${q(`${marker}-P${name.slice(0, 5)}`)},'Prev','1950','06','15','F','AC',${q(provider)},'ON','ON','NR','',NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), `Patient fixture ${name} was not created`);
     ids[name] = id;
     for (const type of TYPES) {

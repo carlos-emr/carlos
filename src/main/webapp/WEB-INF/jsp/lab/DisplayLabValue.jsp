@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
 
 
@@ -67,7 +68,7 @@
 <div class="preventionSection" id="preventionSection<%=ran%>">
     <div class="headPrevention" id="headPrevention<%=ran%>">
         <p><a id="ahead<%=ran%>"
-              title="fade=[on] header=[<carlos:encode value='<%= testName %>' context="htmlAttribute"/>] body=[]"
+              title="fade=[on] header=[<%= SafeEncode.forTooltipText(testName) %>] body=[]"
               href="javascript: function myFunction() {return false; }"> <span
                 title="<%=""%>" style="font-weight: bold;"> <carlos:encode value='<%= StringUtils.maxLenString(testName, 10, 8, "...") %>' context="html"/>
 <%=""/*testName*/%> </span> </a> <!--&nbsp;
@@ -92,7 +93,7 @@
 
     %>
     <div style="text-align: justify;"
-         title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= String.valueOf(hMap.get("units")) %>' context="htmlAttribute"/> <carlos:encode value='<%= String.valueOf(hMap.get("range")) %>' context="htmlAttribute"/>]"
+         title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hMap.get("result"))) %>] body=[<%= SafeEncode.forTooltipText(String.valueOf(hMap.get("units"))) %> <%= SafeEncode.forTooltipText(String.valueOf(hMap.get("range"))) %>]"
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
          onclick="javascript:popup(660,960,'<carlos:encode value='<%= labDisplayLink %>' context="javaScriptAttribute"/>','labReport')">
         <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="html"/>

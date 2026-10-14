@@ -51,6 +51,7 @@
 <fmt:message key="rx.allergyDialog.msgRequestFailedReload" var="rxAllergyMsgRequestFailedReload"/>
 <fmt:message key="rx.allergyDialog.msgSaveRefused" var="rxAllergyMsgSaveRefused"/>
 <fmt:message key="rx.allergyDialog.msgSaveUnconfirmed" var="rxAllergyMsgSaveUnconfirmed"/>
+<fmt:message key="rx.allergyDialog.msgSaveConflict" var="rxAllergyMsgSaveConflict"/>
 <script type="text/javascript">
     window.CarlosAllergyDialogMessages = {
         msgReasonUnreachable: '${carlos:forJavaScript(rxAllergyMsgReasonUnreachable)}',
@@ -63,6 +64,7 @@
         msgRequestFailed: '${carlos:forJavaScript(rxAllergyMsgRequestFailed)}',
         msgRequestFailedReload: '${carlos:forJavaScript(rxAllergyMsgRequestFailedReload)}',
         msgSaveRefused: '${carlos:forJavaScript(rxAllergyMsgSaveRefused)}',
-        msgSaveUnconfirmed: '${carlos:forJavaScript(rxAllergyMsgSaveUnconfirmed)}'
+        msgSaveUnconfirmed: '${carlos:forJavaScript(rxAllergyMsgSaveUnconfirmed)}',
+        msgSaveConflict: '${carlos:forJavaScript(rxAllergyMsgSaveConflict)}'
     };
 </script>
