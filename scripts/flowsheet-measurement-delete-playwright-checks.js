@@ -84,6 +84,9 @@ async function workflow(s) {
   await s.step('Delete removes the reading, keeps a deleted copy, and the flowsheet no longer lists it', async () => {
     const posted = entry.waitForRequest(request => request.method() === 'POST'
       && new URL(request.url()).pathname.endsWith('/encounter/oscarMeasurements/DeleteData2'), { timeout: TIMEOUT });
+    // close.jsp reloads its opener, the flowsheet, then closes itself: armed before the click, so
+    // the check sees the list refresh on its own, as the user does.
+    const refreshed = flowsheet.waitForEvent('load', { timeout: TIMEOUT }).then(() => true, () => false);
     await Promise.all([entry.waitForEvent('close', { timeout: TIMEOUT }),
       entry.locator('#deleteButton').click({ noWaitAfter: true })]);
     await posted;
@@ -91,7 +94,12 @@ async function workflow(s) {
     const copy = sql.value(`SELECT CONCAT_WS('|',type,dataField,comments) FROM measurementsDeleted WHERE originalId=${id} AND demographicNo=${patient}`);
     h.assert(copy === `NRTF|Yes|${comment}`, `The deleted copy is ${JSON.stringify(copy)}, not NRTF|Yes|<the comment>`);
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementsDeleted WHERE originalId=${id}`) === '1', 'Delete did not keep exactly one deleted copy');
-    await flowsheet.reload();
+    if (!await refreshed) {
+      // Report the missing refresh, but reload so the list itself is still checked.
+      await flowsheet.reload();
+      h.assert(await readingLink(flowsheet).count() === 0, 'The flowsheet still lists the deleted reading after a reload');
+      h.assert(false, 'The flowsheet did not refresh by itself after the delete');
+    }
     await h.assertNotErrorPage(flowsheet, 'Diabetes flowsheet after the delete');
     h.assert(await readingLink(flowsheet).count() === 0, 'The flowsheet still lists the deleted reading');
   });
