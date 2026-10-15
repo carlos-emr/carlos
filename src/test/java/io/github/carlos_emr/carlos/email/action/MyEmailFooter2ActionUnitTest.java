@@ -266,4 +266,33 @@ class MyEmailFooter2ActionUnitTest {
         assertThatThrownBy(()->save().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(personal, clinic);
     }
+
+    @Test void shouldAnswerTheWindowsInvalidSends_asInvalid() throws Exception {
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        request.setParameter("footerAction", "save");
+        save().execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"invalid\"}");
+
+        response = new MockHttpServletResponse();
+        struts.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("footerAction", "restoreClinicDefault");
+        request.setParameter("myFooter", "FAKE own");
+        save().execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"invalid\"}");
+        verifyNoInteractions(personal, clinic);
+        audit.verifyNoInteractions();
+    }
+
+    @Test void shouldAnswerTooLongAfterCleaning_asTooLong() throws Exception {
+        sendFromWindow("FAKE own");
+        doThrow(EmailFooterService.FooterTooLongException.class).when(personal).saveOwnFooter(anyString(), anyString(), any());
+
+        save().execute();
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"tooLong\"}");
+        audit.verifyNoInteractions();
+    }
 }

@@ -63,6 +63,7 @@ function page({token = 'FAKE-TOKEN', replies = []} = {}) {
   const elements = {footerEditorModal: modal, myFooterSavedStatus: status, footerEmail: footerField,
     footerEmailPreview: element()};
   const calls = [];
+  const pending = [];
   let hidden = false;
   let ready;
   const context = {
@@ -75,6 +76,10 @@ function page({token = 'FAKE-TOKEN', replies = []} = {}) {
       calls.push({url, options});
       const reply = replies.shift() || {status: 500, body: {}};
       if (reply.network) return Promise.reject(new Error('offline'));
+      if (reply.defer) {
+        return new Promise(resolve => pending.push(answer => resolve({ok: answer.status >= 200 && answer.status < 300,
+          status: answer.status, json: () => Promise.resolve(answer.body)})));
+      }
       return Promise.resolve({ok: reply.status >= 200 && reply.status < 300, status: reply.status,
         json: () => Promise.resolve(reply.body)});
     },
@@ -106,7 +111,7 @@ function page({token = 'FAKE-TOKEN', replies = []} = {}) {
   });
   const fieldOpener = element({'data-footer-editor-target': 'footerEmail', 'data-footer-editor-preview': 'footerEmailPreview'});
   return {
-    ids, status, revisionField, calls, opener, fieldOpener,
+    ids, status, revisionField, calls, opener, fieldOpener, pending,
     get hidden() { return hidden; },
     open(from) { modal.listeners['show.bs.modal']({relatedTarget: from}); },
     save() { ids.footerEditorApply.listeners.click(); }
@@ -199,4 +204,48 @@ test('a field opener on the same page keeps the window\'s own badge and button, 
   assert.equal(p.ids.footerEditorApply.textContent, 'Use for this email');
   assert.equal(p.ids.footerEditorText.innerHTML, 'This email footer');
   assert.equal(p.calls.length, 1);
+});
+
+test('a read answered after the window was opened again is ignored', async () => {
+  const p = page({replies: [{defer: true}, {status: 200, body: {footer: 'FAKE newer footer', revision: 'rev-2'}}]});
+  p.open(p.opener);
+  p.open(p.opener);
+  await settle();
+  assert.equal(p.ids.footerEditorText.innerHTML, 'FAKE newer footer');
+  p.pending[0]({status: 200, body: {footer: 'FAKE older footer', revision: 'rev-1'}});
+  await settle();
+  assert.equal(p.ids.footerEditorText.innerHTML, 'FAKE newer footer', 'The earlier read overwrote the window');
+});
+
+test('a save answered after the window was opened again neither closes nor messages it, and it reads the footer again', async () => {
+  const p = page({replies: [saved, {defer: true}, {status: 200, body: {footer: 'FAKE own footer', revision: 'rev-1'}},
+    {status: 200, body: {footer: 'FAKE saved footer', revision: 'rev-2'}}]});
+  p.open(p.opener);
+  await settle();
+  p.ids.footerEditorText.innerHTML = 'FAKE saved footer';
+  p.save();
+  // Closed with the window's own close button and opened again before the save answers.
+  p.open(p.opener);
+  await settle();
+  p.pending[0]({status: 200, body: {saved: true, revision: 'rev-2'}});
+  await settle();
+  assert.equal(p.hidden, false, 'The earlier save closed the window opened since');
+  assert.equal(p.status.textContent, 'Your personal footer was saved.');
+  assert.equal(p.revisionField.value, 'rev-2');
+  assert.equal(p.calls.length, 4, 'The reopened window did not read the saved footer again');
+  assert.equal(p.ids.footerEditorText.innerHTML, 'FAKE saved footer');
+  assert.equal(p.ids.footerEditorMessage.hidden, true);
+});
+
+test('a refusal answered after the window was opened again does not message it', async () => {
+  const p = page({replies: [saved, {defer: true}, saved]});
+  p.open(p.opener);
+  await settle();
+  p.save();
+  p.open(p.opener);
+  await settle();
+  p.pending[0]({status: 409, body: {error: 'stale'}});
+  await settle();
+  assert.equal(p.ids.footerEditorMessage.hidden, true, 'The earlier refusal showed in the window opened since');
+  assert.equal(p.ids.footerEditorApply.disabled, false);
 });

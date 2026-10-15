@@ -429,6 +429,7 @@
             body.set('myFooter', clean(editor.innerHTML));
             body.set('personalFooterRevision', remote.revision);
             var saving = remote;
+            var opening = opened;
             saving.sending = true;
             refresh();
             if (message) {
@@ -447,7 +448,10 @@
                 .then(function (result) {
                     saving.sending = false;
                     if (!result.ok || result.data.saved !== true || typeof result.data.revision !== 'string') {
-                        say(failureText(result.data.error));
+                        // A refusal belongs to the window that sent it, not to one opened since.
+                        if (opening === opened) {
+                            say(failureText(result.data.error));
+                        }
                         refresh();
                         return;
                     }
@@ -464,11 +468,21 @@
                         status.textContent = saving.savedText;
                         show(status, true);
                     }
-                    window.bootstrap.Modal.getOrCreateInstance(modal).hide();
+                    if (opening === opened) {
+                        window.bootstrap.Modal.getOrCreateInstance(modal).hide();
+                    } else if (remote) {
+                        // The window was closed and opened again while this save ran: it may hold the
+                        // footer from before it, so it reads the saved footer again rather than close.
+                        remote.revision = null;
+                        refresh();
+                        loadSaved(remote.load, opened);
+                    }
                 })
                 .catch(function () {
                     saving.sending = false;
-                    say(modal.getAttribute('data-remote-failed-text'));
+                    if (opening === opened) {
+                        say(modal.getAttribute('data-remote-failed-text'));
+                    }
                     refresh();
                 });
         }
@@ -478,6 +492,7 @@
             opened += 1;
             var load = opener ? opener.getAttribute('data-footer-editor-load') : null;
             remote = load ? {
+                load: load,
                 save: opener.getAttribute('data-footer-editor-remote-save'),
                 status: opener.getAttribute('data-footer-editor-status'),
                 revisionField: opener.getAttribute('data-footer-editor-revision-field'),
