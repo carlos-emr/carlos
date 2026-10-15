@@ -403,38 +403,37 @@ async function workflow(s) {
     const mark = failureMark(s.recorder);
     let recoveryPage;
     try {
-      // The Save icon uses AJAX. Exercise the application's full-form savePage path,
-      // targeting a new window so this same stale editor can still test Sign & Save below.
-      const [response, popup] = await Promise.all([
-        s.context.waitForEvent('response', { predicate: r => isEntry('save')(r) && r.request().isNavigationRequest() }),
+      // Attach the strict recorder before this window receives the navigation response.
+      // Keep the stale editor open so it can also exercise Sign & Save below.
+      const recoveryTarget = `note-recovery-${marker}`;
+      [recoveryPage] = await Promise.all([
         chart.waitForEvent('popup'),
-        chart.evaluate(() => {
-          document.forms.caseManagementEntryForm.target = '_blank';
-          savePage('save', 'list');
-        }),
+        chart.evaluate(target => { window.open('about:blank', target); }, recoveryTarget),
       ]);
-      recoveryPage = popup;
+      const [response] = await Promise.all([
+        s.context.waitForEvent('response', { predicate: r => isEntry('save')(r) && r.request().isNavigationRequest() }),
+        chart.evaluate(target => {
+          document.forms.caseManagementEntryForm.target = target;
+          savePage('save', 'list');
+        }, recoveryTarget),
+      ]);
       await response.finished();
-      h.assert(response.request().frame() === popup.mainFrame(), 'The full-form response belongs to a different window');
+      h.assert(response.request().frame() === recoveryPage.mainFrame(), 'The full-form response belongs to a different window');
       const submitted = new URLSearchParams(response.request().postData() || '');
       h.assert(submitted.get('noteId') === noteId
         && submitted.get('caseNote_note').replace(/\r\n?/g, '\n') === draft,
       'The full-form save did not submit the stale revision and complete draft');
       h.assert(response.status() === 409, `Stale full-form Save answered HTTP ${response.status()}`);
-      const recovery = popup.locator('#unsaved-note-text');
+      const recovery = recoveryPage.locator('#unsaved-note-text');
       await recovery.waitFor({ state: 'visible' });
       h.assert(await recovery.inputValue() === draft, 'The full-form recovery page lost or changed the submitted draft');
       h.assert(await recovery.getAttribute('readonly') !== null, 'The full-form recovery copy should be read-only');
-      h.assert(await popup.evaluate(() => !window.draftExecuted), 'Full-form draft text executed as script');
+      h.assert(await recoveryPage.evaluate(() => !window.draftExecuted), 'Full-form draft text executed as script');
       h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
         === JSON.stringify(before), 'The refused full-form save changed a saved revision');
-      // A popup's initial response can precede its page recorder. The context listener
-      // above always verifies that exact navigation; consume only errors actually recorded.
-      const recorded = s.recorder.badResponses.slice(mark.responses);
-      if (recorded.length) {
-        h.assert(recorded.every(entry => entry.url === response.url()), 'The recovery step recorded an unrelated failure');
-        consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
-      }
+      h.assert(s.recorder.badResponses.slice(mark.responses).every(entry => entry.url === response.url()),
+        'The recovery step recorded an unrelated failure');
+      consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
     } finally {
       await form.evaluate((element, target) => {
         if (target === null) element.removeAttribute('target');

@@ -99,6 +99,30 @@ fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` c
 `formConsultant.jsp` swapped into the installed webapp the check **FAILS** at "Letterhead: the redisplayed and
 the reopened form show every saved value again". A Comments value that itself begins with a line break is
 pinned statically by `scripts/letterhead-comments-textarea.test.js`, not by this browser check.
+`form-catalog-smoke-adfv2-window` (issue #4598, finding 240) lost its expected-failure pin on
+2026-10-15. The same change added `form-adfv2-save-exit-playwright-checks.js`. Both were run against
+2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch in an Ubuntu 26.04 container
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag). Two DrugRef test-scope jars that Maven's
+transport kept failing to fetch through the egress proxy were seeded into the build's local repository.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- Both checks **PASS**. Save redisplays the saved record in the window it was pressed in. Save and
+  Exit is confirmed once, answered by `close.jsp` in the form's own window, and that window closes
+  with no other window opened.
+- With the pre-fix `formadfv2.jsp` installed (its compiled class deleted, then `carlos-ctl restart`),
+  both checks **FAIL** at those steps: the record was redisplayed, or the closing page answered, in
+  another window.
+- The rest of the form catalogue family matched its manifest: `form-catalog-smoke` and
+  `-letterhead-restore` pass, the seven pinned entries are known failures, and `--residue-audit`
+  reported no residue.
+
+`close.jsp` closes its window while the CSRFGuard script injected into it is still loading. The new
+check therefore excuses that one aborted `/csrfguard` script load, proven by `navigatedAway()`, as
+`legacy-lab-display` does.
+`clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
+carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
+form is not touched here and no finding records the print failure yet.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
@@ -2861,3 +2885,36 @@ compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo doe
 was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
 itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
 patient-less POST was answered as a success and the locked login was served (HTTP 200).
+
+### Schedule group Delete and View groups Save/Delete (2026-10-15, issue #4515)
+
+Finding 80. Administration ▸ Schedule Management ▸ Search/Edit/Delete Groups ▸ Delete answered HTTP 500 because
+`adminnewgroup.jsp` read the CSRFGuard token as a group member. Preferences ▸ View groups ▸ Save and Delete left a blank
+`/provider/providercontrol` page because they ran inside that page's server-side include, which ignores a redirect.
+`release/2026.08` at 244556ad plus the fix branch was packaged as `2026.09.0~snapshot26`, the same way as the MDS run above.
+The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags. DrugRef was built on the host from
+`1941e14`. `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and
+`lintian --fail-on error` passed. carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset, the retrying `BASE_IMAGE`). `carlos-ctl check` reported "All
+checks passed"; the installer's transient "NOT ready to use" left no marker.
+
+| Run | `my-groups` | `get-reject-provider-groups` |
+|---|---|---|
+| fixed packages | PASS, all 8 steps. The admin Delete posts its CSRF token, answers 200 with the notice and removes the ticked row. View groups Save and Delete land on the group list. | PASS. `DeleteMyGroupMembers` and `SaveMyGroup` answer 405 to GET and HEAD; the retired include routes write nothing. |
+| pre-fix `adminnewgroup.jsp` swapped in | FAILS: "Search/Edit/Delete Groups ▸ Delete answered HTTP 500" | not run |
+| pre-fix `providernewgroup.jsp`, `providersavemygroup.jsp` and `providercontrol.jsp` swapped in | FAILS: "Save did not return to the group list (left on /carlos/provider/providercontrol)" | not run |
+
+The first fixed run also surfaced a latent error on the deletion notice, which the 500 had kept anyone from reaching:
+`setfocus()` focused a group-name field the notice does not render. It is guarded in the same change.
+
+The other checks that touch group routes also ran on the fixed packages:
+- `browser-surface`, `schedule-setting`, `appointment-group-copy-cut`, `report-age-sex-visit` and
+  `csrf-runtime-form-month-view-group` pass.
+- `xss-poison-admin-detail` is `known-fail` on finding 122.
+- `report-daysheet-labs` fails on finding 54, as its suite notes expect; its group day-sheet step passes.
+- `admin-role-management` refuses to run without an exclusive-deployment opt-in.
+- `appointment-group-paste-restriction` SKIPs on a missing fixture.
+
+The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
+save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
+the same way, and the same `echart` script fails there at the same step, so this change did not cause it.

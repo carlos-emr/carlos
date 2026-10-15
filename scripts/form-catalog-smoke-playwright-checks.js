@@ -180,7 +180,6 @@ const PINNED = Object.freeze({
   'rourke2006.keys': 'Rourke Baby Record 2006: shows no unresolved message key',
   'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
   'positionhazard.open': 'Position Hazard: opens from the Forms menu with no error page, script error or failed asset',
-  'adfv2.redisplay': 'ADFv2: Save redisplays the saved record in the window it was pressed in',
 });
 const CONCERN_STEP = Object.freeze({
   bare: 'opens for a patient whose address, phone and health-card columns are NULL',
