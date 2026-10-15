@@ -6231,8 +6231,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and two marker ticklers seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, casemgmt_tmpsave, eChart rows and the ticklers, and asserts it.",
+      "notes": "The CaseManagementEntry methods that change a note, an issue, a draft or a note lock accept only POST (CaseManagementEntry2Action.POST_ONLY_METHODS); both tickler note dialogs (ticklerMain.jsp, ticklerDemoMain.jsp) save by POST."
     },
     {
       "name": "get-reject-eform-editor",
