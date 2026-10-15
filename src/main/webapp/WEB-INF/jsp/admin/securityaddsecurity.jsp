@@ -48,6 +48,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -79,6 +80,11 @@
         %>
         <h1><fmt:message key="${message}"/></h1>
         <c:if test="${message == 'admin.securityaddsecurity.msgAdditionSuccess'}">
+            <%-- The login was created with the role chosen on the form (issue #2689). --%>
+            <p id="providerRoleAssigned">
+                <fmt:message key="admin.securityaddsecurity.msgRoleAssigned"/>
+                <strong><carlos:encode value="${assignedRole}"/></strong>
+            </p>
             <p id="providerRoleGuidance" role="status">
                 <fmt:message key="admin.securityaddsecurity.msgReviewRoles"/>
             </p>

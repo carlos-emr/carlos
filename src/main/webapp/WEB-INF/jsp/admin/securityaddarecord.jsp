@@ -75,6 +75,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
@@ -167,6 +168,13 @@
                 }
                 if (document.searchprovider.provider_no.value == "") {
                     alert('<fmt:message key="admin.securityrecord.formProviderNo"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    return false;
+                }
+                // Issue #2689: a login with no role can sign in but reach nothing, so the
+                // first role is chosen here. The server re-checks it against the same list.
+                if (document.searchprovider.role_name.value == "") {
+                    alert('<fmt:message key="admin.securityrecord.formRole"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    document.searchprovider.role_name.focus();
                     return false;
                 }
                 if (document.forms[0].b_ExpireSet.checked && document.forms[0].date_ExpireDate.value.length < 10) {
@@ -297,6 +305,22 @@
                         <%
                                     }
                                 }
+                            }
+                        %>
+                    </select></td>
+                </tr>
+                <%-- No option is preselected: the administrator chooses the role explicitly,
+                     and only from the roles Assign Role to Provider would let them assign. --%>
+                <tr>
+                    <td align="right"><label for="role_name"><fmt:message key="admin.securityrecord.formRole"/></label>:
+                    </td>
+                    <td><select name="role_name" id="role_name" aria-required="true">
+                        <option value="">-- select one --</option>
+                        <%
+                            for (String roleName : new SecurityAddSecurityHelper().assignableRoleNames(pageContext)) {
+                        %>
+                        <option value="<carlos:encode value='<%= roleName %>' context="htmlAttribute"/>"><carlos:encode value='<%= roleName %>' context="html"/></option>
+                        <%
                             }
                         %>
                     </select></td>
