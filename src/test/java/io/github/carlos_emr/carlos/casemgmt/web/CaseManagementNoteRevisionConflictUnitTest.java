@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFor
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -197,8 +199,9 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void shouldSignAppointmentOnlyAfterRevisionSucceeds_whenJsonSignAndExitIsRequested(boolean conflict) throws Exception {
+    @CsvSource({"true, 101", "false, 101", "false, 102"})
+    void shouldSignOnlyMatchingAppointmentAfterRevisionSucceeds_whenJsonSignAndExitIsRequested(
+            boolean conflict, int appointmentDemographic) throws Exception {
         request.setParameter("demographic_no", "101");
         request.setParameter("noteId", "501");
         request.setParameter("value", "Signed draft");
@@ -213,9 +216,16 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(RoleProgramAccessDAO.class);
         createAndRegisterMock(AdmissionDao.class);
         OscarAppointmentDao appointments = createAndRegisterMock(OscarAppointmentDao.class);
+        AppointmentArchiveDao archives = createAndRegisterMock(AppointmentArchiveDao.class);
         Appointment appointment = new Appointment();
         appointment.setStatus("t");
+        appointment.setDemographicNo(appointmentDemographic);
         when(appointments.find(42)).thenReturn(appointment);
+        doAnswer(call -> {
+            Appointment archived = call.getArgument(0);
+            assertThat(archived.getStatus()).isEqualTo("t");
+            return null;
+        }).when(archives).archiveAppointment(appointment);
         if (conflict) {
             when(manager.saveNoteRevision(any(), any(), any(), any(), any(), any())).thenThrow(snapshotConflict());
         } else {
@@ -229,14 +239,21 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         if (conflict) {
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(appointment.getStatus()).isEqualTo("t");
-            verifyNoInteractions(appointments);
-        } else {
+            verifyNoInteractions(appointments, archives);
+        } else if (appointmentDemographic == 101) {
             assertThat(response.getStatus()).isEqualTo(200);
-            var order = inOrder(manager, appointments);
+            var order = inOrder(manager, appointments, archives);
             order.verify(manager).saveNoteRevision(any(), any(), any(), any(), any(), any());
             order.verify(appointments).find(42);
+            order.verify(archives).archiveAppointment(appointment);
             order.verify(appointments).merge(appointment);
             assertThat(appointment.getStatus()).isEqualTo("tS");
+        } else {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(appointment.getStatus()).isEqualTo("t");
+            verify(appointments).find(42);
+            verify(appointments, never()).merge(any());
+            verifyNoInteractions(archives);
         }
     }
 
@@ -257,6 +274,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(RoleProgramAccessDAO.class);
         createAndRegisterMock(AdmissionDao.class);
         OscarAppointmentDao appointments = createAndRegisterMock(OscarAppointmentDao.class);
+        AppointmentArchiveDao archives = createAndRegisterMock(AppointmentArchiveDao.class);
         Issue issue = new Issue();
         issue.setId(73L);
         issue.setCode("SocHistory");
@@ -281,7 +299,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
             assertThat(assigned.getProgram_id()).isEqualTo(10016);
         });
         verify(manager, never()).saveAndUpdateCaseIssues(any());
-        verifyNoInteractions(appointments);
+        verifyNoInteractions(appointments, archives);
     }
 
     @ParameterizedTest

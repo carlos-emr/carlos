@@ -1003,9 +1003,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
             try {
                 Appointment appointment = appointmentDao.find(Integer.parseInt(appointmentNo));
-                if (appointment != null) {
+                if (appointment != null
+                        && Objects.equals(String.valueOf(appointment.getDemographicNo()), demographicNo)) {
                     ApptStatusData statusData = new ApptStatusData();
                     statusData.setApptStatus(appointment.getStatus());
+                    // Archive only after the note succeeds, before changing the appointment.
+                    SpringUtils.getBean(AppointmentArchiveDao.class).archiveAppointment(appointment);
                     appointment.setStatus(statusData.signStatus());
                     appointmentDao.merge(appointment);
                 }
