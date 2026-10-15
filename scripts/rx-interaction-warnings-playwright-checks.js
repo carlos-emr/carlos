@@ -35,7 +35,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
 
 const CIPRO = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
-const WARFARIN = { term: 'APO-WARFARIN 5', name: 'APO-WARFARIN 5MG', atc: 'B01AA03' };
+const WARFARIN = { term: 'COUMADIN 5', name: 'COUMADIN TAB 5MG', atc: 'B01AA03' };
 const THEOPHYLLINE = { brand: 'UNIPHYL 400MG', generic: 'THEOPHYLLINE', atc: 'R03DA04' };
 const SEVERITY = { 1: 'minor', 2: 'moderate', 3: 'major' };
 const LABEL = { major: 'Major interaction', moderate: 'Moderate interaction', minor: 'Minor interaction' };
