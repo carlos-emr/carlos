@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.provider.web;
 
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,7 +59,7 @@ class ScheduleWeekLinkUnitTest {
             "999998", "Doe, Jane",
             "100001", "Roe, Rick");
 
-    private static final Function<String, String> NAME_OF = PROVIDERS::get;
+    private static final UnaryOperator<String> NAME_OF = PROVIDERS::get;
 
     /** The viewer has no MyGroupAccessRestriction rows. */
     private static final Predicate<String> NOT_RESTRICTED = providerNo -> false;

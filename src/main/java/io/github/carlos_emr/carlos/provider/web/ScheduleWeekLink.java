@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.provider.web;
 
-import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -120,7 +120,7 @@ public final class ScheduleWeekLink {
      * instead
      */
     public static Target weekTarget(String providerView, String savedScheduleView,
-                                    Function<String, String> providerNameOf, Predicate<String> isRestricted) {
+                                    UnaryOperator<String> providerNameOf, Predicate<String> isRestricted) {
         String provider = singleProvider(providerView);
         if (provider == null || isRestricted.test(provider)) {
             return null;
