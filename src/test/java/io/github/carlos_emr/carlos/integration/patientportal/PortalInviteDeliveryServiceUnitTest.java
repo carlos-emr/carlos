@@ -748,7 +748,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
             verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
             assertThat(note.getValue())
-                    .contains("Patient portal invitation emailed to patient@example.com.")
+                    .contains("Patient Portal invitation emailed to patient@example.com.")
                     .contains("not recorded in CARLOS")
                     .doesNotContain(CODE)
                     .doesNotContain("replaced");

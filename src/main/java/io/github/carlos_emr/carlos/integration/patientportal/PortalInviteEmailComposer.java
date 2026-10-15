@@ -133,7 +133,7 @@ class PortalInviteEmailComposer {
      * @param confirmedByStaff whether staff confirmed the arrival of an email whose send was uncertain
      */
     String chartNote(String recipient, boolean replacement, boolean confirmedByStaff) {
-        StringBuilder note = new StringBuilder("Patient portal invitation emailed to ").append(recipient).append('.');
+        StringBuilder note = new StringBuilder("Patient Portal invitation emailed to ").append(recipient).append('.');
         if (replacement) {
             note.append(" It replaced an earlier invitation, whose code no longer works.");
         }
@@ -141,7 +141,7 @@ class PortalInviteEmailComposer {
             note.append(" Staff confirmed the email arrived.");
         }
         return note.append("\nThe invitation code is not recorded in CARLOS. If the patient loses the email, ")
-                .append("resend the invitation from the Patient portal page.").toString();
+                .append("resend the invitation from the Patient Portal page.").toString();
     }
 
     /**
@@ -151,7 +151,7 @@ class PortalInviteEmailComposer {
      * @param recipient the address the invitation was sent to
      */
     String notArrivedNote(String recipient) {
-        return "Patient portal invitation email to " + recipient + " did not arrive, as staff confirmed. Its code "
+        return "Patient Portal invitation email to " + recipient + " did not arrive, as staff confirmed. Its code "
                 + "had already been replaced by a newer invitation, revoked, or had expired on the portal, so it "
                 + "no longer works.\nThe invitation code is not recorded in CARLOS.";
     }

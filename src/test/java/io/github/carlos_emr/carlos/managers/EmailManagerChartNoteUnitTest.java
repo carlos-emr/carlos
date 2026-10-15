@@ -105,14 +105,14 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
         try (MockedConstruction<EctProgram> programs = mockConstruction(EctProgram.class,
                 (program, context) -> when(program.getProgram("999998")).thenReturn("10016"));
                 MockedConstruction<EmailNoteUtil> fullNotes = mockConstruction(EmailNoteUtil.class)) {
-            emailManager.addEmailNote(loggedInInfo, emailLog, "Patient portal invitation emailed.");
+            emailManager.addEmailNote(loggedInInfo, emailLog, "Patient Portal invitation emailed.");
 
             assertThat(fullNotes.constructed()).isEmpty();
         }
 
         ArgumentCaptor<CaseManagementNote> note = ArgumentCaptor.forClass(CaseManagementNote.class);
         verify(caseManagementManager).saveNoteSimpleReturnID(note.capture());
-        assertThat(note.getValue().getNote()).isEqualTo("Patient portal invitation emailed.");
+        assertThat(note.getValue().getNote()).isEqualTo("Patient Portal invitation emailed.");
         assertThat(note.getValue().getNote()).doesNotContain("invite-code-Xy7");
         assertThat(note.getValue().getDemographic_no()).isEqualTo("123");
         assertThat(note.getValue().isSigned()).isTrue();
@@ -132,7 +132,7 @@ class EmailManagerChartNoteUnitTest extends CarlosUnitTestBase {
 
         try (MockedConstruction<EctProgram> programs = mockConstruction(EctProgram.class,
                 (program, context) -> when(program.getProgram("999998")).thenReturn("0"))) {
-            emailManager.addEmailNote(loggedInInfo, emailLog, "Patient portal invitation emailed.");
+            emailManager.addEmailNote(loggedInInfo, emailLog, "Patient Portal invitation emailed.");
         }
 
         verifyNoInteractions(programManager);
