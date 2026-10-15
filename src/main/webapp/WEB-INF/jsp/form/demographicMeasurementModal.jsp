@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Share a measurement dialog between clinical forms.
+    Features: Read existing measurements, save new values, or import a selection into the calling field.
+    Parameters: The caller supplies elementId, measurementType, demographicNo, date of birth and appointmentNo.
+    @since 2026-07-07
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
@@ -114,6 +120,15 @@
     let existingMeasurementUsed = false;
 
     /**
+     * Formats a Date as yyyy-MM-dd in the browser's local time zone. toISOString() is UTC and
+     * yields tomorrow's date in the evening for clinics west of UTC (issue #4421).
+     */
+    function formatLocalIsoDate(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
+
+    /**
      * This function will retrieve specific demographic measurement data and display it in a modal for the user to select and import into the desired form field
      *
      * @param elementId - The ID of the input element on the form that the measurement value will be inserted into
@@ -151,7 +166,7 @@
                 currentValueInput.type = 'text';
                 currentValueInput.id = 'currentMeasurementValue';
                 currentValueInput.value = document.getElementById(elementId).value;
-                currentValueInput.addEventListener('keydown', function () { resetInstructions(measurementType); });
+                currentValueInput.addEventListener('input', function () { resetInstructions(measurementType); });
                 inputDiv.appendChild(currentValueInput);
                 inputDiv.appendChild(document.createTextNode(' '));
 
@@ -166,7 +181,7 @@
                 let obsDateInput = document.createElement('input');
                 obsDateInput.type = 'date';
                 obsDateInput.id = 'currentMeasurementObservationDate';
-                obsDateInput.value = new Date().toISOString().slice(0, 10);
+                obsDateInput.value = formatLocalIsoDate(new Date());
                 inputDiv.appendChild(obsDateInput);
 
                 bodyContent.appendChild(inputDiv);
@@ -175,7 +190,9 @@
                     local_jQuery.each(data, function () {
                         // At the beginning of each iteration, the patients age in days, weeks, months and years at the date of observation will be calculated, and displayed based on what the result is
                         let ageDisplay = '<fmt:message key="form.measurement.age"/>: ';
-                        let dateObserved = new Date(this.dateObserved.time);
+                        // Jackson returns epoch milliseconds; older endpoints used a nested time value.
+                        let dateObserved = new Date(this.dateObserved?.time ?? this.dateObserved ?? NaN);
+                        let hasObservationDate = !Number.isNaN(dateObserved.getTime());
                         let ageDays = Math.floor((dateObserved.getTime() - demographicDob.getTime()) / 1000 / 60 / 60 / 24);
                         let tempAgeDays = ageDays;
                         let months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -208,7 +225,9 @@
                             ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
-                        let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
+                        // Prefer the server-formatted calendar day: dates are stored as midnight in the server's
+                        // zone, so re-deriving the day from the epoch in the browser's zone can show the previous day.
+                        let obsDate = this.dateObservedLocal || (hasObservationDate ? formatLocalIsoDate(dateObserved) : '');
 
                         // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
                         // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
@@ -223,37 +242,45 @@
                         });
 
                         let para = document.createElement('p');
-                        para.textContent = dataField + ' ' + measuringInstruction + ' (' + obsDate + ' - ' + ageDisplay + ')';
+                        para.textContent = dataField + ' ' + measuringInstruction
+                            + (hasObservationDate ? ' (' + obsDate + ' - ' + ageDisplay + ')' : '');
                         anchor.appendChild(para);
                         bodyContent.appendChild(anchor);
                     });
                 }
 
+                // Retain these input nodes: the dialog is detached before its callback runs.
                 showMeasurementDialog(bodyContent, function (save) {
+                    if (save === null) return; // Escape and overlay dismissal leave the form unchanged.
+                    let accepted = !save || existingMeasurementUsed;
                     if (save && !existingMeasurementUsed) {
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
                             type: 'POST',
                             url: '<%=request.getContextPath()%>/encounter/MeasurementData?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
                             data: {
-                                value: document.getElementById("currentMeasurementValue").value,
-                                instruction: document.getElementById('measurementInstruction').textContent,
-                                dateObserved: document.getElementById('currentMeasurementObservationDate').value
+                                value: currentValueInput.value,
+                                instruction: instructionSpan.textContent,
+                                dateObserved: obsDateInput.value
                             },
                             dataType: 'json',
                             async: false,
                             success: function (data) {
                                 // If the JSON data returned states success = true, display success message, else display failed
                                 if (data && data.success) {
+                                    accepted = true;
                                     showMeasurementToast("<fmt:message key='form.measurement.savedSuccessfully'/>", "success");
                                 } else {
                                     showMeasurementToast("<fmt:message key='form.measurement.saveFailed'/>", "error");
                                 }
+                            },
+                            error: function () {
+                                showMeasurementToast("<fmt:message key='form.measurement.saveFailed'/>", "error");
                             }
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
-                    document.getElementById(elementId).value = document.getElementById("currentMeasurementValue").value;
+                    if (accepted) document.getElementById(elementId).value = currentValueInput.value;
                 });
             }
         });
@@ -277,11 +304,11 @@
 
     /**
      * Shows a confirm-style dialog with Save and Okay buttons.
-     * Calls callback(true) on Save, callback(false) on Okay.
+     * Calls callback(true) on Save, callback(false) on Okay, callback(null) on dismissal.
      * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
      *
      * @param bodyNode - A DOM node to append as the dialog body content
-     * @param callback - Called with true on Save, false on Okay/Cancel
+     * @param callback - Called with true on Save, false on Okay, null on Cancel
      */
     function showMeasurementDialog(bodyNode, callback) {
         var overlay = document.createElement('div');
@@ -327,7 +354,7 @@
         // ESC key cancels the dialog
         function keyHandler(e) {
             if (e.key === 'Escape' || e.keyCode === 27) {
-                close(false);
+                close(null);
             }
         }
         document.addEventListener('keydown', keyHandler);
@@ -335,7 +362,7 @@
         // Click on the overlay background (outside the dialog) cancels
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) {
-                close(false);
+                close(null);
             }
         });
 

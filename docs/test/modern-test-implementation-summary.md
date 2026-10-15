@@ -86,7 +86,7 @@ mvn test
 ✅ Database persistence works (Tickler entity saved)
 ✅ Original tests remain unaffected
 ✅ Both test suites can run sequentially
-✅ ByteBuddy Java 21 compatibility resolved with -Dnet.bytebuddy.experimental=true
+✅ ByteBuddy Java 25 compatibility resolved with -Dnet.bytebuddy.experimental=true
 ✅ Manager unit tests demonstrate complex mocking patterns (17 dependencies)
 
 ## How to Use

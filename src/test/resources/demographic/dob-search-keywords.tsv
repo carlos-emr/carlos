@@ -1,0 +1,39 @@
+# Shared DOB search keyword fixture (issue #3956).
+# Read by DobSearchPatternUnitTest (server parser, authoritative) and by
+# scripts/dob-search-keyword.test.js (browser validator) so the two grammars
+# cannot drift. Columns: keyword<TAB>year<TAB>month<TAB>day, or keyword<TAB>INVALID.
+# Keywords are used verbatim (no trimming by the fixture reader); <SP> stands for one space.
+1975-03-05	1975	03	05
+1975-3-5	1975	03	05
+1975-03	1975	03	%
+1975	1975	%	%
+1975-	1975	%	%
+1975-03-	1975	03	%
+1975-%-05	1975	%	05
+%-03-05	%	03	05
+%-03	%	03	%
+1975-%	1975	%	%
+<SP>1975-03-05<SP>	1975	03	05
+2000-12-31	2000	12	31
+2000-01-01	2000	01	01
+%	INVALID
+%-%-%	INVALID
+%-%	INVALID
+197	INVALID
+197%	INVALID
+19750	INVALID
+1975-003-05	INVALID
+1975-13-05	INVALID
+1975-00-05	INVALID
+1975-03-32	INVALID
+1975-03-00	INVALID
+1975--05	INVALID
+1975-03-05-01	INVALID
+1975/03/05	INVALID
+1975_03_05	INVALID
+1975-0_-05	INVALID
+abcd	INVALID
+1975-03-05' OR '1'='1	INVALID
+-	INVALID
+1975<SP>-<SP>03	INVALID
+1975--	INVALID

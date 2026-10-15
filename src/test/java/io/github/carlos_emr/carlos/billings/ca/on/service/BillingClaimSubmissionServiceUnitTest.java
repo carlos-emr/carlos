@@ -42,9 +42,11 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +58,7 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock private BillingOnClaimPersister mockPersister;
     @Mock private BillingOnLookupService mockLookupService;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.BillingServiceDao mockBillingServiceDao;
     @Mock private HttpServletRequest mockRequest;
 
     private AutoCloseable mockitoCloseable;
@@ -64,12 +67,140 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
-        service = new BillingClaimSubmissionService(mockPersister, mockLookupService);
+        service = new BillingClaimSubmissionService(mockPersister, mockLookupService, mockBillingServiceDao);
     }
 
     @org.junit.jupiter.api.AfterEach
     void tearDown() throws Exception {
         if (mockitoCloseable != null) mockitoCloseable.close();
+    }
+
+    @Test
+    void shouldRejectInactivePrivateCode_whenFinalSaveBypassesReview() {
+        var submission = privateSubmission("PAT", "2026-02-28");
+        when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                "_OMA_F10", java.sql.Date.valueOf("2026-02-28"))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.addBillingRecord(submission))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("not active on the service date");
+        org.mockito.Mockito.verifyNoInteractions(mockPersister);
+    }
+
+    @Test
+    void shouldSaveActivePrivateCode_whenFinalSaveUsesEffectiveDate() {
+        var submission = privateSubmission("PAT", "2026-03-01");
+        when(mockBillingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                "_OMA_F10", java.sql.Date.valueOf("2026-03-01"))).thenReturn(List.of("_OMA_F10"));
+        when(mockPersister.addOneClaimHeaderRecord(submission.header())).thenReturn(1234);
+
+        assertThat(service.addBillingRecord(submission).saved()).isTrue();
+        verify(mockPersister).addItemRecord(submission.items(), 1234);
+    }
+
+    @Test
+    void shouldRejectPrivateCode_whenFinalSaveUsesOhipProgram() {
+        assertThatThrownBy(() -> service.addBillingRecord(privateSubmission("HCP", "2026-03-01")))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("private billing program");
+        org.mockito.Mockito.verifyNoInteractions(mockPersister, mockBillingServiceDao);
+    }
+
+    @Test
+    void shouldSettleNetItemAmounts_whenCanonicalActionOverridesEchoedSubmitLabel() {
+        MockHttpServletRequest request = settlePrintRequest();
+        var submission = service.getSubmission(request);
+        assertThat(submission.header().getStatus()).isEqualTo("S");
+        assertThat(submission.header().getPaid()).isEqualTo("85.00");
+        assertThat(submission.items()).extracting(BillingClaimItemDto::getPaid)
+                .containsExactly("50.00", "35.00");
+    }
+
+    @Test
+    void shouldIgnorePostedPaymentTotals_whenSettlingTheEntireInvoice() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("total_payment", "9999.00");
+        request.setParameter("paid_0", "0.01");
+        assertThat(service.getSubmission(request).header().getPaid()).isEqualTo("85.00");
+    }
+
+    @Test
+    void shouldRejectSettlePrint_whenDiscountExceedsItemFee() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("discount_0", "60.01");
+        assertThatThrownBy(() -> service.getSubmission(request)).isInstanceOf(BillingValidationException.class);
+    }
+
+    @Test
+    void shouldRejectSettlePrint_whenHeaderAndItemTotalsDiffer() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("total", "999.00");
+        assertThatThrownBy(() -> service.getSubmission(request)).isInstanceOf(BillingValidationException.class);
+    }
+
+    @Test
+    void shouldPersistDerivedSettlementTotals_inPrivateInvoiceExtensions() {
+        MockHttpServletRequest request = settlePrintRequest();
+        var envelope = service.getSubmission(request).toLegacyArrayList();
+        when(mockPersister.add3rdBillExt(anyMap(), eq(1234), same(envelope))).thenReturn(true);
+        assertThat(service.addPrivateBillExtRecord(request, envelope, 1234)).isTrue();
+        verify(mockPersister).add3rdBillExt(argThat(values ->
+                "85.00".equals(values.get("total_payment"))
+                        && "15.00".equals(values.get("total_discount"))), eq(1234), same(envelope));
+    }
+
+    @Test
+    void shouldRejectMinistrySettlement_whenPrivatePrintActionIsPosted() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("xml_billtype", "HCP");
+        assertThatThrownBy(() -> service.getSubmission(request)).isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("private billing program");
+    }
+
+    @Test
+    void shouldKeepInvoiceUnpaid_whenSavePrintIsSelected() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("billingAction", "SAVE_PRINT");
+        var submission = service.getSubmission(request);
+        assertThat(submission.header().getStatus()).isEqualTo("P");
+        assertThat(submission.items()).extracting(BillingClaimItemDto::getPaid).containsExactly("0.00", "0.00");
+    }
+
+    @Test
+    void shouldSettleWithZeroPayment_whenFullyDiscounted() {
+        MockHttpServletRequest request = settlePrintRequest();
+        request.setParameter("discount_0", "60.00");
+        request.setParameter("discount_1", "40.00");
+        var submission = service.getSubmission(request);
+        assertThat(submission.header().getStatus()).isEqualTo("S");
+        assertThat(submission.header().getPaid()).isEqualTo("0.00");
+    }
+
+    private MockHttpServletRequest settlePrintRequest() {
+        MockHttpServletRequest request = standardBillingRequest("PAT", "Suivant");
+        request.setParameter("billingAction", "SETTLE_PRINT");
+        request.setParameter("totalItem", "2");
+        request.setParameter("total", "100.00");
+        request.setParameter("gstBilledTotal", "100.00");
+        request.setParameter("total_payment", "0.00");
+        request.setParameter("total_discount", "0.00");
+        request.setParameter("xserviceCode_0", "_OMA_A007");
+        request.setParameter("percCodeSubtotal_0", "60.00");
+        request.setParameter("xserviceUnit_0", "1");
+        request.setParameter("paid_0", "0.00");
+        request.setParameter("discount_0", "10.00");
+        request.setParameter("xserviceCode_1", "_OMA_A001");
+        request.setParameter("percCodeSubtotal_1", "40.00");
+        request.setParameter("xserviceUnit_1", "1");
+        request.setParameter("paid_1", "0.00");
+        request.setParameter("discount_1", "5.00");
+        return request;
+    }
+
+    private static BillingClaimSubmissionService.BillingClaimSubmission privateSubmission(String program, String serviceDate) {
+        return new BillingClaimSubmissionService.BillingClaimSubmission(
+                new BillingClaimHeaderDto().withPayProgram(program),
+                List.of(new BillingClaimItemDto().withServiceCode("_OMA_F10").withServiceDate(serviceDate)));
     }
 
     @Test
@@ -475,4 +606,22 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         request.setParameter("discount", "");
         return request;
     }
+    @Test
+    void shouldKeepClaimPayeeSeparate_fromThirdPartyPaymentMethod() {
+        for (String billType : List.of("PAT", "IFH", "CPP", "STD", "OCF", "ODS")) {
+            var request = standardBillingRequest(billType, "Save");
+            request.setParameter("totalItem", "0");
+            request.setParameter("payMethod", "123");
+            assertThat(service.getSubmission(request).header().getPayee()).as(billType).isEqualTo("P");
+            when(mockPersister.add3rdBillExt(anyMap(), eq(1234))).thenReturn(true);
+            assertThat(service.addPrivateBillExtRecord(request, 1234)).isTrue();
+        }
+        verify(mockPersister, times(6)).add3rdBillExt(
+                argThat(values -> "123".equals(values.get("payMethod"))), eq(1234));
+        var request = hospitalBillingRequest();
+        request.setParameter("totalItem", "0");
+        request.setParameter("payMethod", "123");
+        assertThat(service.getHospitalSubmission(request, "2026-04-28", "0.00", List.of()).header().getPayee()).isEqualTo("P");
+    }
+
 }

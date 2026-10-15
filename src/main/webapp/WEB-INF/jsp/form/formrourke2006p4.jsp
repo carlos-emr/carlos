@@ -92,7 +92,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.rourke.title2006Page4"/></title>
-        <link rel="stylesheet" type="text/css" href="rourkeStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/rourkeStyle.css">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>

@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -67,6 +68,12 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         EctSessionBean bean = null;
         bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         try {
@@ -75,13 +82,14 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
             //NodeList cfgSets = cfgDoc.getElementsByTagName("immunizationSet");
 
             EctImmImmunizationData imm = new EctImmImmunizationData();
-            String sDoc = imm.getImmunizations(bean.demographicNo);
+            Immunizations current = imm.getCurrentSchedule(bean.demographicNo);
+            int expectedVersion = current == null ? 0 : current.getId();
             Document doc;
             Element root;
-            try {
-                doc = UtilXML.parseXML(sDoc);
+            if (current != null) {
+                doc = UtilXML.parseXML(current.getImmunizations());
                 root = doc.getDocumentElement();
-            } catch (Exception ex) {
+            } else {
                 doc = UtilXML.newDocument();
                 root = UtilXML.addNode(doc, "immunizations");
             }
@@ -110,7 +118,10 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
  */
             if (doc != null) {
                 String sXML = UtilXML.toXML(doc);
-                imm.saveImmunizations(bean.demographicNo, bean.providerNo, sXML);
+                if (!imm.saveImmunizations(bean.demographicNo, bean.providerNo, sXML, expectedVersion)) {
+                    response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                    return NONE;
+                }
             }
 
         } catch (Exception ex) {

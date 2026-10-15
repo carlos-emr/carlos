@@ -104,7 +104,10 @@
         request.removeAttribute("submit");
     %>
 
+    <fmt:message key="form.mentalHealthForm1.invalidDate" var="mentalHealthInvalidDateMessage"/>
     <script type="text/javascript" language="Javascript">
+
+        var mentalHealthInvalidDateMessage = "${carlos:forJavaScript(mentalHealthInvalidDateMessage)}";
 
         var temp;
         temp = "";
@@ -248,6 +251,10 @@
         }
 
         function valDate(dateBox) {
+            if (!dateBox) {
+                alert(mentalHealthInvalidDateMessage);
+                return false;
+            }
             try {
                 var dateString = dateBox.value;
                 if (dateString == "") {
@@ -261,16 +268,16 @@
                 var m = dt[1];
                 var d = dt[2];
                 var orderString = m + '/' + d + '/' + y;
-                var pass = isDate(orderString);
+                var pass = dt.length === 3 && dt.every(function (part) { return /^\d+$/.test(part); })
+                    && isDate(orderString);
 
                 if (pass != true) {
-                    var s = dateBox.name;
-                    //alert('Invalid '+pass+' in field ' + s.substring(3));
+                    alert(mentalHealthInvalidDateMessage);
                     dateBox.focus();
                     return false;
                 }
             } catch (ex) {
-                alert('<fmt:message key='global.msgInvalidDatePrefix'/>' + dateBox.name);
+                alert(mentalHealthInvalidDateMessage);
                 dateBox.focus();
                 return false;
             }
@@ -278,17 +285,7 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].b_dateSigned) == false) {
-                alert("The 'Signature Date' field is not valid");
-                b = false;
-            }
-            if (valDate(document.forms[0].o_specimenCollectionDate) == false) {
-                alert("The 'Specimen Collection Date' field is not valid");
-                b = false;
-            }
-            return b;
-
+            return valDate(document.forms[0].onDate) && valDate(document.forms[0].todayDate);
         }
 
         function popup(link) {

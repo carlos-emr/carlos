@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic test fixture. Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
+<OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
+<PatientRecord>
+<Demographics>
+<Names><cdsd:LegalName namePurpose="L">
+<cdsd:FirstName><cdsd:Part>Import</cdsd:Part><cdsd:PartType>GIV</cdsd:PartType></cdsd:FirstName>
+<cdsd:LastName><cdsd:Part>FAKE-PW0000000000004241</cdsd:Part><cdsd:PartType>FAMC</cdsd:PartType></cdsd:LastName>
+</cdsd:LegalName></Names>
+<DateOfBirth>1971-03-04</DateOfBirth>
+<Gender>F</Gender>
+<UniqueVendorIdSequence>E-PW0000000000004241</UniqueVendorIdSequence>
+<Address addressType="M"><cdsd:Structured><cdsd:Line1>004241 Fixture Import Rd</cdsd:Line1>
+<cdsd:City>Fixture City</cdsd:City><cdsd:CountrySubdivisionCode>CA-ON</cdsd:CountrySubdivisionCode>
+<cdsd:PostalZipCode><cdsd:PostalCode>K1A0B1</cdsd:PostalCode></cdsd:PostalZipCode></cdsd:Structured></Address>
+<PhoneNumber phoneNumberType="R"><cdsd:phoneNumber>613-555-0142</cdsd:phoneNumber></PhoneNumber>
+<PrimaryPhysician><Name><cdsd:FirstName>Test</cdsd:FirstName><cdsd:LastName>Provider</cdsd:LastName></Name></PrimaryPhysician>
+<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode>
+</Demographics>
+<AllergiesAndAdverseReactions>
+<OffendingAgentDescription>FAKE-PW0000000000004241 Fixture Allergen</OffendingAgentDescription>
+<PropertyOfOffendingAgent>DR</PropertyOfOffendingAgent>
+<ReactionType>AL</ReactionType>
+<StartDate><cdsd:FullDate>2020-05-06</cdsd:FullDate></StartDate>
+<Severity>MO</Severity>
+<Reaction>Rash</Reaction>
+<RecordedDate><cdsd:FullDate>2020-05-07</cdsd:FullDate></RecordedDate>
+</AllergiesAndAdverseReactions>
+<MedicationsAndTreatments>
+<PrescriptionWrittenDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></PrescriptionWrittenDate>
+<StartDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></StartDate>
+<DrugName>FAKE-PW0000000000004241 Fixture Med</DrugName>
+<NumberOfRefills>2</NumberOfRefills>
+<Dosage>1</Dosage>
+<DosageUnitOfMeasure>tab</DosageUnitOfMeasure>
+<Route>PO</Route>
+<Frequency>BID</Frequency>
+<Duration>30</Duration>
+<Quantity>60</Quantity>
+</MedicationsAndTreatments>
+<ClinicalNotes>
+<NoteType>Clinical</NoteType>
+<MyClinicalNotesContent>FAKE-PW0000000000004241 imported fixture encounter note</MyClinicalNotesContent>
+<EventDateTime><cdsd:FullDateTime>2026-02-03T10:20:00</cdsd:FullDateTime></EventDateTime>
+<ParticipatingProviders><Name><cdsd:FirstName>Test</cdsd:FirstName><cdsd:LastName>Provider</cdsd:LastName></Name>
+<DateTimeNoteCreated><cdsd:FullDateTime>2026-02-03T10:25:00</cdsd:FullDateTime></DateTimeNoteCreated></ParticipatingProviders>
+</ClinicalNotes>
+</PatientRecord>
+</OmdCds>

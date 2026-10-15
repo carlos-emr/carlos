@@ -86,7 +86,8 @@ class PortalStaffContextResolverUnitTest {
                     PortalStaffContextResolver.OBJECT_ACCOUNT,
                     PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
                     PortalStaffContextResolver.OBJECT_SECRET,
-                    PortalStaffContextResolver.OBJECT_CONTACT_REVIEW);
+                    PortalStaffContextResolver.OBJECT_CONTACT_REVIEW,
+                    PortalStaffContextResolver.OBJECT_BOOKING_PROMPT);
 
     @Test
     @DisplayName("should reject a missing security manager at construction")
@@ -152,11 +153,12 @@ class PortalStaffContextResolverUnitTest {
                 PortalStaffContextResolver.OBJECT_ACCOUNT,
                 PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK,
                 PortalStaffContextResolver.OBJECT_SECRET,
-                PortalStaffContextResolver.OBJECT_CONTACT_REVIEW);
+                PortalStaffContextResolver.OBJECT_CONTACT_REVIEW,
+                PortalStaffContextResolver.OBJECT_BOOKING_PROMPT);
 
         PatientPortalStaffContext staff = resolver.resolve(loggedInInfo, ALL_OBJECTS);
 
-        assertThat(staff.permissions()).hasSize(5);
+        assertThat(staff.permissions()).hasSize(6);
     }
 
     /**
@@ -284,5 +286,16 @@ class PortalStaffContextResolverUnitTest {
 
         assertThat(resolver.resolveForPatient(loggedInInfo, ALL_OBJECTS, 123).permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
+    }
+
+    @Test
+    @DisplayName("should grant only the booking permission when only booking is allowed for this patient")
+    void shouldGrantBookingOnly_whenPatientScopedBookingReadIsAllowed() {
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), eq("123"))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
+        PatientPortalStaffContext staff = resolver.resolveForPatient(loggedInInfo,
+                Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT, PortalStaffContextResolver.OBJECT_ACCOUNT), 123);
+        assertThat(staff.permissions()).containsExactly(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
     }
 }

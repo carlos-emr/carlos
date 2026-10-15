@@ -293,7 +293,7 @@ public class FluReport implements PreventionReport {
                 log.error("Error parsing prevention date: " + prevDateStr, e);
             }
 
-            if (prevDate != null && prevDate.before(asOfDate)) {
+            if (prevDate != null && !prevDate.after(asOfDate)) {
                 noFutureItems.add(map);
             }
         }

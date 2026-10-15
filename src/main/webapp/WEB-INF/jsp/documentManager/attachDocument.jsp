@@ -38,7 +38,13 @@
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     String attachmentSecurityObjectRequest = (String) request.getAttribute("attachmentSecurityObject");
-    String attachmentSecurityObject = "_eform".equals(attachmentSecurityObjectRequest) ? "_eform" : "_con";
+    // The picker is shared by consultation requests, eForms and ticklers; each host route sets
+    // the object its own users hold. Anything else falls back to the consultation gate, so a
+    // caller cannot pick a weaker object than the ones the routes vouch for.
+    String attachmentSecurityObject = "_con";
+    if ("_eform".equals(attachmentSecurityObjectRequest) || "_tickler".equals(attachmentSecurityObjectRequest)) {
+        attachmentSecurityObject = attachmentSecurityObjectRequest;
+    }
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="<%=attachmentSecurityObject%>" rights="r" reverse="<%=true%>">
@@ -231,7 +237,53 @@
 <body>
 <form id="attachDocumentsForm">
     <%-- Script placed in body so functions are available when loaded via jQuery .load() into a parent page --%>
+    <script src="${pageContext.request.contextPath}/js/document-preview-retry.js"></script>
     <script type="text/javascript">
+        if (typeof attachmentPreviewController !== 'undefined') {
+            attachmentPreviewController.cancel();
+        }
+        var attachmentPreviewController = (function (owner) {
+            return CarlosDocumentPreviewRetry.create({
+                beforeStart: function () {
+                    // Cached previews return before starting a request. For a new render, clear
+                    // the old document before a busy response releases the blocking spinner.
+                    previewBlobUrl = CarlosDocumentPreviewRetry.clearDisplay(
+                        document, URL.revokeObjectURL.bind(URL), previewBlobUrl);
+                },
+                send: function (parameters, callbacks) {
+                    return jQuery.ajax({
+                        type: 'POST',
+                        url: "${pageContext.request.contextPath}/previewDocs",
+                        data: parameters,
+                        dataType: 'json',
+                        success: callbacks.success,
+                        error: callbacks.error
+                    });
+                },
+                isCurrent: function () {
+                    return owner.isConnected && jQuery(owner).is(':visible');
+                }
+            });
+        }(document.getElementById('attachDocumentsForm')));
+
+        function cancelAttachmentPreview() {
+            attachmentPreviewController.cancel();
+            HideSpin();
+            var waiting = document.getElementById('preview-waiting');
+            if (waiting) waiting.classList.add('d-none');
+        }
+
+        // This fragment is reloaded into both jQuery UI and Bootstrap dialogs. Namespace and
+        // replace handlers so reopening does not accumulate listeners or retain old controllers.
+        jQuery(document).off('.carlosDocumentPreview').on(
+            'dialogclose.carlosDocumentPreview hidden.bs.modal.carlosDocumentPreview',
+            function (event) {
+                var owner = document.getElementById('attachDocumentsForm');
+                if (owner && event.target.contains(owner)) cancelAttachmentPreview();
+            });
+        jQuery(window).off('pagehide.carlosDocumentPreview').on(
+            'pagehide.carlosDocumentPreview', cancelAttachmentPreview);
+
         function toggleLabVersionList(collapseBtn) {
             jQuery(collapseBtn).toggleClass('caret-down');
             jQuery(collapseBtn).parent().find('.collapsible-content').slideToggle(100);
@@ -350,6 +402,7 @@
         }
 
         function getPdf(attachmentName, attachmentId, parameters) {
+            cancelAttachmentPreview();
             // Please include "<%=request.getContextPath()%>/WEB-INF/jsp/includes/spinner.jspf" into the parent page to control the visibility of the spinner (show/hide).
             ShowSpin(true);
             const cached = getPdfAttachment(attachmentName, attachmentId);
@@ -359,12 +412,15 @@
                 return;
             }
 
-            jQuery.ajax({
-                type: 'POST',
-                url: "${ pageContext.request.contextPath }/previewDocs",
-                data: parameters,
-                dataType: "json",
-                success: function (data) {
+            attachmentPreviewController.start(parameters, {
+                waiting: function () {
+                    // Release the blocking spinner so waiting remains cancellable. The next
+                    // admitted request keeps this notice visible until its PDF actually arrives.
+                    HideSpin();
+                    document.getElementById('preview-waiting').classList.remove('d-none');
+                },
+                success: function (data, currentParameters) {
+                    document.getElementById('preview-waiting').classList.add('d-none');
                     if (data.base64Data) {
                         addPdfAttachment(attachmentName, attachmentId, data.base64Data, data.advisoryIssues);
                         showPDF(data.base64Data);
@@ -411,14 +467,15 @@
                         }
                         if (data.renderApproval
                                 && confirm(data.errorMessage + details + severeConsoleDetailText + "\n\nApprove these issues and render?")) {
-                            getPdf(attachmentName, attachmentId, parameters
-                                + "&renderApproval=" + encodeURIComponent(data.renderApproval));
+                            getPdf(attachmentName, attachmentId,
+                                CarlosDocumentPreviewRetry.replaceApproval(currentParameters, data.renderApproval));
                         }
                     } else {
                         showError(data.errorMessage);
                     }
                 },
                 error: function (xhr, status, error) {
+                    document.getElementById('preview-waiting').classList.add('d-none');
                     // A non-JSON response (typically a login redirect after session expiry) lands here.
                     // Give the actionable hint instead of the context-free generic message.
                     if (xhr.responseJSON && xhr.responseJSON.errorMessage) {
@@ -541,15 +598,18 @@
                                 <c:forEach items="${ allLabsSortedByVersions }" var="lab" varStatus="loop">
                                     <c:set var="labName" value="${fn:substring(lab.labName, 0, 30)}"/>
                                     <c:set var="totalVersions" value="${fn:length(lab.labVersionIds)}"/>
-                                    <c:set var="labPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
+                                    <c:set var="labPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(lab.segmentID)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                    <c:set var="labPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(lab.segmentID)}', '${carlos:forJavaScript(labPreviewParameters)}')</c:set>
                                     <li class="lab ${loop.index > 19 ? 'd-none' : ''}">
+                                        <%-- Lab ids are only unique within their source, so the DOM id carries the
+                                             source too (labNoHL7123); the submitted value stays the bare segment id. --%>
                                         <input class="lab_check" type="checkbox" name="labNo"
-                                               id="labNo${ lab.segmentID }" value="${lab.segmentID}"
+                                               id="labNo${ lab.labType }${ lab.segmentID }" value="${lab.segmentID}"
+                                               data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
                                                title="${carlos:forHtmlAttribute(labName)}"
                                                <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
-                                        <label for="labNo${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
-                                        <label for="labNo${lab.segmentID}"
+                                        <label for="labNo${lab.labType}${lab.segmentID}" title="${carlos:forHtmlAttribute(labName)}">${carlos:forHtml(labName)}&nbsp;</label>
+                                        <label for="labNo${lab.labType}${lab.segmentID}"
                                                class="lab-date">${lab.labDateFormated}</label>
                                         <c:if test="${not empty lab.labVersionIds}">
                                             &nbsp;<i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>&nbsp;
@@ -561,24 +621,25 @@
                                         <ul class="collapsible-content" style="list-style-type: none;padding:0px;">
                                             <c:forEach items="${ lab.labVersionIds }" var="version"
                                                        varStatus="versionLoop">
-                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
-                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
+                                                <c:set var="labVersionPreviewParameters">method=renderLabPDF&labType=${carlos:forUriComponent(lab.labType)}&segmentId=${carlos:forUriComponent(version.key)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                                <c:set var="labVersionPreviewOnclick">getPdf('LAB', '${carlos:forJavaScript(lab.labType)}:${carlos:forJavaScript(version.key)}', '${carlos:forJavaScript(labVersionPreviewParameters)}')</c:set>
                                                 <li>
                                                     <input class="lab_check"
                                                            data-version="${totalVersions - versionLoop.index}"
-                                                           type="checkbox" name="labNo" id="labNo${ version.key }"
+                                                           data-lab-type="${carlos:forHtmlAttribute(lab.labType)}"
+                                                           type="checkbox" name="labNo" id="labNo${ lab.labType }${ version.key }"
                                                            value="${version.key}"
                                                            title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}"
                                                            <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
                                                     <em>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}">
                                                              <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
                                                                  <fmt:param value="${totalVersions - versionLoop.index}"/>
                                                                  <fmt:param value="${totalVersions + 1}"/>
                                                              </fmt:message>&nbsp;
                                                          </label>
-                                                        <label for="labNo${version.key}"
+                                                        <label for="labNo${lab.labType}${version.key}"
                                                                class="lab-date">(${version.value})</label>
                                                     </em>
                                                      <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
@@ -683,6 +744,10 @@
                  be told. Severe page-script errors are blocking and reach this preview only after
                  an exact approval. --%>
             <div id="preview-advisory" class="preview-advisory d-none" role="status"></div>
+            <div id="preview-waiting" class="preview-advisory d-none" role="status">
+                The eForm renderer is busy. Waiting for your preview.
+                <button type="button" onclick="cancelAttachmentPreview()">Cancel preview</button>
+            </div>
             <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
             <div id="preview-filler" class="preview-filler">
                 <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>

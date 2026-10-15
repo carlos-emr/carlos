@@ -62,7 +62,47 @@ public record EmailAttachmentSettings(
     String bodyEmail,
     String encryptedMessageEmail,
     String emailPatientChartOption
-) {
+) implements java.io.Serializable {
+
+    /** Detach attachment selections from request-owned arrays before a draft is staged. */
+    public EmailAttachmentSettings {
+        attachedEForms = copyIds(attachedEForms);
+        attachedDocuments = copyIds(attachedDocuments);
+        attachedLabs = copyIds(attachedLabs);
+        attachedHRMDocuments = copyIds(attachedHRMDocuments);
+        attachedForms = copyIds(attachedForms);
+    }
+
+    @Override
+    public String[] attachedEForms() {
+        return copyIds(attachedEForms);
+    }
+    @Override
+    public String[] attachedDocuments() {
+        return copyIds(attachedDocuments);
+    }
+    @Override
+    public String[] attachedLabs() {
+        return copyIds(attachedLabs);
+    }
+    @Override
+    public String[] attachedHRMDocuments() {
+        return copyIds(attachedHRMDocuments);
+    }
+    @Override
+    public String[] attachedForms() {
+        return copyIds(attachedForms);
+    }
+
+    private static String[] copyIds(String[] ids) {
+        return ids == null ? null : ids.clone();
+    }
+
+    /** Redacted: the settings carry a patient's identifiers, message and sender; never log them. */
+    @Override
+    public String toString() {
+        return "EmailAttachmentSettings[redacted]";
+    }
 
     /** Simple email format validation pattern. */
     private static final Pattern EMAIL_PATTERN =
