@@ -867,6 +867,9 @@
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
 
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
@@ -1578,9 +1581,9 @@
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="javascript:addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>');">
+                                                    <button type="button" class="link-button" onclick="addFavorite('${rx2.randomId}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>');">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
-                                                    </a>
+                                                    </button>
                                                 </td>
                                                 </tr>
                                             </c:forEach>
