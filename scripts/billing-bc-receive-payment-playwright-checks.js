@@ -97,10 +97,14 @@ async function workflow(s) {
   });
 
   let receipt;
-  await s.step('View Invoice opens the invoice with a Receive Payment link', async () => {
+  await s.step('View Invoice shows the invoice with a Receive Payment link', async () => {
     const view = adjust.locator('a', { hasText: 'View Invoice' });
     h.assert(await view.count() === 1, 'The adjust page has no View Invoice link for the part-billed private bill');
-    receipt = await s.popup(adjust, view, 'bc-invoice-receipt');
+    // popupPage() opens every popup in the one window named "attachment", so from the adjust page
+    // (itself that window) View Invoice navigates it in place rather than opening another.
+    await view.click({ timeout: TIMEOUT });
+    receipt = adjust;
+    await receipt.waitForURL(/\/billing\/CA\/BC\/billingView\?/, { timeout: TIMEOUT });
     await receipt.waitForLoadState('domcontentloaded');
     await h.assertNotErrorPage(receipt, 'BC invoice');
     h.assert(await receipt.locator('.rcvPayment a', { hasText: 'Receive Payment' }).count() >= 1,
@@ -159,9 +163,12 @@ async function workflow(s) {
   });
 
   await s.step('paying the balance marks the bill paid', async () => {
-    const again = await s.popup(receipt, receipt.locator('.rcvPayment a', { hasText: 'Receive Payment' }).first(), 'bc-receive-payment-balance');
-    await again.waitForLoadState('domcontentloaded');
-    pay = again;
+    // The invoice window is still open behind the confirmation, and the popup is still open in front
+    // of it; popupPage() reuses the one "attachment" window, so Receive Payment again turns the
+    // confirmation back into the form instead of opening a new window.
+    await receipt.locator('.rcvPayment a', { hasText: 'Receive Payment' }).first().click({ timeout: TIMEOUT });
+    await pay.waitForURL(/\/billing\/CA\/BC\/viewReceivePaymentAction\?/, { timeout: TIMEOUT });
+    await pay.waitForLoadState('domcontentloaded');
     await submit('13.00', 'balance payment');
     h.assert(historyRows() === '2', 'The balance payment did not write a second billing_history row');
     h.assert(status() === 'A', `Paying the balance left the bill at ${status()}, not paid-private (A)`);
