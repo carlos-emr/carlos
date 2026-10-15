@@ -71,9 +71,10 @@ class EncounterHeaderPatientIsolationUnitTest {
     void shouldResolveBannerPatient_fromTheExplicitChartRequest() throws IOException {
         String source = headerSource();
 
-        assertThat(source).contains("demoNo = EncounterPatientContext.requireDemographicNo(request);");
-        assertThat(source).contains("demographicManager.getDemographicWithExt(loggedInInfo, Integer.valueOf(demoNo))");
-        assertThat(source).contains("pageContext.setAttribute(\"popupDemographicNo\", demoNo);");
+        assertThat(source)
+                .contains("demoNo = EncounterPatientContext.requireDemographicNo(request);")
+                .contains("demographicManager.getDemographicWithExt(loggedInInfo, Integer.valueOf(demoNo))")
+                .contains("pageContext.setAttribute(\"popupDemographicNo\", demoNo);");
     }
 
     @Test
@@ -81,9 +82,10 @@ class EncounterHeaderPatientIsolationUnitTest {
     void shouldNotReadLoginWideEncounterBean_forTheBanner() throws IOException {
         String source = headerSource();
 
-        assertThat(source).doesNotContain("\"EctSessionBean\"");
-        assertThat(source).doesNotContain("EctSessionBean ");
-        assertThat(source).doesNotContain("bean.");
+        assertThat(source)
+                .doesNotContain("\"EctSessionBean\"")
+                .doesNotContain("EctSessionBean ")
+                .doesNotContain("bean.");
     }
 
     @Test
@@ -91,9 +93,10 @@ class EncounterHeaderPatientIsolationUnitTest {
     void shouldDerivePatientSex_fromTheRequestedDemographic() throws IOException {
         String source = headerSource();
 
-        assertThat(source).contains("String popupPatientSex = demographic.getSex() == null ? \"\" : demographic.getSex();");
         // An unknown or unreadable patient must stop the banner instead of dereferencing null.
-        assertThat(source).containsPattern("if \\(demographic == null\\) \\{\\s*response\\.sendRedirect\\(");
+        assertThat(source)
+                .contains("String popupPatientSex = demographic.getSex() == null ? \"\" : demographic.getSex();")
+                .containsPattern("if \\(demographic == null\\) \\{\\s*response\\.sendRedirect\\(");
     }
 
     @Test
