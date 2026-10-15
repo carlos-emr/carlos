@@ -396,6 +396,10 @@ async function verifyNewProviderLogin(browser, username, expectDenied) {
       assert(await page.locator('a.adhour').count() === 0, 'Unassigned provider received schedule access');
     } else {
       await page.locator('a.adhour').first().waitFor({ state: 'visible', timeout: 30000 });
+      // Let the schedule's tab-count polls finish before the context closes. The caller removes
+      // this login's role next: a poll still running on the server would be judged on its old
+      // role at the gate and its new one inside the count, and answer 500 in the server log.
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       assert(httpErrors.length === 0, `Assigned provider hit HTTP errors: ${JSON.stringify(httpErrors)}`);
     }
     assert(pageErrors.length === 0, `New login raised JavaScript errors: ${JSON.stringify(pageErrors)}`);
