@@ -139,7 +139,9 @@ class BillingDeleteNoAppt2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
         mockRequest.setParameter("billing_no", "42");
 
-        assertThatThrownBy(() -> newAction().execute())
+        BillingDeleteNoAppt2Action action = newAction();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_billing)");
         verifyNoInteractions(mockBillingDao, mockCorrectionRecordService);

@@ -52,6 +52,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecor
  */
 public class BillingDeleteNoAppt2Action extends ActionSupport {
 
+    /** Struts result name, and the request attribute the cannot-delete JSP tests, for a refused unbill. */
+    private static final String CANNOT_DELETE = "cannotDelete";
+
     private final SecurityInfoManager securityInfoManager;
     private final BillingDao billingDao;
     private final BillingCorrectionRecordService correctionPrep;
@@ -83,7 +86,7 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
             int headerId;
             try {
                 headerId = Integer.parseInt(billingNoStr);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // Not the exception: NumberFormatException's message repeats the raw parameter, which
                 // LogSafe exists to keep out of the log unsanitized.
                 MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr));
@@ -93,8 +96,8 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
                 case DELETED:
                     return SUCCESS;
                 case REFUSED_BILLED_OR_SETTLED:
-                    request.setAttribute("cannotDelete", Boolean.TRUE);
-                    return "cannotDelete";
+                    request.setAttribute(CANNOT_DELETE, Boolean.TRUE);
+                    return CANNOT_DELETE;
                 default:
                     return ERROR;
             }
@@ -107,12 +110,12 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
                 return ERROR;
             }
             if (BillingStatus.isSubmittedOrSettled(b.getStatus())) {
-                request.setAttribute("cannotDelete", Boolean.TRUE);
-                return "cannotDelete";
+                request.setAttribute(CANNOT_DELETE, Boolean.TRUE);
+                return CANNOT_DELETE;
             }
             b.setStatus("D");
             billingDao.merge(b);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             // Not the exception: its message repeats the raw parameter (see the claim-header path).
             MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr));
             return ERROR;

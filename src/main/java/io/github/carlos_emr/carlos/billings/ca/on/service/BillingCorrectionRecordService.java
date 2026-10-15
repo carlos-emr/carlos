@@ -842,8 +842,10 @@ public class BillingCorrectionRecordService {
             return UnbillOutcome.NOT_FOUND;
         }
         if (BillingStatus.isSubmittedOrSettled(header.getStatus())) {
-            _logger.warn("Refused to unbill claim {}: its stored status {} is billed or settled",
-                    LogSafe.sanitize(String.valueOf(headerId)), LogSafe.sanitize(header.getStatus()));
+            if (_logger.isWarnEnabled()) {
+                _logger.warn("Refused to unbill claim {}: its stored status {} is billed or settled",
+                        LogSafe.sanitize(String.valueOf(headerId)), LogSafe.sanitize(header.getStatus()));
+            }
             return UnbillOutcome.REFUSED_BILLED_OR_SETTLED;
         }
         return deleteBilling(String.valueOf(headerId), BillingONCHeader1.DELETED, providerNo)
