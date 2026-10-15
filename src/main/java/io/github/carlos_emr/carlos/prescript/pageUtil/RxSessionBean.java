@@ -458,14 +458,18 @@ public class RxSessionBean implements java.io.Serializable {
     }
 
 
-    /** Checks the exact product without reusing an ATC-only cache for combination ingredients. */
-    public Allergy[] getAllergyWarnings(LoggedInInfo loggedInInfo, String atccode, String din) {
+    public record AllergyCheck(Allergy[] warnings, Allergy[] unchecked, boolean failed) { }
+
+    /** Returns confirmed and unchecked exact-product results without reusing an ATC-only cache. */
+    public AllergyCheck checkProductAllergies(LoggedInInfo loggedInInfo, String atccode, String din) {
         try {
             Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, getDemographicNo()).getActiveAllergies();
-            return new RxDrugData().getAllergyWarnings(atccode, allergies, new ArrayList<>(), din);
+            List<Allergy> unchecked = new ArrayList<>();
+            Allergy[] warnings = new RxDrugData().getAllergyWarnings(atccode, allergies, unchecked, din);
+            return new AllergyCheck(warnings, unchecked.toArray(new Allergy[0]), false);
         } catch (Exception failure) {
             logger.warn("Allergy warning check failed ({})", failure.getClass().getSimpleName());
-            return null;
+            return new AllergyCheck(new Allergy[0], new Allergy[0], true);
         }
     }
 

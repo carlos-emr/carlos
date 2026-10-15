@@ -43,7 +43,7 @@ async function main() {
         const page = await browser.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await page.goto(`http://127.0.0.1:${server.address().port}/`);
+        await page.goto(`http://127.0.0.1:${server.address().port}/`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- this script's own server is bound to 127.0.0.1 on an OS-allocated port; no user input enters the URL
         const hostile = '<img src=x onerror="window.injected=true"> / theophylline (major)';
         reply = {warnings: [{cardId: '1', severity: 'major', text: hostile}], checkFailed: false};
         await page.locator('#rxText').evaluate((stage, html) => { stage.innerHTML = html; }, card(1));

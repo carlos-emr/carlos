@@ -877,9 +877,9 @@ public class RxDrugData {
      * matched by the service into the {@code missing} list.
      *
      * <p>ATC class allergens ({@link AllergyAtcClass}, the Penicillin and Sulfa shortcuts) are also
-     * decided here, from their class code: a drug whose ATC code is under the class is a warning,
-     * and a code that places it outside the class means the allergy was checked and did not match,
-     * so it is not reported as missing. DrugRef cannot be relied on alone, because it resolves a
+     * checked here from their class code: a drug whose ATC code is under the class is a warning.
+     * For a shortcut outside that prefix, the DIN overload also compares active ingredients;
+     * without ingredient data the shortcut stays unchecked. DrugRef cannot be relied on alone, because it resolves a
      * class by its name, which a DPD extract may not carry. A warning DrugRef returns is kept, and
      * for a shortcut allergy DrugRef is asked under both of the class's names (AHFS, as the old
      * shortcut recorded it, and ATC), so a product the DPD files outside the ATC class but under

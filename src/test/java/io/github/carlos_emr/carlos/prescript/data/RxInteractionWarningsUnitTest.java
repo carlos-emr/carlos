@@ -49,6 +49,25 @@ class RxInteractionWarningsUnitTest {
         return rx;
     }
 
+    @Test
+    void shouldRefuseIncompleteInteractions_insteadOfReturningAnAllClear() {
+        var incomplete = interaction("3");
+        incomplete.affectingatc = null;
+        assertThatThrownBy(() -> RxInteractionWarnings.forStash(
+                new RxPrescriptionData.Prescription[]{prescription(1, "J01MA02")},
+                new RxDrugData.Interaction[]{incomplete}, 1)).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldUseDrugCodes_whenReferenceNamesAreMissing() {
+        var unnamed = interaction("3");
+        unnamed.affectingdrug = null;
+        unnamed.affecteddrug = " ";
+        assertThat(RxInteractionWarnings.forStash(new RxPrescriptionData.Prescription[]{prescription(1, "J01MA02")},
+                new RxDrugData.Interaction[]{unnamed}, 1)).singleElement()
+                .extracting(RxInteractionWarnings.Warning::text).asString().contains("J01MA02 / R03DA04");
+    }
+
     private RxDrugData.Interaction interaction(String significance) {
         var interaction = new RxDrugData().new Interaction();
         interaction.affectingatc = "J01MA02";

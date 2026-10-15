@@ -44,7 +44,8 @@ Missing DINs, missing products, failed lookups, and incomplete ingredient lists
 leave the out-of-class shortcut **not checked**. They cannot produce an ingredient
 all-clear. Confirmed ATC/DrugRef warnings are preserved if the supplementary lookup
 fails. The AJAX check carries the DIN, and the full prescription page bypasses its
-ATC-only cache when checking exact-product ingredients.
+ATC-only cache when checking exact-product ingredients. That page renders confirmed
+warnings, each unchecked allergen, and an explicit failure notice separately.
 
 ## Regression coverage
 

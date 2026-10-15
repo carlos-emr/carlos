@@ -33,6 +33,9 @@ public final class RxInteractionWarnings {
         List<Warning> warnings = new ArrayList<>();
         if (minimum == 4) return warnings;
         for (var interaction : interactions) {
+            if (interaction == null || !usableCode(interaction.affectingatc) || !usableCode(interaction.affectedatc)) {
+                throw new IllegalStateException("DrugRef returned an interaction without usable drug codes");
+            }
             int significance = switch (String.valueOf(interaction.significance)) {
                 case "1" -> 1;
                 case "2" -> 2;
@@ -46,7 +49,8 @@ public final class RxInteractionWarnings {
                 case 3 -> "major";
                 default -> "unknown";
             };
-            String text = interaction.affectingdrug + " / " + interaction.affecteddrug
+            String text = drugName(interaction.affectingdrug, interaction.affectingatc) + " / "
+                    + drugName(interaction.affecteddrug, interaction.affectedatc)
                     + " (" + severity + ")" + (interaction.comment == null ? "" : ": " + interaction.comment);
             for (var prescription : stash) {
                 String code = prescription.getAtcCode();
@@ -60,5 +64,9 @@ public final class RxInteractionWarnings {
 
     private static boolean matches(String code, String interactionCode) {
         return usableCode(code) && usableCode(interactionCode) && code.startsWith(interactionCode);
+    }
+
+    private static String drugName(String name, String atc) {
+        return name == null || name.isBlank() ? atc : name;
     }
 }
