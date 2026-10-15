@@ -101,12 +101,19 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
     @Column(name = "providerNo")
     private String providerNo;
 
+    /**
+     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged MariaDB runs with
+     * {@code sql_mode=""} and {@code jdbcCompliantTruncation=false}, so a longer value is cut to fit without an
+     * error; writers that must not file a cut value check this first.
+     */
+    public static final int DATA_FIELD_MAX_LENGTH = 255;
+
     /** 
      * The actual measurement value or data.
      * Format depends on measurement type - may be numeric ("120/80"), 
      * textual ("Normal"), or structured data.
      */
-    @Column(name = "dataField", nullable = false, length = 255)
+    @Column(name = "dataField", nullable = false, length = DATA_FIELD_MAX_LENGTH)
     private String dataField = "";
 
     /** 

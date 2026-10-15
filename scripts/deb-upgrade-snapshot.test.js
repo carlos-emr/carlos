@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -163,6 +164,64 @@ for (const [name, after, sentinel, error] of [
     if (sentinel === 'pre') fs.writeFileSync(marker, '');
     fixture.baseline();
     fs.writeFileSync(props, after);
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
+// The one-time HL7_LAB_MEASUREMENT_FILTER rewrite (#4613). The old stock line is the postinst's LAB_FILTER_OLD; the new
+// one is the shipped carlos.properties line, which the package's skeleton carries.
+const LAB_FILTER_OLD = /^\s*LAB_FILTER_OLD='([^']*)'$/m.exec(
+  fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8'))[1];
+const LAB_FILTER_NEW = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'carlos.properties'), 'utf8')
+  .split('\n').find(line => line.startsWith('HL7_LAB_MEASUREMENT_FILTER='));
+const LAB_FILTER_SENTINEL = '.lab-measurement-filter-migrated';
+
+function labFilterFixture(t, { sentinel = false } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  const skel = path.join(fixture.env.CARLOS_SHARE_DIR, 'skel', 'carlos.properties');
+  fs.mkdirSync(path.dirname(skel), { recursive: true });
+  fs.writeFileSync(skel, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\n`);
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n`);
+  if (sentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  fixture.baseline();
+  return { ...fixture, props };
+}
+
+test('upgrade verifier digest of the old lab filter is the postinst old stock line', () => {
+  const verify = fs.readFileSync(path.join(__dirname, 'deb-upgrade-verify.sh'), 'utf8');
+  const sha = /^LAB_FILTER_OLD_SHA=([0-9a-f]{16})$/m.exec(verify);
+  assert.ok(sha, 'deb-upgrade-verify.sh states LAB_FILTER_OLD_SHA');
+  assert.equal(crypto.createHash('sha256').update(`${LAB_FILTER_OLD}\n`).digest('hex').slice(0, 16), sha[1]);
+  // The old line is the one with the four-character range alternative; the shipped one no longer has it.
+  assert.ok(LAB_FILTER_OLD.includes('|^([+-\\\\?]{1,4})|'), LAB_FILTER_OLD);
+  assert.ok(LAB_FILTER_NEW, 'carlos.properties ships HL7_LAB_MEASUREMENT_FILTER');
+  assert.ok(!LAB_FILTER_NEW.includes('{1,4}'), LAB_FILTER_NEW);
+});
+
+test('upgrade verifier accepts the one-time lab-filter migration', t => {
+  const fixture = labFilterFixture(t);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*lab filter: yes/);
+  assert.match(result.stdout, /PASS the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's/);
+  assert.match(result.stdout, /PASS lab-filter migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['an unsanctioned change to the lab filter', 'HL7_LAB_MEASUREMENT_FILTER=.*', false, /FAIL cfg.carlos.properties.sha changed/],
+  ['a lab-filter migration that skipped its sentinel', LAB_FILTER_NEW, false, /FAIL lab-filter migration sentinel missing/],
+  ['a lab-filter rewrite after the migration already ran', LAB_FILTER_NEW, 'pre', /FAIL cfg.carlos.properties.sha changed/],
+  ['an upgrade that left the old lab filter in place', LAB_FILTER_OLD, 'post', /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = labFilterFixture(t, { sentinel: sentinel === 'pre' });
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${after}\nother=kept\n`);
+    if (sentinel === 'post') fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
     const result = fixture.run('deb-upgrade-verify.sh');
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stdout, error);
