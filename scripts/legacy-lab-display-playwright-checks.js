@@ -27,14 +27,16 @@
  * script therefore runs ONE lab type per run, selected by LEGACY_LAB_TYPE (the manifest sets it with
  * envSet, as surface-audit does; each entry has its own npm alias):
  *   cml      legacy-lab-display          expectedFailure finding 184, at the CML forward step.
- *   mds      legacy-lab-display-mds      expectedFailure finding 194, at the MDS display step.
+ *   mds      legacy-lab-display-mds      expectedFailure finding 184, at the MDS forward step (its display,
+ *                                        finding 194, is fixed: #4567).
  *   pathnet  legacy-lab-display-pathnet  ends SKIP (never PASS) when the legacy BC tables are absent; on
  *                                        a BC install it would fail at its display step (finding 195).
  * Unset, the type is cml. Any other value is an error.
  *
  * STEPS, in order, for the one type of the run: seed; Display; Acknowledge; Forward picker; Forward.
  *   Display      the page-specific form is there; no error page; the patient's name, birth date and health
- *                number as the lab carries them; the result row (test name, result, flag, range, units);
+ *                number as the lab carries them; the result row (test name, result, flag, range, units) and,
+ *                for MDS, a second result row with its own values and the note filed with it;
  *                the link to the OWNED patient (the Msg button renders only when the routing resolved a
  *                patient, and names its demographic_no); the routing status "Not Acknowledged".
  *   Acknowledge  Acknowledge asks for a comment (a real prompt); the popup closes; the patient lab list
@@ -52,10 +54,11 @@
  *   184  Forward from these pages cannot be completed: SelectProvider.jsp has no Submit button, the
  *        picker looks its opener's form up under another name, and the form carries plain id lists where
  *        ReportReassign2Action reads JSON. The cml run reaches Forward and fails there.
- *   194  MDS display throws on every lab. MdsMSHDaoImpl.findMdsSementDataById builds invalid HQL and binds
- *        the wrong parameter, MDSSegmentData swallows the exception, and SegmentDisplay.jsp dereferences
- *        the providers object that was never set. The mds run fails at its display step, so its Forward
- *        step is not reached until that is fixed.
+ *   194  (fixed, #4567) MDS display threw on every lab: MdsMSHDaoImpl.findMdsSementDataById built invalid
+ *        HQL, MDSSegmentData swallowed the exception, and SegmentDisplay.jsp dereferenced the providers
+ *        object that was never set. Behind it, the result query returned entities keyed by the segmentID
+ *        every row shares, so a report showed its first result once per row; the second MDS result row
+ *        guards that. The mds run now reaches Forward and fails there (184).
  *   195  PathNet display shows an empty report (PathnetLabTest.populateLab reads message 0). The pathnet
  *        run needs the legacy BC tables.
  *
@@ -181,6 +184,11 @@ function describeLab({ sql, marker, hex, patient, provider, type }) {
         // drops the health number's first character, which it treats as a prefix.
         patient: { name: `${marker}, Workflow`, dob: '02-Jan-1980', hin: 'FAKE00000' },
         result: { name: `${marker} Glucose`, cells: ['7.7', 'HI', '3.5-5.0', 'mmol/L'] },
+        // A second result in the same report: every mds row of a report shares its segmentID, and a report that
+        // shows one result per row of the first one (finding 194) fails here. Its note is an "M" NTE row, whose text
+        // follows a three-character prefix.
+        moreResults: [{ name: `${marker} Sodium`, cells: ['140', '135-145', 'mmol/L'] }],
+        note: `${marker} fasting sample`,
         headerSql: `SELECT COUNT(*) FROM mdsMSH WHERE segmentID=${mdsId} AND sendingApp=${q(marker)}`,
         rows: counts(mdsId, mdsTables).join('+'),
         deleteSql: MDS_TABLES.map((table) => `DELETE FROM ${table} WHERE segmentID=${mdsId}`),
@@ -199,11 +207,15 @@ function describeLab({ sql, marker, hex, patient, provider, type }) {
             INSERT INTO mdsZRG(segmentID,reportSequence,reportGroupID,reportGroupVersion,reportFlags,reportGroupDesc,MDSIndex,reportGroupHeading)
               VALUES(${mdsId},'1','FKGRP','1','','FAKE CHEMISTRY','1','');
             INSERT INTO mdsZMN(segmentID,resultMnemonic,resultMnemonicVersion,reportName,units,cumulativeSequence,referenceRange,resultCode,reportForm,reportGroup,reportGroupVersion)
-              VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','1','1');
+              VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','FKGRP','1'),
+                    (${mdsId},'FKNA','1',${q(`${marker} Sodium`)},'mmol/L','2','135-145','FKNA','1','FKGRP','1');
             INSERT INTO mdsOBR(segmentID,obrID,placerOrderNo,universalServiceID,observationDateTime,specimenRecDateTime,fillerFieldOne,quantityTiming)
               VALUES(${mdsId},1,'FAKEORD','FAKE^SVC','20260101080000','20260101080000','','R');
             INSERT INTO mdsOBX(segmentID,obxID,valueType,observationIden,observationSubID,observationValue,abnormalFlags,observationResultStatus,producersID,associatedOBR)
-              VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1)`);
+              VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1),
+                    (${mdsId},2,'NM','XFKNA^Sodium','FKNA','140','','F','FK^Fake',1);
+            INSERT INTO mdsNTE(segmentID,sourceOfComment,comment,associatedOBX)
+              VALUES(${mdsId},'M',${q(`XXX${marker} fasting sample`)},2)`);
         },
       };
       return lab;
@@ -425,13 +437,21 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
     for (const [what, shown] of [['name', lab.patient.name], ['birth date', lab.patient.dob], ['health number', lab.patient.hin]]) {
       h.assert(text.includes(shown), `The ${lab.title} lab page does not show the patient's ${what} the lab carries`);
     }
-    const row = popup.locator('#tblDiscs tr').filter({ hasText: lab.result.name });
-    const rows = await row.count();
-    h.assert(rows === 1, `The ${lab.title} lab page shows ${rows} result rows for the seeded test, expected 1`);
-    const cells = (await row.first().locator('td').allInnerTexts()).map(squash);
-    for (const value of lab.result.cells) {
-      h.assert(cells.includes(value), `The ${lab.title} result row does not show "${value}" (${cells.filter(Boolean).length} cells are filled)`);
+    for (const result of [lab.result, ...(lab.moreResults || [])]) {
+      const row = popup.locator('#tblDiscs tr').filter({ hasText: result.name });
+      const rows = await row.count();
+      h.assert(rows === 1, `The ${lab.title} lab page shows ${rows} result rows for the seeded test ${result.name}, expected 1`);
+      const cells = (await row.first().locator('td').allInnerTexts()).map(squash);
+      for (const value of result.cells) {
+        h.assert(cells.includes(value), `The ${lab.title} result row for ${result.name} does not show "${value}" (${cells.filter(Boolean).length} cells are filled)`);
+      }
     }
+    if (lab.note) {
+      h.assert(text.includes(lab.note), `The ${lab.title} lab page does not show the note filed with a result`);
+    }
+    // SegmentDisplay.jsp shows this banner when a query failed part-way and the report is incomplete.
+    h.assert(await popup.locator('#mdsLoadFailed').count() === 0,
+      `The ${lab.title} lab page says part of the report could not be loaded`);
     // Msg renders only when the routing resolved a patient for the lab, and it names that patient's number.
     const msg = popup.locator('input[type="button"][value="Msg"]').first();
     h.assert(await msg.count() === 1 && (await msg.getAttribute('onclick') || '').includes(`demographic_no=${patient}`),
