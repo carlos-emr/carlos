@@ -10,9 +10,9 @@
  *     phone/fax delimiter fields included, and adds no second row.
  *   - The page shown after Submit, and the page opened again from the menu, show the stored values.
  *   - GET and HEAD carrying the save (method=update) are refused and change nothing.
- * Fixtures: none of its own. The clinic row is clinic-wide: the check snapshots every column first and
- * restores the snapshot in cleanup, verifying it byte for byte, so it must not run concurrently with
- * other checks (live wrapper: EXCLUSIVE=1).
+ * Fixtures: none of its own. The clinic row is clinic-wide: the check snapshots every column first (as
+ * HEX, NULL kept apart from '') and restores it with UNHEX in cleanup, verifying it the same way, so it
+ * must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -38,18 +38,19 @@ async function workflow(s) {
   const { sql, marker, context, recorder } = s;
   const q = h.sqlString;
   const tag = marker.slice(-6);
-  const rows = () => sql.rows(`SELECT clinic_no,${Object.values(COLUMNS).join(',')},status FROM clinic ORDER BY clinic_no`);
+  const rows = () => sql.rows(`SELECT clinic_no FROM clinic ORDER BY clinic_no`);
   const original = rows();
   h.assert(original.length === 1, `Expected one clinic row, found ${original.length}`);
-  const [clinicNo] = original[0];
-  const hexOf = `SELECT CONCAT_WS('|',${Object.values(COLUMNS).map(c => `HEX(COALESCE(${c},''))`).join(',')},HEX(COALESCE(status,''))) FROM clinic WHERE clinic_no=${clinicNo}`;
-  const originalHex = sql.value(hexOf);
+  const [[clinicNo]] = original;
+  // Byte-exact snapshot: every column as HEX, with NULL kept apart from ''.
+  const columns = [...Object.values(COLUMNS), 'status'];
+  const snapshotQuery = `SELECT ${columns.map(c => `IF(${c} IS NULL,'NULL',HEX(${c}))`).join(',')} FROM clinic WHERE clinic_no=${clinicNo}`;
+  const [snapshot] = sql.rows(snapshotQuery);
   s.cleanup(() => {
-    const [, ...values] = original[0];
-    const status = values.pop();
-    const assignments = Object.values(COLUMNS).map((column, index) => `${column}=${values[index] === 'NULL' ? 'NULL' : q(values[index])}`);
-    sql.execute(`UPDATE clinic SET ${assignments.join(',')},status=${status === 'NULL' ? 'NULL' : q(status)} WHERE clinic_no=${clinicNo}`);
-    h.assert(sql.value(hexOf) === originalHex, 'The clinic row was not restored to its snapshot');
+    const assignments = columns.map((column, index) => `${column}=${snapshot[index] === 'NULL' ? 'NULL' : `UNHEX('${snapshot[index]}')`}`);
+    h.assert(snapshot.every(value => value === 'NULL' || /^[0-9A-F]*$/.test(value)), 'The clinic snapshot is not hex');
+    sql.execute(`UPDATE clinic SET ${assignments.join(',')} WHERE clinic_no=${clinicNo}`);
+    h.assert(JSON.stringify(sql.rows(snapshotQuery)[0]) === JSON.stringify(snapshot), 'The clinic row was not restored to its snapshot');
     h.assert(sql.value('SELECT COUNT(*) FROM clinic') === '1', 'A clinic row was added and not removed');
   });
 
