@@ -78,13 +78,14 @@ function upgradeErrors(released, files) {
   const errors = [];
   const top = {};
   for (const entry of released) {
+    if (!versionOf(entry.path)) { errors.push(`${entry.path} is not a versioned migration name`); continue; }
     if (!(entry.path in files)) {
       errors.push(`${entry.path} shipped in ${entry.tag} but is missing or renamed; installs of ${entry.tag} would refuse to start`);
     } else if (files[entry.path] !== entry.hash) {
       errors.push(`${entry.path} shipped in ${entry.tag} but its content changed; Flyway would report a checksum mismatch`);
     }
+    const v = versionOf(entry.path);
     for (const set of setsOf(entry.path)) {
-      const v = versionOf(entry.path);
       if (!top[set] || compareVersions(v, top[set].version) > 0) top[set] = { version: v, entry };
     }
   }
