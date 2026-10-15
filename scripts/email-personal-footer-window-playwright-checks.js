@@ -109,8 +109,13 @@ async function workflow(s) {
     const stale = `${marker} footer typed over an older one`;
     await editor.fill(stale);
     const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
+    // The browser also logs the refused POST to the console, at times after the response event;
+    // wait for that line (the recorder, listening since the page opened, has it by then).
+    const logged = preferences.waitForEvent('console', {predicate: m => /status of 409 \(/.test(m.text()), timeout: 5000})
+      .catch(() => null);
     const {response} = await saveAndAwait();
     h.assert(response.status() === 409, `A stale save answered ${response.status()}`);
+    await logged;
     // Consume exactly the 409 this save drew (and the browser's console line for it); any other
     // signal stays strict.
     for (let i = s.recorder.badResponses.length - 1; i >= since.responses; i--) {

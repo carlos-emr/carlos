@@ -67,7 +67,7 @@ async function workflow(s) {
   // a page would fail the strict-page check, and Playwright's request context can leave out the
   // Secure session cookie over plain HTTP.
   async function logoAddress() {
-    const cookies = await context.cookies(config.baseUrl);
+    const cookies = await context.cookies(String(config.baseUrl));
     const response = await fetch(h.appUrl(config.baseUrl, '/email/clinicEmailLogo'), {
       redirect: 'manual', headers: {cookie: cookies.map(c => `${c.name}=${c.value}`).join('; ')}});
     return {status: response.status, type: response.headers.get('content-type') || '',
@@ -93,23 +93,41 @@ async function workflow(s) {
     await frame.waitForLoadState('domcontentloaded');
     return frame;
   }
+  // The Administration page grows its frame to the frame's content, so the footer window inside
+  // it is as tall as the frame and its lower controls can sit below the browser window. Playwright
+  // cannot scroll a fixed window inside a frame into view, so scroll the page itself, as a user's
+  // mouse wheel over the window does; measure again each time, since the window may still be
+  // sliding in.
+  async function reach(locator) {
+    const height = admin.viewportSize().height;
+    const deadline = Date.now() + TIMEOUT;
+    for (;;) {
+      const box = await locator.boundingBox();
+      if (box && box.y >= 0 && box.y + box.height <= height) return locator;
+      h.assert(Date.now() < deadline, 'Scrolling the page did not bring the footer window\'s control into view');
+      if (box) await admin.evaluate(dy => window.scrollBy(0, dy), Math.round(box.y + box.height / 2 - height / 2));
+      await admin.waitForTimeout(100);
+    }
+  }
   // Edit footer ▸ (type) ▸ choose ▸ Save footer: one POST of the text and both settings.
   async function editAndSave(page, {text, mode, logo, outcome}) {
     await page.locator('[data-footer-editor-target="clinicFooter"]').click();
     const editor = page.locator('#footerEditorText');
     await editor.waitFor({state: 'visible', timeout: TIMEOUT});
     if (text !== undefined) await editor.fill(text);
-    if (mode) await page.locator(mode === 'off' ? '#clinicFooterModeOff' : '#clinicFooterModeRequired').check();
-    if (logo === true) await page.locator('#logoShown').check();
-    if (logo === false) await page.locator('#logoShown').uncheck();
-    const posted = page.waitForRequest(request => request.method() === 'POST'
-      && new URL(request.url()).pathname.endsWith('/admin/saveClinicEmailFooter'), {timeout: TIMEOUT});
-    await page.locator('#footerEditorApply').click();
-    await posted;
+    if (mode) await (await reach(page.locator(mode === 'off' ? '#clinicFooterModeOff' : '#clinicFooterModeRequired'))).check();
+    if (logo === true) await (await reach(page.locator('#logoShown'))).check();
+    if (logo === false) await (await reach(page.locator('#logoShown'))).uncheck();
+    const apply = await reach(page.locator('#footerEditorApply'));
+    await Promise.all([
+      admin.waitForRequest(request => request.method() === 'POST'
+        && new URL(request.url()).pathname.endsWith('/admin/saveClinicEmailFooter'), {timeout: TIMEOUT}),
+      apply.click()]);
     return frameAt('/admin/ViewConfigureEmail', `clinicFooterOutcome=${outcome}`);
   }
-  const auditCount = (content, value) => sql.value(`SELECT COUNT(*) FROM log WHERE id > ${firstLog}
-    AND provider_no=${q(s.provider)} AND content=${q(content)} AND contentId=${q(value)}`);
+  // Audit rows are written on a separate thread (LogAction.addLog), so they are polled for.
+  const audited = (content, value, message) => expectValue(sql, `SELECT COUNT(*) FROM log WHERE id > ${firstLog}
+    AND provider_no=${q(s.provider)} AND content=${q(content)} AND COALESCE(contentId, '')=${q(value)}`, '1', message);
   const setting = name => sql.value(`SELECT value FROM property WHERE name=${q(name)} AND ${CLINIC} ORDER BY id LIMIT 1`);
 
   let page = await configureEmail();
@@ -127,8 +145,9 @@ async function workflow(s) {
     h.assert(setting(SETTINGS[0]).includes(typed), 'The typed text was not saved');
     await expectValue(sql, `SELECT value FROM property WHERE name=${q(SETTINGS[1])} AND ${CLINIC}`, 'off', 'Off was not saved');
     h.assert(setting(SETTINGS[2]) === 'false', 'No logo was not saved');
-    h.assert(auditCount('emailFooterClinicDefault', '') === '1' && auditCount('emailFooterClinicMode', 'off') === '1'
-      && auditCount('emailFooterLogoShown', 'false') === '1', 'The three changes were not each audited');
+    await audited('emailFooterClinicDefault', '', 'The footer text change was not audited');
+    await audited('emailFooterClinicMode', 'off', 'Off was not audited');
+    await audited('emailFooterLogoShown', 'false', 'No logo was not audited');
     const off = await logoAddress();
     h.assert(off.status === 404, `With the logo off, the logo address answered ${off.status}`);
     const mine = await context.newPage();
