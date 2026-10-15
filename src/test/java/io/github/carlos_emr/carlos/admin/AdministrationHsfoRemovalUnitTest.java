@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("fast")
 @Tag("admin")
-class AdministrationHsfoRemovalTest {
+class AdministrationHsfoRemovalUnitTest {
 
     private static final Path LEFT_NAV =
             Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
