@@ -122,10 +122,21 @@ async function workflow(s) {
   const weekNumberCells = () => schedule.locator('td[bgcolor="#FOFOFO"]').filter({hasText: /^\s*\d\s*$/});
   const apptLink = (providerNo) => schedule.locator(`a.apptLink[onclick*="appointment_no=${appointments[providerNo]}&"]`);
 
+  // The month the first Month click opened, without a provider choice. The Month link of a week view opens the month of the
+  // week's last day (a week that straddles two months lands on the later one), so later steps return to this URL, which the
+  // application itself produced, to compare providers on the same calendar.
+  let monthUrl = null;
   async function openMonth(label) {
-    // On a month page the first such link is the "last month" arrow, so only follow the link from the day sheet or the week view.
-    if (params(schedule).get('displaymode') !== 'month') {
+    if (params(schedule).get('displaymode') === 'month') {
+      // Already on a month page: its first Month link is the "last month" arrow.
+    } else if (monthUrl) {
+      await schedule.goto(monthUrl, {waitUntil: 'domcontentloaded'});
+      await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
+    } else {
       await clickAndAwaitReload(schedule, schedule.locator(MONTH_LINK).first(), {label});
+      const opened = new URL(schedule.url());
+      opened.searchParams.delete('providerview');
+      monthUrl = opened.toString();
     }
     const query = params(schedule);
     h.assert(query.get('displaymode') === 'month' && query.get('dboperation') === 'searchappointmentmonth', `${label}: the Month link does not request the month view`);
