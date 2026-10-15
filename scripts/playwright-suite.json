@@ -954,11 +954,7 @@
         "PATHNET_LABS"
       ],
       "fixtures": "Owned synthetic patient and three legacy BCP reports (final, preliminary and one holding both a final and a preliminary result); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
-      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, pinned to app-findings-log.md finding 165: a report with both an F and a P result is listed as Partial, but Hl7MshDao takes the alphabetical MIN of its OBR statuses, so the patient lab list says Final. BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built), so this pin has been written from the source and has not been seen failing on a live install (issue #4439).",
-      "expectedFailure": {
-        "finding": 165,
-        "step": "a PathNet report with both final and preliminary results is listed as Partial, not Final"
-      }
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, the regression check for app-findings-log.md finding 165 (fixed, #4552): a report with both an F and a P result is listed as Partial, not Final (the report status aggregate used to be the alphabetical MIN of its OBR statuses). BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built) (issue #4439)."
     },
     {
       "name": "echart-new-patient-notes",
