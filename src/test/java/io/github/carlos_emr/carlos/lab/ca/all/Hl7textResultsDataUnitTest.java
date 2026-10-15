@@ -26,9 +26,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -112,6 +115,42 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
         assertThat(measurement.getCreateDate()).isEqualTo(inDefaultTimeZone(entered));
         assertThat(measurement.getDateObserved()).isEqualTo(inDefaultTimeZone(observed));
+    }
+
+    @ParameterizedTest(name = "dateObserved of {0} is filed as {1}")
+    @MethodSource("observationTimesWithoutSeconds")
+    void shouldFileObservationTime_whenSecondsOrTimeOmitted(String timestamp, String expected) {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+
+        Measurement measurement = populateMeasurement(timestamp, entered);
+
+        assertThat(measurement.getDateObserved()).isEqualTo(inDefaultTimeZone(LocalDateTime.parse(expected)));
+    }
+
+    @Test
+    void shouldFileAsObservedNow_whenObservationTimeUnparseable() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        Date before = new Date();
+
+        Measurement measurement = populateMeasurement("not-a-date", entered);
+
+        assertThat(measurement.getDateObserved()).isBetween(before, new Date(System.currentTimeMillis() + 1000));
+    }
+
+    @ParameterizedTest(name = "unparseable observation time {0} is not parsed")
+    @ValueSource(strings = {"2026-08-20 09:45:00 UTC", "2026-02-30 09:45", "2026-08-20 25:00", "garbage", ""})
+    void shouldRejectObservationTime_whenMalformedOrTrailingText(String timestamp) {
+        assertThat(Hl7textResultsData.parseObservationDate(timestamp)).isNull();
+    }
+
+    private static Stream<Arguments> observationTimesWithoutSeconds() {
+        return Stream.of(
+                Arguments.of("2026-08-20 09:45:00", "2026-08-20T09:45:00"),
+                Arguments.of("2026-08-20 09:45", "2026-08-20T09:45:00"),
+                Arguments.of("2026-08-20 12:15", "2026-08-20T12:15:00"),
+                Arguments.of("2026-08-20 15:30", "2026-08-20T15:30:00"),
+                Arguments.of("2026-08-20 09", "2026-08-20T09:00:00"),
+                Arguments.of("2026-08-20", "2026-08-20T00:00:00"));
     }
 
     private static Stream<String> timesOfDay() {

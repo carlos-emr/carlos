@@ -73,8 +73,6 @@ public class EctConEditDepartments2Action extends ActionSupport {
                     DepartmentDao.remove(Integer.parseInt(specialists[i]));
                 }
             }
-            EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-            constructSpecialistsScriptsFile.makeString(request.getLocale());
             return "delete";
         }
 
@@ -90,9 +88,6 @@ public class EctConEditDepartments2Action extends ActionSupport {
 
 
         request.setAttribute("upd", Integer.valueOf(updater));
-        EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        request.setAttribute("verd", constructSpecialistsScriptsFile.makeFile());
-        constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
 

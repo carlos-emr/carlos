@@ -40,10 +40,10 @@
  * FIXTURES. Marker-named services, a consultant (professionalSpecialists, fName FAKE), an institution and a
  * department, seeded by SQL or created through the Add Service page, and up to two throwaway logins (one with a role
  * of its own, one with the seeded doctor role; lib/authz-read-fixture.js). Enable Request/Response is clinic-wide: the
- * two property rows and the Referring Doctor service are snapshotted and restored, and so is the legacy
- * specialistsJavascript script that the service and consultant writes regenerate, verbatim and checked by MD5
- * (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so this check must run with
- * EXCLUSIVE=1.
+ * two property rows and the Referring Doctor service are snapshotted and restored, and the legacy
+ * specialistsJavascript script, which the service and consultant writes no longer regenerate (finding 260, #4617), is
+ * asserted unchanged by MD5 (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so
+ * this check must run with EXCLUSIVE=1.
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
