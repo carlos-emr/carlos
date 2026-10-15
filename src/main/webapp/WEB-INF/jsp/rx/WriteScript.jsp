@@ -1572,7 +1572,7 @@
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('<carlos:encode value='${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');">
+                                                    <a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}<c:if test="${not empty rx2.regionalIdentifier and rx2.regionalIdentifier ne 'null' and rx2.regionalIdentifier ne '0'}">&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}</c:if>" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}', '${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>

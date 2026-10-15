@@ -304,7 +304,7 @@
                                                             <%= getMaxVal(t.name)%>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="javascript:ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="${pageContext.request.contextPath}/rx/drugInfo?GN=<carlos:encode value='<%= t.name %>' context="uriComponent"/>" onclick="ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -334,7 +334,7 @@
                                                                     title="<carlos:encode value='<%= brandName %>' context="htmlAttribute"/>"><carlos:encode value='<%= brandName %>'/></button>
                                                         <%}%>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="javascript:ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="${pageContext.request.contextPath}/rx/drugInfo?BN=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>" onclick="ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -401,7 +401,7 @@
                                                 <%= t.name%>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>');"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="${pageContext.request.contextPath}/rx/drugInfo?BN=<carlos:encode value='<%= t.pKey %>' context="uriComponent"/>" onclick="ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%
