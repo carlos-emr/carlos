@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -158,7 +159,7 @@ public class DemographicUpdate2Action extends ActionSupport {
         List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
-                    String.join("; ", fieldLengthValidationErrors));
+                    LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
             request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return "validationError";
@@ -297,7 +298,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                 try {
                     listIdInt = Integer.parseInt(listId);
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
+                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", LogSafe.sanitize(listId));
                     response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
                     return null;
                 }
@@ -471,7 +472,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                 try {
                     deleteme = Integer.parseInt(deleteConsentParam);
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, deleteConsentParam);
+                    logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, LogSafe.sanitize(deleteConsentParam));
                 }
             }
             if (consentRecord != null) {
@@ -479,7 +480,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                 try {
                     optOut = Integer.parseInt(consentRecord) == 1;
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", consentRecord);
+                    logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", LogSafe.sanitize(consentRecord));
                     optOut = false;
                 }
                 patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
