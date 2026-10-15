@@ -66,8 +66,8 @@
 
         <title>INTAKE B. COUNSELLOR ASSESSMENT</title>
         <link rel="stylesheet" type="text/css"
-              href="formcounsellorassessment.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+              href="${pageContext.request.contextPath}/form/formcounsellorassessment.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <style type="text/css" media="print">
             BODY {
                 font-size: 85%;

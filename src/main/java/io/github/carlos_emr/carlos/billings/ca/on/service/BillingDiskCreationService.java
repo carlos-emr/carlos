@@ -31,11 +31,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -128,6 +130,11 @@ public class BillingDiskCreationService {
         return lookupService.getProvider(diskId);
     }
 
+    /** All provider numbers on the disk's filename rows, billable or not (see {@link BillingOnLookupService#getDiskProviderNos}). */
+    public List<String> getDiskProviderNos(String diskId) {
+        return lookupService.getDiskProviderNos(diskId);
+    }
+
     public BillingProviderDto getProviderObj(String providerNo) {
         return lookupService.getProviderObj(providerNo);
     }
@@ -166,10 +173,19 @@ public class BillingDiskCreationService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int createNewGrpDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
+        // One normalized key names the file, is stored as the disk's group and
+        // drives the batch counter lookup. The legacy fallback stored "" for a
+        // malformed group while looking the counter up by the raw value, so
+        // every such disk was batch 1 with the same H<month>.001 name (#4277).
+        String groupKey = BillingGroupNumber.normalize(groupNo);
+        if (!BillingGroupNumber.isWellFormed(groupKey) || BillingGroupNumber.SOLO.equals(groupKey)) {
+            // All members share this group key, so identify every affected provider.
+            throw new InvalidBillingGroupException(providerNo);
+        }
         for (int attempt = 1; attempt <= DISK_NAME_INSERT_RETRIES; attempt++) {
             try {
                 return diskNameAllocationTx.execute(status ->
-                        claimPersister.addBillingDiskName(newGroupDiskName(providerNo, ohipNo, groupNo, creator)));
+                        claimPersister.addBillingDiskName(newGroupDiskName(providerNo, ohipNo, groupKey, creator)));
             } catch (RuntimeException e) {
                 if (!isDuplicateDiskNameFailure(e)) {
                     throw e;
@@ -215,9 +231,8 @@ public class BillingDiskCreationService {
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
 
-        String groupno = (groupNo != null && groupNo.length() == 4) ? groupNo : "";
-        diskName.setGroupno(groupno);
-        diskName.setOhipfilename(getGrpOhipfilename(groupno, temp[0], temp[1]));
+        diskName.setGroupno(groupNo);
+        diskName.setOhipfilename(getGrpOhipfilename(groupNo, temp[0], temp[1]));
         diskName.setCreator(creator);
         diskName.setClaimrecord("");
         diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
@@ -227,7 +242,7 @@ public class BillingDiskCreationService {
         // disk-header claimRecord/status/total duplicated across each row so
         // the consumer's read-at-zero contract still produces the disk-header
         // value while a future per-row consumer would also see consistent data.
-        ArrayList<String> htmlFilenames = getGrpHtmlfilename(ohipNo, groupno, temp[0], temp[1]);
+        ArrayList<String> htmlFilenames = getGrpHtmlfilename(ohipNo, groupNo, temp[0], temp[1]);
         List<DiskFilenameRow> rows = new ArrayList<>();
         for (int i = 0; i < providerNo.size(); i++) {
             rows.add(new DiskFilenameRow(
@@ -303,7 +318,7 @@ public class BillingDiskCreationService {
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
         obj.setBatchId(batchid);
         obj.setOperator("");
-        obj.setGroupNum(providerData.getBillingGroupNo());
+        obj.setGroupNum(BillingGroupNumber.normalize(providerData.getBillingGroupNo()));
         obj.setProviderRegNum(providerData.getOhipNo());
         obj.setSpecialty(providerData.getSpecialtyCode());
         obj.setHCount("");
@@ -323,35 +338,44 @@ public class BillingDiskCreationService {
 
     public int updateBatchHeader(BillingProviderDto providerData, String disk_id, String moh_office, String seqNum,
                                  String creator) {
-        boolean ret = false;
-        BillingBatchHeaderDto obj = diskQuery.getBatchHeaderObj(providerData, disk_id);
-        claimPersister.addRepoBatchHeader(obj);
-        obj.setDiskId(disk_id);
-        obj.setTranscId(BillingOnConstants.BATCHHEADER_TRANSACTIONIDENTIFIER);
-        obj.setRecId(BillingOnConstants.BATCHHEADER_REORDIDENTIFICATION);
-        obj.setSpecId(BillingOnConstants.BATCHHEADER_SPECID);
-        obj.setMohOffice(moh_office);
+        PreparedBatchHeader prepared = prepareBatchHeader(providerData, disk_id, moh_office, seqNum, creator);
+        finalizeBatchHeader(prepared);
+        return Integer.parseInt(prepared.replacement().getId());
+    }
 
+    /** Keeps the prior audit value separate from the replacement rendered into the file. */
+    public record PreparedBatchHeader(BillingBatchHeaderDto original, BillingBatchHeaderDto replacement) { }
+
+    /** Prepares regeneration metadata without changing the database before rendering succeeds. */
+    @Transactional(readOnly = true)
+    public PreparedBatchHeader prepareBatchHeader(BillingProviderDto providerData, String disk_id,
+                                                   String moh_office, String seqNum, String creator) {
+        BillingBatchHeaderDto original = diskQuery.getBatchHeaderObj(providerData, disk_id);
+        if (original.getId() == null || original.getId().isBlank()) {
+            throw new BillingValidationException("Cannot regenerate a missing batch header");
+        }
+        BillingBatchHeaderDto obj = new BillingBatchHeaderDto();
+        org.springframework.beans.BeanUtils.copyProperties(original, obj);
+        // Preserve the stored batch identity and counts; the persister updates
+        // only the operator-editable fields, so the rendered DTO must match it.
+        obj.setMohOffice(moh_office);
         String batchid = UtilDateUtilities.getToday("yyyyMMdd") + getDefaultRightJust("0", 4, seqNum);
         obj.setBatchId(batchid);
-        obj.setOperator("");
-        obj.setGroupNum(providerData.getBillingGroupNo());
-        obj.setProviderRegNum(providerData.getOhipNo());
         obj.setSpecialty(providerData.getSpecialtyCode());
-        obj.setHCount("");
-        obj.setRCount("");
-        obj.setTCount("");
-        obj.setBatchDate(UtilDateUtilities.getToday("yyyy-MM-dd"));
-
         String strDateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
-        // obj.setCreatedatetime(strDateTime);
         obj.setUpdatedatetime(strDateTime);
         obj.setCreator(creator);
         obj.setAction(BillingOnConstants.BILLINGACTION_UPDATE);
         obj.setComment("");
-        ret = claimPersister.updateBatchHeaderRecord(obj);
-        int retval = ret ? Integer.parseInt(obj.getId()) : 0;
-        return retval;
+        return new PreparedBatchHeader(original, obj);
+    }
+
+    /** Persists the prepared metadata and its audit record inside disk finalization's transaction. */
+    public void finalizeBatchHeader(PreparedBatchHeader prepared) {
+        claimPersister.addRepoBatchHeader(prepared.original());
+        if (!claimPersister.updateBatchHeaderRecord(prepared.replacement())) {
+            throw new BillingValidationException("Could not finalize regenerated batch metadata");
+        }
     }
 
     private ArrayList getSoloHtmlfilename(String ohipNo, String monthCode, String batchNum) {

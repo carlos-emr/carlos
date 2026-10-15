@@ -30,6 +30,13 @@
 
 --%>
 
+<%--
+    Rourke export administration: selects a patient set, creates an export, and lists downloads.
+    Parameters: patientSet and contact/vendor fields for POST; method=getFile and zipFile for download.
+    Access: administrator read privilege; download authorization is also enforced by the action.
+    All stored contact, set, and file labels are encoded for their output context.
+    @since 2026-10-02
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

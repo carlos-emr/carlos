@@ -62,7 +62,8 @@ for (const scenario of ['empty', 'missing-frame', 'missing-document', 'missing-f
         getElementsByName: () => scenario === 'ready' ? [hidden] : [],
       };
     }
-    const context = vm.createContext({ frames, hasPreview: scenario !== 'empty' });
+    const context = vm.createContext({ frames, hasPreview: scenario !== 'empty',
+      document: { getElementById: () => null } });
     vm.runInContext(commentSource, context);
     assert.doesNotThrow(() => context.setComment());
     if (scenario === 'ready') {

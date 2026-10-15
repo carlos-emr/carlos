@@ -22,11 +22,16 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,6 +46,7 @@ import org.mockito.Mock;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -87,6 +93,75 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
         injectDependency(service, "encounterTemplateDao", mockEncounterTemplateDao);
         injectDependency(service, "preferenceManager", mockPreferenceManager);
         return service;
+    }
+
+    @Test
+    @DisplayName("selected notes ignore an incomplete optional dates object")
+    void shouldPrintSelectedNotes_withIncompleteOptionalDates() throws Exception {
+        try (var printers = mockConstruction(
+                CaseManagementPrint.class)) {
+            Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                    .query("printOps", "{\"printType\":\"selected\",\"selectedList\":[\"42\"],\"dates\":{\"start\":\"2026-10-03T00:00:00Z\"}}")
+                    .get();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(printers.constructed()).hasSize(1);
+            verify(printers.constructed().getFirst()).doPrint(
+                    any(), eq(123), eq(false), eq(new String[]{"42"}),
+                    eq(false), eq(false), eq(false), eq(false), eq(false), eq(false),
+                    isNull(), isNull(), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("date mode passes both bounds and all-note selection to the PDF service")
+    void shouldPrintDateRange_withCompleteBounds() throws Exception {
+        try (var printers = mockConstruction(CaseManagementPrint.class)) {
+            Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                    .query("printOps", "{\"printType\":\"dates\",\"selectedList\":[],\"dates\":{"
+                            + "\"start\":\"2026-10-03T00:00:00Z\",\"end\":\"2026-10-03T00:00:00Z\"}}")
+                    .get();
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(printers.constructed()).hasSize(1);
+            verify(printers.constructed().getFirst()).doPrint(any(), eq(123), eq(true), eq(new String[0]),
+                    eq(false), eq(false), eq(false), eq(false), eq(false), eq(true),
+                    any(java.util.Calendar.class), any(java.util.Calendar.class), any(), any());
+        }
+    }
+
+    @Test
+    @DisplayName("date printing rejects incomplete, invalid and reversed bounds before streaming")
+    void shouldRejectDateRange_withInvalidBounds() {
+        String[] dates = {"{}", "{\"start\":\"2026-10-03T00:00:00Z\"}",
+                "{\"start\":null,\"end\":\"2026-10-03T00:00:00Z\"}",
+                "{\"start\":\"invalid\",\"end\":\"2026-10-03T00:00:00Z\"}",
+                "{\"start\":\"2026-10-04T00:00:00Z\",\"end\":\"2026-10-03T00:00:00Z\"}"};
+        try (var printers = mockConstruction(
+                CaseManagementPrint.class)) {
+            for (String bounds : dates) {
+                Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                        .query("printOps", "{\"printType\":\"dates\",\"selectedList\":[],\"dates\":" + bounds + "}")
+                        .get();
+                assertThat(response.getStatus()).isEqualTo(400);
+            }
+            assertThat(printers.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("PDF generation errors produce HTTP failure instead of empty successful downloads")
+    void shouldReturnServerError_whenChartPrintingFails() {
+        try (var _ = mockConstruction(
+                CaseManagementPrint.class,
+                (printer, context) -> doThrow(new IOException("synthetic failure"))
+                        .when(printer).doPrint(any(), any(), anyBoolean(), any(),
+                                anyBoolean(), anyBoolean(),
+                                anyBoolean(), anyBoolean(),
+                                anyBoolean(), anyBoolean(),
+                                any(), any(), any(), any()))) {
+            Response response = request().path("/recordUX/123/print").replaceHeader("Accept", "application/pdf")
+                    .query("printOps", "{\"printType\":\"selected\",\"selectedList\":[\"42\"]}").get();
+            assertThat(response.getStatus()).isEqualTo(500);
+        }
     }
 
     /** Tests for GET /recordUX/{demographicNo}/recordMenu endpoint. */

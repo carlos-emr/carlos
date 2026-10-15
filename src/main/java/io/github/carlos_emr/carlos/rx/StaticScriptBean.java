@@ -72,6 +72,7 @@ public class StaticScriptBean {
         public String writtenDate = null;
         public String prescriptionDetails = null;
         public String genericName = null;
+        public String regionalIdentifier = null;
         public String customName = null;
         public String brandName = null;
         public boolean isArchived = false;
@@ -126,6 +127,7 @@ public class StaticScriptBean {
         drugDisplayData.nonAuthoritative = drug.isNonAuthoritative();
 
         drugDisplayData.genericName = drug.getGenericName();
+        drugDisplayData.regionalIdentifier = drug.getRegionalIdentifier();
 
         drugDisplayData.customName = drug.getCustomName();
 

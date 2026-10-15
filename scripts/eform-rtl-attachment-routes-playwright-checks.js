@@ -14,9 +14,16 @@
 
 /*
  * Local-only browser regression check for Rich Text Letter attachment routing.
+ *
+ * The letter is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker): nothing it
+ * asserts depends on a demo patient's records. The patient, the saved instance and its rows are removed by the patient's key
+ * afterwards, where the application's own Delete only marks the instance removed; it used to leave an instance and eight values
+ * on demo patient 1 per run. MYSQL_* reaches the database.
  */
 
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   buildFailureDetails,
@@ -41,15 +48,29 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  demographicNo: process.env.RTL_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const sql = createSqlRunner(readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let browser = null;
+  let ownedRows = null;
+  let ownedPatient = null;
+  // Patient creation and the browser launch are inside the try whose finally removes the patient and disposes the mysql option
+  // file, so a browser that fails to launch cannot strand a FAKE-PW patient.
   try {
+    // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+    ownedRows = eformRows(sql);
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
@@ -90,6 +111,15 @@ const config = {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try {
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
+      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+    } catch (error) {
+      console.error(`FAIL cleanup: ${error.message}`);
+      process.exitCode = 1;
+    } finally {
+      sql.dispose();
+    }
   }
 })();

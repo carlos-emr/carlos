@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,4 +58,13 @@ public interface SmsProviderClient {
     Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers);
 
     Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers);
+
+    /**
+     * Names of the credential fields this provider needs (for example an API user and password), in the
+     * order Administration &gt; SMS should show them. Values are stored encrypted in {@code sms_config}
+     * and never shown back. Defaults to none, as for the stub provider.
+     */
+    default List<String> credentialFields() {
+        return List.of();
+    }
 }

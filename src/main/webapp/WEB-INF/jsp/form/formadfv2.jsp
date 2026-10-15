@@ -48,7 +48,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>MEDICAL HISTORY AND ADMISSION EXAMINATION</title>
-        <link rel="stylesheet" type="text/css" href="arStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/arStyle.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 

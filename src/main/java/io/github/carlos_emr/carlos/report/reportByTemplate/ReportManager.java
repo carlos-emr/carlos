@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -142,6 +143,15 @@ public class ReportManager {
                     String priority = param.getAttributeValue("priority") != null ? param.getAttributeValue("priority") : "query";
 
                     String paramquery = param.getChildText("param-query"); //if retrieving choices from the DB
+                    if (paramquery != null && !ReportTemplateSqlValidator.isAllowedStatement(paramquery)) {
+                        // Opening a template runs its param-queries, so a stored statement that is not a
+                        // plain SELECT (saved before save-time validation existed, or written straight to
+                        // the table) is refused here rather than executed.
+                        MiscUtils.getLogger().warn("Refused non-SELECT param-query in report template {}",
+                                LogSafe.sanitize(templateid));
+                        return new ReportObjectGeneric(templateid, "Error: The <param-query> of parameter '"
+                                + paramid + "' is not an allowed SELECT statement");
+                    }
                     if (paramquery != null) {
                         // Use parameterized query method even though no parameters are bound
                         // This eliminates the use of the unsafe runNativeQuery method
@@ -210,79 +220,6 @@ public class ReportManager {
         return rt.getTemplateXml();
     }
 
-    public String updateTemplateXml(String xmltext) {
-        for (ReportTemplates r : dao.findAll()) {
-            dao.remove(r.getId());
-        }
-
-        ReportTemplates r = new ReportTemplates();
-        r.setTemplateTitle("globalxml");
-        r.setTemplateDescription("Global XML File");
-        r.setTemplateSql("");
-        r.setTemplateXml(UtilXML.unescapeXML(xmltext));
-        r.setActive(0);
-        r.setType("");
-
-        return loadInReports();
-    }
-
-    //templateid must not repeat
-    @SuppressWarnings("unchecked")
-    public String loadInReports() {
-        String xml = getTemplateXml("1");
-        if (xml == null || xml.isEmpty()) return "Error: Could not save the template file in the database.";
-        try {
-            SAXBuilder parser = XmlUtils.createSecureSAXBuilder(); // NOSONAR java:S2755 — XXE protection applied via XmlUtils.createSecureSAXBuilder()
-            xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
-            //xml = UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
-            Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
-            Element root = doc.getRootElement();
-            List<Element> reports = root.getChildren("report");
-
-            for (int i = 0; i < reports.size(); i++) {
-                Element report = reports.get(i);
-
-                String templateid = report.getAttributeValue("id");
-                if (templateid == null) return "Error: Attribute 'id' missing in <report> tag";
-
-                String templateTitle = report.getAttributeValue("title");
-                if (templateTitle == null) return "Error: Attribute 'title' missing in <report> tag";
-
-                String templateDescription = report.getAttributeValue("description");
-                if (templateDescription == null) return "Error: Attribute 'description' missing in <report> tag";
-
-                String querysql = report.getChildText("query");
-                if (querysql == null || querysql.length() == 0)
-                    return "Error: The sql query is missing in <report> tag";
-                XMLOutputter reportout = new XMLOutputter();
-                String reportXML = reportout.outputString(report).trim();
-                reportXML = UtilXML.unescapeXML(reportXML);
-                String active = report.getAttributeValue("active");
-                int activeint;
-                try {
-                    activeint = Integer.parseInt(active);
-                } catch (Exception e) {
-                    activeint = 1;
-                }
-
-                ReportTemplates r = new ReportTemplates();
-                r.setTemplateTitle(templateTitle);
-                r.setTemplateDescription(templateDescription);
-                r.setTemplateSql(querysql);
-                r.setTemplateXml(reportXML);
-                r.setActive(activeint);
-                r.setType("");
-                dao.persist(r);
-
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            return "Error parsing file: " + e.getCause();
-        }
-
-        return "Saved Successfully";
-    }
-
     public Document readXml(String xml) throws Exception {
         SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
         xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
@@ -310,6 +247,15 @@ public class ReportManager {
         try {
             Element rootElement = templateXML.getRootElement();
             List<Element> reports = rootElement.getChildren();
+            // Refuse anything but SELECT before any <report> is stored (a document may carry
+            // several, and each is persisted inside the loop below): the <query> runs when the
+            // report is generated and every <param-query> runs as soon as the template is opened.
+            for (Element report : reports) {
+                String sqlRefusal = ReportTemplateSqlValidator.validateReport(report);
+                if (sqlRefusal != null) {
+                    return sqlRefusal;
+                }
+            }
             for (int i = 0; i < reports.size(); i++) {
                 Element report = reports.get(i);
                 //reading title
@@ -392,8 +338,25 @@ public class ReportManager {
         return "Saved Successfully";
     }
 
-    public String deleteTemplate(String templateid) {
-        dao.remove(dao.find(Integer.parseInt(templateid)).getId());
+    /**
+     * Deletes one template.
+     *
+     * @param templateid numeric template id
+     * @param loggedInInfo the acting user, who must hold {@code _report} write
+     * @return {@code ""} on success, otherwise an {@code "Error:"} message
+     * @throws SecurityException if the user lacks {@code _report} write
+     */
+    public String deleteTemplate(String templateid, LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_report)");
+        }
+        int id = ConversionUtils.fromIntString(templateid);
+        ReportTemplates template = id > 0 ? dao.find(id) : null;
+        if (template == null) {
+            return "Error: Template not found";
+        }
+        dao.remove(template.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "ReportManager.deleteTemplate", "id=" + template.getId());
         return "";
     }
 

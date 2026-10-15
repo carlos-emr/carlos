@@ -76,11 +76,13 @@ public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
     private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
     private static final String EFORM_SECURITY_OBJECT = "_eform";
+    private static final String TICKLER_SECURITY_OBJECT = "_tickler";
 
     private enum PreviewError {
         INVALID_REQUEST("invalid_request", "Invalid preview request."),
         EDOC_RENDER_FAILED("edoc_render_failed", "Failed to render document PDF."),
         EFORM_RENDER_FAILED("eform_render_failed", "Failed to render eForm PDF."),
+        EFORM_RENDER_BUSY("eform_render_busy", "The eForm renderer is busy. Waiting for a preview slot."),
         EFORM_APPROVAL_INVALID("eform_approval_invalid",
                 "The incomplete-render approval is invalid or expired. Render the preview again."),
         EFORM_MISSING_CONTENT("eform_missing_content",
@@ -88,6 +90,8 @@ public class DocumentPreview2Action extends ActionSupport {
                         + "You can render it only after approving the listed issues, but the document may be incomplete."),
         HRM_RENDER_FAILED("hrm_render_failed", "Failed to render HRM PDF."),
         LAB_RENDER_FAILED("lab_render_failed", "Failed to render lab PDF."),
+        LAB_SOURCE_UNSUPPORTED("lab_source_unsupported",
+                "PDF preview is unavailable for this laboratory source. Open the original lab report."),
         FORM_RENDER_FAILED("form_render_failed", "Failed to render form PDF.");
 
         private final String code;
@@ -128,6 +132,7 @@ public class DocumentPreview2Action extends ActionSupport {
      * - renderLabPDF: Renders laboratory results as PDF
      * - renderFormPDF: Renders encounter forms as PDF
      * - renderPDF: Renders arbitrary PDF files with security validation
+     * - fetchTicklerDocuments: Retrieves documents for the tickler attachment picker
      * - fetchConsultDocuments: Retrieves consultation-related documents (default)
      *
      * @return String result name for Struts2 result mapping, or null for direct response rendering
@@ -164,6 +169,8 @@ public class DocumentPreview2Action extends ActionSupport {
                 return NONE;
             case "fetchconsultdocuments":
                 return fetchConsultDocuments();
+            case "fetchticklerdocuments":
+                return fetchTicklerDocuments();
             default:
                 logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -267,8 +274,36 @@ public class DocumentPreview2Action extends ActionSupport {
                     response, PreviewError.EFORM_MISSING_CONTENT, token, e.getReport(),
                     e.getSevereConsoleDetails());
         } catch (PDFGenerationException e) {
+            if (e.isRetryable()) {
+                String retryApproval = renderApprovalService.reissueAfterCapacity(
+                        request, loggedInInfo, eFormId, demographicNo,
+                        EFormRenderApprovalService.Operation.PREVIEW, approval);
+                generateRenderBusyResponse(retryApproval);
+                return;
+            }
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
             generateResponse(response, PreviewError.EFORM_RENDER_FAILED);
+        }
+    }
+
+    /** Only emitted when the renderer reports that admission failed before any render started. */
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "JSON encodes fixed text and a server-issued opaque token")
+    private void generateRenderBusyResponse(String retryApproval) {
+        ObjectNode json = objectMapper.createObjectNode();
+        json.put("errorCode", PreviewError.EFORM_RENDER_BUSY.code);
+        json.put("errorMessage", PreviewError.EFORM_RENDER_BUSY.message);
+        json.put("retryable", true);
+        json.put("retryAfterSeconds", 2);
+        json.put("renderApproval", retryApproval);
+        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+        response.setHeader("Retry-After", "2");
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        try {
+            response.getWriter().write(json.toString());
+        } catch (IOException e) {
+            logger.warn("Could not write eForm render capacity response", e);
         }
     }
 
@@ -331,6 +366,14 @@ public class DocumentPreview2Action extends ActionSupport {
             return;
         }
         requirePrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo);
+        // This renderer accepts HL7 segments only. Older clients omitted the source because
+        // this endpoint historically rendered HL7; an explicit other source must never fall back.
+        String labType = request.getParameter("labType");
+        if (labType != null && !"HL7".equals(labType)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.LAB_SOURCE_UNSUPPORTED);
+            return;
+        }
         resolveLabDemographicNoOrDeny(segmentId, demographicNo);
         try {
             Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, segmentId);
@@ -401,6 +444,8 @@ public class DocumentPreview2Action extends ActionSupport {
 
         try {
             response.setContentType("application/pdf");
+            // resolve enforces opaque-token provider/session/expiry binding and canonical application-temp containment.
+            // nosemgrep: semgrep.carlos.httpservlet-path-traversal -- pdfPath is the exact server-issued file returned by that capability check, never a client path
             try (InputStream inputStream = Files.newInputStream(pdfPath);
                  BufferedInputStream bfis = new BufferedInputStream(inputStream);
                  ServletOutputStream outs = response.getOutputStream()) {
@@ -495,6 +540,54 @@ public class DocumentPreview2Action extends ActionSupport {
         populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
 		List<EFormData> allEForms = documentAttachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicId, fdidInt);
 		request.setAttribute("allEForms", allEForms);
+
+        return "fetchDocuments";
+    }
+
+    /**
+     * Fetches the documents available for attaching to a tickler.
+     *
+     * <p>Tickler counterpart of {@link #fetchConsultDocuments()}, gated by the tickler security
+     * object rather than the consultation one so a user who works ticklers but not consults can
+     * still use the picker. {@code demographicNo} must be a positive integer: a tickler always
+     * belongs to a patient, and a bad or missing value is a 400 rather than a fall-through to
+     * demographic 0. Each section of the picker is still gated by that type's own read right in
+     * {@link #populateCommonDocs}, and selection is enabled only with {@code _tickler} write.</p>
+     *
+     * Expected request parameters:
+     * - demographicNo: String the patient's demographic number (required, positive integer)
+     *
+     * @return String "fetchDocuments" result name for Struts2 result mapping, or {@link #NONE}
+     *         after a 400 for an invalid demographic number
+     * @throws SecurityException if the user lacks the required "_tickler" read privilege
+     */
+    public String fetchTicklerDocuments() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        Integer demographicId = parseIntegerParameterOrRespondBadRequest(
+                request.getParameter(DEMOGRAPHIC_NO_PARAMETER), DEMOGRAPHIC_NO_PARAMETER);
+        if (demographicId == null) {
+            return NONE;
+        }
+        if (demographicId <= 0) {
+            logger.warn("Invalid {} received: not a positive integer", DEMOGRAPHIC_NO_PARAMETER);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            generateResponse(response, PreviewError.INVALID_REQUEST);
+            return NONE;
+        }
+        String sanitizedDemographicNo = String.valueOf(demographicId);
+
+        requirePrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo);
+        request.setAttribute(DEMOGRAPHIC_NO_PARAMETER, sanitizedDemographicNo);
+        request.setAttribute("attachmentSecurityObject", TICKLER_SECURITY_OBJECT);
+        request.setAttribute("canManageAttachments",
+                hasPrivilege(loggedInInfo, TICKLER_SECURITY_OBJECT, SecurityInfoManager.WRITE, sanitizedDemographicNo));
+        populateCommonDocs(loggedInInfo, sanitizedDemographicNo, demographicId);
+        // A tickler is not itself an eForm, so unlike fetchEFormDocuments nothing is excluded.
+        List<EFormData> allEForms = hasPrivilege(loggedInInfo, EFORM_SECURITY_OBJECT, SecurityInfoManager.READ, sanitizedDemographicNo)
+                ? EFormUtil.listPatientEformsCurrent(demographicId, true)
+                : new ArrayList<>();
+        request.setAttribute("allEForms", allEForms);
 
         return "fetchDocuments";
     }
@@ -666,9 +759,12 @@ public class DocumentPreview2Action extends ActionSupport {
     }
 
     private String resolveLabDemographicNoOrDeny(Integer segmentId, String requestedDemographicNo) {
-        PatientLabRouting patientLabRouting = patientLabRoutingDao.findDemographicByLabId(segmentId);
-        Integer demographicNo = patientLabRouting == null ? null : patientLabRouting.getDemographicNo();
-        return requireMatchingDemographicNo(demographicNo, requestedDemographicNo, "lab");
+        for (PatientLabRouting routing : patientLabRoutingDao.findByLabNoAndLabType(segmentId, "HL7")) {
+            if (requestedDemographicNo.equals(String.valueOf(routing.getDemographicNo()))) {
+                return requestedDemographicNo;
+            }
+        }
+        throw new SecurityException("lab does not match demographic");
     }
 
     private void requireFormBelongsToDemographic(LoggedInInfo loggedInInfo, Integer formId, String formName, Integer demographicNo) {

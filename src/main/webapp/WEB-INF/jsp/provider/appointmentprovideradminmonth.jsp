@@ -324,6 +324,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             jQuery.noConflict();
         </script>
@@ -379,25 +380,20 @@
              */
             function postViaFormPopup(url) {
                 var parts = url.split('?');
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = "<%= request.getContextPath() %>/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
-                form.target = 'oscar_appt';
+                var fields = [];
                 if (parts.length > 1) {
                     var pairs = parts[1].split('&');
                     for (var i = 0; i < pairs.length; i++) {
                         var kv = pairs[i].split('=');
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = decodeURIComponent(kv[0]);
-                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
-                        form.appendChild(input);
+                        fields.push([decodeURIComponent(kv[0]),
+                            kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '']);
                     }
                 }
-                document.body.appendChild(form);
-                window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the click handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
+                carlosPostForm("${carlos:forJavaScript(pageContext.request.contextPath)}/provider/providercontrol?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>", fields, {target: 'oscar_appt', popup: popup});
             }
 
             //<!--messenger code block-->

@@ -135,7 +135,7 @@ jobs:
           done
           if [ "$FAILED" = "true" ]; then
             echo ""
-            echo "See: docs/I18N-STANDARDS.md#utf-8-encoding-requirements-java-21"
+            echo "See: docs/I18N-STANDARDS.md#utf-8-encoding-requirements-java-25"
             exit 1
           fi
           echo "All properties files are valid UTF-8."

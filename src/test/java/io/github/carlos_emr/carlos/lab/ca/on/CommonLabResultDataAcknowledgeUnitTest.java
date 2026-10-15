@@ -242,7 +242,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotSilentlyFileAReportThatArrivesWhileWaitingForRoutingLocks() {
+    void shouldNotFileLateArrivingReport_whenWaitingForRoutingLocks() {
         registerStaticInitializerMocks();
         java.util.concurrent.atomic.AtomicBoolean lateArrival = new java.util.concurrent.atomic.AtomicBoolean();
         try (MockedStatic<CommonLabResultData> common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
@@ -253,8 +253,12 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     anyInt(), anyString(), anyChar(), any(), any(), anyBoolean())).thenReturn(true);
             common.when(() -> CommonLabResultData.updateReportStatus(
                     anyInt(), anyString(), anyChar(), any(), any())).thenReturn(true);
-            // Static CALLS_REAL_METHODS stubbing invokes updateReportStatus with matcher defaults.
-            // Add the argument-specific callback after those stubs, not during their setup.
+            // Recording each common.when(...) stub above invokes the real updateReportStatus
+            // once under CALLS_REAL_METHODS, with the matchers' default arguments (labNo 0),
+            // and that call reaches the routing DAO (lockRoutingReport(0),
+            // findRoutingForUpdate(0, ...)). The DAO is a plain lenient mock, so nothing
+            // fails either way; the lab-specific DAO behaviour is installed only afterwards
+            // so those setup-time calls never run through it.
             Mockito.doAnswer(call -> { lateArrival.set(true); return null; })
                     .when(staticRoutingDao()).lockRoutingReport(169);
             when(staticRoutingDao().transitionNewRoutingRows(anyInt(), anyString(), anyString(), anyChar()))
