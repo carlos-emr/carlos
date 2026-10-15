@@ -32,7 +32,20 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.List;
+
 import io.github.carlos_emr.carlos.commn.model.MdsNTE;
 
 public interface MdsNTEDao extends AbstractDao<MdsNTE> {
+
+    /**
+     * Returns every note row of one report as scalar columns.
+     *
+     * <p>Not {@link MdsNTE} entities: the table has no primary key and every note of a report shares
+     * the segmentID the entity maps as its id, so Hibernate would return the first note once per row.</p>
+     *
+     * @param id the report's segmentID
+     * @return rows of {@code [sourceOfComment (String), comment (String), associatedOBX (Integer)]}
+     */
+    List<Object[]> findNotesBySegmentId(Integer id);
 }
