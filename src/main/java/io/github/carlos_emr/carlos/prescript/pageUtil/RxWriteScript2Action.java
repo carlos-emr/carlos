@@ -1627,7 +1627,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                             } else {
                                 isStartDateUnknown = false;
                             }
-                        } else if (elem.equals("comment_" + num)) {
+                        } else if (elem.equals("rxComment_" + num)
+                                || (elem.equals("comment_" + num) && request.getParameter("rxComment_" + num) == null)) {
+                            // Keep older open Rx forms readable, but prefer the Rx-specific
+                            // name (including an intentional empty comment) regardless of order.
                             rx.setComment(val);
                         } else if (elem.equals("patientCompliance_" + num)) {
                             if ("yes".equals(val)) {

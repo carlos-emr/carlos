@@ -36,5 +36,18 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.MdsOBX;
 
 public interface MdsOBXDao extends AbstractDao<MdsOBX> {
-    List<MdsOBX> findByIdObrAndCodes(Integer id, String associatedOBR, List<String> codes);
+    /**
+     * Returns the result rows of one observation request of a report, as scalar columns.
+     *
+     * <p>Not {@link MdsOBX} entities: the table has no primary key and every result of a report shares
+     * the segmentID the entity maps as its id, so Hibernate would return the first result once per row.</p>
+     *
+     * @param id the report's segmentID
+     * @param associatedOBR the {@code obrID} the results belong to
+     * @param codes result codes; a row matches when its observationSubID contains any of them
+     *              (no filter when empty)
+     * @return rows of {@code [obxID (Integer), observationIden, observationValue, abnormalFlags,
+     *         observationResultStatus, producersID]}, the last five {@code String}
+     */
+    List<Object[]> findByIdObrAndCodes(Integer id, Integer associatedOBR, List<String> codes);
 }
