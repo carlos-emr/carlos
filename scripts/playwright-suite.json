@@ -4783,6 +4783,35 @@
       "fixtures": "The owned patient given a synthetic address; nothing is sent."
     },
     {
+      "name": "demographic-relations",
+      "script": "scripts/demographic-relations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Skipped when NEW_CONTACTS_UI is on: the Master Record then has no Add Relation.",
+      "fixtures": "The owned patient and a second FAKE patient (marker + R); cleanup deletes every relationships row of either and the second patient."
+    },
+    {
+      "name": "demographic-audit-view",
+      "script": "scripts/demographic-audit-view-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two marker log rows for the owned patient and one for a second FAKE patient (marker + A); cleanup deletes those log rows and the second patient."
+    },
+    {
       "name": "dx-registry-status-update",
       "script": "scripts/dx-registry-status-update-playwright-checks.js",
       "tiers": [
