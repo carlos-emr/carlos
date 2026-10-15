@@ -1431,6 +1431,20 @@ Notes on the contract:
   `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
 
+### TLS verification for the browser checks (issue #3598)
+
+Every browser context in `scripts/` takes its certificate policy from
+`shouldIgnoreHttpsErrors()` in `scripts/lib/playwright-harness.js`. Certificate
+errors are ignored only when `BASE_URL` is loopback or RFC1918 (the installer's
+self-signed certificate). `ALLOW_NON_LOCAL_BASE_URL=true` lets a check *reach* a
+remote host but does **not** relax certificate verification. To run against a
+remote host that presents a self-signed certificate, also set
+`ALLOW_UNVERIFIED_TLS=true`; `TEST_USER`, `TEST_PASSWORD` and `TEST_PIN` are then
+sent to a host whose identity the browser did not verify. Without it, a
+certificate failure stops with a message naming that variable.
+`scripts/tls-verification-policy.test.js` fails the build if a check hardcodes
+`ignoreHTTPSErrors: true`.
+
 ### Server-log audit
 
 A check can pass while the server threw behind it: an AJAX fragment that failed
@@ -2789,3 +2803,19 @@ A follow-up covered a report with versions whose older version cannot be read. T
 (`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
 Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
 per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.
+
+### Patient photo bound to the posted patient (2026-10-14, issue #4546)
+
+`ClientImage2Action` now acts on the `demographicNo` that each form of the Client Image Manager posts, never on the
+session-wide `clientId`, and checks `_demographic` w for that patient plus `isAllowedAccessToPatientRecord` first
+(finding 156). Run against a `2026.09.0~snapshot26` package built from the fix branch and installed fresh into an
+Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean; the installer's transient "NOT ready to use"
+came from an nginx reload in a sandbox without IPv6 and left no marker): `patient-photo-upload` **PASS**, all 15
+steps, including the finding-156 step, Upload in the first of two open managers, a CSRF-valid Clear Photo POST that
+names no patient, and a doctor login locked out of the second patient (refused 403, photo kept; the unlocked control
+clears). Through the suite runner it is a plain PASS with no expected-failure pin, and the smoke tier passed 12 of
+12. With the pre-fix `ClientImage2Action.class` and `uploadimage.jsp` swapped into the installed webapp (Tomcat's
+compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo does not post the patient the manager
+was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
+itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
+patient-less POST was answered as a success and the locked login was served (HTTP 200).

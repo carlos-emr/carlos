@@ -53,7 +53,7 @@ const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
 const { settleOperations } = require('./graceful-signal-cancellation');
-const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
 const {
   assert,
@@ -421,7 +421,7 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
     // Only a loopback target (the packaged install's self-signed front door) may skip TLS
     // validation; any other BASE_URL keeps it on.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');

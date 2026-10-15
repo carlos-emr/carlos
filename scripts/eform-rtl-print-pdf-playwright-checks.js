@@ -48,7 +48,7 @@
 
 const fs = require('fs');
 const { chromium } = require('playwright');
-const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
@@ -220,7 +220,7 @@ async function savedFdid(page) {
     // A self-signed front door is only acceptable on the loopback install the runbook describes;
     // a remote HTTPS target must present a certificate the test user actually trusts.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     // Record window.print() from EVERY frame on the Node side (the pages navigate right after printing),
     // and neutralize window.close() so the post-save auto-close does not tear the page down under us.
     await context.exposeBinding('__carlosRecordPrint', (source, info) => { printLog.push(info); });

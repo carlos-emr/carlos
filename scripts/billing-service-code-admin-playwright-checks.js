@@ -34,6 +34,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -199,7 +200,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     original = latestRow(existingCode);
     assert(original, `service code ${existingCode} is not in billingservice`);
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);
     const page = await openAdminPage(context, recorder);
 

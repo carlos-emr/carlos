@@ -54,6 +54,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -684,7 +685,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 
   try {
     await record('the break-glass administrator can log in through the forced password reset', async () => {
-      const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert, viewport: { width: 1440, height: 1100 } });
+      const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl), viewport: { width: 1440, height: 1100 } });
       adminPage = await loginThroughForcedReset(
         context, credentials.user, credentials.password, credentials.pin, 'admin schedule');
       const row = securityRow(credentials.user);
@@ -711,7 +712,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
           `UPDATE security SET password = ${sqlString(adminRow.password)}, forcePasswordReset = 1`
           + ` WHERE user_name = ${sqlString(fixtures.clinician.userName)}`);
 
-        const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert });
+        const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
         const page = await loginThroughForcedReset(
           context, fixtures.clinician.userName, smokePassword, fixtures.clinician.pin,
           'clinician schedule', smokePasswordSecond);
