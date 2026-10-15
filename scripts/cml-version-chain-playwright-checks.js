@@ -33,6 +33,8 @@
  *                in the matching popup (oscarMDS/SearchPatient -> oscarMDS/PatientMatch) answers 200 and links BOTH
  *                versions to the patient and not the recycled report. This is the strict form of the chain
  *                (MrpRoutingService), which threw for every CML report before the fix: the match answered HTTP 500.
+ *                The popup also writes two ERROR entries to the server log for a CML report (it asks the HL7 factory
+ *                for the lab, finding 269); scripts/lib/server-log-baseline.tsv explains them for the log audit.
  *
  * NOT ASSERTED, on purpose: Forward. The CML picker cannot complete a Forward (finding 184, pinned by
  * legacy-lab-display), and the chain is the same one Acknowledge resolves.

@@ -2885,3 +2885,40 @@ compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo doe
 was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
 itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
 patient-less POST was answered as a success and the locked login was served (HTTP 200).
+
+### CML report-version chain validation (2026-10-15, issue #4568)
+
+`release/2026.08` at `244556ad` plus the #4568 branch at `9d1cd46f` was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR` and `DRUGREF_WAR` (DrugRef built on the host from the commit `debian/drugref.pin` names, `1941e14`). carlos-ctl
+was 1.1.2 from its release. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). Behind the egress proxy one apt download in the image build ended in a
+"Broken pipe"; the repeat built the image. The installed classes were checked to be the fixed ones before any check ran
+(`MDSResultsData$CmlChain` present; the `ORDER BY tr.printDate, tr.printTime, lpp.id` and `TRIM(lpp2.accessionNum)` text in the
+DAO class).
+
+`cml-version-chain` (`npm run test:cml-version-chain-playwright`) seeds three reports of one accession (two versions two days
+apart, and a third that recycled the number two years earlier) and three more, unmatched, for the match step, then drives the real
+CML pages through the front door.
+
+| Run | `cml-version-chain` |
+|---|---|
+| fixed packages, fresh install | all five steps pass: seed, the newest version lists the older one as a `Version:` link (and not the recycled report), the older version opens from its link and links back, acknowledging the newest files the older one and leaves the recycled report alone, matching one unmatched version to the owned patient links every version of it and not the recycled report |
+| the two `release/2026.08` classes (`MDSResultsData`, `LabPatientPhysicianInfoDaoImpl`, byte-for-byte what `244556ad` compiles to) put back into the installed webapp | fails at the display step: "The final report page shows 0 "Version:" rows, expected 1"; the journal logs `ERROR data.MDSResultsData (MDSResultsData.java:610) - exception in getMatchingCMLLabs (ClassCastException)`, the line the issue quotes |
+| the same, seed and match steps only (a scratch wrapper that is not in the repository) | choosing the patient makes `oscarMDS/PatientMatch` answer HTTP 500, expected 200; the journal shows `IllegalStateException: Lab version lookup failed` caused by `ClassCastException: class java.lang.String cannot be cast to class java.util.Date`, the strict lookup that `PatientMatch` uses |
+| fixed classes restored and the service restarted | all five steps pass again |
+
+On the fixed install `legacy-lab-display` and `legacy-lab-display-mds` were unchanged: `known-fail` at Forward on finding 184.
+`legacy-lab-display-pathnet` SKIPs on Ontario. The residue audit reported no residue. Until the classes were swapped the journal
+held no `getMatchingCMLLabs` error, and the server-log audit's only signatures were the two that the matching popup writes for a
+CML report (`Factory.getHandler` finding no HL7 text message under the lab's number, then the empty-message fallback), which is
+finding 269; both are now in `scripts/lib/server-log-baseline.tsv` with that citation, and the audit passes.
+
+The smoke tier passed 11 of 12. `echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save
+and refresh" (`page.waitForResponse` timed out waiting for the `encounter/displayIssues?cmd=unresolvedIssues` refresh), twice in a
+row, and the same way with the two `release/2026.08` classes put back, so this change does not cause it. #4641 (`cbe3c561`)
+changed the CPP save to a POST that redirects and did not touch `scripts/echart-playwright-checks.js`, which still waits for that
+refresh; that is the likely cause, and it is not pursued here.
+
+The swaps used `docker cp` of the compiled classes and a `carlos-ctl restart`; Tomcat takes about a minute to be ready after it,
+and an HTTP 200 from the front door before then is nginx's, not the application's.
