@@ -3501,6 +3501,55 @@
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
     },
     {
+      "name": "billing-bc-bill-create-save",
+      "script": "scripts/billing-bc-bill-create-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC MSP bill entry: Create Invoice, diagnosis and fee-code searches, Continue (review), Save Bill; asserts the billing header and billingmaster line, and a 405 for a GET Save Bill.",
+      "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-bill-status-filters",
+      "script": "scripts/billing-bc-bill-status-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Bill Status (Invoice List): status, bill-type and service-date filters list exactly the owned bills they should. Read-only page.",
+      "fixtures": "Seeds and removes three billing/billingmaster rows (MSP not submitted, MSP settled, private bill-patient) for its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-private-bill-receipt",
+      "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Expected to FAIL at the Receive Payment step while app-findings-log.md finding 164 (#4551) stands.",
+      "expectedFailure": {
+        "finding": 164,
+        "step": "Receive Payment records a full payment and marks the private bill paid"
+      },
+      "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
+    },
+    {
       "name": "facility-selection",
       "script": "scripts/facility-selection-playwright-checks.js",
       "tiers": [
