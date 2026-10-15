@@ -2807,9 +2807,16 @@ It has no ATC class named PENICILLINS, and its ATC class named SULFONAMIDES is `
 
 | Run | Result |
 |---|---|
-| fixed packages | `allergy-class-shortcut-alert` (new) passes all 5 steps: Amoxil (J01CA04), Septra (J01EE01) and Biaxin (J01FA09) as the issue asks. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
+| fixed packages | `allergy-class-shortcut-alert` (new) passes all 7 steps: Amoxil (J01CA04) and Septra (J01EE01) as the issue asks, HP-PAC (A02BD07) and BLEPHAMIDE (S01CA02) through DrugRef's AHFS class, and Biaxin (J01FA09) clear. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
 | pre-fix `RxDrugData` classes swapped into the installed webapp | `allergy-class-shortcut-alert` fails at the Amoxil step: only the old shortcut's row warns, matched by DrugRef's AHFS name |
 | pre-fix `RxDrugData`, `RxAddAllergy2Action`, `RxAddReaction2Action` and the three allergy pages swapped in | `allergy-class-shortcut-alert` fails at its first step; `allergy-add-penicillin-shortcut-id` fails on the type code |
+| the fix's first version of `RxDrugData` (ATC prefix only for a new shortcut allergy) swapped in | `allergy-class-shortcut-alert` fails at the HP-PAC step: only the old shortcut's row warns |
+
+The first three rows ran on packages of the fix's first commit. Review then found that a new shortcut allergy was decided by
+its ATC prefix alone, and the fix now also asks DrugRef about it under both class names. The last row and the first row's 7
+steps ran on packages rebuilt from that commit and reinstalled over the first ones (`apt-get install --reinstall`;
+`carlos-ctl check` clean). On this extract the products the AHFS classes reach outside J01C and J01E are A02BD07, A07EC01,
+D10AB52, G01AE10, J01RA02 and S01CA02.
 
 With the fixed files restored, the following also passed: `allergy-save-retry`, `allergy-rx-alert`, `allergy-custom-lifecycle`,
 `allergy-injected-form-csrf` (its Sulfa step now expects the ATC class row, and the NKDA entry is still archived),
@@ -2817,3 +2824,8 @@ With the fixed files restored, the following also passed: `allergy-save-retry`, 
 `demographic-cds-import`, `cds-export-lab-documents` and `export-content-chart-print-sections`.
 The smoke tier passed 12/12, and `scripts/deb-server-log-audit.sh` found no unexplained signature (8 known, all provoked on
 purpose by the checks that ran; no `RxAddAllergy2Action` or allergy-check error).
+
+On the rebuilt packages the same allergy, CSRF, CDS and export checks passed again, with the smoke tier at 12/12 and the
+server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
+while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
+reach the allergy code.
