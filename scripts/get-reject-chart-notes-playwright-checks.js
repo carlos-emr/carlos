@@ -131,7 +131,11 @@ async function workflow(s) {
     // The document viewer's and the lab display's "open ticklers" alert opens this URL in a popup.
     const list = await s.context.newPage();
     await list.goto(h.appUrl(s.config.baseUrl, `/tickler/ViewTicklerDemoMain?demoview=${patient}`));
+    // Both dialog requests are synchronous XHRs; start only once the page's scripts (CSRFGuard
+    // included) have finished loading, or a click can stall behind them.
+    await list.waitForLoadState('networkidle');
     await list.locator(`a[onclick*="openNoteDialog('${patient}','${demoTicklerNo}')"]`).click();
+    await list.locator('#note-form').waitFor({ state: 'visible' });
     await list.locator('#tickler_note').waitFor({ state: 'visible' });
     await list.locator('#tickler_note').fill(demoText);
     demoTickler = await captureRequest(list, url => url.pathname.endsWith('/CaseManagementEntry'),
