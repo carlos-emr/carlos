@@ -531,18 +531,42 @@ async function run(s) {
   let plotB;
   const entered = {A: {}, B: {}};
 
+  /** Whose identity banner a chart window shows (the header's name, DOB and HIN block). */
+  async function bannerOwner(chart) {
+    const text = norm(await chart.locator('#header-top-row').innerText({ timeout: TIMEOUT }));
+    return { namesA: namesA(text), namesB: namesB(text) };
+  }
+
   /**
-   * Load the other chart afresh, in a window of its own, so it is the most recently loaded chart
-   * whatever the previous step did. A chart load is what rebuilds the session's patient, and any
-   * module of A's window that names its patient (the CPP boxes do) rebuilds it back to A, so
-   * without this a write step could pass only because an earlier step had pointed the session at
-   * A. A new window rather than chartB.reload(): leaving a chart sends its note-lock release
-   * beacon, which the browser reports as an aborted ping and the strict recorder counts as a failure.
+   * Open the other patient's chart afresh, in a window of its own, through the clinician's chart
+   * entry (IncomingEncounter), so the other patient is the login's most recently opened chart
+   * whatever the previous step did. That entry is what still rewrites the login-wide
+   * EctSessionBean; reloading a chart page or its navbar modules no longer does, so loading the
+   * chart URL alone would leave the session on whichever patient was entered last, and a step
+   * could pass only because an earlier step had pointed the session at its own patient. A new
+   * window rather than chartB.reload(): leaving a chart sends its note-lock release beacon, which
+   * the browser reports as an aborted ping and the strict recorder counts as a failure.
    */
   async function activateOther(chart) {
+    const patient = new URL(chart.url()).searchParams.get('demographicNo');
+    h.assert(patient === String(A) || patient === String(B), 'The chart to select belongs to neither owned patient');
+    const fresh = await context.newPage();
+    await h.gotoApp(fresh, s.config.baseUrl,
+      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(provider)}`);
+    await waitForNavbars(fresh, TIMEOUT);
+    h.assert(new URL(fresh.url()).searchParams.get('demographicNo') === patient,
+      'Entering the other chart opened a different patient');
+    const banner = await bannerOwner(fresh);
+    h.assert(patient === String(A) ? banner.namesA && !banner.namesB : banner.namesB && !banner.namesA,
+      'The freshly entered chart names another patient in its identity banner');
+  }
+
+  /** Reload a chart window's own address in a fresh window, as a refresh would, and read its banner. */
+  async function reloadedBanner(chart) {
     const fresh = await context.newPage();
     await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
     await waitForNavbars(fresh, TIMEOUT);
+    return bannerOwner(fresh);
   }
 
   // ---- Controls: with a single chart open nothing can cross, so a failure here is a broken
@@ -594,6 +618,18 @@ async function run(s) {
     const owners = await formLinkOwners(chartB);
     h.assert(owners.length > 0 && owners.every(owner => owner === String(B)),
       'B\'s Forms module does not carry B\'s demographic number on every Add Form link');
+  });
+
+  await s.step('each chart refreshed after the other was opened keeps its own identity banner', async () => {
+    // B was entered last, so the login-wide encounter bean is B's while A's page reloads.
+    const a = await reloadedBanner(chartA);
+    h.assert(a.namesA && !a.namesB, 'A\'s refreshed chart names another patient in its identity banner');
+    // Entering A again makes the bean A's while B's page reloads; then B is entered again so the
+    // steps below start from the same order as before (B entered last).
+    await activateOther(chartA);
+    const b = await reloadedBanner(chartB);
+    h.assert(b.namesB && !b.namesA, 'B\'s refreshed chart names another patient in its identity banner');
+    await activateOther(chartB);
   });
 
   const directions = [
@@ -1087,6 +1123,9 @@ async function run(s) {
       await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
       h.assert(JSON.stringify(sql.rows(otherLockQuery)) === JSON.stringify(otherLocks),
         'Releasing A\'s note lock changed B\'s note locks');
+      // The server can apply the release before Chromium reports the departed page's beacon as
+      // aborted. Let every captured release settle, so its requestfailed entry exists to consume.
+      await Promise.all(releases.map(request => request.response().catch(() => null)));
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);
