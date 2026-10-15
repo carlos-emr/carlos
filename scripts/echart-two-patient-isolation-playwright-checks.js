@@ -178,6 +178,7 @@ async function assertVascularTrackerAccessibility(page, form) {
     controls: Array.from(node.elements, field => ({name: field.name, type: field.type,
       value: field.value, checked: field.checked, disabled: field.disabled})),
     submitted: Array.from(new FormData(node).entries()),
+    examination: ['examinationFoot', 'examinationEye'].map(id => node.ownerDocument.getElementById(id).style.display),
   }));
   const before = await state();
   const headers = async expanded => {
@@ -200,8 +201,17 @@ async function assertVascularTrackerAccessibility(page, form) {
   h.assert(await page.locator('#showDetailTitle a').isVisible(), 'VT must initially show its compact view');
   await headers(false);
   await page.locator('#showDetailTitle a').click();
+  let examinationToggled = false;
   try {
+    await page.locator('#hideDetailTitle a').waitFor({state: 'visible'});
     await headers(true);
+    // initialize()/DMCheck hides examinations for a fresh form. The existing disclosure
+    // changes visibility only; leave the diagnosis checkboxes and disabled inputs untouched.
+    if (!await page.locator('#examinationFoot').isVisible()) {
+      await page.locator('#examLabel a').click();
+      examinationToggled = true;
+      await page.locator('#examinationFoot').waitFor({state: 'visible'});
+    }
     for (const expected of controls) {
       const control = form.locator(`#${expected.id}`);
       h.assert(await control.count() === 1, `VT control ${expected.id} is missing`);
@@ -222,7 +232,12 @@ async function assertVascularTrackerAccessibility(page, form) {
     h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-WT-value',
       'The native weight label did not focus its textbox');
   } finally {
+    if (examinationToggled) {
+      await page.locator('#examLabel a').click();
+      await page.locator('#examinationFoot').waitFor({state: 'hidden'});
+    }
     await page.locator('#hideDetailTitle a').click();
+    await page.locator('#showDetailTitle a').waitFor({state: 'visible'});
   }
   await headers(false);
   h.assert(JSON.stringify(await state()) === JSON.stringify(before),
