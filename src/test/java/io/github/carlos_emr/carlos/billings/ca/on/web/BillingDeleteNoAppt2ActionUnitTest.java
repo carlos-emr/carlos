@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionRecor
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -214,6 +215,22 @@ class BillingDeleteNoAppt2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLogNoUnsanitizedInput_whenBillingNoCarriesALineBreak() {
+            // NumberFormatException's message repeats the raw input; attaching it to the log event
+            // would write that input unsanitized (a forged log line).
+            mockRequest.setParameter("billing_no", "42\r\nFORGED ENTRY");
+
+            try (LogCapture logCapture = LogCapture.forLogger(BillingDeleteNoAppt2Action.class)) {
+                assertThat(newAction().execute()).isEqualTo(ActionSupport.ERROR);
+
+                assertThat(logCapture.events()).isNotEmpty()
+                        .allSatisfy(event -> assertThat(event.getThrown()).isNull());
+                assertThat(logCapture.messages())
+                        .allSatisfy(message -> assertThat(message).doesNotContain("\r").doesNotContain("\n"));
+            }
+        }
+
+        @Test
         void shouldNeverUseTheLegacyBillingTable_whenClaimHeadersAreInUse() {
             when(mockCorrectionRecordService.unbillClaim(anyInt(), anyString())).thenReturn(UnbillOutcome.DELETED);
             mockRequest.setParameter("billing_no", "42");
@@ -282,6 +299,20 @@ class BillingDeleteNoAppt2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(newAction().execute()).isEqualTo(ActionSupport.ERROR);
             verify(mockBillingDao, never()).merge(any(Billing.class));
+        }
+
+        @Test
+        void shouldLogNoUnsanitizedInput_whenBillingNoCarriesALineBreak() {
+            mockRequest.setParameter("billing_no", "42\r\nFORGED ENTRY");
+
+            try (LogCapture logCapture = LogCapture.forLogger(BillingDeleteNoAppt2Action.class)) {
+                assertThat(newAction().execute()).isEqualTo(ActionSupport.ERROR);
+
+                assertThat(logCapture.events()).isNotEmpty()
+                        .allSatisfy(event -> assertThat(event.getThrown()).isNull());
+                assertThat(logCapture.messages())
+                        .allSatisfy(message -> assertThat(message).doesNotContain("\r").doesNotContain("\n"));
+            }
         }
 
         @Test

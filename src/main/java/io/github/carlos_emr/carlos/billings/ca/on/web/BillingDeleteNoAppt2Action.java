@@ -84,7 +84,9 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
             try {
                 headerId = Integer.parseInt(billingNoStr);
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr), e);
+                // Not the exception: NumberFormatException's message repeats the raw parameter, which
+                // LogSafe exists to keep out of the log unsanitized.
+                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr));
                 return ERROR;
             }
             switch (correctionPrep.unbillClaim(headerId, curUserNo)) {
@@ -111,7 +113,8 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
             b.setStatus("D");
             billingDao.merge(b);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr), e);
+            // Not the exception: its message repeats the raw parameter (see the claim-header path).
+            MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr));
             return ERROR;
         }
 
