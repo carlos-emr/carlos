@@ -92,6 +92,39 @@ class DemographicEditVersionUnitTest {
     }
 
     @Test
+    void shouldTrackNameUsed_fromTheAliasTheFormShows() {
+        Demographic shown = patient();
+        shown.setAlias("CHECKY");
+        shown.setPrefName("CHECKY");
+        String before = DemographicEditVersion.of(shown, null, null);
+        // An alias-only writer cleared the alias; getPrefName() now falls back to the unchanged column.
+        Demographic aliasCleared = patient();
+        aliasCleared.setAlias("");
+        aliasCleared.setPrefName("CHECKY");
+
+        assertThat(DemographicEditVersion.of(aliasCleared, null, null)).isNotEqualTo(before);
+        assertThat(DemographicEditVersion.differences(shown, Map.of(), null, aliasCleared, Map.of(), null))
+                .extracting(Difference::labelKey, Difference::yours, Difference::current)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "demographic.demographicaddrecordhtm.formNameUsed", "CHECKY", ""));
+    }
+
+    @Test
+    void shouldChange_whenThePreferredNameBehindABlankAliasChanges() {
+        Demographic shown = patient();
+        shown.setAlias("");
+        shown.setPrefName("CHECKY");
+        Demographic changed = patient();
+        changed.setAlias("");
+        changed.setPrefName("CHUCK");
+
+        // The save overwrites pref_name with Name Used, so a change to it makes the form stale,
+        // but the form never shows it, so it adds no conflict row.
+        assertThat(DemographicEditVersion.of(changed, null, null)).isNotEqualTo(DemographicEditVersion.of(shown, null, null));
+        assertThat(DemographicEditVersion.differences(shown, Map.of(), null, changed, Map.of(), null)).isEmpty();
+    }
+
+    @Test
     void shouldChange_whenAnEditedExtensionRowChangesOrIsCreated() {
         String before = DemographicEditVersion.of(patient(), extensions("555-0100"), null);
 

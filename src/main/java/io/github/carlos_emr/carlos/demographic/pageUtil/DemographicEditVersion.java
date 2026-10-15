@@ -73,7 +73,8 @@ public final class DemographicEditVersion {
             new Field(EDIT + "formLastName", Demographic::getLastName),
             new Field(EDIT + "formFirstName", Demographic::getFirstName),
             new Field(EDIT + "formMiddleNames", Demographic::getMiddleNames),
-            new Field(ADD + "formNameUsed", Demographic::getPrefName),
+            // The form shows Name Used from the alias column; the save writes it to alias and prefName.
+            new Field(ADD + "formNameUsed", Demographic::getAlias),
             new Field(EDIT + "msgDemoTitle", Demographic::getTitle),
             new Field(EDIT + "formSex", Demographic::getSex),
             new Field(ADD + "formGender", Demographic::getGender),
@@ -118,11 +119,15 @@ public final class DemographicEditVersion {
 
     /**
      * Row values that are part of the version but not listed on their own: who saved last, and
-     * when. Any save through the form changes them, so even a save that changed no listed field
-     * makes an older form stale.
+     * when, and the preferred name. Any save through the form changes the first two, so even a
+     * save that changed no listed field makes an older form stale. The form overwrites pref_name
+     * with its Name Used entry but shows only the alias; {@code getPrefName()} returns the alias
+     * when one is set and the pref_name column otherwise, so a change to the column behind a blank
+     * alias also makes the form stale, without a second Name Used row in the conflict view.
      */
     private static final List<Function<Demographic, Object>> AUDIT = List.of(
-            Demographic::getDemographicNo, Demographic::getLastUpdateUser, Demographic::getLastUpdateDate);
+            Demographic::getDemographicNo, Demographic::getLastUpdateUser, Demographic::getLastUpdateDate,
+            Demographic::getPrefName);
 
     /** The extension keys every edit form writes, in the order {@link DemographicUpdate2Action} saves them. */
     private static final List<String> BASE_EXTENSION_KEYS = List.of(
