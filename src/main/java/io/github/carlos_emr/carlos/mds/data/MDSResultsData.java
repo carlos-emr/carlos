@@ -40,6 +40,7 @@ import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.StringJoiner;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -627,53 +628,19 @@ public class MDSResultsData {
      *         cannot be determined
      */
     public String getMatchingCMLLabs(String labId, boolean failOnLookupError) {
-        String ret = "";
-        int unreadable = 0;
-        boolean selectedPlaced = false;
-        boolean siblingFound = false;
+        CmlChain chain;
         try {
-            Integer selectedId = ConversionUtils.fromIntString(labId);
-            for (Object[] o : labPPIDao.findLabServiceDatesByLabId(selectedId)) {
-                Integer id = (Integer) o[0];
-
-                if (selectedId.equals(id)) {
-                    selectedPlaced = true;
-                } else {
-                    siblingFound = true;
-                    Date siblingDate = parseCmlServiceDate((String) o[1]);
-                    Date selectedDate = parseCmlServiceDate((String) o[2]);
-                    if (siblingDate == null || selectedDate == null) {
-                        unreadable++;
-                        continue;
-                    }
-
-                    int monthsBetween;
-                    if (siblingDate.before(selectedDate)) {
-                        monthsBetween = UtilDateUtilities.getNumMonths(siblingDate, selectedDate);
-                    } else {
-                        monthsBetween = UtilDateUtilities.getNumMonths(selectedDate, siblingDate);
-                    }
-                    if (monthsBetween >= CML_VERSION_WINDOW_MONTHS) {
-                        continue;
-                    }
-                }
-
-                if (ret.equals(""))
-                    ret = "" + id;
-                else
-                    ret = ret + "," + id;
-            }
-
+            chain = resolveCmlChain(ConversionUtils.fromIntString(labId));
         } catch (Exception e) {
             if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
             logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
-        if (failOnLookupError && (unreadable > 0 || (!selectedPlaced && siblingFound))) {
+        if (failOnLookupError && chain.guessed()) {
             // Never a lookup error, and never a PHI-bearing message: it only says the chain was not decidable.
             throw new IllegalStateException("Lab version chain could not be determined");
         }
-        if (!selectedPlaced) {
+        if (!chain.selectedPlaced()) {
             // The lookup could not place the selected report among its siblings: it has no accession number to
             // match on, or no print header to order it by (the header is joined to the sibling, so a sibling can
             // come back without it). A report that cannot be placed has no versions, and adding it to a siblings'
@@ -682,11 +649,57 @@ public class MDSResultsData {
             // empty one would hide it.
             return labId;
         }
-        if (unreadable > 0) {
+        if (chain.unreadable() > 0) {
             // A count only: neither a report number nor a date belongs in the log.
-            logger.warn("CML version lookup left out {} report(s) whose service date could not be read", unreadable);
+            logger.warn("CML version lookup left out {} report(s) whose service date could not be read", chain.unreadable());
         }
-        return ret;
+        return chain.ids();
+    }
+
+    /**
+     * What the lookup returned for one selected CML report, and what had to be left out or guessed to build its chain.
+     *
+     * @param ids the chain in lookup (print) order, comma separated
+     * @param selectedPlaced whether the lookup returned the selected report among its own rows
+     * @param siblingFound whether it returned any other report of the accession
+     * @param unreadable siblings left out because the service date of one of the pair could not be read
+     */
+    private record CmlChain(String ids, boolean selectedPlaced, boolean siblingFound, int unreadable) {
+        /** True when the chain rests on a guess: an unreadable date, or siblings the selected report could not be placed beside. */
+        boolean guessed() {
+            return unreadable > 0 || (!selectedPlaced && siblingFound);
+        }
+    }
+
+    private CmlChain resolveCmlChain(Integer selectedId) {
+        StringJoiner ids = new StringJoiner(",");
+        boolean selectedPlaced = false;
+        boolean siblingFound = false;
+        int unreadable = 0;
+        for (Object[] o : labPPIDao.findLabServiceDatesByLabId(selectedId)) {
+            Integer id = (Integer) o[0];
+            if (selectedId.equals(id)) {
+                selectedPlaced = true;
+                ids.add(String.valueOf(id));
+            } else {
+                siblingFound = true;
+                Date siblingDate = parseCmlServiceDate((String) o[1]);
+                Date selectedDate = parseCmlServiceDate((String) o[2]);
+                if (siblingDate == null || selectedDate == null) {
+                    unreadable++;
+                } else if (withinCmlVersionWindow(siblingDate, selectedDate)) {
+                    ids.add(String.valueOf(id));
+                }
+            }
+        }
+        return new CmlChain(ids.toString(), selectedPlaced, siblingFound, unreadable);
+    }
+
+    private static boolean withinCmlVersionWindow(Date siblingDate, Date selectedDate) {
+        int monthsBetween = siblingDate.before(selectedDate)
+                ? UtilDateUtilities.getNumMonths(siblingDate, selectedDate)
+                : UtilDateUtilities.getNumMonths(selectedDate, siblingDate);
+        return monthsBetween < CML_VERSION_WINDOW_MONTHS;
     }
 
     /**
@@ -704,7 +717,7 @@ public class MDSResultsData {
         try {
             LocalDate day = value.indexOf('-') < 0 ? LocalDate.parse(value, CML_SERVICE_DATE) : LocalDate.parse(value);
             return Date.from(day.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        } catch (DateTimeParseException e) {
+        } catch (DateTimeParseException _) {
             return null;
         }
     }

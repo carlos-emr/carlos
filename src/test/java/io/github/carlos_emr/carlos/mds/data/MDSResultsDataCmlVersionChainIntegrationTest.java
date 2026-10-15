@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -146,7 +147,9 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
         assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling))).isEqualTo(String.valueOf(sibling));
         assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling), true)).isEqualTo(String.valueOf(sibling));
         // A mutation starting from the orphan refuses: its sibling exists, and it cannot be placed beside it.
-        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs(String.valueOf(orphan.getId()), true))
+        String orphanId = String.valueOf(orphan.getId());
+        MDSResultsData data = new MDSResultsData();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs(orphanId, true))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
@@ -206,7 +209,8 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
         try (LogCapture capture = LogCapture.forLogger(MDSResultsData.class)) {
             new MDSResultsData().getMatchingCMLLabs(String.valueOf(finalReport));
 
-            assertThat(capture.events()).extracting(event -> event.getLevel()).doesNotContain(Level.ERROR);
+            assertThat(capture.events().stream().filter(event -> event.getLevel() == Level.ERROR).map(LogEvent::getMessage).toList())
+                    .isEmpty();
         }
     }
 }

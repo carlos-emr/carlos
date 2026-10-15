@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -83,6 +84,11 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
 
     private void daoReturns(int requested, Object[]... rows) {
         when(dao.findLabServiceDatesByLabId(requested)).thenReturn(List.of(rows));
+    }
+
+    /** The ERROR events the capture holds, so "none" and "exactly one" are asserted on what matters, not on every event. */
+    private static List<LogEvent> errorsLogged(LogCapture capture) {
+        return capture.events().stream().filter(event -> event.getLevel() == Level.ERROR).toList();
     }
 
     @Test
@@ -162,7 +168,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         // sibling out would match or route some versions of the order and not the others.
         daoReturns(42, row(41, "not-a-date", "20260901"), row(42, "20260901", "20260901"));
 
-        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+        MDSResultsData data = new MDSResultsData();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
@@ -176,7 +183,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
 
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
         // ... but it cannot be placed against its siblings, so a mutation refuses rather than guesses.
-        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+        MDSResultsData data = new MDSResultsData();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
@@ -210,7 +218,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         // leave the order's other versions behind.
         daoReturns(42, row(41, "20260831", "20260901"));
 
-        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+        MDSResultsData data = new MDSResultsData();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
@@ -231,7 +240,7 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(MDSResultsData.class)) {
             new MDSResultsData().getMatchingCMLLabs("42");
 
-            assertThat(capture.events()).extracting(event -> event.getLevel()).doesNotContain(Level.ERROR);
+            assertThat(errorsLogged(capture)).isEmpty();
         }
     }
 
@@ -258,7 +267,7 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(MDSResultsData.class)) {
             assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
 
-            assertThat(capture.events()).extracting(event -> event.getLevel()).contains(Level.ERROR);
+            assertThat(errorsLogged(capture)).hasSize(1);
         }
     }
 
@@ -267,7 +276,8 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
     void shouldPropagateLookupFailure_whenResolvingForMutation() {
         when(dao.findLabServiceDatesByLabId(42)).thenThrow(new IllegalStateException("fixture lookup failure"));
 
-        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+        MDSResultsData data = new MDSResultsData();
+        assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
                 .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
     }
 }
