@@ -47,6 +47,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private Date created;
     private boolean resolvable;
     private boolean portalPasswordPending;
+    private Integer portalInviteDemographicNo;
     private EmailConsentStatus consentStatus;
     private Integer consentId;
     private Date consentLastUpdateDate;
@@ -513,6 +514,18 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
 
     public void setPortalPasswordPending(boolean portalPasswordPending) {
         this.portalPasswordPending = portalPasswordPending;
+    }
+
+    /**
+     * For a patient portal invitation, the patient whose portal page resends it, and resolves it while its
+     * delivery is open; the email itself is never reopened. {@code null} for every other email.
+     */
+    public Integer getPortalInviteDemographicNo() {
+        return portalInviteDemographicNo;
+    }
+
+    public void setPortalInviteDemographicNo(Integer portalInviteDemographicNo) {
+        this.portalInviteDemographicNo = portalInviteDemographicNo;
     }
 
     /**

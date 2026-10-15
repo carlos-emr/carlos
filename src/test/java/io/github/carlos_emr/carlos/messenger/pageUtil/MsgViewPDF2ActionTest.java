@@ -159,13 +159,16 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
     }
 
-    @Test
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {""})
     @DisplayName("should answer an attachment that failed to render with 500, not junk bytes as a PDF")
-    void shouldReturn500_whenAttachmentIsNotAPdf() throws Exception {
+    void shouldReturn500_whenAttachmentIsNotAPdf(String storedContent) throws Exception {
         allowPrivilege("_msg", "r");
         MsgSessionBean bean = new MsgSessionBean();
-        // A render failure is stored with status BAD and the content "null"
-        bean.setAppendPDFAttachment(null, "failed");
+        // A render failure is stored with status BAD: older messages hold the content "null",
+        // MsgAttachPDF2Action now stores empty content
+        bean.setAppendPDFAttachment(storedContent, "failed");
         setSessionAttribute("PDFAttachment", bean.getPDFAttachment());
         action.setFile_id("0");
 

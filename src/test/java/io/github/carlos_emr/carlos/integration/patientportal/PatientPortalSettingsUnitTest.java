@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.github.carlos_emr.CarlosProperties;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -292,6 +293,39 @@ class PatientPortalSettingsUnitTest {
                     .isInstanceOf(PatientPortalConfigurationException.class);
         }
 
+        /**
+         * Only the internal API origin must be bare. The portal serves its patient pages under the
+         * prefix of its own public base URL, so the address an invitation links to may carry one,
+         * and the activation link has to keep it.
+         */
+        @ParameterizedTest
+        @ValueSource(strings = {"https://clinic.example/patient", "https://clinic.example/patient/"})
+        @DisplayName("should accept a patient address carrying a path prefix")
+        void shouldKeepPrefix_whenPublicBaseUrlCarriesPath(String publicBaseUrl) {
+            assertThat(new PortalInviteSettings(publicBaseUrl, "clinic@example.invalid").activationUrl())
+                    .isEqualTo("https://clinic.example/patient/auth/activate");
+        }
+
+        @Test
+        @DisplayName("should keep an invitation sender address that begins with the deprecated oscar. namespace")
+        void shouldKeepSender_whenItBeginsWithTheDeprecatedNamespace() {
+            // CarlosProperties.getProperty discards such a value, which would refuse every invitation.
+            CarlosProperties properties = CarlosProperties.getInstance();
+            Object previous = properties.get(PortalInviteSettings.SENDER_EMAIL_KEY);
+            try {
+                properties.setProperty(PortalInviteSettings.SENDER_EMAIL_KEY, "oscar.clinic@example.invalid");
+
+                assertThat(PortalInviteSettings.fromCarlosProperties().senderEmail())
+                        .isEqualTo("oscar.clinic@example.invalid");
+            } finally {
+                if (previous == null) {
+                    properties.remove(PortalInviteSettings.SENDER_EMAIL_KEY);
+                } else {
+                    properties.put(PortalInviteSettings.SENDER_EMAIL_KEY, previous);
+                }
+            }
+        }
+
 
         /**
          * Validation used to live only in the factory, leaving the record's canonical constructor
@@ -375,16 +409,19 @@ class PatientPortalSettingsUnitTest {
     class FailClosed {
 
         @Test
-        @DisplayName("should recognize optional-only values as an attempted configuration")
-        void shouldTreatOptionalSettingAsConfigured_whenRequiredValuesAreMissing() {
+        @DisplayName("should treat a switched-on portal with only optional values as misconfigured")
+        void shouldReportMissingSettings_whenSwitchedOnWithOnlyOptionalValues() {
             for (String key : java.util.List.of(
                     CONNECT_TIMEOUT_KEY,
                     READ_TIMEOUT_KEY,
                     PatientPortalSettings.CERTIFICATE_PINS_KEY)) {
-                assertThat(PatientPortalSettings.isConfigured(candidate ->
-                                candidate.equals(key) ? "configured" : null))
+                Map<String, String> values = Map.of(
+                        PatientPortalSettings.ENABLED_KEY, "true", key, "configured");
+
+                assertThat(PatientPortalSettings.isConfigured(values::get)).as(key).isTrue();
+                assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
                         .as(key)
-                        .isTrue();
+                        .isInstanceOf(PatientPortalConfigurationException.class);
             }
         }
 
@@ -668,5 +705,92 @@ class PatientPortalSettingsUnitTest {
         String url = "https://portal.example:" + port;
         properties.put(BASE_URL_KEY, url);
         assertThat(PatientPortalSettings.fromProperties(properties).baseUrl()).isEqualTo(url);
+    }
+
+    @Nested
+    @DisplayName("master switch")
+    class MasterSwitch {
+
+        private Map<String, String> connection(String enabled) {
+            Map<String, String> values = new HashMap<>();
+            values.put(PatientPortalSettings.BASE_URL_KEY, "https://portal.example.ca");
+            values.put(PatientPortalSettings.CLINIC_ID_KEY, "clinic-a");
+            values.put(PatientPortalSettings.SERVICE_TOKEN_KEY, "synthetic-service-token-0000000001");
+            values.put(PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY);
+            values.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
+            values.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
+            if (enabled != null) {
+                values.put(PatientPortalSettings.ENABLED_KEY, enabled);
+            }
+            return values;
+        }
+
+        @Test
+        @DisplayName("should leave the portal off when the switch is absent, however complete the rest")
+        void shouldBeOff_whenSwitchIsAbsent() {
+            Map<String, String> values = connection(null);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
+        }
+
+        @Test
+        @DisplayName("should treat a blank switch as off")
+        void shouldBeOff_whenSwitchIsBlank() {
+            Map<String, String> values = connection("   ");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {" false ", "FALSE", "False"})
+        @DisplayName("should let a clinic switch the portal off without removing its credentials")
+        void shouldBeOff_whenSwitchIsFalse(String value) {
+            Map<String, String> values = connection(value);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isFalse();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"true", "TRUE", " True "})
+        @DisplayName("should build settings when the switch is on and the connection is valid")
+        void shouldBuildSettings_whenSwitchIsOn(String value) {
+            Map<String, String> values = connection(value);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThat(PatientPortalSettings.fromDeploymentProperties(values::get).clinicId())
+                    .isEqualTo("clinic-a");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"yes", "on", "1", "off", "true # prod"})
+        @DisplayName("should report a mistyped switch as an error rather than as an absent portal")
+        void shouldReportError_whenSwitchIsMistyped(String value) {
+            Map<String, String> values = connection(value);
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("must be true or false");
+        }
+
+        @Test
+        @DisplayName("should report missing connection settings once the portal is switched on")
+        void shouldReportMissingSettings_whenSwitchedOnAlone() {
+            Map<String, String> values = Map.of(PatientPortalSettings.ENABLED_KEY, "true");
+
+            assertThat(PatientPortalSettings.isConfigured(values::get)).isTrue();
+            assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(values::get))
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("is not configured");
+        }
     }
 }

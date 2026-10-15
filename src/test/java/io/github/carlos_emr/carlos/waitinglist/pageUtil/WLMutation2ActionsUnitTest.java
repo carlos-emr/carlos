@@ -196,6 +196,34 @@ class WLMutation2ActionsUnitTest extends CarlosUnitTestBase {
             verify(mockSecurityInfoManager)
                 .hasPrivilege(mockLoggedInInfo, "_demographic", "w", null);
         }
+
+        @Test
+        @DisplayName("should hand the refused consent types on to the chart page")
+        void shouldCarryConsentNotSaved_whenChartSaveRefusedConsent() throws Exception {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("listId", "7");
+            mockRequest.setParameter("demographicNo", "123");
+            mockRequest.setParameter("consentNotSaved", "7,9");
+
+            new WLAdd2WaitingList2Action().execute();
+
+            assertThat(mockResponse.getRedirectedUrl())
+                .isEqualTo("/carlos/demographic/DemographicEdit?demographic_no=123&consentNotSaved=7,9");
+        }
+
+        @Test
+        @DisplayName("should drop a consentNotSaved value that is not digits and commas")
+        void shouldDropConsentNotSaved_whenValueIsMalformed() throws Exception {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("listId", "7");
+            mockRequest.setParameter("demographicNo", "123");
+            mockRequest.setParameter("consentNotSaved", "7&next=//example.org");
+
+            new WLAdd2WaitingList2Action().execute();
+
+            assertThat(mockResponse.getRedirectedUrl())
+                .isEqualTo("/carlos/demographic/DemographicEdit?demographic_no=123");
+        }
     }
 
     @Nested

@@ -289,9 +289,9 @@
 	<parameter name="p2_HeartLungsAbdomen6mOkConcerns" />
 	<parameter name="p2_AnemiaScreening6mOkConcerns" />
 	<parameter name="p2_AnemiaScreening6mOk" />
-	<queryString>
+	<query>
 		<![CDATA[]]>
-	</queryString>
+	</query>
 	<detail>
 		<band height="2200" splitType="Stretch">
 			<element kind="image" uuid="3c989d58-abfc-4ebd-8711-8137041cd7b4" x="0" y="0" width="1700" height="2200">

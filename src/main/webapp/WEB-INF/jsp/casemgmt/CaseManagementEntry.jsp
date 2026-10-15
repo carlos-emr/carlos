@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Classic case-management note entry page with issue selection and soft-wrapped clinical text.
+    Uses the caseManagementEntryForm model and showResolved request parameter; preserves
+    patient/provider scope and typed line breaks when editing and saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 
 
 
@@ -232,14 +238,14 @@
         String pId = (String) session.getAttribute("case_program_id");
         if (pId == null) pId = "";
     %>
-    <form action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
+    <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
         <input type="hidden" name="chain" id="chain"/>
-        <input type="hidden" name="demographicNo" id="demographicNo"/>
+        <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
         <c:if test="${param.providerNo==null}">
             <input type="hidden" name="providerNo" value="<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("user")) %>' context="htmlAttribute"/>">
         </c:if>
         <c:if test="${param.providerNo!=null}">
-            <input type="hidden" name="providerNo" id="providerNo"/>
+            <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(param.providerNo)}"/>
         </c:if>
         <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
@@ -404,9 +410,12 @@
         <table>
             <tr>
                 <td class="fieldValue" colspan="1">
-                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseNote.note)}
-                            </textarea>
+                    <%-- wrap="soft": a hard-wrapped textarea submits a CRLF at every visual wrap
+                         point, which the server stores as part of the note (#3955). The closing
+                         tag follows the value directly: any whitespace between them is textarea
+                         content and would be appended to the note on every save. --%>
+                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
+                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}</textarea>
                 </td>
                 <td class="fieldTitle"></td>
 
@@ -443,7 +452,7 @@
                             <td class="fieldTitle"><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
-                                ${carlos:forHtml(caseNote.billing_code)}
+                                ${carlos:forHtml(caseManagementEntryForm.caseNote.billing_code)}
                                 <input type="button" value="add billing"
                                        onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>

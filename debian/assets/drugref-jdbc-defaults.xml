@@ -1,0 +1,21 @@
+<!-- SPDX-License-Identifier: GPL-2.0-or-later -->
+<!-- Copyright (C) 2026 CARLOS Contributors -->
+<beans xmlns="http://www.springframework.org/schema/beans">
+    <!-- Parse the same URL as Hikari without interpolating it into executable expressions. -->
+    <bean id="carlosDebianJdbcUrl" class="com.mysql.cj.conf.ConnectionUrl" factory-method="getConnectionUrlInstance">
+        <constructor-arg index="0" value="${db_url}?serverTimezone=UTC" />
+        <constructor-arg index="1" type="java.util.Properties"><null /></constructor-arg>
+    </bean>
+    <bean id="carlosDebianJdbcUrlProperties" factory-bean="carlosDebianJdbcUrl" factory-method="getConnectionArgumentsAsProperties" />
+    <bean id="carlosDebianMetadataMode" factory-bean="carlosDebianJdbcUrlProperties" factory-method="getProperty">
+        <constructor-arg index="0" value="useInformationSchema" />
+        <constructor-arg index="1" value="${db_use_information_schema:false}" />
+    </bean>
+    <!-- Copy only the selected metadata option; credentials and other URL options retain normal precedence. -->
+    <bean id="carlosDebianMetadataProperties" class="org.springframework.beans.factory.config.MapFactoryBean">
+        <property name="targetMapClass" value="java.util.Properties" />
+        <property name="sourceMap">
+            <map><entry key="useInformationSchema" value-ref="carlosDebianMetadataMode" /></map>
+        </property>
+    </bean>
+</beans>

@@ -90,7 +90,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
     private void changeCSS(String inputGroupName, String styleSheet) {
 
         for (MeasurementGroupStyle m : dao.findByGroupName(inputGroupName)) {
-            m.setId(Integer.parseInt(styleSheet));
+            m.setCssId(Integer.parseInt(styleSheet));
             dao.merge(m);
         }
 

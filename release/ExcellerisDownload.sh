@@ -90,7 +90,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # send stdout and stderr output into the log file
 exec > >(tee -a ${LOG_FILE}) 2>&1
-echo `date '+%F-%T'` - ">>>>> running" $0
+echo "$(date '+%F-%T')" - ">>>>> running" $0
 
 # get some info for date stamping files
 YY=$(date +%Y)
@@ -124,10 +124,10 @@ CERTFILE="${DOWNLOAD_DIR}/cert/${PFX}:${CERT_PASS}"
 
 function notify_error () {
     DownSubject="Labs Auto-Downloader Status - Failure"
-    error="Labs Auto-Downloader ON server(`hostname`) has stopped working.  Please check!!!\n"
+    error="Labs Auto-Downloader ON server($(hostname)) has stopped working.  Please check!!!\n"
     echo -e "$error" | mail -s "$DownSubject on $(hostname)" "$EMAIL"
     echo "Auto-Downloader failed, sent email to $EMAIL"
-    echo `date '+%F-%T'` - "<<<<<< finished running script WITH ERRORS"
+    echo "$(date '+%F-%T')" - "<<<<<< finished running script WITH ERRORS"
     echo
 }
 
@@ -270,7 +270,7 @@ while [ $SECONDS -lt $end ] ; do
         echo "Mule successfully uploaded ${YY}${MM}${DD}-${TIME}.xml to EMR"
         # compress the copy of the output file in the done directory, note its name is set by Mule
         xz ${MULE_DONE}/*.xml -v
-        echo `date '+%F-%T'` - "<<<<<< finished running script with clean exit."
+        echo "$(date '+%F-%T')" - "<<<<<< finished running script with clean exit."
         echo
         exit 0
     else
@@ -289,7 +289,7 @@ exit 1
 
 ) 200>/var/lock/.labscript.exclusivelock
 
-echo `date '+%F-%T'` - "<<<<<< finished running script with clean exit."
+echo "$(date '+%F-%T')" - "<<<<<< finished running script with clean exit."
 # add blank line for visibility
 echo
 exit 0

@@ -4,6 +4,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import static org.mockito.ArgumentMatchers.anyMap;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -90,6 +92,11 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
         registerMock(EmailManager.class, manager);
         registerMock(EformDataManager.class, mock(EformDataManager.class));
         registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
+        // Develop's send path re-reads each attachment's owner (release #4425); these tests are
+        // about other behaviour, so ownership always holds.
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
+        registerMock(AttachmentOwnershipService.class, ownership);
         registerMock(EmailComposeSubmissionStateService.class, states);
         registerMock(EmailPdfPasswordService.class, passwords);
         registerMock(PdfPreviewCapabilityService.class, previews);

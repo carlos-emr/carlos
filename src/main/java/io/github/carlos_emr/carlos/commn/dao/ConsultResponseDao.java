@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 
 public interface ConsultResponseDao extends AbstractDao<ConsultationResponse> {
+    ConsultationResponse lockForAttachmentSync(Integer id);
+
     int getConsultationCount(ConsultationResponseSearchFilter filter);
 
     List<Object[]> search(ConsultationResponseSearchFilter filter);

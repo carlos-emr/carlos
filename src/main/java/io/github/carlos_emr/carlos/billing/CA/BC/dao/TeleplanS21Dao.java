@@ -58,8 +58,12 @@ public class TeleplanS21Dao extends AbstractDaoImpl<TeleplanS21> {
     }
 
     public List<TeleplanS21> search_all_tahd(String excludeStatus) {
+        if (excludeStatus == null || excludeStatus.length() != 1) {
+            throw new IllegalArgumentException("Teleplan status must be exactly one character");
+        }
         Query q = entityManager.createQuery("SELECT t from TeleplanS21 t WHERE t.status <> ?1 ORDER BY t.payment desc");
-        q.setParameter(1, excludeStatus);
+        // The mapped status is Character; keep the legacy String API at the boundary.
+        q.setParameter(1, excludeStatus.charAt(0));
 
 
         @SuppressWarnings("unchecked")

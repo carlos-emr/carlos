@@ -327,6 +327,19 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     /**
+     * Restarts the stale-send clock of a claimed row just before its provider call, so stale recovery measures
+     * from the send rather than from the claim. The attempt count is unchanged: this is the same attempt.
+     */
+    public void renewSendingClaim(Date attemptAt) {
+        Date safeAttemptAt = copyOf(attemptAt);
+        if (safeAttemptAt == null) {
+            safeAttemptAt = new Date();
+        }
+        lastAttemptAt = safeAttemptAt;
+        touch();
+    }
+
+    /**
      * Tags the row with the worker-run claim token for traceability. Set after {@link #markSending}
      * or {@link #markStaleRecoveryStarted} when a worker claims the row.
      */
@@ -648,6 +661,15 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getMessageBodySha256() {
         return messageBodySha256;
+    }
+
+    /**
+     * Whether the full message text is still stored, without reading it. A consent-blocked row keeps
+     * only the body length and hash, so there is nothing to open, and asking the audited read path
+     * would record a read of nothing.
+     */
+    public boolean hasStoredMessageBody() {
+        return messageBody != null;
     }
 
     public int getMessageBodyLength() {

@@ -9,6 +9,10 @@ public record SmsProviderSendResultDto(
         String errorCode,
         String errorMessage
 ) {
+    /** What staff are told when a send may or may not have reached the SMS provider. */
+    public static final String OUTCOME_UNKNOWN_MESSAGE =
+            "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.";
+
     public SmsProviderSendResultDto {
         if (providerMessageId != null && providerMessageId.length() > 128) {
             throw new IllegalArgumentException("SMS provider message identifier exceeds supported length");
@@ -34,8 +38,7 @@ public record SmsProviderSendResultDto(
 
     /** The provider may have accepted the send; look up its status before any retry. */
     public static SmsProviderSendResultDto uncertain(String errorCode) {
-        return new SmsProviderSendResultDto(false, null, SmsStatus.SENDING, errorCode,
-                "SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually.");
+        return new SmsProviderSendResultDto(false, null, SmsStatus.SENDING, errorCode, OUTCOME_UNKNOWN_MESSAGE);
     }
 
     public static SmsProviderSendResultDto failed(String errorCode, String errorMessage) {

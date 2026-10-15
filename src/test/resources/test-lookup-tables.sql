@@ -1,6 +1,14 @@
 -- Test lookup tables for reference data
 -- These tables are referenced by formula annotations or native SQL but do not have dedicated entity classes
 
+-- Hibernate's legacy String mapping defaults to VARCHAR(255), whereas the production
+-- V1 baseline stores complete base64 HL7 reports in LONGTEXT. Match that capacity so
+-- real upload integration tests exercise the same storage contract as installed clinics.
+ALTER TABLE hl7TextMessage ALTER COLUMN message LONGTEXT;
+
+-- Failed lab cleanup archives complete row XML; the production baseline uses TEXT.
+ALTER TABLE recyclebin ALTER COLUMN table_content TEXT;
+
 -- ichppccode table: hbm2ddl cannot auto-create because @GeneratedValue(IDENTITY)
 -- is incompatible with String-typed PK in H2
 CREATE TABLE IF NOT EXISTS ichppccode (
@@ -215,3 +223,9 @@ ALTER TABLE wcb ALTER COLUMN id INT AUTO_INCREMENT;
 -- The secrole table is managed by the Secrole entity, so hbm2ddl drops and recreates it empty.
 MERGE INTO secrole (role_no, role_name, description) KEY(role_no) VALUES (1, 'doctor', 'Doctor role');
 
+-- Native population reporting joins this un-mapped baseline table.
+CREATE TABLE IF NOT EXISTS IssueGroupIssues (
+    issueGroupId INT NOT NULL,
+    issue_id INT NOT NULL,
+    UNIQUE (issueGroupId, issue_id)
+);

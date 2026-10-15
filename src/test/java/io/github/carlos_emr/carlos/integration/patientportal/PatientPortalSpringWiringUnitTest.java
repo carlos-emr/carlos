@@ -26,15 +26,24 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDaoImpl;
+import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.AnnotatedGenericBeanDefinition;
+import org.springframework.beans.factory.config.RuntimeBeanReference;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
+import org.springframework.context.annotation.AnnotationBeanNameGenerator;
+import org.springframework.context.support.GenericApplicationContext;
 
 /**
  * The Spring wiring, and specifically the properties every CARLOS deployment depends on.
@@ -83,6 +92,40 @@ class PatientPortalSpringWiringUnitTest {
         factory.registerSingleton("securityInfoManagerImpl", mock(SecurityInfoManager.class));
         new XmlBeanDefinitionReader(context).loadBeanDefinitions(CONTEXT);
         return context;
+    }
+
+    /**
+     * The invite service is wired by bean name to component-scanned classes. Those names come from the
+     * class names, so a rename would break invitations at first use rather than at start-up; this pins
+     * each referenced name to the class that must register it.
+     */
+    @Test
+    @DisplayName("should reference collaborators by the names their classes register under")
+    void shouldReferenceScannedCollaborators_byTheirDerivedBeanNames() {
+        Map<String, Class<?>> expected = Map.of(
+                "emailManager", EmailManager.class,
+                "patientPortalInviteDeliveryDaoImpl",
+                PatientPortalInviteDeliveryDaoImpl.class,
+                "emailConfigDaoImpl", EmailConfigDaoImpl.class,
+                "emailLogDaoImpl", EmailLogDaoImpl.class);
+        try (GenericApplicationContext context = contextWithSecurityManager()) {
+            var arguments = context.getBeanFactory().getBeanDefinition("portalInviteDeliveryService")
+                    .getConstructorArgumentValues().getIndexedArgumentValues().values();
+            Set<String> referenced = new HashSet<>();
+            for (var argument : arguments) {
+                referenced.add(((RuntimeBeanReference) argument.getValue())
+                        .getBeanName());
+            }
+            assertThat(referenced).containsExactlyInAnyOrder("patientPortalService", "patientPortalSettings",
+                    "portalInviteSettings", "emailManager", "patientPortalInviteDeliveryDaoImpl",
+                    "emailConfigDaoImpl", "emailLogDaoImpl");
+            expected.forEach((name, type) -> assertThat(
+                    AnnotationBeanNameGenerator.INSTANCE.generateBeanName(
+                            new AnnotatedGenericBeanDefinition(type),
+                            context.getDefaultListableBeanFactory()))
+                    .as("bean name registered by %s", type.getSimpleName())
+                    .isEqualTo(name));
+        }
     }
 
     /**
@@ -175,12 +218,13 @@ class PatientPortalSpringWiringUnitTest {
     }
 
     /**
-     * Presence only. A configured-but-invalid portal reports as configured here and throws on
-     * construction, so a broken deployment surfaces as an error rather than quietly disappearing.
+     * The switch decides. A switched-on but invalid portal reports as configured here and throws
+     * on construction, so a broken deployment surfaces as an error rather than quietly
+     * disappearing; without the switch the same settings leave the portal off.
      */
     @Test
-    @DisplayName("should report a fully keyed portal as configured, even if a value is invalid")
-    void shouldReportConfigured_whenEveryRequiredKeyIsPresent() {
+    @DisplayName("should report a switched-on portal as configured, even if a value is invalid")
+    void shouldReportConfigured_whenSwitchedOnWithEveryRequiredKey() {
         Map<String, String> present = new HashMap<>();
         present.put(PatientPortalSettings.BASE_URL_KEY, "http://not-https.example");
         present.put(PatientPortalSettings.CLINIC_ID_KEY, "clinic-a");
@@ -191,7 +235,12 @@ class PatientPortalSpringWiringUnitTest {
         present.put(PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "primary");
         present.put(PatientPortalSettings.CERTIFICATE_PINS_KEY, PortalTestKeys.UNUSED_TLS_PIN);
 
+        assertThat(PatientPortalSettings.isConfigured(present::get)).isFalse();
+        present.put(PatientPortalSettings.ENABLED_KEY, "true");
         assertThat(PatientPortalSettings.isConfigured(present::get)).isTrue();
+        // Switched on, the invalid http:// URL is reported rather than hidden.
+        assertThatThrownBy(() -> PatientPortalSettings.fromDeploymentProperties(present::get))
+                .isInstanceOf(PatientPortalConfigurationException.class);
     }
 
     /**
@@ -232,14 +281,17 @@ class PatientPortalSpringWiringUnitTest {
         // another test or a carlos.properties on the classpath configured the portal, say so plainly
         // rather than fail below with a confusing "nothing was thrown".
         assertThat(PatientPortalSettings.isConfigured())
-                .as("this test needs a JVM with no patient_portal.* settings; one was configured elsewhere")
+                .as("this test needs a JVM with patient_portal.enabled off; it was switched on elsewhere")
                 .isFalse();
         try (GenericApplicationContext context = contextWithSecurityManager()) {
             context.refresh();
 
+            // "not enabled", not merely a configuration error: a factory that skipped the switch
+            // would also throw here, for the missing base_url.
             assertThatThrownBy(() -> context.getBean("patientPortalSettings"))
                     .rootCause()
-                    .isInstanceOf(PatientPortalConfigurationException.class);
+                    .isInstanceOf(PatientPortalConfigurationException.class)
+                    .hasMessageContaining("not enabled");
         }
     }
 }

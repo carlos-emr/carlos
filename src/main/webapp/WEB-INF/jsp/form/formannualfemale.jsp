@@ -58,8 +58,8 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key='encounter.formFemaleAnnual.title'/></title>
-        <link rel="stylesheet" type="text/css" href="annualStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/annualStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 
@@ -273,7 +273,7 @@
                                                                           onclick="javascript:return onPrint();"/>
                     <input type="button"
                            value="<fmt:message key='encounter.formFemaleAnnual.btnPrintPage'/>"
-                           onclick="javascript: popupPage(700,950,'formannualfemaleprint?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
+                           onclick="javascript: popupPage(700,950,'<%= request.getContextPath() %>/form/formannualfemaleprint?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
                 </td>
                 <td align='right'><a
                         href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key='encounter.formFemaleAnnual.btnAnnualReview'/></a></td>

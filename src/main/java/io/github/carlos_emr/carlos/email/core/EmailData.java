@@ -73,6 +73,7 @@ public class EmailData {
     private boolean consentOverride;
     private String consentOverrideReason;
     private EmailComposeWorkingDirectory workingDirectory;
+    private List<String> archiveRedactions = List.of();
 
     /**
      * Default constructor for creating an empty EmailData instance.
@@ -568,6 +569,20 @@ public class EmailData {
     /** Sets the server-only owner for generated compose and encryption artifacts. */
     public void setWorkingDirectory(EmailComposeWorkingDirectory workingDirectory) {
         this.workingDirectory = workingDirectory;
+    }
+
+    /** @return values the outbound archive must not keep; empty for an ordinary email */
+    public List<String> getArchiveRedactions() {
+        return archiveRedactions;
+    }
+
+    /**
+     * Names values the message carries that the outbound archive must not keep, such as a one-time
+     * credential that stays usable after the send. The archived copy has each replaced with
+     * {@code [redacted]}; the message itself is sent unchanged. Server-only: never bound from a request.
+     */
+    public void setArchiveRedactions(List<String> archiveRedactions) {
+        this.archiveRedactions = archiveRedactions == null ? List.of() : List.copyOf(archiveRedactions);
     }
     /** @param consentOverride request value; only the exact value {@code true} enables override */
     public void setConsentOverride(String consentOverride) {

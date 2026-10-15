@@ -63,8 +63,10 @@
         if (errorCode.isEmpty()) {
     %>
     <script language="JavaScript">
-        self.close();
-        self.opener.refresh();
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
+        }
+        window.close();
     </script>
     <%
         } else {

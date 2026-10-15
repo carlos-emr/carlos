@@ -117,6 +117,30 @@ public class JpaSmsTransactionService implements SmsTransactionService {
 
     @Override
     @Transactional
+    public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
+        // The caller sends on this claim, so a write the version check dropped must not look like success.
+        AtomicBoolean applied = new AtomicBoolean();
+        SmsTransaction renewed = applyIfVersionMatches(
+                transaction,
+                "renewClaim",
+                row -> {
+                    if (row.getStatus() == SmsStatus.SENDING) {
+                        row.renewSendingClaim(attemptAt);
+                        applied.set(true);
+                    }
+                }
+        );
+        if (!applied.get()) {
+            throw new SmsTransactionClaimConflictException(transaction.getId());
+        }
+        // Run the version-checked update now, even inside a caller's transaction, so a conflict surfaces before any send.
+        smsTransactionDao.flush();
+        return renewed;
+    }
+
+    @Override
+    @Transactional
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");

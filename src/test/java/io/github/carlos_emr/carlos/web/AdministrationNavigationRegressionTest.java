@@ -134,9 +134,35 @@ class AdministrationNavigationRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("Administration navigation should leave the Messenger inbox to the main Msg link")
+    void shouldNotLinkToMessengerInbox_forAdministrationNavigation() throws IOException {
+        // Issue #3399: Admin > Messages reopened the user's own inbox (the same
+        // DisplayMessages route, still gated by _msg there). Messenger Admin is the
+        // admin-only page and stays.
+        for (Path navFile : ADMIN_NAV_FILES) {
+            assertThat(Files.readString(navFile))
+                    .as(navFile + " should not duplicate the Messenger inbox link")
+                    .doesNotContain("/messenger/DisplayMessages")
+                    .doesNotContain("admin.admin.messages")
+                    .contains("admin.admin.btnMessengerAdmin");
+        }
+
+        // The inbox stays reachable from the shared header (which the Administration
+        // page also shows under focused schedule navigation) and from the schedule's
+        // own header.
+        String mainMenu = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/mainMenu.jsp"));
+        assertThat(mainMenu).contains("messengerUrl = request.getContextPath() + \"/messenger/DisplayMessages?");
+        assertLinkGuardedBy(mainMenu, "SafeEncode.forJavaScriptAttribute(messengerUrl)", "_msg", "r");
+
+        String schedule = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"));
+        assertThat(schedule).contains("scheduleMessengerUrl = request.getContextPath() + \"/messenger/DisplayMessages?");
+        assertLinkGuardedBy(schedule, "openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>'", "_msg", "r");
+    }
+
     private static void assertLinkGuardedBy(String jsp, String link, String objectName, String rights) {
         int linkIndex = jsp.indexOf(link);
-        assertThat(linkIndex).as(link + " should be present in the Administration navigation").isNotNegative();
+        assertThat(linkIndex).as(link + " should be present").isNotNegative();
 
         int guardStart = jsp.lastIndexOf("<security:oscarSec", linkIndex);
         int guardEnd = jsp.indexOf("</security:oscarSec>", guardStart);

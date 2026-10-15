@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,11 +24,13 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientPortalInviteDeliveryDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
@@ -56,7 +60,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -69,6 +75,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
     private EmailConfigDaoImpl emailConfigDao;
     private EmailLogDaoImpl emailLogDao;
     private OscarLogDao oscarLogDao;
+    private PatientPortalInviteDeliveryDao inviteDeliveries;
     private DemographicManager demographicManager;
     private ProviderManager2 providerManager;
     private SecurityInfoManager securityInfoManager;
@@ -107,6 +114,8 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "documentAttachmentManager", mock(DocumentAttachmentManager.class));
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", providerManager);
+        inviteDeliveries = mock(PatientPortalInviteDeliveryDao.class);
+        injectDependency(emailManager, "inviteDeliveries", inviteDeliveries);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_email"), anyString(), nullable(String.class)))
                 .thenReturn(true);
@@ -437,6 +446,149 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
 
         assertThat(emailManager.isManuallyResolvable(fresh)).isFalse();
         assertThat(emailManager.isManuallyResolvable(stale)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should not offer manual resolution of an invitation whose delivery is still open")
+    void shouldNotOfferResolution_whileTheInvitationDeliveryIsOpen() {
+        EmailLog failed = portalInvitation(41, EmailStatus.FAILED);
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(41, PatientPortalInviteDelivery.State.QUEUED);
+        deliveryFor(42, PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+
+        assertThat(emailManager.isManuallyResolvable(failed)).isFalse();
+        assertThat(emailManager.isManuallyResolvable(stalePending)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should refuse to resolve an invitation whose delivery is open as not resolvable, whatever its age")
+    void shouldRefuseResolution_whileTheInvitationDeliveryIsOpen() {
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        EmailLog freshPending = portalInvitation(43, EmailStatus.PENDING);
+        deliveryFor(42, PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+        deliveryFor(43, PatientPortalInviteDelivery.State.COMMITTED);
+        when(emailLogDao.find((Object) 42)).thenReturn(stalePending);
+        when(emailLogDao.find((Object) 43)).thenReturn(freshPending);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 43))
+                .isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
+        verify(emailLogDao, never()).transitionEmailStatus(
+                nullable(Integer.class), any(EmailStatus.class), eq(EmailStatus.RESOLVED),
+                nullable(String.class), any(Date.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PatientPortalInviteDelivery.State.class,
+            names = {"SENT", "SEND_FAILED", "ABANDONED", "REVOKED"})
+    @DisplayName("should resolve an invitation left pending after its delivery finished, as nothing else can")
+    void shouldResolve_whenTheInvitationDeliveryHasFinished(PatientPortalInviteDelivery.State finished) {
+        // For example: the transport accepted and the delivery was recorded SENT, but writing SUCCESS to
+        // the email row failed, which leaves it PENDING.
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(42, finished);
+        when(emailLogDao.find((Object) 42)).thenReturn(stalePending);
+
+        assertThat(emailManager.isManuallyResolvable(stalePending)).isTrue();
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+        verify(emailLogDao).transitionEmailStatus(eq(42), eq(EmailStatus.PENDING), eq(EmailStatus.RESOLVED),
+                nullable(String.class), any(Date.class));
+    }
+
+    @Test
+    @DisplayName("should keep an invitation whose revocation was interrupted with its delivery, as its code may be live")
+    void shouldNotOfferResolution_whileTheRevocationIsUnconfirmed() {
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(42, PatientPortalInviteDelivery.State.REVOKING);
+
+        assertThat(emailManager.isManuallyResolvable(stalePending)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should not look up the delivery of an invitation email its status already rules out")
+    void shouldSkipTheDeliveryLookup_whenTheStatusRulesTheRowOut() {
+        // The email list asks this of every row, and the lookup is a query.
+        EmailLog sent = portalInvitation(41, EmailStatus.SUCCESS);
+        EmailLog freshPending = portalInvitation(42, EmailStatus.PENDING);
+
+        assertThat(emailManager.isManuallyResolvable(sent)).isFalse();
+        assertThat(emailManager.isManuallyResolvable(freshPending)).isFalse();
+        verifyNoInteractions(inviteDeliveries);
+    }
+
+    @Test
+    @DisplayName("should look up an invitation's delivery once per resolution")
+    void shouldLookUpTheDeliveryOnce_whenResolving() {
+        EmailLog stalePending = stale(portalInvitation(42, EmailStatus.PENDING));
+        deliveryFor(42, PatientPortalInviteDelivery.State.SENT);
+        when(emailLogDao.find((Object) 42)).thenReturn(stalePending);
+
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+        verify(inviteDeliveries, times(1)).findByEmailLogId(42);
+    }
+
+    @Test
+    @DisplayName("should resolve an invitation email that no delivery names, like any other email")
+    void shouldResolve_whenNoDeliveryNamesTheInvitation() {
+        EmailLog failed = portalInvitation(42, EmailStatus.FAILED);
+        when(emailLogDao.find((Object) 42)).thenReturn(failed);
+
+        assertThat(emailManager.isManuallyResolvable(failed)).isTrue();
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+    }
+
+    @Test
+    @DisplayName("should point a portal invitation in the email list at the patient's portal page")
+    void shouldNamePortalPage_forAPortalInvitationInTheList() {
+        EmailLog invitation = portalInvitation(41, EmailStatus.SUCCESS);
+        EmailLog ordinary = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body",
+                EmailStatus.FAILED);
+        ordinary.setDemographic(demographic);
+        ordinary.setProvider(provider);
+        when(emailLogDao.getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class),
+                nullable(String.class), nullable(String.class))).thenReturn(List.of(invitation, ordinary));
+
+        List<EmailStatusResult> results = emailManager.getEmailStatusByDateDemographicSenderStatus(
+                loggedInInfo, "2026-07-16", "2026-07-16", null, null, null);
+
+        assertThat(results).hasSize(2);
+        EmailStatusResult invitationResult = results.stream()
+                .filter(result -> result.getStatus() == EmailStatus.SUCCESS).findFirst().orElseThrow();
+        EmailStatusResult ordinaryResult = results.stream()
+                .filter(result -> result.getStatus() == EmailStatus.FAILED).findFirst().orElseThrow();
+        assertThat(invitationResult.getPortalInviteDemographicNo()).isEqualTo(123);
+        assertThat(invitationResult.isResolvable()).isFalse();
+        assertThat(ordinaryResult.getPortalInviteDemographicNo()).isNull();
+        assertThat(ordinaryResult.isResolvable()).isTrue();
+    }
+
+    private EmailLog portalInvitation(int id, EmailStatus status) {
+        EmailLog emailLog = new EmailLog(null, "", new String[] {"patient@example.invalid"},
+                "Your patient portal invitation", "Body", status);
+        injectDependency(emailLog, "id", id);
+        emailLog.setDemographic(demographic);
+        emailLog.setProvider(provider);
+        emailLog.setTransactionType(TransactionType.PORTAL_INVITE);
+        return emailLog;
+    }
+
+    private static EmailLog stale(EmailLog emailLog) {
+        emailLog.setTimestamp(new Date(
+                System.currentTimeMillis() - EmailManager.PENDING_RESOLUTION_MIN_AGE_MILLIS - 60_000));
+        return emailLog;
+    }
+
+    /** Records that the invitation delivery which sent email row {@code emailLogId} stands in {@code state}. */
+    private void deliveryFor(int emailLogId, PatientPortalInviteDelivery.State state) {
+        PatientPortalInviteDelivery delivery = new PatientPortalInviteDelivery("inv-" + emailLogId, 123, "clinic",
+                "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+        delivery.setState(state);
+        delivery.setEmailLogId(emailLogId);
+        when(inviteDeliveries.findByEmailLogId(emailLogId)).thenReturn(delivery);
     }
 
     @Test

@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -60,7 +59,6 @@ public class MeasurementGroupStyleDaoIntegrationTest extends CarlosTestBase {
     class FindAll {
 
         @Test
-        @Disabled("Skipping until issue is resolved - mirrors legacy @Ignore")
         @Tag("read")
         @DisplayName("should return all persisted measurement group styles")
         void shouldReturnAllStyles_whenMultipleExist() throws Exception {
@@ -79,7 +77,7 @@ public class MeasurementGroupStyleDaoIntegrationTest extends CarlosTestBase {
             List<MeasurementGroupStyle> result = dao.findAll();
 
             assertThat(result).hasSize(3);
-            assertThat(result).containsExactly(mgs1, mgs2, mgs3);
+            assertThat(result).containsExactlyInAnyOrder(mgs1, mgs2, mgs3);
         }
     }
 

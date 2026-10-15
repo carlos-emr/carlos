@@ -52,6 +52,8 @@ SINGLE_BAND_SECTIONS = {
 
 # Expression tags that become just <expression>
 EXPRESSION_RENAMES = {
+    "variableExpression": "expression",
+    "groupExpression": "expression",
     "textFieldExpression": "expression",
     "imageExpression": "expression",
     "subreportExpression": "expression",
@@ -69,6 +71,11 @@ EXPRESSION_RENAMES = {
 
 # Boolean attribute prefixes to strip ("is" prefix removed)
 BOOL_ATTR_RENAMES = {
+    "isForPrompting": "forPrompting",
+    "isTitleNewPage": "titleNewPage",
+    "isSummaryNewPage": "summaryNewPage",
+    "isRemoveLineWhenBlank": "removeLineWhenBlank",
+    "isPrintWhenDetailOverflows": "printWhenDetailOverflows",
     "isBold": "bold",
     "isItalic": "italic",
     "isUnderline": "underline",
@@ -78,6 +85,11 @@ BOOL_ATTR_RENAMES = {
     "isBlankWhenNull": "blankWhenNull",
     "isSplitAllowed": "splitAllowed",
     "isStretchWithOverflow": "textAdjust",  # "true" -> textAdjust="StretchHeight"; "false" -> dropped
+}
+
+STRETCH_RENAMES = {
+    "RelativeToBandHeight": "ContainerHeight",
+    "RelativeToTallestObject": "ElementGroupHeight",
 }
 
 # Text alignment renames
@@ -127,6 +139,8 @@ def process_report_element(elem, parent_attribs):
     """Extract reportElement attributes and add to parent_attribs dict."""
     for key, value in elem.attrib.items():
         attr_name = strip_ns(key)
+        if attr_name == "stretchType":
+            value = STRETCH_RENAMES.get(value, value)
         # Rename boolean attributes
         if attr_name in BOOL_ATTR_RENAMES:
             renamed = BOOL_ATTR_RENAMES[attr_name]
@@ -232,6 +246,11 @@ def process_element(elem, ns_aware=True):
                     new_sub.text = sub.text
                     new_sub.tail = sub.tail
                     kept_children.append(new_sub)
+
+        elif child_tag == "graphicElement":
+            # JR7 puts graphical attributes and the pen directly on the element.
+            process_report_element(child, new_attribs)
+            kept_children.extend(copy_element_stripped(sub) for sub in child)
 
         elif child_tag == "textElement":
             paragraph_elem = process_text_element(child, new_attribs)
@@ -353,10 +372,15 @@ def process_element(elem, ns_aware=True):
 def copy_element_stripped(elem):
     """Deep copy an element, stripping namespace from all tags."""
     new_tag = strip_ns(elem.tag)
+    new_tag = EXPRESSION_RENAMES.get(new_tag, new_tag)
+    new_tag = {"queryString": "query", "parameterDescription": "description"}.get(new_tag, new_tag)
     new_elem = ET.Element(new_tag)
     for k, v in elem.attrib.items():
-        new_elem.set(strip_ns(k), v)
-    new_elem.text = elem.text
+        key = strip_ns(k)
+        if new_tag == "import" and key == "value":
+            continue
+        new_elem.set(BOOL_ATTR_RENAMES.get(key, key), v)
+    new_elem.text = elem.get("value", elem.text) if new_tag == "import" else elem.text
     new_elem.tail = elem.tail
     for child in elem:
         new_elem.append(copy_element_stripped(child))
@@ -528,7 +552,7 @@ def process_group(group_elem):
     for child in group_elem:
         child_tag = strip_ns(child.tag)
         if child_tag == "groupExpression":
-            new_child = ET.Element("groupExpression")
+            new_child = ET.Element("expression")
             new_child.text = child.text
             new_child.tail = child.tail
             new_group.append(new_child)

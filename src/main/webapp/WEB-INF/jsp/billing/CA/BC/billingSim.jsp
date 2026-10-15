@@ -99,7 +99,10 @@
 
         function checkData() {
             var b = true;
-            if (document.forms[0].provider.value == "000000") {
+            // The select is named "providers"; the old "provider" lookup threw a TypeError on
+            // every submit, so this guard never ran and the error was left in the console.
+            var providers = document.forms[0].providers;
+            if (providers && providers.value == "000000") {
                 alert("Please select a providers!");
                 b = false;
             }//else if(document.forms[0].xml_vdate.value==""){
@@ -210,12 +213,15 @@
     </form>
 </table>
 
-<%-- 
+<%--
     Server-generated HTML from billing simulation (ExtractBean.getHtmlCode).
     This attribute is set by genSimulation.jsp from the billing extract engine
-    and contains structured HTML markup (tables, fonts, etc.) for the report.
-    Encoding this output would break the rendered billing report.
-    This is trusted server-generated content, not from direct user input.
+    and contains structured HTML markup (tables, fonts, etc.) for the report,
+    so it is emitted raw here; encoding it again would break the table.
+    The markup is NOT trusted by construction: patient names, PHNs, codes and
+    billing numbers come from patient/claim records. Every such value is encoded
+    where the fragment is built, in HtmlTeleplanHelper / CheckBillingData
+    (issue #3950). Any new producer of this attribute must do the same.
 --%>
 <%=request.getAttribute("html") == null ? "" : request.getAttribute("html")%>
 

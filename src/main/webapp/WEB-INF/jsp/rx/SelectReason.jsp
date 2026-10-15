@@ -145,7 +145,7 @@
                 padding: 3px;
             }
         </style>
-        <link rel="stylesheet" type="text/css" href="styles.css">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript">
 
             function assignPatientDxLink(id, name) {

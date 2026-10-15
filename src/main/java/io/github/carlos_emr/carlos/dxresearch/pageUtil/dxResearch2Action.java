@@ -50,9 +50,18 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearch2Action extends ActionSupport {
+
+    /**
+     * An ICD-9 code written with its decimal point: 151.9 or 250.01, V82.9 or V10.05, and E880.9. The groups
+     * hold the parts on either side of the point (1 and 2, or 3 and 4 for an E code).
+     */
+    private static final Pattern DOTTED_ICD9 =
+            Pattern.compile("([0-9]{3}|[Vv][0-9]{2})\\.([0-9]{1,2})|([Ee][0-9]{3})\\.([0-9])");
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -140,7 +149,7 @@ public class dxResearch2Action extends ActionSupport {
 
                     if (csDao.findByCode(xml_research[i]) == null) {
                         valid = false;
-                        addActionError(getText("errors.codeNotFound", new String[]{xml_research[i], codingSystem}));
+                        addActionError(invalidCodeMessage(xml_research[i], codingSystem, csDao));
 
                     } else {
                         Dxresearch dr = new Dxresearch();
@@ -186,6 +195,39 @@ public class dxResearch2Action extends ActionSupport {
 
         response.sendRedirect(actionforward.toString());
         return NONE;
+    }
+
+    /**
+     * The message for a code the coding system does not know. CARLOS stores almost all ICD-9 codes without the
+     * decimal point (151.9 is stored as 1519; the seeded 338.2 and 780.93 are exceptions and are found as typed),
+     * so an ICD-9 code typed with one gets that explained. When the input is written like an ICD-9 code (151.9,
+     * V82.9, E880.9) and the same code without the point exists, that code is suggested. Nothing is changed or
+     * added for the user: they re-enter it.
+     *
+     * @param code         the code as entered; the page HTML-encodes the message
+     * @param codingSystem the coding system it was looked up in
+     * @param csDao        that coding system's DAO
+     * @return the localized message
+     */
+    private String invalidCodeMessage(String code, String codingSystem,
+            AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao) {
+        if (AbstractCodeSystemDao.codingSystem.icd9.name().equals(codingSystem) && code.contains(".")) {
+            Matcher dotted = DOTTED_ICD9.matcher(code.strip());
+            if (dotted.matches()) {
+                // Built from the matched parts, so the code looked up is exactly what the pattern accepted.
+                String withoutDecimal = dotted.group(1) != null
+                        ? dotted.group(1) + dotted.group(2)
+                        : dotted.group(3) + dotted.group(4);
+                AbstractCodeSystemModel<?> undotted = csDao.findByCode(withoutDecimal);
+                if (undotted != null) {
+                    // Suggest the code as stored (V829, not v829); the lookup ignores letter case.
+                    return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
+                            new String[]{code, undotted.getCode()});
+                }
+            }
+            return getText("oscarResearch.oscarDxResearch.error.icd9WithDecimal", new String[]{code});
+        }
+        return getText("errors.codeNotFound", new String[]{code, codingSystem});
     }
 
     private String demographicNo;

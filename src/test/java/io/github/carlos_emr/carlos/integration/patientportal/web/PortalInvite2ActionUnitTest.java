@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -58,7 +59,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-/** Verifies patient authorization, invitation ownership and the unavailable issuance boundary. */
+/** Verifies patient authorization, invitation ownership, and the privileges sending requires. */
 @Tag("unit")
 @Tag("patient-portal")
 class PortalInvite2ActionUnitTest {
@@ -120,12 +121,15 @@ class PortalInvite2ActionUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"create", "resend"})
-    void shouldReportIssuanceUnavailable_forCreateAndResend(String method) throws Exception {
+    void shouldRequireEmailWrite_beforeSending(String method) throws Exception {
+        // The email layer enforces _email write for every patient email; refusing here keeps a send the
+        // email layer would reject from preparing a token on the portal first. The document grant is
+        // defensive setup; the earlier email privilege gate is what refuses this request.
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
         request.setParameter("method", method);
         request.setParameter("confirmReplace", "true");
         execute();
-        assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getContentAsString()).contains("portal_invitation_unavailable");
+        assertThat(response.getStatus()).isEqualTo(403);
         verifyNoInteractions(portal, resolver);
     }
 

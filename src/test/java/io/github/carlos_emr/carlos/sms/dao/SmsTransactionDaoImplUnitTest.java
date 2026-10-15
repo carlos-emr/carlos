@@ -7,10 +7,13 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
+import org.hibernate.Timeouts;
+import org.hibernate.jpa.SpecHints;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -40,6 +43,9 @@ class SmsTransactionDaoImplUnitTest {
 
     @Mock
     private TypedQuery<SmsTransaction> query;
+
+    @Mock
+    private TypedQuery<Long> countQuery;
 
     @Test
     @DisplayName("findByDemographicNo skips querying when demographic is missing")
@@ -154,7 +160,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("claimDueOutboundQueue locks due rows and marks them sending with a claim token")
+    @DisplayName("claimDueOutboundQueue locks due rows, skipping rows held elsewhere, and marks them sending with a claim token")
     void shouldLockAndMarkSending_whenClaimingDueQueue() {
         SmsTransactionDaoImpl dao = newDao();
         Date now = copyOfFixedNow();
@@ -173,13 +179,14 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(due.getClaimToken()).isNotBlank();
         assertThat(due.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         verify(query).setMaxResults(500); // limit capped at MAX_LIMIT
         verify(query).setParameter("status", SmsStatus.QUEUED);
         verify(entityManager, never()).createNativeQuery(anyString());
     }
 
     @Test
-    @DisplayName("claimStaleOutboundSendingForRecovery locks stale sending rows and tags them with a claim token")
+    @DisplayName("claimStaleOutboundSendingForRecovery locks stale sending rows, skipping rows held elsewhere, and tags them with a claim token")
     void shouldLockAndTagStaleSending_whenRecovering() {
         SmsTransactionDaoImpl dao = newDao();
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -205,6 +212,7 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(stale.getClaimToken()).isNotBlank();
         assertThat(stale.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         verify(query).setMaxResults(10);
         verify(query).setParameter("status", SmsStatus.SENDING);
         verify(entityManager, never()).createNativeQuery(anyString());
@@ -216,6 +224,54 @@ class SmsTransactionDaoImplUnitTest {
         when(query.setMaxResults(anyInt())).thenReturn(query);
         when(query.setLockMode(any(LockModeType.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(results);
+    }
+
+    @Test
+    @DisplayName("findByDemographicNo pages newest first, with the id breaking ties between rows created in the same instant")
+    void shouldPageNewestFirst_withIdTieBreaker() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter("demographicNo", 123)).thenReturn(query);
+        when(query.setFirstResult(50)).thenReturn(query);
+        when(query.setMaxResults(25)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+
+        dao.findByDemographicNo(123, 50, 25);
+
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager).createQuery(jpql.capture(), eq(SmsTransaction.class));
+        assertThat(jpql.getValue()).endsWith("ORDER BY t.createdAt DESC, t.id DESC");
+        verify(query).setFirstResult(50);
+        verify(query).setMaxResults(25);
+    }
+
+    @Test
+    @DisplayName("findByDemographicNo treats a negative offset as the first page")
+    void shouldStartAtFirstRow_whenOffsetIsNegative() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter("demographicNo", 123)).thenReturn(query);
+        when(query.setFirstResult(0)).thenReturn(query);
+        when(query.setMaxResults(25)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+
+        dao.findByDemographicNo(123, -5, 25);
+
+        verify(query).setFirstResult(0);
+    }
+
+    @Test
+    @DisplayName("countByDemographicNo counts the patient's rows and skips querying without a patient")
+    void shouldCountRows_forDemographic() {
+        SmsTransactionDaoImpl dao = newDao();
+        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(countQuery);
+        when(countQuery.setParameter("demographicNo", 123)).thenReturn(countQuery);
+        when(countQuery.getSingleResult()).thenReturn(42L);
+
+        assertThat(dao.countByDemographicNo(123)).isEqualTo(42L);
+        assertThat(dao.countByDemographicNo(null)).isZero();
+        verify(entityManager).createQuery(
+                "SELECT COUNT(t) FROM SmsTransaction t WHERE t.demographicNo = :demographicNo", Long.class);
     }
 
     private SmsTransactionDaoImpl newDao() {

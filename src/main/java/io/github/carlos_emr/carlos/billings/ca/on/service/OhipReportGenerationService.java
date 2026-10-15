@@ -35,10 +35,12 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
@@ -75,7 +77,6 @@ public class OhipReportGenerationService {
 
     private static final int PROVIDER_BILLINGNO_LENGTH = 6;
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
-    private static final int PROVIDER_GROUPNO_LENGTH = 4;
 
     private final BillActivityDao billActivityDao;
     private final ProviderDao providerDao;
@@ -154,11 +155,16 @@ public class OhipReportGenerationService {
      * BillActivity rows and writes the OHIP+HTML files for each
      * eligible provider.
      *
+     * @param loggedInInfo the acting user, recorded as the creator of the
+     *                     persisted BillActivity rows
+     * @param request the report request carrying the selection parameters
+     * @param mode SOLO_REPORT or GROUP_REPORT
      * @return list of providers whose per-provider tx rolled back; empty
      *         when all selected providers were processed cleanly. Caller
      *         should stash this on the request for the JSP banner.
      */
-    public java.util.List<FailedProvider> generateReport(HttpServletRequest request, Mode mode) {
+    public java.util.List<FailedProvider> generateReport(LoggedInInfo loggedInInfo,
+                                                         HttpServletRequest request, Mode mode) {
         if (mode == Mode.SIMULATION) {
             throw new IllegalArgumentException("Use generateSimulation for SIMULATION mode");
         }
@@ -188,6 +194,7 @@ public class OhipReportGenerationService {
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
         List<Provider> providersToProcess = resolveProviders(providerParam);
+        String creator = loggedInInfo.getLoggedInProviderNo();
 
         int batchOrdinal = 1;
         for (Provider p : providersToProcess) {
@@ -231,7 +238,6 @@ public class OhipReportGenerationService {
             // succeeds correctly tears down setAsBilled but leaves the
             // file on disk — the operator finds the orphan via the
             // missing BillActivity row and re-runs for that provider.
-            String curUser = request.getParameter("curUser");
             try {
                 perProviderTx.executeWithoutResult(status -> {
                     // Throwing a RuntimeException out of the lambda is the
@@ -241,7 +247,7 @@ public class OhipReportGenerationService {
                     extract.writeFile(extract.getValue());
                     extract.writeHtml(extract.getHtmlCode());
                     persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
-                            proOHIP, groupNo, curUser, extract);
+                            proOHIP, groupNo, creator, extract);
                 });
             } catch (RuntimeException ex) {
                 // BillingFileWriteException, BillingDataLoadException, and
@@ -297,8 +303,8 @@ public class OhipReportGenerationService {
             if (p.getOhipNo() == null || p.getOhipNo().isEmpty()) continue;
 
             String proOHIP = p.getOhipNo();
-            String groupNo = SxmlMisc.getXmlContent(p.getComments(),
-                    "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
+            String groupNo = sanitizeGroupNo(SxmlMisc.getXmlContent(p.getComments(),
+                    "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
             String specialty = SxmlMisc.getXmlContent(p.getComments(),
                     "<xml_p_specialty_code>", "</xml_p_specialty_code>");
 
@@ -307,8 +313,7 @@ public class OhipReportGenerationService {
                 errorMsg.append("The providers's specialty code is not correct!<br>");
                 specialty = "00";
             }
-            if (groupNo == null || groupNo.isEmpty() || "null".equals(groupNo)
-                    || groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
+            if (!BillingGroupNumber.isWellFormed(groupNo)) {
                 errorMsg.append("The providers's group no is not correct!<br>");
                 groupNo = "0000";
             }
@@ -419,7 +424,7 @@ public class OhipReportGenerationService {
     }
 
     private static String sanitizeGroupNo(String raw) {
-        return (raw == null || raw.isEmpty() || "null".equals(raw)) ? "0000" : raw;
+        return BillingGroupNumber.normalize(raw);
     }
 
     private static String sanitizeSpecialty(String raw) {

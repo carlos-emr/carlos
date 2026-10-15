@@ -196,8 +196,9 @@ public class MsgViewPDF2Action extends ActionSupport {
             return NONE;
         }
 
-        // Base64 decoding is lenient: an attachment that failed to render is stored with
-        // "null" as its content, which decodes to a few bytes that are not a PDF
+        // Base64 decoding is lenient: an attachment that failed to render is stored with empty
+        // content (older messages hold "null", which decodes to a few junk bytes), so neither
+        // decodes to a PDF
         byte[] pdf = Base64.decodeBase64((String) attachments.get(fileID));
         if (!isPdf(pdf)) {
             MiscUtils.getLogger().warn("PDF attachment {} held in the session is not a PDF", fileID);
