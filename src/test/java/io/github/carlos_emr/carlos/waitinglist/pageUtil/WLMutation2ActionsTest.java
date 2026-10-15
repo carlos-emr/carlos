@@ -21,9 +21,12 @@
  */
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +55,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
@@ -79,6 +83,9 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private LoggedInInfo mockLoggedInInfo;
+    @Mock private WaitingListAvailabilityService mockWaitingListAvailability;
+
+    private final ProviderPreference providerPreference = new ProviderPreference();
 
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
@@ -94,6 +101,7 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), isNull()))
             .thenReturn(true);
+        registerMock(WaitingListAvailabilityService.class, mockWaitingListAvailability);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -117,6 +125,16 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
     @Nested
     @DisplayName("WLAdd2WaitingList2Action")
     class AddAction {
+
+        /**
+         * Only these tests get a session provider preference: the SetupDisplayWaitingList
+         * tests below rely on its absence to stop the page render after the mutation.
+         */
+        @BeforeEach
+        void setUpProviderPreference() {
+            providerPreference.setMyGroupNo("clinicA");
+            mockRequest.getSession().setAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, providerPreference);
+        }
 
         @Test
         @DisplayName("should reject GET with 405 before any privilege check")
@@ -185,6 +203,7 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             mockRequest.setParameter("demographicNo", "123");
             mockRequest.setParameter("waitingListNote", "Needs evening slot");
             mockRequest.setParameter("onListSince", "2026-04-14");
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 7)).thenReturn(true);
 
             String result = new WLAdd2WaitingList2Action().execute();
 
@@ -195,6 +214,38 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                 () -> WLWaitingListUtil.add2WaitingList("7", "Needs evening slot", "123", "2026-04-14"));
             verify(mockSecurityInfoManager)
                 .hasPrivilege(mockLoggedInInfo, "_demographic", "w", null);
+            verify(mockWaitingListAvailability).isSelectable(providerPreference, 7);
+        }
+
+        @Test
+        @DisplayName("should answer 409 without adding when the list is no longer selectable for the provider")
+        void shouldReturnConflictWithoutAdding_whenListIsNoLongerSelectable() throws Exception {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("listId", "7");
+            mockRequest.setParameter("demographicNo", "123");
+            mockRequest.setParameter("waitingListNote", "Needs evening slot");
+            mockRequest.setParameter("onListSince", "2026-04-14");
+            when(mockWaitingListAvailability.isSelectable(providerPreference, 7)).thenReturn(false);
+
+            String result = new WLAdd2WaitingList2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(409);
+            assertThat(mockResponse.getRedirectedUrl()).isNull();
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should not consult list availability for a malformed request it already refuses")
+        void shouldNotConsultAvailability_whenRequestIsMalformed() throws Exception {
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("listId", "abc");
+            mockRequest.setParameter("demographicNo", "123");
+
+            new WLAdd2WaitingList2Action().execute();
+
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            verify(mockWaitingListAvailability, never()).isSelectable(any(), anyInt());
         }
     }
 

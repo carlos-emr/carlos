@@ -118,7 +118,7 @@
                                         String name = wLBean.getWaitingListName();                                       
                                         String selected = id.compareTo((String) request.getAttribute("WLId")==null?"0":(String) request.getAttribute("WLId"))==0?"SELECTED":"";                                        
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                         <%}%>
                                 </select> <INPUT type="button" onClick="goToPage()" value="<fmt:message key='oscarwaitinglist.displayWaitingList.generateReport'/>">
@@ -202,8 +202,8 @@
                                         <td class="${styleClass}">
                                             <select name="selectedProvider" class="data3">
                                                 <c:forEach var="allProvider" items="${allProviders}">
-                                                    <option value="${allProvider.providerID}">
-                                                            ${allProvider.providerName}
+                                                    <option value="${carlos:forHtmlAttribute(allProvider.providerID)}">
+                                                            ${carlos:forHtml(allProvider.providerName)}
                                                     </option>
                                                 </c:forEach>
                                             </select>

@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
@@ -113,7 +114,7 @@
                                         String name = wLBean.getWaitingListName();
                                         String selected = id.compareTo((String) request.getAttribute("WLId") == null ? "0" : (String) request.getAttribute("WLId")) == 0 ? "SELECTED" : "";
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                 <%}%>
                             </select>
@@ -148,7 +149,7 @@
                                         String name = wLBean.getWaitingListName();
                                         String selected = id.compareTo((String) request.getAttribute("WLId") == null ? "0" : (String) request.getAttribute("WLId")) == 0 ? "SELECTED" : "";
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                 <%}%>
                             </select>
