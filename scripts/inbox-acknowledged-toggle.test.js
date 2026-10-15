@@ -38,6 +38,15 @@ const source = ['toggleAcknowledged', 'fetchInboxhubData', 'fetchInboxhubListDat
   'ownsInboxhubPageFetch', 'settleInboxhubPageFetch']
   .map(extractFunction).join('\n').replace(/<carlos:encode[^>]*\/>/g, '/carlos');
 
+/** The onclick handler the search panel's review-status radio carries, exactly as rendered. */
+function statusRadioOnclick(id) {
+  const tag = jsp.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));
+  assert.ok(tag, 'no #' + id + ' radio in InboxhubForm.jsp');
+  const handler = tag[0].match(/onclick="([^"]*)"/);
+  assert.ok(handler, '#' + id + ' has no onclick handler');
+  return handler[1];
+}
+
 /**
  * An inbox in list mode whose search form holds the page-load search (New) and whose server
  * answers each page by hand. resetDataPageCount is the page's own reset reduced to the state the
@@ -46,7 +55,8 @@ const source = ['toggleAcknowledged', 'fetchInboxhubData', 'fetchInboxhubListDat
 function inbox() {
   const requests = [];
   const form = { status: 'N' };
-  const radios = { statusNew: { checked: true }, statusAcknowledged: { checked: false } };
+  const radios = { statusNew: { checked: true }, statusAcknowledged: { checked: false },
+    ackToggle: { checked: false } };
   const viewMode = { value: 'false', disabled: false };
   function jQuery(selector) {
     if (selector === '#inboxSearchForm') {
@@ -78,13 +88,21 @@ function inbox() {
     context.isFetchingData = false;
   };
   vm.runInContext(source, context);
+  // Any helper a status radio's handler calls has to come from the page as well.
+  for (const id of ['statusAll', 'statusNew', 'statusAcknowledged', 'statusFiled']) {
+    for (const [, name] of statusRadioOnclick(id).matchAll(/([A-Za-z_$][\w$]*)\(/g)) {
+      if (typeof context[name] !== 'function') vm.runInContext(extractFunction(name), context);
+    }
+  }
+  /** Clicks a search-panel status radio by running the handler the page renders for it. */
+  const clickStatusRadio = id => vm.runInContext(statusRadioOnclick(id), context);
   /** Answers the latest request with a page of rows; the page then asks for the next one. */
   const answerLatestPage = () => {
     const { options, xhr } = requests[requests.length - 1];
     options.success('<tr></tr>', 'success', xhr);
   };
   const params = index => new URLSearchParams(requests[index].options.data);
-  return { context, requests, radios, answerLatestPage, params };
+  return { context, requests, radios, answerLatestPage, params, clickStatusRadio };
 }
 
 test('the toggled list asks for today\'s acknowledgements, not the whole acknowledged history', () => {
@@ -126,6 +144,25 @@ test('turning the toggle off asks for the New list without the acknowledgement b
   assert.equal(last.get('query.status'), 'N');
   assert.equal(last.get('query.acknowledgedToday'), null, 'the New list is not limited to today');
   assert.equal(page.radios.statusNew.checked, true);
+});
+
+test('a status picked in the search panel replaces the toggle, so later refreshes are not bounded', () => {
+  // Toggle on, then pick a status in the search panel. A category link, a type badge or the
+  // preview switch re-runs the search without the Search button; none of them may keep
+  // narrowing the panel's own Acknowledged status to today.
+  const page = inbox();
+  page.radios.ackToggle.checked = true; // the clinician ticks the toolbar box
+  page.context.toggleAcknowledged(true);
+
+  page.clickStatusRadio('statusNew');
+  page.clickStatusRadio('statusAcknowledged');
+  page.context.fetchInboxhubData();
+
+  const last = page.params(page.requests.length - 1);
+  assert.equal(last.get('query.status'), 'A');
+  assert.equal(last.get('query.acknowledgedToday'), null,
+    'the panel\'s Acknowledged status reaches the whole history');
+  assert.equal(page.radios.ackToggle.checked, false, 'the toolbar no longer claims to list today only');
 });
 
 test('a search that never used the toggle is not bounded by it', () => {

@@ -89,7 +89,9 @@ public class HRMDocumentToProviderDaoIntegrationTest extends CarlosTestBase {
     @Tag("filter")
     @DisplayName("should list only reports signed off since the bound")
     void shouldListOnlyReportsSignedOffSinceBound_whenSignedOffSinceGiven() {
-        HRMDocumentToProvider signedOffToday = routeSignedOffReport("2026-10-15 09:12:00");
+        HRMDocumentToProvider signedOffThisMorning = routeSignedOffReport("2026-10-15 09:12:00");
+        HRMDocumentToProvider signedOffAtMidnight = routeSignedOffReport("2026-10-15 00:00:00");
+        HRMDocumentToProvider signedOffLastNight = routeSignedOffReport("2026-10-14 23:59:59");
         HRMDocumentToProvider signedOffLastYear = routeSignedOffReport("2025-01-10 16:40:00");
 
         List<HRMDocumentToProvider> unbounded = hrmDocumentToProviderDao.findByProviderNoLimit("778802",
@@ -97,10 +99,13 @@ public class HRMDocumentToProviderDaoIntegrationTest extends CarlosTestBase {
         List<HRMDocumentToProvider> bounded = hrmDocumentToProviderDao.findByProviderNoLimit("778802",
                 List.of(), false, null, null, 2, 1, false, 0, 100, Timestamp.valueOf("2026-10-15 00:00:00"));
 
-        assertThat(unbounded).as("both reports are signed off, so an unbounded search lists both")
+        assertThat(unbounded).as("every report is signed off, so an unbounded search lists them all")
                 .extracting(HRMDocumentToProvider::getId)
-                .containsExactlyInAnyOrder(signedOffToday.getId(), signedOffLastYear.getId());
-        assertThat(bounded).extracting(HRMDocumentToProvider::getId).containsExactly(signedOffToday.getId());
+                .containsExactlyInAnyOrder(signedOffThisMorning.getId(), signedOffAtMidnight.getId(),
+                        signedOffLastNight.getId(), signedOffLastYear.getId());
+        assertThat(bounded).as("the bound is inclusive: midnight is in, a second before is out")
+                .extracting(HRMDocumentToProvider::getId)
+                .containsExactlyInAnyOrder(signedOffThisMorning.getId(), signedOffAtMidnight.getId());
     }
 
     private HRMDocumentToProvider routeSignedOffReport(String signedOffAt) {

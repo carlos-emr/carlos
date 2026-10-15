@@ -331,28 +331,38 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             return demo.getDemographicNo();
         }
 
+        /**
+         * Shapes: the provider's whole list; one patient; a name search answered by the labs' own
+         * names (unlinked labs) or by the linked patient's name (only the demographic subqueries
+         * can answer that); unmatched labs. The bound is inclusive: a lab acknowledged exactly at
+         * the start of the day is listed, one acknowledged a second earlier is not.
+         */
         @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
         @CsvSource({"provider,true", "provider,false", "patient,true", "patient,false",
-                "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+                "nameSearch,true", "nameSearch,false", "patientNameSearch,true", "patientNameSearch,false",
+                "unmatched,true", "unmatched,false"})
         @DisplayName("should list only labs acknowledged since the bound, whatever their result date")
         void shouldListOnlyLabsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
-            Integer patient = "patient".equals(shape) ? createPatient() : null;
-            int acknowledgedToday = routeAcknowledgedLab(9836001, "2026-10-15 09:12:00", patient);
-            int acknowledgedLastYear = routeAcknowledgedLab(9836002, "2025-01-10 16:40:00", patient);
-            String demographicNo = patient != null ? String.valueOf(patient) : "unmatched".equals(shape) ? "0" : null;
-            boolean nameSearch = "nameSearch".equals(shape);
-            String lastName = nameSearch ? "Fixture" : "";
+            Integer patient = "patient".equals(shape) || "patientNameSearch".equals(shape) ? createPatient() : null;
+            int acknowledgedThisMorning = routeAcknowledgedLab(9836001, "2026-10-15 09:12:00", patient);
+            int acknowledgedAtMidnight = routeAcknowledgedLab(9836002, "2026-10-15 00:00:00", patient);
+            int acknowledgedLastNight = routeAcknowledgedLab(9836003, "2026-10-14 23:59:59", patient);
+            int acknowledgedLastYear = routeAcknowledgedLab(9836004, "2025-01-10 16:40:00", patient);
+            String demographicNo = "patient".equals(shape) ? String.valueOf(patient) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Fixture" : "patientNameSearch".equals(shape) ? "Patient" : "";
+            boolean nameSearch = !lastName.isEmpty();
 
             List<Object[]> unbounded = hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, demographicNo, "", lastName, "",
                     "A", false, 0, 100, mixLabsAndDocs, null, true, nameSearch, null, null, null);
             List<Object[]> bounded = hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, demographicNo, "", lastName, "",
                     "A", false, 0, 100, mixLabsAndDocs, null, true, nameSearch, null, null, startOfToday);
 
-            assertThat(unbounded).as("both labs are acknowledged, so an unbounded search lists both")
+            assertThat(unbounded).as("every lab is acknowledged, so an unbounded search lists them all")
                     .extracting(row -> ((Number) row[1]).intValue())
-                    .containsExactlyInAnyOrder(acknowledgedToday, acknowledgedLastYear);
+                    .containsExactlyInAnyOrder(acknowledgedThisMorning, acknowledgedAtMidnight,
+                            acknowledgedLastNight, acknowledgedLastYear);
             assertThat(bounded).extracting(row -> ((Number) row[1]).intValue())
-                    .containsExactly(acknowledgedToday);
+                    .containsExactlyInAnyOrder(acknowledgedThisMorning, acknowledgedAtMidnight);
         }
     }
 

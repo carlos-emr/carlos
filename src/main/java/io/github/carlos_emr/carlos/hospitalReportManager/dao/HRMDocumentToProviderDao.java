@@ -52,7 +52,9 @@ public class HRMDocumentToProviderDao extends AbstractDaoImpl<HRMDocumentToProvi
     }
 
     /**
-     * As above, additionally keeping only reports signed off at or after {@code signedOffSince}.
+     * Finds one page of a provider's HRM routing rows, filtered like the overload without
+     * {@code signedOffSince} (patient, report-date range, viewed and signed-off flags) and
+     * additionally keeping only reports signed off at or after {@code signedOffSince}.
      *
      * <p>The bound is the sign-off time, not the report's own dates. The Inbox Hub toolbar uses it
      * to list the reports signed off today without paging in the provider's whole history.

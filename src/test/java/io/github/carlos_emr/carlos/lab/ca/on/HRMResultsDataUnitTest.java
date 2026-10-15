@@ -13,9 +13,11 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -103,19 +105,19 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
      * The Inbox Hub's Acknowledged toggle lists the reports signed off today. A bound dropped on
      * its way to the query would page the provider's whole signed-off history into that list.
      */
-    @org.junit.jupiter.api.Test
+    @Test
     void shouldForwardSignOffBound_toReportQuery() {
         HRMDocumentToProviderDao providers = mock(HRMDocumentToProviderDao.class);
         registerMock(HRMDocumentToProviderDao.class, providers);
         registerMock(HRMDocumentDao.class, mock(HRMDocumentDao.class));
         registerMock(HRMDocumentToDemographicDao.class, mock(HRMDocumentToDemographicDao.class));
         registerMock(DemographicManager.class, mock(DemographicManager.class));
-        Date startOfToday = Date.from(java.time.Instant.parse("2026-10-15T04:00:00Z"));
+        Date startOfToday = Date.from(Instant.parse("2026-10-15T04:00:00Z"));
 
         assertThat(new HRMResultsData().populateHRMdocumentsResultsData(mock(LoggedInInfo.class), "999998",
                 "", "", "", null, "A", null, null, true, 0, 20, startOfToday)).isEmpty();
 
-        verify(providers).findByProviderNoLimit(eq("999998"), eq(java.util.List.of()), eq(false),
+        verify(providers).findByProviderNoLimit(eq("999998"), eq(List.of()), eq(false),
                 isNull(), isNull(), eq(2), eq(1), eq(true), eq(0), eq(20), eq(startOfToday));
     }
 

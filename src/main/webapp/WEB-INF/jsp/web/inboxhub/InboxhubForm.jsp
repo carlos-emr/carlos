@@ -178,22 +178,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                             <input type="hidden" name="query.status" id="statusId" value="${carlos:forHtmlAttribute(query.status)}"/>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusAll" value="All"
-                                    ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', '')">
+                                    ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', ''); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusAll"><fmt:message key="inbox.inboxmanager.msgAll"/>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusNew" value="N"
-                                    ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N')">
+                                    ${query.status eq 'N' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'N'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusNew"><fmt:message key="inbox.inboxmanager.msgNew"/></label>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusAcknowledged" value="A"
-                                    ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A')">
+                                    ${query.status eq 'A' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'A'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusAcknowledged"><fmt:message key="inbox.inboxmanager.msgAcknowledged"/></label>
                             </div>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusFiled" value="F"
-                                    ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F')">
+                                    ${query.status eq 'F' ? 'checked' : ''} onclick="changeValueElementByName('query.status', 'F'); clearAcknowledgedToggle();">
                                 <label class="form-check-label" for="statusFiled"><fmt:message key="inbox.inboxmanager.msgFiled"/></label>
                             </div>
                         </div>
@@ -1472,6 +1472,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         if (radio) radio.checked = true;
 
         fetchInboxhubData();
+    }
+
+    /**
+     * Turns the toolbar's Acknowledged-today toggle off when the clinician picks a review status
+     * in the search panel. From then on the status alone decides the list, so an Acknowledged
+     * status chosen there reaches the whole history even when a category link, a type badge or
+     * the preview switch re-runs the search instead of the Search button.
+     */
+    function clearAcknowledgedToggle() {
+        ackToggleState = false;
+        var ackToggle = document.getElementById('ackToggle');
+        if (ackToggle) ackToggle.checked = false;
     }
 
     /**

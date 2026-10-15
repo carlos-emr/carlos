@@ -34,6 +34,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -632,15 +633,23 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
             return doc.getDocumentNo();
         }
 
+        /**
+         * Shapes: the provider's whole list of patient documents, and of unmatched ones (the
+         * separate-documents listing reads those in a second subquery); one patient; a name
+         * search; the unmatched view. The bound is inclusive: a document acknowledged exactly at
+         * the start of the day is listed, one acknowledged a second earlier is not.
+         */
         @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
-        @org.junit.jupiter.params.provider.CsvSource({"provider,true", "provider,false", "patient,true",
-                "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
         @DisplayName("should list only documents acknowledged since the bound, whatever their own dates")
         void shouldListOnlyDocumentsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
-            int moduleId = "unmatched".equals(shape) ? -1 : demoId;
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
             // The documents' own observation and content dates are 2026-03-04: only the
             // acknowledgement time tells them apart.
-            int acknowledgedToday = routeAcknowledgedDocument(moduleId, "2026-10-15 09:12:00");
+            int acknowledgedThisMorning = routeAcknowledgedDocument(moduleId, "2026-10-15 09:12:00");
+            int acknowledgedAtMidnight = routeAcknowledgedDocument(moduleId, "2026-10-15 00:00:00");
+            int acknowledgedLastNight = routeAcknowledgedDocument(moduleId, "2026-10-14 23:59:59");
             int acknowledgedLastYear = routeAcknowledgedDocument(moduleId, "2025-01-10 16:40:00");
             String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
             String lastName = "nameSearch".equals(shape) ? "Patient" : "";
@@ -652,11 +661,12 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, demographicNo, "", lastName, "", "A",
                     false, null, null, mixLabsAndDocs, null, null, null, startOfToday);
 
-            assertThat(unbounded).as("both documents are acknowledged, so an unbounded search lists both")
+            assertThat(unbounded).as("every document is acknowledged, so an unbounded search lists them all")
                     .extracting(result -> result.segmentID)
-                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedToday), String.valueOf(acknowledgedLastYear));
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight),
+                            String.valueOf(acknowledgedLastNight), String.valueOf(acknowledgedLastYear));
             assertThat(bounded).extracting(result -> result.segmentID)
-                    .containsExactly(String.valueOf(acknowledgedToday));
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight));
         }
     }
 
