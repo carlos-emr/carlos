@@ -39,6 +39,13 @@ claims for Ontario-resident patients. It implements:
   disk continues after that year's numbers instead of colliding, which used
   to stop generation with "Unable to allocate unique … disk name" while the
   simulation (which allocates no disk) still worked.
+  Generation also writes into `HOME_DIR`, which the simulation never
+  touches. `Startup` creates that folder only when it derives the value from
+  `BASE_DOCUMENT_DIR`; a deployment that sets `HOME_DIR` itself must create
+  the folder (the Debian package ships it in its document skeleton). A
+  missing, non-folder or read-only `HOME_DIR` is reported before anything
+  runs as "The OHIP output folder (HOME_DIR) is missing or CARLOS cannot
+  write to it" (`BillingOutputLock`), not as a lock failure.
   **Provider eligibility is by design, not a fault:** generation only ever
   considers *billable* providers (`ProviderDao.getBillableProviders`:
   `status = '1'` and a non-empty `ohipNo`), both for "all providers" and

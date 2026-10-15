@@ -26,7 +26,8 @@
   <global-exception-mappings> in struts-billing.xml.
 
   Failure scenarios that reach this page:
-    - Disk full / permission denied on HOME_DIR
+    - HOME_DIR missing, full or not writable (a missing or read-only folder is
+      reported before generation starts, so nothing was changed)
     - Path-traversal attempt rejected by PathValidationUtils
     - Mid-loop DAO failure during createBillingFileStr / dbQuery (the
       previously-swallowed catch sites). Some claim headers may already
@@ -89,8 +90,8 @@
         <p>The OHIP claim file could not be written or the extraction failed
            partway through. Common causes:</p>
         <ul>
-            <li>Disk full or permission denied on the configured
-                <code>HOME_DIR</code> billing directory.</li>
+            <li>The configured <code>HOME_DIR</code> billing directory is
+                missing, full, or not writable by CARLOS.</li>
             <li>A previous file with the same name is locked by another process.</li>
             <li>An unexpected database error during claim header iteration —
                 some headers may already have been flagged <code>billed</code>;
