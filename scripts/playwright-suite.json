@@ -3844,6 +3844,25 @@
       "notes": "Fails on 2026.08: Unlock Account answers 500 whenever a login is tracked (SecurityDaoImpl.findByProviderSite duplicate provider_no alias)."
     },
     {
+      "name": "account-unlock-address-mode",
+      "script": "scripts/account-unlock-address-mode-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Operator prerequisite: login_lock unset or false in carlos.properties (the packaged default), then restart; the client address must not match login_local_ip. Creates a throwaway login, locks the runner's client address with wrong passwords, unlocks that address as the site-restricted test administrator via Administration > Unlock Account, deletes every owned row including audit rows. Complements account-lockout-unlock, which requires login_lock=true (issue #4550)."
+    },
+    {
       "name": "encounter-templates",
       "script": "scripts/encounter-templates-playwright-checks.js",
       "tiers": [
