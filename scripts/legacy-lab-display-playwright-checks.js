@@ -449,8 +449,8 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
     if (lab.note) {
       h.assert(text.includes(lab.note), `The ${lab.title} lab page does not show the note filed with a result`);
     }
-    // SegmentDisplay.jsp shows this banner when a query failed part-way and the report is incomplete.
-    h.assert(await popup.locator('#mdsLoadFailed').count() === 0,
+    // SegmentDisplay.jsp shows these warnings when a query failed part-way through this report or one of its versions.
+    h.assert(await popup.locator('#mdsLoadFailed, .mds-load-failed').count() === 0,
       `The ${lab.title} lab page says part of the report could not be loaded`);
     // Msg renders only when the routing resolved a patient for the lab, and it names that patient's number.
     const msg = popup.locator('input[type="button"][value="Msg"]').first();

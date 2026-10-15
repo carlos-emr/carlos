@@ -2775,3 +2775,8 @@ signature was `getMatchingCMLLabs (ClassCastException)`, raised by the CML check
 
 The swaps used `cp` and `touch` on the installed JSP and a `carlos-ctl restart`. After a restart, Jasper recompiles a JSP whose
 source is newer than its compiled class, so Tomcat's work directory does not need clearing.
+
+A follow-up covered a report with versions whose older version cannot be read. Two FAKE versions of one accession were seeded
+(`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
+Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
+per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.
