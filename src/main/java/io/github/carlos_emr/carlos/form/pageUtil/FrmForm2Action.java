@@ -136,7 +136,7 @@ public class FrmForm2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "Case folding is limited to form flags; redirects use the fixed local SetupForm route, a registry-validated alphanumeric form name, and canonical numeric patient/form IDs")
     public String execute()
             throws ServletException, IOException {
 

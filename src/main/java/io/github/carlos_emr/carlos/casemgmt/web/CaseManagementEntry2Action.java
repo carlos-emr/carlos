@@ -1435,12 +1435,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /** Rebuilds a patient-bound billing link for every full editor response. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Canonicalizes a configured province code, not a patient/provider identity or an authorization decision")
     private void prepareBillingUrl(String demono) throws java.io.UnsupportedEncodingException {
         HttpSession session = request.getSession();
         String url = "";
         if ("casemgmt".equals(request.getAttribute("from"))) {
 
-            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
+            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase(java.util.Locale.ROOT);
 
             EctSessionBean bean = encounterForPatient(demono);
 
@@ -1493,7 +1494,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return bean;
     }
 
-    private void bindNoteAppointment(CaseManagementNote note, HttpSession session) {
+    private void bindNoteAppointment(CaseManagementNote note) {
         EctSessionBean encounter = EncounterPatientContext.findEncounter(request, note.getDemographic_no());
         note.setAppointmentNo(resolveNoteAppointmentNo(note, request.getParameter("appointmentNo"),
                 encounter == null ? null : encounter.appointmentNo,
@@ -1523,7 +1524,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
-        bindNoteAppointment(note, session);
+        bindNoteAppointment(note);
         note.setNote(noteTxt);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1978,7 +1979,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = false;
         }
 
-        bindNoteAppointment(note, session);
+        bindNoteAppointment(note);
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {

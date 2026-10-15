@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   patientStateQueries, readPatientState, assertPatientStateUnchanged, invalidPatientParameters, assertRequestPatient,
-  isOwnedLockRelease, consumeDeliveredLockReleases,
+  isOwnedLockRelease, consumeDeliveredLockReleases, prepareVascularTrackerFixture,
 } = require('./echart-two-patient-isolation-playwright-checks');
 
 test('patient snapshots preserve all columns, SQL nulls, empty values and child rows', () => {
@@ -102,4 +102,121 @@ test('delivered unload consumption removes only the captured abandoned ping and 
   const recorder = {requestFailures: [unrelated, expected, sameDocument, unexpectedFailure, wrongUrl, xhr]};
   consumeDeliveredLockReleases(recorder, [expected, sameDocument, unexpectedFailure, wrongUrl, xhr].map(entry => ({request, entry})));
   assert.deepEqual(recorder.requestFailures, [unrelated, sameDocument, unexpectedFailure, wrongUrl, xhr]);
+});
+
+// Stateful SQL double: evaluate the ownership predicates against current rows, including changes
+// between the initial SELECT and UPDATE. Returning copies prevents fixture snapshots from aliasing DB state.
+function vascularTrackerRegistry(displayOrder = '0', options = {}) {
+  const registry = [
+    ['Vascular Tracker', '../form/SetupForm.do?formName=VTForm&demographic_no=', 'formVTForm', displayOrder],
+    ['Other form', '../form/OtherForm', 'formOther', '7'],
+  ];
+  const before = structuredClone(registry);
+  const cleanups = [];
+  const writes = [];
+  const sqlLiteral = (query, column) => {
+    const match = query.match(new RegExp(`BINARY ${column}='((?:''|[^'])*)'`));
+    assert(match, `UPDATE must guard ${column}`);
+    return match[1].replace(/''/g, "'");
+  };
+  const session = {
+    cleanup(callback) { cleanups.push(callback); },
+    sql: {
+      rows(query) {
+        if (query === 'SELECT * FROM encounterForm ORDER BY form_value') return structuredClone(registry);
+        assert.match(query, /^SELECT form_name,form_value,form_table,hidden FROM encounterForm/);
+        if (query.includes("WHERE form_name='Vascular Tracker' AND form_table='formVTForm'")) {
+          return structuredClone(registry.filter(row => row[0] === 'Vascular Tracker' && row[2] === 'formVTForm'));
+        }
+        const key = sqlLiteral(query, 'form_value');
+        return structuredClone(registry.filter(row => row[1] === key));
+      },
+      value(query) {
+        assert.equal(cleanups.length, 1, 'Cleanup must be registered before any mutation');
+        writes.push(query);
+        const activation = writes.length === 1;
+        if (activation && options.failBeforeUpdate) throw new Error('Activation transport failed');
+        if (activation && options.beforeUpdate) options.beforeUpdate(registry);
+        const next = query.match(/^UPDATE encounterForm SET hidden=(\d+) WHERE /);
+        const previous = query.match(/ AND hidden=(\d+);\s*SELECT ROW_COUNT\(\)$/);
+        assert(next && previous, 'Only a conditional display-order update is permitted');
+        const identity = ['form_name', 'form_value', 'form_table'].map(column => sqlLiteral(query, column));
+        const matching = registry.filter(row => identity.every((value, index) => row[index] === value)
+          && row[3] === previous[1]);
+        for (const row of matching) row[3] = next[1];
+        if (activation && options.failAfterUpdate) throw new Error('Activation result lost');
+        return String(matching.length);
+      },
+    },
+  };
+  return {session, registry, before, cleanups, writes};
+}
+
+test('hidden VT activation changes only its display order and restores the exact complete registry', () => {
+  const fixture = vascularTrackerRegistry();
+  prepareVascularTrackerFixture(fixture.session);
+  assert(Number(fixture.registry[0][3]) > 0);
+  assert.deepEqual(fixture.registry[0].slice(0, 3), fixture.before[0].slice(0, 3));
+  assert.deepEqual(fixture.registry[1], fixture.before[1]);
+  assert.equal(fixture.writes.length, 1);
+  fixture.cleanups[0]();
+  assert.deepEqual(fixture.registry, fixture.before);
+  fixture.cleanups[0]();
+  assert.equal(fixture.writes.length, 2, 'Repeated cleanup must not write again');
+});
+
+test('an already visible VT registration retains its original positive order without any writes', () => {
+  const fixture = vascularTrackerRegistry('37');
+  prepareVascularTrackerFixture(fixture.session);
+  fixture.cleanups[0]();
+  assert.deepEqual(fixture.registry, fixture.before);
+  assert.deepEqual(fixture.writes, []);
+});
+
+test('VT cleanup refuses every ownership-field change without overwriting the changed row', () => {
+  for (let column = 0; column < 4; column++) {
+    const fixture = vascularTrackerRegistry();
+    prepareVascularTrackerFixture(fixture.session);
+    fixture.registry[0][column] = column === 3 ? '42' : 'Concurrent registry change';
+    const drifted = structuredClone(fixture.registry);
+    assert.throws(() => fixture.cleanups[0](), /ownership changed; refusing to overwrite/);
+    assert.deepEqual(fixture.registry, drifted);
+    assert.equal(fixture.writes.length, 1);
+  }
+});
+
+test('VT cleanup is registered before activation fails without writing', () => {
+  const fixture = vascularTrackerRegistry('0', {failBeforeUpdate: true});
+  assert.throws(() => prepareVascularTrackerFixture(fixture.session), /Activation transport failed/);
+  assert.equal(fixture.cleanups.length, 1);
+  fixture.cleanups[0]();
+  assert.deepEqual(fixture.registry, fixture.before);
+  assert.equal(fixture.writes.length, 1);
+});
+
+test('VT cleanup restores an activation that committed before its SQL result was lost', () => {
+  const fixture = vascularTrackerRegistry('0', {failAfterUpdate: true});
+  assert.throws(() => prepareVascularTrackerFixture(fixture.session), /Activation result lost/);
+  assert.notEqual(fixture.registry[0][3], '0');
+  fixture.cleanups[0]();
+  assert.deepEqual(fixture.registry, fixture.before);
+  assert.equal(fixture.writes.length, 2);
+});
+
+test('VT activation detects a concurrent display-order change and leaves the new owner untouched', () => {
+  const fixture = vascularTrackerRegistry('0', {beforeUpdate: rows => { rows[0][3] = '42'; }});
+  assert.throws(() => prepareVascularTrackerFixture(fixture.session), /activation lost ownership/);
+  assert.throws(() => fixture.cleanups[0](), /ownership changed; refusing to overwrite/);
+  assert.equal(fixture.registry[0][3], '42');
+  assert.equal(fixture.writes.length, 1);
+});
+
+test('VT cleanup flags changed values elsewhere in the full registry after restoring its own row', () => {
+  const fixture = vascularTrackerRegistry();
+  prepareVascularTrackerFixture(fixture.session);
+  fixture.registry[1][0] = 'Changed other form';
+  assert.throws(() => fixture.cleanups[0](), /complete encounterForm registry was not restored/);
+  assert.deepEqual(fixture.registry[0], fixture.before[0]);
+  assert.equal(fixture.registry[1][0], 'Changed other form');
+  assert.equal(fixture.registry.length, fixture.before.length, 'Equal counts cannot prove restoration');
 });

@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -189,9 +191,8 @@ public class EctDisplayAction extends ActionSupport {
         bean.providerNo = resolveProviderNo();
         bean.demographicNo = demographicNo;
         bean.appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
-        bean.curProviderNo = resolveCurrentProviderNo();
+        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, bean.appointmentNo);
         populateEncounterRequestFields(bean);
-        bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
         exposeEncounterRequestBean(bean);
         return bean;
     }
@@ -213,13 +214,29 @@ public class EctDisplayAction extends ActionSupport {
         return providerNo;
     }
 
-    private String resolveCurrentProviderNo() {
+    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo) {
+        // An entry snapshot or explicit provider must not legitimize a foreign appointment.
+        // This is the only appointment lookup needed; do not initialize the full chart.
+        if (appointmentNo != null && !"0".equals(appointmentNo)) {
+            Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(appointmentNo));
+            if (appointment == null || !demographicNo.equals(String.valueOf(appointment.getDemographicNo()))) {
+                throw new IllegalArgumentException("Appointment does not belong to the requested patient");
+            }
+            if (appointment.getProviderNo() != null && appointment.getProviderNo().matches("[a-zA-Z0-9]{1,6}")) {
+                return appointment.getProviderNo();
+            }
+        }
         String currentProviderNo = request.getParameter("curProviderNo");
         if (currentProviderNo != null && !currentProviderNo.isEmpty() && !currentProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
             logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSafe.sanitize(currentProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             currentProviderNo = null;
         }
         if (currentProviderNo == null || currentProviderNo.trim().isEmpty()) {
+            EctSessionBean saved = EncounterPatientContext.findEncounter(request, demographicNo);
+            if (saved != null && java.util.Objects.equals(appointmentNo, saved.appointmentNo)
+                    && saved.curProviderNo != null && saved.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                return saved.curProviderNo;
+            }
             currentProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
         }
         return currentProviderNo;

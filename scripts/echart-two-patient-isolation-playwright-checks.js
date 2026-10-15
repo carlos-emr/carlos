@@ -26,8 +26,9 @@
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha), a second FAKE patient (B,
  * PatientBravo, last name the run marker) and one WT measurement each (61.2 kg for A, 87.4 kg for
  * B; the two plots differ, which is what lets the plot say whose data it shows). Cleanup removes both patients' measurements, archived
- * measurements, Dx, prevention, note, CPP and lock rows by key and asserts each is gone. No
- * clinic-wide state is changed.
+ * measurements, Dx, prevention, note, CPP and lock rows by key and asserts each is gone.
+ * The existing VT encounterForm registration is temporarily given a positive display order if
+ * hidden. This requires exclusive fixture use; cleanup restores and compares the complete registry.
  *
  * Vascular Tracker setup, Update and reopen are driven for both patients. Save & Exit closes
  * the popup, writes A's measurements and appends only to A's editor; a second exit after the
@@ -49,6 +50,8 @@ const B_WEIGHT = '87.4';
 const OBSERVED = '2026-02-03';
 const A_FIRST_NAME = 'PatientAlpha';
 const B_FIRST_NAME = 'PatientBravo';
+// Large Forms menus alternate these columns; a configured form can occupy either one.
+const FORM_MENU_ITEMS = '#forms #menu1 a:is(.menuItemleft, .menuItemright)';
 // Unique tokens (nothing else on a page contains them), so a plain substring says whose name a page prints.
 const namesA = text => text.includes(A_FIRST_NAME);
 const namesB = text => text.includes(B_FIRST_NAME);
@@ -144,11 +147,50 @@ function consumeDeliveredLockReleases(recorder, candidates) {
   }
 }
 
+function prepareVascularTrackerFixture(s) {
+  const {sql} = s;
+  const q = h.sqlString;
+  const registryQuery = 'SELECT * FROM encounterForm ORDER BY form_value';
+  const registryBefore = sql.rows(registryQuery);
+  const columns = 'form_name,form_value,form_table,hidden';
+  const candidates = sql.rows(`SELECT ${columns} FROM encounterForm
+    WHERE form_name='Vascular Tracker' AND form_table='formVTForm'`);
+  h.assert(candidates.length === 1, 'Exactly one existing Vascular Tracker registration is required');
+  const original = candidates[0];
+  h.assert(original.length === 4 && /^\d+$/.test(original[3]), 'VT display order is invalid');
+  // Despite its SQL name, hidden=0 means unavailable; positive display orders make the form visible.
+  // A unique positive value also distinguishes this run's activation from another registry writer.
+  const active = [...original];
+  if (original[3] === '0') active[3] = String(crypto.randomInt(100000000, 2000000000));
+  const rowQuery = `SELECT ${columns} FROM encounterForm WHERE BINARY form_value=${q(original[1])}`;
+  const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+  const matches = row => ['form_name', 'form_value', 'form_table']
+    .map((column, index) => `BINARY ${column}=${q(row[index])}`)
+    .concat(`hidden=${row[3]}`).join(' AND ');
+
+  // Register before attempting the update: cleanup also runs if SQL succeeds but its result is lost.
+  s.cleanup(() => {
+    const current = sql.rows(rowQuery);
+    if (!same(current, [original])) {
+      h.assert(same(current, [active]), 'VT registration ownership changed; refusing to overwrite it');
+      h.assert(sql.value(`UPDATE encounterForm SET hidden=${original[3]} WHERE ${matches(active)};
+        SELECT ROW_COUNT()`) === '1', 'VT registration restoration lost ownership');
+    }
+    h.assert(same(sql.rows(registryQuery), registryBefore), 'The complete encounterForm registry was not restored');
+  });
+  if (!same(active, original)) {
+    h.assert(sql.value(`UPDATE encounterForm SET hidden=${active[3]} WHERE ${matches(original)};
+      SELECT ROW_COUNT()`) === '1', 'VT registration activation lost ownership');
+  }
+  h.assert(same(sql.rows(rowQuery), [active]), 'The VT registration fixture is not available');
+}
+
 async function run(s) {
   const { sql, patient: A, provider, marker, context, recorder } = s;
   const q = h.sqlString;
 
   // ---- Fixtures --------------------------------------------------------------------------------
+  prepareVascularTrackerFixture(s);
   // Two first names no page text or script contains, so a page that prints one names its patient.
   sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
   const B = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
@@ -293,14 +335,14 @@ async function run(s) {
 
   /** The Add Form links of the Forms module: the demographic number each carries. */
   async function formLinkOwners(chart) {
-    const handlers = await chart.locator('#forms a.menuItemleft').evaluateAll(els => els.map(e => e.getAttribute('onclick') || ''));
+    const handlers = await chart.locator(FORM_MENU_ITEMS).evaluateAll(els => els.map(e => e.getAttribute('onclick') || ''));
     return handlers.map(onclick => (onclick.match(/demographic(?:_no|No)=(\d+)/) || [])[1]);
   }
 
   /** Open the first Add Form item of a chart window's Forms module. */
   async function openFirstForm(chart, label) {
     await chart.locator('#menuTitle1 a').hover();
-    const item = chart.locator('#forms a.menuItemleft').first();
+    const item = chart.locator(FORM_MENU_ITEMS).first();
     await item.waitFor({ state: 'visible', timeout: TIMEOUT });
     return s.popup(chart, item, label);
   }
@@ -448,6 +490,35 @@ async function run(s) {
       h.assert(problems.length === 0, `${d.label}'s Forms module crossed patients: ${problems.join('; ')}`);
       assertPatientStateUnchanged(otherBefore, snapshot(d.other), `${d.label}'s forms read/reload`);
     });
+
+    await s.step(`${d.label}'s Vitals More history retains its patient after the other chart is selected`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      await d.chart.locator('#menuTitle3 a').hover();
+      const vitals = d.chart.locator('#menu3 a:is(.menuItemleft, .menuItemright)').filter({hasText: /^\s*Vitals\s*$/});
+      const group = await s.popup(d.chart, vitals, `${d.label}-vitals-history`);
+      const patientField = group.locator('input[name="demographicNo"]');
+      await patientField.waitFor({state: 'attached'});
+      h.assert(await patientField.inputValue() === d.patient, 'Vitals More opened from another patient\'s entry form');
+      const more = group.locator('i[onclick*="SetupDisplayHistory?type=WT"]');
+      await more.waitFor({state: 'visible', timeout: TIMEOUT});
+      h.assert(await more.count() === 1, 'Vitals must offer exactly one WT history control');
+      await activateOther(d.otherChart);
+      const history = await s.popup(group, more, `${d.label}-vitals-more-history`);
+      await history.locator('tr.data').first().waitFor({state: 'visible', timeout: TIMEOUT});
+      const address = new URL(history.url());
+      h.assert(address.pathname.endsWith('/encounter/oscarMeasurements/SetupDisplayHistory')
+        && address.searchParams.get('demographicNo') === d.patient && address.searchParams.get('type') === 'WT',
+      'Vitals More did not request its own patient and measurement type');
+      const ids = await history.locator('input[name="deleteCheckbox"]').evaluateAll(els => els.map(el => el.value));
+      const text = norm(await history.locator('body').innerText());
+      h.assert(ids.length === 1 && ids[0] === d.weightId, 'Vitals More displayed another patient\'s measurement rows');
+      h.assert(d.ownName(text) && !d.otherName(text) && text.includes(d.ownWeight) && !text.includes(d.otherWeight),
+        'Vitals More displayed another patient\'s name or weight');
+      await history.close();
+      await group.close();
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s Vitals More history`);
+    });
   }
 
   // ---- Writes in both directions, with the opposite chart selected immediately before each save.
@@ -465,7 +536,7 @@ async function run(s) {
       const comment = `${marker}-${d.label}-bp`;
       const value = d.label === 'A' ? '128/82' : '142/86';
       await d.chart.locator('#menuTitle3 a').hover();
-      const vitals = d.chart.locator('#menu3 a.menuItemleft').filter({hasText: 'Vitals'});
+      const vitals = d.chart.locator('#menu3 a:is(.menuItemleft, .menuItemright)').filter({hasText: /^\s*Vitals\s*$/});
       const group = await s.popup(d.chart, vitals, `${d.label}-vitals`);
       const row = group.locator('#row-BP');
       await row.waitFor({state: 'visible', timeout: TIMEOUT});
@@ -554,8 +625,15 @@ async function run(s) {
 
     await isolatedWrite(d, 'Vascular Tracker setup and Update', async () => {
       await d.chart.locator('#menuTitle1 a').hover();
-      const item = d.chart.locator('#forms a.menuItemleft').filter({hasText: 'Vascular Tracker'}).first();
+      const item = d.chart.locator(FORM_MENU_ITEMS).filter({hasText: /^\s*Vascular Tracker\s*$/});
+      await item.waitFor({state: 'visible', timeout: TIMEOUT});
+      h.assert(await item.count() === 1, 'The Forms menu must offer exactly one Vascular Tracker');
       const formPage = await s.popup(d.chart, item, `${d.label}-vascular-tracker`);
+      const setupAddress = new URL(formPage.url());
+      h.assert(setupAddress.pathname.endsWith('/form/SetupForm')
+        && setupAddress.searchParams.get('formName') === 'VTForm'
+        && setupAddress.searchParams.get('demographic_no') === d.patient,
+      'The Vascular Tracker menu item did not open its own canonical form setup');
       const form = formPage.locator('form[action$="/form/SubmitForm"]');
       const patientField = form.locator('input[name="demographic_no"]');
       await patientField.waitFor({state: 'attached'});
@@ -810,4 +888,5 @@ async function workflow(s) {
 
 if (require.main === module) runWorkflow('echart-two-patient-isolation', workflow, { openPatient: true });
 module.exports = { workflow, patientStateQueries, readPatientState, assertPatientStateUnchanged,
-  invalidPatientParameters, assertRequestPatient, isOwnedLockRelease, consumeDeliveredLockReleases };
+  invalidPatientParameters, assertRequestPatient, isOwnedLockRelease, consumeDeliveredLockReleases,
+  prepareVascularTrackerFixture };

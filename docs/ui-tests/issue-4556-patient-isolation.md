@@ -21,9 +21,10 @@ same patient; navigating that opener to another patient prevents the append.
 - The original browser check from release commit `3d5f85fbb6` reproduced the
   crossover: both initial patient controls passed, then A's post-B read failed.
   Owned fixture cleanup was verified.
-- 382 targeted Java checks pass: 120 patient-context/measurement/note/graph cases,
+- 410 targeted Java checks pass: 137 patient-context/measurement/note/graph cases,
   12 incoming-encounter cases, 40 form cases, 193 existing chart/appointment
-  regressions, and 17 authorization/routing cases. Unit tests exercise the production actions with mocked service boundaries.
+  regressions, 17 authorization/routing cases, and 11 existing measurement/JSP
+  encoding regressions. Unit tests exercise the production actions with mocked service boundaries.
 - H2 integration tests exercise actual measurement queries/deletion tombstones and
   form record ownership, including rejecting a mixed-patient deletion batch before
   any mutation.
@@ -31,13 +32,15 @@ same patient; navigating that opener to another patient prevents the append.
   regression tests are rerun after changes.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites include 54 panel/completion/isolation cases and seven
+  focused client suites include 61 panel/completion/isolation cases and seven
   navbar-readiness cases.
 - The expanded `echart-two-patient-isolation` Playwright workflow drives real
   reads and writes for both patients, rejects invalid/conflicting identities and
   foreign form IDs, and checks the other patient's complete clinical rows after
   every write. It includes Vascular Tracker Update, reopen, Save and Exit, and
-  navigation of the opener to another patient before completion.
+  navigation of the opener to another patient before completion. The seeded VT
+  registration is temporarily enabled for this exclusive test and its exact prior
+  registry row is restored and asserted during cleanup.
 
 Local browser validation uses an isolated Tomcat/MariaDB deployment based on the
 previously audited WAR, with compiled production classes and changed web resources

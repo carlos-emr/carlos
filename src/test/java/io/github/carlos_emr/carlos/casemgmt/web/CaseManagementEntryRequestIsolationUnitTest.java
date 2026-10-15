@@ -223,7 +223,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
             MockHttpServletRequest request = request(patient);
             CaseManagementNote note = new CaseManagementNote();
             note.setDemographic_no(patient);
-            ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note, session);
+            ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note);
             assertThat(note.getAppointmentNo()).isEqualTo(patient.equals("101") ? 9001 : 9002);
         }
         verify(appointments, times(2)).find(9001);
@@ -236,10 +236,10 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         CaseManagementNote note = new CaseManagementNote();
         note.setDemographic_no("101");
         request.setParameter("appointmentNo", "9003");
-        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note, session);
+        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note);
         assertThat(note.getAppointmentNo()).isEqualTo(9003);
         request.setParameter("appointmentNo", "9002");
-        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note, session);
+        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", note);
         assertThat(note.getAppointmentNo()).isZero();
         assertThat(EncounterPatientContext.findEncounter(request, "101").appointmentNo).isEqualTo("9001");
     }
@@ -252,7 +252,7 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         existing.setAppointmentNo(42);
         MockHttpServletRequest request = request("101");
         request.setParameter("appointmentNo", "9003");
-        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", existing, session);
+        ReflectionTestUtils.invokeMethod(action(request), "bindNoteAppointment", existing);
         assertThat(existing.getAppointmentNo()).isEqualTo(42);
         verifyNoInteractions(appointments);
     }
