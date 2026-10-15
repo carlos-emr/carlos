@@ -31,9 +31,11 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
- * Source checks for two lab popup links whose addresses carry URL-encoded values.
+ * Source checks for lab popup links whose addresses carry URL-encoded values.
  *
  * <p>A {@code javascript:} link is percent-decoded before it runs, so the URL encoding of a value inside it is
  * undone. These links carry the popup's address as their {@code href}, encoded for the HTML attribute, and
@@ -60,6 +62,22 @@ class LabPopupLinkJspRegressionTest {
                         + "<carlos:encode value='${__enc_3}' context=\"htmlAttribute\"/>&amp;name=<carlos:encode value='"
                         + "<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context=\"htmlAttribute\"/>\" "
                         + "onclick=\"popupStart(360, 680, this.href, 'searchPatientWindow'); return false;\">");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"CA/ALL/labDisplay.jsp, HL7", "CA/ALL/labDisplayAjax.jsp, HL7", "CA/ON/CMLDisplay.jsp, CML",
+            "../oscarMDS/SegmentDisplay.jsp, MDS"})
+    @DisplayName("should open each lab's patient search from a real URL")
+    void shouldOpenLabPatientSearch_fromRealUrl(String page, String labType) throws IOException {
+        String jsp = Files.readString(JSP.resolve(page).normalize(), StandardCharsets.UTF_8);
+
+        // The lab's patient name is URL-encoded into the address; decoded inside a javascript: link, an
+        // apostrophe ended the string.
+        assertThat(jsp).doesNotContain("href=\"javascript:popupStart(360, 680, ");
+        assertThat(jsp.lines().filter(l -> l.contains("/oscarMDS/SearchPatient?labType=" + labType + "&amp;segmentID=")
+                && l.contains("&amp;name=") && l.contains("java.net.URLEncoder.encode(")
+                && l.contains("\" onclick=\"popupStart(360, 680, this.href, 'searchPatientWindow'); return false;\">")))
+                .hasSize(1);
     }
 
     @Test
