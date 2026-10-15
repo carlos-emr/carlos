@@ -63,10 +63,22 @@ public class UnRemEForm2Action extends ActionSupport {
             eFormDataDao.merge(eFormData);
         }
 
-        if ("independent".equals(request.getParameter("callpage"))) {
-            return "independent";
-        }
         return SUCCESS;
+    }
+
+    /**
+     * Where the POST/redirect/GET result sends the operator after a restore: the deleted-list
+     * page the restore link lived on ({@code callpage}), with that page's context carried over.
+     * See {@link EFormListRedirect} for why this must be a redirect, not a forward.
+     *
+     * @return the application-relative list route, read by the struts result via OGNL
+     */
+    public String getRedirectTarget() {
+        if ("independent".equals(request.getParameter("callpage"))) {
+            return EFormListRedirect.to("/eform/efmmanageindependentdeleted", request, "orderby");
+        }
+        return EFormListRedirect.to("/eform/efmpatientformlistdeleted", request,
+                "demographic_no", "parentAjaxId", "appointment", "orderby");
     }
 
 }

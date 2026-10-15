@@ -47,6 +47,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -116,6 +117,8 @@ public class PreventionReport2Action extends ActionSupport {
         // least one provider filter is specified.
         ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm);
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: carlos.crlf-injection-logs
         log.debug("set size " + list.size());
 
         if (asDate == null) {
@@ -142,7 +145,7 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("patientSet", patientSet);
         request.setAttribute("prevention", prevention);
 
-        log.debug("setting prevention type to " + prevention);
+        log.debug("setting prevention type to {}", LogSafe.sanitize(prevention));
 
         return SUCCESS;
     }
@@ -150,7 +153,7 @@ public class PreventionReport2Action extends ActionSupport {
     private static boolean hasValidPatientSet(String patientSet) {
         try {
             return Integer.parseInt(patientSet) > 0;
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

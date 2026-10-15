@@ -27,10 +27,19 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Forwards encounter navigation to the case-management chart with URI-encoded parameters.
+  Preserves the patient, provider, appointment and message context across the redirect.
+  Parameters: demographicNo, providerNo, reason, msgId, reasonCode, appointmentNo,
+              appointmentDate, start_time, apptProvider, providerview.
+  @since 2026-07-07
+--%>
+
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.net.URLEncoder" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 
 <%
@@ -39,6 +48,7 @@
         "&demographicNo=" + (request.getParameter("demographicNo") != null ? URLEncoder.encode(request.getParameter("demographicNo"), StandardCharsets.UTF_8) : "") +
         "&providerNo=" + (request.getParameter("providerNo") != null ? URLEncoder.encode(request.getParameter("providerNo"), StandardCharsets.UTF_8) : "") +
         "&reason=" + (request.getParameter("reason") != null ? URLEncoder.encode(request.getParameter("reason"), StandardCharsets.UTF_8) : "") +
+        (request.getParameter("msgId") != null && !request.getParameter("msgId").isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(request.getParameter("msgId")) : "") +
         "&reasonCode=" + (request.getParameter("reasonCode") != null ? URLEncoder.encode(request.getParameter("reasonCode"), StandardCharsets.UTF_8) : "") +
         "&appointmentNo=" + (request.getParameter("appointmentNo") != null ? URLEncoder.encode(request.getParameter("appointmentNo"), StandardCharsets.UTF_8) : "") +
         "&appointmentDate=" + (request.getParameter("appointmentDate") != null ? URLEncoder.encode(request.getParameter("appointmentDate"), StandardCharsets.UTF_8) : "") +

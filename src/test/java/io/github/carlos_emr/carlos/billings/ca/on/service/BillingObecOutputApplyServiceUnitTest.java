@@ -273,4 +273,24 @@ class BillingObecOutputApplyServiceUnitTest {
                 .doesNotContain("3333333333")
                 .doesNotContain("4444444444");
     }
+    @Test
+    void shouldAppendEligibilityAlert_withoutNullOrLostExistingText() {
+        for (String existing : new String[]{null, "", "Existing alert"}) {
+            var patient = demographic(42, "ZZ");
+            var cust = new DemographicCust();
+            cust.setAlert(existing);
+            var eligibility = mock(BatchEligibility.class);
+            when(eligibility.getMOHResponse()).thenReturn("Expired card");
+            when(eligibility.getReason()).thenReturn("Renew card");
+            when(batchEligibilityDao.find(60)).thenReturn(eligibility);
+            when(demographicManager.searchByHealthCard(loggedInInfo, "1234567890")).thenReturn(List.of(patient));
+            when(demographicCustDao.find((Object) Integer.valueOf(42))).thenReturn(cust);
+            var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
+            String message = "Invalid old version code: ZZ\nReason: Expired card- Renew card\nResponse Code: 60";
+            assertThat(cust.getAlert()).isEqualTo(existing == null || existing.isEmpty() ? message : existing + "\n" + message);
+            assertThat(result.appliedCount()).isEqualTo(1);
+            assertThat(patient.getVer()).isEqualTo("##");
+        }
+    }
+
 }

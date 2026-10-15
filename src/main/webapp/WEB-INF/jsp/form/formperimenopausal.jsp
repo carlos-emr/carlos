@@ -59,8 +59,8 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Peri Menopausal</title>
-        <link rel="stylesheet" type="text/css" href="periMenopausalStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/periMenopausalStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <style type="text/css" media="print">
             BODY {
                 font-size: 85%;

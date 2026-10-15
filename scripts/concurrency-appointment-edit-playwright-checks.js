@@ -1,0 +1,186 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * Concurrency check: two sessions change and cancel / delete the same appointment.
+ *
+ * User path (both sessions of the shared test login): Schedule day sheet (target date) > the
+ * appointment's status letter, or its own link > edit popup > Update Appt / Delete.
+ * Asserted, in this order (the failing step is last):
+ *   1. control: a stale day-sheet status click (session A clicks after session B already advanced the
+ *      status) is refused with HTTP 409 and an alert, and the status is not changed again
+ *      (AppointmentStatusTransitionService locks the row and compares the status);
+ *   2. control: session A updates an appointment session B has just deleted: the update is refused (404),
+ *      no appointment row is resurrected and no second archive row is written;
+ *   3. session B cancels the appointment from its edit popup, then session A (popup opened BEFORE the
+ *      cancel) changes the reason and clicks Update Appt: the cancellation must survive. The edit form
+ *      posts the whole record, AppointmentUpdateRecord2Action has no findForUpdate / updatedatetime
+ *      comparison, so A's stale status silently un-cancels the appointment.
+ * Fixtures: two owned appointments (marker reason, provider of the test login, 401 days ahead) seeded
+ * by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and
+ * other_id(appt_mc_number) rows it owns and asserts them gone. Wave-7 sweep "concurrency".
+ */
+const h = require('./lib/playwright-harness');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { openSecondSession, failureMark, consumeExpectedFailure, consumeAbortedFetch, waitUntil } = require('./lib/concurrency-support');
+
+const TIMEOUT = 30000;
+const DAYS_AHEAD = Number(process.env.CONCURRENCY_APPOINTMENT_DAYS_AHEAD || '401');
+
+async function openDaySheet(page, config, query) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await h.gotoApp(page, config.baseUrl, `/provider/providercontrol?${query}`);
+      await page.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+      return;
+    } catch (error) {
+      if (attempt === 2 || !/ERR_ABORTED|frame was detached|interrupted by another navigation/.test(error.message)) throw error;
+      await page.waitForTimeout(750);
+    }
+  }
+}
+
+async function openEdit(s, context, daySheet, id, label) {
+  const link = daySheet.locator(`a.apptLink[onclick*="appointment_no=${id}"]`).first();
+  await link.waitFor({ state: 'visible', timeout: TIMEOUT });
+  const popupPromise = context.waitForEvent('page', { timeout: TIMEOUT });
+  await link.click();
+  const popup = await popupPromise;
+  h.wireStrictPage(popup, label, s.recorder);
+  await popup.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
+  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  h.assert(await popup.locator('input[name="appointment_no"]').inputValue() === String(id), 'The edit popup opened another appointment');
+  return popup;
+}
+
+async function workflow(s) {
+  const { sql, patient, marker, provider } = s;
+  const owner = h.sqlString(provider);
+  const target = new Date(Date.now() + DAYS_AHEAD * 86400000);
+  const dateKey = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}-${String(target.getUTCDate()).padStart(2, '0')}`;
+  const query = new URLSearchParams({
+    year: String(target.getUTCFullYear()), month: String(target.getUTCMonth() + 1), day: String(target.getUTCDate()),
+    view: '0', displaymode: 'day', dboperation: 'searchappointmentday', viewall: '1',
+  }).toString();
+  const ids = [];
+  s.cleanup(() => {
+    const like = h.sqlString(`${marker}%`);
+    const idList = ids.length ? ids.join(',') : '0';
+    sql.execute(`DELETE FROM other_id WHERE other_key='appt_mc_number' AND table_id IN (${idList.split(',').map(i => `'${i}'`).join(',')});
+      DELETE FROM appointmentArchive WHERE demographic_no=${patient} AND reason LIKE ${like};
+      DELETE FROM appointment WHERE demographic_no=${patient} AND reason LIKE ${like}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient} AND reason LIKE ${like})
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no=${patient} AND reason LIKE ${like})`) === '0',
+    'Owned appointment rows were not removed');
+  });
+  const seed = (start, end, tag) => {
+    const id = sql.value(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,demographic_no,reason,notes,status,
+      createdatetime,updatedatetime,creator,lastupdateuser,location,resources,type,style,billing,remarks,urgency,program_id)
+      VALUES (${owner},${h.sqlString(dateKey)},${h.sqlString(start)},${h.sqlString(end)},${h.sqlString(marker)},${patient},
+        ${h.sqlString(`${marker} ${tag}`)},'','t',NOW(),NOW(),${owner},${owner},'','','','','','','',0); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'Appointment fixture was not created');
+    ids.push(id);
+    return id;
+  };
+  const apptStatus = id => `SELECT status FROM appointment WHERE appointment_no=${id}`;
+  const statusId = seed('08:00:00', '08:14:00', 'status race');
+  const deleteId = seed('08:30:00', '08:44:00', 'delete race');
+  const cancelId = seed('09:00:00', '09:14:00', 'cancel race');
+
+  const b = await openSecondSession(s, { label: 'second-session', openMaster: false });
+  const aSheet = s.schedule;
+  const bSheet = b.schedule;
+  await openDaySheet(aSheet, s.config, query);
+  await openDaySheet(bSheet, s.config, query);
+  for (const sheet of [aSheet, bSheet]) {
+    h.assert(await sheet.locator(`a.apptLink[onclick*="appointment_no=${statusId}"]`).count() > 0,
+      'The day sheet does not list the owned fixture appointment');
+  }
+
+  const staleClickMark = failureMark(s.recorder);
+  await s.step('control: a stale day-sheet status click is refused with a conflict and an alert', async () => {
+    const link = sheet => sheet.locator(`a.apptStatus[onclick*="appointment_no=${statusId}&"]`).first();
+    await link(bSheet).waitFor({ state: 'visible', timeout: TIMEOUT });
+    await link(bSheet).click();
+    await waitUntil(() => sql.value(apptStatus(statusId)) !== 't', 'session B\'s status change');
+    const advanced = sql.value(apptStatus(statusId));
+    await bSheet.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const mark = failureMark(s.recorder);
+    const dialogs = await h.withExpectedDialogs(aSheet, async () => {
+      await link(aSheet).click();
+      await waitUntil(() => s.recorder.badResponses.length > mark.responses, 'the refused stale status click', 20000);
+      await aSheet.waitForTimeout(800);
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'The stale status click raised no alert to the user');
+    await aSheet.waitForTimeout(300);
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/provider\/providercontrol$/, appConsole: /^Error: HTTP 409/ });
+    h.assert(sql.value(apptStatus(statusId)) === advanced, 'The refused stale status click changed the status again');
+  });
+
+  await s.step('control: updating an appointment another session deleted is refused and resurrects nothing', async () => {
+    const aEdit = await openEdit(s, s.context, aSheet, deleteId, 'edit-a');
+    await openDaySheet(bSheet, s.config, query);
+    const bEdit = await openEdit(s, b.context, bSheet, deleteId, 'edit-b');
+    const confirms = await h.withExpectedDialogs(bEdit, () => bEdit.locator('#deleteButton').click());
+    h.assert(confirms.length === 1 && confirms[0].type === 'confirm', 'Delete did not ask for confirmation');
+    await expectValue(sql, `SELECT COUNT(*) FROM appointment WHERE appointment_no=${deleteId}`, '0', 'Session B\'s delete did not remove the appointment');
+    const archivedBefore = sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${deleteId}`);
+    h.assert(archivedBefore === '1', 'The delete did not leave exactly one archive row');
+    await aEdit.locator('#reason').fill(`${marker} stale update of a deleted appointment`);
+    const mark = failureMark(s.recorder);
+    const [response] = await Promise.all([
+      aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
+      aEdit.locator('#updateButton').click(),
+    ]);
+    // AppointmentUpdateRecord2Action answers sendError(404, "Appointment not found"); pin exactly that refusal.
+    h.assert(response.status() === 404, `Updating a deleted appointment answered HTTP ${response.status()} instead of refusing it with 404`);
+    await aEdit.waitForTimeout(500);
+    consumeExpectedFailure(s.recorder, mark, { status: 404, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${deleteId}`) === '0', 'The stale update resurrected the deleted appointment');
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${deleteId}`) === archivedBefore, 'The stale update wrote a second archive row');
+    await aEdit.close().catch(() => {});
+    await bEdit.close().catch(() => {});
+  });
+
+  await s.step('session A\'s stale Update Appt does not undo session B\'s cancellation', async () => {
+    await openDaySheet(aSheet, s.config, query);
+    // The refused status fetch's unread 409 body is reported aborted when the sheet navigates away.
+    await aSheet.waitForTimeout(400);
+    consumeAbortedFetch(s.recorder, staleClickMark, /\/provider\/providercontrol$/);
+    await openDaySheet(bSheet, s.config, query);
+    const aEdit = await openEdit(s, s.context, aSheet, cancelId, 'edit-a');
+    const bEdit = await openEdit(s, b.context, bSheet, cancelId, 'edit-b');
+    // ENABLE_EDIT_APPT_STATUS decides the status field's shape (as in appointment-lifecycle-playwright-checks.js):
+    // a <select> when enabled (the default), free text that UpdateRecord stores verbatim when set to a non-active value.
+    const select = bEdit.locator('select[name="status"]');
+    const statusText = bEdit.locator('input[type="text"][name="status"]');
+    if (await select.count() > 0) {
+      const options = await select.locator('option').evaluateAll(nodes => nodes.map(n => n.value));
+      const cancelled = options.find(value => value === 'C');
+      h.assert(cancelled, 'The edit popup status select offers no Cancelled option');
+      await select.selectOption(cancelled);
+    } else {
+      h.assert(await statusText.count() > 0, 'The edit popup renders neither a status select nor a status text field');
+      await statusText.fill('C');
+    }
+    await Promise.all([
+      bEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
+      bEdit.locator('#updateButton').click(),
+    ]);
+    await expectValue(sql, apptStatus(cancelId), 'C', 'Session B\'s cancellation did not reach the database');
+    await aEdit.locator('#reason').fill(`${marker} edited by session A`);
+    await Promise.all([
+      aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
+      aEdit.locator('#updateButton').click(),
+    ]);
+    await expectValue(sql, `SELECT reason FROM appointment WHERE appointment_no=${cancelId}`, `${marker} edited by session A`,
+      'Session A\'s own edit (the reason) was not stored');
+    const status = sql.value(apptStatus(cancelId));
+    h.assert(status === 'C',
+      `Session A's stale Update Appt silently un-cancelled the appointment (status is now '${status}'). The edit form posts the whole record and `
+      + 'AppointmentUpdateRecord2Action neither locks the row (findForUpdate, as AppointmentStatusTransitionService does) nor compares the posted '
+      + 'updatedatetime, so the later save wins without any warning.');
+  });
+}
+
+module.exports = { workflow };
+if (require.main === module) runWorkflow('concurrency-appointment-edit', workflow, { openPatient: true, openMaster: false });

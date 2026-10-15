@@ -22,6 +22,14 @@
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
+import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
+import java.util.List;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -52,11 +60,15 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
     private static final String TEST_PROVIDER = "999998";
 
     private dxSetupResearch2Action action;
+    private QuickListDao quickListDao;
 
     @BeforeEach
     void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        quickListDao = mock(QuickListDao.class);
+        replaceSpringUtilsBean(QuickListDao.class, quickListDao);
+        when(quickListDao.findDistinct()).thenReturn(List.of());
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -186,14 +198,44 @@ class DxSetupResearch2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should return ERROR when quickList is non-numeric")
-        void shouldReturnError_whenQuickListIsNonNumeric() throws Exception {
+        @DisplayName("should reject a quick-list name absent from stored lists")
+        void shouldReturnError_whenQuickListIsUnknown() throws Exception {
             addRequestParameter("demographicNo", VALID_DEMO_NO);
             addRequestParameter("quickList", "injected-name");
 
             String result = executeAction(action);
 
             assertThat(result).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Diabetes", "Clinic \"A\"&", "123"})
+        void shouldLoadStoredListByItsLiteralName(String name) throws Exception {
+            when(quickListDao.findDistinct()).thenReturn(List.of(name));
+            addRequestParameter("quickList", name);
+            assertLoadsList(name);
+        }
+
+        @Test
+        void shouldKeepDefaultList_whenSelectionIsEmpty() throws Exception {
+            addRequestParameter("quickList", "");
+            assertLoadsList("Default");
+            verifyNoInteractions(quickListDao);
+        }
+
+        private void assertLoadsList(String expectedName) throws Exception {
+            addRequestParameter("demographicNo", VALID_DEMO_NO);
+            try (var coding = mockConstruction(dxResearchCodingSystem.class);
+                 var diagnostics = mockConstruction(dxResearchBeanHandler.class);
+                 var lists = mockConstruction(dxQuickListBeanHandler.class,
+                         (mock, context) -> when(mock.getLastUsedQuickList()).thenReturn("Default"));
+                 var items = mockConstruction(dxQuickListItemsHandler.class, (mock, context) ->
+                         assertThat(context.arguments()).isEqualTo(List.of(expectedName, TEST_PROVIDER)))) {
+                assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+                assertThat(items.constructed()).hasSize(1);
+                assertThat(mockSession.getAttribute("allQuickListItems")).isSameAs(items.constructed().getFirst());
+                assertThat(mockSession.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
+            }
         }
 
         @Test

@@ -21,9 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `UpdateFlowsheet.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Edits flowsheet measurement warning rules and target colours for the selected scope.
+  Parameters identify the flowsheet, measurement, demographic, provider, and customization scope.
+  Requires _flowsheet write privilege. Resizes the containing tracker after the editor loads.
+  @since 2026-10-02
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -520,7 +521,7 @@ display:inline-block;
 $(document).ready(function () {
 	let h = $(document).height();
     const trackerSlim = parent?.parent?.document?.getElementById('trackerSlim');
-    if (trackerSlim) { trackerSlim.style.height = `${h}px`; }
+    if (trackerSlim) { trackerSlim.style.height = h + 'px'; }
 
 	$(document).scroll(function () {
 	    var y = $(this).scrollTop();

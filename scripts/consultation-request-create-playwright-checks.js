@@ -36,15 +36,20 @@
  *      chosen consultant and the stamped reason render back;
  *   6. asserts the request now shows in the patient's consultation list.
  *
- * The row is deleted in a finally, so repeat runs stay clean.
+ * The patient is a FAKE one this check creates (lib/owned-patient.js: last name = a FAKE-PW run
+ * marker). The request, the extension, archive and signature rows saving it writes, and the
+ * patient are deleted by the patient's key in a finally, so repeat runs stay clean. It used to
+ * run on DEMO patient 1 and delete only the request row, which left a DigitalSignature, a
+ * consultationRequestExt, a consultationRequestExtArchive and a consultationRequestsArchive
+ * row behind on every run.
  *
  * Environment (docs/ui-tests/deb-install-validation.md section 6):
  *   BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH,
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
- * Optional: CONSULT_DEMO_NO (default 1).
  */
 
 const { chromium } = require('playwright');
+const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -74,8 +79,9 @@ const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
-const demographicNo = process.env.CONSULT_DEMO_NO || '1';
-assert(/^\d+$/.test(demographicNo), 'CONSULT_DEMO_NO must be numeric');
+// The owned patient the request is filed for, created in main (never a demo patient).
+let demographicNo = null;
+const ownedMarker = newOwnedMarker();
 
 const stamp = `PW_CONSULT_CREATE_${Date.now()}`;
 const reasonText = `${stamp} reason for consultation`;
@@ -122,6 +128,12 @@ function findRequestRows() {
 function cleanupRows() {
   sql(`DELETE FROM consultationRequests WHERE reason LIKE '${escapeSql(`${stamp}%`)}'`);
 }
+// sql() adapted to the value()/execute() client lib/owned-patient.js takes.
+const ownedSql = { value: (query) => sql(query), execute: (query) => { sql(query); } };
+function removeFixturePatient() {
+  if (demographicNo === null) return;
+  removeOwnedPatient(ownedSql, demographicNo, ownedMarker, CONSULTATION_ROWS);
+}
 
 async function pickFirstAutocomplete(page, inputSelector, label) {
   const input = page.locator(inputSelector);
@@ -155,7 +167,8 @@ function runCleanup() {
     return;
   }
   cleanupDone = true;
-  for (const step of [cleanupRows]) {
+  // The patient first: its request's extension and archive rows are found through the request, which cleanupRows() deletes.
+  for (const step of [removeFixturePatient, cleanupRows]) {
     try {
       step();
     } catch (cleanupError) {
@@ -182,6 +195,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   // either still reaches the fixture cleanup below.
   try {
     cleanupRows();
+    // The patient first, so a failure anywhere below still reaches removeFixturePatient() through runCleanup().
+    const provider = sql(`SELECT provider_no FROM security WHERE user_name='${escapeSql(config.testUser)}'`);
+    assert(provider, 'the configured test login has no provider');
+    demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     await login(context, config, recorder);

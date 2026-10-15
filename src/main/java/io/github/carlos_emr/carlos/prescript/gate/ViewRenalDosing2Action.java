@@ -42,6 +42,10 @@ public final class ViewRenalDosing2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        // RenalDosing.jsp renders the weight, creatinine and lab values of the patient the request
+        // names (demographicNo); authorise that patient, not only the module (#3908).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
+
         return SUCCESS;
     }
 }

@@ -142,8 +142,8 @@ class SmsProviderRetirementMariaDbIntegrationTest {
         }
         schemaUrl = url + schema;
         try (Connection c = DriverManager.getConnection(schemaUrl, user, password)) {
-            install(c, migration("add_sms_system_of_record"), "CREATE TABLE sms_transaction (");
-            install(c, migration("add_sms_system_of_record"), "CREATE TABLE sms_provider_rate_limit (");
+            install(c, migration("add_sms_system_of_record"), "CREATE TABLE IF NOT EXISTS sms_transaction (");
+            install(c, migration("add_sms_system_of_record"), "CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (");
             install(c, migration("add_sms_consent"), "ALTER TABLE sms_transaction");
             install(c, migration("add_sms_config"), "CREATE TABLE IF NOT EXISTS sms_config (");
             install(c, COMMON.resolve("V1__baseline_schema.sql"), "CREATE TABLE `SystemPreferences` (");

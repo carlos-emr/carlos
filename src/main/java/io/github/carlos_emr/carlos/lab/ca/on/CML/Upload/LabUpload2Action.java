@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -62,6 +63,8 @@ import java.util.List;
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
     private static final String OUTCOME_ACCESS_DENIED = "accessDenied";
+    private static final String OUTCOME_UPLOADED_PREVIOUSLY = "uploadedPreviously";
+    private static final String OUTCOME_DATABASE_NOT_STARTED = "databaseNotStarted";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -83,7 +86,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         String key = request.getParameter("key");
         String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
-        _logger.debug("upload key present: {}", key != null);
+        _logger.debug("Checking whether the CML upload key was supplied");
         String outcome = "";
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
@@ -117,17 +120,18 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 InputStream is = Files.newInputStream(validatedImportFile.toPath());
 
                 // Get sanitized filename from the validated source
-                filename = importFile.getName();
+                filename = uploadedFileName == null ? importFile.getName() : uploadedFileName;
 
                 String localFileName = saveFile(is, filename);
                 is.close();
 
 
-                boolean fileUploadedSuccessfully = false;
                 if (localFileName != null) {
                     File localFile;
+                    File documentDir;
                     try {
                         localFile = PathValidationUtils.validateExistingDocumentPath(localFileName);
+                        documentDir = PathValidationUtils.getRequiredDocumentDirectory();
                     } catch (IOException | SecurityException e) {
                         // localFileName is the generated saved-file path, whose basename embeds the
                         // caller-supplied lab filename; log the rejection, not the path.
@@ -137,29 +141,28 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                         return SUCCESS;
                     }
 
-                    InputStream fis = new FileInputStream(localFile);
-                    int check = FileUploadCheck.UNSUCCESSFUL_SAVE;
+                    // storeIfNew records the checksum in the same transaction as the parsed lab, so
+                    // a failure leaves neither and a retry stores the lab, while a real duplicate is
+                    // refused. It holds the checksum lock throughout, so no concurrent upload is told
+                    // uploadedPreviously for a lab that is still in flight. The archived copy is removed
+                    // for a duplicate, a failed lookup or a rolled-back store, so it is not orphaned.
+                    FileUploadCheck.StoreOutcome stored;
                     try {
-                        check = FileUploadCheck.addFile(filename, fis, proNo);
-                        if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                            outcome = "uploadedPreviously";
-                        }
-                    } catch (Exception addFileEx) {
-                        MiscUtils.getLogger().error("Error", addFileEx);
-                        outcome = "databaseNotStarted";
+                        stored = FileUploadCheck.storeSavedFileIfNew(localFile, documentDir, filename, proNo,
+                                checksumId -> {
+                                    storeLab(localFile);
+                                    return true;
+                                });
+                    } catch (FileUploadCheck.LookupFailedException lookupEx) {
+                        // Nothing is known about this content, so the client may retry.
+                        _logger.error("Could not check a CML upload's checksum: {}",
+                                LogSafe.exceptionTrace(lookupEx.getCause()));
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_DATABASE_NOT_STARTED);
+                        return SUCCESS;
                     }
-                    MiscUtils.getLogger().debug("Was file uploaded successfully ?" + fileUploadedSuccessfully);
-                    fis.close();
-                    if (check != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        BufferedReader in = new BufferedReader(new FileReader(localFile));
-                        ABCDParser abc = new ABCDParser();
-                        abc.parse(in);
-
-                        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-                            abc.save(connection);
-                        }
-                        outcome = "uploaded";
-                    }
+                    outcome = stored == FileUploadCheck.StoreOutcome.ALREADY_RECORDED
+                            ? OUTCOME_UPLOADED_PREVIOUSLY
+                            : "uploaded";
                 } else {
                     outcome = OUTCOME_ACCESS_DENIED;  //file could not save
                     MiscUtils.getLogger().debug("Could not save file :" + filename + " to disk");
@@ -182,6 +185,31 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     public LabUpload2Action() {
     }
 
+    /**
+     * Parses the archived lab and saves it. Runs inside {@link FileUploadCheck#storeIfNew}'s
+     * transaction: the parser writes the report, patient, routing and result rows through separate
+     * DAOs, which join it together with the checksum row, so a failure part-way rolls all of them back.
+     *
+     * @param localFile the archived upload
+     * @throws Exception when parsing or saving fails
+     */
+    private static void storeLab(File localFile) throws Exception {
+        ABCDParser abc = new ABCDParser();
+        try (BufferedReader in = new BufferedReader(new FileReader(localFile))) {
+            abc.parse(in);
+        }
+        saveParsedLab(abc);
+    }
+
+    // The parser only reads patients and providers through this connection; every row it writes
+    // goes through its DAOs, which join the surrounding transaction.
+    private static void saveParsedLab(ABCDParser abc) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
+            abc.save(connection);
+        } catch (SQLException e) {
+            throw new IllegalStateException("CML lab save failed", e);
+        }
+    }
 
     /**
      * Save a Jakarta FormFile to a preconfigured place.
@@ -210,17 +238,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 return null;
             }
 
-            partialOutput = targetFile;
-
             // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
             // destroyed the colliding upload's lab. The output is also closed by try-with-resources
             // now, rather than only on the success path.
             try (OutputStream bos = Files.newOutputStream(targetFile.toPath(),
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                int bytesRead = 0;
-                while ((bytesRead = uploadStream.read()) != -1) {
-                    bos.write(bytesRead);
-                }
+                // Only a successful CREATE_NEW establishes ownership for rollback cleanup.
+                partialOutput = targetFile;
+                uploadStream.transferTo(bos);
             }
 
             // Assigned only after a complete write: a path to a partial lab is worse than none.
@@ -230,9 +255,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return null;
 
-        } catch (IOException ioe) {
-            // As in the PathNet writer: the collision case is handled above, so a file present here
-            // belongs to this call and must not be left looking like a complete lab.
+        } catch (IOException | SecurityException ioe) {
+            // Do not delete a destination when opening it failed before this invocation owned it.
             deletePartialOutput(partialOutput);
             // exceptionTrace rather than the throwable: a filesystem exception message here is the
             // generated path, whose basename embeds the uploaded lab filename.
@@ -254,13 +278,14 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
         try {
             Files.deleteIfExists(outputFile.toPath());
-        } catch (IOException deleteException) {
+        } catch (IOException | SecurityException deleteException) {
             MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
                     deleteException.getClass().getSimpleName());
         }
     }
 
     private File importFile;
+    private String uploadedFileName;
     private String uploadValidationError;
 
     @Override
@@ -270,6 +295,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
             try {
                 PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+                this.uploadedFileName = uploaded.getOriginalName();
             } catch (FileValidationException e) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
             }

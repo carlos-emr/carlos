@@ -168,7 +168,12 @@ public interface CaseManagementNoteDAO {
                                                                              String[] issueCodes);
 
     /**
-     * Retrieves case management notes based on demographic and date range.
+     * Finds latest note versions observed at or after startDate and strictly before endDate.
+     *
+     * @param demographic_no patient identifier
+     * @param startDate inclusive observation timestamp
+     * @param endDate exclusive observation timestamp
+     * @return matching note versions
      */
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate, Date endDate);
 

@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.commn.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -178,7 +180,7 @@ public class PdfRecordPrinter {
     /**
      * Initializes the PDF document, fonts, and writer. Must be called before any print methods.
      *
-     * <p>Creates Helvetica fonts (normal and bold at 10pt), opens a US Letter-sized document,
+     * <p>Creates embedded Unicode DejaVu Sans fonts (normal and bold at 10pt), opens a US Letter-sized document,
      * and configures strict image sequencing for proper photo/diagram ordering.</p>
      *
      * @throws DocumentException if the PDF writer cannot be initialized
@@ -186,7 +188,7 @@ public class PdfRecordPrinter {
      */
     public void start() throws DocumentException, IOException {
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
 
@@ -239,7 +241,7 @@ public class PdfRecordPrinter {
         this.newPage = b;
     }
 
-    /** @return BaseFont the Helvetica base font used for PDF rendering */
+    /** @return BaseFont the embedded Unicode base font used for PDF rendering */
     public BaseFont getBaseFont() {
         return bf;
     }

@@ -1,7 +1,7 @@
 # =============================================================================
 # Build stage - contains build tools (git, maven)
 # =============================================================================
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 AS builder
+FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182 AS builder
 
 # Note: DRUGREF_BRANCH accepts branch names or tags, but not commit SHAs
 # (shallow clone with --depth 1 doesn't support checking out by SHA)
@@ -20,11 +20,11 @@ RUN mvn -DskipTests clean package
 # =============================================================================
 # Final stage - minimal runtime image (no build tools)
 # =============================================================================
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+FROM tomcat:11.0.24-jdk25-temurin@sha256:6d673ad42da6498f05755cae67f85f2128bdfd88943c9bdb22e0965f8d4c3182
 
 LABEL author="carlos-emr" \
       version="1.0.0" \
-      description="CARLOS DrugRef2026 Container - Java 21 / Tomcat 11"
+      description="CARLOS DrugRef2026 Container - Java 25 / Tomcat 11"
 
 # Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
