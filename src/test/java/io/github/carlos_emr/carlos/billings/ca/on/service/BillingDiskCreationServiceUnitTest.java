@@ -247,6 +247,90 @@ class BillingDiskCreationServiceUnitTest {
                 .containsExactly("1", "2");
     }
 
+    @Test
+    void shouldSkipSequenceNumbersHeldByEarlierYears_whenAllocatingFirstSoloDiskOfMonth() {
+        // MOH claim file names recur every year (H + month letter + number + .NNN,
+        // restarting at .001 each month) but billing_on_diskname.ohipfilename is
+        // unique. With last year's .001 and .002 for this month letter on record and
+        // last month's disk the latest, the first disk of this month proposed .001,
+        // collided on every retry and stopped generation; the simulation, which
+        // allocates no disk, kept working.
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        java.util.Set<String> onRecord = java.util.Set.of(
+                "H" + monthCode + "054321.001", "H" + monthCode + "054321.002");
+        stubUniqueOhipFilenames(onRecord, 51);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(51);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getBatchcount()).isEqualTo("3");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + "054321.003");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "054321_003.html");
+    }
+
+    @Test
+    void shouldSkipSequenceNumbersHeldByEarlierYears_whenAllocatingFirstGroupDiskOfMonth() {
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
+                .thenReturn(new String[]{previousMonthCode(), "2"});
+        stubUniqueOhipFilenames(java.util.Set.of("H" + monthCode + "1234.001"), 52);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), "1234", "creator");
+
+        assertThat(diskId).isEqualTo(52);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getBatchcount()).isEqualTo("2");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + "1234.002");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "1234_054321_002.html");
+    }
+
+    @Test
+    void shouldKeepMonthlySequence_whenNoEarlierDiskHoldsTheName() {
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321")).thenReturn(null);
+        stubUniqueOhipFilenames(java.util.Set.of(), 53);
+
+        service.createNewSoloDiskName("999998", "creator");
+
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "054321.001");
+        verify(diskLoader).isOhipFilenameInUse("H" + monthCode + "054321.001");
+    }
+
+    /** Emulates billing_on_diskname_ohipfilename_uq for the given names already on record. */
+    private void stubUniqueOhipFilenames(java.util.Set<String> onRecord, int newDiskId) {
+        when(diskLoader.isOhipFilenameInUse(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> onRecord.contains(invocation.<String>getArgument(0)));
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenAnswer(invocation -> {
+                    BillingDiskNameDto disk = invocation.getArgument(0);
+                    if (onRecord.contains(disk.getOhipfilename())) {
+                        throw new org.springframework.dao.DataIntegrityViolationException(
+                                "billing_on_diskname_ohipfilename_uq");
+                    }
+                    return newDiskId;
+                });
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"123, 0123", "12a4, 12A4", "' 1234 ', 1234"})
     void shouldNormalizeGroupNumber_forFilenameBatchCounterAndStoredGroup(String groupNo, String normalized) {
@@ -464,5 +548,10 @@ class BillingDiskCreationServiceUnitTest {
     private static String currentMonthCode() {
         int month = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
         return BillingOnConstants.propMonthCode.getProperty(String.valueOf(month));
+    }
+
+    private static String previousMonthCode() {
+        int month = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
+        return BillingOnConstants.propMonthCode.getProperty(String.valueOf(month == 1 ? 12 : month - 1));
     }
 }

@@ -31,6 +31,14 @@ claims for Ontario-resident patients. It implements:
   file name and the batch counter share one four-character key. A value that
   still is not well formed is reported per provider by Generate OHIP File
   before any disk is written (issue #4277).
+  The claim file name (`H`, month letter, group or OHIP number, `.NNN`)
+  restarts at `.001` each month and so recurs every year, while
+  `billing_on_diskname.ohipfilename` is unique. Disk allocation therefore
+  takes the first sequence number that no existing disk holds: once an
+  earlier year has a disk for the same month letter, the month's first new
+  disk continues after that year's numbers instead of colliding, which used
+  to stop generation with "Unable to allocate unique … disk name" while the
+  simulation (which allocates no disk) still worked.
   **Provider eligibility is by design, not a fault:** generation only ever
   considers *billable* providers (`ProviderDao.getBillableProviders`:
   `status = '1'` and a non-empty `ohipNo`), both for "all providers" and
