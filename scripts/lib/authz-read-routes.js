@@ -431,9 +431,9 @@ const ERROR_PAGE_REFUSALS = [
 
 /**
  * The BC billing views of the same Struts package, which refuse the same way (HTTP 500 "Error
- * Page" instead of 403). They are swept only on a database with the BC billing schema: on an
- * Ontario install the full-privilege control cannot be served them, so they would only lower the
- * control ratio. Every one is read-only on a GET without its write parameters: reprocessBill
+ * Page" instead of 403). Each is probed wherever the full-privilege control is served it: some
+ * need the BC billing tables, so on an Ontario database they are skipped rather than counted
+ * against the control ratio. Every one is read-only on a GET without its write parameters: reprocessBill
  * writes only on a POST carrying a save, ManageTeleplan's writing methods are POST-only and the
  * sweep sends no `method`, and the other three are view gates.
  */

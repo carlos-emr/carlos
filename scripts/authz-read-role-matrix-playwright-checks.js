@@ -83,16 +83,19 @@ async function workflow(s) {
   const errorPages = [];
   let tested = 0;
   await s.step('controls for the error-page refusals: the full-privilege login is served the same URLs', async () => {
-    // The BC billing views join the sweep only where the BC billing schema exists to serve them.
-    const bcBilling = sql.value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='billingmaster'") === '1';
-    const routes = bcBilling ? [...ERROR_PAGE_REFUSALS, ...BC_BILLING_ERROR_PAGE_REFUSALS] : ERROR_PAGE_REFUSALS;
     const served = [];
-    for (const route of routes) {
+    for (const route of ERROR_PAGE_REFUSALS) {
       const result = await probe(s.context, urlFor(config, `${route}?${query}`));
       // A route that answers the control login with an empty body (a logging endpoint) proves nothing.
       if (classify(result) === 'served') served.push(route);
     }
-    h.assert(served.length >= routes.length * 0.8, `Only ${served.length} of ${routes.length} control routes were served`);
+    h.assert(served.length >= ERROR_PAGE_REFUSALS.length * 0.8, `Only ${served.length} of ${ERROR_PAGE_REFUSALS.length} control routes were served`);
+    // The BC billing views are added where this install serves them to the control login. Some
+    // need the BC billing tables, so on an Ontario database they are skipped, not counted against the ratio.
+    for (const route of BC_BILLING_ERROR_PAGE_REFUSALS) {
+      const result = await probe(s.context, urlFor(config, `${route}?${query}`));
+      if (classify(result) === 'served') served.push(route);
+    }
     tested = served.length;
     for (const route of served) {
       const result = await probe(sessions.er_clerk.context, urlFor(config, `${route}?${query}`));
