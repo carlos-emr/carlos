@@ -1696,7 +1696,7 @@
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
                                                         align="center"><%-- Read back from a row storeEyeExamSupportData() writes (the date
                                                              likewise reads iDiaDate); iEx is retained history only, so it is
-                                                             shown only for a legacy record whose eye rows hold no comment. --%><textarea name="iComments" wrap="hard"
+                                                             shown only for a legacy record whose eye rows hold no comment. --%><label class="vt-screen-reader-only" for="vt-iComments">Eye exam <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></label><textarea id="vt-iComments" name="iComments" wrap="hard"
                                                                                  cols="24"
                                                                                  style="height: 80"><carlos:encode value="${not empty iDiaComments ? iDiaComments : iExComments}"/></textarea>
                                                     </td>

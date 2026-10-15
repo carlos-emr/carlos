@@ -330,13 +330,13 @@ test('affected VT controls have unique IDs and contextual labels without changin
     assert.equal(byId.get(`vt-${type}-label`).attrs.for, field.attrs.id);
     assertReferences(p.form[`value(${type}Comments)`], [`vt-${type}-label`, 'vt-comments-label']);
   }
-  for (const name of ['value(objective)', 'FTDate', 'FTComments']) {
+  for (const name of ['value(objective)', 'FTDate', 'FTComments', 'iComments']) {
     const field = p.form[name];
     assert.equal(p.nodes.filter(node => node.tag === 'label' && node.attrs.for === field.attrs.id).length, 1);
     labelled.push(field);
   }
   assert.equal(p.form.FTDate.attrs.id, 'FTDate', 'Keep the existing ID used by callers');
-  assert.equal(labelled.length, 41);
+  assert.equal(labelled.length, 42);
   assert(labelled.every(field => field.type !== 'hidden'));
   assert.equal(p.form.elements.length, 186, 'Accessibility must not introduce clinical controls');
 });

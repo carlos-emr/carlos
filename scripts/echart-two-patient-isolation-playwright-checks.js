@@ -169,7 +169,8 @@ async function assertVascularTrackerAccessibility(page, form) {
     controls.push({id: `vt-${type}-comments`, name: `value(${type}Comments)`, role: 'textbox',
       references: [`vt-${type}-label`, 'vt-comments-label']});
   }
-  for (const [id, name] of [['vt-objective', 'value(objective)'], ['FTDate', 'FTDate'], ['vt-FTComments', 'FTComments']]) {
+  for (const [id, name] of [['vt-objective', 'value(objective)'], ['FTDate', 'FTDate'], ['vt-FTComments', 'FTComments'],
+    ['vt-iComments', 'iComments']]) {
     controls.push({id, name, role: 'textbox', nativeLabel: true});
   }
   const ids = await page.locator('[id]').evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));

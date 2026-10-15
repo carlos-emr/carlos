@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -65,10 +64,17 @@ class ChartNotesPatientIsolationUnitTest {
     @DisplayName("should build the Browse Notes popup from the request's own, encoded patient")
     void shouldBuildBrowseNotesLink_fromTheRequestPatient() throws IOException {
         String source = source();
-        Matcher browse = Pattern.compile("<button[^>]*ViewNoteBrowser[^>]*>").matcher(source);
+        int target = source.indexOf("ViewNoteBrowser");
+        assertThat(target).isNotNegative();
+        int start = source.lastIndexOf("<button", target);
+        int end = source.indexOf('>', target);
+        assertThat(start).isNotNegative();
+        assertThat(end).isGreaterThan(target);
+        // The target must sit inside that button's own start tag, not after an earlier tag closed.
+        assertThat(source.substring(start, target)).doesNotContain(">");
+        String browseButton = source.substring(start, end + 1);
 
-        assertThat(browse.find()).isTrue();
-        assertThat(browse.group())
+        assertThat(browseButton)
                 .contains("demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}")
                 .doesNotContain("bean.");
         assertThat(source)

@@ -16,7 +16,7 @@ record reopening were repaired so its actual save paths can be verified. Save an
 Exit appends literal completion text only to an opener that still identifies the
 same patient; navigating that opener to another patient prevents the append.
 
-The touched Vascular Tracker markup also has contextual labels for 41 controls,
+The touched Vascular Tracker markup also has contextual labels for 42 controls,
 real column headers for its three entry matrices, and presentation semantics only
 for the nested historical date/value layouts. Deprecated font wrappers are replaced
 with spans. Existing control names, DOM order, values, IDs and clinical scripts are
@@ -44,6 +44,7 @@ The Vascular Tracker routing, binding and script repairs also fix findings 103
 are now regressions. The eye-exam comment box is read back from a row its save writes
 (`iDiaComments`, as the date reads `iDiaDate`) and is encoded; it previously rendered the
 retained `iEx` column, so the comment vanished on reopen and the next Update cleared it.
+That box now also has its own screen-reader label, as the foot-exam box does.
 
 ## Verification
 
@@ -84,7 +85,7 @@ retained `iEx` column, so the comment vanished on reopen and the next Update cle
   navigation of the opener to another patient before completion. The seeded VT
   registration is temporarily enabled for this exclusive test and its exact prior
   registry row is restored and asserted during cleanup.
-  Each patient's native VT setup additionally verifies all 41 repaired control
+  Each patient's native VT setup additionally verifies all 42 repaired control
   names/label associations, unique DOM IDs, the three matrices' column-header
   names in both detail states, native Weight-label focus and MedR-to-MedA Tab navigation, and unchanged complete
   control state/FormData after the accessibility inspection.
