@@ -187,6 +187,20 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
+        @DisplayName("should keep corrected when a corrected result is mixed with a final one")
+        void shouldKeepCorrected_whenCorrectedMixedWithFinal() throws Exception {
+            assertThat(reportStatus(persistReport(900006, "C", "F"))).isEqualTo("C");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a corrected result is mixed with a preliminary one")
+        void shouldReportPreliminary_whenCorrectedMixedWithPreliminary() throws Exception {
+            assertThat(reportStatus(persistReport(900007, "C", "P"))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
         @DisplayName("should report preliminary when a final result is mixed with one that has no status")
         void shouldReportPreliminary_whenFinalMixedWithUnreportedStatus() throws Exception {
             assertThat(reportStatus(persistReport(900005, "F", null))).isEqualTo("P");
