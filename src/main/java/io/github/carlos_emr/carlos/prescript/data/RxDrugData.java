@@ -875,12 +875,19 @@ public class RxDrugData {
      * triggered by the specified drug. Optionally collects allergies that could not be
      * matched by the service into the {@code missing} list.
      *
+     * <p>ATC class allergens ({@link AllergyAtcClass}, the Penicillin and Sulfa shortcuts) are also
+     * decided here, from their class code: a drug whose ATC code is under the class is a warning,
+     * and any other well-formed code means the allergy was checked and did not match, so it is
+     * not reported as missing. DrugRef cannot be relied on for them, because it resolves a class
+     * by its name, which a DPD extract may not carry. A warning DrugRef returns for such an
+     * allergy is kept.</p>
+     *
      * @param atcCode  String the ATC code of the drug to check for allergy warnings
      * @param allergies Allergy[] array of patient allergies to check against; must not be null
      * @param missing  List&lt;Allergy&gt; optional list to collect allergies that could not be
      *                 matched by the DrugRef service; pass null to discard missing results
-     * @return Allergy[] array of allergies that triggered warnings for the specified drug;
-     *         empty array if no warnings are found
+     * @return Allergy[] array of allergies that triggered warnings for the specified drug, in
+     *         the order of {@code allergies}; empty array if no warnings are found
      * @throws Exception if the drug reference service call fails
      * @since 2026-02-26
      */
@@ -903,23 +910,40 @@ public class RxDrugData {
                 || !(result.get("missing") instanceof List<?> unchecked)) {
             throw new IllegalStateException("DrugRef returned an incomplete allergy-check response");
         }
-        List<Allergy> found = resolveAllergyIndices(warnings, allergies);
-        List<Allergy> unresolved = resolveAllergyIndices(unchecked, allergies);
-        if (missing != null) missing.addAll(unresolved);
+        // Flags by position, not lists of allergies: an unsaved Allergy has no id, and
+        // Allergy.equals compares ids.
+        boolean[] warned = resolveAllergyIndices(warnings, allergies.length);
+        boolean[] notChecked = resolveAllergyIndices(unchecked, allergies.length);
+        // ATC class allergens are decided from their class code, which DrugRef ignores: it checks
+        // a class by name, and a class name the DPD extract lacks comes back as missing (#4576).
+        // A drug without a usable code leaves DrugRef's answer as it is.
+        if (AllergyAtcClass.isDrugCode(atcCode)) {
+            for (int i = 0; i < allergies.length; i++) {
+                String classCode = AllergyAtcClass.classCodeOf(allergies[i]);
+                if (classCode == null) continue;
+                if (AllergyAtcClass.covers(classCode, atcCode)) warned[i] = true;
+                notChecked[i] = false;
+            }
+        }
+        List<Allergy> found = new ArrayList<>();
+        for (int i = 0; i < allergies.length; i++) {
+            if (warned[i]) found.add(allergies[i]);
+            else if (notChecked[i] && missing != null) missing.add(allergies[i]);
+        }
         return found.toArray(new Allergy[0]);
     }
 
-    private static List<Allergy> resolveAllergyIndices(List<?> indices, Allergy[] allergies) {
-        List<Allergy> result = new ArrayList<>();
+    private static boolean[] resolveAllergyIndices(List<?> indices, int allergyCount) {
+        boolean[] result = new boolean[allergyCount];
         for (Object value : indices) {
             if (!(value instanceof String text)) {
                 throw new IllegalStateException("DrugRef returned a non-string allergy index");
             }
             int index = Integer.parseInt(text);
-            if (index < 0 || index >= allergies.length) {
+            if (index < 0 || index >= allergyCount) {
                 throw new IllegalStateException("DrugRef returned an out-of-range allergy index");
             }
-            if (!result.contains(allergies[index])) result.add(allergies[index]);
+            result[index] = true;
         }
         return result;
     }

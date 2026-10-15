@@ -2789,3 +2789,31 @@ A follow-up covered a report with versions whose older version cannot be read. T
 (`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
 Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
 per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.
+
+### Allergy class shortcuts validation (2026-10-15, issue #4576)
+
+`release/2026.08` at `378db4ed` plus the #4576 fix branch was packaged unstamped as `2026.09.0~snapshot26`.
+`dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder. DrugRef was built from a checkout of the commit
+`debian/drugref.pin` names (`1941e14`, passed as `DRUGREF_SRC`). carlos-ctl was built from its `1.1.2` tag, with a `1.1.2`
+changelog stanza stamped in the throwaway worktree the way its release workflow stamps it, because the tag's own stanza
+reads `1.1.2~dev1`. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). The same proxy workaround as the MDS validation above applied, and the
+validation image was built with `DOCKER_BUILDKIT=0`, because BuildKit's metadata lookup of `ubuntu:26.04` hit Docker Hub's
+rate limit.
+
+The packaged DrugRef holds 44452 and 44159, the ids the shortcuts used to post, as a multivitamin brand (category 12) and a
+fluoxetine product (category 11). It still carries AHFS (PENICILLINS `08:12.16`, SULFONAMIDES `08:12.20` and `52:04.08`).
+It has no ATC class named PENICILLINS, and its ATC class named SULFONAMIDES is `G01AE`.
+
+| Run | Result |
+|---|---|
+| fixed packages | `allergy-class-shortcut-alert` (new) passes all 5 steps: Amoxil (J01CA04), Septra (J01EE01) and Biaxin (J01FA09) as the issue asks. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
+| pre-fix `RxDrugData` classes swapped into the installed webapp | `allergy-class-shortcut-alert` fails at the Amoxil step: only the old shortcut's row warns, matched by DrugRef's AHFS name |
+| pre-fix `RxDrugData`, `RxAddAllergy2Action`, `RxAddReaction2Action` and the three allergy pages swapped in | `allergy-class-shortcut-alert` fails at its first step; `allergy-add-penicillin-shortcut-id` fails on the type code |
+
+With the fixed files restored, the following also passed: `allergy-save-retry`, `allergy-rx-alert`, `allergy-custom-lifecycle`,
+`allergy-injected-form-csrf` (its Sulfa step now expects the ATC class row, and the NKDA entry is still archived),
+`allergy-stale-amend-refused`, `concurrency-allergy-amend`, `double-submit-chart-adds`, `drug-search`, `csrf-runtime-forms`,
+`demographic-cds-import`, `cds-export-lab-documents` and `export-content-chart-print-sections`.
+The smoke tier passed 12/12, and `scripts/deb-server-log-audit.sh` found no unexplained signature (8 known, all provoked on
+purpose by the checks that ran; no `RxAddAllergy2Action` or allergy-check error).

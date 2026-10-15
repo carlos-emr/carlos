@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
@@ -69,6 +70,8 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
      * An amendment ({@code allergyToArchive}) of an allergy that is no longer active returns
      * HTTP 409 and {@link #NONE} without writing anything (issue #4410).
+     * An {@code atc} parameter that is not an ATC class code returns HTTP 400 and {@link #NONE};
+     * a valid one is stored for an ATC class allergen (type 8, issue #4576).
      * Valid add and amendment requests return {@link #SUCCESS}.
      */
     public String execute() throws IOException, ServletException {
@@ -137,6 +140,15 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String nonDrug = request.getParameter("nonDrug");
 
+        // The class shortcuts send the ATC class they file the allergy under (#4576). A code that
+        // is sent must be one: a malformed code would save a class allergy that no prescription
+        // can be compared against.
+        String atc = StringUtils.trimToNull(request.getParameter("atc"));
+        if (atc != null && AllergyAtcClass.classCode(atc) == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
         // Retry safety (#3488): the dialogue keeps its entries after a failed save and resubmits
         // the same saveToken, so a retry whose first attempt actually persisted must not add a
         // second allergy. Claimed only after every validation above so a rejected request
@@ -149,7 +161,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         jakarta.servlet.http.HttpSession session = request.getSession();
         String fingerprint = AllergySaveTokens.fingerprint(id, name, type, description, startDate,
                 ageOfOnset, severityOfReaction, onSetOfReaction, lifeStage, allergyToArchive, nonDrug,
-                String.valueOf(patient.getDemographicNo()));
+                String.valueOf(patient.getDemographicNo()), atc);
         AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken, fingerprint);
         if (claim == AllergySaveTokens.Claim.ALREADY_SAVED) {
             demographicNo = patient.getDemographicNo();
@@ -174,7 +186,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
-            return saveAllergy(patient, id, name, type, description, startDate, ageOfOnset,
+            return saveAllergy(patient, id, name, type, atc, description, startDate, ageOfOnset,
                     severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
         } finally {
             AllergySaveTokens.release(session, saveToken);
@@ -182,15 +194,28 @@ public final class RxAddAllergy2Action extends ActionSupport {
     }
 
     private String saveAllergy(RxPatientData.Patient patient, String id, String name, String type,
-                               String description, String startDate, String ageOfOnset,
+                               String atc, String description, String startDate, String ageOfOnset,
                                String severityOfReaction, String onSetOfReaction, String lifeStage,
                                Integer archiveId, String nonDrug, String saveToken) throws IOException {
         Allergy allergy = new Allergy();
+        int typeCode = Integer.parseInt(type);
+        // An ATC class allergen is filed under its class code and no DrugRef id (#4576). The old
+        // Penicillin and Sulfa shortcuts posted a fixed DrugRef id that names another product in
+        // current DrugRef data; that exact identity, sent by a page loaded before the fix or by the
+        // amendment of an allergy it recorded, is saved as the shortcut's ATC class instead.
+        AllergyAtcClass.Shortcut legacyShortcut = AllergyAtcClass.Shortcut.recordedByLegacyShortcut(id, typeCode, name);
+        if (legacyShortcut != null) {
+            id = "";
+            typeCode = AllergyAtcClass.TYPE_CODE;
+            allergy.setAtc(legacyShortcut.atcClass());
+        } else if (typeCode == AllergyAtcClass.TYPE_CODE && atc != null) {
+            allergy.setAtc(AllergyAtcClass.classCode(atc));
+        }
             allergy.setDrugrefId(id);
         // regionalIdentifier is exported as a DIN (CDS export, REST), so it is set only from a resolved
         // brand lookup below; the DrugRef search id stays in drugrefId and is never passed off as a DIN.
         allergy.setDescription(name);
-        allergy.setTypeCode(Integer.parseInt(type));
+        allergy.setTypeCode(typeCode);
         allergy.setReaction(description);
 
         if (startDate.length() >= 8 && getCharOccur(startDate, '-') == 2) {

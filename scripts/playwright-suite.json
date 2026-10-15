@@ -177,14 +177,9 @@
       "timeoutSec": 300,
       "env": [
         "CARLOS_LOG_JOURNAL_UNIT",
-        "ALLERGY_PIN",
-        "DRUGREF_TEST_DATABASE"
+        "ALLERGY_PIN"
       ],
-      "notes": "Adds a Penicillins allergy through the allergy page, checks the chart and amends it (archive plus replacement). Last, pinned to app-findings-log.md finding 178: both the added allergy and its amendment must carry a regional_identifier and an atc, and RxAddAllergy2Action must log no ERROR in the run's window of the server journal (CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP after its row assertions). On the packaged install the identifiers are empty and no ERROR is logged: the Penicillin shortcut's DrugRef id does not name the class (finding 215, pinned by allergy-add-penicillin-shortcut-id), so DrugRef returns a record without them instead of failing. The script is a runCheck script whose stages before step 6 are unlabelled; the stored rows and the run's window of the server journal are READ in a labelled step of their own (\"the added allergy and its amendment are stored, and this run's window of the server journal is read\"), so a journal it cannot read is a failure elsewhere, and the pinned step holds only the assertion on what that step recorded.",
-      "expectedFailure": {
-        "finding": 178,
-        "step": "the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error"
-      },
+      "notes": "Adds a Penicillins allergy through the allergy page's Penicillin shortcut, checks the chart and amends it (archive plus replacement). The shortcut records an ATC class allergen (#4576): the reaction form carries TYPECODE 8, the class code J01C and no DrugRef id, and both rows are stored that way. Last, for app-findings-log.md finding 178 (fixed): both the added allergy and its amendment carry the ATC class code J01C and no regional_identifier (a class has no DIN), and RxAddAllergy2Action logs no ERROR in the run's window of the server journal (CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP after its row assertions). Until #4576 the shortcut posted DrugRef id 44452, which the packaged DrugRef holds as a multivitamin brand, so both identifiers were empty. The script is a runCheck script whose stages before step 6 are unlabelled; the stored rows and the run's window of the server journal are READ in a labelled step of their own (\"the added allergy and its amendment are stored, and this run's window of the server journal is read\"), so a journal it cannot read is a failure elsewhere.",
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the added allergy, its archived original and the amendment, and the chart rows opening the eChart writes (eChart, note lock) are removed by the patient's key and asserted gone, then the patient. It no longer runs on demo patient 1, whose \"No Known Drug Allergies\" row the application archives when an allergy is added. No clinic-wide state is changed."
     },
     {
@@ -203,15 +198,29 @@
       "timeoutSec": 300,
       "env": [
         "CARLOS_LOG_JOURNAL_UNIT",
-        "ALLERGY_PIN",
-        "DRUGREF_TEST_DATABASE"
+        "ALLERGY_PIN"
       ],
-      "notes": "The same script as allergy-add-penicillin, selected by ALLERGY_PIN=shortcut-id (envSet): the add, chart and amend stages run as there, then the last step is for app-findings-log.md finding 215 instead of finding 178. The DrugRef id the Penicillin shortcut posts (the form's ID field, which the saved allergy and its amendment echo) must be the PENICILLINS drug class, category 10, in the installed DrugRef database (DRUGREF_TEST_DATABASE, default drugref2); a control step before the pinned one shows the check can read that database and that it holds the PENICILLINS class. ChooseAllergy2.jsp and ShowAllergies2.jsp hard-code 44452, which the packaged DrugRef holds as a multivitamin brand, so the allergy is filed under another product (the class is 41472). Adds and removes its own allergies rows.",
-      "expectedFailure": {
-        "finding": 215,
-        "step": "the Penicillin shortcut files the allergy under the PENICILLINS drug class id"
-      },
+      "notes": "The same script as allergy-add-penicillin, selected by ALLERGY_PIN=shortcut-id (envSet): the add, chart and amend stages run as there, then the last step is for app-findings-log.md finding 215 (fixed by #4576) instead of finding 178: the Penicillin shortcut files the allergy and its amendment under the ATC class J01C (TYPECODE 8) with no DrugRef id. ChooseAllergy2.jsp and ShowAllergies2.jsp used to post the fixed DrugRef id 44452, which the packaged DrugRef holds as a multivitamin brand, as an AHFS class (TYPECODE 10). A control step before it reads both rows. Whether a penicillin prescription then warns is allergy-class-shortcut-alert. Adds and removes its own allergies rows.",
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the added allergy, its archived original and the amendment, and the chart rows opening the eChart writes (eChart, note lock) are removed by the patient's key and asserted gone, then the patient. It no longer runs on demo patient 1, whose \"No Known Drug Allergies\" row the application archives when an allergy is added. No clinic-wide state is changed."
+    },
+    {
+      "name": "allergy-class-shortcut-alert",
+      "script": "scripts/allergy-class-shortcut-alert-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "ALLERGY_CLASS_PENICILLIN_DRUG",
+        "ALLERGY_CLASS_SULFONAMIDE_DRUG",
+        "ALLERGY_CLASS_OTHER_DRUG"
+      ],
+      "notes": "Issue #4576, finding 215: the Penicillin and Sulfa shortcuts record the ATC class allergens J01C and J01E (TYPECODE 8, no DrugRef id), and the drug-allergy check decides them by their class code. Prescribing Amoxil (J01CA04) warns on the shortcut's penicillin allergy and on one the old shortcut recorded (drugref_id 44452, TYPECODE 10, seeded by SQL) and on no sulfonamide allergy; Septra (J01EE01) warns on both sulfonamide allergies only; Biaxin (J01FA09) warns on none and leaves none \"not checked\". Each prescribing step first asserts the picked drug's ATC code, so a DrugRef extract without the product fails as such. Amending the old Sulfa shortcut's allergy stores the replacement as ATC class J01E. Each prescribing step runs in a fresh login, because the Rx stash is per session. The drug search terms are ALLERGY_CLASS_PENICILLIN_DRUG, ALLERGY_CLASS_SULFONAMIDE_DRUG and ALLERGY_CLASS_OTHER_DRUG (defaults amoxil, septra, biaxin). Needs DrugRef.",
+      "fixtures": "Owned FAKE- patient (runWorkflow): the two allergies the shortcuts record, two seeded with the old shortcuts' identity, and the amendment; cleanup deletes every allergies row of that patient and asserts none remain, then the patient. The prescribing steps only stage drugs in the session's Rx stash and save no prescription. No clinic-wide state is changed."
     },
     {
       "name": "allergy-rx-alert",

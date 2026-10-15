@@ -12,8 +12,8 @@
  *      CSRF-TOKEN field holding this session's current master token; it is submitted from the
  *      keyboard and saves exactly one row for the owned patient, with today's entry date and an
  *      ADD audit row naming the test provider.
- *   2. Sulfa, a coded allergen: saves with its drugref id and type code and archives the NKDA row
- *      after the page's own "Remove NKDA" confirmation.
+ *   2. Sulfa, a coded allergen: saves as the ATC class J01E (type code 8, no drugref id, #4576) and
+ *      archives the NKDA row after the page's own "Remove NKDA" confirmation.
  *   3. A DrugRef search result saves the picked allergen; a search with no match renders quietly.
  *      The standalone reaction page (ChooseAllergy2 > /rx/addReaction) saves the same way.
  *   4. The dialogue request refused by CSRFGuard (its token header stripped, a real server 403):
@@ -137,8 +137,10 @@ async function workflow(s) {
     const dialogs = await h.withExpectedDialogs(page, () => saveAndReturnToList(page,
       () => form.locator('input[type="submit"][value="Add Allergy"]').click()));
     h.assert(dialogs.length === 1 && dialogs[0].text === `Remove "${NKDA}" from list?`, 'The NKDA removal was not confirmed');
-    await expectValue(sql, rows(` AND DESCRIPTION='SULFONAMIDES' AND TYPECODE=10 AND drugref_id='44159' AND severity_of_reaction='2' AND archived=0`),
-      '1', 'Sulfonamides was not saved with its drugref identity');
+    // The Sulfa shortcut records the ATC class J01E with no DrugRef id (#4576); it used to post id 44159,
+    // which names a fluoxetine product in current DrugRef data.
+    await expectValue(sql, rows(` AND DESCRIPTION='SULFONAMIDES' AND TYPECODE=8 AND atc='J01E' AND drugref_id IS NULL AND severity_of_reaction='2' AND archived=0`),
+      '1', 'Sulfonamides was not saved as the ATC class allergen J01E');
     h.assert(sql.value(`SELECT archived FROM allergies WHERE allergyid=${nkda}`) === '1', 'NKDA stayed active beside a drug allergy');
   });
 
