@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -65,6 +67,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,7 +85,8 @@ import static org.mockito.Mockito.when;
  * nothing read, and the editors also tried to write {@code encounter/consult.js} relative to the working
  * directory. These tests pin each action to the work its page asks for: no action looks up a bean it does
  * not use (the unit base refuses an unregistered bean, which is how the generator's lookups would show),
- * none calls {@code findActive()}, and the editors' open paths only read.
+ * none calls {@code findActive()}, the editors' open paths only read, and no editor path opens a
+ * {@link FileWriter}.
  *
  * @since 2026-10-14
  */
@@ -142,6 +146,21 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
         previousSecurity.clear();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
+    }
+
+    /**
+     * Runs an editor action and fails if it opened a {@link FileWriter}, which is how {@code makeFile()}
+     * wrote {@code encounter/consult.js}. A failed write left no other trace: it was swallowed at DEBUG and
+     * {@code makeFile()} returned null, so asserting the result attribute alone could not see the attempt.
+     */
+    private static String executeWithoutFileWrites(ActionSupport action) throws Exception {
+        try (MockedConstruction<FileWriter> writers = mockConstruction(FileWriter.class)) {
+            String result = action.execute();
+            assertThat(writers.constructed())
+                    .as("FileWriters opened by %s", action.getClass().getSimpleName())
+                    .isEmpty();
+            return result;
+        }
     }
 
     @Nested
@@ -240,13 +259,13 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             EctConEditSpecialists2Action action = new EctConEditSpecialists2Action();
             action.setSpecId("7");
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeWithoutFileWrites(action)).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("lName")).isEqualTo("FAKE-Consultant");
             assertThat(request.getAttribute("phone")).isEqualTo("555-0150");
             assertThat(request.getAttribute("specId")).isEqualTo("7");
             assertThat(request.getAttribute("upd")).isEqualTo(0);
-            // "verd" carried makeFile()'s result, which no page read; it is gone with the file write.
+            // "verd" carried makeFile()'s result, which no page read; the write itself is ruled out above.
             assertThat(request.getAttribute("verd")).isNull();
             verify(specialists).find(7);
             verifyNoMoreInteractions(specialists);
@@ -262,7 +281,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             action.setDelete("Delete Specialist");
             action.setSpecialists(new String[] {"7"});
 
-            assertThat(action.execute()).isEqualTo("delete");
+            assertThat(executeWithoutFileWrites(action)).isEqualTo("delete");
 
             assertThat(consultant.isDeleted()).isTrue();
             verify(specialists).find(7);
@@ -313,7 +332,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             EctConEditInstitutions2Action action = new EctConEditInstitutions2Action();
             action.setId("12");
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeWithoutFileWrites(action)).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("name")).isEqualTo("FAKE Institution");
             assertThat(request.getAttribute("verd")).isNull();
@@ -329,7 +348,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             action.setDelete("Delete Institution");
             action.setInstitutions(new String[] {"12"});
 
-            assertThat(action.execute()).isEqualTo("delete");
+            assertThat(executeWithoutFileWrites(action)).isEqualTo("delete");
 
             verify(institutions).remove((Object) 12);
             verifyNoMoreInteractions(institutions);
@@ -345,7 +364,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             EctConEditDepartments2Action action = new EctConEditDepartments2Action();
             action.setId("4");
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeWithoutFileWrites(action)).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("name")).isEqualTo("FAKE Department");
             assertThat(request.getAttribute("verd")).isNull();
@@ -362,7 +381,7 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             action.setDelete("Delete Specialist");
             action.setSpecialists(new String[] {"4"});
 
-            assertThat(action.execute()).isEqualTo("delete");
+            assertThat(executeWithoutFileWrites(action)).isEqualTo("delete");
 
             verify(departments).remove((Object) 4);
             verifyNoMoreInteractions(departments);
