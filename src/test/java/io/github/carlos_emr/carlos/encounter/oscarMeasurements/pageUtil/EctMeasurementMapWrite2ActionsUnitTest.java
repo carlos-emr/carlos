@@ -184,7 +184,8 @@ class EctMeasurementMapWrite2ActionsUnitTest extends CarlosUnitTestBase {
             request.setMethod("GET");
             when(security.hasPrivilege(login, "_admin.measurements", "w", null)).thenReturn(false);
 
-            assertThatThrownBy(() -> new EctAddMeasurementMap2Action().execute()).isInstanceOf(SecurityException.class);
+            EctAddMeasurementMap2Action action = new EctAddMeasurementMap2Action();
+            assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
             verifyNoInteractions(mapDao);
         }
     }

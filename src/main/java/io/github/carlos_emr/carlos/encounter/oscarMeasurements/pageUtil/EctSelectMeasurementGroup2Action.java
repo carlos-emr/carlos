@@ -57,6 +57,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctSelectMeasurementGroup2Action extends ActionSupport {
+    /** The forward value (and Struts result) that deletes the selected group. */
+    private static final String DELETE = "delete";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -78,7 +81,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
 
         // forward=type|style|dsHTML only open an editor; forward=delete removes the whole group,
         // so that one must come from the form's POST, never a link or image tag (issue #3335).
-        if ("delete".equals(forward) && !"POST".equals(request.getMethod())) {
+        if (DELETE.equals(forward) && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -87,7 +90,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         HttpSession session = request.getSession();
 
         // Delete requires admin privilege check BEFORE any session mutation
-        if ("delete".equals(forward)) {
+        if (DELETE.equals(forward)) {
             if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
                     && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
                 throw new SecurityException("missing required sec object (_admin.measurements)");
@@ -95,7 +98,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
             session.setAttribute("groupName", groupName);
             deleteGroup(groupName);
-            return "delete";
+            return DELETE;
         }
 
         // For non-delete paths, store validated groupName for navigation

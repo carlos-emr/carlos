@@ -115,7 +115,7 @@ public class MeasurementGroupCreationService {
         try {
             int cssId = Integer.parseInt(styleSheet.trim());
             return cssId < 0 ? 0 : cssId;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return 0;
         }
     }
@@ -130,7 +130,7 @@ public class MeasurementGroupCreationService {
      */
     @Transactional(readOnly = true)
     public boolean groupExists(String groupName) {
-        return !styleDao.findByGroupName(groupName).isEmpty();
+        return hasStyleRow(groupName);
     }
 
     /**
@@ -154,7 +154,9 @@ public class MeasurementGroupCreationService {
         if (types.isEmpty()) {
             return Outcome.NO_TYPES;
         }
-        if (groupExists(groupName)) {
+        // Checked inside this method's transaction, not through groupExists(): a call on `this`
+        // bypasses the Spring proxy, so that method's own transaction settings would not apply.
+        if (hasStyleRow(groupName)) {
             return Outcome.DUPLICATE_NAME;
         }
 
@@ -170,6 +172,10 @@ public class MeasurementGroupCreationService {
             groupDao.persist(member);
         }
         return Outcome.CREATED;
+    }
+
+    private boolean hasStyleRow(String groupName) {
+        return !styleDao.findByGroupName(groupName).isEmpty();
     }
 
     private static List<String> distinctTypeNames(Collection<String> typeDisplayNames) {

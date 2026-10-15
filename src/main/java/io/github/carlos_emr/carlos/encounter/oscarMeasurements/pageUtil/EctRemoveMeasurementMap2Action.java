@@ -88,48 +88,45 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
-
-            String identifier = request.getParameter("identifier");
-            String name = request.getParameter("name");
-            String type = request.getParameter("type");
-            String loinc_code = request.getParameter("loinc_code");
-            // The recycle-bin entry is attributed to the signed-in provider, not to whatever
-            // provider number the form carries.
-            String providerNo = loggedInInfo.getLoggedInProviderNo();
-            String outcome = "continue";
-
-            if (id != null) {
-                if (!id.matches("\\d{1,9}")) {
-                    // No mapping row was chosen (or the id is not one): nothing to remove.
-                    return "failure";
-                }
-
-                MeasurementMapConfig mmc = new MeasurementMapConfig();
-
-                // these values will be set if the measurement is to be remapped instead of deleted
-                // therefore it is first mapped then deleted
-                if (identifier != null && name != null && type != null && loinc_code != null) {
-                    if (!mmc.checkLoincMapping(loinc_code, type)) {
-                        mmc.mapMeasurement(identifier, loinc_code, name, type);
-                        mmc.removeMapping(id, providerNo);
-                        outcome = "success";
-                    } else {
-                        outcome = "failedcheck";
-                    }
-                } else {
-                    mmc.removeMapping(id, providerNo);
-                    outcome = "success";
-                }
-
-            }
-
-            return outcome;
-
-        } else {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.measurements)");
         }
 
+        if (id == null) {
+            return "continue";
+        }
+        if (!id.matches("\\d{1,9}")) {
+            // No mapping row was chosen (or the id is not one): nothing to remove.
+            return "failure";
+        }
+        // The recycle-bin entry is attributed to the signed-in provider, not to whatever
+        // provider number the form carries.
+        return removeOrRemap(id, loggedInInfo.getLoggedInProviderNo());
+    }
+
+    /**
+     * Removes mapping row {@code id}. When the request also names an identifier, name, lab type
+     * and code (the Remap form), that mapping is written first and the old row removed after,
+     * unless the code is already mapped for that type.
+     *
+     * @return the Struts result: {@code success} or {@code failedcheck}
+     */
+    private String removeOrRemap(String id, String providerNo) {
+        String identifier = request.getParameter("identifier");
+        String name = request.getParameter("name");
+        String type = request.getParameter("type");
+        String loincCode = request.getParameter("loinc_code");
+        MeasurementMapConfig mmc = new MeasurementMapConfig();
+
+        if (identifier != null && name != null && type != null && loincCode != null) {
+            if (mmc.checkLoincMapping(loincCode, type)) {
+                return "failedcheck";
+            }
+            mmc.mapMeasurement(identifier, loincCode, name, type);
+        }
+        mmc.removeMapping(id, providerNo);
+        return "success";
     }
 
 }

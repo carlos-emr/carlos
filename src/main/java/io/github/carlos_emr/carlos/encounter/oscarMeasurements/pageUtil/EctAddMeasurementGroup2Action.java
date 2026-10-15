@@ -100,10 +100,12 @@ public class EctAddMeasurementGroup2Action extends ActionSupport {
         session.setAttribute("groupName", groupName);
         int cssId = MeasurementGroupCreationService.parseCssId(styleSheet);
 
-        Outcome outcome = "add".equals(forward)
-                ? creationService.create(groupName, cssId,
-                        selectedAddTypes == null ? List.of() : Arrays.asList(selectedAddTypes))
-                : Outcome.NO_TYPES;
+        // Anything but the Add button (the form's default forward is "error") writes nothing.
+        Outcome outcome = Outcome.NO_TYPES;
+        if ("add".equals(forward)) {
+            List<String> types = selectedAddTypes == null ? List.of() : Arrays.asList(selectedAddTypes);
+            outcome = creationService.create(groupName, cssId, types);
+        }
         switch (outcome) {
             case CREATED:
                 return SUCCESS;

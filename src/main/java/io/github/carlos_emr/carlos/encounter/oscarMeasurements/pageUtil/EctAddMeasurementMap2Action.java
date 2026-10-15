@@ -89,33 +89,35 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
             return NONE;
         }
 
-        if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
-
-            String outcome = "continue";
-
-            if (loinc_code != null && identifier != null) {
-
-                // identifier is "code,labType,name"; the name may itself contain commas.
-                String[] measurement = identifier.split(",", 3);
-                if (measurement.length < 3 || loinc_code.isBlank() || "0".equals(loinc_code)) {
-                    // "None Selected" in either list (both submit "0"): nothing to map.
-                    return "failure";
-                }
-                MeasurementMapConfig mmc = new MeasurementMapConfig();
-                if (!mmc.checkLoincMapping(loinc_code, measurement[1])) {
-                    mmc.mapMeasurement(measurement[0], loinc_code, measurement[2], measurement[1]);
-                    outcome = "success";
-                } else {
-                    outcome = "failedcheck";
-                }
-
-            }
-            return outcome;
-
-        } else {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.measurements)");
-
         }
+
+        return loinc_code != null && identifier != null ? map(identifier, loinc_code) : "continue";
+    }
+
+    /**
+     * Maps a measurement identifier to a LOINC code, unless that code is already mapped for the
+     * identifier's lab type.
+     *
+     * @param identifier "code,labType,name"; the name may itself contain commas
+     * @param loincCode the code to map to; {@code 0} is the form's "None Selected"
+     * @return the Struts result: {@code success}, {@code failedcheck} or {@code failure}
+     */
+    private String map(String identifier, String loincCode) {
+        String[] measurement = identifier.split(",", 3);
+        if (measurement.length < 3 || loincCode.isBlank() || "0".equals(loincCode)) {
+            // "None Selected" in either list (both submit "0"): nothing to map.
+            return "failure";
+        }
+        MeasurementMapConfig mmc = new MeasurementMapConfig();
+        if (mmc.checkLoincMapping(loincCode, measurement[1])) {
+            return "failedcheck";
+        }
+        mmc.mapMeasurement(measurement[0], loincCode, measurement[2], measurement[1]);
+        return "success";
     }
 
 }
