@@ -238,7 +238,6 @@
                             MiscUtils.getLogger().debug("result.isAbnormal()=" + result.isAbnormal());
                             doclabid_seq.add(segmentID);
                             request.setAttribute("segmentID", segmentID);
-                            String demoName = SafeEncode.forJavaScript(result.getPatientName());
 
                             if (!isListView) {
                                 try {
@@ -252,7 +251,7 @@
                     <div id="document_<%=segmentID%>">
                         <jsp:include page="/documentManager/ViewShowDocument" flush="true">
                             <jsp:param name="segmentID" value="<%=segmentID%>"/>
-                            <jsp:param name="demoName" value="<%=demoName%>"/>
+                            <jsp:param name="demoName" value="<%=result.getPatientName()%>"/>
                             <jsp:param name="providerNo" value="<%=providerNo%>"/>
                             <jsp:param name="searchProviderNo" value="<%=searchProviderNo%>"/>
                             <jsp:param name="status" value="<%=status%>"/>
@@ -293,7 +292,7 @@
 
                     <jsp:include page="/lab/CA/ALL/ViewLabDisplayAjax" flush="true">
                         <jsp:param name="segmentID" value="<%=segmentID%>"/>
-                        <jsp:param name="demoName" value="<%=demoName%>"/>
+                        <jsp:param name="demoName" value="<%=result.getPatientName()%>"/>
                         <jsp:param name="providerNo" value="<%=providerNo%>"/>
                         <jsp:param name="searchProviderNo" value="<%=searchProviderNo%>"/>
                         <jsp:param name="status" value="<%=status%>"/>

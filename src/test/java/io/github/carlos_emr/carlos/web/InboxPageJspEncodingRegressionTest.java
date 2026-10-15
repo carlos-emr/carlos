@@ -80,7 +80,11 @@ class InboxPageJspEncodingRegressionTest {
     void shouldWritePatientName_asHtmlText() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).doesNotContain("<%=result.getPatientName()%>");
+        // Raw only where it is a server-side parameter to an included page, never in the page itself.
+        assertThat(Arrays.stream(jsp.split("\n"))
+                .filter(l -> l.contains("<%=result.getPatientName()%>") || l.contains("<%=result.getPatientName() %>"))
+                .filter(l -> !l.strip().startsWith("<jsp:param name=\"demoName\""))
+                .toList()).isEmpty();
         for (String link : reportLinks(jsp)) {
             assertThat(link).as(link.strip())
                     .contains("<carlos:encode value='<%= result.getPatientName() %>' context=\"html\"/>");
@@ -98,6 +102,17 @@ class InboxPageJspEncodingRegressionTest {
                 .contains("<carlos:encode value='<%= result.getSex() %>' context=\"html\"/>")
                 .doesNotContain("<%=result.getSex() %>")
                 .doesNotContain("<%=result.getDateTime() + ");
+    }
+
+    @Test
+    @DisplayName("should hand the included pages the plain patient name, which they encode where they print it")
+    void shouldPassPlainPatientName_toIncludedPages() throws IOException {
+        String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
+
+        // A JavaScript-escaped name showed its escapes (\x27) on an unlinked document.
+        assertThat(jsp)
+                .doesNotContain("SafeEncode.forJavaScript(result.getPatientName())")
+                .doesNotContain("<jsp:param name=\"demoName\" value=\"<%=demoName%>\"/>");
     }
 
     @Test
