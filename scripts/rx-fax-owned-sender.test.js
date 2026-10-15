@@ -7,12 +7,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const { settleOperations } = require('./graceful-signal-cancellation');
+const { fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 
 for (const filename of ['rx-fax-record-binding-playwright-checks.js', 'rx-fax-signature-stamp-playwright-checks.js']) {
   const source = fs.readFileSync(path.join(__dirname, filename), 'utf8');
   function harness(overrides = {}) {
     const context = vm.createContext({ URLSearchParams, assertFaxDestination, faxNumber: '4161234567', pharmacyFaxNumber: '5551234567',
-      faxConfig: null, seededPharmacyFaxes: [], findings: [], visited: [], demographicNo: '1',
+      faxConfig: null, findings: [], visited: [], demographicNo: '1',
+      pharmacyFax: { restore: () => ({ restored: 0, untouched: 0 }) },
+      fixtureErrorTag,
       customDrugName: 'owned-test', throwawayUnsignedScriptId: null, browserErrorClass: () => 'Error', ...overrides });
     for (const name of ['stageFaxConfig', 'selectOwnedFaxSender', 'assertOwnedFaxRequest', 'cleanupOwnedFaxSender', 'seedPharmacyFax', 'cleanupFixtures']) {
       const start = source.indexOf(`function ${name}(`);
@@ -75,22 +78,59 @@ for (const filename of ['rx-fax-record-binding-playwright-checks.js', 'rx-fax-si
     assert.match(queries[0], /WHERE id=23 AND faxNumber='4161234567' AND accountName='Playwright Fax'/);
   });
 
-  test(`${filename}: snapshots all pharmacy destinations and restores null, empty and existing values conditionally`, () => {
-    const queries = [];
-    const h = harness({ sql: query => {
-      queries.push(query);
-      return query.startsWith('SELECT p.recordId') ? '1\t1\t\n2\t0\t\n3\t0\t416 555 0100' : '';
+  test(`${filename}: takes the shared lock before staging every pharmacy destination`, async () => {
+    const events = [];
+    const h = harness({ pharmacyFax: {
+      async lock() { events.push('lock'); return { journals: 1, restored: 2, untouched: 0 }; },
+      seed() { events.push('seed'); return { active: 2, seeded: 2 }; },
     } });
-    h.seedPharmacyFax();
-    assert.equal(h.seededPharmacyFaxes.length, 3);
-    assert.equal(queries.filter(query => query.startsWith("UPDATE pharmacyInfo SET fax = '5551234567'")).length, 3);
-    h.cleanupFixtures();
-    for (const [id, expected] of [[1, 'NULL'], [2, "''"], [3, "'416 555 0100'"]]) {
-      assert(queries.some(query => query.includes(`SET fax = ${expected} WHERE recordId = ${id} AND fax = '5551234567'`)));
-    }
+    await h.seedPharmacyFax();
+    assert.deepEqual(events, ['lock', 'seed']);
+    assert.deepEqual(h.visited.map((entry) => entry.label), ['pharmacy-fax-recovery', 'pharmacy-fax']);
     assert.equal(h.findings.length, 0);
   });
+
+  test(`${filename}: a patient without an active pharmacy is a finding`, async () => {
+    const h = harness({ pharmacyFax: { async lock() { return { journals: 0 }; }, seed: () => ({ active: 0, seeded: 0 }) } });
+    await h.seedPharmacyFax();
+    assert.deepEqual(h.findings.map((finding) => finding.type), ['no-active-pharmacy']);
+  });
+
+  test(`${filename}: cleanup restores the pharmacy destinations and reports a failed restore`, () => {
+    let restores = 0;
+    const ok = harness({ sql: () => '', pharmacyFax: { restore: () => { restores++; return { restored: 2, untouched: 1 }; } } });
+    ok.cleanupFixtures();
+    assert.equal(restores, 1);
+    assert.equal(JSON.stringify(ok.visited), JSON.stringify([{ label: 'pharmacy-fax-restore', untouched: 1 }]));
+    assert.equal(ok.findings.length, 0);
+    const failed = harness({ sql: () => '', pharmacyFax: { restore: () => { throw new Error('private database diagnostic'); } } });
+    failed.cleanupFixtures();
+    assert.equal(JSON.stringify(failed.findings), JSON.stringify([{ label: 'cleanup', type: 'cleanup-error', text: 'pharmacy-fax: Error' }]));
+    const coded = harness({ sql: () => '', pharmacyFax: { restore: () => {
+      throw Object.assign(new Error('private database diagnostic'), { code: 'RX_FAX_FIXTURE_RESTORE' });
+    } } });
+    coded.cleanupFixtures();
+    assert.equal(coded.findings[0].text, 'pharmacy-fax: Error (RX_FAX_FIXTURE_RESTORE)');
+  });
+
+  test(`${filename}: stages the destination before the sender and releases the lock only after cleanup`, () => {
+    const runChecks = source.slice(source.indexOf('async function runChecks('));
+    const seed = runChecks.indexOf('await seedPharmacyFax();');
+    assert(seed >= 0 && seed < runChecks.indexOf('stageFaxConfig()'));
+    const cleanup = runChecks.indexOf('cleanupFixtures();');
+    assert(cleanup >= 0 && cleanup < runChecks.indexOf('await releaseFixtureLock();'));
+  });
 }
+
+test('reprint locks before staging anything and releases the lock only after cleanup', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'rx-fax-reprint-represcribe-playwright-checks.js'), 'utf8');
+  const runChecks = source.slice(source.indexOf('async function runChecks('), source.lastIndexOf('(async () => {'));
+  const lock = runChecks.indexOf('await pharmacyFax.lock();');
+  assert(lock >= 0 && lock < runChecks.indexOf('stageRxFaxAccount(') && lock < runChecks.indexOf('pharmacyFax.seed()'));
+  const main = source.slice(source.lastIndexOf('(async () => {'));
+  const cleanup = main.indexOf('cleanupFixtures();');
+  assert(cleanup >= 0 && cleanup < main.indexOf('await releaseFixtureLock();'));
+});
 
 for (const digits of [6, 7]) {
   test(`reserved fax suffix requires exactly ${digits} digits before using any randomness`, () => {

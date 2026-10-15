@@ -166,7 +166,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Phone:</TD>
+                                <TD align="left"><label for="t_phone">Phone:</label></TD>
                                 <TD align="left">
 
                                     <INPUT value="<carlos:encode value='<%= props.getProperty("t_phone", "") %>' context="htmlAttribute"/>" id="t_phone" name="t_phone"
@@ -176,7 +176,7 @@
                                 </TD>
                             </TR>
                             <TR>
-                                <TD align="left">Fax:</TD>
+                                <TD align="left"><label for="t_fax">Fax:</label></TD>
                                 <TD align="left">
 
                                     <INPUT value="<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="htmlAttribute"/>" id="t_fax" name="t_fax"
@@ -265,9 +265,12 @@
                 document.forms[0].t_fax.value = "<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="javaScript"/>";
             </script>
             <div id="textareaDiv" style="position: relative;">
+    <%-- A newline straight after the opening tag is dropped by the browser, so one is always emitted: a saved value
+         that itself starts with a line break then survives. The value must sit flush against the closing tag; any
+         newline or indentation before it is saved with the letter and lengthens it on every redisplay + Save
+         (finding 233, #4592). --%>
     <textarea id="comments" name="comments" class="ta1" rows="60">
-<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/>
-    </textarea>
+<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea>
             </div>
             <div id="buttons">
                 <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>

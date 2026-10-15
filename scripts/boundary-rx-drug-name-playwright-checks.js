@@ -46,7 +46,7 @@ async function workflow(s) {
       if (await option.count() === 0) {
         const offered = (await rx.locator('ul.ui-autocomplete li.ui-menu-item').allInnerTexts()).slice(0, 6).map(text => text.replace(/\s+/g, ' ').trim());
         // Report a mismatch already recorded for an earlier product before skipping an unavailable one.
-        h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
+        h.assert(problems.length === 0, `${problems.join('; ')} (#3952: createNewRx and prescribe.jsp must keep the picked name raw and encode it only at output)`);
         // SKIP only for a product that is genuinely absent: any browser problem while searching (script error, console error,
         // failed or bad response) is a failure, and so is a completed search whose JSON lists the product that the menu lacks.
         for (const list of ['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses']) {
@@ -70,7 +70,7 @@ async function workflow(s) {
       const staged = (await rx.locator(`[id="${fresh[0]}"]`).inputValue()).replace(/\s+/g, ' ').trim();
       if (staged !== shown) problems.push(`${item.label}: the autocomplete showed "${shown}" but the staged card is named "${staged}"`);
     }
-    h.assert(problems.length === 0, `${problems.join('; ')} (RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava before rx.setDrugPrescribed)`);
+    h.assert(problems.length === 0, `${problems.join('; ')} (#3952: createNewRx and prescribe.jsp must keep the picked name raw and encode it only at output)`);
   });
 }
 

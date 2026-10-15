@@ -102,6 +102,17 @@ public class DxresearchReport2Action extends ActionSupport {
     /** Prefix used by the JSP provider selector for provider group expansion. */
     private static final String GROUP_PREFIX = "_grp_";
 
+    /**
+     * Request attribute holding the quick-list names the report's "Add Dx QuickList" selector
+     * offers, none of them marked selected.
+     *
+     * <p>Deliberately not the session's {@code allQuickLists}: the patient Disease Registry
+     * ({@code dxSetupResearch2Action}) stores a per-provider handler there with a default list
+     * marked selected. While the report rendered that handler, its selector came back preselected
+     * after any re-render, and the next single-code Add posted the whole list with it (issue #4547).
+     */
+    static final String REPORT_QUICK_LISTS = "dxReportQuickLists";
+
     /** Group name after {@link #GROUP_PREFIX}: alphanumeric/underscore, 1-20 characters (generous upper bound). */
     private static final Pattern GROUP_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]{1,20}$");
 
@@ -172,7 +183,22 @@ public class DxresearchReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report)");
         }
 
-        String method = request.getParameter("method");
+        String result = dispatch(request.getParameter("method"));
+        if (SUCCESS.equals(result)) {
+            // Built for every render of oscarReportDxReg.jsp, never kept in the session: see
+            // REPORT_QUICK_LISTS. A list created elsewhere appears on the next render.
+            request.setAttribute(REPORT_QUICK_LISTS, new dxQuickListBeanHandler());
+        }
+        return result;
+    }
+
+    /**
+     * Routes the {@code method} parameter to its handler. Without one, opens the report with no
+     * results and the previously chosen status filter, when it is still a valid one.
+     *
+     * @return the handler's result; {@code success} renders {@code oscarReportDxReg.jsp}
+     */
+    private String dispatch(String method) {
         if ("patientRegistedAll".equals(method)) {
             return patientRegistedAll();
         } else if ("patientExcelReport".equals(method)) {
@@ -196,8 +222,6 @@ public class DxresearchReport2Action extends ActionSupport {
         }
 
         request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty DxRegistedPTInfo object, no user input
-        dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();
-        request.getSession().setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- DAO-sourced quick list handler, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).

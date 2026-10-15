@@ -62,7 +62,7 @@ class CaseManagementCppSaveRegressionTest {
             "lifestage", "hidecpp", "startdate", "resolutiondate", "proceduredate", "ageatonset"};
     /**
      * The CRS tag groups that read prose as an attack. {@code attack-rfi} is on this list
-     * for the note route even though 1045 and 1050 keep it: 931100 is anchored on the whole
+     * for the note route, as on Letter (1045), even though formHtml (1050) keeps it: 931100 is anchored on the whole
      * argument and fires on a CPP box or note that IS a pasted IP-address link (an internal
      * PACS URL), measured 403 on the packaged install — see the rule's comment.
      */

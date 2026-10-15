@@ -72,9 +72,6 @@ public class EctConDisplayInstitution2Action extends ActionSupport {
             dao.persist(ss);
         }
 
-
-        // EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        // constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
 

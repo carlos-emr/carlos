@@ -206,6 +206,18 @@ a POST that would only be refused is never sent. Cross-origin, `javascript:` and
 forms are never touched. Unit tests are in `scripts/carlos-csrf-form.test.js`; the live
 browser check is `scripts/csrf-runtime-forms-playwright-checks.js`.
 
+A form that arrives in an AJAX fragment can also carry its own token. The Rx allergy
+dialogue (`rx/AddReaction2.jsp`, issue #3355) renders
+`<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>` inside the
+fragment, so the form is tokenised before any client code sees it; the patches above then
+keep that one field current instead of adding a second. `share/javascript/rx-allergy-dialog.js`
+saves that form with `fetch()` and a url-encoded copy of the form's own data set, with no
+`X-Requested-With` header, so the token is validated as a body parameter exactly as for the
+classic post. A refusal is shown in the dialogue with the entered values kept (#3488).
+`scripts/allergy-injected-form-csrf-playwright-checks.js` strips the token from the dialogue
+request's header and from the save's body and asserts the live server answers 403 and writes
+nothing.
+
 ### `X-Requested-With` is a LIST, not a single value
 
 CSRFGuard's client script sets `X-Requested-With` to the value of

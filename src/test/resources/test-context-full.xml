@@ -492,7 +492,6 @@
                 <value>io.github.carlos_emr.carlos.commn.model.ScratchPad</value>
                 <value>io.github.carlos_emr.carlos.commn.model.SecPrivilege</value>
                 <value>io.github.carlos_emr.carlos.commn.model.SnomedCore</value>
-                <value>io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript</value>
                 <value>io.github.carlos_emr.carlos.commn.model.Validations</value>
                 <value>io.github.carlos_emr.carlos.commn.model.WaitingList</value>
                 <value>io.github.carlos_emr.carlos.commn.model.WaitingListName</value>

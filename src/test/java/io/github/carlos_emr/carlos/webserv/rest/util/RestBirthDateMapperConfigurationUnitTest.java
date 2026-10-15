@@ -49,13 +49,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("rest")
 class RestBirthDateMapperConfigurationUnitTest extends CarlosUnitTestBase {
 
+    // Each surface has its own mapper/provider ids: applicationContextREST.xml is loaded into the
+    // same root context as spring_ws.xml, so it cannot reuse spring_ws.xml's ids (issue #3446).
     @ParameterizedTest
     @CsvSource({
-            "spring_ws.xml,1980-06-15", "applicationContextREST.xml,1980-06-15",
-            "spring_ws.xml,1970-01-01", "applicationContextREST.xml,1970-01-01",
-            "spring_ws.xml,NULL", "applicationContextREST.xml,NULL"
+            "spring_ws.xml,jacksonObjectMapper,jsonProvider,1980-06-15",
+            "applicationContextREST.xml,oauthJacksonObjectMapper,oauthJsonProvider,1980-06-15",
+            "spring_ws.xml,jacksonObjectMapper,jsonProvider,1970-01-01",
+            "applicationContextREST.xml,oauthJacksonObjectMapper,oauthJsonProvider,1970-01-01",
+            "spring_ws.xml,jacksonObjectMapper,jsonProvider,NULL",
+            "applicationContextREST.xml,oauthJacksonObjectMapper,oauthJsonProvider,NULL"
     })
-    void shouldHonorDateOnlyBirthDate_whenUsingProductionMapper(String resourceName, String date) throws Exception {
+    void shouldHonorDateOnlyBirthDate_whenUsingProductionMapper(String resourceName, String mapperId,
+            String providerId, String date) throws Exception {
         ClassPathResource resource = new ClassPathResource(resourceName);
         var parser = XmlUtils.createSecureDocumentBuilderFactory();
         parser.setNamespaceAware(true);
@@ -66,7 +72,7 @@ class RestBirthDateMapperConfigurationUnitTest extends CarlosUnitTestBase {
         // Load the real mapper/provider graph, without starting unrelated services.
         // Copying the test-base mapper here would hide drift in spring_ws.xml.
         Element root = document.getDocumentElement();
-        Set<String> selectedBeans = Set.of("jacksonObjectMapper", "jsonProvider");
+        Set<String> selectedBeans = Set.of(mapperId, providerId);
         for (Node child = root.getFirstChild(); child != null; ) {
             Node next = child.getNextSibling();
             if (!(child instanceof Element element && "bean".equals(element.getLocalName())
@@ -78,7 +84,7 @@ class RestBirthDateMapperConfigurationUnitTest extends CarlosUnitTestBase {
         var factory = new DefaultListableBeanFactory();
         try {
             new XmlBeanDefinitionReader(factory).registerBeanDefinitions(document, resource);
-            JacksonJsonProvider provider = factory.getBean("jsonProvider", JacksonJsonProvider.class);
+            JacksonJsonProvider provider = factory.getBean(providerId, JacksonJsonProvider.class);
             ObjectMapper mapper = provider.locateMapper(DemographicTo1.class, MediaType.APPLICATION_JSON_TYPE);
             DemographicTo1 dto = new DemographicTo1();
             if (!"NULL".equals(date)) {

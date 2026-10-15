@@ -29,8 +29,12 @@ async function workflow(s) {
   const docs = {};
   const labs = {};
   s.cleanup(() => {
-    const docIds = Object.values(docs);
-    const labIds = Object.values(labs);
+    // Captured ids plus every row carrying this run's marker: a timed-out mysql call can commit an INSERT before
+    // sql.value returns its id, and such a row must still be removed (with its links), not just reported.
+    const owned = (captured, query) => [...new Set([...captured, ...sql.rows(query).map(([id]) => id)])]
+      .filter(id => /^[1-9]\d*$/.test(String(id)));
+    const docIds = owned(Object.values(docs), `SELECT document_no FROM document WHERE docdesc=${q(marker)}`);
+    const labIds = owned(Object.values(labs), `SELECT lab_id FROM hl7TextMessage WHERE type='BOUNDARY' AND message=${q(marker)}`);
     if (docIds.length) {
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no IN (${docIds.join(',')});
         DELETE FROM ctl_document WHERE module='demographic' AND module_id=${patient} AND document_no IN (${docIds.join(',')});

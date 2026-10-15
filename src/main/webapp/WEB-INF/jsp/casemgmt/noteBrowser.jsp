@@ -582,13 +582,19 @@
 
 
                 <div id="docinfo"></div>
-                <%-- type="image" is a submit control: inside DisplayDoc it also POSTed the form to the
-                     GET-only ViewNoteBrowser gate (405) and replaced the browser. Returning false keeps
-                     Print to its popup only. --%>
-                <div id="printnotesbutton"><input type='image' src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
-                                                  onclick="PrintEncounter(); return false;"
-                                                  title='<fmt:message key="encounter.Index.btnPrint"/>'
-                                                  id="imgPrintEncounter"></div>
+                <%-- Print must not be a submit control (issue #4368). It used to be an image
+                     input, a submit control that inside DisplayDoc also POSTed the form to the
+                     GET/HEAD-only ViewNoteBrowser gate, replacing the note browser with a 405.
+                     A "return false" in onclick only helped while PrintEncounter() ran without
+                     throwing, so it is a type="button" control now: it can never submit the
+                     form, and DisplayDoc is left with no submit control at all (its only POSTs
+                     are the explicit document.DisplayDoc.submit() calls of the mutations). --%>
+                <div id="printnotesbutton"><button type="button" id="imgPrintEncounter"
+                                                   onclick="PrintEncounter();"
+                                                   title='<fmt:message key="encounter.Index.btnPrint"/>'
+                                                   style="border:0;background:none;padding:0;cursor:pointer;"><img
+                        src="<%= request.getContextPath() %>/encounter/graphics/document-print.png"
+                        alt='<fmt:message key="encounter.Index.btnPrint"/>'></button></div>
             </td>
             <td valign="top">
                 <fieldset>

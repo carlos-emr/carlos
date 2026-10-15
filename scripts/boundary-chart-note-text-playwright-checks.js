@@ -4,8 +4,9 @@
  * Special characters in a progress note (wave 6, boundary values).
  * User path: Schedule > Search > Master Record > E-Chart > type into the note > Sign & Save > reopen the E-Chart.
  * Asserts: a note with an apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+", ";",
- * a long line, typed between a leading and a trailing blank line, is stored (utf8mb4, no "?" substitution, no
- * entity or encoding damage) and the reopened chart shows the same text. The body is compared exactly with the
+ * a literal "</textarea>" terminator, a long line, typed between a leading and a trailing blank line, is stored
+ * (utf8mb4, no "?" substitution, no entity or encoding damage), the reopened chart shows the whole body in order,
+ * and the note's Edit link loads it into the editor as text (the terminator does not close the textarea). The body is compared exactly with the
  * browser's own normalisation of the typed text; whether the application keeps or trims the outer blank lines
  * is logged, not asserted (it trims them, which is harmless for a signed note).
  * Fixtures: the owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with
@@ -41,7 +42,7 @@ async function workflow(s) {
   const lines = [
     `${marker} ${T.apostrophe} ${T.latin}`,
     `${T.cjk} ${T.emoji} ${T.entity} ${T.quotes}`,
-    `${T.backslash} ${T.percent} ${T.plus} ${T.semicolon} <not a tag> 5 < 6 > 4`,
+    `${T.backslash} ${T.percent} ${T.plus} ${T.semicolon} <not a tag> </textarea> 5 < 6 > 4`,
     `${'long line of words '.repeat(60)}end`,
   ];
   // Explicit leading and trailing blank lines: the boundary whitespace is part of what the note must keep.
@@ -88,9 +89,26 @@ async function workflow(s) {
     await chart.locator('#encMainDiv').first().waitFor({ state: 'attached', timeout: 30000 });
     await chart.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     const shown = (await chart.locator('#encMainDiv').first().innerText()).replace(/\s+/g, ' ');
-    const missing = [T.apostrophe, T.latin, T.cjk, T.emoji, T.entity, T.quotes, T.backslash, T.percent, T.plus, T.semicolon, '<not a tag> 5 < 6 > 4']
+    const missing = [T.apostrophe, T.latin, T.cjk, T.emoji, T.entity, T.quotes, T.backslash, T.percent, T.plus, T.semicolon, '<not a tag> </textarea> 5 < 6 > 4']
       .filter(token => !shown.includes(token));
     h.assert(missing.length === 0, `The reopened chart does not show these note fragments as typed: ${missing.join(' | ')}`);
+    // The fragments alone would accept a truncated or reordered note: the whole body, in order, must be shown.
+    h.assert(shown.includes(typed.trim().replace(/\s+/g, ' ')), 'The reopened chart does not show the complete note body in order (truncated or reordered)');
+  });
+
+  await s.step('the saved note\'s Edit link loads the body, "</textarea>" included, into the editor as text', async () => {
+    const chart = await s.chart();
+    const noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: marker }).last();
+    const editLink = noteDiv.locator('a[id^="edit"]').first();
+    await editLink.waitFor({ state: 'visible', timeout: 30000 });
+    await editLink.click();
+    const editor = noteDiv.locator(NOTE);
+    await editor.first().waitFor({ state: 'visible', timeout: 30000 });
+    h.assert(await editor.count() === 1, 'The Edit link did not open exactly one editor for the note');
+    // A terminator that escaped encoding would end the textarea early: its value would stop before "</textarea>".
+    const loaded = (await editor.inputValue()).replace(/\r\n/g, '\n');
+    h.assert(loaded.includes(typed.trim()), 'The editor opened by the Edit link does not hold the saved note body verbatim');
+    // Nothing is saved: closing drops the edit; cleanup removes the lock and any autosave row.
     await chart.close().catch(() => {});
   });
 }

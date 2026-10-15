@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action;
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -351,6 +352,10 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Inbox queue admin (#4428): the view methods permit GET; method=addNewQueue inserts a queue
+        // and its security object and must be a POST with _edoc write. Covered by
+        // DmsInboxManage2ActionUnitTest (shouldReturn405_whenAddNewQueueIsNotPost).
+        "io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action",
         // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
         // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
         "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",
@@ -780,6 +785,9 @@ class MutatorActionGetRejectionContractUnitTest {
             throws Exception {
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
+        if (actionClass.equals(RestoreEForm2Action.class)) {
+            return new RestoreEForm2Action(mock(SecurityInfoManager.class));
         }
         if (actionClass.equals(ERefer2Action.class)) {
             return new ERefer2Action(mock(SecurityInfoManager.class),

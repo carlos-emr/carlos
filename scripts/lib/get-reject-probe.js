@@ -51,6 +51,12 @@ function multipartFields(buffer, contentType) {
 /**
  * Run `act` and capture the first POST (or, with method:null, any request) it sends whose
  * URL satisfies `match`. Returns {path, params, method, status}; params = query + body.
+ *
+ * For a check that replays the request as a POST (lib/mutation-replay.js) the capture also
+ * carries what a faithful replay needs and a GET replay does not: `query` and `body` kept apart
+ * (body = the urlencoded or multipart text fields), the request `headers` (lower-case names, so
+ * whether the page sent the CSRF-TOKEN as a header is known), its `contentType` and its raw
+ * `postData` (a JSON body, which has no fields).
  */
 async function captureRequest(page, match, act, { timeout = 20000, method = 'POST' } = {}) {
   // method: null captures whatever verb the page used (to prove a page that WRITES by GET).
@@ -60,24 +66,32 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   const request = await requested;
   const url = new URL(request.url());
   const params = new URLSearchParams(url.search);
-  const type = (await request.allHeaders())['content-type'] || '';
+  const body = new URLSearchParams();
+  const headers = await request.allHeaders();
+  const type = headers['content-type'] || '';
   if (/application\/x-www-form-urlencoded/i.test(type)) {
-    for (const [k, v] of new URLSearchParams(request.postData() || '')) params.append(k, v);
+    for (const [k, v] of new URLSearchParams(request.postData() || '')) body.append(k, v);
   } else if (/multipart\/form-data/i.test(type)) {
-    for (const [k, v] of multipartFields(request.postDataBuffer(), type)) params.append(k, v);
+    for (const [k, v] of multipartFields(request.postDataBuffer(), type)) body.append(k, v);
   }
+  for (const [k, v] of body) params.append(k, v);
   const response = await request.response().catch(() => null);
-  return { path: url.pathname, params, method: request.method(), status: response ? response.status() : 0 };
+  return {
+    path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
+    query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
+  };
 }
 
 /**
  * Copy captured params for a GET replay: CSRF-TOKEN and empty values are dropped,
  * `overrides` (object; null deletes a key, an array sets repeated values) applied.
+ * keepEmpty: true keeps empty values, for a POST replay whose action treats an absent field
+ * differently from an empty one (the request line length is no concern there).
  */
-function replayParams(params, overrides = {}) {
+function replayParams(params, overrides = {}, { keepEmpty = false } = {}) {
   const out = new URLSearchParams();
   for (const [k, v] of params) {
-    if (k === 'CSRF-TOKEN' || v === '' || Object.prototype.hasOwnProperty.call(overrides, k)) continue;
+    if (k === 'CSRF-TOKEN' || (v === '' && !keepEmpty) || Object.prototype.hasOwnProperty.call(overrides, k)) continue;
     out.append(k, v);
   }
   for (const [k, v] of Object.entries(overrides)) {
@@ -87,12 +101,10 @@ function replayParams(params, overrides = {}) {
   return out;
 }
 
-/** A header the application's own filters add to every response and the WAF's nginx error page lacks. */
-const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
-
-function isWafPage(status, body) {
-  return status === 403 && /ModSecurity|<center>nginx<\/center>/i.test(body || '');
-}
+// One definition of the application header and of the WAF's block page, shared with
+// h.assertRefused() so the GET-reject ledger and the single-request refusal assertion cannot
+// disagree about what a WAF page looks like. isWafPage stays exported from here for callers.
+const { APPLICATION_HEADER, isWafPage } = h;
 
 /**
  * Ledger of probes. Each probe snapshots, sends GET then HEAD, re-snapshots, and
@@ -119,23 +131,25 @@ function createLedger(name) {
         // response: its own filters add X-Permitted-Cross-Domain-Policies to every response, which
         // the WAF's nginx error page (and any blank or custom proxy answer) does not carry. This
         // works for HEAD too, where there is no body to recognise a WAF page by. An unmarked 403 is
-        // inconclusive. A 405 is always a refusal.
+        // inconclusive. A 405 needs the same evidence (h.assertRefused() judges both alike): the nginx front door
+        // and the container's default servlet answer 405 too, and neither says anything about the route.
         const fromApplication = Object.prototype.hasOwnProperty.call(response.headers(), APPLICATION_HEADER);
         const unverified403 = status === 403 && !waf && !fromApplication;
-        const refused = status === 405 || (status === 403 && !waf && fromApplication);
-        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 ? ' (unverified origin)' : ''}`);
+        const unverified405 = status === 405 && !fromApplication && !(body && h.isApplicationErrorPage(body));
+        const refused = (status === 405 && !unverified405) || (status === 403 && !waf && fromApplication);
+        entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never
         // answered the question: it must not read as "refused" just because the rows are unchanged.
         if (waf) entry.blocked = true;
         if (status >= 500) entry.errored = true;
-        if (unverified403) entry.unverified = true;
+        if (unverified403 || unverified405) entry.unverified = true;
         // requireStatus=false: an include()d gate cannot set a status (the container ignores
         // sendError inside an include), so only the absence of a write can be asserted.
         if (!refused && requireStatus) entry.open = true;
       }
       entries.push(entry);
-      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 of unverified origin']
+      const flaws = [entry.blocked && 'WAF block', entry.errored && 'server error', entry.unverified && '403 or 405 of unverified origin']
         .filter(Boolean).join(', ');
       const verdict = entry.changed ? `WROTE (${entry.changedBy.join('/')})`
         : flaws ? `INCONCLUSIVE (${flaws})`

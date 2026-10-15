@@ -210,7 +210,12 @@ function ownedProviderIds(db, state) {
 function ownedDisks(db, state, providers) {
   if (!providers.length || !state.groupNo) return [];
   const ids = providers.map(sqlString).join(',');
-  return db.rows(`SELECT d.id, d.ohipfilename FROM billing_on_diskname d WHERE d.groupno=${sqlString(state.groupNo)}`
+  // A regression fixture may exercise the legacy malformed-group fallback (empty string).
+  // Group keys alone never establish ownership: every disk member must also belong to this run.
+  const groupFilter = state.cleanupGroupNumbers
+    ? `d.groupno IN (${state.cleanupGroupNumbers.map(sqlString).join(',')})`
+    : `d.groupno=${sqlString(state.groupNo)}`;
+  return db.rows(`SELECT d.id, d.ohipfilename FROM billing_on_diskname d WHERE ${groupFilter}`
     + ` AND EXISTS (SELECT 1 FROM billing_on_filename f WHERE f.disk_id=d.id AND f.providerno IN (${ids}))`
     + ` AND NOT EXISTS (SELECT 1 FROM billing_on_filename f WHERE f.disk_id=d.id AND (f.providerno IS NULL OR f.providerno NOT IN (${ids})))`);
 }
@@ -442,7 +447,11 @@ async function main() {
       + ` WHERE d.groupno=${sqlString(state.groupNo)} AND f.providerno=${sqlString(EMPTY.providerNo)}`
       + ` AND d.id<>${ZERO.diskId}`);
     assert(emptyDisks.length === 1, 'Expected one empty-provider allocation');
-    assert(!fs.existsSync(path.join(diskDir, emptyDisks[0][0])), 'Empty provider produced an OHIP file');
+    // OSCAR 19 contract: the listed disk has a download even when no member had a
+    // claim item; the file carries no batch (no HEB/HET records) and nothing is billed.
+    const emptyFile = path.join(diskDir, emptyDisks[0][0]);
+    assert(fs.existsSync(emptyFile), 'Empty provider disk has no OHIP file to download');
+    assert(!/HE[BHRTE]/.test(fs.readFileSync(emptyFile, 'latin1')), 'Empty provider OHIP file carries batch records');
 
     assertStrictPage(recorder);
     console.log('  Overlapping export/regeneration refused without mutation; ZERO and PAID exported separately; NULL fields accepted; ZERO regenerated; EMPTY omitted');
@@ -468,4 +477,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { shiftDays, isoDate, createFixture, removeFixture, removeOwnedFiles, checkedDiskDirectory, cleanupResources };
+module.exports = { shiftDays, isoDate, createFixture, removeFixture, removeOwnedFiles, checkedDiskDirectory, cleanupResources, generateProviderDisk, unusedNumber };

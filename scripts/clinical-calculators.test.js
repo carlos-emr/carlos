@@ -342,6 +342,9 @@ test('the run refuses to report success having computed nothing', () => {
   assert.match(SOURCE, /fracture\.computed\.length >= 5/);
   assert.match(SOURCE, /fracture\.refused\.length >= 6 && coronary\.refused\.length >= 7/);
   assert.match(SOURCE, /arithmetic\.length >= 4/);
+  assert.match(SOURCE, /risk\.refused\.length >= 8/);
+  const { FRAMINGHAM_REFUSALS, UKPDS_REFUSALS } = require('./clinical-calculators-playwright-checks');
+  assert.ok(FRAMINGHAM_REFUSALS.length + UKPDS_REFUSALS.length >= 8, 'the risk-calculator floor must be reachable');
   assert.ok(FRACTURE_CASES.length >= 5, 'the floor must be reachable');
   // The fracture page refuses INVALID_AGE_CASES plus the below-table age.
   assert.ok(INVALID_AGE_CASES.length + 1 >= 6 && INVALID_AGE_CASES.length >= 5, 'the floor must be reachable');
