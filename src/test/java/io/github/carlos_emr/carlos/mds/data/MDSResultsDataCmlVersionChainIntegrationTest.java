@@ -22,6 +22,10 @@
 package io.github.carlos_emr.carlos.mds.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.DisplayName;
@@ -122,6 +126,60 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
 
         assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(requested)))
                 .isEqualTo(String.valueOf(requested));
+    }
+
+    @Test
+    @DisplayName("should give a report without a print header a chain of its own, and keep it out of its siblings'")
+    void shouldGiveReportWithoutPrintHeaderItsOwnChain_whenSiblingsHaveOne() throws Exception {
+        // The lookup orders by the print header, so a report without one cannot be placed among its siblings.
+        // Chaining the siblings to it anyway would forward or file a report other than the one that was opened.
+        int sibling = version(ACCESSION, "20260901", "20260901", "09:30");
+        LabPatientPhysicianInfo orphan = new LabPatientPhysicianInfo();
+        EntityDataGenerator.generateTestDataForModelClass(orphan);
+        orphan.setLabReportInfoId(0);
+        orphan.setAccessionNum(ACCESSION);
+        orphan.setServiceDate("20260901");
+        labPatientPhysicianInfoDao.persist(orphan);
+        entityManager.flush();
+
+        assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(orphan.getId()))).isEqualTo(String.valueOf(orphan.getId()));
+        assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling))).isEqualTo(String.valueOf(sibling));
+        assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(sibling), true)).isEqualTo(String.valueOf(sibling));
+        // A mutation starting from the orphan refuses: its sibling exists, and it cannot be placed beside it.
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs(String.valueOf(orphan.getId()), true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
+    }
+
+    @Test
+    @DisplayName("should order reports that share a print run by id, the order they were imported, when print date and time tie")
+    void shouldOrderTiedReportsById_whenTheyShareAPrintRun() throws Exception {
+        // One ABCD file is one print header, so every report in it ties on print date and time. Without a
+        // tie-breaker the database may return them in any order, and acknowledging one files "the older ones".
+        LabReportInformation header = new LabReportInformation();
+        header.setLocationId("70");
+        header.setPrintDate("20260901");
+        header.setPrintTime("09:30");
+        header.setTotalBType("3");
+        header.setTotalCType("3");
+        header.setTotalDType("0");
+        entityManager.persist(header);
+        entityManager.flush();
+        List<Integer> importOrder = new ArrayList<>();
+        for (String serviceDate : new String[] {"20260901", "20260902", "20260903"}) {
+            LabPatientPhysicianInfo info = new LabPatientPhysicianInfo();
+            EntityDataGenerator.generateTestDataForModelClass(info);
+            info.setLabReportInfoId(header.getId());
+            info.setAccessionNum(ACCESSION);
+            info.setServiceDate(serviceDate);
+            labPatientPhysicianInfoDao.persist(info);
+            importOrder.add(info.getId());
+        }
+        entityManager.flush();
+        String chain = importOrder.get(0) + "," + importOrder.get(1) + "," + importOrder.get(2);
+
+        for (int requested : importOrder) {
+            assertThat(new MDSResultsData().getMatchingCMLLabs(String.valueOf(requested))).isEqualTo(chain);
+        }
     }
 
     @ParameterizedTest(name = "accession number [{0}]")

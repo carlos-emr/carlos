@@ -155,6 +155,17 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
     }
 
+    @Test
+    @DisplayName("should refuse to resolve a chain for a mutation when a sibling's service date cannot be read")
+    void shouldRefuseChain_whenResolvingForMutationAndASiblingDateCannotBeRead() {
+        // The strict form exists so that an atomic mutation never proceeds on a chain it had to guess: leaving the
+        // sibling out would match or route some versions of the order and not the others.
+        daoReturns(42, row(41, "not-a-date", "20260901"), row(42, "20260901", "20260901"));
+
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
+    }
+
     @ParameterizedTest(name = "requested report has service date [{0}]")
     @NullAndEmptySource
     @ValueSource(strings = {"   ", "0000-00-00", "2026", "2026090", "20260230", "20260901xyz"})
@@ -164,7 +175,9 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
         daoReturns(42, row(41, "20260831", requestedDate), row(42, requestedDate, requestedDate));
 
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
-        assertThat(new MDSResultsData().getMatchingCMLLabs("42", true)).isEqualTo("42");
+        // ... but it cannot be placed against its siblings, so a mutation refuses rather than guesses.
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
     @Test
@@ -176,6 +189,29 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
 
         assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
         assertThat(new MDSResultsData().getMatchingCMLLabs("42", true)).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should return only the requested report when the lookup could not place it among its siblings")
+    void shouldReturnRequestedReportAlone_whenTheLookupOmitsIt() {
+        // The lookup joins the print header to the sibling, not to the selected report, so a selected report without
+        // a header is missing from its own rows while a sibling is not. Forwarding the sibling instead of the report
+        // the clinician opened, or a chain that lacks the selected report, are both wrong: it has no chain.
+        daoReturns(42, row(41, "20260831", "20260901"));
+
+        assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("42");
+    }
+
+    @Test
+    @DisplayName("should refuse to resolve a chain for a mutation when the lookup could not place the requested report")
+    void shouldRefuseChain_whenResolvingForMutationAndTheLookupOmitsTheRequestedReport() {
+        // A sibling exists but the requested report was not placed: matching or routing the sibling alone would
+        // act on another report than the one that was opened, and acting on the requested report alone would
+        // leave the order's other versions behind.
+        daoReturns(42, row(41, "20260831", "20260901"));
+
+        assertThatThrownBy(() -> new MDSResultsData().getMatchingCMLLabs("42", true))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
     @Test

@@ -611,21 +611,35 @@ public class MDSResultsData {
      * <p>A sibling whose date (or the selected report's date) cannot be read is left out, not assumed
      * to belong: the chain is acted on, not merely displayed, since acknowledging or forwarding a
      * report files or routes every version in it, and a recycled accession number would otherwise pull in
-     * an unrelated report nobody has read. The selected report is always part of its own chain.
+     * an unrelated report nobody has read. The selected report is always part of its own chain, and when the
+     * lookup cannot place it among its siblings it is the whole chain.
+     *
+     * <p>That is best effort, which is right for display, acknowledging and forwarding but not for an atomic
+     * mutation: with {@code failOnLookupError} a chain that would have to be guessed (a date that cannot be
+     * read, or a selected report the lookup could not place beside siblings that exist) is refused with an
+     * {@link IllegalStateException}, because leaving a version out would act on some versions of an order and
+     * not the others. A report with no siblings to find (no accession number) is simply its own chain.
      *
      * @param labId selected report identifier
      * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
      * @return versions in print order, oldest first
+     * @throws IllegalStateException when {@code failOnLookupError} is set and the lookup fails or the chain
+     *         cannot be determined
      */
     public String getMatchingCMLLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         int unreadable = 0;
+        boolean selectedPlaced = false;
+        boolean siblingFound = false;
         try {
             Integer selectedId = ConversionUtils.fromIntString(labId);
             for (Object[] o : labPPIDao.findLabServiceDatesByLabId(selectedId)) {
                 Integer id = (Integer) o[0];
 
-                if (!selectedId.equals(id)) {
+                if (selectedId.equals(id)) {
+                    selectedPlaced = true;
+                } else {
+                    siblingFound = true;
                     Date siblingDate = parseCmlServiceDate((String) o[1]);
                     Date selectedDate = parseCmlServiceDate((String) o[2]);
                     if (siblingDate == null || selectedDate == null) {
@@ -655,14 +669,22 @@ public class MDSResultsData {
             logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
+        if (failOnLookupError && (unreadable > 0 || (!selectedPlaced && siblingFound))) {
+            // Never a lookup error, and never a PHI-bearing message: it only says the chain was not decidable.
+            throw new IllegalStateException("Lab version chain could not be determined");
+        }
+        if (!selectedPlaced) {
+            // The lookup could not place the selected report among its siblings: it has no accession number to
+            // match on, or no print header to order it by (the header is joined to the sibling, so a sibling can
+            // come back without it). A report that cannot be placed has no versions, and adding it to a siblings'
+            // chain at a guessed position would file or forward a report other than the one that was opened.
+            // It is its own chain; the report page renders its acknowledgement status from this chain, so an
+            // empty one would hide it.
+            return labId;
+        }
         if (unreadable > 0) {
             // A count only: neither a report number nor a date belongs in the log.
             logger.warn("CML version lookup left out {} report(s) whose service date could not be read", unreadable);
-        }
-        if (ret.equals("")) {
-            // No accession number to match on, or no print header: the report is its own only version. The
-            // report page renders its acknowledgement status from this chain, and an empty one hides it.
-            return labId;
         }
         return ret;
     }

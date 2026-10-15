@@ -91,7 +91,9 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
                 // without one has no other versions, and joining on it would chain unrelated patients' reports.
                 "AND TRIM(lpp2.accessionNum) <> '' " +
                 "AND tr.id = lpp.labReportInfoId " +
-                "ORDER BY tr.printDate, tr.printTime";
+                // Every report of one ABCD file shares its print header, so print date and time tie. The report id
+                // (import order) decides: acknowledging a report files whatever precedes it as an older version.
+                "ORDER BY tr.printDate, tr.printTime, lpp.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter("labId", labId);
         return query.getResultList();
