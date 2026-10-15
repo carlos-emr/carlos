@@ -37,7 +37,9 @@
     again on every filter or save reload. newEncounterLayout.jsp must never also
     include it server-side; that produced two note panels per chart. Displays
     filtered and sorted clinical notes for a patient, with inline editing, issue
-    assignment, and template insertion.
+    assignment, and template insertion. Patient-specific links (Browse Notes) use
+    the patient this request carries; the login-wide EctSessionBean supplies entry
+    metadata only when it belongs to this chart's patient (issue #4556).
 
     The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
     from truncating large AJAX forward responses. Without it, the
@@ -94,6 +96,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
@@ -154,8 +157,19 @@
             response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
             return;
         }
+        // The session bean follows whichever chart was entered last in any window of this login
+        // (issue #4556). Only this chart's own patient may supply its entry metadata; links that
+        // name a patient use the patient this request carries.
+        String chartPatientNo;
+        try {
+            chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            chartPatientNo = null;
+        }
+        boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
+        pageContext.setAttribute("chartPatientNo", chartPatientNo);
 
-        String provNo = bean.providerNo;
+        String provNo = ownChartBean ? bean.providerNo : loggedInInfo.getLoggedInProviderNo();
         String dateFormat = "dd-MMM-yyyy H:mm";
         SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
         Date dToday = new Date();
@@ -633,7 +647,8 @@
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
-                        if (bean.source == null) {
+                        // A chart entered from the messenger hides Bill; another window's entry must not.
+                        if (!ownChartBean || bean.source == null) {
                     %>
                     <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
@@ -656,9 +671,11 @@
         </div>
         <div class="row">
             <div id="note-control-panel">
+                <c:if test="${not empty chartPatientNo}">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser${carlos:forJavaScriptAttribute(chartPatientNo)}','casemgmt/ViewNoteBrowser?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}&FirstTime=1');">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
+                </c:if>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
                 <button type="button" onclick="toggleCollapseViewForAll();"><fmt:message key="encounter.Index.btnCollapseLoadedNotes"/></button>

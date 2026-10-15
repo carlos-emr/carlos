@@ -33,6 +33,7 @@ import java.util.List;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
+import io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
@@ -58,7 +59,7 @@ public class Hl7ObrDao extends AbstractDaoImpl<Hl7Obr> {
     }
 
     public List<Object[]> findMinResultStatusByMessageId(Integer messageId) {
-        String sql = "SELECT MIN(obr.resultStatus) FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx " +
+        String sql = "SELECT " + PathNetLabResults.REPORT_STATUS_HQL + " FROM Hl7Pid pid, Hl7Obr obr, Hl7Obx obx " +
                 "WHERE obr.pidId = pid.id " +
                 "AND obx.obrId = obr.id " +
                 "AND pid.messageId = ?1";
