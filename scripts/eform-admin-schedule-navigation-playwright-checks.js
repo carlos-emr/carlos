@@ -23,6 +23,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   appUrl,
   assert,
@@ -265,7 +266,7 @@ async function importZip(page, zipPath) {
     context = await browser.newContext({
       acceptDownloads: true,
       // The packaged deployment serves a self-signed certificate by default.
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1400 },
     });
     const landingPage = await login(context, config, recorder);

@@ -61,6 +61,24 @@ class EctDeleteMeasurementStyleSheet2ActionIntegrationTest extends CarlosTestBas
         }
     }
 
+    @Test
+    void shouldDeleteTheStyleSheetRow_whenNoGroupMapsIt() throws Exception {
+        MeasurementCSSLocation unused = location();
+        MeasurementCSSLocation inUse = location();
+        MeasurementGroupStyle mapping = style(inUse.getId());
+        try {
+            assertThat(execute("POST", unused.getId(), new MockHttpServletResponse())).isEqualTo("success");
+            assertThat(locations.find(unused.getId())).isNull();
+            // The in-use refusal needs a Struts ActionContext for getText; the unit test covers it.
+            assertThat(locations.find(inUse.getId())).isNotNull();
+            assertThat(styles.find(mapping.getId())).isNotNull();
+        } finally {
+            styles.remove(mapping.getId());
+            locations.remove(unused.getId());
+            locations.remove(inUse.getId());
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD", "post", "PoSt", "PO\u017fT"})
     void shouldPreserveTheOrphan_whenTheRequestMethodIsUnsafe(String method) throws Exception {

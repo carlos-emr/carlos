@@ -107,8 +107,11 @@
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
                 s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-                s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
-                s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
+                // Lock flags change only when the form says the checkboxes were editable; they are
+                // disabled while MFA is ticked and absent without the legacy PIN section
+                // (finding 62 / #4503).
+                SecurityUpdatePinHandler.applyLockFlags(s, "1".equals(request.getParameter("lockFlagsEditable")),
+                        request.getParameter("b_LocalLockSet"), request.getParameter("b_RemoteLockSet"));
 
                 if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(newPassword)) {
                     s.setPassword(securityManager.encodePassword(newPassword));

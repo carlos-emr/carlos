@@ -75,6 +75,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const h = require('./lib/playwright-harness');
 const fs = require('fs');
@@ -270,7 +271,7 @@ async function main({ cancellation }) {
     assert(provider, 'the configured test login has no provider');
     demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);
     // The window of the server journal this run is judged on (step 6).
     const windowStart = new Date(Date.now() - 2000);

@@ -87,6 +87,7 @@
 
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -530,7 +531,7 @@ async function runFreeTextChecks() {
   // billing-on-third-party and allergy-rx-alert, and the same loopback test as
   // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
     acceptDownloads: true,
   });
 
