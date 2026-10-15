@@ -111,4 +111,59 @@ class SaveClinicEmailFooter2ActionUnitTest {
         }
         assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=stale");
     }
+
+    // Ben's demo (15 Oct): a refused save must not lose what the administrator typed.
+    private ClinicFooterDraft refuseTypedFooter(RuntimeException refusal, ClinicEmailFooterService.SaveResult result)
+            throws Exception {
+        prepare(true);
+        String shown = ClinicEmailFooterService.fingerprint("Clinic");
+        request.setParameter("clinicFooter", "<b>FAKE typed footer</b>");
+        var save = when(footers.save("<b>FAKE typed footer</b>", shown));
+        if (refusal != null) {
+            save.thenThrow(refusal);
+        } else {
+            save.thenReturn(result);
+        }
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            action.execute();
+        }
+        return ClinicFooterDraft.take(request);
+    }
+
+    @Test
+    void shouldKeepTypedFooter_whenTheSaveIsInvalid() throws Exception {
+        ClinicFooterDraft draft = refuseTypedFooter(new IllegalArgumentException("Clinic footer is too long"), null);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=invalid");
+        assertThat(draft).isEqualTo(new ClinicFooterDraft("<b>FAKE typed footer</b>",
+                ClinicEmailFooterService.fingerprint("Clinic"), false));
+    }
+
+    @Test
+    void shouldKeepTypedFooter_whenTheSaveConflicts() throws Exception {
+        ClinicFooterDraft draft = refuseTypedFooter(new jakarta.persistence.OptimisticLockException("FAKE"), null);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=conflict");
+        assertThat(draft).isNotNull();
+        assertThat(draft.stale()).isFalse();
+    }
+
+    @Test
+    void shouldKeepTypedFooterBesideTheCurrentOne_whenAnotherAdministratorChangedIt() throws Exception {
+        ClinicFooterDraft draft = refuseTypedFooter(null, ClinicEmailFooterService.SaveResult.STALE);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=stale");
+        assertThat(draft).isNotNull();
+        assertThat(draft.stale()).isTrue();
+    }
+
+    @Test
+    void shouldKeepNothing_whenTheFooterIsSaved() throws Exception {
+        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(refuseTypedFooter(null, ClinicEmailFooterService.SaveResult.SAVED)).isNull();
+        }
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=saved");
+    }
 }

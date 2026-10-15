@@ -59,6 +59,10 @@ import org.apache.struts2.interceptor.ValidationWorkflowAware;
  * what happened: {@code logoSaved}, {@code logoRemoved} or {@code logoError} with a fixed reason
  * code. Each change is audited (who and when, not the picture).</p>
  *
+ * <p>The page's clinic footer is a separate form, so the logo form also carries any footer text
+ * typed but not yet saved ({@link ClinicFooterDraft}); whatever happens to the logo, the page comes
+ * back with that text in the editor, still unsaved.</p>
+ *
  * @since 2026-10-08
  */
 public class SaveClinicEmailLogo2Action extends ActionSupport implements UploadedFilesAware, ValidationWorkflowAware {
@@ -103,6 +107,9 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String action = request.getParameter(ACTION_PARAM);
+        if ("upload".equals(action) || "remove".equals(action)) {
+            keepFooterDraft(request);
+        }
         if ("upload".equals(action)) {
             if (uploadFailed) {
                 return backToPage(request, response, "logoError=" + Rejection.UPLOAD_FAILED.name());
@@ -142,6 +149,11 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         return NONE;
     }
 
+    private static void keepFooterDraft(HttpServletRequest request) {
+        ClinicFooterDraft.keep(request, request.getParameter(ClinicFooterDraft.HTML_PARAM),
+                request.getParameter(ClinicFooterDraft.FINGERPRINT_PARAM), false);
+    }
+
     // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's context path, a fixed route
     // and a fixed outcome code (a literal or an enum name); no request text reaches the URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Fixed internal route with a fixed outcome code")
@@ -163,6 +175,12 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
     @Override
     public String getInputResultName() {
         HttpServletRequest request = ServletActionContext.getRequest();
+        // execute never runs on this path (Struts refused the file), so the footer text is kept here,
+        // for an administrator who could have saved it.
+        LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (user != null && securityInfoManager.hasPrivilege(user, "_admin", SecurityInfoManager.WRITE, null)) {
+            keepFooterDraft(request);
+        }
         while (request instanceof HttpServletRequestWrapper wrapper) {
             if (request instanceof MultiPartRequestWrapper multipart) {
                 if (multipart.hasErrors()) {

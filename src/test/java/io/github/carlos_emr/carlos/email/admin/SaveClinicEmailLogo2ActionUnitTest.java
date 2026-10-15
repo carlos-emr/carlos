@@ -294,6 +294,69 @@ class SaveClinicEmailLogo2ActionUnitTest {
         verifyNoInteractions(logoService);
     }
 
+    // Ben's demo (15 Oct): footer text typed but not saved must survive the logo form's reload.
+    private static final String SHOWN = io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint("FAKE saved footer");
+
+    @Test
+    @DisplayName("should keep footer text typed but not saved when a logo is refused")
+    void shouldKeepUnsavedFooterText_whenTheLogoIsRefused() throws Exception {
+        allowAdminWrite();
+        request.addParameter("logoAction", "upload");
+        request.addParameter(ClinicFooterDraft.HTML_PARAM, "<b>FAKE typed footer</b>");
+        request.addParameter(ClinicFooterDraft.FINGERPRINT_PARAM, SHOWN);
+        SaveClinicEmailLogo2Action action = action();
+        action.withUploadedFiles(List.of(upload("logoFile", new byte[EmailFooterLogoService.MAX_BYTES + 1])));
+
+        action.execute();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoError=TOO_BIG");
+        assertThat(ClinicFooterDraft.take(request))
+                .isEqualTo(new ClinicFooterDraft("<b>FAKE typed footer</b>", SHOWN, false));
+        verifyNoInteractions(logoService);
+    }
+
+    @Test
+    @DisplayName("should keep footer text typed but not saved when the logo is removed, and nothing unchanged")
+    void shouldKeepOnlyChangedFooterText_whenTheLogoIsRemoved() throws Exception {
+        allowAdminWrite();
+        request.addParameter("logoAction", "remove");
+        request.addParameter(ClinicFooterDraft.HTML_PARAM, "FAKE typed footer");
+        request.addParameter(ClinicFooterDraft.FINGERPRINT_PARAM, SHOWN);
+        when(logoService.remove("999998")).thenReturn(true);
+
+        action().execute();
+        assertThat(ClinicFooterDraft.take(request)).isNotNull();
+
+        request.setParameter(ClinicFooterDraft.HTML_PARAM, "FAKE saved footer");
+        response = new MockHttpServletResponse();
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+        action().execute();
+        assertThat(ClinicFooterDraft.take(request)).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep footer text when Struts refuses the file before execute, for administrators only")
+    void shouldKeepUnsavedFooterText_whenStrutsRefusesTheFile() throws Exception {
+        org.springframework.mock.web.MockHttpSession session = new org.springframework.mock.web.MockHttpSession();
+        request.setSession(session);
+        MultiPartRequestWrapper multipart = mock(MultiPartRequestWrapper.class);
+        when(multipart.hasErrors()).thenReturn(true);
+        when(multipart.getErrors()).thenReturn(List.of(new LocalizedMessage(getClass(),
+                "struts.messages.upload.error.FileUploadSizeException", "Upload refused", new Object[0])));
+        when(multipart.getFileParameterNames()).thenReturn(Collections.emptyEnumeration());
+        when(multipart.getParameter(ClinicFooterDraft.HTML_PARAM)).thenReturn("FAKE typed footer");
+        when(multipart.getParameter(ClinicFooterDraft.FINGERPRINT_PARAM)).thenReturn(SHOWN);
+        when(multipart.getSession()).thenReturn(session);
+
+        assertThat(runUploadInterceptors(multipart)).isEqualTo("uploadTooBig");
+        assertThat(ClinicFooterDraft.take(request)).as("no _admin write").isNull();
+
+        allowAdminWrite();
+        assertThat(runUploadInterceptors(multipart)).isEqualTo("uploadTooBig");
+        assertThat(ClinicFooterDraft.take(request)).isEqualTo(new ClinicFooterDraft("FAKE typed footer", SHOWN, false));
+        verifyNoInteractions(logoService);
+    }
+
     // Use Struts' real file binding/validation and workflow; only the text provider and
     // servlet multipart parser are fixtures. An error must stop before execute/save/audit.
     private String runUploadInterceptors(MultiPartRequestWrapper multipart) throws Exception {

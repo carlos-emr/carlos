@@ -54,7 +54,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * here is the policy contract: a route or argument that leaves the exclusion file without
  * leaving this table fails the build, and vice versa.</p>
  *
- * <p>The clinic footer rule 1144 reuses the same per-argument six-tag scope for its admin POST.
+ * <p>The clinic footer rule 1144 reuses the same per-argument six-tag scope for its admin POST, and
+ * 1145 for the same unsaved footer text carried by the logo form.
  * These tests pin that scope; they do not establish a new front-door ModSecurity runtime result.</p>
  *
  * @since 2026-09-11
@@ -157,6 +158,7 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
                 // Mandatory clinic footer prose is configured only through this admin POST.
                 Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")),
+                Arguments.of("1145", "/carlos/admin/saveClinicEmailLogo", "POST", List.of("clinicFooterDraft")),
                 Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")));
     }
 

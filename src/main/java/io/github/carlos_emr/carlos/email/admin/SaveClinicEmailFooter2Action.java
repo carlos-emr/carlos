@@ -79,6 +79,10 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
         } catch (org.springframework.dao.ConcurrencyFailureException | jakarta.persistence.PersistenceException e) {
             outcome = "conflict";
         }
+        // A refused save must not lose what the administrator typed: the page puts it back.
+        if (!"saved".equals(outcome) && !"unchanged".equals(outcome)) {
+            ClinicFooterDraft.keep(request, html, shown, "stale".equals(outcome));
+        }
         // Fixed application route and fixed outcome constants; request text never reaches this URL.
         response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterOutcome=" + outcome);
         return NONE;

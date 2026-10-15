@@ -97,6 +97,42 @@ class ViewConfigureEmail2ActionUnitTest {
         verifyNoInteractions(logoService, clinicFooters);
     }
 
+    @Test
+    @DisplayName("should put unsaved footer text back in the editor once, with the fingerprint it was typed over")
+    void shouldRestoreUnsavedFooterText_onTheNextViewOnly() throws Exception {
+        allowAdminRead();
+        String shown = ClinicEmailFooterService.fingerprint("FAKE Clinic");
+        io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft.keep(request, "<b>FAKE typed</b>", shown, false);
+
+        action().execute();
+
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("<b>FAKE typed</b>");
+        assertThat(request.getAttribute("clinicFooterFingerprint")).isEqualTo(shown);
+        assertThat(request.getAttribute("clinicFooterDraftKept")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicFooterMissing")).isEqualTo(false);
+
+        request.clearAttributes();
+        action().execute();
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Clinic");
+        assertThat(request.getAttribute("clinicFooterDraftKept")).isNull();
+    }
+
+    @Test
+    @DisplayName("should show the current footer and the typed text beside it after another administrator's change")
+    void shouldShowTypedTextBeside_whenTheFooterChangedMeanwhile() throws Exception {
+        allowAdminRead();
+        io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft.keep(request, "<b>FAKE typed</b>",
+                ClinicEmailFooterService.fingerprint("FAKE older"), true);
+
+        action().execute();
+
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Clinic");
+        assertThat(request.getAttribute("clinicFooterFingerprint"))
+                .isEqualTo(ClinicEmailFooterService.fingerprint("FAKE Clinic"));
+        assertThat(request.getAttribute("clinicFooterAttempted")).isEqualTo("FAKE typed");
+        assertThat(request.getAttribute("clinicFooterDraftKept")).isNull();
+    }
+
     private void allowAdminRead() {
         when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull(String.class))).thenReturn(true);
     }

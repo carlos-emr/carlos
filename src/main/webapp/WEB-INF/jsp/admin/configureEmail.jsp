@@ -103,6 +103,17 @@
                     </c:choose>
                 </p>
             </c:if>
+            <%-- Footer text typed but not saved before the page reloaded (a logo upload or a refused save)
+                 is back in the editor below; ViewConfigureEmail2Action puts it there once. --%>
+            <c:if test="${clinicFooterDraftKept}">
+                <p class="alert alert-warning" role="status" id="clinicFooterDraftKept"><fmt:message key="admin.configureEmail.footer.draftKept"/></p>
+            </c:if>
+            <c:if test="${not empty clinicFooterAttempted}">
+                <div class="alert alert-secondary" id="clinicFooterAttemptedBox">
+                    <p class="mb-1"><fmt:message key="admin.configureEmail.footer.attempted"/></p>
+                    <div id="clinicFooterAttempted" class="border bg-white p-2" style="white-space: pre-wrap;"><carlos:encode value="${clinicFooterAttempted}"/></div>
+                </div>
+            </c:if>
             <div class="d-flex align-items-start" style="gap: 12px;">
                 <c:if test="${clinicLogoSet}">
                     <img src="${ctx}/email/clinicEmailLogo" alt=""
@@ -173,7 +184,23 @@
                 </c:otherwise>
             </c:choose>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
-                <form action="${ctx}/admin/saveClinicEmailLogo" method="post" enctype="multipart/form-data" class="mt-3" id="clinicLogoForm">
+                <%-- clinicLogoForm.js checks a picture against these limits before it is sent, so a picture
+                     CARLOS would refuse never reloads the page; the server still checks everything. --%>
+                <c:set var="logoCheckTooBig"><fmt:message key="admin.configureEmail.logo.checkTooBig"/></c:set>
+                <c:set var="logoCheckTooLarge"><fmt:message key="admin.configureEmail.logo.checkTooLarge"/></c:set>
+                <c:set var="logoCheckNotImage"><fmt:message key="admin.configureEmail.logo.errorNotImage"/></c:set>
+                <div class="alert alert-danger d-none mt-3" role="alert" id="clinicLogoCheck"></div>
+                <form action="${ctx}/admin/saveClinicEmailLogo" method="post" enctype="multipart/form-data" class="mt-3" id="clinicLogoForm"
+                      data-max-bytes="<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_BYTES %>"
+                      data-max-width="<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_WIDTH %>"
+                      data-max-height="<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_HEIGHT %>"
+                      data-too-big="${carlos:forHtmlAttribute(logoCheckTooBig)}"
+                      data-too-large="${carlos:forHtmlAttribute(logoCheckTooLarge)}"
+                      data-not-image="${carlos:forHtmlAttribute(logoCheckNotImage)}">
+                    <%-- Footer text typed above but not saved yet travels with the logo, so the page can put
+                         it back after the reload (ClinicFooterDraft). The script fills these on submit. --%>
+                    <input type="hidden" name="clinicFooterDraft" value=""/>
+                    <input type="hidden" name="clinicFooterDraftFingerprint" value=""/>
                     <label for="logoFile" class="form-label"><fmt:message key="admin.configureEmail.logo.choose"/></label>
                     <input class="form-control" type="file" id="logoFile" name="logoFile" accept="image/png,image/jpeg"
                            aria-describedby="clinicLogoHelp">
@@ -193,6 +220,7 @@
     <%@ include file="/WEB-INF/jsp/admin/portalFooterAudit.jspf" %>
 </div>
 <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<script src="${ctx}/share/javascript/email/clinicLogoForm.js"></script>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>
 <c:set var="footerEditorApplyKey" value="email.footerEditor.applyClinic"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>

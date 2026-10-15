@@ -26,7 +26,9 @@ import org.springframework.beans.factory.BeanCreationException;
 
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -96,6 +98,7 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         request.setAttribute("clinicFooterMissing", clinicFooter.isEmpty());
         request.setAttribute("clinicFooterFingerprint",
                 io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
+        restoreFooterDraft(request);
         EmailFooterLogo logo = logoService.currentLogo();
         request.setAttribute("clinicLogoSet", logo != null);
         if (logo != null) {
@@ -105,6 +108,26 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         if (portalFooterAudit != null) loadPortalFooterAudit(request, loggedInInfo);
         return SUCCESS;
     }
+    /**
+     * Puts back footer text the administrator typed but did not get saved (a logo upload or a refused
+     * save reloaded the page). The editor gets the text, with the fingerprint of the footer it was
+     * typed over, so Save still notices another administrator's change. After such a change, the
+     * editor shows the current footer and the typed text is shown beside it instead.
+     */
+    private static void restoreFooterDraft(HttpServletRequest request) {
+        ClinicFooterDraft draft = ClinicFooterDraft.take(request);
+        if (draft == null) {
+            return;
+        }
+        if (draft.stale()) {
+            request.setAttribute("clinicFooterAttempted", EmailFooterHtml.toPlainText(draft.html()));
+            return;
+        }
+        request.setAttribute("clinicFooter", draft.html());
+        request.setAttribute("clinicFooterFingerprint", draft.fingerprint());
+        request.setAttribute("clinicFooterDraftKept", true);
+    }
+
     private void loadPortalFooterAudit(HttpServletRequest request, LoggedInInfo user) {
         try {
             if (!portalConfigured.getAsBoolean()) return;

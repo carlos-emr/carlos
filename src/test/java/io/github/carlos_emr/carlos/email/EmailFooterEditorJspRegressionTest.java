@@ -170,6 +170,58 @@ class EmailFooterEditorJspRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should check a logo before it is sent and carry unsaved footer text with it")
+    void shouldCheckLogoFirst_andCarryUnsavedFooterText() throws IOException {
+        String jsp = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
+        Path script = Path.of("src/main/webapp/share/javascript/email/clinicLogoForm.js");
+
+        assertThat(script).exists();
+        assertThat(jsp)
+                .contains("<script src=\"${ctx}/share/javascript/email/clinicLogoForm.js\"></script>")
+                // The browser uses the limits the server enforces.
+                .contains("data-max-bytes=\"<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_BYTES %>\"")
+                .contains("data-max-width=\"<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_WIDTH %>\"")
+                .contains("data-max-height=\"<%= io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.MAX_HEIGHT %>\"")
+                .contains("data-too-big=\"${carlos:forHtmlAttribute(logoCheckTooBig)}\"")
+                .contains("data-too-large=\"${carlos:forHtmlAttribute(logoCheckTooLarge)}\"")
+                .contains("data-not-image=\"${carlos:forHtmlAttribute(logoCheckNotImage)}\"")
+                .contains("<input type=\"hidden\" name=\"" + io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft.HTML_PARAM + "\" value=\"\"/>")
+                .contains("<input type=\"hidden\" name=\"" + io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft.FINGERPRINT_PARAM + "\" value=\"\"/>")
+                // Text put back is shown encoded; text beside a newer footer is plain text.
+                .contains("<fmt:message key=\"admin.configureEmail.footer.draftKept\"/>")
+                .contains("<carlos:encode value=\"${clinicFooterAttempted}\"/>");
+        int form = jsp.indexOf("id=\"clinicLogoForm\"");
+        int draft = jsp.indexOf("name=\"clinicFooterDraft\"");
+        assertThat(draft).isGreaterThan(form).isLessThan(jsp.indexOf("</form>", form));
+    }
+
+    @Test
+    @DisplayName("should translate the new footer and logo messages, keeping the numbers the script fills in")
+    void shouldTranslateKeptTextAndCheckMessages_inEveryLocale() throws IOException {
+        Properties english = bundle("en");
+        for (String key : List.of("admin.configureEmail.footer.draftKept", "admin.configureEmail.footer.attempted",
+                "admin.configureEmail.logo.checkTooBig", "admin.configureEmail.logo.checkTooLarge")) {
+            for (String locale : LOCALES) {
+                String text = bundle(locale).getProperty(key);
+                assertThat(text).as(locale + " " + key).isNotBlank();
+                if (!"en".equals(locale)) {
+                    assertThat(text).as(locale + " " + key).isNotEqualTo(english.getProperty(key));
+                }
+            }
+        }
+        for (String locale : LOCALES) {
+            Properties texts = bundle(locale);
+            assertThat(texts.getProperty("admin.configureEmail.logo.checkTooBig")).as(locale).contains("{0}");
+            assertThat(texts.getProperty("admin.configureEmail.logo.checkTooLarge")).as(locale).contains("{0}", "{1}");
+            // Both refusals name both limits.
+            for (String key : List.of("admin.configureEmail.logo.errorTooBig", "admin.configureEmail.logo.errorTooLarge",
+                    "admin.configureEmail.logo.checkTooBig", "admin.configureEmail.logo.checkTooLarge")) {
+                assertThat(texts.getProperty(key)).as(locale + " " + key).contains("100", "600 \u00d7 200");
+            }
+        }
+    }
+
     private static Properties bundle(String locale) throws IOException {
         Properties properties = new Properties();
         try (InputStream in = Files.newInputStream(
