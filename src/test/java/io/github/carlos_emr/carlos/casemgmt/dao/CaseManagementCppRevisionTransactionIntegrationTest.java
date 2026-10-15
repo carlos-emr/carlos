@@ -183,6 +183,34 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
     }
 
     @Test
+    void shouldClearEveryCurrentTextExtensionAndPreserveHistory_whenSubmittedValueIsEmpty() {
+        Fixture fixture = tx.execute(status -> fixture(true));
+        tx.executeWithoutResult(status -> {
+            for (String value : List.of("First treatment", "Second treatment")) {
+                CaseManagementNoteExt historical = extension(CaseManagementNoteExt.TREATMENT, value, null);
+                historical.setNoteId(fixture.originalId());
+                extensions.save(historical);
+            }
+        });
+
+        CaseManagementNote saved = service(extensions).saveCppNoteRevision(draft(fixture), "Doctor", "",
+                Map.of(), List.of(extension(CaseManagementNoteExt.TREATMENT, "", null))).note();
+
+        tx.executeWithoutResult(status -> {
+            assertThat(extensions.getExtByNote(saved.getId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .hasSize(2).allSatisfy(e -> assertThat(e.getValue()).isEmpty());
+            assertThat(extensions.getExtByNote(fixture.originalId()))
+                    .filteredOn(e -> CaseManagementNoteExt.TREATMENT.equals(e.getKeyVal()))
+                    .extracting(CaseManagementNoteExt::getValue)
+                    .containsExactlyInAnyOrder("First treatment", "Second treatment");
+            assertThat(extensions.getExtByNote(saved.getId())).filteredOn(e -> "unsubmitted".equals(e.getKeyVal()))
+                    .singleElement().satisfies(e -> assertThat(e.getValue()).isEqualTo("keep"));
+            assertHistoricalRows(fixture.originalId(), saved, "Second treatment", "First treatment", "keep", "2002", "2001");
+        });
+    }
+
+    @Test
     void shouldRejectStaleJsonRevision_beforePersistingPendingIssue() {
         Fixture fixture = tx.execute(status -> fixture(true));
         CaseManagementNote draft = draft(fixture);
@@ -316,10 +344,10 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
                 .allSatisfy(e -> { assertThat(e.getValue()).isEqualTo("2026"); assertThat(e.getDateValue()).isNull(); });
         assertThat(currentExtensions).filteredOn(e -> "newKey".equals(e.getKeyVal()))
                 .singleElement().satisfies(e -> { assertThat(e.getValue()).isEqualTo("new value"); assertThat(e.getDateValue()).isEqualTo(java.sql.Date.valueOf("2026-10-15")); });
-        if (fixture.originalId() != null) assertHistoricalRows(fixture.originalId(), saved);
+        if (fixture.originalId() != null) assertHistoricalRows(fixture.originalId(), saved, "keep", "2002", "2001");
     }
 
-    private void assertHistoricalRows(Long originalId, CaseManagementNote saved) {
+    private void assertHistoricalRows(Long originalId, CaseManagementNote saved, String... expectedExtensionValues) {
         CaseManagementNote original = caseManagementNoteDAO.getNote(originalId);
         assertThat(original.getNote()).isEqualTo("Original signed history");
         assertThat(original.getHistory()).isEqualTo("Immutable authored history");
@@ -330,7 +358,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         assertThat(original.getIssues()).isEmpty();
         assertThat(hashCount(originalId)).isEqualTo(1);
         assertThat(extensions.getExtByNote(originalId)).extracting(CaseManagementNoteExt::getValue)
-                .containsExactly("keep", "2002", "2001");
+                .containsExactly(expectedExtensionValues);
         assertThat(extensions.getExtByNote(saved.getId())).filteredOn(e -> "unsubmitted".equals(e.getKeyVal()))
                 .singleElement().extracting(CaseManagementNoteExt::getValue).isEqualTo("keep");
         assertThat(links.getLinkByNote(originalId)).hasSize(1);

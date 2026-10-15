@@ -9,7 +9,7 @@ const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCa
 function block(from, to) {
   const start = source.indexOf(from);
   const end = source.indexOf(to, start);
-  assert.ok(start >= 0 && end > start);
+  assert.ok(start >= 0 && end > start, `Missing or misordered source markers: ${from} -> ${to}`);
   return source.slice(start, end);
 }
 

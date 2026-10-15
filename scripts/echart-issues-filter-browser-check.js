@@ -11,7 +11,8 @@ const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
 function block(from, to) {
   const start = source.indexOf(from); const end = source.indexOf(to, start);
-  assert.ok(start >= 0 && end > start); return source.slice(start, end);
+  assert.ok(start >= 0 && end > start, `Missing or misordered source markers: ${from} -> ${to}`);
+  return source.slice(start, end);
 }
 const noteControls = `<div class="sig" id="sig0"><div id="noteIssues">
   <label for="issueAutocomplete">Assign Issues</label><input id="issueAutocomplete" class="issueAutocomplete">

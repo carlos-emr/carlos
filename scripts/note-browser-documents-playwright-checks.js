@@ -394,6 +394,50 @@ async function workflow(s) {
     'The rejected JSON save changed a note revision');
   });
 
+  await s.step('stale full-form Save presents an encoded recovery copy without changing saved revisions', async () => {
+    const before = sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`);
+    const draft = `\n ${marker} unsaved full-form draft\n</textarea><script>window.draftExecuted=true</script> & literal text`;
+    await chart.locator('#encMainDiv textarea[name="caseNote_note"]').fill(draft);
+    const form = chart.locator('form[name="caseManagementEntryForm"]');
+    const originalTarget = await form.getAttribute('target');
+    const mark = failureMark(s.recorder);
+    let recoveryPage;
+    try {
+      // The Save icon uses AJAX. Exercise the application's full-form savePage path,
+      // targeting a new window so this same stale editor can still test Sign & Save below.
+      const [response, popup] = await Promise.all([
+        s.context.waitForEvent('response', { predicate: r => isEntry('save')(r) && r.request().isNavigationRequest() }),
+        chart.waitForEvent('popup'),
+        chart.evaluate(() => {
+          document.forms.caseManagementEntryForm.target = '_blank';
+          savePage('save', 'list');
+        }),
+      ]);
+      recoveryPage = popup;
+      await response.finished();
+      h.assert(response.request().frame() === popup.mainFrame(), 'The full-form response belongs to a different window');
+      const submitted = new URLSearchParams(response.request().postData() || '');
+      h.assert(submitted.get('noteId') === noteId
+        && submitted.get('caseNote_note').replace(/\r\n?/g, '\n') === draft,
+      'The full-form save did not submit the stale revision and complete draft');
+      h.assert(response.status() === 409, `Stale full-form Save answered HTTP ${response.status()}`);
+      const recovery = popup.locator('#unsaved-note-text');
+      await recovery.waitFor({ state: 'visible' });
+      h.assert(await recovery.inputValue() === draft, 'The full-form recovery page lost or changed the submitted draft');
+      h.assert(await recovery.getAttribute('readonly') !== null, 'The full-form recovery copy should be read-only');
+      h.assert(await popup.evaluate(() => !window.draftExecuted), 'Full-form draft text executed as script');
+      h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
+        === JSON.stringify(before), 'The refused full-form save changed a saved revision');
+      consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+    } finally {
+      await form.evaluate((element, target) => {
+        if (target === null) element.removeAttribute('target');
+        else element.setAttribute('target', target);
+      }, originalTarget);
+      if (recoveryPage) await recoveryPage.close();
+    }
+  });
+
   await s.step('stale Sign & Save presents an encoded recovery copy instead of a blank page', async () => {
     const before = sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`);
     const draft = `\n ${marker} unsaved signed draft\n</textarea><script>window.draftExecuted=true</script> & literal text`;

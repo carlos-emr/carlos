@@ -149,34 +149,68 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"sign", "verify", "toBill"})
-    void shouldReturnRecoveryViewWithRawDraft_whenSaveAndExitHasWrappedSnapshotConflict(String operation) throws Exception {
+    @ValueSource(strings = {"save", "sign", "verify", "toBill"})
+    void shouldReturnRecoveryViewWithRawDraft_whenFullFormSaveHasWrappedSnapshotConflict(String operation) throws Exception {
         String rawDraft = "  </textarea><script>window.draftExecuted=true</script>&literal\r\nSecond line\n  ";
         String processedDraft = "Unsaved draft\n[[Added signature before conflict]]";
         request.setParameter("caseNote_note", rawDraft);
-        request.setParameter(operation, "toBill".equals(operation) ? "true" : "on");
+        if (!"save".equals(operation)) request.setParameter(operation, "toBill".equals(operation) ? "true" : "on");
         doAnswer(call -> {
             CaseManagementNote submitted = call.getArgument(1);
             submitted.setNote(processedDraft);
             throw snapshotConflict();
         }).when(manager).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
                 any(), any(), any(), any(), any(), any());
-        assertThat(action.saveAndExit()).isEqualTo("windowCloseError");
+        assertThat("save".equals(operation) ? action.save() : action.saveAndExit()).isEqualTo("windowCloseError");
         assertThat(request.getAttribute("noteRevisionConflict")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
         assertDraftRetained(processedDraft);
     }
 
-    @Test
-    void shouldCaptureGetterDraftBeforeSaving_whenRawRequestParameterIsAbsent() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCaptureGetterDraftBeforeSaving_whenRawRequestParameterIsAbsent(boolean exit) throws Exception {
         String rawDraft = "  Original untrimmed draft\n  ";
         doReturn(rawDraft, "Unsaved draft").when(action).getCaseNote_note();
         when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
                 any(), any(), any(), any(), any(), any())).thenThrow(snapshotConflict());
-        assertThat(action.saveAndExit()).isEqualTo("windowCloseError");
+        assertThat(exit ? action.saveAndExit() : action.save()).isEqualTo("windowCloseError");
         assertThat(request.getAttribute("noteRevisionConflict")).isEqualTo(Boolean.TRUE);
         assertThat(request.getAttribute("unsavedNoteText")).isEqualTo(rawDraft);
         assertDraftRetained();
+    }
+
+    @Test
+    void shouldKeepEditorWithoutSuccessMessage_whenFullFormSaveHasNoText() throws Exception {
+        doReturn("   ").when(action).getCaseNote_note();
+
+        assertThat(action.save()).isEqualTo("view");
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute("noteRevisionConflict")).isNull();
+        assertThat(request.getAttribute("unsavedNoteText")).isNull();
+        verify(action, never()).addActionMessage(anyString());
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any());
+        assertThat(request.getSession().getAttribute("casemgmtNoteLock101")).isSameAs(lock);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "issueList_ajax"})
+    void shouldKeepSuccessResultAndMessage_whenFullFormSaveSucceeds(String chain) throws Exception {
+        request.setParameter("chain", chain);
+        CaseManagementNote saved = note.copyForRevision();
+        saved.setId(600L);
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any())).thenReturn(saved);
+
+        assertThat(action.save()).isEqualTo(chain.isEmpty() ? "view" : chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(action).addActionMessage("Note saved");
+        assertThat(form.getCaseNote()).isSameAs(saved);
+        assertThat(lock.getNoteId()).isEqualTo(600L);
+        assertThat(request.getAttribute("noteRevisionConflict")).isNull();
     }
 
     @Test
@@ -376,6 +410,28 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
                 .satisfies(checkbox -> assertThat(checkbox.getIssue()).isSameAs(persistedIssue));
         assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Committed chart text");
         assertThat(note.getNote()).isEqualTo("Original");
+    }
+
+    @Test
+    void shouldSubmitEmptyTextExtensionsButIgnoreAbsentAndInvalidDates_whenCppFieldsAreCleared() {
+        prepareCppSave();
+        request.setParameter("startdate", "");
+        request.setParameter("proceduredate", "not a date");
+        request.setParameter("ageatonset", "");
+        request.setParameter("treatment", "");
+        RuntimeException failure = new DataIntegrityViolationException("stop after capture");
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenThrow(failure);
+
+        assertThatThrownBy(() -> action.issueNoteSave()).isSameAs(failure);
+
+        ArgumentCaptor<List<CaseManagementNoteExt>> submitted = ArgumentCaptor.captor();
+        verify(manager).saveCppNoteRevision(any(), any(), any(), any(), submitted.capture());
+        assertThat(submitted.getValue()).extracting(CaseManagementNoteExt::getKeyVal)
+                .containsExactly(CaseManagementNoteExt.AGEATONSET, CaseManagementNoteExt.TREATMENT);
+        assertThat(submitted.getValue()).allSatisfy(extension -> {
+            assertThat(extension.getValue()).isEmpty();
+            assertThat(extension.getDateValue()).isNull();
+        });
     }
 
     private CaseManagementNote prepareCppSave() {

@@ -20,7 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const { ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, cleanup, fixture, assertSameSnapshot, isNoteSave,
-  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog } =
+  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog, assertExtensionValues } =
   require('./cpp-note-extension-archive-playwright-checks');
 
 const STAMP = 'PW_CPP_EXT_1790000000000';
@@ -72,6 +72,39 @@ test('a recorded eChart id that is not a plain number never reaches a statement'
 });
 
 const TRIGGER = 'pw_cpp_ext_0123456789abcdef01234567';
+
+const extensionFixture = treatment => [
+  ['Resolution Date', '2022-04-04', null], ['Start Date', '2022-03-03', null],
+  ['Treatment', null, treatment], ['Procedure', null, ''],
+];
+
+test('CPP extension assertions accept populated and explicitly cleared Treatment alongside other blank fields', () => {
+  for (const treatment of ['PW original treatment', '']) {
+    assert.doesNotThrow(() => assertExtensionValues(extensionFixture(treatment), '2022-03-03', '2022-04-04', treatment));
+  }
+});
+
+test('CPP clearing assertions reject missing, null or retained old Treatment', () => {
+  for (const rows of [extensionFixture('').filter(row => row[0] !== 'Treatment'),
+    extensionFixture(null), extensionFixture('PW original treatment')]) {
+    assert.throws(() => assertExtensionValues(rows, '2022-03-03', '2022-04-04', ''));
+  }
+});
+
+test('CPP extension assertions reject duplicate keys even among extra blank fields', () => {
+  for (const duplicate of [['Treatment', null, ''], ['Procedure', null, '']]) {
+    assert.throws(() => assertExtensionValues([...extensionFixture(''), duplicate], '2022-03-03', '2022-04-04', ''),
+      /duplicate extension keys/);
+  }
+});
+
+test('CPP extension assertions still require both distinct expected dates', () => {
+  for (const key of ['Start Date', 'Resolution Date']) {
+    const rows = extensionFixture('');
+    rows.find(row => row[0] === key)[1] = '2021-01-01';
+    assert.throws(() => assertExtensionValues(rows, '2022-03-03', '2022-04-04', ''), /both expected dates/);
+  }
+});
 
 test('save response matching requires the actual dialog endpoint, POST, patient and revision', () => {
   const action = 'http://fixture.test/carlos/CaseManagementEntry?method=issueNoteSave&noteId=31&demographicNo=123&providerNo=200';

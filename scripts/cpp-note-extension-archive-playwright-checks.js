@@ -13,8 +13,8 @@
 
 /*
  * Browser regression check for CPP (orange box) items that carry MORE THAN ONE
- * extension key: can a clinician save a Social History item with both a start
- * date and a resolution date, read both back, and archive it -- without the box
+ * extension key: can a clinician save a Medical History item with both a start
+ * date and a resolution date, read both back, clear Treatment, and archive it -- without the box
  * turning into "Error: 500"?
  *
  * WHY THIS CHECK EXISTS (issue #3739). issueNoteSave() in
@@ -37,7 +37,7 @@
  * remain unchanged. Duplicate keys can otherwise make readers display old values.
  *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, Search, the patient's Master
- * Record, E-Chart, the Social History box's "+", then the dialog's own
+ * Record, E-Chart, the Medical History box's "+", then the dialog's own
  * Sign & Save and Archive buttons. Nothing is posted behind the page's back --
  * the point is partly that the page's own CarlosAjax POST carries its CSRF
  * token and its serialized form exactly as the browser builds them.
@@ -45,6 +45,8 @@
  * A patient-scoped trigger rejects the edited Resolution Date after the Start Date
  * update. The whole failed save must roll back, and retrying the original revision
  * through the still-open dialog must succeed before archive creates the third revision.
+ * The edit also clears Treatment: the latest value must be empty while the original
+ * revision retains its populated value, including after archive.
  *
  * WHAT IT WRITES, AND REMOVES. Three casemgmt_note revisions and their casemgmt_note_ext
  * rows for a FAKE patient this check creates (lib/owned-patient.js: last name = a
@@ -79,8 +81,8 @@ const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
-/** The Social History box in the encounter layout's CPP grid. */
-const BOX_ID = 'divR1I1';
+/** Medical History exposes Treatment as well as both dates in the actual dialog. */
+const BOX_ID = 'divR1I2';
 /** The hovering CPP item editor newEncounterLayout.jsp renders once per chart. */
 const DIALOG = '#showEditNote';
 /** Two dated keys, because one persist() per request always succeeds. */
@@ -88,8 +90,9 @@ const START_DATE = '2021-01-01';
 const RESOLUTION_DATE = '2021-02-02';
 const EDIT_START_DATE = '2022-03-03';
 const EDIT_RESOLUTION_DATE = '2022-04-04';
+const TREATMENT = 'PW original treatment';
 /** casemgmt_note_ext.key_val values CaseManagementNoteExt writes for those fields. */
-const EXPECTED_KEYS = ['Start Date', 'Resolution Date'];
+const EXPECTED_KEYS = ['Start Date', 'Resolution Date', 'Treatment'];
 
 /**
  * What the run leaves for cleanup() to remove, filled in as the run learns it.
@@ -116,7 +119,7 @@ const fixture = {
 /**
  * The chart summary columns copyNote2cpp() can append a saved note into.
  *
- * Which one it picks depends on the item's issue code (SocHistory here), and saveCPPIntoEchart()
+ * Which one it picks depends on the item's issue code (MedHistory here), and saveCPPIntoEchart()
  * mirrors the same five into the legacy eChart row. Cleanup covers all of them rather than only
  * the one this check currently drives, so changing the issue does not silently leave text behind.
  */
@@ -621,12 +624,22 @@ async function boxErrorText(page) {
   return match ? match[1] : '';
 }
 
-/** The extension rows the stamped item holds, as [key, date] pairs. */
+/** The extension rows the stamped item holds, including empty non-date values. */
 function extensionRows(sql, stamp) {
   return sql.rows(
-    `SELECT e.key_val, e.date_value FROM casemgmt_note_ext e `
+    `SELECT e.key_val, e.date_value, e.value FROM casemgmt_note_ext e `
     + `JOIN casemgmt_note n ON n.note_id = e.note_id WHERE n.note_id = (SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1) ORDER BY e.key_val`,
   );
+}
+
+function assertExtensionValues(rows, startDate, resolutionDate, treatment) {
+  const byKey = new Map(rows.map(row => [row[0], row]));
+  assert(byKey.size === rows.length, 'the CPP revision contains duplicate extension keys');
+  assert(EXPECTED_KEYS.every(key => byKey.has(key)), 'the CPP revision lost a required extension row');
+  assert(byKey.get('Start Date')[1] === startDate && byKey.get('Resolution Date')[1] === resolutionDate,
+    'the CPP revision did not retain both expected dates');
+  assert(byKey.get('Treatment')[2] === treatment,
+    'the CPP revision did not retain the exact Treatment value, including an explicit empty value');
 }
 
 async function main() {
@@ -697,6 +710,7 @@ async function main() {
     await chartPage.locator('#noteEditTxt').fill(`${stamp} CPP extension regression item`);
     await chartPage.locator('#startdate').fill(START_DATE);
     await chartPage.locator('#resolutiondate').fill(RESOLUTION_DATE);
+    await chartPage.locator('#treatment').fill(TREATMENT);
     // WAIT FOR THE SAVE ITSELF. An earlier version waited on a DOM predicate that every element
     // satisfies -- the box is already visible and `dataset` is never undefined -- so it returned at
     // once and a fixed sleep decided whether the database had been written yet. The POST is the
@@ -711,39 +725,34 @@ async function main() {
       `saving a CPP item that carries a start date and a resolution date answered HTTP ${(failedSaves[0] || {}).status}; `
       + 'issueNoteSave is re-persisting one detached CaseManagementNoteExt across the keys (issue #3739)');
     assert(savedError === '',
-      `the Social History box repainted as "Error: ${savedError}" after the save, so the POST behind it failed`);
+      `the Medical History box repainted as "Error: ${savedError}" after the save, so the POST behind it failed`);
 
     const savedRows = extensionRows(sql, stamp);
-    assert(savedRows.length === EXPECTED_KEYS.length,
-      `the saved CPP item holds ${savedRows.length} extension rows instead of ${EXPECTED_KEYS.length}; `
-      + 'a start date and a resolution date must each get their own row');
-    const savedKeys = savedRows.map((row) => row[0]).sort();
-    assert(JSON.stringify(savedKeys) === JSON.stringify([...EXPECTED_KEYS].sort()),
-      `the saved CPP item holds extension keys ${JSON.stringify(savedKeys)} instead of ${JSON.stringify(EXPECTED_KEYS)}`);
-    const byKey = Object.fromEntries(savedRows);
-    assert(byKey['Start Date'] === START_DATE && byKey['Resolution Date'] === RESOLUTION_DATE,
-      'the saved CPP item\'s extension rows do not hold the two dates that were entered');
+    // The form also serializes blank non-date fields; they may now have explicit empty rows.
+    assertExtensionValues(savedRows, START_DATE, RESOLUTION_DATE, TREATMENT);
 
     // --- reopen it: both dates must come BACK, not just be stored ---
     const noteId = sqlNumber(sql.value(
       `SELECT note_id FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1 ORDER BY note_id DESC LIMIT 1`),
       'the saved CPP item\'s note id');
     const reopen = box.locator(`a[onclick*="noteId=${noteId}"]`).first();
-    assert(await reopen.count() > 0, 'the saved CPP item does not appear in the Social History box, so it cannot be archived');
+    assert(await reopen.count() > 0, 'the saved CPP item does not appear in the Medical History box, so it cannot be archived');
     await reopen.click();
     await chartPage.waitForSelector(DIALOG, { state: 'visible', timeout });
     const prefill = await chartPage.evaluate(() => ({
       start: document.getElementById('startdate').value,
       resolution: document.getElementById('resolutiondate').value,
+      treatment: document.getElementById('treatment').value,
     }));
-    assert(prefill.start === START_DATE && prefill.resolution === RESOLUTION_DATE,
-      'reopening the CPP item did not bring both dates back, so one extension key was lost between the write and the read');
+    assert(prefill.start === START_DATE && prefill.resolution === RESOLUTION_DATE && prefill.treatment === TREATMENT,
+      'reopening the CPP item did not bring both dates and Treatment back');
 
     const originalHistory = readNoteHistory(sql, [noteId]);
     const editedText = `${stamp} CPP revision after rollback`;
     await chartPage.locator('#noteEditTxt').fill(editedText);
     await chartPage.locator('#startdate').fill(EDIT_START_DATE);
     await chartPage.locator('#resolutiondate').fill(EDIT_RESOLUTION_DATE);
+    await chartPage.locator('#treatment').fill('');
     await step('late extension failure rolls back the complete CPP revision', async () => {
       assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${fixture.demographicNo}
         AND last_name=${sqlString(fixture.ownedMarker)}`) === '1', 'the rollback probe requires the owned fixture patient');
@@ -778,12 +787,13 @@ async function main() {
         const submitted = new URLSearchParams(failed.request().postData() || '');
         assert(new URL(failed.url()).searchParams.get('noteId') === noteId
           && submitted.get('value') === editedText && submitted.get('startdate') === EDIT_START_DATE
-          && submitted.get('resolutiondate') === EDIT_RESOLUTION_DATE,
-        'the failed save must submit the original revision with the edited note and both new dates');
+          && submitted.get('resolutiondate') === EDIT_RESOLUTION_DATE && submitted.get('treatment') === '',
+        'the failed save must submit the original revision with the edited note, both new dates and empty Treatment');
         assertSameSnapshot(before, readCppWriteSnapshot(sql, fixture.demographicNo), 'the rolled-back CPP save');
         assert(await chartPage.locator('#noteEditTxt').inputValue() === editedText
           && await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
-          && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE,
+          && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE
+          && await chartPage.locator('#treatment').inputValue() === '',
         'the failed CPP save lost the dialog draft');
         // Exempt exactly this deliberately rejected request, retaining all unrelated errors.
         const bad = recorder.badResponses.slice(badBefore);
@@ -809,6 +819,8 @@ async function main() {
       const retried = await saveCppDialog(chartPage, sql, timeout, action, /sign|save/i, 'retry');
       assert(new URL(retried.url()).searchParams.get('noteId') === noteId,
         'retrying must submit the original revision ID on the wire');
+      assert(new URLSearchParams(retried.request().postData() || '').get('treatment') === '',
+        'retrying must submit Treatment as empty rather than omit the cleared field');
       editedId = sqlNumber(sql.value(`SELECT MAX(note_id) FROM casemgmt_note
         WHERE demographic_no=${fixture.demographicNo} AND LOCATE(${sqlString(stamp)}, note)=1`), 'the retried CPP revision');
       assert(BigInt(editedId) > BigInt(noteId), 'the retry must create a fresh CPP revision');
@@ -817,17 +829,16 @@ async function main() {
       assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${editedId}`) === editedText,
         'the retry did not persist the edited note');
       editedRows = extensionRows(sql, stamp);
-      assert(JSON.stringify(editedRows) === JSON.stringify([
-        ['Resolution Date', EDIT_RESOLUTION_DATE], ['Start Date', EDIT_START_DATE],
-      ]), 'the retry did not persist exactly one row for each new date');
+      assertExtensionValues(editedRows, EDIT_START_DATE, EDIT_RESOLUTION_DATE, '');
       assertSameSnapshot(originalHistory, readNoteHistory(sql, [noteId]), 'the successful retry');
       const editedLink = box.locator(`a[onclick*="noteId=${editedId}"]`).first();
       await editedLink.waitFor({state: 'visible', timeout});
       await editedLink.click();
       await chartPage.locator(DIALOG).waitFor({state: 'visible', timeout});
       assert(await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
-        && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE,
-      'reopening the retried revision lost either new date');
+        && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE
+        && await chartPage.locator('#treatment').inputValue() === '',
+      'reopening the retried revision lost a new date or restored the cleared Treatment');
     });
     const historyBeforeArchive = readNoteHistory(sql, [noteId, editedId]);
 
@@ -844,20 +855,19 @@ async function main() {
       `archiving the CPP item answered HTTP ${(failedArchives[0] || {}).status} (issue #3739)`);
     const archiveError = await boxErrorText(chartPage);
     assert(archiveError === '',
-      `the Social History box repainted as "Error: ${archiveError}" after the archive`);
+      `the Medical History box repainted as "Error: ${archiveError}" after the archive`);
     await box.locator('.topBox-notes .cpp-empty-state').waitFor({state: 'visible', timeout});
     assert(!(await box.textContent()).includes(stamp), 'the archived CPP item remains in the active listing');
 
     const archivedRows = extensionRows(sql, stamp);
-    assert(archivedRows.length === EXPECTED_KEYS.length,
-      `archiving left ${archivedRows.length} extension rows instead of ${EXPECTED_KEYS.length}; `
-      + 'the new revision must carry exactly one row per populated key');
+    assertExtensionValues(archivedRows, EDIT_START_DATE, EDIT_RESOLUTION_DATE, '');
     const latestId = sqlNumber(sql.value(
       `SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1`), 'archived revision id');
     assert(BigInt(latestId) > BigInt(editedId), 'archiving overwrote the prior CPP revision');
     assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`) === '0',
       'archiving changed the historical CPP revision');
-    const originalRows = sql.rows(`SELECT key_val,date_value FROM casemgmt_note_ext WHERE note_id=${noteId} ORDER BY key_val`);
+    const originalRows = sql.rows(`SELECT key_val,date_value,value FROM casemgmt_note_ext WHERE note_id=${noteId} ORDER BY key_val`);
+    assertExtensionValues(originalRows, START_DATE, RESOLUTION_DATE, TREATMENT);
     assert(JSON.stringify(originalRows) === JSON.stringify(savedRows), 'archiving changed historical CPP extensions');
     assert(JSON.stringify(archivedRows) === JSON.stringify(editedRows), 'archiving lost the edited CPP extension values');
     assertSameSnapshot(historyBeforeArchive, readNoteHistory(sql, [noteId, editedId]), 'archiving the CPP revision');
@@ -868,6 +878,7 @@ async function main() {
 
     assertStrictPage(recorder, ['echart']);
     console.log('  PASS CPP create/reopen, late-write rollback/retry, and archive preserve three revisions with both dates');
+    console.log('  PASS cleared Treatment stays empty in the latest revisions while its original value remains immutable');
     await chartPage.close().catch(() => {});
     return { extensionRows: archivedRows.length, revisions: 3, rollbackStatus: 500 };
   } finally {
@@ -883,5 +894,5 @@ if (require.main === module) {
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
   ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, dropRollbackTrigger, assertSameSnapshot, isNoteSave,
-  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog,
+  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog, assertExtensionValues,
 };

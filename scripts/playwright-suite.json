@@ -3670,8 +3670,8 @@
         "MYSQL_PASSWORD",
         "CPP_EXT_TIMEOUT_MS"
       ],
-      "notes": "Actual CPP dialog create/reopen, late extension database failure with complete rollback, retry from the original revision through Sign & Save, and archive. Verifies both submitted dates, unchanged rows after HTTP 500, retained draft, and immutable history across three successful revisions.",
-      "fixtures": "Isolated fixture database and owned FAKE-PW patient (lib/owned-patient.js). Requires MariaDB TRIGGER privilege to create/drop a uniquely named temporary BEFORE UPDATE trigger on casemgmt_note_ext, scoped to this patient's stamped note and the new Resolution Date after the Start Date update. The trigger is dropped in finally and harness cleanup. Three Social History note revisions, extension/issue/link/signature rows, CPP summary and eChart rows, the chart lock and the owned patient are removed and asserted gone; no unrelated patient's writes are rejected."
+      "notes": "Actual CPP dialog create/reopen, late extension database failure with complete rollback, retry from the original revision through Sign & Save, and archive. Verifies both submitted dates, explicit Treatment clearing, unchanged rows after HTTP 500, retained draft, and immutable history across three successful revisions.",
+      "fixtures": "Isolated fixture database and owned FAKE-PW patient (lib/owned-patient.js). Requires MariaDB TRIGGER privilege to create/drop a uniquely named temporary BEFORE UPDATE trigger on casemgmt_note_ext, scoped to this patient's stamped note and the new Resolution Date after the Start Date update. The trigger is dropped in finally and harness cleanup. Three Medical History note revisions, extension/issue/link/signature rows, CPP summary and eChart rows, the chart lock and the owned patient are removed and asserted gone; no unrelated patient's writes are rejected."
     },
     {
       "name": "form-print-pdf",

@@ -1426,7 +1426,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         List<CaseManagementNoteExt> submitted = new ArrayList<>();
         for (int i = 0; i < names.length; i++) {
             String value = request.getParameter(names[i]);
-            if (!filled(value)) continue;
+            if (value == null) continue;
             CaseManagementNoteExt extension = new CaseManagementNoteExt();
             extension.setKeyVal(keys[i]);
             if (i <= 2) {
@@ -1865,8 +1865,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
+        // Capture the raw draft before noteSave trims text or adds a signature.
+        String unsavedNoteText = request.getParameter("caseNote_note");
+        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
         long noteId = noteSave();
-        if (noteId < 0) return null;
+        if (noteId < 0) return rejectedFullFormSave(unsavedNoteText, "view");
 
         /* prepare the message */
         addActionMessage(getText("note.saved"));
@@ -1880,6 +1883,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return "view";
+    }
+
+    /** Keep a rejected full-form draft available when the response replaces the editor page. */
+    private String rejectedFullFormSave(String unsavedNoteText, String fallbackResult) {
+        if (response.getStatus() != HttpServletResponse.SC_CONFLICT) return fallbackResult;
+        request.setAttribute("noteRevisionConflict", Boolean.TRUE);
+        request.setAttribute("unsavedNoteText", unsavedNoteText);
+        return "windowCloseError";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2175,11 +2186,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
         Long noteId = noteSave();
         if (noteId < 0) {
-            if (response.getStatus() == HttpServletResponse.SC_CONFLICT) {
-                request.setAttribute("noteRevisionConflict", Boolean.TRUE);
-                request.setAttribute("unsavedNoteText", unsavedNoteText);
-            }
-            return "windowCloseError";
+            return rejectedFullFormSave(unsavedNoteText, "windowCloseError");
         }
         session.removeAttribute("casemgmtNoteLock" + demoNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): release of own-session lock keyed by demographic scope
 
