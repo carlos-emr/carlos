@@ -191,7 +191,9 @@ function removeReport({ sql, report, patient, provider }) {
   if (owned === '0' && removeOrphanHeader({ sql, report, remaining })) return;
   h.assert(owned === '1', `The owned ${report.label} report header changed; refusing to delete rows keyed by its number`);
   sql.execute([
-    `DELETE FROM patientLabRouting WHERE lab_type=${q(LAB_TYPE)} AND lab_no=${id} AND demographic_no=${patient}`,
+    // By number alone, as for the provider routing below: the number was proved unoccupied when it was allocated, so
+    // every row under it is this run's, including one that a regression made the match write for another patient.
+    `DELETE FROM patientLabRouting WHERE lab_type=${q(LAB_TYPE)} AND lab_no=${id}`,
     `DELETE FROM providerLabRouting WHERE lab_type=${q(LAB_TYPE)} AND lab_no=${id}`,
     `DELETE FROM providerLabRoutingLock WHERE lab_no=${id}`,
     // The audit rows the page and the acknowledgement wrote carry the report number as their content id.
@@ -473,4 +475,4 @@ async function workflow(s) {
 if (require.main === module) {
   runWorkflow(NAME, workflow, { openMaster: false });
 }
-module.exports = { workflow, STEP };
+module.exports = { workflow, STEP, removeReport };
