@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
@@ -50,10 +51,10 @@ public interface InboxResultsDao {
      *
      * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
      */
-    public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
-                                                                String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
-                                                                Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
-                                                                Date acknowledgedSince);
+    public List<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
+                                                           String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                           Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
+                                                           Date acknowledgedSince);
 
     //String getStringValue(Object value);
 }

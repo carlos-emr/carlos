@@ -45,6 +45,7 @@ import jakarta.persistence.PersistenceContext;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -654,10 +655,10 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
             String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
             String lastName = "nameSearch".equals(shape) ? "Patient" : "";
 
-            ArrayList<LabResultData> unbounded = inboxResultsDao.populateDocumentResultsData(
+            List<LabResultData> unbounded = inboxResultsDao.populateDocumentResultsData(
                     PROVIDER_NO, demographicNo, "", lastName, "", "A",
                     false, null, null, mixLabsAndDocs, null, null, null, null);
-            ArrayList<LabResultData> bounded = inboxResultsDao.populateDocumentResultsData(
+            List<LabResultData> bounded = inboxResultsDao.populateDocumentResultsData(
                     PROVIDER_NO, demographicNo, "", lastName, "", "A",
                     false, null, null, mixLabsAndDocs, null, null, null, startOfToday);
 
