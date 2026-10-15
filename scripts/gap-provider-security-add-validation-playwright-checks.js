@@ -13,6 +13,9 @@
  * Asserted: every refusal writes no security row and no audit row for the attempted user name; the
  * browser refusals post nothing; the server refusals show their message. Separate direct POSTs
  * check a weak matching password, a strong mismatched confirmation and an empty password.
+ * Issue #2689: a login is never created without a role. The form refuses a missing role choice
+ * before posting, and direct POSTs that omit the role or name one the form does not offer are
+ * refused by the server with no login, role or program membership written.
  * Each probe uses an owned FAKE- provider and user name; cleanup removes any wrongly accepted row.
  * Fixtures: one FAKE- provider row (the probe's target) and the user names this run attempts; cleanup
  * deletes only security/log/provider rows carrying them and asserts they are gone.
@@ -48,6 +51,8 @@ async function workflow(s) {
   const names = [badName, probeName].map(h.sqlString).join(',');
   s.cleanup(() => {
     sql.execute(`DELETE FROM SecurityArchive WHERE user_name IN (${names});
+      DELETE FROM secUserRole WHERE provider_no=${providerSql};
+      DELETE FROM program_provider WHERE provider_no=${providerSql};
       DELETE FROM security WHERE user_name IN (${names}) OR provider_no=${providerSql};
       DELETE FROM log WHERE contentId IN (${names}) OR provider_no=${providerSql};
       DELETE FROM provider WHERE provider_no=${providerSql} AND last_name=${h.sqlString(marker)}`);
@@ -60,6 +65,8 @@ async function workflow(s) {
   // The attempted user names are unique to this run, so any audit row carrying one was written by it.
   const auditRows = () => sql.value(`SELECT COUNT(*) FROM log WHERE contentId IN (${names})`);
   const securityRows = () => sql.value(`SELECT COUNT(*) FROM security WHERE user_name IN (${names}) OR provider_no=${providerSql}`);
+  const probeRoleRows = () => sql.value(`SELECT (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${providerSql})
+    + (SELECT COUNT(*) FROM program_provider WHERE provider_no=${providerSql})`);
   const message = (key, fallback) => bundleMessage(key, fallback);
   const GOOD = 'Aa1!Good-Pass-9';
 
@@ -84,11 +91,14 @@ async function workflow(s) {
     h.assert(options.length > 0, 'The form offers no provider without a login');
     return options[0];
   }
-  const fill = async (provider, user, password, confirm) => {
+  // The role defaults to a real choice so each probe reaches the refusal it is about; '' leaves
+  // the form's "-- select one --" placeholder for the missing-role probe (#2689).
+  const fill = async (provider, user, password, confirm, role = 'doctor') => {
     await frame.locator('input[name="user_name"]').fill(user);
     await frame.locator('input[name="password"]').fill(password);
     await frame.locator('input[name="conPassword"]').fill(confirm);
     await frame.locator('select[name="provider_no"]').selectOption(provider);
+    await frame.locator('select[name="role_name"]').selectOption(role);
     // The account-expiry box starts checked and then demands a date; these attempts are not about expiry.
     const expire = frame.locator('input[name="b_ExpireSet"]').first();
     if (await expire.count() && await expire.isChecked()) await expire.uncheck();
@@ -112,6 +122,18 @@ async function workflow(s) {
     dialogs = await alerts(async () => { await fill(provider, '', GOOD, GOOD); await submit(); });
     h.assert(dialogs.length === 1, `A missing user name raised ${dialogs.length} alert(s), not one`);
     h.assert(posts.length === 0 && securityRows() === '0', 'A refused form posted or created a login');
+    h.assert(auditRows() === '0', 'A refused form wrote an audit row for the attempted user name');
+  });
+
+  await s.step('the form refuses a login with no role chosen without posting', async () => {
+    provider = await openForm();
+    h.assert(await frame.locator('select[name="role_name"]').inputValue() === '',
+      'Add a Login Record preselected a role');
+    const dialogs = await alerts(async () => { await fill(provider, probeName, GOOD, GOOD, ''); await submit(); });
+    const required = `${message('admin.securityrecord.formRole', 'Role')} ${message('admin.securityrecord.msgIsRequired', 'is required.')}`;
+    h.assert(dialogs.length === 1 && dialogs[0].text === required,
+      `A missing role: expected the "${required}" alert, saw ${JSON.stringify(dialogs.map(d => d.text))}`);
+    h.assert(posts.length === 0 && securityRows() === '0', 'A login with no role was posted or created');
     h.assert(auditRows() === '0', 'A refused form wrote an audit row for the attempted user name');
   });
 
@@ -160,6 +182,30 @@ async function workflow(s) {
       h.assert((await answer.text()).includes(message(messageKey, messageKey)),
         `${label} POST did not reach the expected password validation refusal`);
       h.assert(securityRows() === '0', `Add a Login Record accepted a ${label}`);
+      h.assert(auditRows() === '0', `The refused ${label} wrote a creation audit row`);
+    }
+  });
+
+  await s.step('a login POSTed without a role, or with one the form does not offer, is not created', async () => {
+    provider = await openForm();
+    await frame.waitForFunction(() => document.querySelector('form[name="searchprovider"] input[name="CSRF-TOKEN"]')?.value);
+    const token = await frame.locator('form[name="searchprovider"] input[name="CSRF-TOKEN"]').first().inputValue();
+    const offered = await frame.locator('select[name="role_name"] option').evaluateAll(list => list.map(o => o.value).filter(Boolean));
+    const forged = `${marker}-norole`;
+    h.assert(!offered.includes(forged) && sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${h.sqlString(forged)}`) === '0',
+      'The forged role name unexpectedly exists');
+    for (const [label, role] of [['missing role', null], ['empty role', ''], ['role the form does not offer', forged]]) {
+      const form = { 'CSRF-TOKEN': token, user_name: probeName, password: GOOD, conPassword: GOOD, provider_no: probeProvider,
+        pin: '', conPin: '', b_ExpireSet: '0', date_ExpireDate: '2100-01-01', forcePasswordReset: '0' };
+      if (role !== null) form.role_name = role;
+      const answer = await s.context.request.post(`${config.baseUrl}/admin/SecurityAddSecurity`, {
+        headers: { 'CSRF-TOKEN': token }, form, maxRedirects: 0,
+      });
+      h.assert(answer.status() === 200, `${label} POST answered HTTP ${answer.status()}`);
+      h.assert((await answer.text()).includes(message('admin.securityaddsecurity.msgRoleInvalid',
+        'Sorry, addition has failed. Choose a role for this login from the list.')),
+      `${label} POST did not reach the role refusal`);
+      h.assert(securityRows() === '0' && probeRoleRows() === '0', `Add a Login Record accepted a ${label}`);
       h.assert(auditRows() === '0', `The refused ${label} wrote a creation audit row`);
     }
   });

@@ -2487,6 +2487,21 @@
       ]
     },
     {
+      "name": "schedule-role-access",
+      "script": "scripts/schedule-role-access-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #2689: a receptionist's schedule loads without HTTP errors and polls only the tabs its menu shows (a hidden tab's count is refused 403, an unknown tab 400); an account with no role, and one whose role lacks the schedule, is refused at the landing with a 403 page that explains why and offers Log Out; the doctor baseline still refreshes its tabs.",
+      "fixtures": "One throwaway login whose role rows the check changes between steps, and one owned role without schedule access with its privilege row; all owned rows removed and checked."
+    },
+    {
       "name": "schedule-quick-search-appointment",
       "script": "scripts/schedule-quick-search-appointment-playwright-checks.js",
       "tiers": [
@@ -7015,8 +7030,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Checks browser validation and independent direct POST refusals for a weak matching password, a strong mismatched confirmation and an empty password. Refusals must not create a login or creation audit record.",
-      "fixtures": "One owned FAKE- provider row (target of the weak-password probe) and the user names the run attempts; the attempted refusals create no row, the probe's row is deleted in cleanup."
+      "notes": "Checks browser validation and independent direct POST refusals for a weak matching password, a strong mismatched confirmation and an empty password, and (#2689) a missing role choice in the browser plus a POST that omits the role or names one the form does not offer. Refusals must not create a login, role, program membership or creation audit record.",
+      "fixtures": "One owned FAKE- provider row (target of the weak-password and role probes) and the user names the run attempts; the attempted refusals create no row, the probe's row (and any wrongly created role or program membership) is deleted in cleanup."
     },
     {
       "name": "double-submit-appointment",

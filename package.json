@@ -70,6 +70,7 @@
     "test:csrf-runtime-forms-playwright": "node scripts/csrf-runtime-forms-playwright-checks.js",
     "test:edoc-schedule-nav-playwright": "node scripts/edoc-schedule-navigation-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
+    "test:schedule-role-access-playwright": "node scripts/schedule-role-access-playwright-checks.js",
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
