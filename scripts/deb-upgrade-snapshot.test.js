@@ -238,6 +238,18 @@ test('upgrade verifier rejects an unmigrated lab filter when the skeleton itself
   assert.doesNotMatch(result.stdout, /PASS the old stock HL7_LAB_MEASUREMENT_FILTER was migrated/);
 });
 
+test('upgrade verifier rejects a changed lab filter override written with an indent', t => {
+  // java.util.Properties reads the indented line as a definition, so its change is a changed setting.
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n  HL7_LAB_MEASUREMENT_FILTER=^\\\\d+\n`);
+  fixture.baseline();
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n  HL7_LAB_MEASUREMENT_FILTER=.*\n`);
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
 test('upgrade verifier rejects a deleted lab filter when the skeleton lacks the key', t => {
   // No definition on either side digests alike; a deletion is not the sanctioned rewrite.
   const fixture = labFilterFixture(t, { skelLine: null });

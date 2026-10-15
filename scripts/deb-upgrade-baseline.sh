@@ -94,9 +94,11 @@ OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.acce
 # the one the package's skeleton carries, once (.lab-measurement-filter-migrated,
 # #4613). The line is long and full of ';' and '%', so the snapshot carries
 # digests instead of the value: of the key's definition lines in the /etc file,
-# and of the skeleton's line (empty when there is no skeleton). Keep in step with
-# LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
-value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER[[:space:]]*[=:]' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
+# and of the skeleton's line (empty when there is no skeleton). A definition is
+# taken in java.util.Properties syntax (indented, or with a whitespace separator),
+# as the postinst counts it, so an override written that way cannot change
+# unseen. Keep in step with LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
+value=$({ grep -E '^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
 emit cfg.labFilter.sha "${value:0:16}"
 value=''
 if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then

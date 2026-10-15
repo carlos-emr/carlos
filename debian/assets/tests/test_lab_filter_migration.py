@@ -127,6 +127,22 @@ class TestLabFilterMigration(unittest.TestCase):
         # the definition in effect is the operator's, so nothing to warn about
         self.assertNotIn("WARNING", result.stderr)
 
+    def test_counts_definitions_in_java_properties_syntax(self):
+        # java.util.Properties takes an indented key, and a whitespace
+        # separator, as a definition too: the later one is the operator's.
+        for override in ("  " + KEY + ".*", "HL7_LAB_MEASUREMENT_FILTER .*",
+                         "\tHL7_LAB_MEASUREMENT_FILTER : .*"):
+            with self.subTest(override=override):
+                (self.state / SENTINEL).unlink(missing_ok=True)
+                self.write_properties(old_line(), override)
+                before = self.properties.read_bytes()
+
+                result = self.run_block()
+
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.properties.read_bytes(), before)
+                self.assertNotIn("WARNING", result.stderr)
+
     def test_leaves_a_value_the_operator_chose(self):
         self.write_properties("before=1", KEY + "^\\\\d+")
         before = self.properties.read_bytes()
@@ -223,7 +239,21 @@ class TestLabFilterMigration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
         self.assertFalse((self.state / SENTINEL).exists())
-        self.assertIn("does not define HL7_LAB_MEASUREMENT_FILTER once",
+        self.assertIn("does not define one non-empty HL7_LAB_MEASUREMENT_FILTER",
+                      result.stderr)
+
+    def test_retries_when_the_skeleton_value_is_empty(self):
+        # An empty filter would file every result as an empty value.
+        self.write_properties(old_line())
+        self.skel.write_text("other=stock\n" + KEY + "\n", encoding="utf-8")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertFalse((self.state / SENTINEL).exists())
+        self.assertIn("does not define one non-empty HL7_LAB_MEASUREMENT_FILTER",
                       result.stderr)
 
     def test_writes_the_sentinel_on_a_fresh_install(self):

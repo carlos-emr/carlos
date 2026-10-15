@@ -276,8 +276,10 @@ public class Hl7textResultsData {
                     // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
                     // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
                     // a value is left out of measurements rather than filed as something the lab did not send (#4613).
-                    if (value.length() > Measurement.DATA_FIELD_MAX_LENGTH) {
-                        logger.warn("A result of " + value.length() + " characters matched HL7_LAB_MEASUREMENT_FILTER"
+                    // Counted in code points: the utf8mb4 column counts characters, not UTF-16 units.
+                    int characters = value.codePointCount(0, value.length());
+                    if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+                        logger.warn("A result of " + characters + " characters matched HL7_LAB_MEASUREMENT_FILTER"
                                 + " but is longer than a measurement holds; not filed as a measurement (lab "
                                 + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j + ")");
                         continue;

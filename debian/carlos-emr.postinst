@@ -982,13 +982,18 @@ OAUTH_ACCESS_DEFAULTS
             if [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
                 LAB_FILTER_NEW="$(grep '^HL7_LAB_MEASUREMENT_FILTER=' "${SHARE}/skel/carlos.properties")"
             fi
-            if [ -z "${LAB_FILTER_NEW}" ]; then
-                # A skeleton without exactly one definition is a broken build:
-                # rewrite nothing and write no sentinel, so a fixed package retries.
-                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define HL7_LAB_MEASUREMENT_FILTER once; ${PROPERTIES} left as it is" >&2
+            # A definition in java.util.Properties syntax: the key, indented or
+            # not, then '=', ':' or whitespace (or nothing, an empty value).
+            LAB_FILTER_KEY_RE='^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)'
+            if [ -z "${LAB_FILTER_NEW}" ] || [ "${LAB_FILTER_NEW}" = "HL7_LAB_MEASUREMENT_FILTER=" ]; then
+                # A skeleton without exactly one definition, or with an empty one
+                # (which would file every result as an empty value), is a broken
+                # build: rewrite nothing and write no sentinel, so a fixed package
+                # retries.
+                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one non-empty HL7_LAB_MEASUREMENT_FILTER; ${PROPERTIES} left as it is" >&2
             else
                 if [ -f "${PROPERTIES}" ] && [ "${LAB_FILTER_NEW}" != "${LAB_FILTER_OLD}" ] \
-                    && [ "$(grep -c '^HL7_LAB_MEASUREMENT_FILTER[[:space:]]*[=:]' "${PROPERTIES}" || true)" = 1 ] \
+                    && [ "$(grep -cE "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
                     && grep -qxF -e "${LAB_FILTER_OLD}" "${PROPERTIES}"; then
                     lab_filter_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
                     if LAB_FILTER_OLD="${LAB_FILTER_OLD}" LAB_FILTER_NEW="${LAB_FILTER_NEW}" \
@@ -1004,7 +1009,7 @@ OAUTH_ACCESS_DEFAULTS
                         exit 1
                     fi
                 elif [ -f "${PROPERTIES}" ] \
-                    && grep -E '^HL7_LAB_MEASUREMENT_FILTER[[:space:]]*[=:]' "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
+                    && grep -E "${LAB_FILTER_KEY_RE}" "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
                     # Not the exact stock line (CRLF endings, trailing blanks, an
                     # edited copy, a second definition), so it is the operator's to
                     # change, but the definition in effect (java.util.Properties

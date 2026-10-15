@@ -159,6 +159,17 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFileWholeValue_whenSupplementaryCharactersFitDataField() {
+        // 255 characters outside the Basic Multilingual Plane are 510 UTF-16 units; the column counts characters.
+        String longest = "\uD835\uDFCF".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
+
+        Measurement measurement = fileResult(longest, ".*", "2026-10-09 11:20:29", LocalDateTime.parse("2026-10-13T10:05:19"));
+
+        assertThat(measurement).isNotNull();
+        assertThat(measurement.getDataField()).isEqualTo(longest);
+    }
+
+    @Test
     void shouldSkipMeasurement_whenFilteredValueIsLongerThanDataField() {
         // A packaged install (MariaDB sql_mode="", jdbcCompliantTruncation=false in the JDBC URL) would cut a longer
         // value to the column silently; a strict server would roll back the whole lab instead (#4613).
@@ -303,7 +314,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 // A leading break marker is stripped before the filter runs, and so is the space it leaves.
                 "<br /> -5.2  | -5.2",
                 "<br />112.5  | 112.5",
-                "<br />negative | negative"})
+                "<br />negative | negative",
+                // A signed qualitative result keeps its sign, as it did before (#4613 review).
+                "+ve          | +",
+                "-ve          | -"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 
