@@ -174,7 +174,7 @@ class MeasurementDSHelperUnitTest {
         void shouldFlagFractionA1cAboveTarget_andNotFractionWithinTarget() throws Exception {
             io.github.carlos_emr.carlos.drools.RuleBaseFactory.flushAllCached();
             // Same rule the shipped flowsheet XML generates for 'getDataAsDouble > 7'.
-            String drl = new RuleBaseCreator().getRule("a1cAbove7", "MeasurementDSHelper",
+            String drl = new RuleBaseCreator().getRule("a1cAbove7", MeasurementDSHelper.class.getName(),
                     java.util.List.of(new DSCondition("getDataAsDouble", "", ">", "7")),
                     "m.setIndicationColor(\"HIGH\");");
             org.kie.api.KieBase kieBase = new RuleBaseCreator().getRuleBase("a1cFractionTest",
