@@ -428,7 +428,13 @@ async function workflow(s) {
       h.assert(await popup.evaluate(() => !window.draftExecuted), 'Full-form draft text executed as script');
       h.assert(JSON.stringify(sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
         === JSON.stringify(before), 'The refused full-form save changed a saved revision');
-      consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+      // A popup's initial response can precede its page recorder. The context listener
+      // above always verifies that exact navigation; consume only errors actually recorded.
+      const recorded = s.recorder.badResponses.slice(mark.responses);
+      if (recorded.length) {
+        h.assert(recorded.every(entry => entry.url === response.url()), 'The recovery step recorded an unrelated failure');
+        consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+      }
     } finally {
       await form.evaluate((element, target) => {
         if (target === null) element.removeAttribute('target');
