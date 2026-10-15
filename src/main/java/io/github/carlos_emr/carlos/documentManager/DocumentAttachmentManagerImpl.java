@@ -402,51 +402,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 () -> consultDocsDao.findByRequestIdDocType(requestId, documentType.getType()).stream()
                         .map(ConsultDocs::getDocumentNo)
                         .toList());
-        attachments = preserveUnavailableConsultAttachments(documentType, attachments, requestId);
+        // The consultation form does not list a document or eForm whose target was deleted, filed to
+        // another patient or is patient-independent, so an Update submits a set without it; keep it
+        // attached (and named on the preview, print, fax and confirmation pages) rather than
+        // detaching it silently (#3145). An available attachment the user removed is detached as
+        // before; HRM and form attachments keep the old whole-set replace.
         DocumentAttach documentAttach = new DocumentAttach(loggedInInfo, demographicNo, false);
-        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId);
-    }
-
-    /**
-     * Keeps attached a consultation's attachments whose target is no longer available.
-     *
-     * <p>The consultation form does not list an attachment whose document or eForm was
-     * deleted or moved to another patient, so an Update submits a set without it, and the
-     * whole-set replace in {@link DocumentAttach} would detach it with no warning. It is folded
-     * back into the submitted set instead, as archive eDocs are: it stays attached, so the
-     * preview, print, fax cover page and confirmation pages keep naming it as left out. An
-     * attachment the user removed that is still available is not in this set, and is detached
-     * as before. HRM and form attachments are outside the unavailable-attachment check, so they
-     * keep the old behaviour.</p>
-     */
-    private String[] preserveUnavailableConsultAttachments(
-            DocumentType documentType, String[] submittedAttachments, Integer requestId) {
-        // Labs are kept by the consult form itself: an unavailable lab is listed there by its
-        // source-qualified key until it is selected again or removed, and a bare lab number would
-        // not resolve to a source on save.
-        if (requestId == null
-                || (documentType != DocumentType.DOC && documentType != DocumentType.EFORM)) {
-            return submittedAttachments;
-        }
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
-        if (unavailableAttachments == null || unavailableAttachments.isEmpty()) {
-            return submittedAttachments;
-        }
-        LinkedHashSet<String> preservedAttachments = new LinkedHashSet<>();
-        if (submittedAttachments != null) {
-            Collections.addAll(preservedAttachments, submittedAttachments);
-        }
-        for (ConsultDocs consultDoc : unavailableAttachments) {
-            if (consultDoc == null || !documentType.getType().equals(consultDoc.getDocType())) {
-                continue;
-            }
-            String documentNo = String.valueOf(consultDoc.getDocumentNo());
-            if (preservedAttachments.add(documentNo)) {
-                logger.info("Kept unavailable consultation attachment type={} id={} attached on save",
-                        documentType.getType(), LogSafe.sanitize(documentNo));
-            }
-        }
-        return preservedAttachments.toArray(new String[0]);
+        documentAttach.attachToConsult(attachments, documentType, providerNo, requestId, true);
     }
 
     /**

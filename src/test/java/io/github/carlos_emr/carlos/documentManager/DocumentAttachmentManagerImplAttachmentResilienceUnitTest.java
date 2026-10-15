@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.documentManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -47,6 +46,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
@@ -54,11 +55,15 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -100,6 +105,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     private LabManager labManager;
     private ConsultDocsDao consultDocsDao;
     private ConsultationRequestDao consultationRequestDao;
+    private DocumentDao selectionDocuments;
+    private EFormDataDao selectionEForms;
     private ConsultationManager consultationManager;
     private DocumentManager documentManager;
     private EformDataManager eformDataManager;
@@ -491,6 +498,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     void shouldKeepUnavailableAttachmentAttached_whenUpdateOmitsIt() throws Exception {
         ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
         stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        // The real selection check refuses a deleted document; the kept one must not reach it.
+        deletedDocument(80);
 
         // The form was opened after document 80 was deleted, so it lists, and submits, no documents.
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
@@ -508,6 +517,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     void shouldDetachRemovedAvailableAttachment_withoutWarning() throws Exception {
         ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
         stubConsultAttachments(List.of(removedDocument), List.of());
+        ownDocument(81);
 
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
 
@@ -530,6 +540,12 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         stubConsultAttachments(
                 List.of(deletedDocument, removedDocument, keptDocument, removedLab, movedEform),
                 List.of(deletedDocument, movedEform));
+        // Real selection check: 82 is the patient's own; 80 is deleted and eForm 915 is another
+        // patient's, so either would be refused if it reached the check.
+        ownDocument(82);
+        ownDocument(81);
+        deletedDocument(80);
+        otherPatientsEForm(915);
 
         // The reopened form lists document 82 only; the user unticked document 81 and lab 80.
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"82"}, "999998", 9, 1);
@@ -547,6 +563,59 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         assertThat(warnings(renderConsultationWarnings())).containsExactlyElementsOf(expectedWarnings);
     }
 
+    @Test
+    @DisplayName("still refuses a newly selected document of another patient while an unavailable one is kept")
+    void shouldRefuseNewForeignDocument_whileKeepingUnavailableAttachment() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        foreignDocument(83);
+
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"83"}, "999998", 9, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Attachment does not belong to this patient");
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("keeps an unavailable attachment a form opened before it became unavailable submits again")
+    void shouldKeepUnavailableAttachment_whenStaleFormResubmitsIt() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"80"}, "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("lets a user who may not read documents update a consult with an unavailable one, changing nothing")
+    void shouldAllowUpdateWithoutDocumentRead_whenOnlyUnavailableAttachmentIsOmitted() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1"))
+                .thenReturn(false);
+        // The preflight looks the parent up through find(Object), not the find(int) the render uses.
+        ConsultationRequest parent = new ConsultationRequest();
+        parent.setDemographicId(1);
+        org.mockito.Mockito.lenient().when(consultationRequestDao.find((Object) Integer.valueOf(9))).thenReturn(parent);
+
+        // The form lists no documents, which is the stored set less the unavailable one: unchanged.
+        manager.verifyConsultAttachments(loggedInInfo, 9, 1, java.util.Map.of(DocumentType.DOC, new String[0]));
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
     /**
      * Serves {@code rows} the way the DAO does: only rows not yet detached, so a row this save
      * detaches drops out of every later lookup, the unavailable-attachment one included.
@@ -558,9 +627,15 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of());
         ReflectionTestUtils.setField(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 1)).thenReturn(true);
-        // develop's per-selection read and ownership check; these tests are about the consult rows.
-        AttachmentSelectionAccess selectionAccess = createAndRegisterMock(AttachmentSelectionAccess.class);
-        org.mockito.Mockito.lenient().when(selectionAccess.validate(any(), any(), anyInt(), any(), any())).thenReturn(true);
+        // develop's real per-selection read and ownership check, over mocked lookups.
+        selectionDocuments = mock(DocumentDao.class);
+        selectionEForms = mock(EFormDataDao.class);
+        registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(securityInfoManager, selectionDocuments,
+                selectionEForms, mock(HRMDocumentToDemographicDao.class), mock(FormsManager.class)));
+        for (String privilege : List.of("_edoc", "_eform", "_lab")) {
+            org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, privilege, SecurityInfoManager.READ, "1"))
+                    .thenReturn(true);
+        }
 
         when(consultDocsDao.findByRequestIdDocType(eq(9), anyString())).thenAnswer(invocation -> rows.stream()
                 .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
@@ -580,6 +655,46 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                 .filter(row -> row.getDeleted() == null
                         && unavailableRows.stream().anyMatch(unavailable -> unavailable == row))
                 .toList());
+    }
+
+    /** A live document filed to the consultation's patient (1). */
+    private void ownDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A document of the consultation's patient that was deleted (document.status 'D'). */
+    private void deletedDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('D');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A live document filed to another patient (2). */
+    private void foreignDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 2, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** An eForm filed to another patient (2). */
+    private void otherPatientsEForm(int fdid) {
+        EFormData eForm = new EFormData();
+        eForm.setDemographicId(2);
+        org.mockito.Mockito.lenient().when(selectionEForms.find(fdid)).thenReturn(eForm);
     }
 
     private Object renderConsultationWarnings() throws Exception {

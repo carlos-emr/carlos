@@ -140,7 +140,9 @@ public interface DocumentAttachmentManager {
      * <p>The submitted ids replace the consultation's attachments of this type, so an attachment
      * left out is detached. The exception is an attachment whose target is no longer available
      * (see {@link #getUnavailableConsultAttachmentWarnings(Integer)}): the form cannot list it, so
-     * it stays attached and later renders keep warning about it.</p>
+     * it stays attached and later renders keep warning about it. It is already attached rather than
+     * selected, so it is not put through the selection's patient and access check, which every
+     * submitted id still passes.</p>
      *
      * @param loggedInInfo LoggedInInfo the current user's session information for security and audit purposes
      * @param documentType DocumentType the type of documents being attached
