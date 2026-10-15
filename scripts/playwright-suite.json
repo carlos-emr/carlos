@@ -4461,6 +4461,25 @@
       "fixtures": "Owned synthetic patient; prescriptions created through the UI against live DrugRef and removed by patient id."
     },
     {
+      "name": "rx-prescription-lifecycle",
+      "script": "scripts/rx-prescription-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_LIFECYCLE_DRUG_TERM",
+        "RX_LIFECYCLE_DRUG_NAME",
+        "RX_LIFECYCLE_ALLERGY_SEARCH",
+        "RX_LIFECYCLE_ALLERGEN"
+      ],
+      "fixtures": "Owned synthetic patient; its allergy (FAKE reaction carrying the run marker) and prescriptions are recorded through the UI against live DrugRef; drugs, prescription, partial_date, DigitalSignature, casemgmt_note (+ links) and allergies rows are removed by patient id and verified gone."
+    },
+    {
       "name": "admin-api-keygen",
       "script": "scripts/admin-api-keygen-playwright-checks.js",
       "tiers": [
