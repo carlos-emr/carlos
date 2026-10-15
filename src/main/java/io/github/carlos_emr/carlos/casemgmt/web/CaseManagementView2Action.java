@@ -1623,8 +1623,9 @@ public class CaseManagementView2Action extends ActionSupport {
         String val = request.getParameter(name);
         if (val == null) {
             val = (String) session.getAttribute(name);
-            session.removeAttribute(name);
         }
+        // This is a one-use handoff from the editor, even when the request overrides it.
+        session.removeAttribute(name);
         return Optional.ofNullable(val).filter(s -> !s.isEmpty());
     }
 
@@ -1635,10 +1636,11 @@ public class CaseManagementView2Action extends ActionSupport {
         String[] vals = request.getParameterValues(name);
         if (vals == null) {
             Object o = session.getAttribute(name);
-            session.removeAttribute(name);
             if      (o instanceof String[]) vals = (String[]) o;
             else if (o instanceof String)   vals = new String[]{(String) o};
         }
+        // Do not let an overridden filter reappear when a later request clears it.
+        session.removeAttribute(name);
         return Optional.ofNullable(vals).map(Arrays::asList);
     }
 

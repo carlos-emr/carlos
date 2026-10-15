@@ -59,6 +59,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -402,7 +403,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(provider, 'The configured test login has no provider');
     patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1100, height: 1600 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1100, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
 

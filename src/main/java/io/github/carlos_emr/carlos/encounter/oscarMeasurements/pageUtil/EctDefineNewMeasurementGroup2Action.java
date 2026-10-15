@@ -34,99 +34,82 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
-import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import org.owasp.encoder.Encode;
-
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * First step of Customize Measurements ▸ Add Measurement Group: checks the new group's name
+ * and hands the name and style sheet on to the type-selection page.
+ *
+ * <p>Nothing is written here. The group is created together with its first measurement
+ * types by {@link EctAddMeasurementGroup2Action}, so closing the type-selection page, or any
+ * failure before it, leaves no empty group in the charts' measurement menus (issue #3335).
+ * The name is still checked here, including against existing groups, so a duplicate is
+ * reported before the administrator chooses types.</p>
+ *
+ * <p>POST only: it is the target of the Define form.</p>
+ */
 public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient MeasurementGroupCreationService creationService;
 
-    private MeasurementGroupStyleDao dao = SpringUtils.getBean(MeasurementGroupStyleDao.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    public String execute()
-            throws ServletException, IOException {
-
-        if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
-            EctValidation validate = new EctValidation();
-            String regExp = validate.getRegCharacterExp();
-
-            // Error-bundle entries (e.g. errors.invalid) contain embedded HTML
-            // (<li>...</li>) and the target JSP renders actionErrors unencoded,
-            // so the {0} substitution must be HTML-encoded here to prevent the
-            // tainted groupName from breaking out of the list-item context.
-            String safeGroupName = Encode.forHtml(groupName);
-
-            if (!validate.matchRegExp(regExp, groupName)) {
-                List<String> errors = new ArrayList<>();
-                errors.add(getText("errors.invalid", new String[]{safeGroupName}));
-                request.setAttribute("actionErrors", errors);
-                return "error";
-            }
-
-            //Write the new groupName to the database if there's no duplication
-            if (!write2Database(groupName, styleSheet)) {
-                List<String> errors = new ArrayList<>();
-                errors.add(getText("error.encounter.addNewMeasurementGroup.duplicateGroupName", new String[]{safeGroupName}));
-                request.setAttribute("actionErrors", errors);
-                return "error";
-            }
-
-            HttpSession session = request.getSession();
-            session.setAttribute("groupName", groupName); // nosemgrep: tainted-session-from-http-request -- Struts parameter validated by EctValidation.matchRegExp before use; admin-only action
-
-            return "continue";
-
-        } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
-        }
+    public EctDefineNewMeasurementGroup2Action(SecurityInfoManager securityInfoManager,
+                                               MeasurementGroupCreationService creationService) {
+        this.securityInfoManager = securityInfoManager;
+        this.creationService = creationService;
     }
 
-    /*****************************************************************************************
-     * Write the new groupName to the database if there's no duplication
-     *
-     * @return boolean
-     ******************************************************************************************/
-    private boolean write2Database(String inputGroupName, String styleSheet) {
-        boolean isWrite2Database = true;
+    @Override
+    public String execute() throws IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
 
-        for (MeasurementGroupStyle mgs : dao.findAll()) {
-            String groupName = mgs.getGroupName();
-            if (inputGroupName.compareTo(groupName) == 0) {
-                isWrite2Database = false;
-                break;
-            }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
-        if (isWrite2Database) {
-            MeasurementGroupStyle mgs = new MeasurementGroupStyle();
-            mgs.setGroupName(inputGroupName);
-            try {
-                mgs.setCssId(Integer.parseInt(styleSheet));
-            } catch (NumberFormatException e) {
-                //nothing
-            }
-            dao.persist(mgs);
-
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
 
-        return isWrite2Database;
+        // Error-bundle entries contain embedded HTML (<li>...</li>) and the target JSP renders
+        // actionErrors unencoded, so the {0} substitution must be HTML-encoded here.
+        String safeGroupName = SafeEncode.forHtmlContent(groupName);
+
+        if (!MeasurementGroupCreationService.isValidGroupName(groupName)) {
+            return error(request, getText("errors.invalid", new String[]{safeGroupName}));
+        }
+        if (creationService.groupExists(groupName)) {
+            return error(request, getText("error.encounter.addNewMeasurementGroup.duplicateGroupName",
+                    new String[]{safeGroupName}));
+        }
+
+        // nosemgrep: tainted-session-from-http-request -- groupName passed isValidGroupName ([\w ,.?], at most 100 characters); admin-only action
+        request.getSession().setAttribute("groupName", groupName);
+        // Carried to the type-selection page and posted back with the chosen types.
+        request.setAttribute("styleSheet", MeasurementGroupCreationService.parseCssId(styleSheet));
+        return "continue";
+    }
+
+    private static String error(HttpServletRequest request, String message) {
+        List<String> errors = new ArrayList<>();
+        errors.add(message);
+        request.setAttribute("actionErrors", errors);
+        return "error";
     }
 
     private String groupName;

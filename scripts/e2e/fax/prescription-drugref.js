@@ -24,6 +24,7 @@
 'use strict';
 const { execFileSync } = require('child_process');
 const { launch, login, cfg } = require('./lib');
+const { shouldIgnoreHttpsErrors } = require('../../lib/playwright-harness');
 
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'carlos';
@@ -61,7 +62,7 @@ async function main() {
   must(demo, 'fixture demographic Loopback/Faxtest not found — load fixtures.sql first');
 
   const b = await launch();
-  const ctx = await b.newContext({ ignoreHTTPSErrors: true });
+  const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const p = await login(ctx, c);
     // Open the patient's Rx session so drug search has a demographic context.
