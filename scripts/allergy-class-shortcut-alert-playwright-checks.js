@@ -19,21 +19,29 @@
  *      shortcut recorded, seeded by SQL with its exact identity: drugref_id 44452, TYPECODE 10) and
  *      on no sulfonamide allergy, and reports nothing as "not checked".
  *   3. Prescribing Septra warns on both sulfonamide allergies and on no penicillin one.
- *   4. Prescribing a drug in neither class (Biaxin, clarithromycin, J01FA09) warns on none of the four
+ *   4. Products the DPD files OUTSIDE the ATC class but that contain a class member still warn, through
+ *      the AHFS class DrugRef is also asked about: HP-PAC (lansoprazole, amoxicillin and clarithromycin,
+ *      A02BD07) on both penicillin allergies, BLEPHAMIDE (sulfacetamide and prednisolone eye drops,
+ *      S01CA02) on both sulfonamide allergies. An ATC prefix check alone reports both as clear.
+ *   5. Prescribing a drug in neither class (Biaxin, clarithromycin, J01FA09) warns on none of the four
  *      and reports none as "not checked": a class allergy is compared by its code, so a drug outside
  *      the class is a checked and clear answer, not an unresolved one.
- *   5. Amending the allergy the old Sulfa shortcut recorded saves the replacement as the ATC class
+ *   6. Amending the allergy the old Sulfa shortcut recorded saves the replacement as the ATC class
  *      J01E with no DrugRef id, and archives the original.
  * Each prescribing step first asserts the drug it picked carries the expected ATC code, so a DrugRef
- * extract without that product is reported as such and not as a missed warning.
+ * extract without that product is reported as such and not as a missed warning. With the
+ * rx_show_highest_allergy_warning preference on, the page reports only the most severe match, and a
+ * step expects only that one (the shortcut's allergy, saved as severe).
  *
  * Each prescribing step runs in a fresh login: the Rx stash is per session, and a drug left in it
  * from the step before would fire its own allergy check when the page loads.
  *
  * Environment: the deb-install contract (docs/ui-tests/deb-install-validation.md section 6), plus
  * ALLERGY_CLASS_PENICILLIN_DRUG (default "amoxil"), ALLERGY_CLASS_SULFONAMIDE_DRUG (default
- * "septra") and ALLERGY_CLASS_OTHER_DRUG (default "biaxin"), each at least three characters (the
- * drug picker does not search a shorter term).
+ * "septra"), ALLERGY_CLASS_PENICILLIN_COMBINATION_DRUG (default "hp-pac"),
+ * ALLERGY_CLASS_SULFONAMIDE_COMBINATION_DRUG (default "blephamide") and ALLERGY_CLASS_OTHER_DRUG
+ * (default "biaxin", any drug outside both classes), each at least three characters (the drug picker
+ * does not search a shorter term).
  *
  * Fixtures: the owned FAKE- patient, the two allergies the shortcuts record, two allergies seeded by
  * SQL with the old shortcuts' identity, and the amendment; cleanup deletes every allergies row of that
@@ -57,10 +65,14 @@ function drugTerm(variable, fallback) {
   h.assert(term.length >= 3, `${variable} must be at least 3 characters, got "${term}"`);
   return term;
 }
+const outsideBothClasses = code => /^[A-Z]\d{2}[A-Z]{2}\d{2}$/.test(code) && !code.startsWith('J01C') && !code.startsWith('J01E');
 const DRUGS = {
-  penicillin: { term: drugTerm('ALLERGY_CLASS_PENICILLIN_DRUG', 'amoxil'), atcPrefix: 'J01C' },
-  sulfonamide: { term: drugTerm('ALLERGY_CLASS_SULFONAMIDE_DRUG', 'septra'), atcPrefix: 'J01E' },
-  other: { term: drugTerm('ALLERGY_CLASS_OTHER_DRUG', 'biaxin'), atcPrefix: 'J01FA' },
+  penicillin: { term: drugTerm('ALLERGY_CLASS_PENICILLIN_DRUG', 'amoxil'), premise: 'under J01C', fits: code => code.startsWith('J01C') },
+  sulfonamide: { term: drugTerm('ALLERGY_CLASS_SULFONAMIDE_DRUG', 'septra'), premise: 'under J01E', fits: code => code.startsWith('J01E') },
+  // Filed outside the ATC class: only the AHFS class DrugRef is also asked about places them in it.
+  penicillinCombination: { term: drugTerm('ALLERGY_CLASS_PENICILLIN_COMBINATION_DRUG', 'hp-pac'), premise: 'under A02BD', fits: code => code.startsWith('A02BD') },
+  sulfonamideCombination: { term: drugTerm('ALLERGY_CLASS_SULFONAMIDE_COMBINATION_DRUG', 'blephamide'), premise: 'under S01CA', fits: code => code.startsWith('S01CA') },
+  other: { term: drugTerm('ALLERGY_CLASS_OTHER_DRUG', 'biaxin'), premise: 'outside J01C and J01E', fits: outsideBothClasses },
 };
 
 /** The identity the old shortcut wrote: its fixed DrugRef id as an AHFS class (type 10). */
@@ -143,8 +155,8 @@ async function prescribe(s, drug) {
     h.assert(probe.status() < 400, `The allergy check answered HTTP ${probe.status()}`);
     const atcCode = new URLSearchParams(probe.request().postData() || '').get('atcCode') || '';
     // The premise, before any verdict: the picked drug is in the class this step is about.
-    h.assert(atcCode.startsWith(drug.atcPrefix),
-      `The first "${drug.term}" result has ATC code "${atcCode}", not one under ${drug.atcPrefix}; `
+    h.assert(drug.fits(atcCode),
+      `The first "${drug.term}" result has ATC code "${atcCode}", not one ${drug.premise}; `
       + 'this DrugRef extract does not carry the product this step prescribes');
     const payload = await probe.json();
     h.assert(Array.isArray(payload.results) && Array.isArray(payload.unchecked), 'The allergy check answered without its result lists');
@@ -176,6 +188,9 @@ async function workflow(s) {
     legacyIds[shortcut.key] = seedLegacyShortcutAllergy(s, shortcut, reactions[`${shortcut.key}Legacy`]);
   }
   const all = Object.values(reactions);
+  // With this preference on, the allergy check answers only the most severe match (RxShowAllergy2Action).
+  const highestOnly = sql.value("SELECT `value` FROM SystemPreferences WHERE name='rx_show_highest_allergy_warning'") === 'true';
+  if (highestOnly) console.log('    (rx_show_highest_allergy_warning is on: each step expects only the most severe match)');
 
   const chart = await s.chart();
   const list = await s.popup(chart, chart.locator('a[onclick*="showAllergy"]').first(), 'allergies');
@@ -219,12 +234,24 @@ async function workflow(s) {
       warned: [reactions.sulfonamide, reactions.sulfonamideLegacy],
     },
     {
+      drug: DRUGS.penicillinCombination,
+      label: `prescribing ${DRUGS.penicillinCombination.term} (ATC A02BD, outside J01C but containing amoxicillin) warns on both penicillin allergies`,
+      warned: [reactions.penicillin, reactions.penicillinLegacy],
+    },
+    {
+      drug: DRUGS.sulfonamideCombination,
+      label: `prescribing ${DRUGS.sulfonamideCombination.term} (ATC S01CA, outside J01E but containing sulfacetamide) warns on both sulfonamide allergies`,
+      warned: [reactions.sulfonamide, reactions.sulfonamideLegacy],
+    },
+    {
       drug: DRUGS.other,
-      label: `prescribing ${DRUGS.other.term} (ATC J01FA, in neither class) warns on no class allergy and leaves none unchecked`,
+      label: `prescribing ${DRUGS.other.term} (in neither class) warns on no class allergy and leaves none unchecked`,
       warned: [],
     },
   ];
-  for (const { drug, label, warned } of prescriptions) {
+  for (const { drug, label, warned: matches } of prescriptions) {
+    // The shortcut's allergy is saved as severe (3), the seeded one as moderate (2).
+    const warned = highestOnly ? matches.filter(reaction => reaction.endsWith(' shortcut') && !reaction.endsWith('old shortcut')) : matches;
     await s.step(label, async () => {
       const { payload, atcCode, page, context } = await prescribe(s, drug);
       try {

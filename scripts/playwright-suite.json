@@ -213,13 +213,15 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 420,
+      "timeoutSec": 480,
       "env": [
         "ALLERGY_CLASS_PENICILLIN_DRUG",
         "ALLERGY_CLASS_SULFONAMIDE_DRUG",
+        "ALLERGY_CLASS_PENICILLIN_COMBINATION_DRUG",
+        "ALLERGY_CLASS_SULFONAMIDE_COMBINATION_DRUG",
         "ALLERGY_CLASS_OTHER_DRUG"
       ],
-      "notes": "Issue #4576, finding 215: the Penicillin and Sulfa shortcuts record the ATC class allergens J01C and J01E (TYPECODE 8, no DrugRef id), and the drug-allergy check decides them by their class code. Prescribing Amoxil (J01CA04) warns on the shortcut's penicillin allergy and on one the old shortcut recorded (drugref_id 44452, TYPECODE 10, seeded by SQL) and on no sulfonamide allergy; Septra (J01EE01) warns on both sulfonamide allergies only; Biaxin (J01FA09) warns on none and leaves none \"not checked\". Each prescribing step first asserts the picked drug's ATC code, so a DrugRef extract without the product fails as such. Amending the old Sulfa shortcut's allergy stores the replacement as ATC class J01E. Each prescribing step runs in a fresh login, because the Rx stash is per session. The drug search terms are ALLERGY_CLASS_PENICILLIN_DRUG, ALLERGY_CLASS_SULFONAMIDE_DRUG and ALLERGY_CLASS_OTHER_DRUG (defaults amoxil, septra, biaxin). Needs DrugRef.",
+      "notes": "Issue #4576, finding 215: the Penicillin and Sulfa shortcuts record the ATC class allergens J01C and J01E (TYPECODE 8, no DrugRef id), and the drug-allergy check decides them by their class code, while DrugRef is also asked about the class under its AHFS and its ATC name. Prescribing Amoxil (J01CA04) warns on the shortcut's penicillin allergy and on one the old shortcut recorded (drugref_id 44452, TYPECODE 10, seeded by SQL) and on no sulfonamide allergy; Septra (J01EE01) warns on both sulfonamide allergies only. Products the DPD files outside the ATC class still warn through the AHFS class: HP-PAC (A02BD07) on both penicillin allergies, BLEPHAMIDE (S01CA02) on both sulfonamide allergies. Biaxin (J01FA09) warns on none and leaves none \"not checked\". Each prescribing step first asserts the picked drug's ATC code, so a DrugRef extract without the product fails as such. Amending the old Sulfa shortcut's allergy stores the replacement as ATC class J01E. Each prescribing step runs in a fresh login, because the Rx stash is per session; with rx_show_highest_allergy_warning on, a step expects only the most severe match. The drug search terms are ALLERGY_CLASS_PENICILLIN_DRUG, ALLERGY_CLASS_SULFONAMIDE_DRUG, ALLERGY_CLASS_PENICILLIN_COMBINATION_DRUG, ALLERGY_CLASS_SULFONAMIDE_COMBINATION_DRUG and ALLERGY_CLASS_OTHER_DRUG (defaults amoxil, septra, hp-pac, blephamide, biaxin). Needs DrugRef with AHFS (the packaged extract carries it).",
       "fixtures": "Owned FAKE- patient (runWorkflow): the two allergies the shortcuts record, two seeded with the old shortcuts' identity, and the amendment; cleanup deletes every allergies row of that patient and asserts none remain, then the patient. The prescribing steps only stage drugs in the session's Rx stash and save no prescription. No clinic-wide state is changed."
     },
     {

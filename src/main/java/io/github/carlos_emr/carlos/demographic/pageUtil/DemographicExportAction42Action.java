@@ -1538,7 +1538,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
 
                                 // An ATC class allergen (the Penicillin and Sulfa shortcuts, #4576) has no
-                                // DrugRef id but is coded against the drug reference all the same.
+                                // DrugRef id; it is still a drug allergy, as it was exported while the
+                                // shortcut stored one.
                                 if (!StringUtils.isNullOrEmpty(allergy.getDrugrefId())
                                         || !StringUtils.isNullOrEmpty(AllergyAtcClass.classCodeOf(allergy))) {
                                     alr.setReactionType(AdverseReactionType.AR);

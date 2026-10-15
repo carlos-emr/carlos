@@ -141,6 +141,50 @@ class AllergyAtcClassUnitTest {
     }
 
     @Nested
+    @DisplayName("whether the class check has an answer")
+    class Decides {
+
+        @ParameterizedTest(name = "{1} against {0}")
+        @CsvSource({"J01C, J01CA04", "J01C, J01C", "J01C, J01FA09", "J01C, A02BD07", "J01C, J02", "J01E, J01D"})
+        @DisplayName("should decide for a drug at or below the class, or in another branch")
+        void shouldDecide_whenDrugIsAtOrBelowTheClassOrElsewhere(String classCode, String drugAtc) {
+            assertThat(AllergyAtcClass.decides(classCode, drugAtc)).isTrue();
+        }
+
+        @ParameterizedTest(name = "{1} against {0}")
+        @CsvSource(value = {"J01C, J01", "J01C, J", "J01CA, J01C", "J01C, NULL", "J01C, ''", "NULL, J01CA04"}, nullValues = "NULL")
+        @DisplayName("should not decide for a drug coded above the class, or a code that cannot be compared")
+        void shouldNotDecide_whenDrugIsCodedAboveTheClass(String classCode, String drugAtc) {
+            assertThat(AllergyAtcClass.decides(classCode, drugAtc)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("an allergy's shortcut")
+    class ShortcutOf {
+
+        @Test
+        @DisplayName("should name the shortcut an ATC class allergen or an old shortcut's allergy was recorded through")
+        void shouldNameShortcut_forShortcutAllergies() {
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy(null, 8, "PENICILLINS", "J01C")))
+                    .isEqualTo(AllergyAtcClass.Shortcut.PENICILLINS);
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy("44159", 10, "SULFONAMIDES", null)))
+                    .isEqualTo(AllergyAtcClass.Shortcut.SULFONAMIDES);
+        }
+
+        @Test
+        @DisplayName("should name no shortcut for any other allergy")
+        void shouldNameNoShortcut_forOtherAllergies() {
+            // A class allergen is a shortcut's only with the shortcut's own name and class.
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy(null, 8, "PENICILLINS", "J01E"))).isNull();
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy(null, 8, "CEPHALOSPORINS", "J01D"))).isNull();
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy("41472", 10, "PENICILLINS", null))).isNull();
+            assertThat(AllergyAtcClass.shortcutOf(ClassCodeOf.allergy("100", 13, "AMOXIL", "J01CA04"))).isNull();
+            assertThat(AllergyAtcClass.shortcutOf(null)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("an allergy's class")
     class ClassCodeOf {
 
@@ -183,7 +227,7 @@ class AllergyAtcClassUnitTest {
             assertThat(AllergyAtcClass.classCodeOf(allergy(null, 8, "ANTI-INFECTIVES", "J"))).isNull();
         }
 
-        private Allergy allergy(String drugrefId, Integer typeCode, String description, String atc) {
+        static Allergy allergy(String drugrefId, Integer typeCode, String description, String atc) {
             Allergy allergy = new Allergy();
             allergy.setDrugrefId(drugrefId);
             allergy.setTypeCode(typeCode);

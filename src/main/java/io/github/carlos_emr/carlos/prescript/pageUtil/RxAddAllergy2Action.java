@@ -71,7 +71,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * An amendment ({@code allergyToArchive}) of an allergy that is no longer active returns
      * HTTP 409 and {@link #NONE} without writing anything (issue #4410).
      * An {@code atc} parameter that is not an ATC class code returns HTTP 400 and {@link #NONE};
-     * a valid one is stored for an ATC class allergen (type 8, issue #4576).
+     * a valid one is stored for an ATC class allergen (type 8, issue #4576). The exact identity an
+     * old Penicillin or Sulfa shortcut posted (its fixed DrugRef id, type 10 and its description) is
+     * saved as that shortcut's ATC class allergen instead.
      * Valid add and amendment requests return {@link #SUCCESS}.
      */
     public String execute() throws IOException, ServletException {
@@ -250,8 +252,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         // DrugRef's getDrug resolves only a brand-product search id (category 13) to a DIN and ATC
         // code. The ids of ingredient (14), generic (11/12) and class (8/10) results are not drug
-        // codes, so asking for them always fails (#4435). Those allergens are checked by DrugRef
-        // from their type and name, and need no stored identifier, so they are not looked up.
+        // codes, so asking for them always fails (#4435), and they are not looked up. DrugRef checks
+        // those allergens from their type and name; an ATC class allergen also carries its class
+        // code, set above, which RxDrugData.getAllergyWarnings compares itself (#4576).
         if (BRAND_TYPE.equals(type)) {
             if (!id.isEmpty() && !"0".equals(id)) {
                 try {

@@ -51,8 +51,10 @@ class RxDrugDataAtcClassAllergyUnitTest {
     private static final String AMOXIL = "J01CA04";
     private static final String SEPTRA = "J01EE01";
     private static final String BIAXIN = "J01FA09";
+    private static final String HP_PAC = "A02BD07";
     /** Identity, not Allergy.equals (which throws for an allergy without an id). */
-    private static final Comparator<Allergy> SAME = (a, b) -> a == b ? 0 : 1;
+    private static final Comparator<Allergy> SAME =
+            (a, b) -> a == b ? 0 : Integer.compare(System.identityHashCode(a), System.identityHashCode(b));
 
     @Test
     @DisplayName("should warn when Amoxil is prescribed to a patient with a Penicillin shortcut allergy")
@@ -157,21 +159,84 @@ class RxDrugDataAtcClassAllergyUnitTest {
     }
 
     @Test
-    @DisplayName("should send DrugRef the class code with the allergy")
-    void shouldSendClassCode_toDrugRef() throws Exception {
+    @DisplayName("should ask DrugRef about a shortcut allergy under both the AHFS and the ATC class name")
+    void shouldAskDrugRefUnderBothClassNames_forShortcutAllergy() throws Exception {
+        Allergy legacy = new Allergy();
+        legacy.setDrugrefId("44159");
+        legacy.setTypeCode(10);
+        legacy.setDescription("SULFONAMIDES");
+
+        List<Map<?, ?>> sent = sentToDrugRef(new Allergy[]{classAllergy("PENICILLINS", "J01C"), legacy});
+
+        // The new and the old shortcut's allergy are asked about the same way, each under its own index.
+        assertThat(sent).extracting(item -> item.get("id") + "/" + item.get("type") + "/" + item.get("description") + "/" + item.get("ATC"))
+                .containsExactly("0/10/PENICILLINS/J01C", "0/8/PENICILLINS/J01C", "1/10/SULFONAMIDES/J01E", "1/8/SULFONAMIDES/J01E");
+    }
+
+    @Test
+    @DisplayName("should send any other allergy to DrugRef as it is stored")
+    void shouldSendAllergyAsStored_whenItIsNotAShortcutAllergy() throws Exception {
+        Allergy brand = new Allergy();
+        brand.setTypeCode(13);
+        brand.setDescription("AMOXIL");
+        brand.setAtc("J01CA04");
+        brand.setRegionalIdentifier("00012345");
+
+        List<Map<?, ?>> sent = sentToDrugRef(new Allergy[]{brand});
+
+        assertThat(sent).singleElement().satisfies(item -> {
+            assertThat(item.get("id")).isEqualTo("0");
+            assertThat(item.get("type")).isEqualTo("13");
+            assertThat(item.get("description")).isEqualTo("AMOXIL");
+            assertThat(item.get("ATC")).isEqualTo("J01CA04");
+            assertThat(item.get("uuid")).isEqualTo("00012345");
+        });
+    }
+
+    @Test
+    @DisplayName("should keep DrugRef's AHFS warning for a penicillin product the DPD files outside J01C")
+    void shouldWarn_whenHpPacIsPrescribedForPenicillinClassAllergy() throws Exception {
+        // HP-PAC (lansoprazole, amoxicillin and clarithromycin) is A02BD07, under AHFS penicillins.
+        Allergy penicillins = classAllergy("PENICILLINS", "J01C");
+
+        try (MockedConstruction<RxDrugRef> ignored = drugRefAnswers(List.of("0"), List.of("0"))) {
+            assertThat(new RxDrugData().getAllergyWarnings(HP_PAC, new Allergy[]{penicillins}, new ArrayList<>()))
+                    .usingElementComparator(SAME).containsExactly(penicillins);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave DrugRef's answer as it is for a drug coded above the class")
+    void shouldLeaveDrugRefAnswer_whenDrugIsCodedAboveTheClass() throws Exception {
+        // "J01" (antibacterials) may or may not be a penicillin: the class code cannot say.
+        Allergy unresolved = classAllergy("PENICILLINS", "J01C");
+        List<Allergy> missing = new ArrayList<>();
+        try (MockedConstruction<RxDrugRef> ignored = drugRefAnswers(List.of(), List.of("0"))) {
+            assertThat(new RxDrugData().getAllergyWarnings("J01", new Allergy[]{unresolved}, missing)).isEmpty();
+        }
+        assertThat(missing).usingElementComparator(SAME).containsExactly(unresolved);
+
+        Allergy cleared = classAllergy("PENICILLINS", "J01C");
+        List<Allergy> stillMissing = new ArrayList<>();
+        try (MockedConstruction<RxDrugRef> ignored = drugRefAnswers(List.of(), List.of())) {
+            assertThat(new RxDrugData().getAllergyWarnings("J01", new Allergy[]{cleared}, stillMissing)).isEmpty();
+        }
+        assertThat(stillMissing).isEmpty();
+    }
+
+    /** The allergy entries RxDrugData sends DrugRef for {@code allergies}, with a clear answer. */
+    private static List<Map<?, ?>> sentToDrugRef(Allergy[] allergies) throws Exception {
         AtomicReference<Vector<?>> sent = new AtomicReference<>();
         try (MockedConstruction<RxDrugRef> ignored = mockConstruction(RxDrugRef.class, (mock, context) ->
                 when(mock.getAlergyWarnings(anyString(), any())).thenAnswer(invocation -> {
                     sent.set(invocation.getArgument(1));
                     return new Vector<>(List.of(Map.of("warnings", List.of(), "missing", List.of())));
                 }))) {
-            new RxDrugData().getAllergyWarnings(AMOXIL, new Allergy[]{classAllergy("PENICILLINS", "J01C")}, new ArrayList<>());
+            new RxDrugData().getAllergyWarnings(AMOXIL, allergies, new ArrayList<>());
         }
-        assertThat(sent.get()).hasSize(1);
-        Map<?, ?> item = (Map<?, ?>) sent.get().getFirst();
-        assertThat(item.get("type")).isEqualTo("8");
-        assertThat(item.get("description")).isEqualTo("PENICILLINS");
-        assertThat(item.get("ATC")).isEqualTo("J01C");
+        List<Map<?, ?>> items = new ArrayList<>();
+        for (Object item : sent.get()) items.add((Map<?, ?>) item);
+        return items;
     }
 
     private static Allergy classAllergy(String description, String atc) {
