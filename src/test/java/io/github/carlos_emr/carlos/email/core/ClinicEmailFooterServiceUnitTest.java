@@ -74,15 +74,15 @@ class ClinicEmailFooterServiceUnitTest {
     @Test
     void shouldBeRequired_untilAnAdministratorTurnsTheFooterOff() {
         assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.REQUIRED);
-        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "sometimes"));
+        when(properties.findClinicProperty("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "sometimes"));
         assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.REQUIRED);
-        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
+        when(properties.findClinicProperty("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
         assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.OFF);
     }
 
     @Test
     void shouldGiveCarlosEmailsNothing_butThePortalTheSavedFooter_whenOff() {
-        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
+        when(properties.findClinicProperty("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
         when(properties.findClinicEmailFooter()).thenReturn(List.of(row("email_footer_clinic_default", "FAKE Clinic")));
 
         assertThat(service.snapshot()).isEqualTo(ClinicEmailFooterSnapshot.OFF);
@@ -99,7 +99,7 @@ class ClinicEmailFooterServiceUnitTest {
         assertThat(service.saveMode(ClinicEmailFooterService.Mode.OFF)).isTrue();
         var order = inOrder(properties);
         order.verify(properties).lockClinicEmailFooterSettings();
-        order.verify(properties).getProp("email_footer_clinic_mode");
+        order.verify(properties).findClinicProperty("email_footer_clinic_mode");
         order.verify(properties).saveProp(argThat((UserProperty saved) ->
                 "email_footer_clinic_mode".equals(saved.getName()) && "off".equals(saved.getValue())));
     }
@@ -123,7 +123,7 @@ class ClinicEmailFooterServiceUnitTest {
 
         assertThat(saved.footer()).isEqualTo(ClinicEmailFooterService.SaveResult.STALE);
         assertThat(saved.modeChanged()).isFalse();
-        verify(properties, never()).getProp("email_footer_clinic_mode");
+        verify(properties, never()).findClinicProperty("email_footer_clinic_mode");
     }
 
     @Test
@@ -136,7 +136,7 @@ class ClinicEmailFooterServiceUnitTest {
         assertThat(service.snapshot().logo()).isNotNull();
         assertThat(service.emailLogo()).isNotNull();
 
-        when(properties.getProp("email_footer_logo_shown")).thenReturn(row("email_footer_logo_shown", "false"));
+        when(properties.findClinicProperty("email_footer_logo_shown")).thenReturn(row("email_footer_logo_shown", "false"));
         assertThat(service.logoShown()).isFalse();
         assertThat(service.snapshot().logo()).isNull();
         assertThat(service.portalSnapshot().logo()).isNull();
@@ -151,7 +151,7 @@ class ClinicEmailFooterServiceUnitTest {
         assertThat(service.saveLogoShown(false)).isTrue();
         var order = inOrder(properties);
         order.verify(properties).lockClinicEmailFooterSettings();
-        order.verify(properties).getProp("email_footer_logo_shown");
+        order.verify(properties).findClinicProperty("email_footer_logo_shown");
         order.verify(properties).saveProp(argThat((UserProperty saved) ->
                 "email_footer_logo_shown".equals(saved.getName()) && "false".equals(saved.getValue())));
     }

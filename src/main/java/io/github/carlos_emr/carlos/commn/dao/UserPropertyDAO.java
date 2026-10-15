@@ -62,6 +62,15 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     List<UserProperty> findClinicEmailFooter();
 
     /**
+     * A clinic-wide setting: the row with this name and no provider (the oldest, should there be
+     * more than one). A user's own row with the same name is never returned.
+     *
+     * @param name the setting's name
+     * @return the row, or {@code null} when the clinic has none
+     */
+    UserProperty findClinicProperty(String name);
+
+    /**
      * Fresh detached snapshots from a locking scalar read after the durable clinic mutex.
      * Strict snapshot conflicts abort instead of returning an earlier transaction view.
      */

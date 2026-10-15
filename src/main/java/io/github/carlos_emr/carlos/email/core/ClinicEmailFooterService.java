@@ -89,7 +89,7 @@ public class ClinicEmailFooterService {
      * anything outside CARLOS first (a portal invitation code) ask this before they start, so staff
      * hear why instead of a generic refusal from the send itself.
      *
-     * @return {@code true} when no clinic footer is set
+     * @return {@code true} when the clinic footer is required and none is set
      */
     public boolean requiredFooterMissing() {
         return mode() == Mode.REQUIRED && clinicFooter().isEmpty();
@@ -100,7 +100,7 @@ public class ClinicEmailFooterService {
      *     administrator chooses otherwise, and for any stored value it does not recognise
      */
     public Mode mode() {
-        UserProperty row = properties.getProp(MODE_PROPERTY);
+        UserProperty row = properties.findClinicProperty(MODE_PROPERTY);
         Mode mode = row == null ? null : Mode.parse(row.getValue());
         return mode == null ? Mode.REQUIRED : mode;
     }
@@ -117,7 +117,7 @@ public class ClinicEmailFooterService {
             throw new IllegalArgumentException("Clinic footer mode is missing");
         }
         properties.lockClinicEmailFooterSettings();
-        UserProperty row = properties.getProp(MODE_PROPERTY);
+        UserProperty row = properties.findClinicProperty(MODE_PROPERTY);
         Mode current = row == null ? null : Mode.parse(row.getValue());
         // No row, or one it does not recognise, reads as required: choosing required changes nothing.
         if ((current == null ? Mode.REQUIRED : current) == mode) {
@@ -137,7 +137,7 @@ public class ClinicEmailFooterService {
      *     turns it off; the logo is the clinic's own, or the CARLOS logo until it uploads one
      */
     public boolean logoShown() {
-        UserProperty row = properties.getProp(LOGO_SHOWN_PROPERTY);
+        UserProperty row = properties.findClinicProperty(LOGO_SHOWN_PROPERTY);
         return row == null || !"false".equals(row.getValue());
     }
 
@@ -150,7 +150,7 @@ public class ClinicEmailFooterService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean saveLogoShown(boolean shown) {
         properties.lockClinicEmailFooterSettings();
-        UserProperty row = properties.getProp(LOGO_SHOWN_PROPERTY);
+        UserProperty row = properties.findClinicProperty(LOGO_SHOWN_PROPERTY);
         boolean current = row == null || !"false".equals(row.getValue());
         if (current == shown) {
             return false;

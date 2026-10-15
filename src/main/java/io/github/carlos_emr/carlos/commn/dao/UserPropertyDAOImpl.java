@@ -175,6 +175,14 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     }
 
     @Override
+    public UserProperty findClinicProperty(String name) {
+        List<UserProperty> rows = entityManager.createQuery("select p from UserProperty p where p.name = :name "
+                + "and (p.providerNo is null or p.providerNo = '') order by p.id", UserProperty.class)
+                .setParameter("name", name).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     public List<UserProperty> findClinicEmailFooter() {
         return entityManager.createQuery("select p from UserProperty p where p.name = :name "
                 + "and (p.providerNo is null or p.providerNo = '') order by p.id", UserProperty.class)

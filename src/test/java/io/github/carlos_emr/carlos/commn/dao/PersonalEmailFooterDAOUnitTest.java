@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import jakarta.persistence.*;
 import java.sql.SQLException;
 import org.junit.jupiter.api.*;
@@ -139,4 +140,24 @@ class PersonalEmailFooterDAOUnitTest {
         verify(entities,never()).merge(any());
     }
 
+
+    // Clinic-wide footer settings (required/off, logo shown) are read from rows with no provider only,
+    // so no user's own row of the same name can stand in for the clinic's.
+    @Test void shouldReadClinicSetting_fromRowsWithoutAProviderOnly(){
+        var entities=mock(EntityManager.class);
+        @SuppressWarnings("unchecked") jakarta.persistence.TypedQuery<UserProperty> query=mock(jakarta.persistence.TypedQuery.class);
+        when(entities.createQuery(anyString(),eq(UserProperty.class))).thenReturn(query);
+        when(query.setParameter(anyString(),any())).thenReturn(query);
+        when(query.setMaxResults(1)).thenReturn(query);
+        when(query.getResultList()).thenReturn(java.util.List.of());
+        var dao=new UserPropertyDAOImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(dao,"entityManager",entities);
+
+        assertThat(dao.findClinicProperty("email_footer_clinic_mode")).isNull();
+
+        verify(entities).createQuery(argThat((String jpql)->jpql.contains("p.name = :name")
+                &&jpql.contains("(p.providerNo is null or p.providerNo = '')")&&jpql.contains("order by p.id")),eq(UserProperty.class));
+        verify(query).setParameter("name","email_footer_clinic_mode");
+        verify(query).setMaxResults(1);
+    }
 }
