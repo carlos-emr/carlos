@@ -800,26 +800,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						</ul>
 					</li>
 
-					<%
-						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
-									{
-					%>
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/RecommitHSFO?method=showSchedule"><fmt:message key="admin.admin.hsfoSubmit"/></a></li>
-					<%
-						}
-					%>
-		
-					  <%
-		                                if (oscarVariables.getProperty("hsfo2.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo2.loginSiteCode", "")))
-		                                {
-		                        %>
-		                        <li><a href='javascript:void(0);'
-		                                class="xlink" rel="${ctx}/admin/RecommitHSFO2?method=showSchedule"><fmt:message key="admin.admin.hsfo2Submit"/></a></li>
-		                        <%
-		                                }
-		                        %>		
-			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
 <%-- K2A config link removed --%>
 				</ul>

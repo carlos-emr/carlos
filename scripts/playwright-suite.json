@@ -1341,7 +1341,7 @@
         "RTL_SCREENSHOT_DIR",
         "RTL_TEMPLATE_NAME"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the six Rich Text Letter instances it saves, their values and the patient are removed by the patient's key and asserted gone. It no longer saves for demo patient 1. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the six Rich Text Letter instances it saves, their values and the patient are removed by the patient's key and asserted gone. It no longer saves for demo patient 1. No clinic-wide state is changed. The template step uses clinic_letter.rtl, which EFormAssetDeployer seeds on every install, so no template fixture is needed. RTL_TEMPLATE_NAME names another template (e.g. MissedAppointment.rtl, deb-install-validation.md fixture c); if it is not installed every other step still runs and the check SKIPs naming it."
     },
     {
       "name": "eform-rtl-signature-stamp",
@@ -2108,7 +2108,8 @@
         "O19_ARCHIVE_SCHEMA",
         "O19_SMOKE_SCREENSHOT_DIR",
         "O19_STATE_DIR"
-      ]
+      ],
+      "fixtures": "Needs a database produced by carlos-ctl import-o19 and its break-glass credentials (O19_STATE_DIR/admin-credentials.txt); SKIPs on a fresh install. Drive it end to end with scripts/migration/o19/rehearsal/ui-smoke.sh."
     },
     {
       "name": "patient-list-by-appointment-export",
@@ -2116,14 +2117,15 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [
         "PATIENT_LIST_FIXTURE_PROFILE"
-      ]
+      ],
+      "fixtures": "Needs the demo dataset. With MYSQL_* it seeds and removes its own three LOCAL_SEED_OBEC_REPORT_* appointments; PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 instead uses rows the operator inserted (fixture d). SKIPs with neither, or when its date windows already hold appointments."
     },
     {
       "name": "patient-search-dob",
@@ -2368,7 +2370,8 @@
         "RX_FAX_NOTES_SAVE_DELAY_MS",
         "RX_FAX_PROVIDER_NO",
         "RX_FAX_ROUND_TRIP_TIMEOUT_MS"
-      ]
+      ],
+      "fixtures": "Needs rx_fax_enabled=true, the consult_sig_<RX_FAX_PROVIDER_NO>.png stamp (fixture b) and a readable RX_FAX_DOCUMENT_DIR (run as root on the install); stages and restores its own pharmacy fax numbers and fax sender. SKIPs without Poppler pdftotext."
     },
     {
       "name": "rx-fax-reprint-represcribe",
@@ -3119,7 +3122,7 @@
         "HEADER_I18N_DEMOGRAPHIC_NO",
         "HEADER_I18N_TIMEOUT_MS"
       ],
-      "notes": "Walks the chart four times sequentially on one server: English, French, unsupported-only German (English fallback), and German followed by French. Checks all rendered identity labels, calculator uniqueness, and configured template-search bundle values."
+      "notes": "Fresh sessions compare the original chart HTTP response parsed without executing scripts against the loaded header and a reload: browser-native French, English, French, unsupported German fallback, and German followed by French. Checks labels, locale diagnostics, calculator uniqueness and template-search translations; no second GET is used to capture the initial header."
     },
     {
       "name": "echart-note-editor",
@@ -3681,7 +3684,8 @@
         "MYSQL_PASSWORD",
         "CPP_EXT_TIMEOUT_MS"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the Social History item and its extension rows (found by the run's stamp), the patient's casemgmt_issue assignment, CPP summary and eChart rows, the chart's note lock and the patient are removed and asserted gone. It no longer writes to demo patient 2, whose casemgmt_issue row the first item created. No clinic-wide state is changed."
+      "notes": "Actual CPP dialog create/reopen, late extension database failure with complete rollback, retry from the original revision through Sign & Save, and archive. Verifies both submitted dates, explicit Treatment clearing, unchanged rows after HTTP 500, retained draft, and immutable history across three successful revisions.",
+      "fixtures": "Isolated fixture database and owned FAKE-PW patient (lib/owned-patient.js). Requires MariaDB TRIGGER privilege to create/drop a uniquely named temporary BEFORE UPDATE trigger on casemgmt_note_ext, scoped to this patient's stamped note and the new Resolution Date after the Start Date update. The trigger is dropped in finally and harness cleanup. Three Medical History note revisions, extension/issue/link/signature rows, CPP summary and eChart rows, the chart lock and the owned patient are removed and asserted gone; no unrelated patient's writes are rejected."
     },
     {
       "name": "form-print-pdf",
@@ -4844,12 +4848,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image. Last, pinned to app-findings-log.md finding 156 (a control step first presses Clear Photo in the first manager and asserts one confirm, the manager closing and the chart reloading; the pinned step then reads only the second patient's photo): with the photo managers of two patients open in one login, Clear Photo in the first must keep the second patient's client_image (ClientImage reads the session-wide clientId, which the manager opened last set, so it deletes the second patient's photo).",
-      "expectedFailure": {
-        "finding": 156,
-        "step": "Clear Photo in the first photo manager keeps the photo of the patient whose manager was opened second"
-      },
-      "fixtures": "Owned FAKE- patient and its client_image rows, plus a second owned FAKE- patient (first name PhotoBravo) with one seeded client_image row; both patients' rows removed."
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image. Last, app-findings-log.md finding 156 (fixed by #4546): each photo manager's forms post their own demographicNo; with the photo managers of two patients open in one login, Clear Photo and Upload in the first act on the first patient and keep the second patient's client_image; a Clear Photo POST that names no patient deletes nothing although another manager was opened last; a doctor login locked out of the second patient (|o| on _demographic$N and _eChart$N) is refused by the application and the photo is kept, while the same login clears an unlocked patient's photo (control).",
+      "fixtures": "Owned FAKE- patient and its client_image rows, plus a second owned FAKE- patient (first name PhotoBravo) with one seeded client_image row, and one throwaway doctor login (lib/authz-read-fixture.js) with its two patient-lock rows on the second patient; the patients' rows, the login and its lock rows are removed and verified gone."
     },
     {
       "name": "note-browser-documents",
@@ -4866,7 +4866,7 @@
         "DOCUMENT_DIR",
         "INCOMINGDOCUMENT_DIR"
       ],
-      "notes": "Verifies note editing, document delete/restore/refile, and printed latest-note content. Stored text history must match the database in newest-first order and render literal markup as text.",
+      "notes": "Saves three immutable note revisions through the chart, checking prior text/authorship/signature/timestamps and new editor IDs, latest-only browse/print, document actions, row and cumulative histories, cross-patient refusal, and stale-editor conflict with draft retention.",
       "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
@@ -5706,12 +5706,26 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "ADFv2, pinned to finding 240: Save posts into a window named apptProviderSearch, so the saved record opens in a second window and the first keeps the unsaved form. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 240,
-        "step": "ADFv2: Save redisplays the saved record in the window it was pressed in"
-      }
+      "notes": "ADFv2, finding 240 (fixed, #4598): Save posts into the window it was pressed in, so the saved record is redisplayed there instead of in a second window. The redisplay pair stays in its own entry so a regression is attributed to the finding; Save and Exit is form-adfv2-save-exit. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-adfv2-save-exit",
+      "script": "scripts/form-adfv2-save-exit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "ADFv2, finding 240 (fixed, #4598), the Save and Exit half: from the Forms menu, Save and Exit is confirmed once, posted into the form's own window (answered by close.jsp), and that window closes with no other window opened; exactly one formAdfV2 row holds the typed values and the signing provider. Before the fix the post went to a window named apptProviderSearch, which close.jsp closed, and the form window stayed open on the unsaved form. The Save half is form-catalog-smoke-adfv2-window; scripts/adfv2-save-window-target.test.js runs the page's handlers.",
+      "fixtures": "Owned synthetic patient and one marker-named encounterForm registration of formadfv2; cleanup deletes the owned patient's formAdfV2 rows and the registration, and asserts both gone. The registration is clinic-wide (the shipped row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-bare-contact",
@@ -9866,12 +9880,8 @@
       "mutates": [
         "log"
       ],
-      "notes": "Assigning an issue to a chart note the way the coverage plan describes it, CPP > Assign Issues > Sign & Save, on an owned FAKE patient. Steps: a plain note is written and signed through the note editor; the Social History '+' opens the CPP item editor, whose Assign Issues box (#issueAutocompleteCPP, jQuery UI autocomplete on CaseManagementEntry?method=issueList) suggests the catalog issue 'Safety' (CTCMM1000, role counsellor; the packaged catalog has no issue 250, the plan's example) and takes the pick (the hidden #newIssueId holds the issue id, the box shows the name); the editor's own Sign & Save writes a signed casemgmt_note linked through casemgmt_issue_notes to its own Social History issue. LAST AND PINNED to finding 225: the picked issue is assigned to the note, a casemgmt_issue row for it linked through casemgmt_issue_notes; today the save links only the Social History issue, because the pick fills the hidden fields of the note editor's form while the CPP form posts none of them (addIssue2CPP is referenced only from a commented-out autocompleter). The steps after the pin run once 225 is fixed and are the functions the seeded entries run (verified live there): the Issues module lists the issue and the Resolved Issues module does not, clicking the issue lists only the linked note, and the heading brings every note back. The plan's example issue 250 is not in the packaged catalog, so 'Safety' stands in; its id is read by code. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), one plain note written and signed through the chart's note editor and one CPP Social History item written through the CPP editor. Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 225,
-        "step": "the issue picked in the CPP editor Assign Issues box is assigned to the note: a casemgmt_issue row linked through casemgmt_issue_notes"
-      }
+      "notes": "Creates signed chart and CPP notes through the UI, selects Safety in CPP Assign Issues, verifies both issue links in MariaDB, and filters back to all notes. CPP selections remain isolated from the chart editor form.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), one plain note written and signed through the chart's note editor and one CPP Social History item written through the CPP editor. Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
       "name": "echart-issues-filter-note-editor",
@@ -9886,19 +9896,15 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 120,
+      "timeoutSec": 240,
       "env": [
         "ECHART_ISSUES_PIN"
       ],
       "mutates": [
         "log"
       ],
-      "notes": "The main note editor offers a way to search for an issue and assign it, pinned to finding 186. A control step opens the owned patient's chart and finds the note editor with its issue area (#noteIssues, the area the controls belong in); the pin asserts the Assign Issues search box (#issueAutocomplete) and the Assign button (#asgnIssues) are shown, which newCaseManagementView.js.jsp and ChartNotesAjax.jsp drive but no template renders. Expected: the control passes and the pin fails. Assignment through the CPP editor is echart-issues-filter (finding 225). The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name); it writes nothing (the chart is opened and read). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 186,
-        "step": "the note editor offers an Assign Issues search box and an Assign button"
-      }
+      "notes": "Uses note Assign Issues on a new note, then reopens and edits it after the revision ID changes. Verifies persisted issue membership and that a CPP selection cannot alter the note form.",
+      "fixtures": "Owned FAKE patient with notes and issue associations created through the chart and CPP controls. Patient-scoped note, issue, extension, link, hash, draft, lock and legacy chart rows are removed after the run."
     },
     {
       "name": "echart-issues-filter-heading",
@@ -9920,12 +9926,8 @@
       "mutates": [
         "log"
       ],
-      "notes": "The Issues module's click and heading on a SEEDED link, pinned to finding 226. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225 mean no UI route assigns it). The Issues module lists the issue and the Resolved Issues module does not (the CPP issues are not listed), the linked note shows 'Assigned Issues' with the issue and the other note does not, and clicking the issue in the module lists only the linked note (the ajax POST of CaseManagementEntry method=edit&ajaxview=ajaxView) with the database unchanged. PINNED, last: clicking the module's heading ('Unresolved Issues') brings every note back. The heading's onclick is $(\\x27check_issue\\x27).value=\\x27\\x27;... because LeftNavBarDisplay.jsp encodes the statement with the javaScriptAttribute encoder, which writes the quotes as \\x27 outside a string literal: the click throws 'Invalid or unexpected token' and the listing stays filtered. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 226,
-        "step": "clicking the Issues heading brings every note back"
-      }
+      "notes": "Seeds two signed notes and one issue association in the notes program, filters by the issue, and clicks both Issues and Resolved Issues headings to restore all notes without script errors.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
       "name": "echart-issues-filter-resolve",
@@ -9948,7 +9950,7 @@
         "log"
       ],
       "notes": "Resolving an issue from the chart, on a SEEDED link, pinned to finding 227. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225). The Issues module lists the issue. A control step opens the note editor and records what a clinician can see of its 'Reference Unresolved Issues' checklist (the only place the Resolved radio lives): the server delivers it with the issue in it, it is display:none, and no visible control in the editor names issues. A second control, labelled as not a clinician path, reveals the checklist with a script, opens the issue and picks Resolved: issueChange answers 200, casemgmt_issue.resolved becomes 1 at once and the link to the note stays; the reopened chart lists the issue under Resolved Issues and not under the Issues module, and clicking it there lists only the linked note. PINNED, last: a clinician can reach the control (the checklist is shown or one visible control opens it); showIssues()/showHideIssues() have no caller and the #toggleIssue they were bound to is not rendered. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 227,
         "step": "a clinician can reach the control that resolves an issue from the note editor"
@@ -9974,12 +9976,8 @@
       "mutates": [
         "log"
       ],
-      "notes": "The notes filter panel, on a SEEDED link, pinned to finding 185. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225). The Issues module lists the issue. A control step proves the panel is in the page (#filter, display none) with a checkbox for the issue (name=issues, value = the casemgmt_issue id). PINNED, last: a clinician can open it, meaning a visible control outside the panel labelled Filter exists and clicking it shows #filter; showFilter() has no caller and toggles a class an inline display:none overrides. Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 185,
-        "step": "the notes filter panel can be opened from the chart"
-      }
+      "notes": "Opens the visible Filter control, hides and reopens the panel, filters by a seeded issue, and resets to all notes.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed."
     },
     {
       "name": "echart-issues-filter-radios",
@@ -10002,7 +10000,7 @@
         "log"
       ],
       "notes": "The Certain, Uncertain, Major and Not Major radios and the role box of the issue checklist are enabled for a login with full rights, pinned to finding 261. Two notes are written and signed through the note editor and the issue is linked to the first one with SQL (a fixture: findings 186 and 225). The Issues module lists the issue. A control step, labelled as not a clinician path (the checklist is hidden, finding 227), reveals the note editor's 'Reference Unresolved Issues' checklist with a script, opens the issue and reads its controls: the checkbox, the Acute and Chronic radios and the Resolved and Unresolved radios are enabled, which proves the signed-in provider (the test login, full rights) may write the issue. PINNED, last: the Certain, Uncertain, Major and Not Major radios and the role box are enabled; today all five are disabled, because noteIssueList.jsp:399-417 writes disabled=\"${disabled}\" for them, which prints disabled=\"false\", a boolean attribute, so the browser disables them whatever the rights (the resolved list, :288-332, writes the attribute conditionally and is fine). Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): echart-issues-filter (225, assigning through CPP > Assign Issues), echart-issues-filter-note-editor (186), echart-issues-filter-heading (226), echart-issues-filter-resolve (227), echart-issues-filter-panel (185) and echart-issues-filter-radios (261), selected by ECHART_ISSUES_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture: no UI route assigns the issue, findings 186 and 225). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two notes written and signed through the chart's note editor, and the casemgmt_issue row plus its casemgmt_issue_notes link written with SQL for the first note (a fixture isolates filtering from the separately tested assignment controls). Cleanup deletes by the patient key every note (with its link, extension and issue rows), casemgmt_issue row, CPP summary (casemgmt_cpp), draft, note lock and eChart row of the patient and asserts them all gone. The catalog issue (CTCMM1000 'Safety') is only read. No clinic-wide state is changed.",
       "expectedFailure": {
         "finding": 261,
         "step": "the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights"
@@ -10779,12 +10777,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "The Diabetes Flowsheet flags an A1C reported as a fraction above its target, pinned to finding 257. Three labs are created (the within-target and above-target A1C labs of lab-to-flowsheet, and one that reports the A1C as a fraction, 0.095 = 9.5%). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox ▸ Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry ▸ Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The control steps are the flowsheet row listed under the fraction lab's date and the percentage above the target flagged while the one within it is not. PINNED, right after them: the 0.095 row is flagged; today it carries no colour, because omdDiabetesFlowsheet.xml flags only a value above 7 and its rule for a value between 0.07 and 2 is commented out (the A1C measurement type is seeded as Range:0.040-0.200 and diab-A1C.drl handles both). Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 257,
-        "step": "the Diabetes Flowsheet flags an A1C reported as a fraction above its target"
-      }
+      "notes": "The Diabetes Flowsheet flags an A1C reported as a fraction above its target, pinned to finding 257. Three labs are created (the within-target and above-target A1C labs of lab-to-flowsheet, and one that reports the A1C as a fraction, 0.095 = 9.5%). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox ▸ Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry ▸ Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The control steps are the flowsheet row listed under the fraction lab's date and the percentage above the target flagged while the one within it is not. Then, right after them: the 0.095 row is flagged. Finding 257 is fixed: MeasurementDSHelper.getDataAsDouble() reads an A1C below 1 as percent (x100), so the flowsheet's single 'above 7' rule flags 0.095 as 9.5%. Expected: every step passes. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, a result whose first five characters are all digits or one of + , - . / : ; < = > ? is cut to four), lab-to-flowsheet-observed-time (259, a result observed in the noon hour is filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox ▸ Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed."
     },
     {
       "name": "lab-to-flowsheet-upload-time",
@@ -10848,6 +10842,24 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "bc-master-record-navigation",
+      "script": "scripts/bc-master-record-navigation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "BC_NAV_SEARCH",
+        "BC_NAV_DEMOGRAPHIC_NO"
+      ],
+      "notes": "Clicks BC master-record navigation at 1280x720 and 1600x1000; eligibility opens only on activation in a dialog. Browser intercepts eligibility responses before reaching the app, so no external Teleplan request occurs.",
+      "fixtures": "Uses an existing synthetic patient and releases only its own chart locks; no clinical writes."
     }
   ]
 }

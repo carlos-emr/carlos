@@ -48,6 +48,7 @@
 'use strict';
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('../../lib/playwright-harness');
 const {checkAnnotationSessions} = require('../../lib/annotation-multisession-check');
 const {readConfig} = require('../../lib/playwright-harness');
 
@@ -187,10 +188,9 @@ async function main() {
     ...(chromePath ? { executablePath: chromePath } : {}),
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
-  // Self-signed certificates are normal on a local dev deployment and never acceptable for a
-  // remote one: this script sends a real password, and skipping verification there would put it
-  // on an unauthenticated TLS channel.
-  const context = await browser.newContext({ ignoreHTTPSErrors: validatedBaseUrl.loopback });
+  // Self-signed certificates are normal on a local dev deployment. For a remote one this script
+  // sends a real password, so verification stays on unless ALLOW_UNVERIFIED_TLS=true says otherwise.
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   context.setDefaultTimeout(120000);
   context.setDefaultNavigationTimeout(120000);
 

@@ -42,12 +42,19 @@ async function workflow(s) {
   const mfaState = () => sql.value(mfaStateQuery);
   // A digest, never the PIN itself, so a mismatch cannot print the credential.
   const pinState = () => sql.value(`SELECT SHA2(JSON_ARRAY(pin,pinUpdateDate),256) FROM security WHERE security_no=${securityNo}`);
+  // Finding 62 / #4503: the disabled lock checkboxes are not submitted while MFA is ticked.
+  const lockState = () => sql.value(`SELECT CONCAT(b_LocalLockSet,'|',b_RemoteLockSet) FROM security WHERE security_no=${securityNo}`);
+  // Seed both flags on so a regression that clears them cannot hide behind inherited zeros.
+  sql.value(`UPDATE security SET b_LocalLockSet=1,b_RemoteLockSet=1 WHERE security_no=${securityNo}; SELECT 1`);
+  const lockBefore = lockState();
+  if (lockBefore !== '1|1') throw new Error('The PIN-lock flag fixture was not seeded');
   const passwordState = () => sql.value(`SELECT SHA2(JSON_ARRAY(password,passwordUpdateDate),256) FROM security WHERE security_no=${securityNo}`);
   const passwordBefore = passwordState();
   const pinBefore = pinState();
   const credentialProblems = [];
   function checkCredentials(stage) {
     if (pinState() !== pinBefore) credentialProblems.push(`${stage} changed the stored PIN or its update date`);
+    if (lockState() !== lockBefore) credentialProblems.push(`${stage} changed the PIN-lock flags (${lockBefore} -> ${lockState()})`);
     if (passwordState() !== passwordBefore) credentialProblems.push(`${stage} changed the stored password or its update date`);
   }
   const audits = content => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)}

@@ -22,7 +22,7 @@
  */
 
 const { chromium } = require('playwright');
-const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
@@ -71,7 +71,7 @@ const config = {
     ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     config.demographicNo = ownedPatient;
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 

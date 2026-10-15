@@ -49,6 +49,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -273,7 +274,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     createAppointment();
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1600, height: 1100 } });
     await login(context, config, recorder);
     browserSessionId = (await context.cookies()).find((cookie) => cookie.name === 'JSESSIONID')?.value || null;
     assert(browserSessionId, 'authenticated browser session cookie is missing');

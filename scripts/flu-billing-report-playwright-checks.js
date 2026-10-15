@@ -60,7 +60,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 // Hosts reachable enough to browse against. 'carlos' and 'db' are the
 // devcontainer compose service names for the app and the MariaDB container, and
@@ -605,7 +605,7 @@ async function run() {
     }
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isExactLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     const page = await context.newPage();
