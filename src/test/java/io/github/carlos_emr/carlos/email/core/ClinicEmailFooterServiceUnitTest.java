@@ -127,6 +127,36 @@ class ClinicEmailFooterServiceUnitTest {
     }
 
     @Test
+    void shouldCarryTheLogo_untilAnAdministratorTurnsItOff() {
+        var logo = new EmailInlineImage("clinic-logo-0123456789abcdef@carlos-emr", "image/png", new byte[] {1});
+        when(logos.inlineLogo()).thenReturn(logo);
+        when(properties.findClinicEmailFooter()).thenReturn(List.of(row("email_footer_clinic_default", "FAKE Clinic")));
+
+        assertThat(service.logoShown()).isTrue();
+        assertThat(service.snapshot().logo()).isNotNull();
+        assertThat(service.emailLogo()).isNotNull();
+
+        when(properties.getProp("email_footer_logo_shown")).thenReturn(row("email_footer_logo_shown", "false"));
+        assertThat(service.logoShown()).isFalse();
+        assertThat(service.snapshot().logo()).isNull();
+        assertThat(service.portalSnapshot().logo()).isNull();
+        assertThat(service.emailLogo()).isNull();
+    }
+
+    @Test
+    void shouldStoreTheLogoSwitch_underTheFooterLock_onlyWhenItChanges() {
+        assertThat(service.saveLogoShown(true)).isFalse();
+        verify(properties, never()).saveProp(any(UserProperty.class));
+
+        assertThat(service.saveLogoShown(false)).isTrue();
+        var order = inOrder(properties);
+        order.verify(properties).lockClinicEmailFooterSettings();
+        order.verify(properties).getProp("email_footer_logo_shown");
+        order.verify(properties).saveProp(argThat((UserProperty saved) ->
+                "email_footer_logo_shown".equals(saved.getName()) && "false".equals(saved.getValue())));
+    }
+
+    @Test
     void shouldRefuseBlankSave_withoutChangingConfiguredClinic() {
         assertThatThrownBy(() -> service.save("<b> </b>", ClinicEmailFooterService.fingerprint("Clinic")))
                 .isInstanceOf(IllegalArgumentException.class);

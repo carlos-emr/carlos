@@ -259,6 +259,38 @@ class EmailFooterEditorJspRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should show the logo emails carry, with a switch to turn it off inside the logo form")
+    void shouldShowCarriedLogo_andOfferTheSwitch() throws IOException {
+        String jsp = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
+        int form = jsp.indexOf("id=\"clinicLogoForm\"");
+        int end = jsp.indexOf("</form>", form);
+        int toggle = jsp.indexOf("name=\"logoShown\"", form);
+        int save = jsp.indexOf("name=\"logoAction\" value=\"switch\"", form);
+        assertThat(toggle).isGreaterThan(form).isLessThan(end);
+        assertThat(save).isGreaterThan(form).isLessThan(end);
+        assertThat(jsp)
+                .contains("<c:when test=\"${not clinicLogoShown}\">")
+                .contains("<fmt:message key=\"admin.configureEmail.logo.carlosDefault\"/>")
+                .contains("<c:if test=\"${param.logoSwitch eq 'on'}\">")
+                .contains("<c:if test=\"${param.logoSwitch eq 'off'}\">")
+                .doesNotContain("admin.configureEmail.logo.none");
+        Properties english = bundle("en");
+        assertThat(english.getProperty("admin.configureEmail.logo.none")).isNull();
+        for (String key : List.of("admin.configureEmail.logo.carlosDefault", "admin.configureEmail.logo.hidden",
+                "admin.configureEmail.logo.switch", "admin.configureEmail.logo.switchSave",
+                "admin.configureEmail.logo.switchedOn", "admin.configureEmail.logo.switchedOff",
+                "admin.configureEmail.logo.removed")) {
+            for (String locale : LOCALES) {
+                String text = bundle(locale).getProperty(key);
+                assertThat(text).as(locale + " " + key).isNotBlank();
+                if (!"en".equals(locale)) {
+                    assertThat(text).as(locale + " " + key).isNotEqualTo(english.getProperty(key));
+                }
+            }
+        }
+    }
+
     private static Properties bundle(String locale) throws IOException {
         Properties properties = new Properties();
         try (InputStream in = Files.newInputStream(

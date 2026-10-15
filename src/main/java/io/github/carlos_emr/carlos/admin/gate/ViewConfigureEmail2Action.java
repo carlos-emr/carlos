@@ -103,7 +103,9 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
                 io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
         restoreFooterDraft(request);
         EmailFooterLogo logo = logoService.currentLogo();
+        // Set: the clinic uploaded its own. Shown: emails carry a logo (its own, else the CARLOS logo).
         request.setAttribute("clinicLogoSet", logo != null);
+        request.setAttribute("clinicLogoShown", clinicFooters.logoShown());
         if (logo != null) {
             request.setAttribute("clinicLogoWidth", logo.getWidth());
             request.setAttribute("clinicLogoHeight", logo.getHeight());

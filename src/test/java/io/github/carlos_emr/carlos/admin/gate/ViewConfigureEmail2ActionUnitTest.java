@@ -86,6 +86,12 @@ class ViewConfigureEmail2ActionUnitTest {
 
         assertThat(request.getAttribute("clinicLogoSet")).isEqualTo(false);
         assertThat(request.getAttribute("clinicLogoWidth")).isNull();
+        assertThat(request.getAttribute("clinicLogoShown")).isEqualTo(false);
+
+        request.clearAttributes();
+        when(clinicFooters.logoShown()).thenReturn(true);
+        action().execute();
+        assertThat(request.getAttribute("clinicLogoShown")).as("the CARLOS logo, with none uploaded").isEqualTo(true);
     }
 
     @Test

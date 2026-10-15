@@ -65,6 +65,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>The logo travels inside each email ({@link #inlineLogo()}), never as a link to a web address:
  * there is nothing to host, it shows without a network, and opening the email reveals nothing.</p>
  *
+ * <p>Until a clinic uploads its own, emails carry the CARLOS logo ({@link #defaultLogo()}; Ben's
+ * decision of 15 Oct 2026). Whether emails carry a logo at all is the clinic's choice, kept by
+ * {@link ClinicEmailFooterService#logoShown()}.</p>
+ *
  * @since 2026-10-08
  */
 @Service
@@ -139,6 +143,31 @@ public class EmailFooterLogoService {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * The CARLOS logo (the 96 x 96 "birdman" PNG), carried until a clinic uploads its own. The same
+     * picture as {@code images/oscar_logo_small.png} (added in carlos-emr/carlos#308) and the patient
+     * portal's {@code static/carlos-birdman.png} (carlos-patient-portal main 1c5395fc); CARLOS's own,
+     * under the project licence. It fits the upload limits.
+     */
+    static final String DEFAULT_LOGO_RESOURCE = "/email/carlos-default-email-logo.png";
+
+    private static final class DefaultLogo {
+        private static final byte[] BYTES = load();
+
+        private static byte[] load() {
+            try (var in = EmailFooterLogoService.class.getResourceAsStream(DEFAULT_LOGO_RESOURCE)) {
+                if (in == null) {
+                    logger.warn("The default email footer logo is missing from the build; emails carry none until a clinic uploads one");
+                    return null;
+                }
+                return in.readAllBytes();
+            } catch (IOException e) {
+                logger.warn("The default email footer logo could not be read; cause={}", e.getClass().getSimpleName());
+                return null;
+            }
+        }
+    }
+
     private final EmailFooterLogoDao logoDao;
 
     @Autowired
@@ -152,18 +181,33 @@ public class EmailFooterLogoService {
     }
 
     /**
-     * The logo as an email carries it. Its Content-ID names the picture by its hash, so one email
-     * can only ever refer to the bytes it carries.
+     * The logo as an email carries it: the clinic's own, or the CARLOS logo until it uploads one. Its
+     * Content-ID names the picture by its hash, so one email can only ever refer to the bytes it
+     * carries.
      *
-     * @return the logo to carry inline, or null when the clinic has none
+     * @return the logo to carry inline; {@code null} only when the clinic has none and the CARLOS
+     *     logo is missing from the build
      */
     public EmailInlineImage inlineLogo() {
         EmailFooterLogo logo = logoDao.findCurrent();
         if (logo == null) {
-            return null;
+            return defaultLogo();
         }
         return new EmailInlineImage("clinic-logo-" + logo.getSha256().substring(0, 16) + "@carlos-emr",
                 logo.getContentType(), logo.getImageData());
+    }
+
+    /**
+     * @return the CARLOS logo as an email carries it, or {@code null} when it is missing from the
+     *     build
+     */
+    public static EmailInlineImage defaultLogo() {
+        byte[] bytes = DefaultLogo.BYTES;
+        if (bytes == null) {
+            return null;
+        }
+        return new EmailInlineImage("clinic-logo-" + DigestUtils.sha256Hex(bytes).substring(0, 16) + "@carlos-emr",
+                "image/png", bytes.clone());
     }
 
     /**
@@ -193,7 +237,7 @@ public class EmailFooterLogoService {
     }
 
     /**
-     * Removes the clinic logo; emails sent from now on have none.
+     * Removes the clinic's own logo; emails sent from now on carry the CARLOS logo again.
      *
      * @param providerNo the administrator removing it
      * @return false when there was no logo to remove

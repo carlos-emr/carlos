@@ -26,8 +26,8 @@ import java.io.IOException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
-import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -37,7 +37,8 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Serves the clinic's email footer logo (issue #3981) to the pages that show it beside a footer:
  * the email screen's Edit footer window ({@code _email} read) and Configure Email ({@code _admin}
- * read). Read only; GET and HEAD only. Answers 404 when the clinic has no logo.
+ * read). Read only; GET and HEAD only. It serves the logo emails carry: the clinic's own, or the
+ * CARLOS logo until it uploads one; 404 when an administrator turned the logo off.
  *
  * <p>Emails never link here: they carry the logo inside themselves.</p>
  *
@@ -46,17 +47,17 @@ import org.apache.struts2.ServletActionContext;
 public class ClinicEmailLogo2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final EmailFooterLogoService logoService;
+    private final ClinicEmailFooterService clinicFooters;
 
     /** Used by Struts, which needs a no-argument constructor. */
     public ClinicEmailLogo2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
     // Package-private for tests.
-    ClinicEmailLogo2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService) {
+    ClinicEmailLogo2Action(SecurityInfoManager securityInfoManager, ClinicEmailFooterService clinicFooters) {
         this.securityInfoManager = securityInfoManager;
-        this.logoService = logoService;
+        this.clinicFooters = clinicFooters;
     }
 
     @Override
@@ -73,14 +74,14 @@ public class ClinicEmailLogo2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-        EmailFooterLogo logo = logoService.currentLogo();
+        EmailInlineImage logo = clinicFooters.emailLogo();
         if (logo == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
-        byte[] image = logo.getImageData();
-        // Only image/png or image/jpeg reach the table: the logo service re-saves every upload.
-        response.setContentType(logo.getContentType());
+        byte[] image = logo.bytes();
+        // Only image/png or image/jpeg: the logo service re-saves every upload, and the CARLOS logo is a PNG.
+        response.setContentType(logo.contentType());
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "private, no-cache");
         response.setContentLength(image.length);

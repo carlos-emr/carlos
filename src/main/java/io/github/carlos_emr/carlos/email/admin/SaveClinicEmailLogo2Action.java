@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.LogoRejectedException;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService.Rejection;
@@ -51,13 +52,16 @@ import org.apache.struts2.dispatcher.multipart.MultiPartRequestWrapper;
 import org.apache.struts2.interceptor.ValidationWorkflowAware;
 
 /**
- * Saves or removes the clinic's email footer logo from Configure Email (issue #3981).
+ * Saves or removes the clinic's email footer logo, and turns the logo on or off, from Configure
+ * Email (issue #3981).
  *
  * <p>POST only, with {@code _admin} write; GET and HEAD get 405 before anything is read. The
- * {@code logoAction} parameter is {@code upload} (with the file in {@code logoFile}) or
- * {@code remove}. The page always comes back through a redirect to Configure Email, which says
- * what happened: {@code logoSaved}, {@code logoRemoved} or {@code logoError} with a fixed reason
- * code. Each change is audited (who and when, not the picture).</p>
+ * {@code logoAction} parameter is {@code upload} (with the file in {@code logoFile}),
+ * {@code remove} (emails carry the CARLOS logo again), or {@code switch} (with {@code logoShown}
+ * {@code true} when emails carry a logo at all). The page always comes back through a redirect to
+ * Configure Email, which says what happened: {@code logoSaved}, {@code logoRemoved},
+ * {@code logoSwitch} or {@code logoError} with a fixed reason code. Each change is audited (who
+ * and when, not the picture).</p>
  *
  * <p>The page's clinic footer is a separate form, so the logo form also carries any footer text
  * typed but not yet saved ({@link ClinicFooterDraft}); whatever happens to the logo, the page comes
@@ -76,20 +80,26 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
             "struts.messages.upload.error.FileUploadByteCountLimitException");
     private static final Logger logger = MiscUtils.getLogger();
 
+    private static final String SWITCH_AUDIT_CONTENT = "emailFooterLogoShown";
+
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterLogoService logoService;
+    private final ClinicEmailFooterService clinicFooters;
     private File logoFile;
     private boolean uploadFailed;
 
     /** Used by Struts, which needs a no-argument constructor. */
     public SaveClinicEmailLogo2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class),
+                SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
     // Package-private for tests.
-    SaveClinicEmailLogo2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService) {
+    SaveClinicEmailLogo2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService,
+            ClinicEmailFooterService clinicFooters) {
         this.securityInfoManager = securityInfoManager;
         this.logoService = logoService;
+        this.clinicFooters = clinicFooters;
     }
 
     @Override
@@ -107,8 +117,15 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String action = request.getParameter(ACTION_PARAM);
-        if ("upload".equals(action) || "remove".equals(action)) {
+        if ("upload".equals(action) || "remove".equals(action) || "switch".equals(action)) {
             keepFooterDraft(request);
+        }
+        if ("switch".equals(action)) {
+            boolean shown = "true".equals(request.getParameter("logoShown"));
+            if (clinicFooters.saveLogoShown(shown)) {
+                LogAction.addLog(providerNo, "update", SWITCH_AUDIT_CONTENT, String.valueOf(shown), request.getRemoteAddr());
+            }
+            return backToPage(request, response, shown ? "logoSwitch=on" : "logoSwitch=off");
         }
         if ("upload".equals(action)) {
             if (uploadFailed) {

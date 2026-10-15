@@ -357,10 +357,34 @@ class EmailFooterLogoServiceUnitTest {
         }
 
         @Test
-        @DisplayName("should return null when the clinic has no logo")
-        void shouldReturnNull_whenNoLogo() {
-            assertThat(service.inlineLogo()).isNull();
+        @DisplayName("should carry the CARLOS logo when the clinic has none of its own")
+        void shouldCarryTheCarlosLogo_whenTheClinicHasNone() throws IOException {
+            byte[] carlos = java.nio.file.Files.readAllBytes(
+                    java.nio.file.Path.of("src/main/resources" + EmailFooterLogoService.DEFAULT_LOGO_RESOURCE));
+
+            EmailInlineImage inline = service.inlineLogo();
+
             assertThat(service.currentLogo()).isNull();
+            assertThat(inline).isNotNull();
+            assertThat(inline.contentType()).isEqualTo("image/png");
+            assertThat(inline.bytes()).isEqualTo(carlos);
+            assertThat(inline.contentId()).isEqualTo("clinic-logo-"
+                    + org.apache.commons.codec.digest.DigestUtils.sha256Hex(carlos).substring(0, 16) + "@carlos-emr");
+        }
+
+        @Test
+        @DisplayName("should ship the CARLOS logo as the picture CARLOS already has, within the upload limits")
+        void shouldShipTheCarlosLogo_withinTheUploadLimits() throws IOException {
+            byte[] carlos = java.nio.file.Files.readAllBytes(
+                    java.nio.file.Path.of("src/main/resources" + EmailFooterLogoService.DEFAULT_LOGO_RESOURCE));
+
+            // The same birdman as images/oscar_logo_small.png (carlos-emr/carlos#308) and the portal's carlos-birdman.png.
+            assertThat(carlos).isEqualTo(java.nio.file.Files.readAllBytes(
+                    java.nio.file.Path.of("src/main/webapp/images/oscar_logo_small.png")));
+            EmailFooterLogoService.PreparedLogo prepared = EmailFooterLogoService.prepare(carlos);
+            assertThat(prepared.width()).isEqualTo(96);
+            assertThat(prepared.height()).isEqualTo(96);
+            assertThat(carlos.length).isLessThanOrEqualTo(EmailFooterLogoService.MAX_BYTES);
         }
     }
 

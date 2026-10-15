@@ -69,6 +69,7 @@ public class ClinicEmailFooterService {
     }
 
     static final String MODE_PROPERTY = "email_footer_clinic_mode";
+    static final String LOGO_SHOWN_PROPERTY = "email_footer_logo_shown";
 
     private final UserPropertyDAO properties;
     private final EmailFooterLogoService logos;
@@ -131,6 +132,43 @@ public class ClinicEmailFooterService {
         return true;
     }
 
+    /**
+     * @return whether emails carry a logo with the clinic footer: {@code true} until an administrator
+     *     turns it off; the logo is the clinic's own, or the CARLOS logo until it uploads one
+     */
+    public boolean logoShown() {
+        UserProperty row = properties.getProp(LOGO_SHOWN_PROPERTY);
+        return row == null || !"false".equals(row.getValue());
+    }
+
+    /**
+     * Sets whether emails carry a logo. Serialized with clinic footer saves.
+     *
+     * @param shown whether they do
+     * @return {@code true} when the choice changed; the caller audits it
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean saveLogoShown(boolean shown) {
+        properties.lockClinicEmailFooterSettings();
+        UserProperty row = properties.getProp(LOGO_SHOWN_PROPERTY);
+        boolean current = row == null || !"false".equals(row.getValue());
+        if (current == shown) {
+            return false;
+        }
+        if (row == null) {
+            row = new UserProperty();
+            row.setName(LOGO_SHOWN_PROPERTY);
+        }
+        row.setValue(String.valueOf(shown));
+        properties.saveProp(row);
+        return true;
+    }
+
+    /** @return the logo an email carries with the clinic footer, or {@code null} when it carries none */
+    public EmailInlineImage emailLogo() {
+        return logoShown() ? logos.inlineLogo() : null;
+    }
+
     /** @return what a new email from CARLOS carries from the clinic, as the mode says */
     public ClinicEmailFooterSnapshot snapshot() {
         if (mode() == Mode.OFF) {
@@ -147,7 +185,7 @@ public class ClinicEmailFooterService {
      */
     public ClinicEmailFooterSnapshot portalSnapshot() {
         String html = clinicFooter();
-        return new ClinicEmailFooterSnapshot(html, html.isEmpty() ? null : logos.inlineLogo());
+        return new ClinicEmailFooterSnapshot(html, html.isEmpty() ? null : emailLogo());
     }
 
     /** Render the same trusted clinic snapshot carried by the server-side compose token. */

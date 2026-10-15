@@ -7,8 +7,8 @@ package io.github.carlos_emr.carlos.email.action;
 
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
-import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -46,7 +46,7 @@ import static org.mockito.Mockito.when;
 class ClinicEmailLogo2ActionUnitTest {
 
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-    private final EmailFooterLogoService logoService = mock(EmailFooterLogoService.class);
+    private final ClinicEmailFooterService clinicFooters = mock(ClinicEmailFooterService.class);
     private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servletActionContext;
 
@@ -66,7 +66,7 @@ class ClinicEmailLogo2ActionUnitTest {
     @DisplayName("should send the logo with its type, nosniff and no shared caching")
     void shouldServeLogo_whenUserCanSendEmail() throws Exception {
         allow("_email");
-        when(logoService.currentLogo()).thenReturn(logo());
+        when(clinicFooters.emailLogo()).thenReturn(logo());
 
         assertThat(run("GET")).isEqualTo(ActionSupport.NONE);
 
@@ -81,7 +81,7 @@ class ClinicEmailLogo2ActionUnitTest {
     @DisplayName("should let an administrator without email rights see it, and send no body for HEAD")
     void shouldAnswerHead_whenUserIsAdministrator() throws Exception {
         allow("_admin");
-        when(logoService.currentLogo()).thenReturn(logo());
+        when(clinicFooters.emailLogo()).thenReturn(logo());
 
         run("HEAD");
 
@@ -91,7 +91,7 @@ class ClinicEmailLogo2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should answer 404 when the clinic has no logo")
+    @DisplayName("should answer 404 when emails carry no logo (an administrator turned it off)")
     void shouldAnswerNotFound_whenNoLogo() throws Exception {
         allow("_email");
 
@@ -106,7 +106,7 @@ class ClinicEmailLogo2ActionUnitTest {
         assertThatThrownBy(() -> run("GET"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_email)");
-        verifyNoInteractions(logoService);
+        verifyNoInteractions(clinicFooters);
     }
 
     @ParameterizedTest(name = "{0} is refused")
@@ -119,7 +119,7 @@ class ClinicEmailLogo2ActionUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("GET, HEAD");
-        verifyNoInteractions(logoService);
+        verifyNoInteractions(clinicFooters);
     }
 
     private void allow(String objectName) {
@@ -131,13 +131,10 @@ class ClinicEmailLogo2ActionUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest(method, "/email/clinicEmailLogo");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        return new ClinicEmailLogo2Action(securityInfoManager, logoService).execute();
+        return new ClinicEmailLogo2Action(securityInfoManager, clinicFooters).execute();
     }
 
-    private static EmailFooterLogo logo() {
-        EmailFooterLogo logo = new EmailFooterLogo();
-        logo.setContentType("image/png");
-        logo.setImageData(new byte[] {1, 2, 3});
-        return logo;
+    private static EmailInlineImage logo() {
+        return new EmailInlineImage("clinic-logo-0123456789abcdef@carlos-emr", "image/png", new byte[] {1, 2, 3});
     }
 }

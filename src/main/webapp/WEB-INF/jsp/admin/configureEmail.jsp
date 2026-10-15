@@ -119,7 +119,7 @@
                 </div>
             </c:if>
             <div class="d-flex align-items-start" style="gap: 12px;">
-                <c:if test="${clinicLogoSet}">
+                <c:if test="${clinicLogoShown}">
                     <img src="${ctx}/email/clinicEmailLogo" alt=""
                          style="display: block; max-width: 160px; height: auto; flex-shrink: 0;"/>
                 </c:if>
@@ -167,6 +167,12 @@
             <c:if test="${param.logoRemoved eq 'true'}">
                 <div class="alert alert-success" role="status" id="clinicLogoRemoved"><fmt:message key="admin.configureEmail.logo.removed"/></div>
             </c:if>
+            <c:if test="${param.logoSwitch eq 'on'}">
+                <div class="alert alert-success" role="status" id="clinicLogoSwitchedOn"><fmt:message key="admin.configureEmail.logo.switchedOn"/></div>
+            </c:if>
+            <c:if test="${param.logoSwitch eq 'off'}">
+                <div class="alert alert-success" role="status" id="clinicLogoSwitchedOff"><fmt:message key="admin.configureEmail.logo.switchedOff"/></div>
+            </c:if>
             <%-- One branch per known reason code; the parameter itself is never shown or used as a key. --%>
             <c:choose>
                 <c:when test="${param.logoError eq 'EMPTY'}">
@@ -188,19 +194,27 @@
                     <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorCopyTooBig"/></div>
                 </c:when>
             </c:choose>
+            <%-- What emails carry: the clinic's own logo, else the CARLOS logo, unless turned off. --%>
             <c:choose>
-                <c:when test="${clinicLogoSet}">
-                    <img src="${ctx}/email/clinicEmailLogo" alt="<fmt:message key='admin.configureEmail.logo.alt'/>"
-                         class="border bg-white p-2 d-block" style="max-width: 100%;" id="clinicLogoImage">
-                    <p class="small text-muted mt-1" id="clinicLogoSize">
-                        <fmt:message key="admin.configureEmail.logo.size">
-                            <fmt:param value="${clinicLogoWidth}"/>
-                            <fmt:param value="${clinicLogoHeight}"/>
-                        </fmt:message>
-                    </p>
+                <c:when test="${not clinicLogoShown}">
+                    <p class="text-muted" id="clinicLogoHidden"><fmt:message key="admin.configureEmail.logo.hidden"/></p>
                 </c:when>
                 <c:otherwise>
-                    <p class="text-muted" id="clinicLogoNone"><fmt:message key="admin.configureEmail.logo.none"/></p>
+                    <img src="${ctx}/email/clinicEmailLogo" alt="<fmt:message key='admin.configureEmail.logo.alt'/>"
+                         class="border bg-white p-2 d-block" style="max-width: 100%;" id="clinicLogoImage">
+                    <c:choose>
+                        <c:when test="${clinicLogoSet}">
+                            <p class="small text-muted mt-1" id="clinicLogoSize">
+                                <fmt:message key="admin.configureEmail.logo.size">
+                                    <fmt:param value="${clinicLogoWidth}"/>
+                                    <fmt:param value="${clinicLogoHeight}"/>
+                                </fmt:message>
+                            </p>
+                        </c:when>
+                        <c:otherwise>
+                            <p class="small text-muted mt-1" id="clinicLogoDefault"><fmt:message key="admin.configureEmail.logo.carlosDefault"/></p>
+                        </c:otherwise>
+                    </c:choose>
                 </c:otherwise>
             </c:choose>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
@@ -221,6 +235,14 @@
                          it back after the reload (ClinicFooterDraft). The script fills these on submit. --%>
                     <input type="hidden" name="clinicFooterDraft" value=""/>
                     <input type="hidden" name="clinicFooterDraftFingerprint" value=""/>
+                    <%-- On (the default): emails carry the clinic's logo, else the CARLOS logo. Off: no logo. --%>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="logoShown" name="logoShown"
+                               value="true" ${clinicLogoShown ? 'checked' : ''}/>
+                        <label class="form-check-label" for="logoShown"><fmt:message key="admin.configureEmail.logo.switch"/></label>
+                    </div>
+                    <button type="submit" name="logoAction" value="switch" class="btn btn-outline-primary btn-sm mt-1 mb-3">
+                        <fmt:message key="admin.configureEmail.logo.switchSave"/></button>
                     <label for="logoFile" class="form-label"><fmt:message key="admin.configureEmail.logo.choose"/></label>
                     <input class="form-control" type="file" id="logoFile" name="logoFile" accept="image/png,image/jpeg"
                            aria-describedby="clinicLogoHelp">
