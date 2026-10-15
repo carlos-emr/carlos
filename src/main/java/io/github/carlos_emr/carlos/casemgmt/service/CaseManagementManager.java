@@ -310,6 +310,15 @@ public interface CaseManagementManager {
     CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
             String providerNo, String userName, String lastStr, String roleName);
 
+    /**
+     * Saves a CPP revision, projection, issues, extensions and sibling positions atomically.
+     * The returned note owns persisted issue identities; submitted carriers remain retryable.
+     *
+     * @since 2026-10-15
+     */
+    CaseManagementNoteSaveResult saveCppNoteRevision(CaseManagementNote note, String userName, String lastStr,
+            Map<Long, Integer> notePositions, List<CaseManagementNoteExt> submittedExtensions);
+
     /** Saves an edit whose history text has already been prepared by the caller. */
     CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note);
 

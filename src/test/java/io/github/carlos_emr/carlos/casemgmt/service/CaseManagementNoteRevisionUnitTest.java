@@ -169,6 +169,26 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectStaleRevision_beforeAssigningOrPersistingPendingIssues() {
+        CaseManagementNote submitted = edit();
+        CaseManagementIssue pending = new CaseManagementIssue();
+        pending.setDemographic_no(101);
+        submitted.getIssues().add(pending);
+        CaseManagementIssueDAO issues = mock(CaseManagementIssueDAO.class);
+        manager.setCaseManagementIssueDAO(issues);
+        CaseManagementNote newer = submitted.copyForRevision();
+        newer.setId(503L);
+        when(notes.getMostRecentNoteForUpdate(submitted.getUuid())).thenReturn(newer);
+
+        assertThatThrownBy(() -> manager.saveNoteRevision(null, submitted, "999998", "Doctor", "", null))
+                .isInstanceOf(StaleNoteRevisionException.class);
+
+        assertThat(pending.getId()).isNull();
+        verifyNoInteractions(issues, extensions, links, hashes);
+        verify(notes, never()).saveNote(any());
+    }
+
+    @Test
     void shouldRejectAnotherPatientsUuid_beforeCopyingClinicalMetadata() {
         CaseManagementNote submitted = edit();
         CaseManagementNote other = submitted.copyForRevision();

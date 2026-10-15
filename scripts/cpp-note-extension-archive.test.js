@@ -19,7 +19,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-const { ownedEchartDeletes, withoutStampedBlocks } = require('./cpp-note-extension-archive-playwright-checks');
+const { ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, cleanup, fixture, assertSameSnapshot, isNoteSave } =
+  require('./cpp-note-extension-archive-playwright-checks');
 
 const STAMP = 'PW_CPP_EXT_1790000000000';
 const BEFORE = '\n-----[[Thu Sep 24 2026]]-----\nclinician entry before';
@@ -67,4 +68,72 @@ test('no recorded eChart rows means no eChart delete at all', () => {
 
 test('a recorded eChart id that is not a plain number never reaches a statement', () => {
   assert.throws(() => ownedEchartDeletes('2', '999998', { '1 OR 1=1': 'abc' }));
+});
+
+const TRIGGER = 'pw_cpp_ext_0123456789abcdef01234567';
+
+test('save response matching requires the actual dialog endpoint, POST, patient and revision', () => {
+  const action = 'http://fixture.test/carlos/CaseManagementEntry?method=issueNoteSave&noteId=31&demographicNo=123&providerNo=200';
+  const response = (url = action, method = 'POST') => ({url: () => url, request: () => ({method: () => method})});
+  assert.equal(isNoteSave(response(), action), true);
+  assert.equal(isNoteSave(response(action + '&extra=value'), action), true);
+  assert.equal(isNoteSave(response(action, 'GET'), action), false);
+  for (const url of [action.replace('issueNoteSave', 'issueNoteSaveJson'), action.replace('noteId=31', 'noteId=32'),
+    action.replace('demographicNo=123', 'demographicNo=456'), action.replace('providerNo=200', 'providerNo=201'),
+    action.replace('/CaseManagementEntry', '/OtherEntry'), action.replace('/carlos/', '/another/'),
+    action.replace('fixture.test', 'other.test')]) {
+    assert.equal(isNoteSave(response(url), action), false);
+  }
+});
+
+test('rollback trigger targets only the owned note and second new date after the first date update', () => {
+  const sql = rollbackTriggerSql(TRIGGER, '123', STAMP);
+  assert.match(sql, /^DELIMITER \/\/\nCREATE TRIGGER pw_cpp_ext_0123456789abcdef01234567 BEFORE UPDATE ON casemgmt_note_ext/);
+  assert.match(sql, /NEW.key_val='Resolution Date' AND NEW.date_value='2022-04-04'/);
+  assert.match(sql, /n.note_id=NEW.note_id\s+AND n.demographic_no=123 AND LOCATE\('PW_CPP_EXT_1790000000000', n.note\)=1/);
+  assert.match(sql, /e.note_id=NEW.note_id\s+AND e.key_val='Start Date' AND e.date_value='2022-03-03'/);
+  assert.match(sql, /SIGNAL SQLSTATE '45000'/);
+});
+
+test('rollback trigger rejects unowned or malformed identifiers and predicates before SQL', () => {
+  for (const name of ['other_trigger', `${TRIGGER}; DROP TABLE demographic`, `${TRIGGER}_extra`]) {
+    assert.throws(() => rollbackTriggerSql(name, '123', STAMP), /owned SQL identifier/);
+  }
+  for (const patient of ['', '0', '1 OR 1=1', '-1']) {
+    assert.throws(() => rollbackTriggerSql(TRIGGER, patient, STAMP), /owned patient key/);
+  }
+  assert.throws(() => rollbackTriggerSql(TRIGGER, '123', "x' OR 1=1"), /note stamp/);
+});
+
+for (const fails of [false, true]) {
+  test(`cleanup always attempts the owned trigger drop and disposes SQL when DROP ${fails ? 'fails' : 'succeeds'}`, async () => {
+    const saved = {...fixture};
+    const calls = [];
+    Object.assign(fixture, {stamp: '', demographicNo: '', ownedPatient: '', chartBefore: null,
+      rollbackTrigger: TRIGGER, sql: {
+        execute(sql) { calls.push(sql); if (fails) throw new Error('DROP rejected'); },
+        value() { return '0'; }, dispose() { calls.push('dispose'); },
+      }});
+    try {
+      if (fails) await assert.rejects(cleanup(), /owned rollback trigger.*DROP rejected/);
+      else await cleanup();
+      assert.equal(calls[0], `DROP TRIGGER IF EXISTS ${TRIGGER}`);
+      assert.equal(calls.at(-1), 'dispose');
+      assert.equal(fixture.rollbackTrigger, fails ? TRIGGER : '');
+    } finally { Object.assign(fixture, saved); }
+  });
+}
+
+test('rollback comparison detects any owned row change while allowing unchanged snapshots', () => {
+  const before = {notes: [['1', 'original', '-1']], extensions: [['1', 'Start Date', '2021-01-01']],
+    cpp: [['1', 'summary']], echart: [], issueLinks: [['3', '1']], noteLinks: [], issues: [['3', '0']], signatures: []};
+  assert.doesNotThrow(() => assertSameSnapshot(before, structuredClone(before), 'rollback'));
+  for (const key of Object.keys(before)) {
+    const after = structuredClone(before);
+    after[key].push(['unexpected write']);
+    assert.throws(() => assertSameSnapshot(before, after, 'rollback'), /rollback changed/);
+  }
+  const moved = structuredClone(before);
+  moved.notes[0][2] = '0';
+  assert.throws(() => assertSameSnapshot(before, moved, 'rollback'), /rollback changed notes/);
 });

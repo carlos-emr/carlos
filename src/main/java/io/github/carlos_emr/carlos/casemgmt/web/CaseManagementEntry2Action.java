@@ -889,6 +889,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if ((archived == null || !archived.equalsIgnoreCase("true")) && (request.getParameter("sign") == null || !request.getParameter("sign").equalsIgnoreCase("true")) && note.getNote().equalsIgnoreCase(strNote))
                 return null;
 
+            CaseManagementNote draft = note.copyForRevision();
+            draft.setId(note.getId());
+            note = draft;
             note.setRevision(Integer.parseInt(note.getRevision()) + 1 + "");
 
             if (archived != null && archived.equalsIgnoreCase("true")) note.setArchived(true);
@@ -910,7 +913,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     issue = this.caseManagementMgr.getIssueByCode(issueAlphaCode);
                 else issue = this.caseManagementMgr.getIssue(issueCode);
 
-                cIssue = this.newIssueToCIssue(demographicNo, issue, Integer.parseInt("10016"));
+                cIssue = prepareCaseIssue(demographicNo, issue, 10016);
                 cIssue.setNotes(noteSet);
             }
 
@@ -1134,6 +1137,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged && (archived == null || archived.equalsIgnoreCase("false")))
                 return null;
+            // Keep submitted edits off a potentially managed historical row until the service
+            // validates the revision and commits every part of the CPP save together.
+            CaseManagementNote draft = note.copyForRevision();
+            draft.setId(note.getId());
+            note = draft;
         }
         note.setNote(strNote);
         note.setProviderNo(loggedInInfo.getLoggedInProviderNo());
@@ -1255,7 +1263,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 cIssue = this.caseManagementMgr.getIssueById(demo, issue_id[idx]);
                 if (cIssue == null) {
                     Issue issue = this.caseManagementMgr.getIssue(issue_id[idx]);
-                    cIssue = this.newIssueToCIssue(demo, issue, Integer.parseInt(programId));
+                    cIssue = prepareCaseIssue(demo, issue, Integer.parseInt(programId));
                     cIssue.setNotes(noteSet);
 
                     // we have a new issue so add it to sessionfrm list
@@ -1268,8 +1276,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueSet.add(cIssue);
 
             } // end for
-
-            sessionFrm.setIssueCheckList(caseIssueList);
 
         }
         note.setIssues(issueSet);
@@ -1287,6 +1293,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             curCPPNotes = this.caseManagementMgr.getActiveNotes(demo, strIssueId);
         }
 
+        Map<Long, Integer> notePositions = new HashMap<>();
         CaseManagementNote curNote;
         long nId = Long.parseLong(noteId);
         int numNotes = curCPPNotes.size();
@@ -1295,42 +1302,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         for (int idx = 1; idx < curCPPNotes.size(); ++idx) {
             curNote = curCPPNotes.get(idx);
             if (curNote.getPosition() == 0) {
-                curNote.setPosition(idx);
-
                 if (curNote.getId() == nId) {
                     note.setPosition(idx);
+                } else {
+                    notePositions.put(curNote.getId(), idx);
                 }
-
-                this.caseManagementMgr.updateNote(curNote);
             }
         }
 
         if (removed || note.isArchived()) {
             position = note.getPosition();
             for (CaseManagementNote c : curCPPNotes) {
+                int currentPosition = notePositions.getOrDefault(c.getId(), c.getPosition());
                 if (c.getId() == nId) {
                     continue;
-                } else if (position < c.getPosition()) {
-                    newPos = c.getPosition() - 1;
-                    c.setPosition(newPos);
-                    this.caseManagementMgr.updateNote(c);
+                } else if (position < currentPosition) {
+                    newPos = currentPosition - 1;
+                    notePositions.put(c.getId(), newPos);
                 }
             }
         } else if ((newPos != note.getPosition() && !(newPos == numNotes && note.getPosition() == (numNotes - 1))) || newNote) {
             for (CaseManagementNote c : curCPPNotes) {
+                int currentPosition = notePositions.getOrDefault(c.getId(), c.getPosition());
                 if (c.getId() != nId) {
-                    if (newNote && c.getPosition() >= newPos) {
-                        position = c.getPosition() + 1;
-                        c.setPosition(position);
-                        this.caseManagementMgr.updateNote(c);
-                    } else if ((!newNote && newPos < note.getPosition()) && c.getPosition() >= newPos && c.getPosition() < note.getPosition()) {
-                        position = c.getPosition() + 1;
-                        c.setPosition(position);
-                        this.caseManagementMgr.updateNote(c);
-                    } else if ((!newNote && newPos > note.getPosition()) && c.getPosition() <= newPos && c.getPosition() > note.getPosition()) {
-                        position = c.getPosition() - 1;
-                        c.setPosition(position);
-                        this.caseManagementMgr.updateNote(c);
+                    if (newNote && currentPosition >= newPos) {
+                        position = currentPosition + 1;
+                        notePositions.put(c.getId(), position);
+                    } else if ((!newNote && newPos < note.getPosition()) && currentPosition >= newPos && currentPosition < note.getPosition()) {
+                        position = currentPosition + 1;
+                        notePositions.put(c.getId(), position);
+                    } else if ((!newNote && newPos > note.getPosition()) && currentPosition <= newPos && currentPosition > note.getPosition()) {
+                        position = currentPosition - 1;
+                        notePositions.put(c.getId(), position);
                     }
 
                 }
@@ -1360,16 +1363,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         /* save note including add signature */
         String lastSavedNoteString = (String) session.getAttribute("lastSavedNoteString");
-        String roleName = caseManagementMgr.getRoleName(providerNo, note.getProgram_no());
-        CaseManagementCPP cpp = this.caseManagementMgr.getCPP(demo);
-        if (cpp == null) {
-            cpp = new CaseManagementCPP();
-            cpp.setDemographic_no(demo);
-        }
-        cpp = copyNote2cpp(cpp, note);
+        List<CaseManagementNoteExt> submittedExtensions = readSubmittedCppExtensions(extNames, extKeys);
         String savedStr;
         try {
-            var savedRevision = caseManagementMgr.saveNoteRevision(cpp, note, providerNo, userName, lastSavedNoteString, roleName);
+            var savedRevision = caseManagementMgr.saveCppNoteRevision(
+                    note, userName, lastSavedNoteString, notePositions, submittedExtensions);
             note = savedRevision.note();
             savedStr = savedRevision.legacyChartText();
         } catch (RuntimeException e) {
@@ -1378,73 +1376,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         logger.debug("Saved note");
-        caseManagementMgr.saveCPP(cpp, providerNo);
+        if (issue_id != null) {
+            bindSavedCppIssues(caseIssueList, note.getIssues());
+            sessionFrm.setIssueCheckList(caseIssueList);
+        }
         /* remember the str written into echart */
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-
-        /* save extra fields */
-        // One synchronized value per extension key of this note: a key with no casemgmt_note_ext
-        // row gets exactly one inserted; a key that already has rows -- including legacy
-        // duplicates, see below -- has every one of them updated in place, none added or removed.
-        //
-        // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
-        // entity across the keys leaves it DETACHED with an id assigned by the time the second
-        // key is written: Hibernate raises PersistentObjectException, surfaced as
-        // EntityExistsException, and the whole save answers HTTP 500 with the second key never
-        // stored. That is issue #3739 -- a CPP item given both a start date and a resolution
-        // date could not be saved or archived at all, and the box repainted as "Error: 500".
-        // (Inside a single persistence context the same reuse is absorbed instead, collapsing
-        // the keys into the first row; CaseManagementCppExtPersistenceIntegrationTest pins that
-        // half, and scripts/cpp-note-extension-archive-playwright-checks.js pins the 500.)
-        // Allocating per key is not enough on its own either: saveNote()
-        // merges an existing note rather than revising it under a fresh id, so a note keeps its
-        // id across edits and a plain persist() per save piles a second row onto every key.
-        //
-        // Notes saved before that was fixed can already carry several rows for one key, and the
-        // readers disagree about which of them counts: getExtByNote() orders id desc, so the first
-        // match is the NEWEST, while NotesService.getNote() assigns from every row it walks and
-        // ends on the OLDEST. (The change-detection loop above used to stop at that first match,
-        // which is why a note whose duplicates disagreed could decline to save at all; it now
-        // walks every row.)
-        // Updating just one of a duplicate set would leave the other readers on a stale value,
-        // so every row for the key is written. That is deliberately not a delete: pruning the
-        // extras is a data migration, and a note save is no place to drop clinical history.
-        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
-        for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
-            extByKey.computeIfAbsent(existing.getKeyVal(), k -> new ArrayList<>()).add(existing);
-        }
-        for (int i = 0; i < extNames.length; i++) {
-            String val = request.getParameter(extNames[i]);
-            if (filled(val)) {
-                // Resolve the new state on a detached carrier first. A malformed date has to
-                // leave the stored rows exactly as they were, and mutating a managed entity
-                // before knowing that would blank it through dirty checking even though nothing
-                // is saved.
-                CaseManagementNoteExt resolved = new CaseManagementNoteExt();
-                if (i <= 2) {
-                    if (!writePartialDate(val, resolved)) continue;
-                } else {
-                    resolved.setValue(val);
-                }
-
-                List<CaseManagementNoteExt> rows = extByKey.get(extKeys[i]);
-                if (rows == null || rows.isEmpty()) {
-                    CaseManagementNoteExt cme = new CaseManagementNoteExt();
-                    cme.setNoteId(note.getId());
-                    cme.setKeyVal(extKeys[i]);
-                    cme.setValue(resolved.getValue());
-                    cme.setDateValue(resolved.getDateValue());
-                    caseManagementMgr.saveNoteExt(cme);
-                    extByKey.put(extKeys[i], new ArrayList<>(List.of(cme)));
-                } else {
-                    for (CaseManagementNoteExt cme : rows) {
-                        cme.setValue(resolved.getValue());
-                        cme.setDateValue(resolved.getDateValue());
-                        caseManagementMgr.updateNoteExt(cme);
-                    }
-                }
-            }
-        }
 
         caseManagementMgr.getEditors(note);
 
@@ -1468,6 +1405,35 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         this.setReloadUrl("/CaseManagementView?" + reloadUrl);
         return "listCPPNotes";
+    }
+
+    /** Publish persisted issue identities only after the CPP transaction has committed. */
+    private static void bindSavedCppIssues(List<CheckBoxBean> checkboxes, Set<CaseManagementIssue> savedIssues) {
+        Map<Long, CaseManagementIssue> savedByIssue = new HashMap<>();
+        for (CaseManagementIssue issue : savedIssues) savedByIssue.put(issue.getIssue_id(), issue);
+        for (CheckBoxBean checkbox : checkboxes) {
+            if (checkbox.getIssue().getId() != null) continue;
+            CaseManagementIssue saved = savedByIssue.get(checkbox.getIssue().getIssue_id());
+            if (saved != null) checkbox.setIssue(saved);
+        }
+    }
+
+    /** Resolve CPP form fields without writing or changing persisted extension rows. */
+    private List<CaseManagementNoteExt> readSubmittedCppExtensions(String[] names, String[] keys) {
+        List<CaseManagementNoteExt> submitted = new ArrayList<>();
+        for (int i = 0; i < names.length; i++) {
+            String value = request.getParameter(names[i]);
+            if (!filled(value)) continue;
+            CaseManagementNoteExt extension = new CaseManagementNoteExt();
+            extension.setKeyVal(keys[i]);
+            if (i <= 2) {
+                if (!writePartialDate(value, extension)) continue;
+            } else {
+                extension.setValue(value);
+            }
+            submitted.add(extension);
+        }
+        return submitted;
     }
 
     /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
@@ -3242,61 +3208,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return strNewDate;
     }
 
-    protected CaseManagementCPP copyNote2cpp(CaseManagementCPP cpp, CaseManagementNote note) {
-        Set<CaseManagementIssue> issueSet = note.getIssues();
-        StringBuilder text = new StringBuilder();
-        Date d = new Date();
-        String separator = "\n-----[[" + d + "]]-----\n";
-        for (CaseManagementIssue issue : issueSet) {
-            String code = issue.getIssue().getCode();
-            if (code.equals("OMeds")) {
-                text.append(cpp.getFamilyHistory());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setFamilyHistory(text.toString());
-                break;
-            } else if (code.equals("SocHistory")) {
-                text.append(cpp.getSocialHistory());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setSocialHistory(text.toString());
-                break;
-            } else if (code.equals("MedHistory")) {
-                text.append(cpp.getMedicalHistory());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setMedicalHistory(text.toString());
-                break;
-            } else if (code.equals("Concerns")) {
-                text.append(cpp.getOngoingConcerns());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setOngoingConcerns(text.toString());
-                break;
-            } else if (code.equals("Reminders")) {
-                text.append(cpp.getReminders());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setReminders(text.toString());
-                break;
-            } else if (code.equals("FamHistory")) {
-                text.append(cpp.getFamilyHistory());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setFamilyHistory(text.toString());
-                break;
-            } else if (code.equals("RiskFactors")) {
-                text.append(cpp.getRiskFactors());
-                text.append(separator);
-                text.append(note.getNote());
-                cpp.setRiskFactors(text.toString());
-                break;
-            }
-        }
-
-        return cpp;
-    }
-
     /*
      * Retrieve CPP issuesIf not in session, load them
      */
@@ -3717,6 +3628,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     protected CaseManagementIssue newIssueToCIssue(String demographicNo, Issue iss, Integer programId) {
+        CaseManagementIssue cIssue = prepareCaseIssue(demographicNo, iss, programId);
+        caseManagementMgr.saveAndUpdateCaseIssues(List.of(cIssue));
+        return cIssue;
+    }
+
+    /** Prepare a new issue for a caller that controls its persistence transaction. */
+    private static CaseManagementIssue prepareCaseIssue(String demographicNo, Issue iss, Integer programId) {
         CaseManagementIssue cIssue = new CaseManagementIssue();
         cIssue.setAcute(false);
         cIssue.setCertain(false);
@@ -3730,11 +3648,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         cIssue.setType(issueType);
         cIssue.setUpdate_date(new Date());
         cIssue.setProgram_id(programId);
-        // add it to database
-        List<CaseManagementIssue> uList = new ArrayList<CaseManagementIssue>();
-        uList.add(cIssue);
-        caseManagementMgr.saveAndUpdateCaseIssues(uList);
-
         return cIssue;
     }
 

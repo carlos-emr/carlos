@@ -6,11 +6,13 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO;
 import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteSaveResult;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -19,16 +21,19 @@ import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.log.LogAction;
 import org.hibernate.exception.SnapshotIsolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -39,6 +44,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -217,6 +224,8 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         }
 
         assertThat(action.issueNoteSaveJson()).isNull();
+        assertThat(note.getNote()).isEqualTo("Original");
+        assertThat(note.isSigned()).isFalse();
         if (conflict) {
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(appointment.getStatus()).isEqualTo("t");
@@ -229,6 +238,158 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
             order.verify(appointments).merge(appointment);
             assertThat(appointment.getStatus()).isEqualTo("tS");
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldLeaveNewJsonIssuesUnpersisted_whenRevisionSaveFails(boolean conflict) throws Exception {
+        request.setParameter("demographic_no", "101");
+        request.setParameter("noteId", "0");
+        request.setParameter("value", "New JSON note");
+        request.setParameter("issue_id", "73");
+        request.setParameter("appointment_no", "42");
+        request.setParameter("sign", "true");
+        request.setParameter("signAndExit", "true");
+        createAndRegisterMock(ProgramProviderDAO.class);
+        createAndRegisterMock(ProviderDefaultProgramDao.class);
+        createAndRegisterMock(ProgramAccessDAO.class);
+        createAndRegisterMock(SecroleDao.class);
+        createAndRegisterMock(RoleProgramAccessDAO.class);
+        createAndRegisterMock(AdmissionDao.class);
+        OscarAppointmentDao appointments = createAndRegisterMock(OscarAppointmentDao.class);
+        Issue issue = new Issue();
+        issue.setId(73L);
+        issue.setCode("SocHistory");
+        issue.setRole("doctor");
+        when(manager.getIssue("73")).thenReturn(issue);
+        RuntimeException failure = conflict ? snapshotConflict() : new DataIntegrityViolationException("late write failure");
+        when(manager.saveNoteRevision(any(), any(), any(), any(), any(), any())).thenThrow(failure);
+
+        if (conflict) {
+            assertThat(action.issueNoteSaveJson()).isNull();
+            assertThat(response.getStatus()).isEqualTo(409);
+        } else {
+            assertThatThrownBy(() -> action.issueNoteSaveJson()).isSameAs(failure);
+        }
+
+        ArgumentCaptor<CaseManagementNote> submitted = ArgumentCaptor.forClass(CaseManagementNote.class);
+        verify(manager).saveNoteRevision(any(), submitted.capture(), any(), any(), any(), any());
+        assertThat(submitted.getValue().getId()).isNull();
+        assertThat(submitted.getValue().getIssues()).singleElement().satisfies(assigned -> {
+            assertThat(assigned.getId()).isNull();
+            assertThat(assigned.getIssue_id()).isEqualTo(73L);
+            assertThat(assigned.getProgram_id()).isEqualTo(10016);
+        });
+        verify(manager, never()).saveAndUpdateCaseIssues(any());
+        verifyNoInteractions(appointments);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldDeferAllCppWritesAndSessionChanges_whenAtomicSaveFails(boolean conflict) throws Exception {
+        CaseManagementNote sibling = prepareCppSave();
+        var oldIssueList = form.getIssueCheckList();
+        RuntimeException failure = conflict ? snapshotConflict() : new DataIntegrityViolationException("late extension failure");
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenThrow(failure);
+
+        if (conflict) {
+            assertThat(action.issueNoteSave()).isNull();
+            assertThat(response.getStatus()).isEqualTo(409);
+        } else {
+            assertThatThrownBy(() -> action.issueNoteSave()).isSameAs(failure);
+        }
+
+        ArgumentCaptor<CaseManagementNote> draft = ArgumentCaptor.forClass(CaseManagementNote.class);
+        ArgumentCaptor<Map<Long, Integer>> positions = ArgumentCaptor.captor();
+        ArgumentCaptor<List<CaseManagementNoteExt>> submitted = ArgumentCaptor.captor();
+        verify(manager).saveCppNoteRevision(draft.capture(), any(), eq("Previous chart text"),
+                positions.capture(), submitted.capture());
+        assertThat(draft.getValue()).isNotSameAs(note);
+        assertThat(draft.getValue().getId()).isEqualTo(501L);
+        assertThat(draft.getValue().getNote()).isEqualTo("CPP draft");
+        assertThat(draft.getValue().getIssues()).singleElement().satisfies(assigned -> {
+            assertThat(assigned.getId()).isNull();
+            assertThat(assigned.getIssue_id()).isEqualTo(73L);
+        });
+        assertThat(positions.getValue()).containsExactlyEntriesOf(Map.of(502L, 0));
+        assertThat(submitted.getValue()).extracting(CaseManagementNoteExt::getKeyVal)
+                .containsExactly(CaseManagementNoteExt.STARTDATE, CaseManagementNoteExt.AGEATONSET);
+        assertThat(submitted.getValue().getFirst().getDateValueStr()).isEqualTo("2022-01-01");
+        assertThat(submitted.getValue().getLast().getValue()).isEqualTo("44");
+        assertThat(note.getNote()).isEqualTo("Original");
+        assertThat(note.isSigned()).isFalse();
+        assertThat(note.getPosition()).isZero();
+        assertThat(sibling.getPosition()).isEqualTo(1);
+        assertThat(form.getIssueCheckList()).isSameAs(oldIssueList).isEmpty();
+        assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Previous chart text");
+        verify(manager, never()).saveAndUpdateCaseIssues(any());
+        verify(manager, never()).updateNote(any());
+        verify(manager, never()).saveCPP(any(), any());
+        verify(manager, never()).saveNoteExt(any());
+        verify(manager, never()).updateNoteExt(any());
+        verify(manager, never()).getEditors(any(CaseManagementNote.class));
+    }
+
+    @Test
+    void shouldPublishPersistedIssueIdsAndChartText_whenAtomicCppSaveSucceeds() throws Exception {
+        prepareCppSave();
+        request.setParameter("forward", "none");
+        var oldIssueList = form.getIssueCheckList();
+        CaseManagementIssue persistedIssue = new CaseManagementIssue();
+        persistedIssue.setId(74L);
+        persistedIssue.setIssue_id(73L);
+        persistedIssue.setIssue(manager.getIssue("73"));
+        CaseManagementNote saved = note.copyForRevision();
+        saved.setId(600L);
+        saved.setNote("CPP draft");
+        saved.setIssues(Set.of(persistedIssue));
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenAnswer(call -> {
+            assertThat(form.getIssueCheckList()).isSameAs(oldIssueList).isEmpty();
+            assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Previous chart text");
+            return new CaseManagementNoteSaveResult(saved, "Committed chart text");
+        });
+
+        assertThat(action.issueNoteSave()).isNull();
+        logActionMock.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(), eq("600"),
+                anyString(), eq("101"), anyString()));
+
+        assertThat(response.getContentAsString().trim()).isEqualTo("600");
+        assertThat(form.getIssueCheckList()).singleElement()
+                .satisfies(checkbox -> assertThat(checkbox.getIssue()).isSameAs(persistedIssue));
+        assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Committed chart text");
+        assertThat(note.getNote()).isEqualTo("Original");
+    }
+
+    private CaseManagementNote prepareCppSave() {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        provider.setFirstName("Test");
+        provider.setLastName("Clinician");
+        when(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider()).thenReturn(provider);
+        request.setParameter("noteId", "501");
+        request.setParameter("value", "CPP draft");
+        request.setParameter("issueChange", "true");
+        request.setParameter("issue_id", "73");
+        request.setParameter("reloadUrl", "issue_code=SocHistory");
+        request.setParameter("position", "1");
+        request.setParameter("startdate", "2022-01-01");
+        request.setParameter("resolutiondate", "not a date");
+        request.setParameter("ageatonset", "44");
+        request.getSession().setAttribute("lastSavedNoteString", "Previous chart text");
+        CaseManagementNoteExtDAO extensions = mock(CaseManagementNoteExtDAO.class);
+        injectDependency(action, "caseManagementNoteExtDao", extensions);
+        Issue issue = new Issue();
+        issue.setId(73L);
+        issue.setCode("SocHistory");
+        issue.setDescription("Social History");
+        issue.setRole("doctor");
+        when(manager.getIssue("73")).thenReturn(issue);
+        when(manager.getIssueInfoByCode("999998", "SocHistory")).thenReturn(List.of(issue));
+        CaseManagementNote sibling = new CaseManagementNote();
+        sibling.setId(502L);
+        sibling.setPosition(1);
+        when(manager.getActiveNotes(eq("101"), any(String[].class))).thenReturn(List.of(note, sibling));
+        return sibling;
     }
 
     @ParameterizedTest

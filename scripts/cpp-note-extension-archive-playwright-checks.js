@@ -42,7 +42,11 @@
  * the point is partly that the page's own CarlosAjax POST carries its CSRF
  * token and its serialized form exactly as the browser builds them.
  *
- * WHAT IT WRITES, AND REMOVES. Two casemgmt_note revisions and their casemgmt_note_ext
+ * A patient-scoped trigger rejects the edited Resolution Date after the Start Date
+ * update. The whole failed save must roll back, and retrying the original revision
+ * through the still-open dialog must succeed before archive creates the third revision.
+ *
+ * WHAT IT WRITES, AND REMOVES. Three casemgmt_note revisions and their casemgmt_note_ext
  * rows for a FAKE patient this check creates (lib/owned-patient.js: last name = a
  * FAKE-PW run marker), plus the casemgmt_note_lock the chart takes, the patient's
  * casemgmt_issue assignment and CPP summary and eChart rows. The patient used to be
@@ -68,8 +72,9 @@
 
 const {
   assert, assertStrictPage, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
-  sqlString,
+  sqlString, withExpectedDialogs,
 } = require('./lib/playwright-harness');
+const { randomBytes } = require('node:crypto');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -81,6 +86,8 @@ const DIALOG = '#showEditNote';
 /** Two dated keys, because one persist() per request always succeeds. */
 const START_DATE = '2021-01-01';
 const RESOLUTION_DATE = '2021-02-02';
+const EDIT_START_DATE = '2022-03-03';
+const EDIT_RESOLUTION_DATE = '2022-04-04';
 /** casemgmt_note_ext.key_val values CaseManagementNoteExt writes for those fields. */
 const EXPECTED_KEYS = ['Start Date', 'Resolution Date'];
 
@@ -102,6 +109,8 @@ const fixture = {
   chartBefore: null,
   /** eChart rows this run's own saves wrote: id -> fingerprint when last written by the run. */
   echartOwned: {},
+  /** Registered before CREATE so both the immediate finally and cleanup can drop it. */
+  rollbackTrigger: '',
 };
 
 /**
@@ -287,6 +296,83 @@ function sqlNumber(value, what) {
   return String(value);
 }
 
+function rollbackTriggerName(name) {
+  assert(/^pw_cpp_ext_[a-f0-9]{24}$/.test(name), 'the rollback trigger needs a unique owned SQL identifier');
+  return name;
+}
+
+/** Reject only the submitted second date, after the first date reached this transaction. */
+function rollbackTriggerSql(name, patient, stamp) {
+  rollbackTriggerName(name);
+  assert(/^[1-9]\d*$/.test(String(patient)), 'the rollback trigger needs an owned patient key');
+  assert(/^PW_CPP_EXT_\d+$/.test(stamp), 'the rollback trigger needs this check\'s note stamp');
+  return `DELIMITER //
+CREATE TRIGGER ${name} BEFORE UPDATE ON casemgmt_note_ext FOR EACH ROW
+BEGIN
+  IF NEW.key_val='Resolution Date' AND NEW.date_value=${sqlString(EDIT_RESOLUTION_DATE)}
+    AND EXISTS (SELECT 1 FROM casemgmt_note n WHERE n.note_id=NEW.note_id
+      AND n.demographic_no=${patient} AND LOCATE(${sqlString(stamp)}, n.note)=1)
+    AND EXISTS (SELECT 1 FROM casemgmt_note_ext e WHERE e.note_id=NEW.note_id
+      AND e.key_val='Start Date' AND e.date_value=${sqlString(EDIT_START_DATE)}) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Owned CPP late extension rollback probe';
+  END IF;
+END//
+DELIMITER ;`;
+}
+
+function dropRollbackTrigger() {
+  if (!fixture.rollbackTrigger) return;
+  const name = rollbackTriggerName(fixture.rollbackTrigger);
+  fixture.sql.execute(`DROP TRIGGER IF EXISTS ${name}`);
+  assert(fixture.sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS
+    WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${sqlString(name)}`) === '0',
+  'the owned rollback trigger survived cleanup');
+  fixture.rollbackTrigger = '';
+}
+
+/** Full owned rows include revision metadata, positions, signatures, and both CPP projections. */
+function readCppWriteSnapshot(sql, patient) {
+  const demographic = sqlNumber(patient, 'the owned snapshot patient');
+  const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${demographic}`;
+  const queries = {
+    notes: `SELECT * FROM casemgmt_note WHERE demographic_no=${demographic} ORDER BY note_id`,
+    extensions: `SELECT * FROM casemgmt_note_ext WHERE note_id IN (${notes}) ORDER BY id`,
+    issueLinks: `SELECT * FROM casemgmt_issue_notes WHERE note_id IN (${notes}) ORDER BY note_id,id`,
+    noteLinks: `SELECT * FROM casemgmt_note_link WHERE note_id IN (${notes}) ORDER BY id`,
+    issues: `SELECT * FROM casemgmt_issue WHERE demographic_no=${demographic} ORDER BY id`,
+    cpp: `SELECT * FROM casemgmt_cpp WHERE demographic_no=${demographic} ORDER BY id`,
+    echart: `SELECT * FROM eChart WHERE demographicNo=${demographic} ORDER BY eChartId`,
+    signatures: `SELECT * FROM hash_audit WHERE type='enc' AND id IN (${notes}) ORDER BY pkid`,
+  };
+  return Object.fromEntries(Object.entries(queries).map(([name, query]) => [name, sql.rows(query)]));
+}
+
+function readNoteHistory(sql, noteIds) {
+  const ids = noteIds.map(id => sqlNumber(id, 'a historical CPP revision')).join(',');
+  return {
+    notes: sql.rows(`SELECT * FROM casemgmt_note WHERE note_id IN (${ids}) ORDER BY note_id`),
+    extensions: sql.rows(`SELECT * FROM casemgmt_note_ext WHERE note_id IN (${ids}) ORDER BY id`),
+    issueLinks: sql.rows(`SELECT * FROM casemgmt_issue_notes WHERE note_id IN (${ids}) ORDER BY note_id,id`),
+    noteLinks: sql.rows(`SELECT * FROM casemgmt_note_link WHERE note_id IN (${ids}) ORDER BY id`),
+  };
+}
+
+function assertSameSnapshot(before, after, context) {
+  for (const name of Object.keys(before)) {
+    assert(JSON.stringify(before[name]) === JSON.stringify(after[name]), `${context} changed ${name}`);
+  }
+}
+
+async function step(name, body) {
+  try {
+    await body();
+    console.log(`  PASS ${name}`);
+  } catch (error) {
+    error.failedStep = name;
+    throw error;
+  }
+}
+
 /**
  * Remove what the run wrote, every statement attempted, any failure thrown.
  *
@@ -302,6 +388,11 @@ async function cleanup() {
   }
   const statements = [];
   const failuresBeforeStatements = [];
+  try {
+    dropRollbackTrigger();
+  } catch (error) {
+    failuresBeforeStatements.push(`the owned rollback trigger: ${error.message}`);
+  }
   /** [table, where, columns] sets whose stamped blocks are stripped, not deleted. */
   const stripFrom = [];
   if (stamp) {
@@ -465,8 +556,14 @@ async function clickDialogButton(page, titlePattern, what) {
 }
 
 /** The POST the CPP dialog makes, whichever button was pressed. */
-function isNoteSave(response) {
-  return /method=issueNoteSave/.test(response.url()) && response.request().method() === 'POST';
+function isNoteSave(response, expectedAction) {
+  const url = new URL(response.url());
+  if (!url.pathname.endsWith('/CaseManagementEntry') || url.searchParams.get('method') !== 'issueNoteSave'
+    || response.request().method() !== 'POST') return false;
+  if (!expectedAction) return true;
+  const expected = new URL(expectedAction);
+  return url.origin === expected.origin && url.pathname === expected.pathname
+    && ['noteId', 'demographicNo', 'providerNo'].every(key => url.searchParams.get(key) === expected.searchParams.get(key));
 }
 
 /** Did updateCPPNote()'s onFailure handler repaint the box with an HTTP status? */
@@ -523,6 +620,7 @@ async function main() {
     const chartUrl = new URL(chartPage.url());
     fixture.demographicNo = sqlNumber(chartUrl.searchParams.get('demographicNo') || '',
       'the demographicNo in the chart URL');
+    assert(fixture.demographicNo === String(fixture.ownedPatient), 'the chart must belong to this run\'s owned patient');
     // Read from the chart rather than assumed: saveCPP() stamps the summary row with whoever
     // saved, and cleanup puts the previous provider back only while the row still records this one.
     fixture.providerNo = sqlNumber(chartUrl.searchParams.get('providerNo') || '',
@@ -537,7 +635,7 @@ async function main() {
     // the status is read from the wire.
     const saves = [];
     chartPage.on('response', (response) => {
-      if (/method=issueNoteSave/.test(response.url())) {
+      if (isNoteSave(response)) {
         saves.push({ method: response.request().method(), status: response.status() });
       }
     });
@@ -555,9 +653,12 @@ async function main() {
     // satisfies -- the box is already visible and `dataset` is never undefined -- so it returned at
     // once and a fixed sleep decided whether the database had been written yet. The POST is the
     // event that matters, so wait for it, then let the box finish repainting from its reply.
-    const saveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
+    const initialAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+    const saveArrived = chartPage.waitForResponse(response => isNoteSave(response, initialAction), { timeout });
     await clickDialogButton(chartPage, /sign|save/i, 'save');
-    await saveArrived;
+    const created = await saveArrived;
+    assert(created.status() === 200, 'creating the CPP item must answer HTTP 200');
+    await created.finished();
     recordOwnEchartRows(sql);
     await chartPage.waitForTimeout(1500);
 
@@ -595,11 +696,110 @@ async function main() {
     assert(prefill.start === START_DATE && prefill.resolution === RESOLUTION_DATE,
       'reopening the CPP item did not bring both dates back, so one extension key was lost between the write and the read');
 
+    const originalHistory = readNoteHistory(sql, [noteId]);
+    const editedText = `${stamp} CPP revision after rollback`;
+    await chartPage.locator('#noteEditTxt').fill(editedText);
+    await chartPage.locator('#startdate').fill(EDIT_START_DATE);
+    await chartPage.locator('#resolutiondate').fill(EDIT_RESOLUTION_DATE);
+    await step('late extension failure rolls back the complete CPP revision', async () => {
+      assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${fixture.demographicNo}
+        AND last_name=${sqlString(fixture.ownedMarker)}`) === '1', 'the rollback probe requires the owned fixture patient');
+      const trigger = rollbackTriggerName(`pw_cpp_ext_${randomBytes(12).toString('hex')}`);
+      assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()
+        AND TRIGGER_NAME=${sqlString(trigger)}`) === '0', 'the owned trigger name already exists');
+      fixture.rollbackTrigger = trigger;
+      try {
+        sql.execute(rollbackTriggerSql(trigger, fixture.demographicNo, stamp));
+        const before = readCppWriteSnapshot(sql, fixture.demographicNo);
+        const badBefore = recorder.badResponses.length;
+        const consoleBefore = recorder.consoleIssues.length;
+        const expectedAlert = await chartPage.evaluate(() => savingNoteError + ' 500');
+        const failedAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+        let failed;
+        const dialogs = await withExpectedDialogs(chartPage, async () => {
+          [failed] = await Promise.all([
+            chartPage.waitForResponse(response => isNoteSave(response, failedAction), {timeout}).then(response => {
+              assert(response.status() === 500, 'the late extension trigger must reject the actual CPP save with HTTP 500');
+              return response;
+            }),
+            chartPage.waitForEvent('dialog', {timeout}),
+            clickDialogButton(chartPage, /sign|save/i, 'save'),
+          ]);
+          await failed.finished();
+          await chartPage.locator(DIALOG).waitFor({state: 'visible', timeout});
+        });
+        assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === expectedAlert,
+          'the failed CPP save must show exactly its save-error alert');
+        const submitted = new URLSearchParams(failed.request().postData() || '');
+        assert(new URL(failed.url()).searchParams.get('noteId') === noteId
+          && submitted.get('value') === editedText && submitted.get('startdate') === EDIT_START_DATE
+          && submitted.get('resolutiondate') === EDIT_RESOLUTION_DATE,
+        'the failed save must submit the original revision with the edited note and both new dates');
+        assertSameSnapshot(before, readCppWriteSnapshot(sql, fixture.demographicNo), 'the rolled-back CPP save');
+        assert(await chartPage.locator('#noteEditTxt').inputValue() === editedText
+          && await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
+          && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE,
+        'the failed CPP save lost the dialog draft');
+        // Exempt exactly this deliberately rejected request, retaining all unrelated errors.
+        const bad = recorder.badResponses.slice(badBefore);
+        assert(bad.length === 1 && bad[0].url === failed.url() && bad[0].method === 'POST' && bad[0].status === 500,
+          'the rollback probe produced an unexpected HTTP failure');
+        recorder.badResponses.splice(badBefore, 1);
+        for (let index = recorder.consoleIssues.length - 1; index >= consoleBefore; index--) {
+          const entry = recorder.consoleIssues[index];
+          if (entry.label === 'echart' && entry.location.url === failed.url()
+            && /^Failed to load resource:.*\b500\b/.test(entry.text)) recorder.consoleIssues.splice(index, 1);
+        }
+      } finally {
+        dropRollbackTrigger();
+      }
+    });
+
+    let editedId;
+    let editedRows;
+    await step('retry the original CPP revision through Sign & Save after rollback', async () => {
+      const action = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+      assert(new URL(action).searchParams.get('noteId') === noteId,
+        'the failed save advanced the dialog revision before retry');
+      const arrived = chartPage.waitForResponse(response => isNoteSave(response, action), {timeout});
+      await clickDialogButton(chartPage, /sign|save/i, 'save');
+      const retried = await arrived;
+      assert(retried.status() === 200, 'retrying the rolled-back CPP revision failed (including stale-revision HTTP 409)');
+      assert(new URL(retried.url()).searchParams.get('noteId') === noteId,
+        'retrying must submit the original revision ID on the wire');
+      await retried.finished();
+      recordOwnEchartRows(sql);
+      editedId = sqlNumber(sql.value(`SELECT MAX(note_id) FROM casemgmt_note
+        WHERE demographic_no=${fixture.demographicNo} AND LOCATE(${sqlString(stamp)}, note)=1`), 'the retried CPP revision');
+      assert(BigInt(editedId) > BigInt(noteId), 'the retry must create a fresh CPP revision');
+      assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${fixture.demographicNo}
+        AND LOCATE(${sqlString(stamp)}, note)=1`) === '2', 'the failed attempt left an extra CPP revision');
+      assert(sql.value(`SELECT note FROM casemgmt_note WHERE note_id=${editedId}`) === editedText,
+        'the retry did not persist the edited note');
+      editedRows = extensionRows(sql, stamp);
+      assert(JSON.stringify(editedRows) === JSON.stringify([
+        ['Resolution Date', EDIT_RESOLUTION_DATE], ['Start Date', EDIT_START_DATE],
+      ]), 'the retry did not persist exactly one row for each new date');
+      assertSameSnapshot(originalHistory, readNoteHistory(sql, [noteId]), 'the successful retry');
+      const editedLink = box.locator(`a[onclick*="noteId=${editedId}"]`).first();
+      await editedLink.waitFor({state: 'visible', timeout});
+      await editedLink.click();
+      await chartPage.locator(DIALOG).waitFor({state: 'visible', timeout});
+      assert(await chartPage.locator('#startdate').inputValue() === EDIT_START_DATE
+        && await chartPage.locator('#resolutiondate').inputValue() === EDIT_RESOLUTION_DATE,
+      'reopening the retried revision lost either new date');
+    });
+    const historyBeforeArchive = readNoteHistory(sql, [noteId, editedId]);
+
     // --- archive it: the same write path, over rows that already exist ---
     const savesBeforeArchive = saves.length;
-    const archiveArrived = chartPage.waitForResponse(isNoteSave, { timeout });
+    const archiveAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
+    assert(new URL(archiveAction).searchParams.get('noteId') === editedId, 'archive must submit the retried revision');
+    const archiveArrived = chartPage.waitForResponse(response => isNoteSave(response, archiveAction), { timeout });
     await clickDialogButton(chartPage, /archive/i, 'archive');
-    await archiveArrived;
+    const archiveResponse = await archiveArrived;
+    assert(archiveResponse.status() === 200, 'archiving the CPP item must answer HTTP 200');
+    await archiveResponse.finished();
     recordOwnEchartRows(sql);
     await chartPage.waitForTimeout(1500);
     const archiveSaves = saves.slice(savesBeforeArchive);
@@ -617,21 +817,25 @@ async function main() {
       + 'the new revision must carry exactly one row per populated key');
     const latestId = sqlNumber(sql.value(
       `SELECT MAX(note_id) FROM casemgmt_note WHERE LOCATE(${sqlString(stamp)}, note) = 1`), 'archived revision id');
-    assert(latestId !== noteId, 'archiving overwrote the prior CPP revision');
+    assert(BigInt(latestId) > BigInt(editedId), 'archiving overwrote the prior CPP revision');
     assert(sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${noteId}`) === '0',
       'archiving changed the historical CPP revision');
     const originalRows = sql.rows(`SELECT key_val,date_value FROM casemgmt_note_ext WHERE note_id=${noteId} ORDER BY key_val`);
     assert(JSON.stringify(originalRows) === JSON.stringify(savedRows), 'archiving changed historical CPP extensions');
-    assert(JSON.stringify(archivedRows) === JSON.stringify(savedRows), 'archiving lost CPP extension values');
+    assert(JSON.stringify(archivedRows) === JSON.stringify(editedRows), 'archiving lost the edited CPP extension values');
+    assertSameSnapshot(historyBeforeArchive, readNoteHistory(sql, [noteId, editedId]), 'archiving the CPP revision');
+    assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${fixture.demographicNo}
+      AND LOCATE(${sqlString(stamp)}, note)=1`) === '3', 'the CPP history must contain create, retry, and archive revisions only');
     const archived = sql.value(`SELECT archived FROM casemgmt_note WHERE note_id = ${latestId}`);
     assert(archived === '1', 'the archive request succeeded but the CPP item is not marked archived');
 
     assertStrictPage(recorder, ['echart']);
-    console.log('  CPP item with a start date and a resolution date: saved, read back, and archived with one row per key');
+    console.log('  PASS CPP create/reopen, late-write rollback/retry, and archive preserve three revisions with both dates');
     await chartPage.close().catch(() => {});
-    return { extensionRows: archivedRows.length };
+    return { extensionRows: archivedRows.length, revisions: 3, rollbackStatus: 500 };
   } finally {
-    if (browser) await browser.close().catch(() => {});
+    try { dropRollbackTrigger(); }
+    finally { if (browser) await browser.close().catch(() => {}); }
   }
 }
 
@@ -641,5 +845,5 @@ if (require.main === module) {
 
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
-  ownedEchartDeletes, withoutStampedBlocks,
+  ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, dropRollbackTrigger, assertSameSnapshot, isNoteSave,
 };

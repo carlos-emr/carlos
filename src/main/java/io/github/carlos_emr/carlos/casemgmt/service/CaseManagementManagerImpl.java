@@ -1751,7 +1751,9 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     public CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
             String providerNo, String userName, String lastStr, String roleName) {
         CaseManagementNote previous = previousRevision(note);
-        CaseManagementNote revision = previous == null ? note : note.copyForRevision();
+        // Keep generated note/issue identities off the submitted draft so rollback is retryable.
+        CaseManagementNote revision = note.copyForRevision();
+        revision.setIssues(persistPendingRevisionIssues(note));
         if (previous != null) revision.setUuid(previous.getUuid());
         String savedText = persistNote(cpp, revision, userName, lastStr);
         if (revision.getId() == null) {
@@ -1759,6 +1761,106 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
         copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
         return new CaseManagementNoteSaveResult(revision, savedText);
+    }
+
+    private Set<CaseManagementIssue> persistPendingRevisionIssues(CaseManagementNote note) {
+        List<CaseManagementIssue> issues = new ArrayList<>();
+        List<CaseManagementIssue> pending = new ArrayList<>();
+        for (CaseManagementIssue submitted : note.getIssues()) {
+            CaseManagementIssue issue = submitted;
+            if (submitted.getId() == null) {
+                if (!Objects.equals(String.valueOf(submitted.getDemographic_no()), note.getDemographic_no())) {
+                    throw new SecurityException("Issue belongs to a different demographic");
+                }
+                issue = new CaseManagementIssue(submitted);
+                issue.setId(null);
+                issue.setProgram_id(submitted.getProgram_id());
+                issue.setNotes(new HashSet<>());
+                pending.add(issue);
+            }
+            issues.add(issue);
+        }
+        if (!pending.isEmpty()) caseManagementIssueDAO.saveAndUpdateCaseIssues(pending);
+        // Identity assignment changes CaseManagementIssue.hashCode(). Rehash after persistence.
+        return new LinkedHashSet<>(issues);
+    }
+
+    @Override
+    public CaseManagementNoteSaveResult saveCppNoteRevision(CaseManagementNote note, String userName,
+            String lastStr, Map<Long, Integer> notePositions, List<CaseManagementNoteExt> submittedExtensions) {
+        CaseManagementCPP cpp = getCPP(note.getDemographic_no());
+        if (cpp == null) cpp = new CaseManagementCPP();
+        cpp.setDemographic_no(note.getDemographic_no());
+        copyNoteToCpp(cpp, note);
+        CaseManagementNoteSaveResult saved = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastStr, null);
+        saveCPP(cpp, note.getProviderNo());
+        saveCppNotePositions(note, notePositions);
+        saveSubmittedCppExtensions(saved.note(), submittedExtensions);
+        return saved;
+    }
+
+    private void copyNoteToCpp(CaseManagementCPP cpp, CaseManagementNote note) {
+        String separator = "\n-----[[" + new Date() + "]]-----\n";
+        for (CaseManagementIssue issue : note.getIssues()) {
+            if (appendCppProjection(cpp, issue.getIssue().getCode(), separator + note.getNote())) break;
+        }
+    }
+
+    private boolean appendCppProjection(CaseManagementCPP cpp, String code, String text) {
+        // Preserve the legacy first-matching-issue mapping, including OMeds -> familyHistory.
+        switch (code) {
+            case "OMeds", "FamHistory" -> cpp.setFamilyHistory(cpp.getFamilyHistory() + text);
+            case "SocHistory" -> cpp.setSocialHistory(cpp.getSocialHistory() + text);
+            case "MedHistory" -> cpp.setMedicalHistory(cpp.getMedicalHistory() + text);
+            case "Concerns" -> cpp.setOngoingConcerns(cpp.getOngoingConcerns() + text);
+            case "Reminders" -> cpp.setReminders(cpp.getReminders() + text);
+            case "RiskFactors" -> cpp.setRiskFactors(cpp.getRiskFactors() + text);
+            default -> { return false; }
+        }
+        return true;
+    }
+
+    private void saveCppNotePositions(CaseManagementNote submitted, Map<Long, Integer> positions) {
+        for (Map.Entry<Long, Integer> entry : new TreeMap<>(positions).entrySet()) {
+            // The submitted row is historical now; its new position is already on the revision.
+            if (Objects.equals(entry.getKey(), submitted.getId())) continue;
+            CaseManagementNote sibling = caseManagementNoteDAO.getNoteForUpdate(entry.getKey());
+            if (sibling == null) throw new StaleNoteRevisionException();
+            if (!Objects.equals(sibling.getDemographic_no(), submitted.getDemographic_no())) {
+                throw new SecurityException("Note position belongs to a different demographic");
+            }
+            // Dirty-check only this field on a locked database row; updateNote also rewrites time.
+            sibling.setPosition(entry.getValue());
+        }
+    }
+
+    private void saveSubmittedCppExtensions(CaseManagementNote revision, List<CaseManagementNoteExt> submitted) {
+        Map<String, List<CaseManagementNoteExt>> byKey = new HashMap<>();
+        for (CaseManagementNoteExt extension : caseManagementNoteExtDAO.getExtByNoteForUpdate(revision.getId())) {
+            byKey.computeIfAbsent(extension.getKeyVal(), key -> new ArrayList<>()).add(extension);
+        }
+        for (CaseManagementNoteExt carrier : submitted) {
+            List<CaseManagementNoteExt> matches = byKey.computeIfAbsent(carrier.getKeyVal(), key -> new ArrayList<>());
+            if (matches.isEmpty()) {
+                CaseManagementNoteExt extension = new CaseManagementNoteExt();
+                extension.setNoteId(revision.getId());
+                extension.setKeyVal(carrier.getKeyVal());
+                copySubmittedExtensionValue(carrier, extension);
+                saveNoteExt(extension);
+                matches.add(extension);
+                revision.getExtend().add(extension);
+            } else {
+                for (CaseManagementNoteExt extension : matches) {
+                    copySubmittedExtensionValue(carrier, extension);
+                    updateNoteExt(extension);
+                }
+            }
+        }
+    }
+
+    private void copySubmittedExtensionValue(CaseManagementNoteExt source, CaseManagementNoteExt target) {
+        target.setValue(source.getValue());
+        target.setDateValue(source.getDateValue() == null ? null : new Date(source.getDateValue().getTime()));
     }
 
     @Override
