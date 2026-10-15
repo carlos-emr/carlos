@@ -123,9 +123,31 @@ async function workflow(s) {
   const apptLink = (providerNo) => schedule.locator(`a.apptLink[onclick*="appointment_no=${appointments[providerNo]}&"]`);
 
   async function openMonth(label) {
-    await clickAndAwaitReload(schedule, schedule.locator(MONTH_LINK).first(), {label});
+    // On a month page the first such link is the "last month" arrow, so only follow the link from the day sheet or the week view.
+    if (params(schedule).get('displaymode') !== 'month') {
+      await clickAndAwaitReload(schedule, schedule.locator(MONTH_LINK).first(), {label});
+    }
     const query = params(schedule);
     h.assert(query.get('displaymode') === 'month' && query.get('dboperation') === 'searchappointmentmonth', `${label}: the Month link does not request the month view`);
+    await weekNumberCells().first().waitFor({timeout: 20000});
+  }
+  /**
+   * Picks a value in the month's provider select and waits for the reload. A user whose saved schedule view is a group lands
+   * on that group's month (whose week numbers are text), so a step that needs one provider's month chooses it instead of
+   * relying on the default.
+   */
+  async function chooseProvider(value, label) {
+    const select = schedule.locator('select[name="provider_no"]');
+    await select.waitFor({timeout: 20000});
+    if (await select.inputValue() !== value) {
+      const reloaded = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
+      reloaded.catch(() => {});
+      await select.selectOption(value);
+      await reloaded;
+      await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
+      await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
+      h.assert(params(schedule).get('providerview') === value, `${label}: selecting ${value} did not reload the month for providerview=${value}`);
+    }
     await weekNumberCells().first().waitFor({timeout: 20000});
   }
   /** What a month shows for one provider: week-number links to that provider, or, when the viewer's saved view hides it, none. */
@@ -147,6 +169,21 @@ async function workflow(s) {
         && query.get('view') === '1' && query.get('displaymode') === 'day' && query.get('dboperation') === 'searchappointmentday'
       && (query.get('curProviderName') || '').length > 0,
       `${label}: a week-number link does not ask for provider ${providerNo} alone in week view: ${href}`);
+    }
+    // Each calendar panel (last month, next month) has its own month, so a week link's date has to be the date of ITS row:
+    // the first day link of the row is the row's Sunday, or the 1st when the month starts mid-week.
+    const rowDates = await weekLinks().evaluateAll((anchors) => anchors.map((anchor) => {
+      const first = anchor.closest('tr') && anchor.closest('tr').querySelector('a[href*="displaymode=day"]');
+      return [anchor.getAttribute('href'), first ? first.getAttribute('href') : null];
+    }));
+    for (const [weekHref, dayHref] of rowDates) {
+      h.assert(dayHref, `${label}: a week-number row has no day link to compare its date with`);
+      const week = new URL(weekHref, schedule.url()).searchParams;
+      const day = new URL(dayHref, schedule.url()).searchParams;
+      for (const key of ['year', 'month', 'day']) {
+        h.assert(Number(week.get(key)) === Number(day.get(key)),
+          `${label}: a week link carries ${key}=${week.get(key)} but its row starts on ${key}=${day.get(key)} (${weekHref} / ${dayHref})`);
+      }
     }
     // The rendered calendar is the source of truth for dates (see the header): the last link is the last week row.
     const last = new URL(hrefs[hrefs.length - 1], schedule.url()).searchParams;
@@ -180,6 +217,7 @@ async function workflow(s) {
     await schedule.reload({waitUntil: 'domcontentloaded'});
     await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
     await openMonth('Month');
+    await chooseProvider(provider, 'Month of the signed-in provider');
     wednesday = await assertMonthWeekNumbers(provider, 'Month of the signed-in provider');
   });
 
@@ -198,16 +236,7 @@ async function workflow(s) {
       ? 'another provider\'s month opens that provider\'s own week, not the signed-in provider\'s'
       : 'another provider\'s week numbers are plain text while the saved schedule view is pinned to a provider', async () => {
       await openMonth('Month from the week view');
-      const select = schedule.locator('select[name="provider_no"]');
-      await select.waitFor({timeout: 20000});
-      const reloaded = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
-      reloaded.catch(() => {});
-      await select.selectOption(other);
-      await reloaded;
-      await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
-      await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
-      h.assert(params(schedule).get('providerview') === other, `Selecting provider ${other} did not reload the month for providerview=${other}`);
-      await weekNumberCells().first().waitFor({timeout: 20000});
+      await chooseProvider(other, `Month of provider ${other}`);
       const otherWednesday = await assertMonthWeekNumbers(other, `Month of provider ${other}`);
       if (otherWednesday) {
         if (wednesday) {
@@ -230,16 +259,7 @@ async function workflow(s) {
         VALUES (${h.sqlString(other)}, ${providerKey}, ${h.sqlString(s.config.testUser)}, NOW()); SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(restrictionId), 'The restriction fixture row was not created');
       await openMonth('Month before the restricted provider');
-      const select = schedule.locator('select[name="provider_no"]');
-      await select.waitFor({timeout: 20000});
-      const reloaded = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
-      reloaded.catch(() => {});
-      await select.selectOption(other);
-      await reloaded;
-      await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
-      await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
-      h.assert(params(schedule).get('providerview') === other, `Selecting provider ${other} did not reload the month for providerview=${other}`);
-      await weekNumberCells().first().waitFor({timeout: 20000});
+      await chooseProvider(other, `Month of restricted provider ${other}`);
       h.assert(await weekNumberCells().count() >= 8, 'The week numbers disappeared for the restricted provider; they should stay as text');
       h.assert(await weekLinks().count() === 0, `A week number links to the week of provider ${other}, whom the viewer is restricted from`);
       sql.execute(`DELETE FROM MyGroupAccessRestriction WHERE id=${restrictionId} AND providerNo=${providerKey} AND myGroupNo=${h.sqlString(other)}`);
@@ -250,16 +270,7 @@ async function workflow(s) {
 
   await s.step('with All providers selected the week numbers are plain text', async () => {
     await openMonth('Month before All providers');
-    const select = schedule.locator('select[name="provider_no"]');
-    await select.waitFor({timeout: 20000});
-    const reloaded = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
-    reloaded.catch(() => {});
-    await select.selectOption('all');
-    await reloaded;
-    await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
-    await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
-    h.assert(params(schedule).get('providerview') === 'all', 'Selecting All providers did not reload the month for providerview=all');
-    await weekNumberCells().first().waitFor({timeout: 20000});
+    await chooseProvider('all', 'Month of All providers');
     h.assert(await weekNumberCells().count() >= 8, 'The week numbers disappeared with All providers selected; they should stay as text');
     h.assert(await weekLinks().count() === 0, 'A week number is still a link in the All providers month, which has no single provider week view');
     h.assert(await retiredLinks().count() === 0, 'A week number targets the retired week mode in the All providers month');
