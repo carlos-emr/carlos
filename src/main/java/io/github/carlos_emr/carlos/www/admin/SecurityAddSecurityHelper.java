@@ -52,9 +52,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * Helper class for securityaddsecurity.jsp page.
  *
  * <p>Validates the Add a Login Record form and creates the login with the first role the
- * administrator chose (issue #2689). A login is never created without a role: the role is
- * checked last, after the existing credential and uniqueness refusals, so those keep their
- * messages, and it must be one the acting administrator may assign.</p>
+ * administrator chose (issue #2689). A login is never created without a role. The provider and
+ * the role are checked after the existing credential and uniqueness refusals, so those keep
+ * their messages; each must be one the form offers the acting administrator.</p>
  */
 public class SecurityAddSecurityHelper {
 
@@ -135,9 +135,15 @@ public class SecurityAddSecurityHelper {
         boolean isUserAlreadyExists = !securityDao.findByUserName(userName).isEmpty();
         if (isUserAlreadyExists) return "admin.securityaddsecurity.msgAdditionFailureDuplicate";
 
+        // A direct POST can name any provider: accept only one the form's dropdown would have
+        // offered this administrator, since the login now carries a role as well.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
+        if (!loginCreationService.isEligibleProvider(loggedInInfo, request.getParameter("provider_no"))) {
+            return "admin.securityaddsecurity.msgAdditionFailure";
+        }
+
         // The browser form requires a choice too, but a direct POST can omit or forge it: only a
         // role from the same list the dropdown offered this administrator is accepted.
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
         String roleName = request.getParameter("role_name");
         if (roleName == null || !loginCreationService.assignableRoleNames(loggedInInfo).contains(roleName)) {
             return "admin.securityaddsecurity.msgRoleInvalid";

@@ -27,12 +27,15 @@ import java.util.List;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.admin.support.AssignableRoles;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
+import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
@@ -56,7 +59,14 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>The role write matches the Add action of Assign Role to Provider ({@code providerRole.jsp}):
  * an active {@code secUserRole} row and, when new case management runs on the {@code OSCAR}
  * program, the provider's {@code program_provider} membership with that role. A login created
- * here is therefore indistinguishable from one created and then given a role on that page.</p>
+ * here is therefore indistinguishable from one created and then given a role on that page. A
+ * provider can already hold the role (Assign Role works before a login exists); that row is
+ * reused, and reactivated if needed, so a later removal on that page cannot leave a duplicate
+ * row still granting the role.</p>
+ *
+ * <p>Because a role now comes with the login, the server also re-checks which provider it is for
+ * ({@link #isEligibleProvider}): a crafted POST must not create a login, and a role, for a
+ * provider the form's dropdown withholds from this administrator.</p>
  *
  * @since 2026-10-15
  */
@@ -72,6 +82,8 @@ public class ProviderLoginCreationService {
     private final SecRoleDao secRoleDao;
     private final ProgramDao programDao;
     private final ProgramProviderDAO programProviderDao;
+    private final ProviderDao providerDao;
+    private final ProviderSiteDao providerSiteDao;
     private final SecurityInfoManager securityInfoManager;
 
     public ProviderLoginCreationService(SecurityDao securityDao,
@@ -79,12 +91,16 @@ public class ProviderLoginCreationService {
                                         SecRoleDao secRoleDao,
                                         ProgramDao programDao,
                                         ProgramProviderDAO programProviderDao,
+                                        ProviderDao providerDao,
+                                        ProviderSiteDao providerSiteDao,
                                         SecurityInfoManager securityInfoManager) {
         this.securityDao = securityDao;
         this.secuserroleDao = secuserroleDao;
         this.secRoleDao = secRoleDao;
         this.programDao = programDao;
         this.programProviderDao = programProviderDao;
+        this.providerDao = providerDao;
+        this.providerSiteDao = providerSiteDao;
         this.securityInfoManager = securityInfoManager;
     }
 
@@ -105,13 +121,45 @@ public class ProviderLoginCreationService {
         for (SecRole role : secRoleDao.findAllOrderByRole()) {
             allRoleNames.add(role.getName());
         }
-        boolean siteAccessPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", SecurityInfoManager.READ, null);
         return AssignableRoles.filter(
                 allRoleNames,
-                siteAccessPrivacy,
+                hasSiteAccessPrivacy(loggedInInfo),
                 IsPropertiesOn.isMultisitesEnable(),
                 CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", ""));
+    }
+
+    /**
+     * Whether the administrator may create a login for this provider.
+     *
+     * <p>The same rule the Add a Login Record Provider dropdown applies: an active provider whose
+     * number is not a system or imported one ({@code -} prefix), and, for a site-scoped
+     * administrator on a multisite install, one sharing a site with them. The caller still
+     * refuses a provider that already has a login.</p>
+     *
+     * @param loggedInInfo the administrator creating the login
+     * @param providerNo   the submitted provider number
+     * @return {@code true} when the dropdown would have offered this provider
+     */
+    @Transactional(readOnly = true)
+    public boolean isEligibleProvider(LoggedInInfo loggedInInfo, String providerNo) {
+        if (providerNo == null || providerNo.isEmpty() || providerNo.startsWith("-")) {
+            return false;
+        }
+        if (IsPropertiesOn.isMultisitesEnable() && hasSiteAccessPrivacy(loggedInInfo)) {
+            for (Provider shared : providerSiteDao.findActiveProvidersBySharedSites(loggedInInfo.getLoggedInProviderNo())) {
+                if (providerNo.equals(shared.getProviderNo())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        Provider provider = providerDao.getProvider(providerNo);
+        return provider != null && "1".equals(provider.getStatus());
+    }
+
+    private boolean hasSiteAccessPrivacy(LoggedInInfo loggedInInfo) {
+        return loggedInInfo != null
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", SecurityInfoManager.READ, null);
     }
 
     /**
@@ -134,9 +182,12 @@ public class ProviderLoginCreationService {
 
         securityDao.persist(login);
 
-        Secuserrole assignment = new Secuserrole();
-        assignment.setProviderNo(login.getProviderNo());
-        assignment.setRoleName(role.getName());
+        Secuserrole assignment = existingAssignment(login.getProviderNo(), role.getName());
+        if (assignment == null) {
+            assignment = new Secuserrole();
+            assignment.setProviderNo(login.getProviderNo());
+            assignment.setRoleName(role.getName());
+        }
         assignment.setActiveyn(1);
         secuserroleDao.save(assignment);
 
@@ -151,6 +202,17 @@ public class ProviderLoginCreationService {
             membership.setRoleId(role.getId().longValue());
             programProviderDao.saveProgramProvider(membership);
         }
+    }
+
+    /** The provider's existing assignment of this role, active or not, or {@code null}. */
+    private Secuserrole existingAssignment(String providerNo, String roleName) {
+        for (Object row : secuserroleDao.findByProviderNo(providerNo)) {
+            Secuserrole assignment = (Secuserrole) row;
+            if (roleName.equals(assignment.getRoleName())) {
+                return assignment;
+            }
+        }
+        return null;
     }
 
     /** The chosen role is not configured (any more); the login was not created. */

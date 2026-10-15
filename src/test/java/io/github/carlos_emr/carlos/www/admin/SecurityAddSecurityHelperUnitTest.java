@@ -69,6 +69,7 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityManager.class, passwords);
         registerMock(ProviderLoginCreationService.class, loginCreation);
         lenient().when(loginCreation.assignableRoleNames(any())).thenReturn(List.of("doctor", "receptionist"));
+        lenient().when(loginCreation.isEligibleProvider(any(), eq("999998"))).thenReturn(true);
         when(page.getRequest()).thenReturn(request);
         lenient().when(page.getSession()).thenReturn(request.getSession());
         lenient().when(passwords.encodePassword(anyString())).thenReturn("encoded-test-password");
@@ -173,6 +174,15 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         if (roleName == null) request.removeParameter("role_name");
         else request.setParameter("role_name", roleName);
         assertThat(reject()).isEqualTo("admin.securityaddsecurity.msgRoleInvalid");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"700009", "-1"})
+    void shouldRejectWithoutWrites_whenProviderIsNotOneTheFormOffers(String providerNo) {
+        if (providerNo == null) request.removeParameter("provider_no");
+        else request.setParameter("provider_no", providerNo);
+        assertThat(reject()).isEqualTo("admin.securityaddsecurity.msgAdditionFailure");
     }
 
     @Test

@@ -28,10 +28,13 @@ import java.util.Map;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
@@ -78,6 +81,8 @@ class ProviderLoginCreationServiceUnitTest {
     private final SecRoleDao secRoleDao = mock(SecRoleDao.class);
     private final ProgramDao programDao = mock(ProgramDao.class);
     private final ProgramProviderDAO programProviderDao = mock(ProgramProviderDAO.class);
+    private final ProviderDao providerDao = mock(ProviderDao.class);
+    private final ProviderSiteDao providerSiteDao = mock(ProviderSiteDao.class);
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final Map<String, String> originalProperties = new HashMap<>();
 
@@ -93,7 +98,7 @@ class ProviderLoginCreationServiceUnitTest {
         property("multisites", "off");
         property("multioffice.admin.role.name", "");
         service = new ProviderLoginCreationService(securityDao, secuserroleDao, secRoleDao,
-                programDao, programProviderDao, securityInfoManager);
+                programDao, programProviderDao, providerDao, providerSiteDao, securityInfoManager);
     }
 
     @AfterEach
@@ -153,6 +158,49 @@ class ProviderLoginCreationServiceUnitTest {
             assertThat(assignment.getValue().getProviderNo()).isEqualTo("700001");
             assertThat(assignment.getValue().getRoleName()).isEqualTo("doctor");
             assertThat(assignment.getValue().getActiveyn()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should reuse the provider's existing assignment of the role instead of adding a duplicate")
+        void shouldReuseExistingAssignment_whenProviderAlreadyHoldsRole() {
+            SecRole doctor = role(2, "doctor");
+            when(secRoleDao.findByName("doctor")).thenReturn(doctor);
+            Secuserrole held = new Secuserrole();
+            held.setId(41);
+            held.setProviderNo("700001");
+            held.setRoleName("doctor");
+            held.setActiveyn(1);
+            Secuserrole other = new Secuserrole();
+            other.setId(42);
+            other.setProviderNo("700001");
+            other.setRoleName("receptionist");
+            other.setActiveyn(1);
+            when(secuserroleDao.findByProviderNo("700001")).thenReturn(List.of(other, held));
+
+            service.createLoginWithRole(login("700001"), "doctor");
+
+            ArgumentCaptor<Secuserrole> saved = ArgumentCaptor.forClass(Secuserrole.class);
+            verify(secuserroleDao).save(saved.capture());
+            assertThat(saved.getValue()).isSameAs(held);
+            assertThat(held.getActiveyn()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should reactivate an inactive assignment of the role instead of adding a second row")
+        void shouldReactivateAssignment_whenProviderHeldRoleInactive() {
+            SecRole doctor = role(2, "doctor");
+            when(secRoleDao.findByName("doctor")).thenReturn(doctor);
+            Secuserrole inactive = new Secuserrole();
+            inactive.setId(41);
+            inactive.setProviderNo("700001");
+            inactive.setRoleName("doctor");
+            inactive.setActiveyn(0);
+            when(secuserroleDao.findByProviderNo("700001")).thenReturn(List.of(inactive));
+
+            service.createLoginWithRole(login("700001"), "doctor");
+
+            verify(secuserroleDao).save(inactive);
+            assertThat(inactive.getActiveyn()).isEqualTo(1);
         }
 
         @Test
@@ -252,6 +300,62 @@ class ProviderLoginCreationServiceUnitTest {
             verify(secuserroleDao).save(any(Secuserrole.class));
             verify(programProviderDao, never()).getProgramProvider(anyString(), anyLong());
             verify(programProviderDao, never()).saveProgramProvider(any(ProgramProvider.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("isEligibleProvider")
+    class IsEligibleProvider {
+
+        private final LoggedInInfo admin = mock(LoggedInInfo.class);
+
+        private Provider provider(String providerNo, String status) {
+            Provider provider = new Provider();
+            provider.setProviderNo(providerNo);
+            provider.setStatus(status);
+            return provider;
+        }
+
+        @BeforeEach
+        void admin() {
+            when(admin.getLoggedInProviderNo()).thenReturn("999998");
+        }
+
+        @Test
+        @DisplayName("should accept an active provider on a standalone install")
+        void shouldAcceptActiveProvider_forStandaloneInstall() {
+            Provider active = provider("700001", "1");
+            when(providerDao.getProvider("700001")).thenReturn(active);
+
+            assertThat(service.isEligibleProvider(admin, "700001")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should refuse an inactive, unknown, blank or system provider number")
+        void shouldRefuseProvider_whenInactiveUnknownBlankOrSystem() {
+            Provider inactive = provider("700002", "0");
+            when(providerDao.getProvider("700002")).thenReturn(inactive);
+
+            assertThat(service.isEligibleProvider(admin, "700002")).isFalse();
+            assertThat(service.isEligibleProvider(admin, "700003")).isFalse();
+            assertThat(service.isEligibleProvider(admin, null)).isFalse();
+            assertThat(service.isEligibleProvider(admin, "")).isFalse();
+            assertThat(service.isEligibleProvider(admin, "-1")).isFalse();
+            verify(providerDao, never()).getProvider("-1");
+        }
+
+        @Test
+        @DisplayName("should limit a site-scoped administrator to providers sharing one of their sites")
+        void shouldLimitToSharedSites_forSiteScopedAdministrator() {
+            property("multisites", "on");
+            when(securityInfoManager.hasPrivilege(admin, "_site_access_privacy", "r", null)).thenReturn(true);
+            List<Provider> shared = List.of(provider("700001", "1"));
+            when(providerSiteDao.findActiveProvidersBySharedSites("999998")).thenReturn(shared);
+            Provider elsewhere = provider("700009", "1");
+            when(providerDao.getProvider("700009")).thenReturn(elsewhere);
+
+            assertThat(service.isEligibleProvider(admin, "700001")).isTrue();
+            assertThat(service.isEligibleProvider(admin, "700009")).isFalse();
         }
     }
 

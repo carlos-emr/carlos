@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -92,6 +93,8 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
     private SecurityInfoManager securityInfoManager;
     @Autowired
     private ProviderDao providerDao;
+    @Autowired
+    private ProviderSiteDao providerSiteDao;
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -125,7 +128,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         programId = program.getId().longValue();
 
         service = new ProviderLoginCreationService(securityDao, secuserroleDao, secRoleDao,
-                programDao, programProviderDao, securityInfoManager);
+                programDao, programProviderDao, providerDao, providerSiteDao, securityInfoManager);
     }
 
     @AfterEach
@@ -167,6 +170,34 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         ProgramProvider membership = programProviderDao.getProgramProvider(PROVIDER_NO, programId);
         assertThat(membership).isNotNull();
         assertThat(membership.getRoleId()).isEqualTo((long) ROLE_NO);
+    }
+
+    @Test
+    @DisplayName("should keep a single row when the provider already held the chosen role")
+    void shouldKeepSingleRoleRow_whenProviderAlreadyHeldRole() {
+        Secuserrole earlier = new Secuserrole();
+        earlier.setProviderNo(PROVIDER_NO);
+        earlier.setRoleName(ROLE_NAME);
+        earlier.setActiveyn(0);
+        secuserroleDao.save(earlier);
+        entityManager.flush();
+
+        service.createLoginWithRole(newLogin(), ROLE_NAME);
+        entityManager.flush();
+        entityManager.clear();
+
+        @SuppressWarnings("unchecked")
+        List<Secuserrole> rows = secuserroleDao.findByProviderNo(PROVIDER_NO);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getRoleName()).isEqualTo(ROLE_NAME);
+        assertThat(rows.get(0).getActiveyn()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should treat an active provider as eligible and an unknown one as not")
+    void shouldJudgeProviderEligibility_forStandaloneInstall() {
+        assertThat(service.isEligibleProvider(null, PROVIDER_NO)).isTrue();
+        assertThat(service.isEligibleProvider(null, "926899")).isFalse();
     }
 
     @Test
