@@ -7,7 +7,8 @@ const {render, create, watch, UNAVAILABLE} = require('../src/main/webapp/share/j
 function fixture() {
   const elements = {};
   function element(id, severity) {
-    const node = {id, style: {display: 'none'}, title: '', textContent: '', severity};
+    const node = {id, style: {display: 'none'}, title: '', textContent: '', severity, attributes: {},
+      setAttribute(name, value) { this.attributes[name] = String(value); }};
     elements[id] = node;
     return node;
   }
@@ -39,6 +40,7 @@ test('shows a warning on the card it names, as text, with the detail in the tool
     'CIPROFLOXACIN augments THEOPHYLLINE <img src=x onerror=attack()> (evidence: good)\nMonitor levels.');
   assert.equal(f.message.style.display, 'none');
   assert.equal(f.message.textContent, '');
+  assert.equal(f.message.attributes['data-check-status'], 'checked');
 });
 
 test('lists every partner once and keeps each severity on its own marker', () => {
@@ -73,6 +75,7 @@ test('shows nothing and no message when the warning level is none', () => {
   render(f.document, {status: 'off', level: 4, warnings: []});
   assert.deepEqual(f.shown(), []);
   assert.equal(f.message.style.display, 'none');
+  assert.equal(f.message.attributes['data-check-status'], 'off');
 });
 
 for (const result of [null, {}, {status: 'unavailable', level: 0, warnings: []}, {status: 'checked'},
@@ -85,6 +88,7 @@ for (const result of [null, {}, {status: 'unavailable', level: 0, warnings: []},
     assert.deepEqual(f.shown(), []);
     assert.equal(f.message.textContent, UNAVAILABLE);
     assert.equal(f.message.style.display, 'block');
+    assert.equal(f.message.attributes['data-check-status'], 'unavailable');
   });
 }
 
@@ -132,6 +136,25 @@ test('reports a refused, failed or non-JSON request as unavailable', async () =>
     await settle();
     assert.equal(f.message.textContent, UNAVAILABLE, outcome);
   }
+});
+
+test('discards an answer that was in flight when the cards changed', async () => {
+  const f = fixture();
+  const http = deferredFetch();
+  const timers = [];
+  const checker = create({document: f.document, url: '/x', fetch: http.fetch,
+    setTimeout: fn => { timers.push(fn); return timers.length - 1; }, clearTimeout: () => {}});
+  checker.refresh();
+  assert.equal(f.message.attributes['data-check-status'], 'pending');
+  checker.schedule(); // a card was removed while the first check ran
+  http.answer(0, {status: 'checked', level: 0, warnings: [major('7', 'THEOPHYLLINE')]});
+  await settle();
+  assert.deepEqual(f.shown(), [], 'an answer about the old cards was drawn');
+  assert.equal(f.message.attributes['data-check-status'], 'pending');
+  timers[0]();
+  http.answer(1, {status: 'checked', level: 0, warnings: []});
+  await settle();
+  assert.equal(f.message.attributes['data-check-status'], 'checked');
 });
 
 test('batches a burst of card changes into one request', () => {

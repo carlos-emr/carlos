@@ -244,7 +244,7 @@ class RxInteractionWarnings2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should refuse a caller without global Rx read before touching the session")
+    @DisplayName("should refuse a caller without global Rx read before any lookup")
     void shouldThrowSecurityException_whenRxReadIsMissing() {
         stageCipro();
         request.setParameter("demographicNo", String.valueOf(PATIENT));
@@ -254,6 +254,20 @@ class RxInteractionWarnings2ActionUnitTest {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         assertThat(lookups).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should refuse a caller whose Rx read is withheld for the named patient")
+    void shouldThrowSecurityException_whenPatientLevelRxReadIsMissing() {
+        stageCipro();
+        request.setParameter("demographicNo", String.valueOf(PATIENT));
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), eq(PATIENT))).thenReturn(false);
+
+        assertThatThrownBy(() -> action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+        assertThat(lookups).isEmpty();
+        assertThat(response.getContentAsByteArray()).isEmpty();
     }
 
     @Test

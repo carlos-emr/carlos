@@ -15,7 +15,9 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.IntFunction;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,7 +62,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Response: {@code {"status":"checked"|"off"|"unavailable","level":0-4,"warnings":[{"randomId",
  * "severity","partner","summary","evidence","comment"}]}}. {@code unavailable} means DrugRef could
  * not be asked and nothing is known; the page says so instead of showing an empty, reassuring
- * result. Read-only: nothing is stored, so GET is the method.</p>
+ * result. Read-only: nothing is stored or changed, so the page uses GET; any other method gets the
+ * same answer.</p>
  *
  * <p>Authorisation: global {@code _rx} read, then {@code _rx} read on the named patient and access
  * to the patient's record ({@link RxRequestedPatientAccess#requirePatient}). The patient must be
@@ -87,14 +90,14 @@ public final class RxInteractionWarnings2Action extends ActionSupport {
                 new RxInteractionWarningLevelResolver(SpringUtils.getBean(UserPropertyDAO.class),
                         SpringUtils.getBean(DemographicExtDao.class)),
                 new RxInteractionWarningService(),
-                demographicNo -> new RxPrescriptionData().getCurrentATCCodesByPatient(demographicNo));
+                RxInteractionWarnings2Action::activeAtcCodes);
     }
 
     /**
      * @param securityInfoManager authorisation service
      * @param levelResolver       resolves the facility/provider/patient warning level
      * @param warningService      checks the staged drugs against DrugRef
-     * @param currentAtcCodes     the ATC codes of a patient's current medications
+     * @param currentAtcCodes     the ATC codes of a patient's active medications
      */
     RxInteractionWarnings2Action(SecurityInfoManager securityInfoManager,
                                  RxInteractionWarningLevelResolver levelResolver,
@@ -104,6 +107,22 @@ public final class RxInteractionWarnings2Action extends ActionSupport {
         this.levelResolver = levelResolver;
         this.warningService = warningService;
         this.currentAtcCodes = currentAtcCodes;
+    }
+
+    /**
+     * The ATC codes of the patient's active medications: not discontinued, not archived and still
+     * current. {@code RxPrescriptionData.getCurrentATCCodesByPatient} is not used: it keeps every
+     * long-term row and any row whose end date has not passed, so a drug discontinued minutes ago
+     * would go on warning.
+     */
+    private static Collection<String> activeAtcCodes(int demographicNo) {
+        Set<String> codes = new LinkedHashSet<>();
+        for (RxPrescriptionData.Prescription prescription : new RxPrescriptionData().getActivePrescriptionsByPatient(demographicNo)) {
+            if (prescription.isValidAtcCode()) {
+                codes.add(prescription.getAtcCode());
+            }
+        }
+        return codes;
     }
 
     /**

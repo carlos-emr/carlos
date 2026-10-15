@@ -12,6 +12,9 @@
  * well-formed 'checked' or 'off' answer is shown as "check unavailable" in #interactingDrugErrorMsg,
  * never as a clean result: a failed check must not look like "no interactions".
  *
+ * The message element also carries data-check-status: "pending" from the moment a card change
+ * is seen until its answer is drawn, then "checked", "off" or "unavailable".
+ *
  * DrugRef's drug names and comments are data: they are written with textContent and title only.
  */
 (function (root) {
@@ -48,6 +51,11 @@
         marker.title = '';
     }
 
+    function setStatus(document, status) {
+        var message = document.getElementById('interactingDrugErrorMsg');
+        if (message) message.setAttribute('data-check-status', status);
+    }
+
     function unique(values) {
         return values.filter(function (value, index) { return values.indexOf(value) === index; });
     }
@@ -66,6 +74,7 @@
             message.textContent = answered ? '' : UNAVAILABLE;
             message.style.display = answered ? 'none' : 'block';
         }
+        setStatus(document, answered ? result.status : 'unavailable');
         if (!answered || result.status !== 'checked') return;
 
         var groups = {};
@@ -93,8 +102,9 @@
     }
 
     /**
-     * A checker for one patient's Rx page. Only the newest request's answer is shown, so a slow
-     * answer for an older set of cards never replaces a newer one.
+     * A checker for one patient's Rx page. Only the answer to the newest request is shown, and a
+     * card change seen after a request was sent discards that request's answer: it describes a
+     * set of cards the page no longer has.
      *
      * @param options {document, url, fetch, setTimeout, clearTimeout, delay}: url already names
      *                the page's patient; delay (ms) batches the bursts of card changes one action
@@ -107,6 +117,7 @@
 
         function refresh() {
             var request = ++latest;
+            setStatus(options.document, 'pending');
             function show(result) {
                 if (request === latest) render(options.document, result);
             }
@@ -125,6 +136,8 @@
         }
 
         function schedule() {
+            latest++;
+            setStatus(options.document, 'pending');
             if (timer !== null) options.clearTimeout(timer);
             timer = options.setTimeout(function () {
                 timer = null;

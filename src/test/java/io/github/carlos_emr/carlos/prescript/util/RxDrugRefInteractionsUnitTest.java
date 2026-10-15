@@ -90,6 +90,18 @@ class RxDrugRefInteractionsUnitTest {
     }
 
     @Test
+    @DisplayName("should throw, not answer empty, when the Holbrook source answers with its own error")
+    void shouldThrow_whenTheSourceAnswersWithAnErrorStruct() {
+        // DrugrefApi.get answers {"Error": ...} when its lookup fails; fetch files it under the source name.
+        Hashtable<String, Object> sourceError = new Hashtable<>();
+        sourceError.put("Error", "Attribute interactions_byATC not available");
+        Hashtable<String, Object> sources = new Hashtable<>();
+        sources.put("Holbrook Drug Interactions", sourceError);
+
+        assertThatThrownBy(() -> answerFor(sources)).hasMessageContaining("no interaction list");
+    }
+
+    @Test
     @DisplayName("should throw, not answer empty, when DrugRef returns nothing usable")
     void shouldThrow_whenDrugRefReturnsNoResult() {
         assertThatThrownBy(() -> answerFor(null)).hasMessageContaining("returned no result");
