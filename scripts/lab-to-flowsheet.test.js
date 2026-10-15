@@ -19,6 +19,7 @@ const entries = manifest.checks.filter((entry) => entry.script === 'scripts/lab-
 test('shouldReadTheTargetAsANumber_whateverTheOperatorAndEscaping', () => {
   assert.equal(check.targetOf('fade=[on] header=[A1C] body=[Target &lt;= 7.0%]'), 7);
   assert.equal(check.targetOf('Target <= 7.0%'), 7);
+  assert.equal(check.targetOf('body=[Target &amp;lt;= 7.0%]'), 7, 'the tooltip body is encoded twice in the page HTML');
   assert.equal(check.targetOf('Target < 6.5 %'), 6.5);
   assert.equal(check.targetOf('Target ≤ 8%'), 8);
 });
