@@ -13,7 +13,7 @@
  *   - Reopened, the signed note is shown read-only with an Edit link. Edit loads its stored text
  *     and offers Sign & Save but not Save: a signed note can only be stored signed again.
  *   - Signing the edit writes a NEW casemgmt_note row with the same uuid and the next revision.
- *     The first row stays byte-for-byte as it was.
+ *     The first row keeps its text, uuid, signer, signed flag and observation and update dates.
  *   - The chart then shows the edited text once and the revision link reads 2. The history popup
  *     lists both revisions, newest first, for this note and patient only.
  * Known failure (finding 272): on develop, Sign & Save of the edit answers 500, because the edit form
@@ -77,7 +77,8 @@ async function workflow(s) {
   // The revision is not stored: it is the row's place among the rows that share its uuid.
   const revisions = () => sql.rows(`SELECT n.note_id, n.uuid,
       (SELECT COUNT(*) FROM casemgmt_note r WHERE r.uuid=n.uuid AND r.note_id<=n.note_id),
-      n.signed, COALESCE(n.signing_provider_no,''), MD5(n.note),
+      n.signed, COALESCE(n.signing_provider_no,''),
+      MD5(CONCAT_WS('|', n.note, n.uuid, n.signed, COALESCE(n.signing_provider_no,''), n.observation_date, n.update_date)),
       LOCATE(${q(firstText)}, n.note) > 0, LOCATE(${q(addedText)}, n.note) > 0
     FROM casemgmt_note n WHERE n.demographic_no=${patient} AND LOCATE(${q(tag)}, n.note) > 0 ORDER BY n.note_id`)
     .map(([id, uuid, revision, signed, signer, digest, hasFirst, hasAdded]) => ({
