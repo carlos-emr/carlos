@@ -43,6 +43,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass;
 
 public final class RxAddReaction2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -71,6 +72,9 @@ public final class RxAddReaction2Action extends ActionSupport {
         request.setAttribute("drugrefId", id);
         request.setAttribute("name", name);
         request.setAttribute("type", type);
+        // An ATC class allergen (the Penicillin and Sulfa shortcuts, #4576) names its class by ATC
+        // code. Only a well-formed class code reaches the form; anything else is dropped here.
+        request.setAttribute("atc", AllergyAtcClass.classCode(request.getParameter("atc")));
         request.setAttribute("allergyToArchive", allergyToArchive);
         request.setAttribute("nkdaId", nkdaId);
 

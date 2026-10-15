@@ -44,6 +44,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
 <%@ page import="java.net.URLEncoder" %>
@@ -67,7 +68,13 @@
     long startTime = System.currentTimeMillis();
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String demographic$ = request.getParameter("demographicNo");
+    String demographic$;
+    try {
+        demographic$ = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400, "Invalid encounter patient");
+        return;
+    }
     boolean bPrincipalControl = false;
     boolean bPrincipalDisplay = false;
 
@@ -119,10 +126,18 @@
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_ECHART, demographic$, ip, demographic$);
 %>
 
-<%-- Session bean retrieval --%>
+<%-- IncomingEncounter supplies a request-local bean. Legacy save/view forwards may
+     still carry the session bean, but may only render it for the explicit patient. --%>
 <%
-    EctSessionBean bean = null;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
+    EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
+    if (bean == null) {
+        EctSessionBean legacyBean = (EctSessionBean) session.getAttribute("EctSessionBean");
+        if (legacyBean != null && legacyBean.demographicNo != null
+                && legacyBean.demographicNo.equals(demographic$)) {
+            bean = legacyBean;
+        }
+    }
+    if (bean == null || !bean.demographicNo.equals(demographic$)) {
         response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
@@ -224,6 +239,7 @@
             <%-- Right content: encounter form --%>
             <div class="col" style="background-color: #CCCCFF;">
                 <form name="encForm" action="SaveEncounter2" method="POST">
+                    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(bean.demographicNo)}">
                     <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
                            onchange="updateDiv();">
                     <caisi:isModuleLoad moduleName="caisi">

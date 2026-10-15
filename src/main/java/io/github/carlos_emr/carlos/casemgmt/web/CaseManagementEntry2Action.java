@@ -73,6 +73,8 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -158,6 +160,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         restoreFromSession();
 
+        String result = dispatchRequest();
+        if ("view".equals(result)) {
+            prepareBillingUrl(getDemographicNo(request));
+        }
+        return result;
+    }
+
+    private String dispatchRequest() throws Exception {
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
         
         if ("setUpMainEncounter".equals(method)) {
@@ -326,32 +336,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         }
 
-        String url = "";
-        if ("casemgmt".equals(request.getAttribute("from"))) {
-
-            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
-
-            EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
-
-            if (bean.appointmentNo == null) {
-                bean.appointmentNo = "0";
-            }
-            String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
-            Date today = new Date();
-            Calendar todayCal = Calendar.getInstance();
-            todayCal.setTime(today);
-
-            String Hour = Integer.toString(todayCal.get(Calendar.HOUR));
-            String Min = Integer.toString(todayCal.get(Calendar.MINUTE));
-
-            String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
-            String contextPath = request.getContextPath();
-
-            url = bsurl + contextPath + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
-                    + "&providerview=" + bean.curProviderNo + "&user_no=" + bean.providerNo + "&apptProvider_no=" + bean.curProviderNo + "&bNewForm=1&status=t";
-
-            session.setAttribute("billing_url", url); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        }
+        prepareBillingUrl(demono);
 
         /* remove the remembered echart string */
         session.removeAttribute("lastSavedNoteString");
@@ -410,7 +395,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 note.setEncounter_type("");
             }
 
-            EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
+            EctSessionBean bean = EncounterPatientContext.findEncounter(request, demono);
             String encType = request.getParameter("encType");
 
             if (encType == null || encType.equals("")) {
@@ -418,7 +403,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             } else {
                 note.setEncounter_type(encType);
             }
-            if (bean.encType != null && bean.encType.length() > 0) {
+            if (StringUtils.isBlank(encType) && bean != null && StringUtils.isNotBlank(bean.encType)) {
                 note.setEncounter_type(bean.encType);
             }
 
@@ -694,7 +679,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setNote("");
             note.setEncounter_type("");
         }
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        EctSessionBean bean = EncounterPatientContext.findEncounter(request, demographicNo);
         String encType = request.getParameter("encType");
 
         if (encType == null || encType.equals("")) {
@@ -702,7 +687,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         } else {
             note.setEncounter_type(encType);
         }
-        if (bean.encType != null && bean.encType.length() > 0) {
+        if (StringUtils.isBlank(encType) && bean != null && StringUtils.isNotBlank(bean.encType)) {
             note.setEncounter_type(bean.encType);
         }
         return note;
@@ -1449,8 +1434,68 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return appointmentNo;
     }
 
-    private void bindNoteAppointment(CaseManagementNote note, HttpSession session) {
-        EctSessionBean encounter = (EctSessionBean) session.getAttribute("EctSessionBean");
+    /** Rebuilds a patient-bound billing link for every full editor response. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Canonicalizes a configured province code, not a patient/provider identity or an authorization decision")
+    private void prepareBillingUrl(String demono) throws java.io.UnsupportedEncodingException {
+        HttpSession session = request.getSession();
+        String url = "";
+        if ("casemgmt".equals(request.getAttribute("from"))) {
+
+            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase(java.util.Locale.ROOT);
+
+            EctSessionBean bean = encounterForPatient(demono);
+
+            if (bean.appointmentNo == null) {
+                bean.appointmentNo = "0";
+            }
+            String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
+            Date today = new Date();
+            Calendar todayCal = Calendar.getInstance();
+            todayCal.setTime(today);
+
+            String Hour = Integer.toString(todayCal.get(Calendar.HOUR));
+            String Min = Integer.toString(todayCal.get(Calendar.MINUTE));
+
+            String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
+            String contextPath = request.getContextPath();
+
+            url = bsurl + contextPath + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
+                    + "&providerview=" + bean.curProviderNo + "&user_no=" + bean.providerNo + "&apptProvider_no=" + bean.curProviderNo + "&bNewForm=1&status=t";
+
+            request.setAttribute("billing_url", url);
+        }
+
+    }
+
+    /** Builds missing legacy billing metadata from this request's patient, never another window. */
+    private EctSessionBean encounterForPatient(String demographicNo) {
+        EctSessionBean bean = EncounterPatientContext.findEncounter(request, demographicNo);
+        if (bean == null) {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            var demographic = SpringUtils.getBean(DemographicManager.class).getDemographic(loggedInInfo, demographicNo);
+            bean = new EctSessionBean();
+            bean.demographicNo = demographicNo;
+            bean.providerNo = loggedInInfo.getLoggedInProviderNo();
+            bean.curProviderNo = bean.providerNo;
+            bean.patientFirstName = demographic == null ? "" : demographic.getFirstName();
+            bean.patientLastName = demographic == null ? "" : demographic.getLastName();
+        }
+        String requestedAppointment = request.getParameter("appointmentNo");
+        if (StringUtils.isBlank(requestedAppointment)) requestedAppointment = bean.appointmentNo;
+        bean.appointmentNo = "0";
+        bean.appointmentDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+        if (requestedAppointment != null && requestedAppointment.matches("[1-9][0-9]{0,8}")) {
+            Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(requestedAppointment));
+            if (appointment != null && demographicNo.equals(String.valueOf(appointment.getDemographicNo()))) {
+                bean.appointmentNo = requestedAppointment;
+                bean.appointmentDate = UtilDateUtilities.DateToString(appointment.getAppointmentDate(), "yyyy-MM-dd");
+            }
+        }
+        return bean;
+    }
+
+    private void bindNoteAppointment(CaseManagementNote note) {
+        EctSessionBean encounter = EncounterPatientContext.findEncounter(request, note.getDemographic_no());
         note.setAppointmentNo(resolveNoteAppointmentNo(note, request.getParameter("appointmentNo"),
                 encounter == null ? null : encounter.appointmentNo,
                 id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
@@ -1479,7 +1524,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
-        bindNoteAppointment(note, session);
+        bindNoteAppointment(note);
         note.setNote(noteTxt);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1934,7 +1979,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = false;
         }
 
-        bindNoteAppointment(note, session);
+        bindNoteAppointment(note);
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
@@ -3006,7 +3051,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String sessionFrmName = "caseManagementEntryForm" + demoNo;
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("EctSessionBean", null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        EncounterPatientContext.forgetEncounter(request, demoNo);
 
         return null;
     }
