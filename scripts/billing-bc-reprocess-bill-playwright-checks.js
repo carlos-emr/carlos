@@ -15,9 +15,9 @@
  * included; a GET carrying a save parameter is refused with 405 and nothing changes. Direct
  * requests are negative probes only.
  *
- * Expected to FAIL while app-findings-log.md findings 147 and 145 stand: the adjust page throws a
- * TypeError on load (the strict page fails the Edit step), and past it the save writes the note
- * back as "patient\'s", one more backslash per save.
+ * Expected to FAIL while app-findings-log.md finding 145 stands: the save writes the note back as
+ * "patient\'s", one more backslash per save. (Finding 147, the adjust page's TypeError on load,
+ * was fixed with #4551.)
  *
  * Fixtures: one billing + billingmaster + billingnote row for the workflow's own FAKE patient,
  * stamped with the run marker; cleanup deletes exactly those rows (and the history and notes the
