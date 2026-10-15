@@ -97,14 +97,16 @@ class BillingDigSearchJspRegressionTest {
     void shouldLabelEachDescriptionField_withHiddenLabel() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
-        // intCount goes up once per row before the row is written, so each id is unique on the page.
-        for (String code : new String[]{"Dcode", "Dcode2"}) {
-            assertThat(jsp).contains("<label for=\"dxDesc<%=intCount%>\" class=\"visually-hidden\">Description for <%="
-                    + ENCODE + "forHtml(" + code + ")%></label><input type=\"text\" id=\"dxDesc<%=intCount%>\"");
+        // One id prefix per row block (a search by code or text; the text and code rows of a search by both),
+        // since Sonar reads the source, where one shared id would appear three times. intCount goes up once
+        // per row before the row is written, so each id is also unique on the rendered page.
+        String[][] blocks = {{"dxDescResult", "Dcode"}, {"dxDescText", "Dcode"}, {"dxDescCode", "Dcode2"}};
+        for (String[] block : blocks) {
+            String id = block[0] + "<%=intCount%>";
+            assertThat(jsp).contains("<label for=\"" + id + "\" class=\"visually-hidden\">Description for <%="
+                    + ENCODE + "forHtml(" + block[1] + ")%></label><input type=\"text\" id=\"" + id + "\"");
+            assertThat(jsp.split("id=\"" + id + "\"", -1)).as(id).hasSize(2);
         }
-        // Three row templates: one for a search by code or text, two for a search by both.
-        assertThat(jsp.split("<label for=\"dxDesc<%=intCount%>\"", -1)).hasSize(4);
-        assertThat(jsp.split("<input type=\"text\" id=\"dxDesc<%=intCount%>\"", -1)).hasSize(4);
         assertThat(jsp).contains(".visually-hidden { position: absolute;");
     }
 }
