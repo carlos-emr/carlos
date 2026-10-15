@@ -332,7 +332,7 @@ async function workflow(s) {
   ]) {
     await s.step(`Provider Service ${mode} CSV labels ${SERVICE_MONTH} through ${endMonth} inclusively and counts only that range`, async () => {
       const mobileContext = mode === 'mobile' ? await s.context.browser().newContext({
-        storageState: await s.context.storageState(), ignoreHTTPSErrors: true,
+        storageState: await s.context.storageState(), ignoreHTTPSErrors: s.config.ignoreHTTPSErrors === true,
         userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
         isMobile: true, hasTouch: true,
       }) : null;

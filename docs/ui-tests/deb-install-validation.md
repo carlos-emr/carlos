@@ -90,6 +90,39 @@ with exit 1 rather than print PASS over leaked rows, and a Chromium launch failu
 SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
 the check still **PASS**es, prints a note, and leaves the restored form. The three
 other library forms were untouched in every case.
+`form-catalog-smoke-letterhead-restore` (issue #4592, finding 233) lost its expected-failure pin on
+2026-10-14. It was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag, Maven artifact downloads limited with
+`-Dmaven.artifact.threads=2` because Maven Central answered 429 to the default parallelism) and installed
+fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean, `:443`). Result:
+**PASS**, 7 of 7 Letterhead steps, and the full `form-catalog-smoke` entry still passes. With the pre-fix
+`formConsultant.jsp` swapped into the installed webapp the check **FAILS** at "Letterhead: the redisplayed and
+the reopened form show every saved value again". A Comments value that itself begins with a line break is
+pinned statically by `scripts/letterhead-comments-textarea.test.js`, not by this browser check.
+`form-catalog-smoke-adfv2-window` (issue #4598, finding 240) lost its expected-failure pin on
+2026-10-15. The same change added `form-adfv2-save-exit-playwright-checks.js`. Both were run against
+2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch in an Ubuntu 26.04 container
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag). Two DrugRef test-scope jars that Maven's
+transport kept failing to fetch through the egress proxy were seeded into the build's local repository.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- Both checks **PASS**. Save redisplays the saved record in the window it was pressed in. Save and
+  Exit is confirmed once, answered by `close.jsp` in the form's own window, and that window closes
+  with no other window opened.
+- With the pre-fix `formadfv2.jsp` installed (its compiled class deleted, then `carlos-ctl restart`),
+  both checks **FAIL** at those steps: the record was redisplayed, or the closing page answered, in
+  another window.
+- The rest of the form catalogue family matched its manifest: `form-catalog-smoke` and
+  `-letterhead-restore` pass, the seven pinned entries are known failures, and `--residue-audit`
+  reported no residue.
+
+`close.jsp` closes its window while the CSRFGuard script injected into it is still loading. The new
+check therefore excuses that one aborted `/csrfguard` script load, proven by `navigatedAway()`, as
+`legacy-lab-display` does.
+`clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
+carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
+form is not touched here and no finding records the print failure yet.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
@@ -366,6 +399,32 @@ self-signed TLS, services running as their unprivileged accounts?
 Testing `http://127.0.0.1:18080/carlos` (Tomcat directly) **bypasses the WAF
 and answers a different question**. Every check below goes through `:443`.
 
+## Focused WAF regressions
+
+For issues #4571–#4575, run `python3 scripts/waf/check-clinical-policy.py
+--evidence-dir /tmp/waf-evidence` from the checkout (the evidence directory must
+be absent or empty). This requires Python 3.10+, Node, nginx, its ModSecurity
+module, and CRS; Ubuntu 26.04 supplies them as `python3 nodejs nginx
+libnginx-mod-http-modsecurity modsecurity-crs`. The `WAF Policy` workflow runs
+the same command and retains the report, policy snapshots, request receipts and
+correlated audit logs. It uses ephemeral loopback listeners and a fixture
+upstream, preserving the shipped policy's blocking, scores and response MIME
+inspection. It checks clinical prose and negative boundaries, including encoded
+path traversal, malformed numeric field names, XSS/SQLi and outbound leaks.
+
+Application validation remains the `front-door` tier's
+`waf-clinical-text-corpus` check. It now runs all 24 rows without expected-failure
+pins for findings 209–213. With the normal suite environment loaded, use
+`npm run test:waf-clinical-text-corpus-playwright`; dedicated aliases also exist
+for individual rows, including `rx-comment-save` and
+`incoming-encounter-reason`. The latter follows both chart redirects and checks
+the patient and exact reason at each hop. Rx comment, name and sig rows use the
+real page's Save Only and verify stored values. Both JSON response rows require
+a complete answer. Keep `EXPECT_FRONT_DOOR=true` and a readable `WAF_AUDIT_LOG`;
+these browser checks also need the documented application, DrugRef and fixture
+prerequisites. A policy-harness pass does not substitute for these application
+checks.
+
 ## Host prerequisites
 
 - LXD with a VM-capable storage pool and a NAT bridge (the VM needs outbound
@@ -601,18 +660,27 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
-#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
-#    into the editor unsandboxed. The repo ships one.
+# c) OPTIONAL. eform-rtl-print-pdf-playwright-checks.js proves a clinic .rtl
+#    template loads into the editor unsandboxed using clinic_letter.rtl, which the
+#    application seeds into the eForm image directory on every install, so it needs
+#    no fixture. Stage a clinic-UPLOADED template only to cover that case too, and
+#    then export RTL_TEMPLATE_NAME=MissedAppointment.rtl (section 6). With the
+#    variable set and the file absent the check tests the seeded template instead
+#    and ends SKIP (exit 2) naming this fixture.
+#    The repo ships one.
 lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
   carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
 lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
 
-# d) The three LOCAL_SEED_OBEC_REPORT appointments that
-#    patient-list-by-appointment-export-playwright-checks.js documents as its
-#    operator-provisioned fixture contract (see that script's header):
+# d) OPTIONAL. The three LOCAL_SEED_OBEC_REPORT appointments that
+#    patient-list-by-appointment-export-playwright-checks.js asserts on. With the
+#    section 6 MYSQL_* variables the check inserts and removes them itself; insert
+#    them by hand only for a run without database access, and then export
+#    PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 so the check uses
+#    these rows read-only (see that script's header). Do not do both: the
+#    self-seeding run SKIPs when it finds rows already in its date window.
 lxc exec carlos-test -- mariadb -u root carlos -e "
 INSERT INTO appointment (provider_no, appointment_date, start_time, end_time,
     name, demographic_no, notes, reason, location, resources, type, style,
@@ -674,6 +742,37 @@ Restart once after loading so nothing serves from a pre-load cache:
 ```bash
 lxc exec carlos-test -- carlos-ctl restart
 ```
+
+### Checks that need their own fixture
+
+A check that cannot run for want of a fixture reports **SKIP** (exit 2, #3313)
+with the reason on its own output, and the suite runner repeats the check's
+`fixtures` note from `scripts/playwright-suite.json` in its summary table, so a
+missing fixture never reads as a broken application. Issue #4412 found four
+checks that failed on a fresh install instead; they now behave as follows.
+
+| Check | What it needs | On a fresh install with the section 6 environment |
+|---|---|---|
+| `eform-rtl-print-pdf` | Nothing: its template step uses `clinic_letter.rtl`, which the application seeds on every install. `RTL_TEMPLATE_NAME` names a clinic-uploaded template instead (fixture c). | Runs. With `RTL_TEMPLATE_NAME` set and that file not staged, the template step falls back to `clinic_letter.rtl` and an otherwise passing run ends SKIP naming fixture c. |
+| `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
+| `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
+| `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
+
+Validated on 2026-10-08 against `release/2026.08` at `9784de27`: 2026.09.0~snapshot26
+debs (`dpkg-buildpackage` in `ubuntu:26.04`, carlos-ctl 1.1.2 built from the pin's
+fallback commit) installed with the section 3 preseed into a privileged `ubuntu:26.04`
+systemd container, `carlos-ctl check` all OK, section 6 environment, fixtures c and d
+**not** staged. On the unmodified tree `eform-rtl-print-pdf` (with
+`RTL_TEMPLATE_NAME=MissedAppointment.rtl`), `o19-migrated-smoke` and
+`patient-list-by-appointment-export` failed exactly as #4412 reported. With this change:
+`eform-rtl-print-pdf` 26/26 PASS on the seeded template, SKIP (26/26) with the unstaged
+name, 26/26 PASS once fixture c was staged, and FAIL (23/24, no timeout) with
+`clinic_letter.rtl` removed; `patient-list-by-appointment-export` PASS self-seeding and
+left no rows, PASS read-only on hand-inserted fixture d with the profile, SKIP in seed
+mode with fixture d present and without `MYSQL_*`, and on SIGTERM after seeding removed
+its rows and exited 143; `o19-migrated-smoke` SKIP. `rx-fax-record-binding` passed 3 of 3
+runs on the unmodified tree and 3 of 3 on this change: the `[login] pageerror` was fixed
+by #4407.
 
 ## 5. Install the Playwright harness in the VM
 
@@ -797,7 +896,8 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# patient-list-by-appointment-export seeds its own appointments through MYSQL_*; set
+# PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 only if fixture d was inserted by hand.
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
 # Read-only: it opens the Ontario bill form for this appointment and switches the bill
 # type, but never submits a bill, so it seeds nothing and cleans nothing up. It asserts
@@ -806,8 +906,9 @@ export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # missing, so a status-only assertion would pass on a re-broken page.
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
-# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
-export RTL_TEMPLATE_NAME=MissedAppointment.rtl
+# Rich Text Letter print/PDF check. Its template step uses the seeded clinic_letter.rtl;
+# name a clinic-uploaded template only after staging it (optional fixture c above):
+# export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
 # deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
 # FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run
@@ -1395,6 +1496,20 @@ Notes on the contract:
   filter — set `response.sanitization.enabled=false` in
   `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
+
+### TLS verification for the browser checks (issue #3598)
+
+Every browser context in `scripts/` takes its certificate policy from
+`shouldIgnoreHttpsErrors()` in `scripts/lib/playwright-harness.js`. Certificate
+errors are ignored only when `BASE_URL` is loopback or RFC1918 (the installer's
+self-signed certificate). `ALLOW_NON_LOCAL_BASE_URL=true` lets a check *reach* a
+remote host but does **not** relax certificate verification. To run against a
+remote host that presents a self-signed certificate, also set
+`ALLOW_UNVERIFIED_TLS=true`; `TEST_USER`, `TEST_PASSWORD` and `TEST_PIN` are then
+sent to a host whose identity the browser did not verify. Without it, a
+certificate failure stops with a message naming that variable.
+`scripts/tls-verification-policy.test.js` fails the build if a check hardcodes
+`ignoreHTTPSErrors: true`.
 
 ### Server-log audit
 
@@ -2726,3 +2841,80 @@ Two more harness notes from the review round that followed, both on the same sna
   a console error "Failed to load resource ... 400" from the Save that finding 254 refuses sometimes lands inside the window in
   which the check reads the page's problems. It does so with the old wait and with the wait for the Save navigation that
   CodeRabbit asked for (4 runs each, 1 of 4 failed elsewhere in each), so it predates that change. It is not fixed here.
+
+### Legacy MDS lab display validation (2026-10-14, issue #4567)
+
+`release/2026.08` at `e9ce38de` plus the #4654 fix branch was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR was
+compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`) and passed as
+`DRUGREF_WAR`, because Maven Central answered 429 to the builder container. carlos-ctl was 1.1.2 from its release. The packages
+were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported "All checks
+passed"). Behind an egress proxy that dropped some parallel apt downloads, `BASE_IMAGE` named an `ubuntu:26.04` derivative whose
+only change is `Acquire::Retries "8"` with `Acquire::Queue-Mode "access"` and pipelining off.
+
+| Run | `legacy-lab-display-mds` |
+|---|---|
+| fixed packages | display (two results with their own values, the note, no `#mdsLoadFailed` banner), acknowledge and the picker pass; stops at Forward: `known-fail` on finding 184 |
+| pre-fix MDS classes and `SegmentDisplay.jsp` swapped into the installed webapp | fails at the display step with the error page (finding 194, as reported) |
+| only `MdsOBXDaoImpl` put back to an entity query | fails at the display step: "shows 2 result rows for the seeded test … Glucose, expected 1" |
+
+`legacy-lab-display` (CML) was unchanged: `known-fail` on finding 184. `legacy-lab-display-pathnet` SKIPs on Ontario. The smoke tier
+passed 12/12. After the fixed classes were restored, the journal held no MDS error; the server-log audit's remaining unexplained
+signature was `getMatchingCMLLabs (ClassCastException)`, raised by the CML check's page (finding 197).
+
+The swaps used `cp` and `touch` on the installed JSP and a `carlos-ctl restart`. After a restart, Jasper recompiles a JSP whose
+source is newer than its compiled class, so Tomcat's work directory does not need clearing.
+
+A follow-up covered a report with versions whose older version cannot be read. Two FAKE versions of one accession were seeded
+(`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
+Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
+per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.
+
+### Patient photo bound to the posted patient (2026-10-14, issue #4546)
+
+`ClientImage2Action` now acts on the `demographicNo` that each form of the Client Image Manager posts, never on the
+session-wide `clientId`, and checks `_demographic` w for that patient plus `isAllowedAccessToPatientRecord` first
+(finding 156). Run against a `2026.09.0~snapshot26` package built from the fix branch and installed fresh into an
+Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean; the installer's transient "NOT ready to use"
+came from an nginx reload in a sandbox without IPv6 and left no marker): `patient-photo-upload` **PASS**, all 15
+steps, including the finding-156 step, Upload in the first of two open managers, a CSRF-valid Clear Photo POST that
+names no patient, and a doctor login locked out of the second patient (refused 403, photo kept; the unlocked control
+clears). Through the suite runner it is a plain PASS with no expected-failure pin, and the smoke tier passed 12 of
+12. With the pre-fix `ClientImage2Action.class` and `uploadimage.jsp` swapped into the installed webapp (Tomcat's
+compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo does not post the patient the manager
+was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
+itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
+patient-less POST was answered as a success and the locked login was served (HTTP 200).
+
+### Schedule group Delete and View groups Save/Delete (2026-10-15, issue #4515)
+
+Finding 80. Administration ▸ Schedule Management ▸ Search/Edit/Delete Groups ▸ Delete answered HTTP 500 because
+`adminnewgroup.jsp` read the CSRFGuard token as a group member. Preferences ▸ View groups ▸ Save and Delete left a blank
+`/provider/providercontrol` page because they ran inside that page's server-side include, which ignores a redirect.
+`release/2026.08` at 244556ad plus the fix branch was packaged as `2026.09.0~snapshot26`, the same way as the MDS run above.
+The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags. DrugRef was built on the host from
+`1941e14`. `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and
+`lintian --fail-on error` passed. carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset, the retrying `BASE_IMAGE`). `carlos-ctl check` reported "All
+checks passed"; the installer's transient "NOT ready to use" left no marker.
+
+| Run | `my-groups` | `get-reject-provider-groups` |
+|---|---|---|
+| fixed packages | PASS, all 8 steps. The admin Delete posts its CSRF token, answers 200 with the notice and removes the ticked row. View groups Save and Delete land on the group list. | PASS. `DeleteMyGroupMembers` and `SaveMyGroup` answer 405 to GET and HEAD; the retired include routes write nothing. |
+| pre-fix `adminnewgroup.jsp` swapped in | FAILS: "Search/Edit/Delete Groups ▸ Delete answered HTTP 500" | not run |
+| pre-fix `providernewgroup.jsp`, `providersavemygroup.jsp` and `providercontrol.jsp` swapped in | FAILS: "Save did not return to the group list (left on /carlos/provider/providercontrol)" | not run |
+
+The first fixed run also surfaced a latent error on the deletion notice, which the 500 had kept anyone from reaching:
+`setfocus()` focused a group-name field the notice does not render. It is guarded in the same change.
+
+The other checks that touch group routes also ran on the fixed packages:
+- `browser-surface`, `schedule-setting`, `appointment-group-copy-cut`, `report-age-sex-visit` and
+  `csrf-runtime-form-month-view-group` pass.
+- `xss-poison-admin-detail` is `known-fail` on finding 122.
+- `report-daysheet-labs` fails on finding 54, as its suite notes expect; its group day-sheet step passes.
+- `admin-role-management` refuses to run without an exclusive-deployment opt-in.
+- `appointment-group-paste-restriction` SKIPs on a missing fixture.
+
+The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
+save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
+the same way, and the same `echart` script fails there at the same step, so this change did not cause it.

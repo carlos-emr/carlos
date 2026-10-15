@@ -151,8 +151,6 @@
 }%>
 
 
-        window.onload = stripe;
-
     </script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <style type="text/css">

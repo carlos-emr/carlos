@@ -27,7 +27,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -487,7 +487,7 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
