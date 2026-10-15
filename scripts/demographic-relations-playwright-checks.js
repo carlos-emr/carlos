@@ -21,7 +21,9 @@
  *
  * Fixtures: the workflow's own FAKE patient and a second FAKE patient (last name = the run marker
  * plus "R"). Cleanup deletes every relationships row of either patient and the second patient, and
- * asserts they are gone. Skipped when the Master Record has no Add Relation (NEW_CONTACTS_UI on).
+ * asserts they are gone. Skipped when the Master Record has no Add Relation (NEW_CONTACTS_UI on),
+ * and when caisi is on: the search results then pick with addNameCaisi, which fills a field of the
+ * opener and closes the popup instead of opening the relation form.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -71,6 +73,9 @@ async function workflow(s) {
     await ui.clickAndAwaitReload(page, page.locator('input[type="submit"][name="Submit"]').first(), { label: 'Search', timeout: TIMEOUT });
     await h.assertNotErrorPage(page, 'Add Relation search results');
     const result = page.locator(`[onclick*="addName('${relative}'"]`).first();
+    if (await result.count() === 0 && await page.locator(`[onclick*="addNameCaisi('${relative}'"]`).count() > 0) {
+      throw new h.SkipCheck('With caisi on, a search result picks with addNameCaisi, which closes the popup instead of opening the relation form');
+    }
     h.assert(await result.count() === 1, 'The search did not list the second owned patient');
     await ui.clickAndAwaitReload(page, result, { label: 'pick the second owned patient', timeout: TIMEOUT });
     await h.assertNotErrorPage(page, 'Add Relation form');

@@ -4794,7 +4794,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Skipped when NEW_CONTACTS_UI is on: the Master Record then has no Add Relation.",
+      "notes": "Skipped when NEW_CONTACTS_UI is on (the Master Record then has no Add Relation) or caisi is on (a search result then closes the popup instead of opening the relation form).",
       "fixtures": "The owned patient and a second FAKE patient (marker + R); cleanup deletes every relationships row of either and the second patient."
     },
     {
