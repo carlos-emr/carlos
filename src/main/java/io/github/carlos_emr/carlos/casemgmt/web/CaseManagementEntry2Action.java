@@ -1328,10 +1328,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             for (CaseManagementNote c : curCPPNotes) {
                 int currentPosition = notePositions.getOrDefault(c.getId(), c.getPosition());
                 if (c.getId() != nId) {
-                    if (newNote && currentPosition >= newPos) {
-                        position = currentPosition + 1;
-                        notePositions.put(c.getId(), position);
-                    } else if ((!newNote && newPos < note.getPosition()) && currentPosition >= newPos && currentPosition < note.getPosition()) {
+                    if (currentPosition >= newPos
+                            && (newNote || (newPos < note.getPosition() && currentPosition < note.getPosition()))) {
                         position = currentPosition + 1;
                         notePositions.put(c.getId(), position);
                     } else if ((!newNote && newPos > note.getPosition()) && currentPosition <= newPos && currentPosition > note.getPosition()) {
@@ -1429,12 +1427,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (value == null) continue;
             CaseManagementNoteExt extension = new CaseManagementNoteExt();
             extension.setKeyVal(keys[i]);
-            if (i <= 2) {
-                if (!writePartialDate(value, extension)) continue;
-            } else {
-                extension.setValue(value);
-            }
-            submitted.add(extension);
+            boolean dateField = i <= 2;
+            if (!dateField) extension.setValue(value);
+            if (!dateField || writePartialDate(value, extension)) submitted.add(extension);
         }
         return submitted;
     }

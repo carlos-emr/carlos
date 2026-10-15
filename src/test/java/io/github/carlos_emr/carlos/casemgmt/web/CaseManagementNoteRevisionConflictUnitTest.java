@@ -368,6 +368,10 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
                 .containsExactly(CaseManagementNoteExt.STARTDATE, CaseManagementNoteExt.AGEATONSET);
         assertThat(submitted.getValue().getFirst().getDateValueStr()).isEqualTo("2022-01-01");
         assertThat(submitted.getValue().getLast().getValue()).isEqualTo("44");
+        assertCppStateUnchanged(sibling, oldIssueList);
+    }
+
+    private void assertCppStateUnchanged(CaseManagementNote sibling, List<CheckBoxBean> oldIssueList) {
         assertThat(note.getNote()).isEqualTo("Original");
         assertThat(note.isSigned()).isFalse();
         assertThat(note.getPosition()).isZero();
