@@ -33,10 +33,15 @@
  * its last week number > that provider's week > Month > provider select "All" > the week numbers
  * are text, not links.
  *
+ * The day sheet's schedule-view selector also hides the providers in the viewer's
+ * MyGroupAccessRestriction rows, which the month page does not apply, so a week number for a
+ * restricted provider must be plain text; a step inserts such a row and asserts that.
+ *
  * Fixtures: owned `appointment` rows carrying the run marker, on the Wednesday of the rendered
  * week (shown whether or not schedule.week_view_weekends is on, so no preference is touched), at
  * a slot free for both providers inside the signed-in provider's schedule hours (deleted and
- * asserted gone). The session's owned patient is the appointments' patient.
+ * asserted gone), and one MyGroupAccessRestriction row restricting the second provider for the
+ * signed-in provider (deleted and asserted gone). The session's owned patient is the appointments' patient.
  */
 const h = require('./lib/playwright-harness');
 const {clickAndAwaitReload} = require('./lib/playwright-ui');
@@ -73,6 +78,14 @@ async function workflow(s) {
   const [[startHour, endHour, everyMin]] = sql.rows(`SELECT COALESCE(MAX(startHour),8),COALESCE(MAX(endHour),18),COALESCE(MAX(everyMin),15)
     FROM ProviderPreference WHERE providerNo=${providerKey}`);
 
+  // The restriction step's fixture row; registered before it exists so a failure still removes it.
+  let restrictionId = null;
+  s.cleanup(() => {
+    if (restrictionId) {
+      sql.execute(`DELETE FROM MyGroupAccessRestriction WHERE id=${restrictionId} AND providerNo=${providerKey} AND myGroupNo=${h.sqlString(other)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM MyGroupAccessRestriction WHERE id=${restrictionId}`) === '0', 'The restriction fixture row was not removed');
+    }
+  });
   const appointments = {};
   s.cleanup(() => {
     for (const appointmentNo of Object.values(appointments)) {
@@ -206,6 +219,32 @@ async function workflow(s) {
         }
         await followLastWeekNumber(other, appointments[provider] ? provider : null, wednesday, `week number of provider ${other}`);
       }
+    });
+  }
+
+  if (other && linksExpectedFor(other)) {
+    await s.step('a provider the viewer is restricted from gets plain-text week numbers', async () => {
+      // The day sheet's schedule-view selector hides providers in the viewer's MyGroupAccessRestriction rows; the
+      // month page does not apply them, so the week link has to, or it would be a new route to a hidden schedule.
+      restrictionId = sql.value(`INSERT INTO MyGroupAccessRestriction (myGroupNo, providerNo, lastUpdateUser, lastUpdateDate)
+        VALUES (${h.sqlString(other)}, ${providerKey}, ${h.sqlString(s.config.testUser)}, NOW()); SELECT LAST_INSERT_ID()`);
+      h.assert(/^[1-9]\d*$/.test(restrictionId), 'The restriction fixture row was not created');
+      await openMonth('Month before the restricted provider');
+      const select = schedule.locator('select[name="provider_no"]');
+      await select.waitFor({timeout: 20000});
+      const reloaded = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
+      reloaded.catch(() => {});
+      await select.selectOption(other);
+      await reloaded;
+      await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
+      await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
+      h.assert(params(schedule).get('providerview') === other, `Selecting provider ${other} did not reload the month for providerview=${other}`);
+      await weekNumberCells().first().waitFor({timeout: 20000});
+      h.assert(await weekNumberCells().count() >= 8, 'The week numbers disappeared for the restricted provider; they should stay as text');
+      h.assert(await weekLinks().count() === 0, `A week number links to the week of provider ${other}, whom the viewer is restricted from`);
+      sql.execute(`DELETE FROM MyGroupAccessRestriction WHERE id=${restrictionId} AND providerNo=${providerKey} AND myGroupNo=${h.sqlString(other)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM MyGroupAccessRestriction WHERE id=${restrictionId}`) === '0', 'The restriction fixture row was not removed');
+      restrictionId = null;
     });
   }
 

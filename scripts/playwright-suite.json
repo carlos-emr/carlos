@@ -4043,7 +4043,7 @@
         "MYSQL_PASSWORD"
       ],
       "notes": "Issue #4540 (finding 136): the month view's week numbers open the selected provider's own week view instead of the 404 page (the day sheet lists the viewer's saved view, so the link asks for that provider alone), and are plain text when the month shows All providers, a group, or a provider the viewer's pinned schedule view would hide.",
-      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) for the signed-in provider and one for a second active provider, on the Wednesday of the last week row the month page renders, at a slot free for both inside the signed-in provider's schedule hours; deleted and asserted gone. No preference is touched."
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) for the signed-in provider and one for a second active provider, on the Wednesday of the last week row the month page renders, at a slot free for both inside the signed-in provider's schedule hours; deleted and asserted gone, plus one MyGroupAccessRestriction row restricting the second provider for the signed-in provider, deleted and asserted gone. No preference is touched."
     },
     {
       "name": "waiting-list",

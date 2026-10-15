@@ -96,6 +96,9 @@ class ScheduleMonthWeekLinkRegressionTest {
         // so the target must know the saved view, and a provider number must belong to a real provider.
         assertThat(month)
                 .contains("ScheduleWeekLink.weekTarget(providerview, providerPreference.getMyGroupNo(),")
-                .contains("providerDao.getProvider(");
+                .contains("providerDao.getProvider(")
+                // The day sheet's selector hides what the viewer is restricted from; the week link must too.
+                .contains("myGroupAccessRestrictionDao.findByProviderNo(curUser_no)")
+                .contains("restrictedNo.equals(restriction.getMyGroupNo())");
     }
 }

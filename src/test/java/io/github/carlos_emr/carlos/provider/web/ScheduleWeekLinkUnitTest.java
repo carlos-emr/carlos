@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.provider.web;
 
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -59,6 +60,9 @@ class ScheduleWeekLinkUnitTest {
             "100001", "Roe, Rick");
 
     private static final Function<String, String> NAME_OF = PROVIDERS::get;
+
+    /** The viewer has no MyGroupAccessRestriction rows. */
+    private static final Predicate<String> NOT_RESTRICTED = providerNo -> false;
 
     @Nested
     @DisplayName("singleProvider")
@@ -99,7 +103,7 @@ class ScheduleWeekLinkUnitTest {
         @Test
         @DisplayName("should resolve the provider and the name the day sheet prints")
         void shouldResolveProviderAndName_forExistingSingleProvider() {
-            ScheduleWeekLink.Target target = ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF);
+            ScheduleWeekLink.Target target = ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF, NOT_RESTRICTED);
 
             assertThat(target).isNotNull();
             assertThat(target.providerNo()).isEqualTo("100001");
@@ -109,15 +113,15 @@ class ScheduleWeekLinkUnitTest {
         @Test
         @DisplayName("should return null when the month shows several providers")
         void shouldReturnNull_whenMonthShowsSeveralProviders() {
-            assertThat(ScheduleWeekLink.weekTarget("all", ".default", NAME_OF)).isNull();
-            assertThat(ScheduleWeekLink.weekTarget("_grp_7", ".default", NAME_OF)).isNull();
-            assertThat(ScheduleWeekLink.weekTarget(null, ".default", NAME_OF)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget("all", ".default", NAME_OF, NOT_RESTRICTED)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget("_grp_7", ".default", NAME_OF, NOT_RESTRICTED)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget(null, ".default", NAME_OF, NOT_RESTRICTED)).isNull();
         }
 
         @Test
         @DisplayName("should return null when the provider does not exist")
         void shouldReturnNull_whenProviderDoesNotExist() {
-            assertThat(ScheduleWeekLink.weekTarget("424242", ".default", NAME_OF)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget("424242", ".default", NAME_OF, NOT_RESTRICTED)).isNull();
         }
 
         @Test
@@ -125,23 +129,37 @@ class ScheduleWeekLinkUnitTest {
         void shouldReturnNull_whenSavedViewIsAnotherProvider() {
             // The day sheet shows the provider saved as the schedule view whatever the URL asks
             // for, so a link for a different provider would open the wrong provider's week.
-            assertThat(ScheduleWeekLink.weekTarget("100001", "999998", NAME_OF)).isNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", "999998", NAME_OF, NOT_RESTRICTED)).isNull();
         }
 
         @Test
         @DisplayName("should resolve the provider when the saved view is that same provider")
         void shouldResolveProvider_whenSavedViewIsSameProvider() {
-            assertThat(ScheduleWeekLink.weekTarget("999998", "999998", NAME_OF))
+            assertThat(ScheduleWeekLink.weekTarget("999998", "999998", NAME_OF, NOT_RESTRICTED))
                     .extracting(ScheduleWeekLink.Target::providerNo)
                     .isEqualTo("999998");
         }
 
         @Test
+        @DisplayName("should return null for a provider the viewer is restricted from")
+        void shouldReturnNull_whenProviderIsRestrictedForViewer() {
+            // The day sheet's schedule-view selector hides providers listed in the viewer's
+            // MyGroupAccessRestriction rows; a week number must not open one the selector hides.
+            assertThat(ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF, "100001"::equals)).isNull();
+        }
+
+        @Test
+        @DisplayName("should resolve the provider when only another provider is restricted")
+        void shouldResolveProvider_whenOnlyAnotherProviderIsRestricted() {
+            assertThat(ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF, "999998"::equals)).isNotNull();
+        }
+
+        @Test
         @DisplayName("should resolve the provider when the saved view is a group, the default or unset")
         void shouldResolveProvider_whenSavedViewIsNotAProvider() {
-            assertThat(ScheduleWeekLink.weekTarget("100001", "clinic-team", NAME_OF)).isNotNull();
-            assertThat(ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF)).isNotNull();
-            assertThat(ScheduleWeekLink.weekTarget("100001", null, NAME_OF)).isNotNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", "clinic-team", NAME_OF, NOT_RESTRICTED)).isNotNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", ".default", NAME_OF, NOT_RESTRICTED)).isNotNull();
+            assertThat(ScheduleWeekLink.weekTarget("100001", null, NAME_OF, NOT_RESTRICTED)).isNotNull();
         }
     }
 

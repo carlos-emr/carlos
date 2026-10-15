@@ -53,6 +53,7 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
+    MyGroupAccessRestrictionDao myGroupAccessRestrictionDao = SpringUtils.getBean(MyGroupAccessRestrictionDao.class);
 %>
 
 <%!
@@ -159,12 +160,17 @@
     // request parameter, so a value that is not an existing provider gets no link either: those
     // week numbers stay plain text instead of leading to a sheet for nobody (issue #4540).
     // The day sheet lists the providers of the viewer's SAVED schedule view, not of providerview,
-    // so the target also needs that saved view: see ScheduleWeekLink for why.
+    // so the target also needs that saved view: see ScheduleWeekLink for why. It also hides the
+    // providers in the viewer's MyGroupAccessRestriction rows from its schedule-view selector;
+    // this page does not, so the same rows decide here which provider gets no week link.
+    List<MyGroupAccessRestriction> viewerRestrictions = myGroupAccessRestrictionDao.findByProviderNo(curUser_no);
     ScheduleWeekLink.Target weekViewTarget = ScheduleWeekLink.weekTarget(providerview, providerPreference.getMyGroupNo(),
             providerNo -> {
                 Provider weekViewProvider = providerDao.getProvider(providerNo);
                 return weekViewProvider == null ? null : weekViewProvider.getFullName();
-            });
+            },
+            restrictedNo -> viewerRestrictions.stream()
+                    .anyMatch(restriction -> restrictedNo.equals(restriction.getMyGroupNo())));
     int NameMaxLen = 15;
 %>
 <%
@@ -328,6 +334,8 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.ScheduleWeekLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction" %>
 
     <body bgcolor="#EEEEFF" onLoad="refreshAllTabAlerts();">
 

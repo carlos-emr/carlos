@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.provider.web;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -47,6 +48,10 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *   named.</li>
  *   <li>When the viewer's saved schedule view <em>is</em> one provider, the sheet shows that
  *   provider whatever the URL says. A week number for any other provider is then not linked.</li>
+ *   <li>The sheet's schedule-view selector hides the providers in the viewer's
+ *   {@code MyGroupAccessRestriction} rows. The month page does not apply that restriction, so a
+ *   restricted provider is not linked either: a week number must not be a new route to a
+ *   schedule the selector withholds.</li>
  * </ul>
  *
  * <p>A month that shows several providers ("All providers", or a group) has no single provider
@@ -106,14 +111,18 @@ public final class ScheduleWeekLink {
      *                          or {@code null}
      * @param providerNameOf    looks a provider number up and returns the name the day sheet
      *                          prints for it, or {@code null} when no such provider exists
+     * @param isRestricted      whether the viewer's {@code MyGroupAccessRestriction} rows hide this
+     *                          provider; the day sheet's schedule-view selector does not offer such
+     *                          a provider, and the month page does not apply the restriction itself
      * @return the provider to open, or {@code null} when the week numbers stay plain text: the
-     * month shows several providers, the provider does not exist, or the viewer's saved schedule
-     * view is a different provider, which the day sheet would show instead
+     * month shows several providers, the provider does not exist or is restricted for the viewer,
+     * or the viewer's saved schedule view is a different provider, which the day sheet would show
+     * instead
      */
     public static Target weekTarget(String providerView, String savedScheduleView,
-                                    Function<String, String> providerNameOf) {
+                                    Function<String, String> providerNameOf, Predicate<String> isRestricted) {
         String provider = singleProvider(providerView);
-        if (provider == null) {
+        if (provider == null || isRestricted.test(provider)) {
             return null;
         }
         String name = providerNameOf.apply(provider);
