@@ -28,6 +28,32 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Waiting-list manager: lists the patients on one waiting list of the logged-in
+        provider's schedule group, in position order, and lets staff maintain them.
+
+    Features:
+        List picker over the group's current lists; choosing one reloads the page.
+        A row's note and "on list since" date are saved by posting to
+        waitinglist/SetupDisplayWaitingList?update=Y with the selectors
+        demographicNumSelected / wlNoteSelected / onListSinceSelected naming that row.
+        Remove posts to waitinglist/RemoveFromWaitingList in a popup. Both writes
+        require POST and _demographic write; this page itself needs _demographic read.
+        Opens the patient's Master Record and an appointment-booking popup per row.
+        "Create List" opens waitinglist/WLEditWaitingListNameAction, for roles
+        containing "admin". Reached from Report > Waiting List when
+        DEMOGRAPHIC_WAITING_LIST is true.
+        List, patient and provider names and notes go through the CARLOS encoder.
+
+    Parameters:
+        Rendered by waitinglist/SetupDisplayWaitingList (waitingListId selects the list),
+        which sets request attribute WLId and session attributes waitingList,
+        waitingListName, waitingListNames, allProviders, nbPatients and today.
+
+    @since 2026-04-15 at this WEB-INF path (#1674); the page predates CARLOS
+        (its header is dated 2001-2002).
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>

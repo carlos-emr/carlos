@@ -1153,7 +1153,7 @@
                                                                                                 size="11"
                                                                                                 value="<carlos:encode value='<%= wlReferralDate %>' context="htmlAttribute"/>" <%=wLReadonly%>><img
                                                                                 src="<%= request.getContextPath() %>/images/cal.gif"
-                                                                                id="referral_date_cal">
+                                                                                id="referral_date_cal" alt="Calendar">
                                                                         </td>
                                                                         <td><!-- padding --></td>
                                                                         <td><!-- padding --></td>

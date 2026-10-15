@@ -21,12 +21,15 @@
  */
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
+import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
+import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListNameUtil;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +61,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -371,6 +375,31 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a waiting-list update from a user who may only read demographics")
+        void shouldThrowSecurityException_whenUpdateLacksWritePrivilege() {
+            // Report > Waiting List links this page for anyone with _demographic read (#4229),
+            // so the row update it posts must still demand write before persisting anything.
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), isNull()))
+                .thenReturn(false);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("update", "Y");
+            mockRequest.setParameter("waitingListId", "7");
+            mockRequest.setParameter("demographicNumSelected", "waitingListBean[0].demographicNo");
+            mockRequest.setParameter("wlNoteSelected", "waitingListBean[0].note");
+            mockRequest.setParameter("onListSinceSelected", "waitingListBean[0].onListSince");
+            mockRequest.setParameter("waitingListBean[0].demographicNo", "42");
+            mockRequest.setParameter("waitingListBean[0].note", "reviewed");
+            mockRequest.setParameter("waitingListBean[0].onListSince", "2026-06-01");
+
+            assertThatThrownBy(() -> new WLSetupDisplayWaitingList2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_demographic w");
+            waitingListUtilMock.verifyNoInteractions();
+        }
+
+        @Test
         @DisplayName("should accept only the page's own indexed row field names as selectors")
         void shouldAcceptIndexedRowFields_asSelectors() {
             assertThat(WLSetupDisplayWaitingList2Action.isRowSelector("waitingListBean[0].note")).isTrue();
@@ -634,6 +663,50 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                 assertThat(WLSetupDisplayWaitingList2Action.isRowSelectorFor("waitingListBean[3]." + field, field))
                         .as("the page's %s selector satisfies the action's contract", field).isTrue();
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("WLEditWaitingListName2Action")
+    class EditWaitingListNameAction {
+
+        private MockedStatic<WLWaitingListNameUtil> waitingListNameUtilMock;
+
+        @BeforeEach
+        void setUpNameUtil() {
+            // WLWaitingListNameUtil resolves its DAOs in a static initializer; registering them
+            // keeps that initializer harmless should anything load the class.
+            registerMock(WaitingListNameDao.class, mock(WaitingListNameDao.class));
+            registerMock(WaitingListDao.class, mock(WaitingListDao.class));
+            waitingListNameUtilMock = mockStatic(WLWaitingListNameUtil.class);
+        }
+
+        @AfterEach
+        void closeNameUtil() {
+            if (waitingListNameUtilMock != null) waitingListNameUtilMock.close();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"create", "change", "remove"})
+        @DisplayName("should refuse to create, rename or delete a list for a user who may only read demographics")
+        void shouldThrowSecurityException_whenNameChangeLacksWritePrivilege(String actionChosen) {
+            // Report > Waiting List > Create List reaches this editor with _demographic read
+            // (#4229); every name change must still demand write before touching a list.
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), isNull()))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), isNull()))
+                .thenReturn(false);
+            mockRequest.setMethod("POST");
+            mockRequest.setParameter("actionChosen", actionChosen);
+            WLEditWaitingListName2Action action = new WLEditWaitingListName2Action();
+            action.setWlNewName("Physiotherapy");
+            action.setSelectedWL("3");
+            action.setSelectedWL2("3");
+
+            assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_demographic w");
+            waitingListNameUtilMock.verifyNoInteractions();
         }
     }
 
