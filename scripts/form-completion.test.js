@@ -43,6 +43,8 @@ test('completion appends literal text to the modern editor and dispatches dirty 
     assert.equal(url.searchParams.get('demographicNo'), '123');
     assert.equal(url.searchParams.get('cmd'), panel);
     assert.equal(url.searchParams.get('hC'), f.opener.Colour[panel]);
+    // Same page size as the chart's popup-close reloads, so the panel is not left expanded.
+    assert.equal(url.searchParams.get('numToDisplay'), '6');
     assert.equal(limit, 0);
   }
   assert.deepEqual(f.actions.at(-1), ['close']);

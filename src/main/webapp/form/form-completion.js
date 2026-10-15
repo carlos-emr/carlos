@@ -34,6 +34,9 @@
                 if (url.origin !== opener.location.origin) return;
                 url.searchParams.set('demographicNo', patient);
                 url.searchParams.set('cmd', panel);
+                // Match the chart's own popup-close reloads; without it the panel renders every
+                // row in its expanded state instead of the usual first six.
+                url.searchParams.set('numToDisplay', '6');
                 if (opener.Colour && opener.Colour[panel]) url.searchParams.set('hC', opener.Colour[panel]);
                 opener.loadDiv(panel, url.href, 0);
             } catch (ignored) {

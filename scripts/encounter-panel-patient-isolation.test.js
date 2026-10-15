@@ -127,6 +127,17 @@ test('legacy popup-close updateDiv posts explicit patient and appointment zero t
   }
 });
 
+test('modern loadDiv treats an undeclared appointment global as no appointment instead of throwing', () => {
+  // ChartNotes.jsp's standalone route loads newCaseManagementView.js.jsp without the layout's
+  // `var appointmentNo`; a bare reference there would throw before any request is sent.
+  const f = harness('modern', '101', '41');
+  delete f.context.appointmentNo;
+  assert.equal(Object.hasOwn(f.context, 'appointmentNo'), false);
+  assert.equal(f.context.loadDiv('measurements', '/carlos/encounter/displayMeasurements?cmd=measurements', 0), false);
+  assert.equal(f.requests.length, 1);
+  assertIdentity(f.requests[0], '101', '0');
+});
+
 test('modern loadDiv retains success and failure completion callbacks with explicit patient identity', () => {
   const f = harness('modern', '101', '0');
   const completed = [];
