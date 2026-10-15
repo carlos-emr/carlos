@@ -130,7 +130,7 @@ async function workflow(s) {
   await s.step('patient tickler list (tickler/ViewTicklerDemoMain) ▸ note icon ▸ Save stores a note linked to its tickler', async () => {
     // The document viewer's and the lab display's "open ticklers" alert opens this URL in a popup.
     const list = await s.context.newPage();
-    await list.goto(h.appUrl(s.config.baseUrl, `tickler/ViewTicklerDemoMain?demoview=${patient}`).href);
+    await list.goto(h.appUrl(s.config.baseUrl, `/tickler/ViewTicklerDemoMain?demoview=${patient}`));
     await list.locator(`a[onclick*="openNoteDialog('${patient}','${demoTicklerNo}')"]`).click();
     await list.locator('#tickler_note').waitFor({ state: 'visible' });
     await list.locator('#tickler_note').fill(demoText);
