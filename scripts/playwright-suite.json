@@ -2543,6 +2543,21 @@
       "fixtures": "Writes real rschedule and scheduledate rows for the selected provider over 2031-03-03 to 2031-03-28 and does not remove them (the residue audit does not diff these tables); clinic-wide schedule state, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "schedule-period-delete",
+      "script": "scripts/schedule-period-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login (a doctor plus an owned role holding _admin.schedule), its ProviderPreference and one owned day template; two far-future periods on that provider only, made through the week setting. Cleanup deletes every row keyed by the throwaway provider and asserts it. The first step can wait about five and a half minutes for the provider list cache.",
+      "notes": "Schedule Setting ▸ week setting ▸ period menu ▸ Delete (schedule/TemplateApplying delete=1&deldate=all): a cancelled confirm changes nothing; OK marks that period and its dates deleted and leaves the other period; GET and tokenless POST of the delete are refused."
+    },
+    {
       "name": "schedule-template-crud",
       "script": "scripts/schedule-template-crud-playwright-checks.js",
       "tiers": [
@@ -3245,6 +3260,24 @@
       "env": [
         "TICKLER_DEMOGRAPHIC_NO"
       ]
+    },
+    {
+      "name": "tickler-demo-main-status",
+      "script": "scripts/tickler-demo-main-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient with three active ticklers due today and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
+      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely is listed but not pressed."
     },
     {
       "name": "registry-ichppc-lifecycle",
@@ -4671,6 +4704,25 @@
       "env": [],
       "notes": "Ontario Billing Settings has no Save control; explicit POSTs preserve BC-only property and invoice preference rows byte-exact. Administration Help uses the saved website, preserves literal markup in its URL, and refuses executable or malformed URLs. Website, Details, day-sheet and shell paths remain covered. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "admin-manage-sites",
+      "script": "scripts/admin-manage-sites-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "One owned site named with the run marker; removed in cleanup with any providersite link and asserted gone. Needs multisites=on; SKIPs without the Satellite-sites Admin menu entry.",
+      "expectedFailure": {
+        "finding": 269,
+        "step": "Add New Site ▸ Save stores the new site and lists it"
+      },
+      "notes": "Satellite-sites Admin add, open and edit, and a GET save refusal. Expected to fail at the Save step while finding 269 stands: the detail form's site.* fields do not bind, the list's edit link is a GET with method=update that the GET guard refuses, and the edit form shows no stored values."
     },
     {
       "name": "consultation-edit-status",
