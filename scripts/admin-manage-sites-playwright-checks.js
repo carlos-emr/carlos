@@ -14,6 +14,9 @@
  * Known failure: Save fails on develop (finding 269, #4700): the detail form posts site.* fields that
  * SitesManage2Action does not bind, the list's name link is a GET with method=update that the
  * GET guard refuses, and the edit form shows no stored values.
+ * Known noise: sitesAdmin.jsp and sitesAdminDetail.jsp link `${request.contextPath}/css/displaytag.css`,
+ * which renders as the root-relative /css/displaytag.css and 404s (finding 100). Those entries are
+ * set aside as each step ends and reported in the last step, so they cannot hide another error.
  * Fixtures: one owned site named with the run marker, removed in cleanup (with any providersite
  * link to it) and verified gone. No other site is read or changed.
  */
@@ -24,6 +27,20 @@ const {runWorkflow} = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 const SECTION = '/admin/ManageSites';
+// `${request.contextPath}` is not an EL implicit object, so the link loses the context path (finding 100).
+const MISSING_STYLESHEET = '/css/displaytag.css';
+
+/** Move the finding-100 stylesheet 404 entries out of the strict recorder into `deferred`. */
+function deferMissingStylesheet(recorder, deferred) {
+  const isMissing = url => { try { return new URL(url).pathname === MISSING_STYLESHEET; } catch { return false; } };
+  const take = (list, predicate) => {
+    for (let i = list.length - 1; i >= 0; i--) if (predicate(list[i])) deferred.push(...list.splice(i, 1));
+  };
+  take(recorder.requestFailures, entry => entry.resourceType === 'stylesheet' && isMissing(entry.url));
+  take(recorder.badResponses, entry => entry.resourceType === 'stylesheet' && isMissing(entry.url));
+  take(recorder.consoleIssues, entry => entry.location && isMissing(entry.location.url)
+    && /Failed to load resource/.test(entry.text));
+}
 
 async function workflow(s) {
   const {sql, marker, context, recorder} = s;
@@ -35,6 +52,11 @@ async function workflow(s) {
     sql.execute(`DELETE FROM providersite WHERE site_id IN (SELECT site_id FROM site WHERE ${owned});
       DELETE FROM site WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE ${owned}`) === '0', 'The owned site was not removed');
+  });
+  const deferred = [];
+  /** A step whose stylesheet noise (finding 100) is set aside before the strict page check runs. */
+  const step = (label, body) => s.step(label, async () => {
+    try { await body(); } finally { deferMissingStylesheet(recorder, deferred); }
   });
   const stored = () => sql.rows(`SELECT short_name,bg_color,status,phone,province FROM site WHERE name=${q(marker)} ORDER BY site_id`)
     .map(row => row.join(' ')).join('; ');
@@ -61,7 +83,7 @@ async function workflow(s) {
   const save = () => frame.locator(`form[action$="${SECTION}"] input[type="submit"]:not([onclick])`);
   const siteLink = () => frame.locator(`a[href*="${SECTION}?method=update"]`, {hasText: marker});
 
-  await s.step('Administration ▸ Satellite-sites Admin opens the site list with Add New Site', async () => {
+  await step('Administration ▸ Satellite-sites Admin opens the site list with Add New Site', async () => {
     await revealAuditLink(admin, menuEntry, TIMEOUT);
     const loaded = admin.waitForEvent('framenavigated', {
       predicate: candidate => candidate !== admin.mainFrame() && new URL(candidate.url()).pathname.endsWith(SECTION), timeout: TIMEOUT,
@@ -75,14 +97,14 @@ async function workflow(s) {
     h.assert(await siteLink().count() === 0, 'The site list already shows a site named with this run\'s marker');
   });
 
-  await s.step('GET with a save flag is refused and stores nothing', async () => {
+  await step('GET with a save flag is refused and stores nothing', async () => {
     const response = await context.request.get(h.appUrl(s.config.baseUrl, SECTION), {
       params: {method: 'save', 'site.name': marker, 'site.shortName': shortName, 'site.bgColor': '#C0FFEE'}, maxRedirects: 0,
     });
     await h.assertRefused(s, {label: 'GET admin/ManageSites method=save', table: 'site', where: owned, before: '0', response});
   });
 
-  await s.step('Add New Site ▸ Save stores the new site and lists it', async () => {
+  await step('Add New Site ▸ Save stores the new site and lists it', async () => {
     await frameNavigation(() => addNew().click(), 'the new site form');
     for (const [name, value] of [['site.name', marker], ['site.shortName', shortName], ['site.bgColor', '#C0FFEE'],
       ['site.phone', '555-0100'], ['site.fax', '555-0101'], ['site.address', `${marker} street`], ['site.city', 'Testville'],
@@ -96,7 +118,7 @@ async function workflow(s) {
     h.assert(await siteLink().count() === 1, 'The site list does not show the saved site');
   });
 
-  await s.step('the site\'s name opens its details with the stored values filled in', async () => {
+  await step('the site\'s name opens its details with the stored values filled in', async () => {
     await frameNavigation(() => siteLink().click(), 'the site details');
     const values = {};
     for (const name of ['site.name', 'site.shortName', 'site.bgColor', 'site.phone']) {
@@ -107,10 +129,15 @@ async function workflow(s) {
     h.assert(await frame.locator('input[name="site.status"]').isChecked(), 'The site details do not show the site as active');
   });
 
-  await s.step('Save after changing the telephone updates the same site', async () => {
+  await step('Save after changing the telephone updates the same site', async () => {
     await frame.locator('input[name="site.phone"]').fill('555-0199');
     await frameNavigation(() => save().click(), 'the site list after the edit');
     h.assert(stored() === `${shortName} #C0FFEE 1 555-0199 ON`, `The edit did not update the one owned site: "${stored()}"`);
+  });
+
+  await s.step('the site pages load their stylesheets', async () => {
+    h.assert(deferred.length === 0, `The site pages requested the root-relative ${MISSING_STYLESHEET} `
+      + `${deferred.length} time(s) and it 404'd (finding 100: \${request.contextPath} is not an EL implicit object)`);
   });
 }
 
