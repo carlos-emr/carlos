@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.A1cPercent;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Paint;
@@ -267,8 +268,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 }
                 try {
@@ -372,8 +376,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 }
             }
@@ -500,8 +507,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 }
             }
@@ -884,8 +894,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 }
                 try {
@@ -995,8 +1008,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
@@ -1024,8 +1040,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                Double.parseDouble(result));
+                        double plotted = Double.parseDouble(result);
+                        if (A1cPercent.appliesTo(mdb.getType())) {
+                            plotted = A1cPercent.toPercent(plotted);
+                        }
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
