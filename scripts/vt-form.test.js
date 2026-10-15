@@ -277,6 +277,93 @@ test('saved VT values stay in encoded data attributes and are restored through D
   assert(!script.includes('innerHTML'));
 });
 
+test('affected VT controls have unique IDs and contextual labels without changing their clinical names', () => {
+  const p = page();
+  const identified = p.nodes.filter(node => node.attrs.id);
+  const byId = new Map(identified.map(node => [node.attrs.id, node]));
+  assert.equal(byId.size, identified.length, 'Every ID must resolve unambiguously');
+  const labelled = [];
+  function assertReferences(field, expected) {
+    assert(field, 'The existing clinical control must be present');
+    assert.deepEqual(field.attrs['aria-labelledby'].split(/\s+/), expected);
+    for (const id of expected) assert(byId.has(id), `Missing label reference ${id}`);
+    labelled.push(field);
+  }
+  for (const type of ['DpSc', 'StSc', 'LcCt', 'MedG', 'MedN', 'MedR', 'MedA', 'WHRB', 'FTEx']) {
+    for (const answer of ['yes', 'no']) {
+      const field = p.fields(`value(${type}Value)`).find(node => node.value === answer);
+      const answerLabel = `vt-${type}-${answer}-label`;
+      assertReferences(field, [`vt-${type}-label`, answerLabel]);
+      assert.equal(byId.get(answerLabel).tag, 'label');
+      assert.equal(byId.get(answerLabel).attrs.for, field.attrs.id, 'Native radio label activates its own answer');
+    }
+    if (type !== 'FTEx') {
+      assertReferences(p.form[`value(${type}Comments)`], [`vt-${type}-label`, 'vt-comments-label']);
+    }
+  }
+  for (const type of ['BP', 'WC', 'HC', 'HR', 'HT', 'WT']) {
+    const field = p.form[`value(${type}Value)`];
+    assertReferences(field, [`vt-${type}-label`, 'vt-new-data-label']);
+    assert.equal(byId.get(`vt-${type}-label`).tag, 'label');
+    assert.equal(byId.get(`vt-${type}-label`).attrs.for, field.attrs.id);
+    assertReferences(p.form[`value(${type}Comments)`], [`vt-${type}-label`, 'vt-comments-label']);
+  }
+  for (const name of ['value(objective)', 'FTDate', 'FTComments']) {
+    const field = p.form[name];
+    assert.equal(p.nodes.filter(node => node.tag === 'label' && node.attrs.for === field.attrs.id).length, 1);
+    labelled.push(field);
+  }
+  assert.equal(p.form.FTDate.attrs.id, 'FTDate', 'Keep the existing ID used by callers');
+  assert.equal(labelled.length, 41);
+  assert(labelled.every(field => field.type !== 'hidden'));
+  assert.equal(p.form.elements.length, 186, 'Accessibility must not introduce clinical controls');
+});
+
+test('entry matrices retain four real column headers with names even when detail text is collapsed', () => {
+  for (const id of ['vt-medication-adherence', 'vital', 'detailVital']) {
+    const tableStart = jsp.lastIndexOf('<table', jsp.indexOf(`id="${id}"`));
+    const rowStart = jsp.indexOf('<tr', tableStart);
+    const row = jsp.slice(rowStart, jsp.indexOf('</tr>', rowStart));
+    const nodes = [...fixtureTags(row)];
+    const headers = nodes.filter(node => node.tag === 'th');
+    assert.equal(headers.length, 4, `${id} has its own headers, not headers borrowed from a nested table`);
+    assert(headers.every(node => node.attrs.scope === 'col'));
+    const hiddenHeadingIds = id === 'vt-medication-adherence'
+      ? ['medHead1', 'medHead2', 'medHead3', 'medHead4']
+      : id === 'vital' ? ['vitalHead1', 'vitalHead2', 'vitalHead3'] : [];
+    for (const headingId of hiddenHeadingIds) {
+      assert(nodes.some(node => node.attrs.id === headingId));
+      assert(headers.some(node => node.attrs['aria-labelledby'] === headingId),
+        `${headingId} remains an explicit accessible-name source while display:none`);
+    }
+    assert(![...fixtureTags(jsp.slice(tableStart, rowStart))].some(node => node.attrs.role === 'presentation'));
+  }
+});
+
+test('presentational tables only arrange one historical date and value, never entry controls or data columns', () => {
+  const tables = [...jsp.matchAll(/<table role="presentation"[^>]*>([\s\S]*?)<\/table>/g)];
+  assert.equal(tables.length, 14);
+  for (const [, body] of tables) {
+    const nodes = [...fixtureTags(body)];
+    assert.deepEqual(nodes.map(node => node.tag), ['tr', 'td', 'tr', 'td']);
+    assert.match(body, /LDDate/);
+    assert.match(body, /LastData/);
+  }
+});
+
+test('the objective editor toggles as a labelled layout section without table-header semantics', () => {
+  const p = page();
+  const section = p.context.document.getElementById('objective');
+  assert.equal(section.tag, 'div');
+  assert.equal(section.style.display, 'none');
+  p.context.showHideItem('objective');
+  assert.equal(section.style.display, 'block');
+  p.form['value(objective)'].value = 'Literal objective <finding>';
+  p.context.showHideItem('objective');
+  assert.equal(section.style.display, 'none');
+  assert.equal(p.submitted().get('value(objective)'), 'Literal objective <finding>');
+});
+
 test('fixture scanner skips fake controls inside JSP, comments and mixed-case script blocks', () => {
   const source = `<% String example = "<input name='fake-jsp'>"; %>
     <%-- <input name="fake-jsp-comment"> --%>

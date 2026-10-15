@@ -138,6 +138,97 @@ function assertVitalsMoreHistory({url, ids, text}, expected) {
   'Vitals More displayed another patient\'s name or BP');
 }
 
+function assertVtControlLabel(actual, expected) {
+  h.assert(actual.name === expected.name && actual.role === expected.role,
+    `VT control ${expected.id} lost its clinical name or native role`);
+  h.assert(JSON.stringify(actual.referenceIds) === JSON.stringify(expected.references || []),
+    `VT control ${expected.id} lost its contextual label references`);
+  h.assert(actual.labelTexts.length > 0 && actual.labelTexts.every(text => norm(text).length > 0),
+    `VT control ${expected.id} has an empty or missing label`);
+  if (expected.nativeLabel) {
+    h.assert(actual.nativeLabels.length === 1 && actual.nativeLabels[0].target === expected.id
+      && norm(actual.nativeLabels[0].text).length > 0,
+    `VT control ${expected.id} lost its native label association`);
+  }
+  return norm(actual.labelTexts.join(' '));
+}
+
+/** Inspect native accessibility without editing answers or submitting another clinical write. */
+async function assertVascularTrackerAccessibility(page, form) {
+  const controls = [];
+  for (const type of ['DpSc', 'StSc', 'LcCt', 'MedG', 'MedN', 'MedR', 'MedA', 'WHRB', 'FTEx']) {
+    for (const answer of ['yes', 'no']) controls.push({id: `vt-${type}-${answer}`,
+      name: `value(${type}Value)`, role: 'radio', nativeLabel: true,
+      references: [`vt-${type}-label`, `vt-${type}-${answer}-label`]});
+    if (type !== 'FTEx') controls.push({id: `vt-${type}-comments`, name: `value(${type}Comments)`,
+      role: 'textbox', references: [`vt-${type}-label`, 'vt-comments-label']});
+  }
+  for (const type of ['BP', 'WC', 'HC', 'HR', 'HT', 'WT']) {
+    controls.push({id: `vt-${type}-value`, name: `value(${type}Value)`, role: 'textbox',
+      nativeLabel: true, references: [`vt-${type}-label`, 'vt-new-data-label']});
+    controls.push({id: `vt-${type}-comments`, name: `value(${type}Comments)`, role: 'textbox',
+      references: [`vt-${type}-label`, 'vt-comments-label']});
+  }
+  for (const [id, name] of [['vt-objective', 'value(objective)'], ['FTDate', 'FTDate'], ['vt-FTComments', 'FTComments']]) {
+    controls.push({id, name, role: 'textbox', nativeLabel: true});
+  }
+  const ids = await page.locator('[id]').evaluateAll(nodes => nodes.map(node => node.id).filter(Boolean));
+  h.assert(new Set(ids).size === ids.length, 'VT contains duplicate DOM IDs');
+  const state = () => form.evaluate(node => ({
+    controls: Array.from(node.elements, field => ({name: field.name, type: field.type,
+      value: field.value, checked: field.checked, disabled: field.disabled})),
+    submitted: Array.from(new FormData(node).entries()),
+  }));
+  const before = await state();
+  const headers = async expanded => {
+    for (const id of ['vt-medication-adherence', 'vital', 'detailVital']) {
+      const table = page.locator(`#${id}`);
+      h.assert(!['none', 'presentation'].includes(await table.getAttribute('role')),
+        `VT data matrix ${id} lost its table semantics`);
+      const columns = table.locator(':scope > tbody > tr:first-child > th');
+      h.assert(await columns.count() === 4, `VT data matrix ${id} lost its column headers`);
+      for (let index = 0; index < 4; index++) {
+        const column = columns.nth(index);
+        h.assert(await column.getAttribute('scope') === 'col', `VT matrix ${id} has an unscoped header`);
+        // Detailed vitals is deliberately absent from the accessibility tree until Show Details.
+        const named = column.and(page.getByRole('columnheader', {name: /\S/}));
+        h.assert(await named.count() === (id === 'detailVital' && !expanded ? 0 : 1),
+          `VT matrix ${id} has an empty or incorrectly exposed column-header name`);
+      }
+    }
+  };
+  h.assert(await page.locator('#showDetailTitle a').isVisible(), 'VT must initially show its compact view');
+  await headers(false);
+  await page.locator('#showDetailTitle a').click();
+  try {
+    await headers(true);
+    for (const expected of controls) {
+      const control = form.locator(`#${expected.id}`);
+      h.assert(await control.count() === 1, `VT control ${expected.id} is missing`);
+      const actual = await control.evaluate(node => {
+        const referenceIds = (node.getAttribute('aria-labelledby') || '').trim().split(/\s+/).filter(Boolean);
+        const nativeLabels = Array.from(node.labels || [], label => ({
+          target: label.control?.id, text: label.textContent,
+        }));
+        return {name: node.name, role: node.type === 'radio' ? 'radio' : 'textbox', referenceIds, nativeLabels,
+          labelTexts: referenceIds.length ? referenceIds.map(id => document.getElementById(id)?.textContent || '')
+            : nativeLabels.map(label => label.text)};
+      });
+      const accessibleName = assertVtControlLabel(actual, expected);
+      h.assert(await control.and(page.getByRole(expected.role, {name: accessibleName, exact: true})).count() === 1,
+        `VT control ${expected.id} does not expose its contextual accessible name`);
+    }
+    await page.locator('label[for="vt-WT-value"]').click();
+    h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-WT-value',
+      'The native weight label did not focus its textbox');
+  } finally {
+    await page.locator('#hideDetailTitle a').click();
+  }
+  await headers(false);
+  h.assert(JSON.stringify(await state()) === JSON.stringify(before),
+    'VT accessibility checks changed clinical controls or the submitted payload');
+}
+
 /** Finish a native note save before another patient's operation protects this patient's full rows. */
 async function saveCurrentChartNote(chart, sql, patient, noteText) {
   const owner = patientKey(patient);
@@ -708,6 +799,7 @@ async function run(s) {
       }
       const text = norm(await formPage.content());
       h.assert(d.ownName(text) && !d.otherName(text), 'Vascular Tracker displays another patient');
+      await assertVascularTrackerAccessibility(formPage, form);
       const value = d.label === 'A' ? '62.3' : '88.5';
       await form.locator('[name="value(WTValue)"]').fill(value);
       await form.locator('[name="value(visitCod)"]').fill('2026-03-05');
@@ -1015,4 +1107,5 @@ async function workflow(s) {
 if (require.main === module) runWorkflow('echart-two-patient-isolation', workflow, { openPatient: true });
 module.exports = { workflow, patientStateQueries, readPatientState, assertPatientStateUnchanged,
   invalidPatientParameters, assertRequestPatient, isOwnedLockRelease, consumeDeliveredLockReleases,
-  prepareVascularTrackerFixture, assertVitalsMoreHistory, saveCurrentChartNote };
+  prepareVascularTrackerFixture, assertVitalsMoreHistory, saveCurrentChartNote,
+  assertVtControlLabel, assertVascularTrackerAccessibility };

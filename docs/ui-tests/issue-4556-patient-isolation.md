@@ -16,6 +16,12 @@ record reopening were repaired so its actual save paths can be verified. Save an
 Exit appends literal completion text only to an opener that still identifies the
 same patient; navigating that opener to another patient prevents the append.
 
+The touched Vascular Tracker markup also has contextual labels for 41 controls,
+real column headers for its three entry matrices, and presentation semantics only
+for the nested historical date/value layouts. Deprecated font wrappers are replaced
+with spans. Existing control names, ordering, values, IDs and clinical scripts are
+preserved.
+
 ## Verification
 
 - The original browser check from release commit `3d5f85fbb6` reproduced the
@@ -32,6 +38,9 @@ same patient; navigating that opener to another patient prevents the append.
   mutation, ignores forged uneditable fields, preserves SQL NULL and raw history,
   and resolves equal form-edit timestamps deterministically. The old latest-form
   query fails four of the seven new selection cases as a negative control.
+- The accessibility repair preserves all 186 controls, 95 existing IDs, 41 inline
+  handlers and the exact clinical JavaScript. Fresh and saved forms produce the
+  same complete Save and Save & Exit payload/state in four comparison cases.
 - Existing chart revision, CPP transaction, appointment, authorization, and routing
   regression tests are rerun after changes.
 - CodeRabbit's two error-path findings are covered: absent billing demographics
@@ -39,7 +48,7 @@ same patient; navigating that opener to another patient prevents the append.
   SQL failures return a controlled 500 before clinical prefill or forwarding.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites pass 67 panel/completion/isolation cases, 16 Vascular
+  focused client suites pass 74 panel/completion/isolation cases, 20 Vascular
   Tracker script cases, and 93 link-audit/navbar-readiness cases. The manifest
   suite passes 63 checks. An earlier complete local run passed 3,719 tests with
   five existing TODOs. A later full run exhausted the runtime's disk quota in
@@ -52,6 +61,10 @@ same patient; navigating that opener to another patient prevents the append.
   navigation of the opener to another patient before completion. The seeded VT
   registration is temporarily enabled for this exclusive test and its exact prior
   registry row is restored and asserted during cleanup.
+  Each patient's native VT setup additionally verifies all 41 repaired control
+  names/label associations, unique DOM IDs, the three matrices' column-header
+  names in both detail states, native Weight-label focus, and unchanged complete
+  control state/FormData after the accessibility inspection.
 - The actual-app Ontario and BC workflows each pass all 23 steps, including both native
   measurement saves and history links, VT Update/reopen/Save and Exit, retained
   historical data despite forged hidden inputs, and same-login opener navigation.

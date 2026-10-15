@@ -5,8 +5,34 @@ const vm = require('node:vm');
 const {
   patientStateQueries, readPatientState, assertPatientStateUnchanged, invalidPatientParameters, assertRequestPatient,
   isOwnedLockRelease, consumeDeliveredLockReleases, prepareVascularTrackerFixture, assertVitalsMoreHistory,
-  saveCurrentChartNote,
+  saveCurrentChartNote, assertVtControlLabel,
 } = require('./echart-two-patient-isolation-playwright-checks');
+
+const depressionRadio = {id: 'vt-DpSc-yes', name: 'value(DpScValue)', role: 'radio', nativeLabel: true,
+  references: ['vt-DpSc-label', 'vt-DpSc-yes-label']};
+function accessibleRadio() {
+  return {name: 'value(DpScValue)', role: 'radio', referenceIds: ['vt-DpSc-label', 'vt-DpSc-yes-label'],
+    labelTexts: ['Depression screen', ' Yes '], nativeLabels: [{target: 'vt-DpSc-yes', text: 'Yes'}]};
+}
+
+test('VT accessible names retain the question context and the native radio answer', () => {
+  assert.equal(assertVtControlLabel(accessibleRadio(), depressionRadio), 'Depression screen Yes');
+});
+
+for (const [name, change, error] of [
+  ['an empty question label', field => { field.labelTexts[0] = '  '; }, /empty or missing label/],
+  ['a dangling label reference', field => { field.labelTexts[1] = ''; }, /empty or missing label/],
+  ['an unrelated contextual label', field => { field.referenceIds[0] = 'vt-MedG-label'; }, /contextual label/],
+  ['a label focusing the opposite answer', field => { field.nativeLabels[0].target = 'vt-DpSc-no'; }, /native label/],
+  ['a lost clinical field name', field => { field.name = 'value(MedGValue)'; }, /clinical name or native role/],
+  ['a changed native control role', field => { field.role = 'textbox'; }, /clinical name or native role/],
+]) {
+  test(`VT label validation rejects ${name}`, () => {
+    const actual = accessibleRadio();
+    change(actual);
+    assert.throws(() => assertVtControlLabel(actual, depressionRadio), error);
+  });
+}
 
 test('patient snapshots preserve all columns, SQL nulls, empty values and child rows', () => {
   const queries = [];
