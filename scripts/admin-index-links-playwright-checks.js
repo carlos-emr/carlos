@@ -102,8 +102,19 @@ async function main() {
     // is itself broken.
     assertStrictPage(recorder, ['login', 'administration']);
 
-    const items = dedupe(await catalogueLinks(adminPage))
-      .filter((item) => !only || item.text.toLowerCase().includes(only));
+    const catalogue = dedupe(await catalogueLinks(adminPage));
+
+    // Finding 191 / issue #4564: the HSFO and HSFO2 submission entries pointed at
+    // admin/RecommitHSFO and admin/RecommitHSFO2, which have no route, and were
+    // retired. They only rendered on a site that set hsfo.loginSiteCode, so a
+    // default install never showed the dead link; this keeps the panel from
+    // offering either entry again. Checked on the whole catalogue, before the
+    // ADMIN_LINKS_ONLY filter narrows it.
+    const retiredHsfo = catalogue.filter((item) => /hsfo/i.test(`${item.text} ${item.href || ''} ${item.route || ''}`));
+    assert(retiredHsfo.length === 0,
+      `The Administration panel offers retired HSFO entries (finding 191): ${retiredHsfo.map((item) => item.text).join(', ')}`);
+
+    const items = catalogue.filter((item) => !only || item.text.toLowerCase().includes(only));
     assert(items.length > 0, 'The Administration panel offered no navigable links at all');
 
     const result = await auditCatalogue({
