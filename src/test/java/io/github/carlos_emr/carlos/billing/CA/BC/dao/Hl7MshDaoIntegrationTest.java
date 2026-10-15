@@ -157,9 +157,11 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         }
 
         private String reportStatus(int messageId) {
-            List<Object[]> rows = hl7ObrDao.findMinResultStatusByMessageId(messageId);
+            // The DAO declares List<Object[]> but the single-column select yields scalars; read
+            // them as Object so no Object[] cast is inserted.
+            List<?> rows = hl7ObrDao.findMinResultStatusByMessageId(messageId);
             assertThat(rows).hasSize(1);
-            return String.valueOf(rows.get(0));
+            return (String) rows.get(0);
         }
 
         @Test
@@ -178,9 +180,16 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should not report Final when a final result is mixed with an in-process one")
-        void shouldNotReportFinal_whenFinalMixedWithInProcess() throws Exception {
-            assertThat(reportStatus(persistReport(900003, "F", "I"))).isNotEqualTo("F");
+        @DisplayName("should report preliminary when a final result is mixed with an in-process one")
+        void shouldReportPreliminary_whenFinalMixedWithInProcess() throws Exception {
+            assertThat(reportStatus(persistReport(900003, "F", "I"))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a final result is mixed with one that has no status")
+        void shouldReportPreliminary_whenFinalMixedWithUnreportedStatus() throws Exception {
+            assertThat(reportStatus(persistReport(900005, "F", null))).isEqualTo("P");
         }
 
         @Test
