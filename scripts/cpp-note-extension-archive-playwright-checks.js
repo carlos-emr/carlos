@@ -566,6 +566,54 @@ function isNoteSave(response, expectedAction) {
     && ['noteId', 'demographicNo', 'providerNo'].every(key => url.searchParams.get(key) === expected.searchParams.get(key));
 }
 
+function isCppTerminalResponse(response, postedRequest) {
+  if (!postedRequest || response.request() === postedRequest
+    || (response.status() >= 300 && response.status() < 400)) return false;
+  let root = response.request();
+  while (root.redirectedFrom()) root = root.redirectedFrom();
+  return root === postedRequest;
+}
+
+function assertCppSaveRedirect(posted, terminal, action, reloadUrl) {
+  assert(isNoteSave(posted, action) && posted.status() === 302,
+    'the CPP save must return its configured HTTP 302 redirect');
+  assert(isCppTerminalResponse(terminal, posted.request()) && terminal.request().method() === 'GET'
+    && terminal.status() === 200, 'the CPP save redirect must finish with its own successful GET');
+  const expected = new URL(reloadUrl);
+  const actual = new URL(terminal.url());
+  expected.searchParams.sort(); actual.searchParams.sort();
+  assert(actual.href === expected.href, 'the CPP save redirected outside its expected CaseManagementView listing');
+  // The AJAX listNotes include renders viewNotes.jsp without setting Content-Type.
+  // The caller verifies the rendered note/reopen state, or the empty list after archive.
+  const contentType = terminal.headers()['content-type'];
+  assert(contentType === undefined || /^text\/html\b/i.test(contentType),
+    'the CPP redirect declared a non-HTML listing response');
+}
+
+/** Bind both response listeners before clicking; a fast redirect must not escape the check. */
+async function saveCppDialog(page, sql, timeout, action, titlePattern, what) {
+  const reload = new URL('CaseManagementView', action);
+  reload.search = await page.locator('#reloadUrl').inputValue();
+  let postedRequest;
+  const posted = page.waitForResponse(response => {
+    if (!isNoteSave(response, action)) return false;
+    postedRequest = response.request();
+    return true;
+  }, {timeout}).then(async response => {
+    try { await response.finished(); }
+    finally { recordOwnEchartRows(sql); }
+    assert(response.status() === 302, `the CPP ${what} must return HTTP 302, received ${response.status()}`);
+    return response;
+  });
+  const terminal = page.waitForResponse(response => isCppTerminalResponse(response, postedRequest), {timeout})
+    .then(async response => { await response.finished(); return response; });
+  const [postedResponse, terminalResponse] = await Promise.all([
+    posted, terminal, clickDialogButton(page, titlePattern, what),
+  ]);
+  assertCppSaveRedirect(postedResponse, terminalResponse, action, reload.href);
+  return postedResponse;
+}
+
 /** Did updateCPPNote()'s onFailure handler repaint the box with an HTTP status? */
 async function boxErrorText(page) {
   const html = await page.locator(`#${BOX_ID}`).innerHTML().catch(() => '');
@@ -654,12 +702,7 @@ async function main() {
     // once and a fixed sleep decided whether the database had been written yet. The POST is the
     // event that matters, so wait for it, then let the box finish repainting from its reply.
     const initialAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
-    const saveArrived = chartPage.waitForResponse(response => isNoteSave(response, initialAction), { timeout });
-    await clickDialogButton(chartPage, /sign|save/i, 'save');
-    const created = await saveArrived;
-    assert(created.status() === 200, 'creating the CPP item must answer HTTP 200');
-    await created.finished();
-    recordOwnEchartRows(sql);
+    await saveCppDialog(chartPage, sql, timeout, initialAction, /sign|save/i, 'create');
     await chartPage.waitForTimeout(1500);
 
     const savedError = await boxErrorText(chartPage);
@@ -718,7 +761,9 @@ async function main() {
         let failed;
         const dialogs = await withExpectedDialogs(chartPage, async () => {
           [failed] = await Promise.all([
-            chartPage.waitForResponse(response => isNoteSave(response, failedAction), {timeout}).then(response => {
+            chartPage.waitForResponse(response => isNoteSave(response, failedAction), {timeout}).then(async response => {
+              try { await response.finished(); }
+              finally { recordOwnEchartRows(sql); }
               assert(response.status() === 500, 'the late extension trigger must reject the actual CPP save with HTTP 500');
               return response;
             }),
@@ -761,14 +806,9 @@ async function main() {
       const action = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
       assert(new URL(action).searchParams.get('noteId') === noteId,
         'the failed save advanced the dialog revision before retry');
-      const arrived = chartPage.waitForResponse(response => isNoteSave(response, action), {timeout});
-      await clickDialogButton(chartPage, /sign|save/i, 'save');
-      const retried = await arrived;
-      assert(retried.status() === 200, 'retrying the rolled-back CPP revision failed (including stale-revision HTTP 409)');
+      const retried = await saveCppDialog(chartPage, sql, timeout, action, /sign|save/i, 'retry');
       assert(new URL(retried.url()).searchParams.get('noteId') === noteId,
         'retrying must submit the original revision ID on the wire');
-      await retried.finished();
-      recordOwnEchartRows(sql);
       editedId = sqlNumber(sql.value(`SELECT MAX(note_id) FROM casemgmt_note
         WHERE demographic_no=${fixture.demographicNo} AND LOCATE(${sqlString(stamp)}, note)=1`), 'the retried CPP revision');
       assert(BigInt(editedId) > BigInt(noteId), 'the retry must create a fresh CPP revision');
@@ -795,12 +835,7 @@ async function main() {
     const savesBeforeArchive = saves.length;
     const archiveAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
     assert(new URL(archiveAction).searchParams.get('noteId') === editedId, 'archive must submit the retried revision');
-    const archiveArrived = chartPage.waitForResponse(response => isNoteSave(response, archiveAction), { timeout });
-    await clickDialogButton(chartPage, /archive/i, 'archive');
-    const archiveResponse = await archiveArrived;
-    assert(archiveResponse.status() === 200, 'archiving the CPP item must answer HTTP 200');
-    await archiveResponse.finished();
-    recordOwnEchartRows(sql);
+    await saveCppDialog(chartPage, sql, timeout, archiveAction, /archive/i, 'archive');
     await chartPage.waitForTimeout(1500);
     const archiveSaves = saves.slice(savesBeforeArchive);
     assert(archiveSaves.length > 0, 'clicking Archive posted nothing, so the archive path was never exercised');
@@ -810,6 +845,8 @@ async function main() {
     const archiveError = await boxErrorText(chartPage);
     assert(archiveError === '',
       `the Social History box repainted as "Error: ${archiveError}" after the archive`);
+    await box.locator('.topBox-notes .cpp-empty-state').waitFor({state: 'visible', timeout});
+    assert(!(await box.textContent()).includes(stamp), 'the archived CPP item remains in the active listing');
 
     const archivedRows = extensionRows(sql, stamp);
     assert(archivedRows.length === EXPECTED_KEYS.length,
@@ -846,4 +883,5 @@ if (require.main === module) {
 module.exports = {
   BOX_ID, DIALOG, EXPECTED_KEYS, RESOLUTION_DATE, START_DATE, cleanup, fixture, main,
   ownedEchartDeletes, withoutStampedBlocks, rollbackTriggerSql, dropRollbackTrigger, assertSameSnapshot, isNoteSave,
+  isCppTerminalResponse, assertCppSaveRedirect, saveCppDialog,
 };
