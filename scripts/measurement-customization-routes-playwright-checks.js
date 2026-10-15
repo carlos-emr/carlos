@@ -8,14 +8,15 @@
  * Add Measurement Type, View Mapping, Add Measurement Mapping, Remove/Remap Measurement
  * Mapping, Add Measuring Instruction, View All Style Sheet, Add Measurement Style Sheet.
  *
- * Before #3335 four of those links (and the group-definition continuation) answered 405,
- * because HttpMethodGuardFilter treated the read-only Setup* form openers and the
- * AddMeasurementMap/RemoveMeasurementMap write routes as the pages to open, and View Mapping
- * threw `ReferenceError: stripe`. This check opens every link and asserts the page it lands on
- * is the intended form, answered 200, with no console error; then that the continuation
- * SetupAddMeasurementGroup renders by GET without storing a group; then that every write
- * route of the page refuses GET and HEAD and leaves the rows it owns unchanged (the mutation
- * routes require POST). Probes are asserted together in the LAST step.
+ * Before #3335 four of those links (and the group-definition continuation) answered 405:
+ * HttpMethodGuardFilter refused GET on the read-only Setup* form openers and on the
+ * AddMeasurementMap/RemoveMeasurementMap routes, which render their page on a GET without write
+ * parameters; and View Mapping threw `ReferenceError: stripe`. This check opens every link and
+ * asserts the page it lands on is the intended form, answered 200, with no console error; then
+ * that the continuation SetupAddMeasurementGroup renders by GET without storing a group; then
+ * that every write of the page, sent with its write parameters, refuses GET and HEAD and leaves
+ * the rows it owns unchanged (the mutation routes require POST). Probes are asserted together
+ * in the LAST step.
  *
  * Fixtures: one FAKEPW measurement type, one FAKEPW group (style row and member), one owned
  * X<hex> LOINC mapping row and one FAKEPW style-sheet row, all seeded by SQL; cleanup deletes
@@ -37,8 +38,8 @@ const LINKS = [
   ['View All Measurement Types', 'SetupDisplayMeasurementTypes', 'form[action$="/DeleteMeasurementTypes"]'],
   ['Add Measurement Type', 'SetupAddMeasurementType', '#typeDisplayName'],
   ['View Mapping', 'ViewViewMeasurementMap', 'form[name="LOINC"]'],
-  ['Add Measurement Mapping', 'ViewAddMeasurementMap', 'select[name="loinc_code"]'],
-  ['Remove/Remap Measurement Mapping', 'ViewRemoveMeasurementMap', 'input[name="searchstring"]'],
+  ['Add Measurement Mapping', 'AddMeasurementMap', 'select[name="loinc_code"]'],
+  ['Remove/Remap Measurement Mapping', 'RemoveMeasurementMap', 'input[name="searchstring"]'],
   ['Add Measuring Instruction', 'SetupAddMeasuringInstruction', '#measuringInstrc'],
   ['View All Style Sheet', 'SetupDisplayMeasurementStyleSheet', 'form[action$="/DeleteMeasurementStyleSheet"]'],
   ['Add Measurement Style Sheet', 'SetupAddMeasurementStyleSheet', '#file'],

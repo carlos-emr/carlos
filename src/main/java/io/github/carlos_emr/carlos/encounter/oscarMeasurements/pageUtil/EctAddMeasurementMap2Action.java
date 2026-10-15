@@ -75,10 +75,15 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
     }
 
     public String execute() throws ServletException, IOException {
-        // Writes only from the mapping forms' POST. Customize Measurements ▸ Add Measurement
-        // Mapping and the page's Search open the read-only ViewAddMeasurementMap gate instead,
-        // so a GET here can only be a link, image tag or prefetch (issue #3335).
-        if (!"POST".equals(request.getMethod())) {
+        String identifier = request.getParameter("identifier");
+        String loinc_code = request.getParameter("loinc_code");
+
+        // Dual-purpose route. Customize Measurements ▸ Add Measurement Mapping and the page's
+        // Search open it by GET with no code to map, and it renders the form; a request that
+        // names both an identifier and a code writes a mapping, so that must be the form's POST,
+        // never a link or image tag (issue #3335). HttpMethodGuardFilter leaves this name to the
+        // action for that reason.
+        if (loinc_code != null && identifier != null && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -86,8 +91,6 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
-            String identifier = request.getParameter("identifier");
-            String loinc_code = request.getParameter("loinc_code");
             String outcome = "continue";
 
             if (loinc_code != null && identifier != null) {

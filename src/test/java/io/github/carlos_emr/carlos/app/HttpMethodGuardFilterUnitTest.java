@@ -870,7 +870,9 @@ class HttpMethodGuardFilterUnitTest {
 
     /**
      * Customize Measurements (issue #3335). The Setup* routes only load lists into the
-     * session and render a form, so GET must reach them; the write routes stay POST-only.
+     * session and render a form, so GET must reach them. AddMeasurementMap and
+     * RemoveMeasurementMap render their page on a GET without write parameters and reject a
+     * non-POST write themselves; the other write routes stay POST-only here.
      */
     @Nested
     @DisplayName("Customize Measurements routes")
@@ -884,6 +886,8 @@ class HttpMethodGuardFilterUnitTest {
                 "SetupStyleSheetList",
                 "SetupGroupList",
                 "SetupEditMeasurementGroup",
+                "AddMeasurementMap",
+                "RemoveMeasurementMap",
                 "ViewAddMeasurementMap",
                 "ViewRemoveMeasurementMap",
                 "ViewViewMeasurementMap"
@@ -901,9 +905,7 @@ class HttpMethodGuardFilterUnitTest {
 
         @ParameterizedTest(name = "GET {0} is refused")
         @ValueSource(strings = {
-                "AddMeasurementMap",
                 "NewMeasurementMap",
-                "RemoveMeasurementMap",
                 "RemapMeasurementMap",
                 "AddMeasurementType",
                 "AddMeasuringInstruction",

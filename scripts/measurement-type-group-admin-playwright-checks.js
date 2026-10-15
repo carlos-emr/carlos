@@ -29,9 +29,23 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow} = require('./lib/workflow-session');
-const {waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 
 const ROUTE = '/encounter/oscarMeasurements/';
+
+// A chart window closed on purpose sends its note-lock release as a beacon from pagehide, and
+// Chromium reports that request as an aborted "ping" once its document is gone (the same case as
+// echart-note-draft-recovery). Excuse exactly those entries recorded since `mark`: a ping to
+// CaseManagementEntry, ERR_ABORTED, whose issuing document went away. Every other failure stays.
+function consumeUnloadBeacons(recorder, mark) {
+  for (let i = recorder.requestFailures.length - 1; i >= mark; i--) {
+    const entry = recorder.requestFailures[i];
+    if (entry.resourceType === 'ping' && /ERR_ABORTED/.test(entry.errorText || '')
+        && new URL(entry.url).pathname.endsWith('/CaseManagementEntry')
+        && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) {
+      recorder.requestFailures.splice(i, 1);
+    }
+  }
+}
 
 // Arms a wait for the popup's next document whose path ends with `route`, runs the
 // click, then waits for that document. Auto-submitting intermediate pages
@@ -136,13 +150,16 @@ async function workflow(s) {
   const listedType = (popup, t) => popup.locator('tr.data').filter({has: popup.getByRole('link', {name: t.type, exact: true})});
 
   // The chart builds its measurement menu when it loads, so a group created after the chart
-  // opened is only listed once the chart is reloaded.
-  async function assertChartOffers(group, t, label, {reload = false, instructions = [t.instruction]} = {}) {
-    const chart = await s.chart();
-    if (reload) {
-      await chart.reload();
-      await waitForNavbars(chart, 20000);
+  // opened is only listed in a chart opened afterwards: `reopen` closes the open one first.
+  async function assertChartOffers(group, t, label, {reopen = false, instructions = [t.instruction]} = {}) {
+    if (reopen) {
+      const mark = s.recorder.requestFailures.length;
+      await (await s.chart()).close();
+      const fresh = await s.chart();
+      await fresh.waitForLoadState('load');
+      consumeUnloadBeacons(s.recorder, mark);
     }
+    const chart = await s.chart();
     const link = chart.locator('#leftNavBar .menu a, #rightNavBar .menu a').filter({hasText: group});
     h.assert(await link.count() === 1, `The chart measurement menu does not list ${group}`);
     await revealAuditLink(chart, link, 20000);
@@ -276,6 +293,20 @@ async function workflow(s) {
     await list.close();
   });
 
+  await s.step('Add Measurement Group reports a name already in use, or not allowed, and stores nothing', async () => {
+    const popup = await open('Add Measurement Group', 'duplicate-measurement-group');
+    for (const [name, message] of [[editedGroup, `The Group Name ${editedGroup} already exists`],
+      [`FAKEPW-${hex}`, `FAKEPW-${hex} is invalid`]]) {
+      await popup.locator('input[name="groupName"]').fill(name);
+      await landOn(popup, 'DefineNewMeasurementGroup', () => popup.locator('input[type="submit"][name="submit"]').click());
+      await popup.locator('.action-errors').getByText(message, {exact: true}).waitFor();
+      h.assert(await popup.locator('input[name="groupName"]').count() === 1, 'The Define form was not shown again');
+    }
+    h.assert(styles(editedGroup) === '1', 'Re-using the name changed the existing group');
+    h.assert(styles(`FAKEPW-${hex}`) === '0', 'A name the form refuses was stored');
+    await popup.close();
+  });
+
   await s.step('Add Measurement Group refuses an Add with no type, then creates the group with the new type', async () => {
     const popup = await defineGroup(createdGroup, 'add-measurement-group');
     await landOn(popup, 'AddMeasurementGroup', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
@@ -291,7 +322,7 @@ async function workflow(s) {
   await s.step('the chart measurement menu offers the created group and its popup the new type', async () => {
     // The new type carries both instructions stored by the steps above.
     await assertChartOffers(createdGroup, created, 'created-group-entry',
-      {reload: true, instructions: [created.instruction, instruction2]});
+      {reopen: true, instructions: [created.instruction, instruction2]});
   });
 
   await s.step('Delete in View All Measurement Types removes every owned type and records each row', async () => {

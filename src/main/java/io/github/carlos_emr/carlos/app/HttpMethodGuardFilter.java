@@ -164,6 +164,16 @@ public class HttpMethodGuardFilter implements Filter {
                                           // matches MUTATOR_ACTION_PREFIXES, but the action itself
                                           // only renders a JSP — the actual write goes through
                                           // appointment/AddRecord (which IS a POST-only mutator).
+            "addmeasurementmap",         // EctAddMeasurementMap2Action (Customize Measurements ▸ Add
+                                          // Measurement Mapping, #3335): GET with no code to map
+                                          // renders the mapping form and its Search; the action
+                                          // answers 405 to any non-POST that names both an
+                                          // identifier and a loinc_code (a write). NewMeasurementMap,
+                                          // the same class's POST-only route, stays listed above.
+            "removemeasurementmap",      // EctRemoveMeasurementMap2Action (Remove/Remap Measurement
+                                          // Mapping, #3335): GET with no row id renders the table
+                                          // and its Search; the action answers 405 to any non-POST
+                                          // that names an id (a removal or remap).
             "addrelation"                // AddDemographicRelationship2Action (demographic "Add
                                           // Relation" popup, edit-view.jsp): GET with only `demo`
                                           // renders the contact-search form (AddAlternateContact.jsp).

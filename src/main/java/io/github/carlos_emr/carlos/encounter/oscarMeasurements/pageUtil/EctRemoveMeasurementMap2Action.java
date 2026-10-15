@@ -74,10 +74,14 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
     }
 
     public String execute() throws ServletException, IOException {
-        // Writes only from the mapping forms' POST. Customize Measurements ▸ Remove/Remap
-        // Measurement Mapping and the page's Search open the read-only ViewRemoveMeasurementMap
-        // gate instead, so a GET here can only be a link, image tag or prefetch (issue #3335).
-        if (!"POST".equals(request.getMethod())) {
+        String id = request.getParameter("id");
+
+        // Dual-purpose route. Customize Measurements ▸ Remove/Remap Measurement Mapping and the
+        // page's Search open it by GET with no mapping row named, and it renders the table; a
+        // request naming a row (id) removes or remaps it, so that must be the form's POST, never
+        // a link or image tag (issue #3335). HttpMethodGuardFilter leaves this name to the action
+        // for that reason; RemapMeasurementMap, POST-only, is also refused there.
+        if (id != null && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -86,7 +90,6 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
 
-            String id = request.getParameter("id");
             String identifier = request.getParameter("identifier");
             String name = request.getParameter("name");
             String type = request.getParameter("type");

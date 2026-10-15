@@ -131,7 +131,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/ViewAddMeasurementMap', event)"
+                                                                     onClick="popupOscarConS(700,1000,'encounter/oscarMeasurements/AddMeasurementMap', event)"
                                                                      class="messengerButtons">Add Measurement
                             Mapping</a></td>
                     </tr>
@@ -141,7 +141,7 @@
                 <table class=messButtonsA cellspacing=0 cellpadding=3>
                     <tr>
                         <td class="messengerButtonsA" width="200"><a href=#
-                                                                     onClick="popupOscarConS(600,700,'encounter/oscarMeasurements/ViewRemoveMeasurementMap', event)"
+                                                                     onClick="popupOscarConS(600,700,'encounter/oscarMeasurements/RemoveMeasurementMap', event)"
                                                                      class="messengerButtons">Remove/Remap Measurement
                             Mapping</a></td>
                     </tr>

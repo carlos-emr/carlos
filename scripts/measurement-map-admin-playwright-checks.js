@@ -12,8 +12,8 @@
 // (and a duplicate refused), a FLOWSHEET mapping of a measurement type to the owned
 // code, its remap to the second code and every deletion, with the recyclebin rows
 // the removals record; plus what View Mapping and the search lists show. Since #3335
-// the Add and Remove/Remap links open the read-only View* gates, Search reloads them
-// by GET, an Update with nothing selected and a cancelled DELETE write nothing.
+// the Add and Remove/Remap links open their pages by GET (a write still needs POST), Search
+// reloads them by GET, an Update with nothing selected and a cancelled DELETE write nothing.
 //
 // Fixtures: owned X<hex> LOINC codes named with the run marker. The measurement type
 // is an existing unmapped type (types are listed from an application cache that a
@@ -254,14 +254,14 @@ async function workflow(s) {
     await page.close();
   });
 
-  // Search reloads the GET-only View* gate with the search fields (it POSTed there, a 405,
-  // before #3335).
+  // Search reloads the page by GET with only the search fields (before #3335 it re-posted the
+  // mapping form to a GET-only view gate, a 405).
   await s.step('Search by name on Add Measurement Mapping narrows the codes to the owned ones', async () => {
     sql.execute(`INSERT INTO measurementMap(loinc_code,ident_code,name,lab_type)
       VALUES ${codes.map(c => `(${q(c.loinc)},${q(c.loinc)},${q(c.name)},'PATHL7')`).join(',')}`);
     const page = await open('Add Measurement Mapping', 'search-measurement-mapping');
     await page.locator('input[name="searchstring"]').fill(marker);
-    await landOn(page, 'ViewAddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
+    await landOn(page, 'AddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
     const offered = (await page.locator('select[name="loinc_code"] option').allInnerTexts()).map(t => t.trim()).filter(t => t !== 'None Selected');
     h.assert(JSON.stringify(offered) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
       'Searching by name does not offer exactly the owned codes');

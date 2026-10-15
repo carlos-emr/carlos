@@ -4889,7 +4889,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "LOINC mapping admin end to end: View Mapping loads without a script error, the Add and Remove/Remap links open the read-only View* gates, Search reloads them by GET, an Update with nothing selected and a cancelled DELETE write nothing (#3335).",
+      "notes": "LOINC mapping admin end to end: View Mapping loads without a script error, the Add and Remove/Remap links open their pages by GET (writes still need POST), Search reloads them by GET, an Update with nothing selected and a cancelled DELETE write nothing (#3335).",
       "fixtures": "Owns two X<hex> LOINC codes and the mapping and recyclebin rows that reference them; maps one existing unmapped measurement type to an owned code only for the run; removes and verifies all of them."
     },
     {

@@ -47,6 +47,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -59,7 +60,8 @@ import static org.mockito.Mockito.when;
  * Unit tests for the LOINC mapping writes of Customize Measurements:
  * {@link EctAddMeasurementMap2Action} (routes AddMeasurementMap and NewMeasurementMap) and
  * {@link EctRemoveMeasurementMap2Action} (RemoveMeasurementMap and RemapMeasurementMap).
- * Their pages are opened through the read-only View* gates, so these accept only POST
+ * Both are dual-purpose: a GET without write parameters renders the page (Customize
+ * Measurements links and the pages' Search), and a request that would write must be a POST
  * (issue #3335).
  *
  * @since 2026-10-15
@@ -113,7 +115,7 @@ class EctMeasurementMapWrite2ActionsUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {"GET", "HEAD"})
-        void shouldRefuseTheMapping_whenNotPosted(String method) throws Exception {
+        void shouldRefuseTheMapping_whenAWriteIsNotPosted(String method) throws Exception {
             request.setMethod(method);
             request.addParameter("identifier", "WT,FLOWSHEET,FAKE Weight");
             request.addParameter("loinc_code", "X12345");
@@ -163,6 +165,28 @@ class EctMeasurementMapWrite2ActionsUnitTest extends CarlosUnitTestBase {
             assertThat(new EctAddMeasurementMap2Action().execute()).isEqualTo("continue");
             verifyNoInteractions(mapDao);
         }
+
+        @ParameterizedTest
+        @CsvSource(value = {"'',''", "searchstring,FAKE", "identifier,'WT,FLOWSHEET,FAKE Weight'"})
+        void shouldRenderTheFormByGet_whenNoCodeIsNamed(String param, String value) throws Exception {
+            request.setMethod("GET");
+            if (!param.isEmpty()) {
+                request.addParameter(param, value);
+            }
+
+            assertThat(new EctAddMeasurementMap2Action().execute()).isEqualTo("continue");
+            assertThat(response.getStatus()).isEqualTo(200);
+            verifyNoInteractions(mapDao);
+        }
+
+        @Test
+        void shouldDenyTheFormByGet_withoutEitherAdministratorPrivilege() {
+            request.setMethod("GET");
+            when(security.hasPrivilege(login, "_admin.measurements", "w", null)).thenReturn(false);
+
+            assertThatThrownBy(() -> new EctAddMeasurementMap2Action().execute()).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mapDao);
+        }
     }
 
     @Nested
@@ -171,13 +195,23 @@ class EctMeasurementMapWrite2ActionsUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {"GET", "HEAD"})
-        void shouldRefuseTheRemoval_whenNotPosted(String method) throws Exception {
+        void shouldRefuseTheRemoval_whenAWriteIsNotPosted(String method) throws Exception {
             request.setMethod(method);
             request.addParameter("id", "12");
 
             assertThat(new EctRemoveMeasurementMap2Action().execute()).isEqualTo(EctRemoveMeasurementMap2Action.NONE);
             assertThat(response.getStatus()).isEqualTo(405);
             verifyNoInteractions(mapDao, recycleBinDao, security);
+        }
+
+        @Test
+        void shouldRenderTheTableByGet_whenNoRowIsNamed() throws Exception {
+            request.setMethod("GET");
+            request.addParameter("searchstring", "FAKE");
+
+            assertThat(new EctRemoveMeasurementMap2Action().execute()).isEqualTo("continue");
+            assertThat(response.getStatus()).isEqualTo(200);
+            verifyNoInteractions(mapDao, recycleBinDao);
         }
 
         @Test

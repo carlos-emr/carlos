@@ -220,7 +220,8 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_measurement", "d"),
             // Customize Measurements writes (issue #3335). Every one is the target of a POST form
             // and 405s any other method before its privilege check and before any DAO use; the
-            // pages that show those forms are separate GET routes (Setup*, View*).
+            // pages that show those forms are separate GET routes (Setup*, View*). The two LOINC
+            // mapping actions render their own page on GET, so they are CONDITIONAL_MUTATORS.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action",
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action",
@@ -238,10 +239,6 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action",
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action",
-                    "_admin.measurements", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action",
-                    "_admin.measurements", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action",
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
@@ -497,7 +494,12 @@ class MutatorActionGetRejectionContractUnitTest {
         // Customize Measurements ▸ Edit Measurement Group: forward=type|style|dsHTML only open an
         // editor; forward=delete removes the group and is POST-only (issue #3335). Covered by
         // EctSelectMeasurementGroup2ActionUnitTest.
-        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action"
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action",
+        // Customize Measurements ▸ Add / Remove-Remap Measurement Mapping: a GET without write
+        // parameters renders the page (and its Search); identifier+loinc_code (a mapping) or id
+        // (a removal/remap) is POST-only (issue #3335). Covered by EctMeasurementMapWrite2ActionsUnitTest.
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action"
     );
 
     /**
