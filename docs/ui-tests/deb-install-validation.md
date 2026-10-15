@@ -147,6 +147,25 @@ text or a `Drug` dump. Issue #4410 leaves those to #4172. Precompiled JSPs are n
 a JSP hot-swapped into an installed webapp keeps serving the class Tomcat already compiled.
 Validate JSP changes from a rebuilt package, or delete that class and restart.
 
+`form-consultant-print-playwright-checks.js` (issue #4370) was added on 2026-10-14. It was run
+against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch. The WARs were
+compiled with the `debian/rules` Maven flags in an Ubuntu 26.04 container and packaged through
+`CARLOS_WAR`/`DRUGREF_WAR`, with DrugRef from its pinned revision and carlos-ctl 1.1.2 from its
+release. The packages were installed fresh into an Ubuntu 26.04 container with the demo dataset
+through `scripts/deb-docker-validation.sh` (`carlos-ctl check` clean, `:443`). Result: **PASS**,
+6/6 steps. `form-catalog-smoke` also passes with every Letterhead concern it claims, and
+`form-catalog-smoke-letterhead-restore` is still its known failure (finding 233). A
+`--residue-audit` run found no residue. The new check fails on two swapped-in variants of
+`formConsultant.jsp`, each installed by deleting the compiled class and restarting:
+
+- The pre-fix page: it **FAILS** at "Print then OK returns to editing and saves nothing", with
+  "posted the form 1 time(s)".
+- The fix with only the OK branch's layout restore reverted: it **FAILS** at the same step, on the
+  editor and the buttons overlapping.
+
+A textarea submits its line breaks as CRLF, so a check that compares a stored multi-line field
+with the text it typed must compare the CRLF form.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.

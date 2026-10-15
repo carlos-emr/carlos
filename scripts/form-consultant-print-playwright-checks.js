@@ -110,13 +110,16 @@ async function workflow(s) {
   await page.locator('#printbut').waitFor({ state: 'visible', timeout: 10000 });
 
   const letter = `${marker} Dear colleague,\nBP 120/80 & HR 72; pt's c/o SOB. Thank you for seeing this patient.`;
+  // A textarea submits its line breaks as CRLF (HTML form submission), so that is what is stored.
+  const storedLetter = letter.replace(/\n/g, '\r\n');
   await page.locator('#comments').fill(letter);
 
   await s.step('Print then Cancel keeps the print view and saves nothing', async () => {
     await stubPrint(page);
     await pressAndAnswer(page, '#printbut', false);
-    h.assert(await page.evaluate(() => window.__prints) === 1, 'Print did not call the browser print exactly once');
+    // Posts first: a submit reloads the page, which also discards the print stub.
     await nothingPosted('Print then Cancel');
+    h.assert(await page.evaluate(() => window.__prints) === 1, 'Print did not call the browser print exactly once');
     h.assert(await shown(page, '#textDiv') && !(await shown(page, '#comments')), 'Cancel left the print view');
     h.assert((await page.locator('#textDiv').innerText()).includes('Thank you for seeing this patient'),
       'The print view does not show the letter');
@@ -127,8 +130,8 @@ async function workflow(s) {
     await stubPrint(page);
     const asked = await pressAndAnswer(page, '#printbut', true);
     console.log(`    (Print asked: "${asked.text}")`);
-    h.assert(await page.evaluate(() => window.__prints) === 1, 'Print did not call the browser print exactly once');
     await nothingPosted('Print then OK');
+    h.assert(await page.evaluate(() => window.__prints) === 1, 'Print did not call the browser print exactly once');
     h.assert(page.url().includes('/form/formConsultant'), `OK navigated the form to ${h.pathOnly(page.url())}`);
     const comments = page.locator('#comments');
     h.assert(await comments.isVisible() && await comments.isEditable(), 'The Comments box is not back in editing');
@@ -164,7 +167,7 @@ async function workflow(s) {
     await expectValue(sql, rows, '1', 'Save did not store exactly one formConsult row');
     const [row] = sql.rows(`SELECT ID, comments FROM ${TABLE} WHERE demographic_no=${patient}`);
     savedId = row[0];
-    h.assert(row[1] === letter, 'The stored letter differs from what was typed');
+    h.assert(row[1] === storedLetter, 'The stored letter differs from what was typed');
     await page.waitForURL(url => url.pathname.endsWith('/form/forwardname'), { waitUntil: 'domcontentloaded' });
     h.assert(new URL(page.url()).searchParams.get('formId') === savedId, 'Save redisplayed another record');
     await h.assertNotErrorPage(page, 'the redisplayed letter');
@@ -179,7 +182,7 @@ async function workflow(s) {
     await sleep(SETTLE_MS);
     h.assert(posts.length === 1, `Print then OK on the saved letter posted the form ${posts.length - 1} more time(s)`);
     h.assert(sql.value(rows) === '1', 'Print then OK on the saved letter stored another row');
-    h.assert(sql.value(`SELECT comments FROM ${TABLE} WHERE ID=${savedId}`) === letter,
+    h.assert(sql.value(`SELECT comments FROM ${TABLE} WHERE ID=${savedId}`) === storedLetter,
       'Print then OK on the saved letter changed the stored letter');
     h.assert(await page.locator('#comments').inputValue() === edited, 'The edit is no longer in the Comments box');
   });
@@ -190,7 +193,7 @@ async function workflow(s) {
     await closed;
     await sleep(SETTLE_MS);
     h.assert(posts.length === 1, `Exit then OK posted the form ${posts.length - 1} more time(s)`);
-    h.assert(sql.value(rows) === '1' && sql.value(`SELECT comments FROM ${TABLE} WHERE ID=${savedId}`) === letter,
+    h.assert(sql.value(rows) === '1' && sql.value(`SELECT comments FROM ${TABLE} WHERE ID=${savedId}`) === storedLetter,
       'Exit then OK changed the stored letter');
   });
 }
