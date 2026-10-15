@@ -2966,7 +2966,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (note.getId() == null || note.getId() > selectedId || !linkedIds.contains(note.getId())) continue;
             Secrole role = roleManager.getRole(note.getReporter_caisi_role());
             if (role == null || StringUtils.isBlank(role.getRoleName())
-                    || roles.stream().noneMatch(held -> Objects.equals(held.getRoleName(), role.getRoleName()))) {
+                    || roles.stream().noneMatch(held -> held.getActive()
+                    && Objects.equals(held.getRoleName(), role.getRoleName()))) {
                 return null;
             }
             // Stored cumulative prose may contain unshared revisions. Keep it off the

@@ -916,7 +916,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         for (SecUserRole roleTmp : roles) {
             logger.debug("Provider Roles : {}", LogSafe.sanitize(roleTmp.getRoleName()));
-            if (roleTmp.getRoleName().equals(role)) return (true);
+            if (roleTmp.getActive() && roleTmp.getRoleName().equals(role)) return (true);
         }
 
         return (false);

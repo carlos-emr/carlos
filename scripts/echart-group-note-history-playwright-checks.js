@@ -86,6 +86,11 @@ async function workflow(s) {
     reader = fixture.addLogin('doctor');
     denied = fixture.addLogin('doctor');
     roleDenied = fixture.addLogin('nurse');
+    sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
+      VALUES (${q(roleDenied.providerNo)},'doctor','R0000001',0,NOW())`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleDenied.providerNo)}
+      AND ((role_name='doctor' AND activeyn=0) OR (role_name='nurse' AND activeyn=1))`) === '2',
+      'The denied login must hold an inactive doctor role and an active nurse role');
     for (const login of [reader, denied, roleDenied]) {
       fixture.joinFacility(login, facility);
       fixture.joinTestLoginPrograms(login);
@@ -95,17 +100,17 @@ async function workflow(s) {
     fixture.lockPatient(denied, patient, ['_eChart']);
     const role = sql.value("SELECT role_no FROM secRole WHERE role_name='doctor'");
     h.assert(/^[1-9]\d*$/.test(role), 'The doctor reporter role is missing');
-    function seed(text, uuid, revision, history) {
+    function seed(text, uuid, history) {
       const id = sql.value(`INSERT INTO casemgmt_note
-        (demographic_no,provider_no,signing_provider_no,note,history,uuid,revision,signed,observation_date,update_date,program_no,reporter_caisi_role,appointmentNo)
-        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},${q(revision)},1,NOW(),NOW(),'0',${q(role)},0);
+        (demographic_no,provider_no,signing_provider_no,note,history,uuid,signed,observation_date,update_date,program_no,reporter_caisi_role,appointmentNo)
+        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},1,NOW(),NOW(),'0',${q(role)},0);
         SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), 'The owned note revision was not created');
       return id;
     }
-    privateId = seed(texts.privateText, `${marker}-chain`, '1', texts.privateText);
-    sharedId = seed(texts.shared, `${marker}-chain`, '2', texts.cumulative);
-    futureId = seed(texts.future, `${marker}-chain`, '3', texts.cumulative);
+    privateId = seed(texts.privateText, `${marker}-chain`, texts.privateText);
+    sharedId = seed(texts.shared, `${marker}-chain`, texts.cumulative);
+    futureId = seed(texts.future, `${marker}-chain`, texts.cumulative);
     groupLink = sql.value(`INSERT INTO GroupNoteLink (noteId,demographicNo,anonymous,active,created)
       VALUES (${sharedId},${patient},0,1,NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(groupLink), 'The exact-revision group link was not created');

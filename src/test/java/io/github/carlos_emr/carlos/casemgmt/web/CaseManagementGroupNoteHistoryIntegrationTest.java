@@ -76,6 +76,7 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
         SecUserRoleDao held = mock(SecUserRoleDao.class);
         SecUserRole role = new SecUserRole();
         role.setRoleName("doctor");
+        role.setActive(true);
         when(held.getUserRoles("999998")).thenReturn(List.of(role));
         RolesManager roles = mock(RolesManager.class);
         Secrole reporter = new Secrole();

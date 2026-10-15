@@ -36,6 +36,7 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager security;
     private GroupNoteDao groups;
     private RolesManager roles;
+    private SecUserRoleDao heldRoles;
     private LoggedInInfo user;
     private Facility facility;
     private CaseManagementNote selected;
@@ -65,9 +66,10 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, "_casemgmt.notes", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
         groups = createAndRegisterMock(GroupNoteDao.class);
-        SecUserRoleDao heldRoles = createAndRegisterMock(SecUserRoleDao.class);
+        heldRoles = createAndRegisterMock(SecUserRoleDao.class);
         SecUserRole held = new SecUserRole();
         held.setRoleName("doctor");
+        held.setActive(true);
         when(heldRoles.getUserRoles("4249")).thenReturn(List.of(held));
         roles = createAndRegisterMock(RolesManager.class);
         Secrole doctor = new Secrole();
@@ -171,6 +173,18 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
         refused();
         verifyNoInteractions(manager, groups, roles);
+    }
+
+    @Test
+    void shouldRefuseHistory_whenOnlyAnInactiveRoleMatchesTheReporter() {
+        SecUserRole inactiveDoctor = new SecUserRole();
+        inactiveDoctor.setRoleName("doctor");
+        inactiveDoctor.setActive(false);
+        SecUserRole activeNurse = new SecUserRole();
+        activeNurse.setRoleName("nurse");
+        activeNurse.setActive(true);
+        when(heldRoles.getUserRoles("4249")).thenReturn(List.of(inactiveDoctor, activeNurse));
+        refused();
     }
 
     @Test
