@@ -33,7 +33,7 @@ function harness(checked = [true], issueChange = '') {
     caseNote: 'caseNote_note01', demographicNo: '123', ctx: '/carlos',
     savingNoteError: 'save failed', CONTROL_CHAR_PATTERN_2: /unused/,
     sanitizeElementByPattern: () => {},
-    document: { forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {} } } },
+    document: { forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {}, querySelectorAll: () => [] } } },
     Form: { serialize: () => 'fixture=form' },
     CarlosAjax: {
       request: (url, options) => requests.push({ url, options }),
@@ -79,6 +79,7 @@ for (const [name, checked, changed] of [
       assert.equal(h.context.document.forms.caseManagementEntryForm.method.value, 'edit');
       let saves = 0;
       assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
+      h.updates[0].options.onSuccess({ status: 200 });
       h.updates[0].options.onComplete({ status: 200 });
       assert.equal(saves, 0, 'wait for Unresolved Issues too');
       assert.equal(h.requests.length, 2);
@@ -106,5 +107,40 @@ test('a failed CPP save restores the editor without requesting issue refreshes',
   assert.equal(h.requests.length, 1);
   assert.equal(h.updates.length, 0);
   assert.deepEqual(h.alerts, ['save failed 500']);
+  assert.deepEqual(h.errors, []);
+});
+
+test('CPP refresh preserves the latest unsaved selections by issue id before a queued save resumes', () => {
+  const h = harness();
+  const checkbox = (id, checked) => ({ checked, getAttribute: () => id });
+  let checkboxes = [checkbox('41', false), checkbox('42', true)];
+  h.context.document.forms.caseManagementEntryForm.querySelectorAll = () => checkboxes;
+  h.context.updateCPPNote();
+  h.requests[0].options.onSuccess({ status: 200, responseText: '' });
+  // A clinician can change a checkbox while the refresh request is in flight.
+  checkboxes[0].checked = true;
+  checkboxes[1].checked = false;
+  h.updates[0].options.onSuccess({ status: 200 });
+  // edit() rebuilds persisted selections, and a new CPP issue can reorder them.
+  checkboxes = [checkbox('43', false), checkbox('42', true), checkbox('41', false)];
+  let saved;
+  h.context.deferNoteSaveUntilIssues(() => { saved = checkboxes.map(box => box.checked); });
+  h.updates[0].options.onComplete({ status: 200 });
+  assert.deepEqual(checkboxes.map(box => box.checked), [false, false, true]);
+  assert.equal(saved, undefined);
+  h.requests[1].options.onComplete({ status: 200 });
+  assert.deepEqual(saved, [false, false, true]);
+});
+
+test('ordinary editor loads use persisted selections without preserving another note\'s checklist', () => {
+  const h = harness();
+  h.context.document.forms.caseManagementEntryForm.querySelectorAll = () => {
+    throw new Error('initial note load must not inspect the previous editor selections');
+  };
+  h.context.ajaxUpdateIssues('edit', 'sig01');
+  h.updates[0].options.onSuccess({ status: 200 });
+  h.updates[0].options.onComplete({ status: 200 });
+  assert.equal(h.requests.length, 1);
+  h.requests[0].options.onComplete({ status: 200 });
   assert.deepEqual(h.errors, []);
 });

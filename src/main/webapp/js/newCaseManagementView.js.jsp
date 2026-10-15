@@ -1370,7 +1370,7 @@ function updateCPPNote() {
                     // A CPP save can create a patient issue even when every checkbox
                     // stays checked. Refresh the note fields and Unresolved Issues
                     // after every successful save, independently of issueChange.
-                    ajaxUpdateIssues("edit", sigId);
+                    ajaxUpdateIssues("edit", sigId, true);
                     $("issueChange").value = false;
 
                     if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
@@ -3271,7 +3271,7 @@ function updateCPPNote() {
         }
     }
 
-    function ajaxUpdateIssues(method, div) {
+    function ajaxUpdateIssues(method, div, preserveSelections) {
         if (noteSwitchSavePending) {
             alert(noteSavingMessage);
             return false;
@@ -3285,12 +3285,30 @@ function updateCPPNote() {
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
         setNoteIssueControlsBusy(true);
+        var selectedIssues;
         ajaxRequest = CarlosAjax.updater({success: div}, url, {
             evalScripts: true, postBody: p,
+            // The updater calls onSuccess before replacing the fragment. Capture
+            // the latest unsaved choices by patient-issue id, since edit rebuilds
+            // the checklist from the persisted note and may reorder its indexes.
+            onSuccess: function () {
+                if (!preserveSelections) return;
+                selectedIssues = new Map();
+                frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                    selectedIssues.set(checkbox.getAttribute('data-issue-id'), checkbox.checked);
+                });
+            },
             // onComplete runs after the updater installs the new issue fields.
             onComplete: function (response) {
-                if (response.status >= 200 && response.status < 300) onIssueUpdate(finishIssueUpdate);
-                else finishIssueUpdate(false);
+                if (response.status >= 200 && response.status < 300) {
+                    if (selectedIssues) {
+                        frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                            var id = checkbox.getAttribute('data-issue-id');
+                            if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
+                        });
+                    }
+                    onIssueUpdate(finishIssueUpdate);
+                } else finishIssueUpdate(false);
             },
             onFailure: function (response) {
                 alert(response.status + " " + updateIssueError);
