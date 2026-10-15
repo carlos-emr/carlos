@@ -62,6 +62,17 @@ class ScheduleTemplateSettingJspRegressionTest {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).containsPattern("objectName=\"_admin\\.schedule\"\\s+rights=\"w\"");
-        assertThat(jsp).contains("if (canEditGlobalScheduleSettings && !grantOnlyCurProviderScheduleData)");
+
+        // Both links must sit inside the gated block, not merely coexist with the condition somewhere.
+        String gate = "if (canEditGlobalScheduleSettings && !grantOnlyCurProviderScheduleData)";
+        int gateStart = jsp.indexOf(gate);
+        assertThat(gateStart).as("gate condition present").isGreaterThanOrEqualTo(0);
+        int gateEnd = jsp.indexOf("<%}%>", gateStart);
+        assertThat(gateEnd).as("gate block closed").isGreaterThan(gateStart);
+        String gated = jsp.substring(gateStart, gateEnd);
+
+        assertThat(gated).contains("/schedule/HolidaySetting").contains("/schedule/TemplateCodeSetting");
+        String ungated = jsp.substring(0, gateStart) + jsp.substring(gateEnd);
+        assertThat(ungated).doesNotContain("/schedule/HolidaySetting").doesNotContain("/schedule/TemplateCodeSetting");
     }
 }
