@@ -5,12 +5,14 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
-const { EPISODE_OBJECT, grantsRead, episodeModuleGranted, grantEpisodeModule } = require('./lib/episode-module-access');
+const { EPISODE_MODULE_GATES, navbarGateGrants, moduleGateGrants, episodeModuleGranted, grantEpisodeModule } = require('./lib/episode-module-access');
 
 /*
- * The Episode-module grant used by episode-lifecycle and record-access (#4566). It writes to a
- * shared security table, so the restore paths matter as much as the grant: the fake below keeps a
- * secObjPrivilege/secUserRole state and answers exactly the statements the helper issues.
+ * The Episode-module grant used by episode-lifecycle and record-access (#4566). The module passes
+ * two gates (_episode, then _newCasemgmt.episode) and the seeds deny doctor both, so the grant must
+ * cover both. It writes to a shared security table, so the restore paths matter as much as the
+ * grant: the fake below keeps a secObjPrivilege/secUserRole state and answers exactly the
+ * statements the helper issues.
  */
 
 function fakeSql({ privileges = [], roles = [] } = {}) {
@@ -60,63 +62,89 @@ function session(sql, provider = '999998') {
   return { sql, provider, cleanups, cleanup(fn) { cleanups.push(fn); }, runCleanups() { for (const fn of [...cleanups].reverse()) fn(); } };
 }
 
-const doctorDenied = { roleUserGroup: 'doctor', objectName: EPISODE_OBJECT, privilege: 'o', priority: '0', provider_no: '999998' };
+const EPISODE = '_episode';
+const MODULE = '_newCasemgmt.episode';
+const seeded = (objectName, privilege = 'o', roleUserGroup = 'doctor') => ({ roleUserGroup, objectName, privilege, priority: '0', provider_no: '999998' });
+const seedRows = () => [seeded(EPISODE), seeded(MODULE)];
 const carlosdocRoles = [{ provider: '999998', name: 'doctor' }, { provider: '999998', name: 'admin' }];
+const providerRow = (sql, objectName) => sql.table.find(row => row.roleUserGroup === '999998' && row.objectName === objectName);
 
-test('shouldReadGrant_forEachPrivilegeTheModuleAccepts', () => {
-  for (const privilege of ['x', 'w', 'u', 'r', 'X', 'or', '|or|']) assert.equal(grantsRead(privilege), true, privilege);
-  for (const privilege of ['o', '', null, undefined, 'd', 'od', '|o|']) assert.equal(grantsRead(privilege), false, String(privilege));
+test('shouldGateTheModuleOnBothObjects_inDisplayOrder', () => {
+  assert.deepEqual(EPISODE_MODULE_GATES.map(gate => gate.objectName), [EPISODE, MODULE]);
+});
+
+test('shouldReadUnderNavbarGate_likeSecurityManagerHasReadAccess', () => {
+  assert.equal(navbarGateGrants([]), true, 'no row for the login reads');
+  for (const privileges of [['x'], ['r'], ['o', 'x'], ['or']]) assert.equal(navbarGateGrants(privileges), true, privileges.join());
+  for (const privileges of [['o'], ['o', 'o'], ['w'], ['u'], ['d']]) assert.equal(navbarGateGrants(privileges), false, privileges.join());
+});
+
+test('shouldReadUnderModuleGate_likeCheckPrivilege', () => {
+  for (const privilege of ['x', 'w', 'u', 'r', 'X', 'or', '|or|']) assert.equal(moduleGateGrants([privilege]), true, privilege);
+  for (const privilege of ['o', '', null, undefined, 'd', 'od', '|o|']) assert.equal(moduleGateGrants([privilege]), false, String(privilege));
+  assert.equal(moduleGateGrants([]), false, 'no row for the login is no rights here, unlike the navbar gate');
 });
 
 test('shouldReportNoGrant_whenTheSeededRolesDenyTheModule', () => {
-  const sql = fakeSql({ privileges: [doctorDenied], roles: carlosdocRoles });
-  assert.equal(episodeModuleGranted(sql, '999998'), false);
-  // The pre-#4566 devcontainer gave doctor x: the roles alone then grant it.
-  const devcontainer = fakeSql({ privileges: [{ ...doctorDenied, privilege: 'x' }], roles: carlosdocRoles });
+  assert.equal(episodeModuleGranted(fakeSql({ privileges: seedRows(), roles: carlosdocRoles }), '999998'), false);
+  // The pre-#4566 devcontainer gave doctor x on both: the roles alone then pass both gates.
+  const devcontainer = fakeSql({ privileges: [seeded(EPISODE, 'x'), seeded(MODULE, 'x')], roles: carlosdocRoles });
   assert.equal(episodeModuleGranted(devcontainer, '999998'), true);
+  // One gate is not enough: x on _newCasemgmt.episode alone still leaves _episode refusing.
+  const moduleOnly = fakeSql({ privileges: [seeded(EPISODE), seeded(MODULE, 'x')], roles: carlosdocRoles });
+  assert.equal(episodeModuleGranted(moduleOnly, '999998'), false);
   // Another login's role does not count.
-  const other = fakeSql({ privileges: [{ ...doctorDenied, roleUserGroup: 'nurse', privilege: 'x' }], roles: carlosdocRoles });
+  const other = fakeSql({ privileges: [...seedRows(), seeded(EPISODE, 'x', 'nurse'), seeded(MODULE, 'x', 'nurse')], roles: carlosdocRoles });
   assert.equal(episodeModuleGranted(other, '999998'), false);
 });
 
-test('shouldInsertAndRemoveProviderRow_whenTheLoginHasNone', () => {
-  const sql = fakeSql({ privileges: [doctorDenied], roles: carlosdocRoles });
+test('shouldInsertAndRemoveBothProviderRows_whenTheLoginHasNone', () => {
+  const sql = fakeSql({ privileges: seedRows(), roles: carlosdocRoles });
   const s = session(sql);
-  assert.equal(grantEpisodeModule(s), 'inserted');
-  assert.deepEqual(sql.table.find(row => row.roleUserGroup === '999998'),
-    { roleUserGroup: '999998', objectName: EPISODE_OBJECT, privilege: 'x', priority: '0', provider_no: '999998' });
-  assert.equal(episodeModuleGranted(sql, '999998'), true);
-  assert.equal(s.cleanups.length, 1);
+  assert.deepEqual(grantEpisodeModule(s), { [EPISODE]: 'inserted', [MODULE]: 'inserted' });
+  for (const objectName of [EPISODE, MODULE]) {
+    assert.deepEqual(providerRow(sql, objectName), { roleUserGroup: '999998', objectName, privilege: 'x', priority: '0', provider_no: '999998' });
+  }
+  assert.equal(episodeModuleGranted(sql, '999998'), true, 'the grant passes both gates');
+  assert.equal(s.cleanups.length, 2);
   s.runCleanups();
-  assert.deepEqual(sql.table, [doctorDenied], 'cleanup leaves exactly the seeded rows');
+  assert.deepEqual(sql.table, seedRows(), 'cleanup leaves exactly the seeded rows');
 });
 
 test('shouldRestoreProviderDenial_whenTheLoginHadOne', () => {
-  const denial = { ...doctorDenied, roleUserGroup: '999998', privilege: 'o' };
-  const sql = fakeSql({ privileges: [doctorDenied, denial], roles: carlosdocRoles });
+  const sql = fakeSql({ privileges: [...seedRows(), seeded(EPISODE, 'o', '999998')], roles: carlosdocRoles });
   const s = session(sql);
-  assert.equal(grantEpisodeModule(s), 'updated');
-  assert.equal(sql.table.find(row => row.roleUserGroup === '999998').privilege, 'x');
+  assert.deepEqual(grantEpisodeModule(s), { [EPISODE]: 'updated', [MODULE]: 'inserted' });
+  assert.equal(providerRow(sql, EPISODE).privilege, 'x');
   s.runCleanups();
-  assert.equal(sql.table.find(row => row.roleUserGroup === '999998').privilege, 'o', 'the operator denial is restored');
+  assert.equal(providerRow(sql, EPISODE).privilege, 'o', 'the operator denial is restored');
+  assert.equal(providerRow(sql, MODULE), undefined, 'the inserted row is removed');
 });
 
-test('shouldChangeNothing_whenTheProviderRowAlreadyGrants', () => {
-  const held = { ...doctorDenied, roleUserGroup: '999998', privilege: 'r' };
-  const sql = fakeSql({ privileges: [doctorDenied, held], roles: carlosdocRoles });
+test('shouldChangeNothing_whenTheProviderRowsAlreadyGrant', () => {
+  const sql = fakeSql({ privileges: [...seedRows(), seeded(EPISODE, 'r', '999998'), seeded(MODULE, 'r', '999998')], roles: carlosdocRoles });
   const s = session(sql);
-  assert.equal(grantEpisodeModule(s), 'held');
+  assert.deepEqual(grantEpisodeModule(s), { [EPISODE]: 'held', [MODULE]: 'held' });
   assert.equal(s.cleanups.length, 0);
-  assert.ok(!sql.statements.some(query => /^(INSERT|UPDATE|DELETE)/.test(query)), 'no write when the row already grants');
+  assert.ok(!sql.statements.some(query => /^(INSERT|UPDATE|DELETE)/.test(query)), 'no write when the rows already grant');
+});
+
+test('shouldUpgradeProviderRow_whenItPassesOnlyTheModuleGate', () => {
+  // w reads under checkPrivilege but not under SecurityManager.hasReadAccess, so _episode needs the grant.
+  const sql = fakeSql({ privileges: [...seedRows(), seeded(EPISODE, 'w', '999998'), seeded(MODULE, 'w', '999998')], roles: carlosdocRoles });
+  const s = session(sql);
+  assert.deepEqual(grantEpisodeModule(s), { [EPISODE]: 'updated', [MODULE]: 'held' });
+  s.runCleanups();
+  assert.equal(providerRow(sql, EPISODE).privilege, 'w');
 });
 
 test('shouldFailCleanup_whenTheGrantCannotBeRemoved', () => {
-  const sql = fakeSql({ privileges: [doctorDenied], roles: carlosdocRoles });
+  const sql = fakeSql({ privileges: seedRows(), roles: carlosdocRoles });
   const s = session(sql);
   grantEpisodeModule(s);
   // Something else changed the row during the run: the guarded DELETE leaves it, and cleanup says so.
-  sql.table.find(row => row.roleUserGroup === '999998').privilege = 'w';
-  assert.throws(() => s.runCleanups(), /was not removed/);
+  providerRow(sql, MODULE).privilege = 'w';
+  assert.throws(() => s.runCleanups(), /_newCasemgmt\.episode grant for the test login was not removed/);
 });
 
 test('shouldGrantBeforeOpeningChart_inEveryCheckThatDrivesTheModule', () => {

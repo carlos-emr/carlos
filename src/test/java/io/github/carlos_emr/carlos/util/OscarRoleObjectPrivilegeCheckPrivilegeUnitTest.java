@@ -32,14 +32,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Pins how {@link OscarRoleObjectPrivilege#checkPrivilege(String, Properties, List)} reads a login's
- * role rows, the way {@code EctDisplayEpisode2Action} uses it for the chart's Episode module.
+ * role rows, the way {@code EctDisplayEpisode2Action} uses it on {@code _newCasemgmt.episode}, the
+ * second of the chart Episode module's two gates (the first, {@code _episode}, is
+ * {@code SecurityManager.hasReadAccess}; see {@code SecurityManagerHasReadAccessUnitTest}).
  *
  * <p>Issue #4566 aligned the devcontainer with the Flyway seeds, which give the {@code doctor} role a
- * bare {@code o} (no rights) on {@code _newCasemgmt.episode} and the {@code admin} role no row, so
- * the seeded login (doctor + admin + its provider number) does not see the module. The Playwright
- * checks that drive the module grant it to the login's provider number for their run; these cases
- * pin both halves: the seeded denial holds, and a provider-number grant overrides it at the same
- * priority whichever order the rows come back in.
+ * bare {@code o} (no rights) on both objects and the {@code admin} role no row, so the seeded login
+ * (doctor + admin + its provider number) does not see the module. The Playwright checks that drive
+ * the module grant both objects to the login's provider number for their run; these cases pin both
+ * halves here: the seeded denial holds, and a provider-number grant overrides it at the same priority
+ * whichever order the rows come back in.
  *
  * @since 2026-10-14
  */
