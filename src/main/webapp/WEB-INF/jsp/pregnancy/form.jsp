@@ -16,7 +16,7 @@
     String notes = creating || episode.getNotes() == null ? "" : episode.getNotes();
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head><meta charset="UTF-8"><title>Pregnancy</title>
     <link rel="stylesheet" href="<%=SafeEncode.forHtmlAttribute(request.getContextPath())%>/library/bootstrap/5.3.8/css/bootstrap.min.css">
 </head>

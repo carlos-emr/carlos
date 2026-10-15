@@ -10,7 +10,7 @@
     String route = request.getContextPath() + "/Pregnancy?demographicNo=" + patient;
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head><meta charset="UTF-8"><title>Pregnancy history</title>
     <link rel="stylesheet" href="<%=SafeEncode.forHtmlAttribute(request.getContextPath())%>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <script src="<%=SafeEncode.forHtmlAttribute(request.getContextPath())%>/js/pregnancy.js" defer></script>
