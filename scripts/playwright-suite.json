@@ -9797,6 +9797,39 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and a throwaway provider login (lib/throwaway-login-fixture.js) with a copy of the test provider's program_provider and provider_default_program rows so the same chart opens for it. The saved note, its link/extension rows, both providers' drafts, every note lock of the patient, eChart and the throwaway are removed by key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "pregnancy-lifecycle",
+      "script": "scripts/pregnancy-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "mutates": [
+        "secObjPrivilege"
+      ],
+      "notes": "Native pregnancy heading, four Add choices, read-only form reloads, Create, current-episode reopening, Complete, completed history and own-chart refresh. Verifies literal notes, patient/episode identity, exact saved dates and no duplicate writes after reload; unsafe GET mutations, malformed inputs, unreviewed legacy operations and stale completion are rejected. Two-patient and authorization probes verify foreign episode 404, read-only write 403, individual restriction 403, valid CSRF transport and unchanged demographic/episode rows.",
+      "fixtures": "Two owned synthetic patients and pregnancy episodes. Temporarily grants the test provider pregnancy-module privileges and applies scoped read-only/individual-patient restrictions; snapshots complete existing privilege rows and restores them with an ownership guard. Removes all owned episodes and patients. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "echart-group-note-history",
+      "script": "scripts/echart-group-note-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Covers restricted recipients, unavailable reporter role, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history text never discloses unshared content.",
+      "fixtures": "Owned recipient and owner patients, exact group-note revisions and links, facility with group notes enabled, and three throwaway logins with copied program membership. The reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins and patients by key and asserts removal; no existing clinic privileges or facility settings are changed."
+    },
+    {
       "name": "echart-note-verify-appointment-status",
       "script": "scripts/echart-note-verify-appointment-status-playwright-checks.js",
       "tiers": [

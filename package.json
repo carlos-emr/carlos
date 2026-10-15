@@ -135,6 +135,8 @@
     "test:specialist-add-cpso-playwright": "node scripts/specialist-add-cpso-playwright-checks.js",
     "test:echart-note-sign-bill-playwright": "node scripts/echart-note-sign-bill-playwright-checks.js",
     "test:echart-note-verify-appointment-status-playwright": "node scripts/echart-note-verify-appointment-status-playwright-checks.js",
+    "test:echart-group-note-history-playwright": "node scripts/echart-group-note-history-playwright-checks.js",
+    "test:pregnancy-lifecycle-playwright": "node scripts/pregnancy-lifecycle-playwright-checks.js",
     "test:echart-note-verify-appointment-status-archive-playwright": "ECHART_VERIFY_PIN=archive node scripts/echart-note-verify-appointment-status-playwright-checks.js",
     "test:echart-note-verify-appointment-status-billing-playwright": "ECHART_VERIFY_PIN=billing node scripts/echart-note-verify-appointment-status-playwright-checks.js",
     "test:echart-issues-filter-playwright": "node scripts/echart-issues-filter-playwright-checks.js",

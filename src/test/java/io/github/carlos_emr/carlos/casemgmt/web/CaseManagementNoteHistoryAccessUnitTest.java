@@ -50,6 +50,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("101"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
         note = new CaseManagementNote();
         note.setDemographic_no("101");
         when(manager.getNote("501")).thenReturn(note);

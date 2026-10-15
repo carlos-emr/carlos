@@ -63,6 +63,8 @@ import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
+import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -2889,7 +2891,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (loggedInInfo == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE
                 || noteId == null || noteId <= 0
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demono)
-                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)) {
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId.intValue())) {
             return refuseNoteHistory();
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2898,20 +2901,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return refuseNoteHistory();
         }
         CaseManagementNote selectedNote = caseManagementMgr.getNote(noteId.toString());
-        if (selectedNote == null || !demono.equals(selectedNote.getDemographic_no())) {
+        if (selectedNote == null || parseExistingNoteId(selectedNote.getDemographic_no()) == null) {
             return refuseNoteHistory();
         }
+        boolean linkedGroupNote = !demono.equals(selectedNote.getDemographic_no());
 
         // The note text is rendered by showHistory.jsp through the null-safe encoder with
         // line breaks preserved (carlos:forHtmlContentWithBreaks). Splicing "<br/>" into
         // the stored text here forced the view to emit it raw, which made a stored
         // "</p><script>" in a note execute in the history popup.
-        List<CaseManagementNote> history = caseManagementMgr.getHistory(noteId.toString());
-        if (history.stream().anyMatch(note -> !demono.equals(note.getDemographic_no()))) {
+        List<CaseManagementNote> history;
+        if (linkedGroupNote) {
+            history = linkedGroupNoteHistory(loggedInInfo, demographicId.intValue(), noteId, selectedNote);
+        } else {
+            history = caseManagementMgr.getHistory(noteId.toString());
+        }
+        if (history == null || history.stream().anyMatch(note -> note == null
+                || !selectedNote.getDemographic_no().equals(note.getDemographic_no()))) {
             return refuseNoteHistory();
         }
         String programId = (String) request.getSession().getAttribute("case_program_id");
-        if (programId != null && !programId.isEmpty() && !"0".equals(programId)) {
+        if (!linkedGroupNote && programId != null && !programId.isEmpty() && !"0".equals(programId)) {
             // Match the chart's role/program/facility filter. Reject the whole expansion if any
             // row is hidden: a visible row's cumulative text may contain that earlier revision.
             List<CaseManagementNote> visible = caseManagementMgr.filterNotes(loggedInInfo,
@@ -2922,10 +2932,51 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("history", history);
-        request.setAttribute("showStoredNoteHistory", Boolean.TRUE);
+        request.setAttribute("showStoredNoteHistory", !linkedGroupNote);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";
+    }
+
+    /**
+     * GroupNoteLink grants access to one saved revision, not its entire UUID chain.
+     * Match addGroupNotes' current-facility and reporter-role contract: the recipient
+     * need not have access to the owner's full chart or its unrelated program notes.
+     */
+    private List<CaseManagementNote> linkedGroupNoteHistory(LoggedInInfo loggedInInfo, int demographicNo,
+                                                           Long selectedId, CaseManagementNote selected) {
+        if (!Objects.equals(selectedId, selected.getId()) || selectedId > Integer.MAX_VALUE
+                || loggedInInfo.getCurrentFacility() == null
+                || !loggedInInfo.getCurrentFacility().isEnableGroupNotes()) return null;
+        Set<Long> linkedIds = new HashSet<>();
+        for (GroupNoteLink link : SpringUtils.getBean(GroupNoteDao.class).findLinksByDemographic(demographicNo)) {
+            if (link.isActive() && Objects.equals(link.getDemographicNo(), demographicNo)
+                    && link.getNoteId() != null && link.getNoteId() > 0) linkedIds.add(link.getNoteId().longValue());
+        }
+        if (!linkedIds.contains(selectedId)) return null;
+        var roles = SpringUtils.getBean(SecUserRoleDao.class).getUserRoles(loggedInInfo.getLoggedInProviderNo());
+        if (roles == null) return null;
+        RolesManager roleManager = SpringUtils.getBean(RolesManager.class);
+        List<CaseManagementNote> history = StringUtils.isBlank(selected.getUuid())
+                ? List.of(selected) : caseManagementMgr.getHistory(selectedId.toString());
+        List<CaseManagementNote> visible = new ArrayList<>();
+        for (CaseManagementNote note : history) {
+            if (note == null || !Objects.equals(selected.getDemographic_no(), note.getDemographic_no())
+                    || !Objects.equals(selected.getUuid(), note.getUuid())) return null;
+            if (note.getId() == null || note.getId() > selectedId || !linkedIds.contains(note.getId())) continue;
+            Secrole role = roleManager.getRole(note.getReporter_caisi_role());
+            if (role == null || StringUtils.isBlank(role.getRoleName())
+                    || roles.stream().noneMatch(held -> Objects.equals(held.getRoleName(), role.getRoleName()))) {
+                return null;
+            }
+            // Stored cumulative prose may contain unshared revisions. Keep it off the
+            // request-owned view model as well as disabling the JSP's legacy expansion.
+            CaseManagementNote shared = note.copyForRevision();
+            shared.setId(note.getId());
+            shared.setHistory(null);
+            visible.add(shared);
+        }
+        return visible.stream().anyMatch(note -> selectedId.equals(note.getId())) ? visible : null;
     }
 
     /** Refuses history before any clinical text or demographic name is exposed to the view. */

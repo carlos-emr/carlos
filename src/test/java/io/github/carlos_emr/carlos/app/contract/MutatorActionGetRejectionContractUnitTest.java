@@ -384,6 +384,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
+        // Covered by Pregnancy2ActionUnitTest for both GET and HEAD.
+        "io.github.carlos_emr.carlos.commn.web.Pregnancy2Action",
         // Inbox queue admin (#4428): the view methods permit GET; method=addNewQueue inserts a queue
         // and its security object and must be a POST with _edoc write. Covered by
         // DmsInboxManage2ActionUnitTest (shouldReturn405_whenAddNewQueueIsNotPost).
