@@ -28,13 +28,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Prevention notification settings: displays and saves the global notification switch
+    and disabled prevention types used by the appointment day sheet.
+    Parameters: formAction (update/custom), master_radio, onOffN prevention selections.
+    @since 2026-07-07
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.prevention.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@page import="io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.List" %>
@@ -132,11 +137,10 @@
 
         }
 
-//checking if hide stop signs have been set in the database if not then check to see if
-//show stop signs have been turned off in the property file
-        if (getStatus == "" && CarlosProperties.getInstance().getProperty("SHOW_PREVENTION_STOP_SIGNS", "false").equals("false")) {
-            //for users who have SHOW_PREVENTION_STOP_SIGNS disabled
-            getStatus = "master";
+// The day sheet enables notifications unless the stored value is "master".
+// An absent setting must show that same effective state here.
+        if (getStatus == null || getStatus.isEmpty()) {
+            getStatus = "false";
         }
 
 //--------------------------UPDATE START-----------------------------

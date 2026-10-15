@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.admin.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -34,6 +35,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Setup action that renders the Fix Roles on Notes admin utility page.
  * Enforces admin write privilege before forwarding to the JSP.
+ * Allows form reads, but requires POST before dispatching a repair to the mutating view.
  *
  * @since 2026-04-05
  */
@@ -48,6 +50,13 @@ public final class FixRolesOnNotes2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if ("run".equals(request.getParameter("action")) && !"POST".equals(request.getMethod())) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return NONE;
         }
 
         return SUCCESS;

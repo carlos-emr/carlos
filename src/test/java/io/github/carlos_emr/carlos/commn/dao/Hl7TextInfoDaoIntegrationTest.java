@@ -22,18 +22,30 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.Date;
+import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
+import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -143,4 +155,172 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(all).hasSizeGreaterThanOrEqualTo(3);
         }
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"N", "A", "F"})
+    void shouldApplyPatientAndStatusFilters_whenLabsAndDocumentsAreMixed(String status) {
+        var info = createHl7TextInfo("PLR-FILTER-" + status, "QueryFixture", "Filter", "9090909090");
+        info.setLabNumber(9834001);
+        info.setObrDate("2026-09-27 10:00:00");
+        hibernateTemplate.flush();
+        var routing = new io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel();
+        routing.setLabNo(9834001);
+        routing.setLabType("HL7");
+        routing.setProviderNo("999998");
+        routing.setStatus(status);
+        entityManager.persist(routing);
+        entityManager.flush();
+        var results = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "Filter", "",
+                status, false, 0, 100, true, null, true, true, null, null);
+        assertThat(results).hasSize(1);
+        assertThat(((Number) results.get(0)[1]).intValue()).isEqualTo(9834001);
+        assertThat(results.get(0)[14]).isEqualTo(status);
+    }
+
+
+    /**
+     * The Inbox patient search matched a lab through {@code d.hin LIKE :patientHealthNumber}, which
+     * a NULL HIN never satisfies, so a patient without a health card number (uninsured, a
+     * newborn, out of province, an imported record) disappeared from every name search.
+     */
+    @Nested
+    @DisplayName("Inbox patient search with a missing health card number")
+    @Tag("search")
+    class PatientSearchWithoutHealthNumber {
+
+        private static final String PROVIDER = "999998";
+
+        private Integer createDemographic(String lastName, String hin) {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Nohin");
+            demo.setLastName(lastName);
+            demo.setHin(hin);
+            demo.setSex("F");
+            demo.setProviderNo(PROVIDER);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(new Date());
+            demo.setDateJoined(new Date());
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        private void routeLab(int labNo, String healthNo, Integer demographicNo) {
+            Hl7TextInfo info = createHl7TextInfo("NULLHIN-" + labNo, "Nohin", "Fixture", healthNo);
+            info.setLabNumber(labNo);
+            info.setObrDate("2026-09-30 10:00:00");
+            hibernateTemplate.flush();
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(labNo);
+            routing.setLabType("HL7");
+            routing.setProviderNo(PROVIDER);
+            routing.setStatus("N");
+            entityManager.persist(routing);
+            if (demographicNo != null) {
+                entityManager.persist(new PatientLabRouting(labNo, "HL7", demographicNo));
+            }
+            entityManager.flush();
+        }
+
+        private List<Object[]> searchByName(String lastName, String healthNumber, boolean mixLabsAndDocs) {
+            return hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, null, "", lastName, healthNumber,
+                    "N", false, 0, 100, mixLabsAndDocs, null, true, true, null, null);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find a matched lab by name when the patient has no HIN")
+        void shouldFindMatchedLab_whenPatientHinIsNull(boolean mixLabsAndDocs) {
+            Integer demographicNo = createDemographic("Nullhinmatched", null);
+            routeLab(9835001, "9090909090", demographicNo);
+
+            List<Object[]> results = searchByName("Nullhinmatched", "", mixLabsAndDocs);
+
+            assertThat(results).extracting(row -> ((Number) row[1]).intValue()).containsExactly(9835001);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find an unmatched lab by name when the lab carries no health number")
+        void shouldFindUnmatchedLab_whenLabHealthNumberIsNull(boolean mixLabsAndDocs) {
+            routeLab(9835002, null, null);
+
+            List<Object[]> results = searchByName("Fixture", "", mixLabsAndDocs);
+
+            assertThat(results).extracting(row -> ((Number) row[1]).intValue()).contains(9835002);
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should not match a patient without a HIN when a health number is searched")
+        void shouldExcludeNullHinPatient_whenHealthNumberIsSearched(boolean mixLabsAndDocs) {
+            Integer demographicNo = createDemographic("Nullhinsearched", null);
+            routeLab(9835003, null, demographicNo);
+
+            assertThat(searchByName("Nullhinsearched", "12345", mixLabsAndDocs)).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldFindLabWithoutHealthNumber_whenNameSearchLeavesHinBlank() {
+        var info = createHl7TextInfo("PLR-NO-HIN", "QueryFixture", "NoHin", null);
+        info.setLabNumber(9834002);
+        info.setObrDate("2026-09-27 10:00:00");
+        hibernateTemplate.flush();
+        var routing = new io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel();
+        routing.setLabNo(9834002);
+        routing.setLabType("HL7");
+        routing.setProviderNo("999998");
+        routing.setStatus("N");
+        entityManager.persist(routing);
+        entityManager.flush();
+
+        var matches = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "NoHin", "",
+                "N", false, 0, 100, true, null, true, true, null, null);
+        assertThat(matches).hasSize(1);
+        assertThat(((Number) matches.get(0)[1]).intValue()).isEqualTo(9834002);
+        assertThat(hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "QueryFixture", "NoHin", "other-hin",
+                "N", false, 0, 100, true, null, true, true, null, null)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"serviceObservation,true", "serviceObservation,false", "receivedCreated,true", "receivedCreated,false"})
+    void shouldIncludeWholeEndDay_whenInboxHasObservationAndReceivedTimestamps(String mode, boolean mixed) {
+        entityManager.createQuery("delete from SystemPreferences p where p.name = :name")
+                .setParameter("name", "inboxDateSearchType").executeUpdate();
+        entityManager.persist(new SystemPreferences("inboxDateSearchType", mode));
+        List<Integer> expected = new ArrayList<>();
+        List<String> timestamps = List.of("2026-03-02 23:59:59", "2026-03-03", "2026-03-03 00:00:00",
+                "2026-03-05 14:30:00", "2026-03-05 23:59:59", "2026-03-06", "2026-03-06 00:00:00");
+        for (int i = 0; i < timestamps.size(); i++) {
+            String timestamp = timestamps.get(i);
+            // Offset receipt dates so selecting the wrong date column changes the returned lab IDs.
+            int receivedIndex = (i + 3) % timestamps.size();
+            String receivedTimestamp = timestamps.get(receivedIndex);
+            LocalDateTime received = LocalDateTime.parse((receivedTimestamp.length() == 10
+                    ? receivedTimestamp + " 00:00:00" : receivedTimestamp).replace(' ', 'T'));
+            Hl7TextMessage message = new Hl7TextMessage();
+            ReflectionTestUtils.setField(message, "created", Timestamp.valueOf(received));
+            entityManager.persist(message);
+            entityManager.flush();
+            int labNo = message.getId();
+            Hl7TextInfo info = createHl7TextInfo("DATE-BOUNDARY-" + labNo, "Boundary", "Endday", "");
+            info.setLabNumber(labNo);
+            info.setObrDate(timestamp);
+            hibernateTemplate.flush();
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(labNo);
+            routing.setLabType("HL7");
+            routing.setProviderNo("999998");
+            routing.setStatus("N");
+            entityManager.persist(routing);
+            int filteredIndex = "serviceObservation".equals(mode) ? i : receivedIndex;
+            if (filteredIndex >= 1 && filteredIndex <= 4) expected.add(labNo);
+        }
+        entityManager.flush();
+        var rows = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "Boundary", "Endday", "",
+                "N", false, 0, 100, mixed, null, true, true,
+                java.sql.Date.valueOf("2026-03-03"), java.sql.Date.valueOf("2026-03-05"));
+        assertThat(rows).extracting(row -> ((Number) row[1]).intValue()).containsExactlyInAnyOrderElementsOf(expected);
+    }
+
 }

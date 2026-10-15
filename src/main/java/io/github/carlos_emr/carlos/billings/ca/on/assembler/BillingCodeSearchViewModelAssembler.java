@@ -96,16 +96,9 @@ public class BillingCodeSearchViewModelAssembler {
         return finalize(rows, nameF);
     }
 
-    /**
-     * Validate the {@code nameF} request parameter against the legacy
-     * {@code [a-zA-Z_][a-zA-Z0-9_.]*} JS-identifier-path pattern. Returns
-     * the input when it matches, empty string otherwise. Never returns null.
-     */
+    /** Validates the legacy path or the indexed service-code field sent by billing forms. */
     private static String validateNameF(String raw) {
-        if (raw == null) {
-            return "";
-        }
-        return raw.matches("[a-zA-Z_][a-zA-Z0-9_.]*") ? raw : "";
+        return BillingCodeAttachmentTarget.validate(raw);
     }
 
     /**

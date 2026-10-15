@@ -1,15 +1,27 @@
 # Legacy Test Framework Reference
 
+> **HISTORICAL DOCUMENT.** The JUnit 4 suite described here has been removed. All tests
+> now live in the single JUnit Jupiter suite under `src/test/`. Kept for pre-migration
+> context only — do not follow its guidance for new work. See
+> [`README.md`](README.md) for the current framework.
+
 ## Overview
 
-This document describes the existing legacy test suite that continues to run alongside the modern JUnit 5 tests. These tests remain functional and provide critical coverage while new development uses the modern framework.
+Before the migration, CARLOS carried two test suites side by side: the inherited JUnit 4
+suite (with some JUnit 3 `junit.framework` usage) under `src/test/`, and the modern JUnit 5
+suite that started life under `src/test-modern/`. The JUnit 4 suite has since been retired
+and `src/test-modern/` was collapsed into `src/test/`, so everything below describes a
+state that no longer exists in the repository. Recover the old sources from git history if
+you need them.
 
-**Status**: Active and maintained
-**Framework**: JUnit 4
+**Status at retirement**: removed; no JUnit 4 tests remain
+**Framework**: JUnit 4 (with some JUnit 3)
 **Test Count**: ~374 test files
-**Location**: `/workspace/src/test/`
+**Location**: `src/test/` (the same tree the JUnit 5 suite now owns)
 
 ## Legacy Test Structure
+
+The retired suite was organized by module rather than by test type:
 
 ```
 src/test/
@@ -48,14 +60,13 @@ src/test/
     ├── labs/                           # Lab test data
     ├── e2e/                            # End-to-end test resources
     └── [various test data files]       # .zip, .sql, template files
-
 ```
 
 ## Test Framework Details
 
 ### JUnit 4 Configuration
 
-The legacy tests use JUnit 4 with the following patterns:
+The legacy tests used JUnit 4 annotations and assertions:
 
 ```java
 import org.junit.Test;
@@ -79,83 +90,88 @@ public class SomeDaoTest extends DaoTestFixtures {
 ### Base Test Classes
 
 #### DaoTestFixtures
-Located at `io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures`, this base class provides:
+
+`io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures` was the shared base class. It
+provided:
+
 - Database connection setup via `@BeforeClass` static initialization
 - Spring context initialization from `applicationContextTest.xml`
-- LoggedInInfo for authentication context
-- Note: Uses mix of JUnit 3 (junit.framework) and JUnit 4 (@BeforeClass) imports
+- `LoggedInInfo` for authentication context
+- A mix of JUnit 3 (`junit.framework`) and JUnit 4 (`@BeforeClass`) imports
+
+Its modern replacement is the `CarlosTestBase` family (see [`README.md`](README.md)).
 
 #### Test Utilities
 
-Located in `io.github.carlos_emr.carlos.commn.dao.utils`:
+`io.github.carlos_emr.carlos.commn.dao.utils` held the shared helpers:
 
-- **EntityDataGenerator**: Creates test entities with valid data
-- **DataUtils**: Common data manipulation utilities
-- **AuthUtils**: Authentication/authorization test helpers
-- **ConfigUtils**: Test configuration management (loads over_ride_config.properties)
+- **EntityDataGenerator**: created test entities with valid data
+- **DataUtils**: common data manipulation utilities
+- **AuthUtils**: authentication/authorization test helpers
+- **ConfigUtils**: test configuration management (loaded `over_ride_config.properties`)
 
-## Running Legacy Tests
+These four helpers survived the migration unchanged and still live at
+`src/test/java/io/github/carlos_emr/carlos/commn/dao/utils/`. The current JUnit 5 suite
+imports `io.github.carlos_emr.carlos.commn.dao.utils.*` extensively, so they are live,
+reusable test infrastructure rather than legacy leftovers; only the JUnit 4 tests that
+originally consumed them are gone.
 
-### Run All Legacy Tests
-```bash
-# Default Maven test execution runs both modern and legacy
-mvn test
+## How the Legacy Suite Ran
 
-# Note: Legacy tests run AFTER modern tests complete
-# Expected time: 5-15 minutes depending on database and system performance
-```
+A plain `mvn test` ran both suites, modern tests first and then the JUnit 4 tests, and the
+build failed if either had failures. The legacy portion took roughly 5-15 minutes because it
+needed a real MariaDB/MySQL instance rather than the in-memory H2 database the modern suite
+uses. Individual classes were selected with `-Dtest=AllergyDaoTest` or package/glob patterns
+such as `-Dtest=*DaoTest`.
 
-### Run Specific Legacy Tests
-```bash
-# Run a specific test class
-mvn test -Dtest=AllergyDaoTest
-
-# Run all tests in a package
-mvn test -Dtest=io.github.carlos_emr.carlos.commn.dao.*
-
-# Run tests matching a pattern
-mvn test -Dtest=*DaoTest
-```
+Today `mvn test` runs only the JUnit 5 suite; see [`README.md`](README.md) for the current
+commands and tag-based filtering.
 
 ## Test Categories
 
 ### DAO Tests (~200 files)
+
 The largest category, testing data access objects:
+
 - Located in `*/dao/` directories
-- Test database operations (CRUD)
-- Use real database connections (not in-memory)
-- Extend `DaoTestFixtures`
+- Tested database operations (CRUD)
+- Used real database connections (not in-memory)
+- Extended `DaoTestFixtures`
 
 ### Web/Controller Tests
-Testing Struts actions and web layer:
+
+Tested Struts actions and the web layer:
+
 - Located in `*/web/` directories
-- Test request/response handling
-- Often mock service layers
+- Tested request/response handling
+- Often mocked service layers
 
 ### Module-Specific Tests
 
 #### PMmodule (Program Management)
+
 - Program, Vacancy, Waitlist management
 - Criteria and selection options
 - Security role tests
 
 #### Billing Tests
+
 Province-specific billing functionality:
+
 - **BC**: Teleplan integration, MSP billing
 - **ON**: OHIP billing, claims processing
 
 #### Clinical Module Tests
+
 - **casemgmt**: Case management workflow
 - **prevention**: Immunization tracking
 - **measurement**: Vital signs, lab values
 - **hl7**: Message parsing and processing
 
-## Known Issues and Limitations
-
-### Current Challenges
+## Known Issues That Motivated the Migration
 
 1. **Database Dependencies**
-   - Tests require actual database instance
+   - Tests required an actual database instance
    - Slower execution compared to in-memory tests
    - Potential for test pollution
 
@@ -165,13 +181,14 @@ Province-specific billing functionality:
    - Memory intensive
 
 3. **Test Isolation**
-   - Some tests may not properly clean up
-   - Order-dependent test failures possible
-   - Database state persistence between tests
+   - Some tests did not properly clean up
+   - Order-dependent test failures were possible
+   - Database state persisted between tests
 
-### Excluded Tests
+### Tests That Were Excluded
 
-The following tests are excluded from regular Maven test runs via Surefire plugin configuration:
+Several legacy tests were compiled but excluded from regular Maven runs through the Surefire
+plugin configuration:
 
 - **HinValidatorTest** - Health Insurance Number validation
 - **MCEDT Tests** (`**/*EDTTest.java`) - Medical Claims Electronic Data Transfer
@@ -179,67 +196,33 @@ The following tests are excluded from regular Maven test runs via Surefire plugi
 - **OntarioMDSpec4DataTest** - Ontario MD specification tests
 - **E2E Tests** (`org/oscarehr/e2e/**/*.java`) - End-to-end tests
 
-These tests are compiled but not executed during normal `mvn test` runs. They can be run explicitly when needed.
-See `/workspace/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md` for full details.
+These exclusions were retired together with the suite.
 
-## Maintenance Guidelines
+## Comparison with the Modern Suite
 
-### When Working with Legacy Tests
-
-1. **Don't Migrate Unless Necessary**
-   - Keep working tests as-is
-   - Only migrate when tests need significant changes
-
-2. **Follow Existing Patterns**
-   - Use JUnit 4 annotations
-   - Extend appropriate base classes
-   - Use established utilities
-
-3. **Database Considerations**
-   - Always clean up test data
-   - Use transactions where possible
-   - Be aware of shared database state
-
-## Comparison with Modern Tests
-
-| Aspect | Legacy Tests (JUnit 4) | Modern Tests (JUnit 5) |
-|--------|------------------------|------------------------|
+| Aspect | Legacy Tests (JUnit 4, removed) | Modern Tests (JUnit 5, current) |
+|--------|----------------------------------|----------------------------------|
 | **Framework** | JUnit 4 (with some JUnit 3) | JUnit 5 (Jupiter) |
-| **Location** | `/src/test/` | `/src/test-modern/` |
-| **Test Count** | ~374 test files | 23 tests |
+| **Location** | `src/test/` | `src/test/` |
 | **Database** | Real MariaDB/MySQL | H2 in-memory |
-| **Execution Speed** | 5-15 minutes | < 4 seconds |
+| **Execution Speed** | 5-15 minutes | Seconds for unit tests |
 | **Assertions** | JUnit assert methods | AssertJ fluent |
 | **Organization** | Package/class hierarchy | @Nested classes + files |
 | **Naming** | testMethodName() | shouldAction_whenCondition() |
 | **Spring Context** | Full applicationContextTest.xml | Optimized test contexts |
 | **Base Classes** | DaoTestFixtures | CarlosTestBase family |
 
-## Test Execution in CI/CD
+## Working With Tests Today
 
-Both test suites run automatically:
-1. Modern tests execute first (JUnit 5)
-2. Legacy tests execute second (JUnit 4)
-3. Build fails if either suite has failures
-
-## Future Considerations
-
-While the legacy tests continue to provide value:
-- New tests should use the modern framework
-- Legacy tests remain until explicitly migrated
-- No timeline for forced migration
-- Both frameworks coexist indefinitely
-
-## Support
-
-For legacy test issues:
-1. Check test logs in `target/surefire-reports/`
-2. Verify database connectivity
-3. Review Spring context configuration
-4. Consult existing similar tests for patterns
+- New tests use the JUnit 5 framework and conventions: start with
+  [`modern-test-framework-guide.md`](modern-test-framework-guide.md), then
+  [`test-writing-guide.md`](test-writing-guide.md) for context configuration patterns.
+- Do not add JUnit 4 annotations, `DaoTestFixtures`, or `junit.framework` imports; the
+  dependencies and base classes are gone.
+- Test logs are still written to `target/surefire-reports/`.
 
 ---
 
-*Last Updated: January 2026*
-*Version: 1.0*
-*Status: Active*
+*Last Updated: September 2026*
+*Version: 2.0*
+*Status: Historical (JUnit 4 suite removed)*

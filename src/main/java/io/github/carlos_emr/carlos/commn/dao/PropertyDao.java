@@ -38,6 +38,14 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 public interface PropertyDao extends AbstractDao<Property> {
     List<Property> findByName(String name);
 
+    /**
+     * Reads current rows under a write lock, refreshing already managed instances.
+     * Callers must hold a coordination lock when absence permits insertion.
+     * @param name exact property key
+     * @return all current rows with this name
+     */
+    List<Property> findByNameForUpdate(String name);
+
     List<Property> findGlobalByName(String name);
 
     List<Property> findGlobalByName(Property.PROPERTY_KEY propertyName);

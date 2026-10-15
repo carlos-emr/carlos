@@ -41,7 +41,8 @@ public class PathNetLabResults {
     private Hl7Obr hl7Obr;
     private ProviderLabRoutingModel providerLabRouting;
     private PatientLabRouting patientLabRouting;
-    private Long minResultStatus;
+    // MIN(obr.resultStatus) remains a textual HL7 status, such as F or P.
+    private String minResultStatus;
 
     public PathNetLabResults(Hl7Msh hl7Msh, Hl7Pid hl7Pid, Hl7Orc hl7Orc, Hl7Obr hl7Obr, ProviderLabRoutingModel providerLabRouting, String minResultStatus) {
         this.hl7Msh = hl7Msh;
@@ -49,7 +50,7 @@ public class PathNetLabResults {
         this.hl7Orc = hl7Orc;
         this.hl7Obr = hl7Obr;
         this.providerLabRouting = providerLabRouting;
-        this.minResultStatus = Long.valueOf(minResultStatus);
+        this.minResultStatus = minResultStatus;
     }
 
     public PathNetLabResults(Hl7Msh hl7Msh, Hl7Pid hl7Pid, Hl7Orc hl7Orc, Hl7Obr hl7Obr, PatientLabRouting patientLabRouting, String minResultStatus) {
@@ -58,7 +59,7 @@ public class PathNetLabResults {
         this.hl7Orc = hl7Orc;
         this.hl7Obr = hl7Obr;
         this.patientLabRouting = patientLabRouting;
-        this.minResultStatus = Long.valueOf(minResultStatus);
+        this.minResultStatus = minResultStatus;
     }
 
     public Hl7Msh getHl7Msh() {
@@ -109,11 +110,11 @@ public class PathNetLabResults {
         this.patientLabRouting = patientLabRouting;
     }
 
-    public Long getMinResultStatus() {
+    public String getMinResultStatus() {
         return minResultStatus;
     }
 
-    public void setMinResultStatus(Long minResultStatus) {
+    public void setMinResultStatus(String minResultStatus) {
         this.minResultStatus = minResultStatus;
     }
 }

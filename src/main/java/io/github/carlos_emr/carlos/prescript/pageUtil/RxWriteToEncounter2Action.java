@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -88,7 +90,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession(false);
-        rxSessionBean = session == null ? null : (RxSessionBean) session.getAttribute("RxSessionBean");
+        // Writes clinical text to a chart: only the bean of the patient the request explicitly names,
+        // never the active-patient fallback (#3875). ViewScript2.jsp posts demographicNo.
+        rxSessionBean = session == null ? null : RxSessionBeanResolver.resolveForWrite(request);
         if (rxSessionBean == null) {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }
@@ -99,9 +103,9 @@ public class RxWriteToEncounter2Action extends ActionSupport {
                 || !demographicNo.equals(request.getParameter("expectedDemographicNo"))) {
             return rejectBeforeWrite(HttpServletResponse.SC_CONFLICT);
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicNo)) {
-            throw new SecurityException("missing required sec object (_rx)");
-        }
+        // Patient-level _rx write AND access to this patient's record (the shared Rx write check).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                rxSessionBean.getDemographicNo(), "_rx", SecurityInfoManager.WRITE);
         String programNo = new EctProgram(session).getProgram(session.getAttribute("user").toString());
 
 
@@ -193,7 +197,7 @@ public class RxWriteToEncounter2Action extends ActionSupport {
         String role;
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
-        } catch (Exception e) {
+        } catch (Exception _) {
             role = "0";
         }
         note.setReporter_caisi_role(role);

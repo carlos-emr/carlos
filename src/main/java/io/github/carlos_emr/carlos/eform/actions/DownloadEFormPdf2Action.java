@@ -34,11 +34,13 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormSavedRenderResponse;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -152,7 +154,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             // this is an ordinary outcome, not a failure of the eForm. Reporting it as "could not
             // be downloaded" sent the clinician looking for a problem with the document.
             // Fax2Action and DocumentPreview2Action already say this; say it here too.
-            logger.info("eForm download approval expired or did not match: fdid={}", fdidValue);
+            logger.info("eForm download approval expired or did not match: fdid={}", LogSafe.sanitizeObject(fdidValue));
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, APPROVAL_EXPIRED_MESSAGE_KEY, APPROVAL_EXPIRED_MESSAGE_FALLBACK));
@@ -182,17 +184,16 @@ public class DownloadEFormPdf2Action extends ActionSupport {
             request.setAttribute("fdid", fdid);
             return "download";
         } catch (EformContentUnavailableException e) {
-            // Still incomplete, either because no approval was supplied or because this render
-            // reported a different issue set than the one approved — the digest binds to the exact
-            // set, so a changed document cannot ride an older ticket.
-            logger.warn("Approved eForm download still incomplete: fdid={} issues={}",
-                    fdidValue, e.getIssueCount());
-            request.setAttribute("error", "true");
-            request.setAttribute("errorMessage", message(
-                    request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
-            return "error";
+            return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
+                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
+                    approval, "true".equals(request.getParameter("autoClose")));
         } catch (PDFGenerationException e) {
-            logger.error("eForm download render failed: fdid={} type={}", fdidValue, e.getClass().getName());
+            if (e.isRetryable()) {
+                return EFormSavedRenderResponse.busy(request, response, renderApprovalService, loggedInInfo,
+                        fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.DOWNLOAD,
+                        approval, "true".equals(request.getParameter("autoClose")));
+            }
+            logger.error("eForm download render failed: fdid={} type={}", LogSafe.sanitizeObject(fdidValue), e.getClass().getName());
             request.setAttribute("error", "true");
             request.setAttribute("errorMessage", message(
                     request, PDF_DOWNLOAD_FAILURE_MESSAGE_KEY, PDF_DOWNLOAD_FAILURE_MESSAGE_FALLBACK));
@@ -214,7 +215,7 @@ public class DownloadEFormPdf2Action extends ActionSupport {
         try {
             java.nio.file.Files.deleteIfExists(rendered.path());
         } catch (java.io.IOException e) {
-            logger.warn("Could not delete the temporary eForm download render: fdid={}", fdidValue);
+            logger.warn("Could not delete the temporary eForm download render: fdid={}", LogSafe.sanitizeObject(fdidValue));
         }
     }
 

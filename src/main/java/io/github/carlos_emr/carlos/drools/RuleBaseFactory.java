@@ -57,6 +57,9 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
  *       (a SHA-256 hash of the DRL text ensures uniqueness with a compact key)</li>
  *   <li>{@code DSGuidelineDrools}: Key is the guideline's {@code ruleBaseFactoryKey}
  *       (a compact identifier derived from the guideline's JPA ID or title)</li>
+ *   <li>{@code MeasurementFlowSheet}: Key is {@code "MeasurementFlowSheet:" + sha256(drlFileText)}
+ *       for a flowsheet's {@code ds_rules} file, so flowsheets sharing a file compile it once and
+ *       an edited file gets a new entry</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>

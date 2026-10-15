@@ -23,6 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,12 +54,13 @@ class HtmlTeleplanHelperUnitTest {
                 "",
                 "");
 
-        assertThat(html).contains("adjustBill.jsp?billingmaster_no=1%262%3D3%234");
-        assertThat(html).contains(SafeEncode.forHtmlContent("<b>Patient</b>"));
-        assertThat(html).contains(SafeEncode.forHtmlContent("123&456"));
-        assertThat(html).doesNotContain("adjustBill.jsp?billingmaster_no=1&2=3#4");
-        assertThat(html).doesNotContain("<b>Patient</b>");
-        assertThat(html).doesNotContain(">123&456<");
+        assertThat(html)
+                .contains("openBrWindow('reprocessBill?billingmaster_no=1%262%3D3%234")
+                .contains(SafeEncode.forHtmlContent("<b>Patient</b>"))
+                .contains(SafeEncode.forHtmlContent("123&456"))
+                .doesNotContain("reprocessBill?billingmaster_no=1&2=3#4")
+                .doesNotContain("<b>Patient</b>")
+                .doesNotContain(">123&456<");
     }
 
     @Test
@@ -76,5 +84,106 @@ class HtmlTeleplanHelperUnitTest {
                 .contains(errorHtml)
                 .contains(warningHtml)
                 .doesNotContain("<td colspan='11' class='bodytext'><tr");
+    }
+
+    @Test
+    void shouldEncodeWcbRowAndLink_whenRenderingWcbClaim() {
+        String html = HtmlTeleplanHelper.wcbHtmlLine("1');alert(1);//", "INV", "<img src=x>", "<b>1</b>",
+                "20260612", "19950", "10.00", "250", "", "");
+
+        assertThat(html)
+                .contains("openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=")
+                .contains(SafeEncode.forHtmlContent("<img src=x>"))
+                .doesNotContain("');alert(1)")
+                .doesNotContain("<img")
+                .doesNotContain("<b>");
+    }
+
+    @Test
+    void shouldReturnEmpty_whenErrorRowHasNoMessage() {
+        assertThat(HtmlTeleplanHelper.adjustBillErrorRow("42", "")).isEmpty();
+        assertThat(HtmlTeleplanHelper.wcbCorrectionErrorRow("42", null)).isEmpty();
+    }
+
+    @Test
+    void shouldEncodeMessageAndId_whenRenderingCorrectionErrorRows() {
+        String adjust = HtmlTeleplanHelper.adjustBillErrorRow("1\"onmouseover=\"x", ": bad <b>");
+        String wcb = HtmlTeleplanHelper.wcbCorrectionErrorRow("7", ": bad <b>");
+
+        assertThat(adjust)
+                .contains("reprocessBill?billingmaster_no=")
+                .contains(SafeEncode.forHtmlContent(": bad <b>"))
+                .doesNotContain("\"onmouseover")
+                .doesNotContain("<b>");
+        assertThat(wcb)
+                .contains("billingTeleplanCorrectionWCB.jsp?billing_no=0000007")
+                .doesNotContain("<b>");
+    }
+
+    @Test
+    void shouldEncodeProviderAndCount_whenRenderingFooter() {
+        String footer = HtmlTeleplanHelper.htmlFooter("<b>P</b>", "<i>3</i>", java.math.BigDecimal.TEN);
+
+        assertThat(footer)
+                .contains(SafeEncode.forHtmlContent("<b>P</b>"))
+                .contains(SafeEncode.forHtmlContent("<i>3</i>"))
+                .contains("TOTAL: 10")
+                .doesNotContain("<b>")
+                .doesNotContain("<i>");
+        assertThat(HtmlTeleplanHelper.htmlFooter("P", 3, java.math.BigDecimal.ONE)).contains("Billing No: P: 3 RECORDS");
+    }
+
+    @Test
+    void shouldBlankPatientColumnsAndEncodeValues_whenRenderingContinuationRow() {
+        String html = HtmlTeleplanHelper.continuationLine("42", "<u>01</u>", "<s>1</s>", "<a>", null, "");
+
+        assertThat(html)
+                .startsWith("<tr><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td><td class='bodytext'></td>")
+                .contains(SafeEncode.forHtmlContent("<u>01</u>"))
+                .contains("<td class='bodytext'>0000042</td>")
+                .doesNotContain("<u>")
+                .doesNotContain("<s>")
+                .doesNotContain("<a>");
+        assertThat(html.split("<td", -1)).hasSize(12);
+    }
+
+    /**
+     * The adjust bill page lives under WEB-INF since #1632, so a generated {@code adjustBill.jsp}
+     * link 404s. Teleplan reports, WCB checks and billing checks must link to the action route,
+     * which opens the page for a GET with {@code billingmaster_no} (#4343).
+     */
+    @Test
+    @DisplayName("should link generated billing reports to the reprocessBill route, never to adjustBill.jsp")
+    void shouldLinkToReprocessBillRoute_inEveryGeneratedReportLink() throws IOException {
+        Path sources = projectPath("src/main/java/io/github/carlos_emr/carlos/billings");
+        List<String> stale;
+        try (Stream<Path> files = Files.walk(sources)) {
+            stale = files.filter(file -> file.toString().endsWith(".java"))
+                    // a built link ("adjustBill.jsp?...") or a page constant ("adjustBill.jsp")
+                    .filter(file -> read(file).contains("adjustBill.jsp?") || read(file).contains("\"adjustBill.jsp"))
+                    .map(file -> sources.relativize(file).toString())
+                    .toList();
+        }
+
+        assertThat(stale).as("Java sources that still link to adjustBill.jsp").isEmpty();
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException(file.toString(), e);
+        }
+    }
+
+    private static Path projectPath(String relative) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).toAbsolutePath();
+        for (int up = 0; current != null && up < 6; up++, current = current.getParent()) {
+            Path candidate = current.resolve(relative);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to locate " + relative);
     }
 }

@@ -29,6 +29,7 @@ for (const launchFails of [false, true]) {
           return { throwIfCancelled() { events.push('check'); }, dispose() { events.push('dispose'); } };
         } };
         if (name === './local-fixture-cleanup') return {};
+        if (name === './lib/demo-timestamp-restore') return {};
         if (name === './browser-error-class') return require(name);
         throw new Error('unexpected dependency');
       },
@@ -41,3 +42,43 @@ for (const launchFails of [false, true]) {
     assert.equal(events.includes('close'), !launchFails);
   });
 }
+
+const reprintHelper = source.slice(source.indexOf('async function postReprintSession('),
+  source.indexOf('async function checkEmptyPrescriptionPrint('));
+for (const status of [200, 409]) {
+  test(`signature reprint setup binds its configured patient and preserves CSRF for HTTP ${status}`, async () => {
+    const requests = [];
+    const context = {
+      prescriptionScriptId: '45', prescriptionDemographicNo: '42', URLSearchParams,
+      document: { querySelector() { return { value: 'fixture-csrf-token' }; } },
+      window: { location: { pathname: '/carlos/rx/choosePatient', search: '?demographicNo=99' } },
+      async fetch(url, options) { requests.push({ url, options }); return { status }; },
+    };
+    vm.runInNewContext(reprintHelper, context);
+    const page = { async evaluate(body, parameters) { return body(parameters); } };
+    if (status === 200) await context.postReprintSession(page);
+    else await assert.rejects(context.postReprintSession(page), /HTTP 409/);
+    assert.equal(requests.length, 1);
+    const { url, options } = requests[0];
+    assert.equal(url, '/carlos/rx/rePrescribe2?method=reprint2');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.body.get('scriptNo'), '45');
+    assert.equal(options.body.get('demographicNo'), '42');
+    assert.equal(options.body.get('CSRF-TOKEN'), 'fixture-csrf-token');
+    assert.equal(options.headers['CSRF-TOKEN'], 'fixture-csrf-token');
+  });
+}
+
+test('the demo prescription audit write-back is attempted on its own, so a failed signature delete cannot skip it', () => {
+  const finallyBlock = source.slice(source.indexOf('  } finally {\n    if (associationCleared || uploadedSignatureId) {'),
+    source.indexOf('    await page.close();\n  }\n}\n\n(async () => {'));
+  assert.ok(finallyBlock.includes('deleteOwnedPrescriptionSignature(') && finallyBlock.includes('demoAudit.restore('));
+  // The part of the cleanup that can throw on the signature delete, up to its catch.
+  const deleteTry = finallyBlock.slice(finallyBlock.indexOf('try {'), finallyBlock.indexOf('} catch (error) {'));
+  assert.ok(deleteTry.includes('deleteOwnedPrescriptionSignature('));
+  assert.ok(!deleteTry.includes('demoAudit.restore('), 'the write-back may not share a try with the delete');
+  assert.match(finallyBlock, /if \(auditBefore\) \{\n\s+try \{\n\s+demoAudit\.restore\(auditSql, auditBefore\);/,
+    'the write-back has a try of its own');
+  assert.match(finallyBlock, /prescription-signature:audit-restore/, 'its failure is reported as a finding that fails the run');
+});

@@ -58,7 +58,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="encounter.formAlpha.title"/></title>
         <link rel="stylesheet" type="text/css" href="alphaStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <%

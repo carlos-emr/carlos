@@ -58,50 +58,45 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public interface VacancyTemplateManager {
-    static VacancyTemplateDao vacancyTemplateDAO = SpringUtils.getBean(VacancyTemplateDao.class);
-    static CriteriaDao criteriaDAO = SpringUtils.getBean(CriteriaDao.class);
-    static CriteriaTypeDao criteriaTypeDAO = SpringUtils.getBean(CriteriaTypeDao.class);
-    static CriteriaTypeOptionDao criteriaTypeOptionDAO = SpringUtils.getBean(CriteriaTypeOptionDao.class);
-    static CriteriaSelectionOptionDao criteriaSelectionOptionDAO = SpringUtils.getBean(CriteriaSelectionOptionDao.class);
-    static ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
-    static VacancyDao vacancyDAO = SpringUtils.getBean(VacancyDao.class);
+    // Resolve DAOs from the active context at each operation. Interface fields are
+    // implicitly static final and otherwise retain beans from an obsolete context.
 
     public static List<Program> getPrograms(Integer facilityId) {
-        return programDao.getProgramsByFacilityId(facilityId);
+        return SpringUtils.getBean(ProgramDao.class).getProgramsByFacilityId(facilityId);
     }
 
     public static List<VacancyTemplate> getVacancyTemplateByWlProgramId(Integer wlProgramId) {
-        List<VacancyTemplate> results = vacancyTemplateDAO.getVacancyTemplateByWlProgramId(wlProgramId);
+        List<VacancyTemplate> results = SpringUtils.getBean(VacancyTemplateDao.class).getVacancyTemplateByWlProgramId(wlProgramId);
         return (results);
     }
 
     public static List<Vacancy> getVacanciesByWlProgramId(Integer wlProgramId) {
-        List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramId(wlProgramId);
+        List<Vacancy> results = SpringUtils.getBean(VacancyDao.class).getVacanciesByWlProgramId(wlProgramId);
         return (results);
     }
 
     public static List<Vacancy> getVacanciesByWlProgramIdAndStatus(Integer wlProgramId, String status) {
-        List<Vacancy> results = vacancyDAO.getVacanciesByWlProgramIdAndStatus(wlProgramId, status);
+        List<Vacancy> results = SpringUtils.getBean(VacancyDao.class).getVacanciesByWlProgramIdAndStatus(wlProgramId, status);
         return (results);
     }
 
     public static List<CriteriaTypeOption> getCriteriaTypeOptions(Integer typeId) {
-        List<CriteriaTypeOption> results = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
+        List<CriteriaTypeOption> results = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByTypeId(typeId);
         return (results);
     }
 
     public static List<CriteriaTypeOption> getAllCriteriaTypeOptions() {
-        List<CriteriaTypeOption> results = criteriaTypeOptionDAO.findAll();
+        List<CriteriaTypeOption> results = SpringUtils.getBean(CriteriaTypeOptionDao.class).findAll();
         return (results);
     }
 
     public static VacancyTemplate getVacancyTemplateByTemplateId(Integer templateId) {
-        VacancyTemplate vacancyTemplate = vacancyTemplateDAO.find(templateId);
+        VacancyTemplate vacancyTemplate = SpringUtils.getBean(VacancyTemplateDao.class).find(templateId);
         return (vacancyTemplate);
     }
 
     public static Criteria getCriteriaByCriteriaId(Integer id) {
-        Criteria c = criteriaDAO.find(id);
+        Criteria c = SpringUtils.getBean(CriteriaDao.class).find(id);
         return (c);
     }
 
@@ -112,41 +107,41 @@ public interface VacancyTemplateManager {
         if (vacancyId == null && typeId == null)
             return null;
         if (vacancyId != null && typeId != null)
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(null, vacancyId, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(null, vacancyId, typeId);
         else if (templateId != null && typeId != null)
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(templateId, null, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(templateId, null, typeId);
         else
-            return criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(templateId, vacancyId, typeId);
+            return SpringUtils.getBean(CriteriaDao.class).getCriteriaByTemplateIdVacancyIdTypeId(templateId, vacancyId, typeId);
     }
 
     public static List<CriteriaType> getAllCriteriaTypes() {
-        return criteriaTypeDAO.getAllCriteriaTypes();
+        return SpringUtils.getBean(CriteriaTypeDao.class).getAllCriteriaTypes();
     }
 
     public static List<CriteriaType> getAllCriteriaTypesByWlProgramId(Integer programId) {
-        return criteriaTypeDAO.getAllCriteriaTypesByWlProgramId(programId);
+        return SpringUtils.getBean(CriteriaTypeDao.class).getAllCriteriaTypesByWlProgramId(programId);
     }
 
     public static List<Criteria> getRefinedCriteriasByVacancyId(Integer vacancyId) {
-        return criteriaDAO.getRefinedCriteriasByVacancyId(vacancyId);
+        return SpringUtils.getBean(CriteriaDao.class).getRefinedCriteriasByVacancyId(vacancyId);
     }
 
     public static List<Criteria> getCriteriasByVacancyId(Integer vacancyId) {
-        return criteriaDAO.getCriteriasByVacancyId(vacancyId);
+        return SpringUtils.getBean(CriteriaDao.class).getCriteriasByVacancyId(vacancyId);
     }
 
     public static List<Criteria> getRefinedCriteriasByTemplateId(Integer templateId) {
-        return criteriaDAO.getRefinedCriteriasByTemplateId(templateId);
+        return SpringUtils.getBean(CriteriaDao.class).getRefinedCriteriasByTemplateId(templateId);
     }
 
     public static List<VacancyTemplate> getActiveVacancyTemplatesByWlProgramId(Integer programId) {
         if (programId == null)
             return null;
-        return vacancyTemplateDAO.getActiveVacancyTemplatesByWlProgramId(programId);
+        return SpringUtils.getBean(VacancyTemplateDao.class).getActiveVacancyTemplatesByWlProgramId(programId);
     }
 
     public static CriteriaType getCriteriaTypeById(Integer id) {
-        return criteriaTypeDAO.find(id);
+        return SpringUtils.getBean(CriteriaTypeDao.class).find(id);
     }
 
     /**
@@ -159,15 +154,15 @@ public interface VacancyTemplateManager {
     }
 
     public static Vacancy getVacancyById(Integer id) {
-        return vacancyDAO.find(id);
+        return SpringUtils.getBean(VacancyDao.class).find(id);
     }
 
     public static Vacancy getVacancyByName(String vacancyName) {
-        List<Vacancy> v = vacancyDAO.getVacanciesByName(vacancyName);
+        List<Vacancy> v = SpringUtils.getBean(VacancyDao.class).getVacanciesByName(vacancyName);
         if (v.isEmpty())
             return null;
         else
-            return vacancyDAO.getVacanciesByName(vacancyName).get(0);
+            return SpringUtils.getBean(VacancyDao.class).getVacanciesByName(vacancyName).get(0);
     }
 
     /**
@@ -193,20 +188,20 @@ public interface VacancyTemplateManager {
             //getCanBeAdhoc=0:never, 1:mandatory and not changeable 2: optional
             required = (criteria.getCanBeAdhoc() == 1 ? "disabled" : "");
 
-            selectedOptions = criteriaSelectionOptionDAO.getCriteriaSelectedOptionsByCriteriaId(criteria.getId());
+            selectedOptions = SpringUtils.getBean(CriteriaSelectionOptionDao.class).getCriteriaSelectedOptionsByCriteriaId(criteria.getId());
         }
         if (vacancyId != null)
             required = "disabled";  //disabled all fields when view vacancy.
 
         //get type
-        CriteriaType ctype = criteriaTypeDAO.find(typeId);
+        CriteriaType ctype = SpringUtils.getBean(CriteriaTypeDao.class).find(typeId);
         String type = ctype.getFieldName();
         String fieldKey = criteriaFieldKey(type);
         String attrFieldKey = SafeEncode.forHtmlAttribute(fieldKey);
         String htmlType = SafeEncode.forHtmlContent(type);
         String jsType = SafeEncode.forJavaScriptAttribute(type);
         String jsFieldKey = SafeEncode.forJavaScript(fieldKey);
-        List<CriteriaTypeOption> options = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
+        List<CriteriaTypeOption> options = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByTypeId(typeId);
 
         StringBuilder sb = new StringBuilder();
 
@@ -407,10 +402,10 @@ public interface VacancyTemplateManager {
             for (CriteriaSelectionOption cso : selectedOptions) {
                 //criteria_type_option's value is unique?
                 //value in criteria_selection_option is the same value in criteria_type_option?
-                CriteriaTypeOption option2 = criteriaTypeOptionDAO.getByValueAndTypeId(cso.getOptionValue(), ctype.getId());
+                CriteriaTypeOption option2 = SpringUtils.getBean(CriteriaTypeOptionDao.class).getByValueAndTypeId(cso.getOptionValue(), ctype.getId());
 
                 //value in criteria_selection_option is the id in criteria_type_option, this makes more sense as the value may not be unique or may be null
-                //CriteriaTypeOption option2 = criteriaTypeOptionDAO.getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
+                //CriteriaTypeOption option2 = SpringUtils.getBean(CriteriaTypeOptionDao.class).getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
                 String label = option2.getOptionLabel();
                 String htmlEscapedLabel = SafeEncode.forHtml(label);
                 String attrEscapedLabel = SafeEncode.forHtmlAttribute(label);
@@ -473,24 +468,24 @@ public interface VacancyTemplateManager {
             vt.setActive(true);
             return vt;
         } else {
-            return vacancyTemplateDAO.getVacancyTemplate(Integer.valueOf(templateId));
+            return SpringUtils.getBean(VacancyTemplateDao.class).getVacancyTemplate(Integer.valueOf(templateId));
         }
     }
 
     public static void saveVacancy(Vacancy v) {
         if (v.getId() != null) {
-            vacancyDAO.merge(v);
+            SpringUtils.getBean(VacancyDao.class).merge(v);
         } else {
-            vacancyDAO.persist(v);
+            SpringUtils.getBean(VacancyDao.class).persist(v);
         }
 
     }
 
     public static void saveVacancyTemplate(VacancyTemplate vt) {
         if (vt.getId() != null) {
-            vacancyTemplateDAO.merge(vt);
+            SpringUtils.getBean(VacancyTemplateDao.class).merge(vt);
         } else {
-            vacancyTemplateDAO.persist(vt);
+            SpringUtils.getBean(VacancyTemplateDao.class).persist(vt);
         }
 
     }
@@ -498,25 +493,25 @@ public interface VacancyTemplateManager {
     public static Criteria createCriteria(LoggedInInfo loggedInInfo, String criteriaId) {
         Criteria c = new Criteria();
         if (!(StringUtils.isBlank(criteriaId) || "0".equals(criteriaId))) {
-            c = criteriaDAO.find(Integer.valueOf(criteriaId));
+            c = SpringUtils.getBean(CriteriaDao.class).find(Integer.valueOf(criteriaId));
         }
         return (c);
     }
 
     public static void saveCriteria(Criteria c) {
         if (c.getId() != null) {
-            criteriaDAO.merge(c);
+            SpringUtils.getBean(CriteriaDao.class).merge(c);
         } else {
-            criteriaDAO.persist(c);
+            SpringUtils.getBean(CriteriaDao.class).persist(c);
         }
 
     }
 
     public static void saveCriteriaSelectedOption(CriteriaSelectionOption c) {
         if (c.getId() != null) {
-            criteriaSelectionOptionDAO.merge(c);
+            SpringUtils.getBean(CriteriaSelectionOptionDao.class).merge(c);
         } else {
-            criteriaSelectionOptionDAO.persist(c);
+            SpringUtils.getBean(CriteriaSelectionOptionDao.class).persist(c);
         }
 
     }

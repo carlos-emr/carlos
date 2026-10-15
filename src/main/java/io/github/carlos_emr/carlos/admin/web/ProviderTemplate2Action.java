@@ -96,9 +96,7 @@ public class ProviderTemplate2Action extends ActionSupport {
                 }
             } else {
                 try {
-                    EncounterTemplate toDelete = encounterTemplateDao.find(templateName);
-                    if (toDelete != null) {
-                        encounterTemplateDao.remove(toDelete);
+                    if (encounterTemplateDao.remove(templateName)) {
                         LogAction.addLog(loggedInInfo.getLoggedInProviderNo(),
                                 LogConst.DELETE, "encounterTemplate", templateName, request.getRemoteAddr());
                         request.setAttribute("resultMsg", "Template deleted.");

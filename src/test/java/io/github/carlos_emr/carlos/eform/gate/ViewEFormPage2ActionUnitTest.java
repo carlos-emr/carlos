@@ -110,6 +110,57 @@ class ViewEFormPage2ActionUnitTest extends CarlosUnitTestBase {
                 .hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("w"), isNull());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"fieldnotereport", "fieldnotereportdetail", "fieldnoteselect"})
+    void shouldRejectFieldNotes_withoutAdministrativePrivilege(String page) {
+        ActionContext.of().withActionName("eform/fieldNoteReport/" + page).bind();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("r"), isNull()))
+                .thenReturn(true);
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin.fieldnote)");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"GET,selected_eform", "HEAD,selected_eform",
+            "GET,unselect_eform", "HEAD,unselect_eform"})
+    void shouldRejectFieldNoteMutation_fromReadMethods(String method, String parameter) throws Exception {
+        ActionContext.of().withActionName("eform/fieldNoteReport/fieldnoteselect").bind();
+        when(mockRequest.getMethod()).thenReturn(method);
+        when(mockRequest.getParameter(parameter)).thenReturn("1");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).setHeader("Allow", "POST");
+        verify(mockResponse).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        org.mockito.Mockito.verifyNoInteractions(mockDispatcher);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldExposeSelectionControl_onlyForFieldNoteWriters(boolean writable) throws Exception {
+        ActionContext.of().withActionName("eform/fieldNoteReport/fieldnotereport").bind();
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("w"), isNull()))
+                .thenReturn(writable);
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/eform/fieldNoteReport/fieldnotereport.jsp"))
+                .thenReturn(mockDispatcher);
+        action.execute();
+        verify(mockRequest).setAttribute("canManageFieldNotes", writable);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
+    void shouldAllowFieldNoteSelection_withPostAndWritePrivilege() throws Exception {
+        ActionContext.of().withActionName("eform/fieldNoteReport/fieldnoteselect").bind();
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getParameter("selected_eform")).thenReturn("1");
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fieldnote"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/eform/fieldNoteReport/fieldnoteselect.jsp"))
+                .thenReturn(mockDispatcher);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
     @Test
     void shouldReturn404WhenRouteIsUnknown() throws Exception {
         ActionContext.of().withActionName("eform/doesNotExist").bind();

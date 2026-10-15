@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+    Lists letter templates with download and deletion controls and accepts JRXML template uploads.
+    Parameters: reportName (display name), reportFile (multipart template), and goto (return target).
+    Retains reportName/goto and shows the letterUploadFailed request attribute after a refused upload.
+    The page checks report/report-administration read access; upload and deletion use their protected
+    POST actions with CSRF tokens. Download and deletion controls pass the selected reportID.
+    @since 2026-07-07
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -70,6 +79,9 @@
     <body>
     <div class="container">
     <div class="searchBox">
+    <% if (Boolean.TRUE.equals(request.getAttribute("letterUploadFailed"))) { %>
+    <div id="letterUploadFailed" class="alert alert-danger" role="alert"><fmt:message key="report.ManageLetters.uploadFailed"/></div>
+    <% } %>
 
         <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
             <h4 style="margin:0; font-size:18px;">
@@ -85,9 +97,9 @@
             <input type="hidden" name="goto" value="<carlos:encode value='<%= StringUtils.defaultString(request.getParameter("goto")) %>' context="htmlAttribute"/>"/>
             <table class="table table-sm" style="font-size:13px;">
                 <tr>
-                    <td style="width:120px; font-weight:bold;"><fmt:message key="report.ManageLetters.label.selectLetter"/></td>
+                    <td style="width:120px; font-weight:bold;"><label for="reportFile"><fmt:message key="report.ManageLetters.label.selectLetter"/></label></td>
                     <td>
-                        <input type="file" name="reportFile" value="upload"/>
+                        <input type="file" id="reportFile" name="reportFile" value="upload"/>
                         <span title="<fmt:message key="global.uploadWarningBody"/>"
                               style="vertical-align:middle; cursor:pointer;">
                             <img border="0" src="<%= request.getContextPath() %>/images/icon_alertsml.gif"/>
@@ -95,8 +107,8 @@
                     </td>
                 </tr>
                 <tr>
-                    <td style="font-weight:bold;"><fmt:message key="report.ManageLetters.label.reportName"/></td>
-                    <td><input type="text" name="reportName" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
+                    <td style="font-weight:bold;"><label for="reportName"><fmt:message key="report.ManageLetters.label.reportName"/></label></td>
+                    <td><input type="text" id="reportName" name="reportName" maxlength="255" value="<carlos:encode value='<%= StringUtils.defaultString(request.getParameter("reportName")) %>' context="htmlAttribute"/>" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
                 </tr>
             </table>
             <div style="padding:5px 0 15px 0;">

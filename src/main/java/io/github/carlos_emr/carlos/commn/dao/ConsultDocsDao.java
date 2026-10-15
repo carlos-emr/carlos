@@ -43,4 +43,6 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
     List<ConsultDocs> findByRequestId(Integer requestId);
 
     List<Object[]> findLabs(Integer consultationId);
+    List<ConsultDocs> findByRequestIdDocTypeForUpdate(Integer id, String docType);
+
 }
