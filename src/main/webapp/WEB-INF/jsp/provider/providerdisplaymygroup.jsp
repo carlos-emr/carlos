@@ -121,7 +121,7 @@
                    value="${carlos:forHtmlAttribute(btnDeleteLabel)}"
                    onclick="return confirm('${carlos:forJavaScript(confirmDeleteMsg)}');">
             <%-- Opening the new-group form changes nothing, so it is a plain link. --%>
-            <a class="btn btn-primary btn-sm ms-2" role="button"
+            <a class="btn btn-primary btn-sm ms-2"
                href="<%= request.getContextPath() %>/provider/ViewProviderNewGroup"><carlos:encode value="${btnNewLabel}"/></a>
             <input type="button" class="btn btn-secondary btn-sm ms-2"
                    value="${carlos:forHtmlAttribute(btnBackLabel)}"

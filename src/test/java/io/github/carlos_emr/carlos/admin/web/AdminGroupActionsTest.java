@@ -121,7 +121,8 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
     void shouldRejectView_whenGroupCreatePrivilegeMissing() {
         denyPrivilege(SCHEDULE_GROUP_CREATE_OBJECT, "w");
 
-        assertThatThrownBy(() -> executeAction(newGroupAction()))
+        AdminNewGroup2Action action = newGroupAction();
+        assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining(SCHEDULE_GROUP_CREATE_OBJECT);
     }
@@ -171,7 +172,8 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
         mockRequest.addParameter("PWa1b2c3d4999998", "PWa1b2c3d4");
         mockRequest.addParameter("submit", "Delete");
 
-        assertThatThrownBy(() -> executeAction(newGroupAction()))
+        AdminNewGroup2Action action = newGroupAction();
+        assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining(SCHEDULE_GROUP_CREATE_OBJECT);
         verifyNoInteractions(membershipService);
@@ -201,7 +203,8 @@ class AdminGroupActionsTest extends CarlosWebTestBase {
         denyPrivilege(SCHEDULE_GROUP_CREATE_OBJECT, "w");
         mockRequest.setMethod("POST");
 
-        assertThatThrownBy(() -> executeAction(new AdminSaveMyGroup2Action()))
+        AdminSaveMyGroup2Action action = new AdminSaveMyGroup2Action();
+        assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining(SCHEDULE_GROUP_CREATE_OBJECT);
     }

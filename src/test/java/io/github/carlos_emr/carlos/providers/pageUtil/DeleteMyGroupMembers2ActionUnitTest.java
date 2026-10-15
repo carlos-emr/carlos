@@ -128,7 +128,8 @@ class DeleteMyGroupMembers2ActionUnitTest extends CarlosWebTestBase {
         mockRequest.setMethod("POST");
         tickMember();
 
-        assertThatThrownBy(() -> executeAction(action()))
+        DeleteMyGroupMembers2Action action = action();
+        assertThatThrownBy(() -> executeAction(action))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin)");
         verifyNoInteractions(membershipService);
