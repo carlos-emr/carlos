@@ -334,6 +334,95 @@ class EmailFooterEditorJspRegressionTest {
         }
     }
 
+    private static final Path PREFERENCES = Path.of("src/main/webapp/WEB-INF/jsp/provider/providerpreference.jsp");
+
+    @Test
+    @DisplayName("should open the personal footer window from Preferences, for _email writers, with My Email Footer as the fallback")
+    void shouldOpenPersonalFooterWindow_fromPreferences() throws IOException {
+        String jsp = Files.readString(PREFERENCES, StandardCharsets.UTF_8);
+        int link = jsp.indexOf("id=\"myEmailFooterLink\"");
+        int guard = jsp.lastIndexOf("objectName=\"_email\" rights=\"w\"", link);
+        assertThat(guard).isGreaterThan(0);
+        assertThat(jsp.indexOf("</security:oscarSec>", guard)).isGreaterThan(link);
+        String opener = jsp.substring(jsp.lastIndexOf("<a ", link), jsp.indexOf(">", link));
+        assertThat(opener)
+                .contains("href=\"${pageContext.request.contextPath}/email/myEmailFooter\"")
+                .contains("data-bs-toggle=\"modal\" data-bs-target=\"#footerEditorModal\"")
+                .contains("data-footer-editor-load=\"${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter\"")
+                .contains("data-footer-editor-remote-save=\"${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter\"")
+                .contains("data-footer-editor-status=\"myEmailFooterSaved\"");
+        assertThat(jsp).contains("id=\"myEmailFooterSaved\"");
+        // The window itself, for _email writers only, last on the page.
+        int include = jsp.indexOf("<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>");
+        int includeGuard = jsp.lastIndexOf("objectName=\"_email\" rights=\"w\"", include);
+        assertThat(includeGuard).isGreaterThan(link);
+        assertThat(jsp.substring(includeGuard, include))
+                .contains("<c:set var=\"footerEditorPersonalOnly\" value=\"${true}\"/>")
+                .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeMine\"/>")
+                .contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.save\"/>");
+        assertThat(jsp.indexOf("</security:oscarSec>", include)).isLessThan(jsp.indexOf("</body>", include));
+        // The page brings the Bootstrap version the window is built for.
+        assertThat(jsp).contains("<%@ include file=\"/WEB-INF/jsp/includes/global-head.jspf\" %>");
+        assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/includes/global-head.jspf"), StandardCharsets.UTF_8))
+                .contains("/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js")
+                .contains("/library/bootstrap/5.3.8/css/bootstrap.min.css")
+                .contains("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should open the saved personal footer window from both compose links, keeping the compose revision current")
+    void shouldOpenPersonalFooterWindow_fromCompose() throws IOException {
+        String jsp = Files.readString(COMPOSE, StandardCharsets.UTF_8);
+        for (String id : List.of("myFooterEdit", "myFooterEditAfterSend")) {
+            int link = jsp.indexOf("id=\"" + id + "\"");
+            assertThat(link).as(id).isGreaterThan(0);
+            String opener = jsp.substring(jsp.lastIndexOf("<a ", link), jsp.indexOf(">", link));
+            assertThat(opener).as(id)
+                    .contains("href=\"${ctx}/email/myEmailFooter\"")
+                    .contains("data-footer-editor-load=\"${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter\"")
+                    .contains("data-footer-editor-remote-save=\"${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter\"")
+                    .contains("data-footer-editor-scope-text=\"${carlos:forHtmlAttribute(myFooterScopeText)}\"")
+                    .contains("data-footer-editor-apply-text=\"${carlos:forHtmlAttribute(myFooterApplyText)}\"");
+        }
+        String first = jsp.substring(jsp.indexOf("id=\"myFooterEdit\""), jsp.indexOf(">", jsp.indexOf("id=\"myFooterEdit\"")));
+        assertThat(first)
+                .contains("data-footer-editor-revision-field=\"personalFooterRevision\"")
+                .contains("data-footer-editor-saved-text=\"${carlos:forHtmlAttribute(myFooterSavedText)}\"");
+        // This email's own footer keeps its own opener and button.
+        assertThat(jsp).contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.applyThisEmail\"/>");
+    }
+
+    @Test
+    @DisplayName("should read and save the saved footer with the page's CSRF token, as AJAX, and keep a link a link without the window")
+    void shouldSaveRemotely_withTheCsrfToken() throws IOException {
+        String script = Files.readString(SCRIPT, StandardCharsets.UTF_8);
+        assertThat(script)
+                .contains("headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}")
+                .contains("var token = document.querySelector('input[name=\"CSRF-TOKEN\"]');")
+                .contains("if (!token || !token.value) {")
+                .contains("'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value}")
+                .contains("body.set('personalFooterRevision', remote.revision);")
+                .contains("document.querySelectorAll('a[href][data-footer-editor-load]').forEach(function (link) {");
+        String modal = Files.readString(MODAL, StandardCharsets.UTF_8);
+        assertThat(modal)
+                .contains("id=\"footerEditorMessage\"")
+                .contains("id=\"footerEditorScope\"")
+                .contains("data-remote-failed-text=\"${carlos:forHtmlAttribute(footerEditorRemoteFailed)}\"")
+                .contains("data-remote-stale-text=\"${carlos:forHtmlAttribute(footerEditorRemoteStale)}\"");
+        Properties english = bundle("en");
+        for (String key : List.of("email.footerEditor.remoteStale", "email.footerEditor.remoteFailed",
+                "email.footerEditor.remoteLoadFailed", "email.compose.footer.savedMineThisEmailKept",
+                "email.myFooter.saved", "email.myFooter.tooLong", "email.myFooter.saveConflict", "email.footerEditor.scopeMine")) {
+            for (String locale : LOCALES) {
+                String text = bundle(locale).getProperty(key);
+                assertThat(text).as(locale + " " + key).isNotBlank();
+                if (!"en".equals(locale)) {
+                    assertThat(text).as(locale + " " + key).isNotEqualTo(english.getProperty(key));
+                }
+            }
+        }
+    }
+
     private static Properties bundle(String locale) throws IOException {
         Properties properties = new Properties();
         try (InputStream in = Files.newInputStream(

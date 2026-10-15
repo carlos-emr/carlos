@@ -36,7 +36,11 @@
   footer is saved as it is edited (Configure Email, My Email Footer), the opener also names its form
   in data-footer-editor-save (and, when the form needs one, a field to send in
   data-footer-editor-save-name/-value): the apply button then sends that form at once, so the page
-  needs no second Save button (Ben's demo of 15 Oct 2026). With footerEditorClinicSettings, the window
+  needs no second Save button (Ben's demo of 15 Oct 2026). An opener with data-footer-editor-load and
+  data-footer-editor-remote-save instead reads the user's saved personal footer from the server and
+  saves it there (Preferences, the email screen's "Edit my saved personal footer"); it may name its own
+  badge and button text, a status element for the saved message, and a revision field to update. With
+  footerEditorClinicSettings, the window
   also holds the clinic footer's Required/Off choice and "Add a logo to emails", which belong to
   #clinicFooterForm and are sent with the text.
   @since 2026-10-08
@@ -53,20 +57,35 @@
        stops keyboard activation). */
     .footer-editor-mail a { pointer-events: none; }
 </style>
+<%-- The server-save messages, encoded once for the attributes below. --%>
+<c:set var="footerEditorRemoteSaved"><fmt:message key="email.myFooter.saved"/></c:set>
+<c:set var="footerEditorRemoteStale"><fmt:message key="email.footerEditor.remoteStale"/></c:set>
+<c:set var="footerEditorRemoteTooLong"><fmt:message key="email.myFooter.tooLong"/></c:set>
+<c:set var="footerEditorRemoteConflict"><fmt:message key="email.myFooter.saveConflict"/></c:set>
+<c:set var="footerEditorRemoteFailed"><fmt:message key="email.footerEditor.remoteFailed"/></c:set>
+<c:set var="footerEditorRemoteLoadFailed"><fmt:message key="email.footerEditor.remoteLoadFailed"/></c:set>
 <div class="modal fade" id="footerEditorModal" tabindex="-1" aria-labelledby="footerEditorTitle" aria-hidden="true"
      data-max-length="<%= io.github.carlos_emr.carlos.email.core.EmailData.FOOTER_MAX_LENGTH %>"
      data-max-html-length="<%= io.github.carlos_emr.carlos.email.core.EmailFooterHtml.MAX_HTML_LENGTH %>"
-     data-unavailable-text="<fmt:message key='email.footerEditor.unavailable'/>">
+     data-unavailable-text="<fmt:message key='email.footerEditor.unavailable'/>"
+     data-remote-saved-text="${carlos:forHtmlAttribute(footerEditorRemoteSaved)}"
+     data-remote-stale-text="${carlos:forHtmlAttribute(footerEditorRemoteStale)}"
+     data-remote-too-long-text="${carlos:forHtmlAttribute(footerEditorRemoteTooLong)}"
+     data-remote-conflict-text="${carlos:forHtmlAttribute(footerEditorRemoteConflict)}"
+     data-remote-failed-text="${carlos:forHtmlAttribute(footerEditorRemoteFailed)}"
+     data-remote-load-failed-text="${carlos:forHtmlAttribute(footerEditorRemoteLoadFailed)}">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="footerEditorTitle"><fmt:message key="email.footerEditor.title"/>
-                    <span class="badge text-bg-secondary fw-normal ms-2"><fmt:message key="${footerEditorScopeKey}"/></span></h5>
+                    <span class="badge text-bg-secondary fw-normal ms-2" id="footerEditorScope"><fmt:message key="${footerEditorScopeKey}"/></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                         aria-label="<fmt:message key='email.footerEditor.cancel'/>"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning py-2 small" role="note"><fmt:message key="email.footerEditor.warning"/></div>
+                <%-- Server saves only (Preferences, the email screen's saved footer): why a save did not happen. --%>
+                <div class="alert alert-danger py-2 small d-none" role="alert" id="footerEditorMessage"></div>
                 <div class="row g-4">
                     <div class="col-lg-6">
                         <div class="fw-semibold mb-2" id="footerEditorLabel"><fmt:message key="email.footerEditor.text"/></div>

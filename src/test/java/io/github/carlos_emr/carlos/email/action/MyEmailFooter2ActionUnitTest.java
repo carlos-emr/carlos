@@ -68,7 +68,7 @@ class MyEmailFooter2ActionUnitTest {
     private SaveMyEmailFooter2Action save(){return new SaveMyEmailFooter2Action(security,personal,clinic);
     }
 
-    @Test void shouldShowSeparateEmptyPersonalAndMandatoryClinic() {
+    @Test void shouldShowSeparateEmptyPersonalAndMandatoryClinic() throws Exception {
         when(personal.ownFooter("101")).thenReturn("");
         assertThat(new ViewMyEmailFooter2Action(security,personal,clinic).execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("myFooter")).isEqualTo("");
@@ -155,4 +155,115 @@ class MyEmailFooter2ActionUnitTest {
         audit.verifyNoInteractions();
     }
 
+
+    // Ben's demo (15 Oct): the editor window in Preferences and on the email screen reads and saves the
+    // saved personal footer itself, as JSON. Form posts behave as they always have.
+    private static com.fasterxml.jackson.databind.JsonNode json(MockHttpServletResponse reply) throws Exception {
+        assertThat(reply.getContentType()).startsWith("application/json");
+        assertThat(reply.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(reply.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        return new com.fasterxml.jackson.databind.ObjectMapper().readTree(reply.getContentAsByteArray());
+    }
+    private void askForJson() {
+        request.setMethod("GET");
+        request.addHeader("Accept", "application/json");
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+    }
+    private void sendFromWindow(String text) {
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+        request.setParameter("footerAction", "save");
+        request.setParameter("myFooter", text);
+    }
+
+    @Test void shouldGiveTheWindowTheSavedFooterAndItsRevision_readOnly() throws Exception {
+        askForJson();
+        when(personal.ownFooter("101")).thenReturn("<b>FAKE own</b>");
+
+        assertThat(new ViewMyEmailFooter2Action(security,personal,clinic).execute()).isEqualTo(ActionSupport.NONE);
+
+        var body = json(response);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(body.get("footer").asText()).isEqualTo("<b>FAKE own</b>");
+        assertThat(body.get("revision").asText()).isEqualTo(EmailFooterService.revisionOf("101", "<b>FAKE own</b>"));
+        verify(personal).ownFooter("101");
+        verifyNoMoreInteractions(personal);
+        verifyNoInteractions(clinic);
+        audit.verifyNoInteractions();
+    }
+
+    @Test void shouldRefuseTheFooterAsJson_toAUserWithoutTheRight() {
+        askForJson();
+        when(security.hasPrivilege(user,"_email",SecurityInfoManager.WRITE,null)).thenReturn(false);
+
+        assertThatThrownBy(()->new ViewMyEmailFooter2Action(security,personal,clinic).execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(personal, clinic);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest @ValueSource(strings={"POST","PUT","DELETE"})
+    void shouldAnswerTheJsonReadForGetOnly(String method) throws Exception {
+        askForJson();
+        request.setMethod(method);
+
+        new ViewMyEmailFooter2Action(security,personal,clinic).execute();
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("GET");
+        verifyNoInteractions(personal, clinic);
+    }
+
+    @Test void shouldSaveFromTheWindow_andAnswerTheNewRevision() throws Exception {
+        sendFromWindow("<b>FAKE own</b>");
+
+        assertThat(save().execute()).isEqualTo(ActionSupport.NONE);
+
+        var body = json(response);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(body.get("saved").asBoolean()).isTrue();
+        assertThat(body.get("revision").asText()).isEqualTo(EmailFooterService.revisionOf("101", "<b>FAKE own</b>"));
+        verify(personal).saveOwnFooter("101", "<b>FAKE own</b>", request.getParameter("personalFooterRevision"));
+        audit.verify(() -> LogAction.addLog("101", io.github.carlos_emr.carlos.log.LogConst.UPDATE, "emailFooterOwn", "", "127.0.0.1"));
+    }
+
+    @Test void shouldAnswerTheWindowsRefusals_withAFixedCodeAndNoText() throws Exception {
+        sendFromWindow("FAKE secret-looking text");
+        doThrow(new EmailFooterService.StaleFooterException()).when(personal).saveOwnFooter(anyString(), anyString(), any());
+        save().execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"stale\"}");
+
+        response = new MockHttpServletResponse();
+        struts.when(ServletActionContext::getResponse).thenReturn(response);
+        doThrow(new org.springframework.dao.CannotAcquireLockException("FAKE")).when(personal).saveOwnFooter(anyString(), anyString(), any());
+        save().execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"conflict\"}");
+
+        response = new MockHttpServletResponse();
+        struts.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("myFooter", "x".repeat(4 * EmailFooterHtml.MAX_HTML_LENGTH + 1));
+        save().execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(json(response).toString()).isEqualTo("{\"error\":\"tooLong\"}");
+        audit.verifyNoInteractions();
+    }
+
+    @Test void shouldStillRedirectAPlainFormPost_withoutTheAjaxHeader() throws Exception {
+        request.setParameter("footerAction", "save");
+        request.setParameter("myFooter", "FAKE own");
+
+        save().execute();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/email/myEmailFooter?saved=true");
+        assertThat(response.getContentType()).isNull();
+    }
+
+    @Test void shouldRefuseTheWindowsSave_toAUserWithoutTheRight() {
+        sendFromWindow("FAKE own");
+        when(security.hasPrivilege(user,"_email",SecurityInfoManager.WRITE,null)).thenReturn(false);
+
+        assertThatThrownBy(()->save().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(personal, clinic);
+    }
 }

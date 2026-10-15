@@ -211,6 +211,30 @@
         var opener = null;
         var savedRange = null;
         var logoLoaded = false;
+        // Server-save mode: the window reads the user's saved personal footer from the server and saves
+        // it there itself (Preferences, the email screen's "Edit my saved personal footer"). Null in the
+        // other modes, where the window edits a field of the page.
+        var remote = null;
+        var opened = 0;
+        var scope = modal.querySelector('#footerEditorScope');
+        var defaultScope = scope ? scope.textContent : '';
+        var defaultApply = apply.textContent;
+        var message = modal.querySelector('#footerEditorMessage');
+
+        function say(text) {
+            if (message) {
+                message.textContent = text || modal.getAttribute('data-remote-failed-text') || '';
+                show(message, true);
+            }
+        }
+
+        // The fixed codes the save answers with; anything else (an expired session's login page, a
+        // network failure) is "could not be saved".
+        function failureText(code) {
+            var key = {stale: 'data-remote-stale-text', tooLong: 'data-remote-too-long-text',
+                conflict: 'data-remote-conflict-text'}[code];
+            return (key && modal.getAttribute(key)) || modal.getAttribute('data-remote-failed-text');
+        }
         // Configure Email's "Add a logo to emails", in this window: the preview follows it.
         var logoSwitch = modal.querySelector('#logoShown');
 
@@ -258,7 +282,8 @@
             var over = overText || overHtml;
             show(tooLong, overText);
             show(tooMuchFormatting, overHtml);
-            apply.disabled = over;
+            // A server save waits for the saved footer and its revision.
+            apply.disabled = over || (remote !== null && (!remote.revision || remote.sending));
         }
 
         function rememberSelection() {
@@ -362,11 +387,119 @@
             logoSwitch.addEventListener('change', refresh);
         }
 
+        // Reads the saved footer for a server save. Until it arrives the window shows nothing and
+        // cannot save; a reply from an earlier opening is ignored.
+        function loadSaved(url, opening) {
+            editor.setAttribute('contenteditable', 'false');
+            fetch(url, {credentials: 'same-origin',
+                headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+                .then(function (response) {
+                    return response.ok ? response.json() : Promise.reject(new Error('status ' + response.status));
+                })
+                .then(function (data) {
+                    if (opening !== opened || !remote) {
+                        return;
+                    }
+                    if (!data || typeof data.footer !== 'string' || typeof data.revision !== 'string') {
+                        throw new Error('unexpected reply');
+                    }
+                    remote.revision = data.revision;
+                    editor.innerHTML = clean(data.footer); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
+                    editor.setAttribute('contenteditable', 'true');
+                    refresh();
+                    editor.focus();
+                })
+                .catch(function () {
+                    if (opening === opened) {
+                        say(modal.getAttribute('data-remote-load-failed-text'));
+                    }
+                });
+        }
+
+        // Saves to the server with the page's CSRF token, as the page's own autosaves do. Success
+        // closes the window and says so on the page; any refusal keeps the window and its text.
+        function saveRemote() {
+            var token = document.querySelector('input[name="CSRF-TOKEN"]');
+            if (!token || !token.value) {
+                say(modal.getAttribute('data-remote-failed-text'));
+                return;
+            }
+            var body = new URLSearchParams();
+            body.set('footerAction', 'save');
+            body.set('myFooter', clean(editor.innerHTML));
+            body.set('personalFooterRevision', remote.revision);
+            var saving = remote;
+            saving.sending = true;
+            refresh();
+            if (message) {
+                show(message, false);
+            }
+            fetch(saving.save, {method: 'POST', credentials: 'same-origin', body: body.toString(),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value}})
+                .then(function (response) {
+                    return response.json().then(function (data) {
+                        return {ok: response.ok, data: data || {}};
+                    }, function () {
+                        return {ok: false, data: {}};
+                    });
+                })
+                .then(function (result) {
+                    saving.sending = false;
+                    if (!result.ok || result.data.saved !== true || typeof result.data.revision !== 'string') {
+                        say(failureText(result.data.error));
+                        refresh();
+                        return;
+                    }
+                    saving.revision = result.data.revision;
+                    // A page that keeps the saved footer's revision (the email screen's "Also save this as
+                    // my personal footer") gets the new one, so its own save is not refused as stale.
+                    if (saving.revisionField) {
+                        document.querySelectorAll('input[name="' + saving.revisionField + '"]').forEach(function (field) {
+                            field.value = saving.revision;
+                        });
+                    }
+                    var status = document.getElementById(saving.status || '');
+                    if (status) {
+                        status.textContent = saving.savedText;
+                        show(status, true);
+                    }
+                    window.bootstrap.Modal.getOrCreateInstance(modal).hide();
+                })
+                .catch(function () {
+                    saving.sending = false;
+                    say(modal.getAttribute('data-remote-failed-text'));
+                    refresh();
+                });
+        }
+
         modal.addEventListener('show.bs.modal', function (event) {
             opener = event.relatedTarget || null;
-            target = opener ? document.getElementById(opener.getAttribute('data-footer-editor-target')) : null;
-            targetPreview = opener ? document.getElementById(opener.getAttribute('data-footer-editor-preview')) : null;
+            opened += 1;
+            var load = opener ? opener.getAttribute('data-footer-editor-load') : null;
+            remote = load ? {
+                save: opener.getAttribute('data-footer-editor-remote-save'),
+                status: opener.getAttribute('data-footer-editor-status'),
+                revisionField: opener.getAttribute('data-footer-editor-revision-field'),
+                savedText: opener.getAttribute('data-footer-editor-saved-text') || modal.getAttribute('data-remote-saved-text'),
+                revision: null,
+                sending: false
+            } : null;
+            // One window, several jobs on one page: the opener may name its own badge and button.
+            if (scope) {
+                scope.textContent = (opener && opener.getAttribute('data-footer-editor-scope-text')) || defaultScope;
+            }
+            apply.textContent = (opener && opener.getAttribute('data-footer-editor-apply-text')) || defaultApply;
+            if (message) {
+                show(message, false);
+            }
+            target = opener && !remote ? document.getElementById(opener.getAttribute('data-footer-editor-target')) : null;
+            targetPreview = opener && !remote ? document.getElementById(opener.getAttribute('data-footer-editor-preview')) : null;
+            editor.setAttribute('contenteditable', 'true');
             editor.innerHTML = clean(target ? target.value : ''); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
+            if (remote) {
+                loadSaved(load, opened);
+            }
             savedRange = null;
             show(linkRow, false);
             show(linkError, false);
@@ -379,6 +512,12 @@
         });
 
         apply.addEventListener('click', function () {
+            if (remote) {
+                if (remote.revision && !remote.sending) {
+                    saveRemote();
+                }
+                return;
+            }
             if (target) {
                 target.value = clean(editor.innerHTML);
                 renderPreview(target, targetPreview);
@@ -424,6 +563,11 @@
         if (!window.DOMPurify) {
             // Fail visibly rather than show an empty editor whose Apply would erase the footer.
             var message = modal ? modal.getAttribute('data-unavailable-text') : '';
+            // A link that opens the window for a server save stays a link: it goes to My Email Footer.
+            document.querySelectorAll('a[href][data-footer-editor-load]').forEach(function (link) {
+                link.removeAttribute('data-bs-toggle');
+                link.removeAttribute('data-bs-target');
+            });
             document.querySelectorAll('[data-footer-editor-target]').forEach(function (opener) {
                 opener.disabled = true;
                 var preview = document.getElementById(opener.getAttribute('data-footer-editor-preview'));

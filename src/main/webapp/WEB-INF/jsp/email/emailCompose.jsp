@@ -622,8 +622,24 @@
                                    value="true" ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
                             <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
                         </div>
-                        <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" class="small">
+                        <%-- "Edit my saved personal footer" opens this page's footer window in server-save mode: it
+                             reads and saves the saved footer, not this email's (Ben's demo of 15 Oct 2026), and gives
+                             the hidden revision above the new one. Without the window's scripts it stays a link to
+                             My Email Footer. --%>
+                        <c:set var="myFooterScopeText"><fmt:message key="email.footerEditor.scopeMine"/></c:set>
+                        <c:set var="myFooterApplyText"><fmt:message key="email.footerEditor.save"/></c:set>
+                        <c:set var="myFooterSavedText"><fmt:message key="email.compose.footer.savedMineThisEmailKept"/></c:set>
+                        <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" class="small" id="myFooterEdit"
+                           data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                           data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                           data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                           data-footer-editor-scope-text="${carlos:forHtmlAttribute(myFooterScopeText)}"
+                           data-footer-editor-apply-text="${carlos:forHtmlAttribute(myFooterApplyText)}"
+                           data-footer-editor-saved-text="${carlos:forHtmlAttribute(myFooterSavedText)}"
+                           data-footer-editor-revision-field="personalFooterRevision"
+                           data-footer-editor-status="myFooterSavedStatus">
                             <fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        <p class="form-text text-success d-none mb-0" role="status" id="myFooterSavedStatus"></p>
                         <c:if test="${footerSaveAsMineNotDone}"><p class="form-text text-warning"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
                     </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
@@ -870,7 +886,18 @@
                         <c:when test="${footerSaveAsMineStale}"><fmt:message key="email.compose.footer.saveAsMineStale"/></c:when>
                         <c:otherwise><fmt:message key="email.compose.footer.saveAsMineFailed"/></c:otherwise>
                     </c:choose>
-                    <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                    <%-- As above, the window in server-save mode; the email has gone, so the saved message says only
+                         that. Without the window's scripts it stays a link to My Email Footer. --%>
+                    <c:set var="myFooterScopeText"><fmt:message key="email.footerEditor.scopeMine"/></c:set>
+                    <c:set var="myFooterApplyText"><fmt:message key="email.footerEditor.save"/></c:set>
+                    <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" id="myFooterEditAfterSend"
+                       data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                       data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                       data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                       data-footer-editor-scope-text="${carlos:forHtmlAttribute(myFooterScopeText)}"
+                       data-footer-editor-apply-text="${carlos:forHtmlAttribute(myFooterApplyText)}"
+                       data-footer-editor-status="myFooterSavedAfterSend"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                    <p class="mb-0 mt-2 d-none" role="status" id="myFooterSavedAfterSend"></p>
                 </div>
             </c:if>
             <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>

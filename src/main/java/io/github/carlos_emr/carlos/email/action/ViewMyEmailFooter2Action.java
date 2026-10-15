@@ -25,12 +25,22 @@ import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-/** Only the logged-in sender's personal default is editable; clinic content is read-only. */
+/**
+ * My Email Footer: only the logged-in sender's personal default is editable; clinic content is
+ * read-only. Needs {@code _email} write.
+ *
+ * <p>The footer editor window, opened from Preferences or the email screen, reads the same footer
+ * here as JSON ({@code Accept: application/json}): {@code footer} and its {@code revision}, which a
+ * save must name. That reply is read-only and GET only, with the same right as the page.</p>
+ */
 public final class ViewMyEmailFooter2Action extends ActionSupport {
     private final SecurityInfoManager security;
     private final EmailFooterService personal;
@@ -49,11 +59,26 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
     }
 
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         var request = ServletActionContext.getRequest();
         var user = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!security.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
+        }
+        if (RequestNegotiation.acceptsJson(request)) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            if (!"GET".equals(request.getMethod())) {
+                response.setHeader("Allow", "GET");
+                FooterJson.error(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "method");
+                return NONE;
+            }
+            String providerNo = user.getLoggedInProviderNo();
+            String footer = personal.ownFooter(providerNo);
+            var body = FooterJson.body();
+            body.put("footer", footer);
+            body.put("revision", EmailFooterService.revisionOf(providerNo, footer));
+            FooterJson.write(response, HttpServletResponse.SC_OK, body);
+            return NONE;
         }
         expose(request, personal.ownFooter(user.getLoggedInProviderNo()), clinic);
         return SUCCESS;

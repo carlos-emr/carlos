@@ -29,13 +29,24 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.dao.ConcurrencyFailureException;
 
-/** POST-only personal saves. Request owner/clinic/restore parameters never gain authority. */
+/**
+ * POST-only personal saves. Request owner/clinic/restore parameters never gain authority.
+ *
+ * <p>A form post (My Email Footer) behaves as it always has: a redirect when saved, the page again
+ * when refused. The footer editor window opened from Preferences or the email screen saves here by
+ * AJAX ({@link RequestNegotiation#isAjax}, the header CSRFGuard and its fetch send) and gets JSON
+ * instead: {@code saved} with the new {@code revision}, or a fixed {@code error} code (stale,
+ * tooLong, conflict, invalid) and none of the text.</p>
+ */
 public final class SaveMyEmailFooter2Action extends ActionSupport {
     private final SecurityInfoManager security;
     private final EmailFooterService personal;
@@ -68,19 +79,22 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
             response.sendError(405);
             return NONE;
         }
+        boolean ajax = RequestNegotiation.isAjax(request);
         String operation = request.getParameter("footerAction");
         String value;
         if ("save".equals(operation)) {
             value = request.getParameter("myFooter");
             if (value == null || value.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
-                response.sendError(400);
-                return NONE;
+                return refuse(response, ajax, value == null ? "invalid" : "tooLong");
             }
         } else if ("clear".equals(operation)) {
             value = "";
         } else {
-            response.sendError(400);
-            return NONE;
+            return refuse(response, ajax, "invalid");
+        }
+        String providerNo = user.getLoggedInProviderNo();
+        if (ajax) {
+            return saveForWindow(request, response, providerNo, value);
         }
         try {
             personal.saveOwnFooter(user.getLoggedInProviderNo(), value, request.getParameter("personalFooterRevision"));
@@ -103,6 +117,39 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
         LogAction.addLog(user.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterOwn", "",
                 request.getRemoteAddr());
         response.sendRedirect(request.getContextPath() + "/email/myEmailFooter?saved=true");
+        return NONE;
+    }
+
+    /** The editor window's save: the same checks and audit, answered in JSON. */
+    private String saveForWindow(HttpServletRequest request, HttpServletResponse response,
+            String providerNo, String value) throws IOException {
+        try {
+            personal.saveOwnFooter(providerNo, value, request.getParameter("personalFooterRevision"));
+        } catch (EmailFooterService.StaleFooterException failure) {
+            FooterJson.error(response, HttpServletResponse.SC_CONFLICT, "stale");
+            return NONE;
+        } catch (EmailFooterService.FooterTooLongException failure) {
+            FooterJson.error(response, HttpServletResponse.SC_BAD_REQUEST, "tooLong");
+            return NONE;
+        } catch (ConcurrencyFailureException | jakarta.persistence.PersistenceException failure) {
+            FooterJson.error(response, HttpServletResponse.SC_CONFLICT, "conflict");
+            return NONE;
+        }
+        LogAction.addLog(providerNo, LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
+        var body = FooterJson.body();
+        body.put("saved", true);
+        // The saved footer is the cleaned value, and a revision is taken over the cleaned value.
+        body.put("revision", EmailFooterService.revisionOf(providerNo, value));
+        FooterJson.write(response, HttpServletResponse.SC_OK, body);
+        return NONE;
+    }
+
+    private static String refuse(HttpServletResponse response, boolean ajax, String code) throws IOException {
+        if (ajax) {
+            FooterJson.error(response, HttpServletResponse.SC_BAD_REQUEST, code);
+        } else {
+            response.sendError(400);
+        }
         return NONE;
     }
 }
