@@ -169,6 +169,8 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_billing", "w"),
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
                     "_billing", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
+                    "_billing", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
@@ -548,6 +550,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",

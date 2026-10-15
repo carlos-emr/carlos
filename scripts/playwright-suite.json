@@ -3467,6 +3467,20 @@
         "step": "Edit opens the adjust bill page with the stored billing note"
       },
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
+    },    {
+      "name": "billing-bc-receive-payment",
+      "script": "scripts/billing-bc-receive-payment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Receive Payment (#4551): Invoice List, Edit, View Invoice, Receive Payment; asserts the popup carries the bill and the manual methods, a GET is refused, a blank amount is rejected, and part and balance payments are archived and settle the bill.",
+      "fixtures": "Seeds and removes one private billing/billingmaster row (and the history it writes) for its own FAKE patient."
     },
     {
       "name": "facility-selection",

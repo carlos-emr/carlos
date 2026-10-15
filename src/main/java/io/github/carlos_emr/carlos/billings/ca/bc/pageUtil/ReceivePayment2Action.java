@@ -48,7 +48,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -60,20 +62,55 @@ public class ReceivePayment2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() {
+    /** Request attribute under which receivePayment.jsp finds this action. */
+    static final String FORM_ATTRIBUTE = "receivePaymentActionForm";
+
+    private static final Pattern DIGITS = Pattern.compile("\\d{1,9}");
+    private static final Pattern AMOUNT = Pattern.compile("\\d{1,6}(\\.\\d{1,2})?");
+
+    /**
+     * Records a private payment against one billing line. POST only: a GET or HEAD is refused
+     * before anything is read or written. A malformed submission re-renders the form with the
+     * payment methods rather than saving.
+     */
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST may save.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-        double dblAmount = Double.valueOf(this.getAmountReceived()).doubleValue();
+        request.setAttribute(FORM_ATTRIBUTE, this);
+        if (!isWellFormed()) {
+            this.setPaymentMethodList(ViewReceivePayment2Action.manualPaymentTypes());
+            addActionError("Enter an amount such as 25.00 and choose a payment method.");
+            return SUCCESS;
+        }
+
+        double dblAmount = Double.parseDouble(this.getAmountReceived());
         if ("true".equals(this.getIsRefund())) {
-
-            this.setAmountReceived(String.valueOf(dblAmount * -1.0));
+            dblAmount *= -1.0;
+            this.setAmountReceived(String.valueOf(dblAmount));
         }
         this.receivePayment(this.getBillingmasterNo(), dblAmount, this.getPaymentMethod());
         this.setPaymentReceived(true);
         return SUCCESS;
+    }
+
+    private boolean isWellFormed() {
+        return matches(DIGITS, getBillingmasterNo())
+                && matches(DIGITS, getBillNo())
+                && matches(DIGITS, getPaymentMethod())
+                && matches(AMOUNT, getAmountReceived());
+    }
+
+    private static boolean matches(Pattern pattern, String value) {
+        return value != null && pattern.matcher(value).matches();
     }
 
     public void receivePayment(String billingMasterNo, double amount, String paymentType) {
