@@ -151,6 +151,15 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should read service dates that carry surrounding spaces, as a padded or hand-entered row can")
+    void shouldAcceptPaddedDates_whenServiceDateHasSurroundingSpaces() {
+        // Strictness is about the calendar and about trailing text, not about whitespace around a real date.
+        daoReturns(42, row(41, " 20260831 ", " 20260901"), row(42, "20260901 ", " 20260901"));
+
+        assertThat(new MDSResultsData().getMatchingCMLLabs("42")).isEqualTo("41,42");
+    }
+
+    @Test
     @DisplayName("should leave out a report whose service date cannot be read instead of guessing it belongs")
     void shouldLeaveOutCandidate_whenItsServiceDateCannotBeRead() {
         // A report of the same accession whose date we cannot place may be an unrelated, recycled one:
@@ -254,8 +263,10 @@ class MDSResultsDataCmlVersionChainUnitTest extends CarlosUnitTestBase {
             new MDSResultsData().getMatchingCMLLabs("42");
 
             assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN).hasSize(1);
-            assertThat(capture.messages()).noneMatch(message -> message.contains("7741")
-                    || message.contains("7742") || message.contains("not-a-date") || message.contains("20261301"));
+            // None of the report numbers (left out or selected) and none of the dates (unreadable or selected).
+            assertThat(capture.messages()).noneMatch(message -> message.contains("7741") || message.contains("7742")
+                    || message.contains("42") || message.contains("not-a-date") || message.contains("20261301")
+                    || message.contains("20260901"));
         }
     }
 

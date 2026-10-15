@@ -158,6 +158,8 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
     void shouldOrderTiedReportsById_whenTheyShareAPrintRun() throws Exception {
         // One ABCD file is one print header, so every report in it ties on print date and time. Without a
         // tie-breaker the database may return them in any order, and acknowledging one files "the older ones".
+        // H2 happens to return such ties in id order, so this passes with or without "lpp.id" in the ORDER BY: it
+        // pins the behaviour the callers rely on, while LabPatientPhysicianInfoDaoImplUnitTest pins the clause itself.
         LabReportInformation header = new LabReportInformation();
         header.setLocationId("70");
         header.setPrintDate("20260901");
@@ -191,7 +193,8 @@ class MDSResultsDataCmlVersionChainIntegrationTest extends CarlosTestBase {
     @DisplayName("should not link reports that have no accession number, which would otherwise match each other")
     void shouldNotLinkReports_whenTheyHaveNoAccessionNumber(String blankAccession) throws Exception {
         // Two unrelated reports, as two patients' would be: a blank accession equals every other blank one, and
-        // acknowledging or forwarding one report files or routes every report in its chain.
+        // acknowledging or forwarding one report files or routes every report in its chain. (NULL is never equal to
+        // NULL in SQL, so the null case holds with or without the guard; the empty and whitespace values need it.)
         int first = version(blankAccession, "20260901", "20260901", "09:30");
         int second = version(blankAccession, "20260901", "20260901", "10:30");
 

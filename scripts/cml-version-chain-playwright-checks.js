@@ -102,6 +102,9 @@ function describeReports({ sql, marker }) {
   // The marker is FAKE-PW<16 hex>; the accession number is vendor-shaped (a short alphanumeric) and unique per run.
   const accession = `CV${marker.slice('FAKE-PW'.length + 8)}`;
   const matchAccession = `CM${marker.slice('FAKE-PW'.length + 8)}`;
+  // The accession number is what chains reports, so a report that already carries one of these would be acted on.
+  h.assert(sql.value(`SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num IN (${q(accession)},${q(matchAccession)})`) === '0',
+    'A report already carries this run\'s accession number');
   const report = (key, spec) => ({
     key,
     accession,
@@ -156,6 +159,22 @@ function seedReport({ sql, marker, patient, provider, report }) {
 }
 
 /**
+ * A seed that failed between the header and the report leaves the header alone, and nothing marks it as this run's.
+ * Its number was proved unoccupied when it was allocated, so a header with that number, this report's location, print
+ * date and time and no report pointing at it is this run's; if anything else remains under the report's number the
+ * rows are not understood, and the ownership refusal in removeReport stands.
+ */
+function removeOrphanHeader({ sql, report, remaining }) {
+  const header = sql.value(`SELECT COUNT(*) FROM labReportInformation WHERE id=${report.infoId} AND location_id='70'
+    AND print_date=${q(report.printDate)} AND print_time=${q(report.printTime)}
+    AND NOT EXISTS (SELECT 1 FROM labPatientPhysicianInfo WHERE labReportInfo_id=${report.infoId})`);
+  if (header !== '1' || remaining() !== '1') return false;
+  sql.execute(`DELETE FROM labReportInformation WHERE id=${report.infoId}`);
+  h.assert(remaining() === '0', `The orphaned ${report.label} report header was not removed`);
+  return true;
+}
+
+/**
  * Remove one report's rows by key and prove them gone. Ownership comes first: the header row must still carry this
  * run's marker. A report that was never written (the seed did not reach it) has nothing to remove.
  */
@@ -169,6 +188,7 @@ function removeReport({ sql, report, patient, provider }) {
     `(SELECT COUNT(*) FROM log WHERE content='lab' AND contentId=${q(String(id))})`,
     `(SELECT COUNT(*) FROM log WHERE ${matchAudit})`].join('+')}`);
   if (owned === '0' && remaining() === '0') return;
+  if (owned === '0' && removeOrphanHeader({ sql, report, remaining })) return;
   h.assert(owned === '1', `The owned ${report.label} report header changed; refusing to delete rows keyed by its number`);
   sql.execute([
     `DELETE FROM patientLabRouting WHERE lab_type=${q(LAB_TYPE)} AND lab_no=${id} AND demographic_no=${patient}`,

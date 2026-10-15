@@ -275,6 +275,8 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find no versions for a report without an accession number")
         void shouldFindNoVersions_whenTheReportHasNoAccessionNumber(String blankAccession) throws Exception {
             // A blank accession equals every other blank one; treating it as a key would chain unrelated reports.
+            // (NULL is never equal to NULL in SQL, so that case holds with or without the guard; the empty and
+            // whitespace values are what the guard is for.)
             int requested = version(blankAccession, "20260901", "20260901", "09:30");
             version(blankAccession, "20260901", "20260901", "10:30");
 
