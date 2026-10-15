@@ -10832,6 +10832,22 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "chartspace",
+      "script": "scripts/chartspace-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CHARTSPACE_DEMOGRAPHIC_NO"
+      ],
+      "fixtures": "Read-only on an existing FAKE- demo patient (CHARTSPACE_DEMOGRAPHIC_NO, default 2); no fixtures, no writes."
     }
   ]
 }
