@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -21,6 +22,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import java.util.ArrayList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -32,6 +34,8 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
     private CaseManagementNote privateRow;
     private CaseManagementNote future;
     private GroupNoteLink link;
+    @org.springframework.beans.factory.annotation.Autowired
+    private DemographicDao demographics;
 
     @BeforeEach
     void prepareSharedHistory() {
@@ -95,6 +99,65 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
             assertThat(response.getStatus()).isEqualTo(expectedStatus);
         }
         return request;
+    }
+
+    @Test
+    void shouldLeaveTheOwnerRowNullsAndNoteOwnershipUntouched_whenDisplayingAnActualLinkedNote() {
+        int owner = 2147483000;
+        entityManager.createNativeQuery("INSERT INTO demographic (demographic_no,first_name,last_name,sex,phone,phone2,chart_no,family_doctor,alias,pronoun,gender) "
+                + "VALUES (:owner,'Group','Synthetic','F',NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
+                .setParameter("owner", owner).executeUpdate();
+        entityManager.createNativeQuery("UPDATE casemgmt_note SET demographic_no=:owner WHERE uuid=:uuid")
+                .setParameter("owner", owner).setParameter("uuid", shared.getUuid()).executeUpdate();
+        entityManager.clear();
+        CaseManagementNote source = caseManagementNoteDAO.getNote(shared.getId());
+        assertThat(entityManager.contains(source)).isTrue();
+        SecUserRoleDao held = mock(SecUserRoleDao.class);
+        SecUserRole doctor = new SecUserRole();
+        doctor.setRoleName("doctor");
+        doctor.setActive(true);
+        when(held.getUserRoles("999998")).thenReturn(List.of(doctor));
+        RolesManager reporters = mock(RolesManager.class);
+        Secrole reporter = new Secrole();
+        reporter.setRoleName("doctor");
+        when(reporters.getRole("1")).thenReturn(reporter);
+        DemographicDao observedDemographics = mock(DemographicDao.class,
+                org.mockito.AdditionalAnswers.delegatesTo(demographics));
+        CaseManagementView2Action action = mock(CaseManagementView2Action.class, CALLS_REAL_METHODS);
+        ReflectionTestUtils.setField(action, "secUserRoleDao", held);
+        ReflectionTestUtils.setField(action, "groupNoteDao", groups);
+        ReflectionTestUtils.setField(action, "caseManagementNoteDao", caseManagementNoteDAO);
+        ReflectionTestUtils.setField(action, "demographicDao", observedDemographics);
+        ReflectionTestUtils.setField(action, "roleMgr", reporters);
+        LoggedInInfo user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        Facility facility = new Facility();
+        facility.setEnableGroupNotes(true);
+        when(user.getCurrentFacility()).thenReturn(facility);
+        List<CaseManagementNote> copies = new ArrayList<>();
+        try (var displays = mockConstruction(NoteDisplayLocal.class,
+                (display, context) -> copies.add((CaseManagementNote) context.arguments().get(1)))) {
+            ArrayList<NoteDisplay> visible = new ArrayList<>();
+            ReflectionTestUtils.invokeMethod(action, "addGroupNotes", user, visible, 202, null);
+            assertThat(visible).hasSize(1);
+            assertThat(copies).hasSize(1);
+            assertThat(copies.getFirst()).isNotSameAs(source);
+            assertThat(copies.getFirst().getId()).isEqualTo(shared.getId());
+            assertThat(copies.getFirst().getDemographic_no()).isEqualTo("202");
+            assertThat(copies.getFirst().getRevision()).isEqualTo(source.getRevision()).isEqualTo("3");
+            assertThat(copies.getFirst().getRoleName()).isEqualTo(source.getRoleName());
+            assertThat(copies.getFirst().getProgramName()).isEqualTo(source.getProgramName());
+            verify(displays.constructed().getFirst()).setLocation(Integer.toString(owner));
+        }
+        assertThat(source.getDemographic_no()).isEqualTo(Integer.toString(owner));
+        verify(observedDemographics, never()).getDemographic(anyString());
+        entityManager.flush();
+        entityManager.clear();
+        Object[] ownerFields = (Object[]) entityManager.createNativeQuery(
+                        "SELECT phone,phone2,chart_no,family_doctor,alias,pronoun,gender FROM demographic WHERE demographic_no=:owner")
+                .setParameter("owner", owner).getSingleResult();
+        assertThat(ownerFields).hasSize(7).containsOnlyNulls();
+        assertThat(caseManagementNoteDAO.getNote(shared.getId()).getDemographic_no()).isEqualTo(Integer.toString(owner));
     }
 
     @Test

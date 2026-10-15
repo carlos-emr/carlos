@@ -7,7 +7,6 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -17,6 +16,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
@@ -66,9 +68,6 @@ class CaseManagementGroupNoteDisplayRoleUnitTest extends CarlosUnitTestBase {
         Secrole doctor = new Secrole();
         doctor.setRoleName("doctor");
         when(reporters.getRole("1")).thenReturn(doctor);
-        Demographic owner = new Demographic();
-        owner.setDemographicNo(202);
-        when(demographics.getDemographic("202")).thenReturn(owner);
     }
 
     private SecUserRole role(String name, boolean active) {
@@ -85,13 +84,55 @@ class CaseManagementGroupNoteDisplayRoleUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldDisplayLinkedGroupNote_whenTheMatchingDoctorAssignmentIsActive() {
+    void shouldDisplayARecipientCopyWithRevisionMetadata_withoutMutatingOrHydratingTheOwner() {
         when(heldRoles.getUserRoles("4249")).thenReturn(List.of(role("doctor", true)));
-        try (var displays = mockConstruction(NoteDisplayLocal.class)) {
+        note.setDemographic_no("00202");
+        note.setRevision("3");
+        note.setRoleName("doctor");
+        note.setProgramName("Group clinic");
+        note.setUuid("shared-chain");
+        note.setHistory("Original history");
+        List<CaseManagementNote> copies = new ArrayList<>();
+        try (var displays = mockConstruction(NoteDisplayLocal.class, (display, context) -> {
+            assertThat(context.arguments().getFirst()).isSameAs(user);
+            copies.add((CaseManagementNote) context.arguments().get(1));
+        })) {
             assertThat(display()).containsExactlyElementsOf(displays.constructed());
             assertThat(displays.constructed()).hasSize(1);
             verify(displays.constructed().getFirst()).setReadOnly(true);
             verify(displays.constructed().getFirst()).setGroupNote(true);
+            verify(displays.constructed().getFirst()).setLocation("202");
+            assertThat(copies).hasSize(1);
+            CaseManagementNote copy = copies.getFirst();
+            assertThat(copy).isNotSameAs(note);
+            assertThat(copy.getId()).isEqualTo(502L);
+            assertThat(copy.getDemographic_no()).isEqualTo("101");
+            assertThat(copy.getRevision()).isEqualTo("3");
+            assertThat(copy.getRoleName()).isEqualTo("doctor");
+            assertThat(copy.getProgramName()).isEqualTo("Group clinic");
+            assertThat(copy.getUuid()).isEqualTo("shared-chain");
+            assertThat(copy.getHistory()).isEqualTo("Original history");
+            assertThat(note.getId()).isEqualTo(502L);
+            assertThat(note.getDemographic_no()).isEqualTo("00202");
+            assertThat(note.getRevision()).isEqualTo("3");
+            assertThat(note.getRoleName()).isEqualTo("doctor");
+            assertThat(note.getProgramName()).isEqualTo("Group clinic");
+            assertThat(note.getHistory()).isEqualTo("Original history");
+            verifyNoInteractions(demographics);
+        }
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "0", "-1", "2147483648", "202');invalid()"})
+    void shouldOmitTheGroupNote_whenTheOwnerIdentifierCannotBecomeANumericLocation(String owner) {
+        when(heldRoles.getUserRoles("4249")).thenReturn(List.of(role("doctor", true)));
+        note.setDemographic_no(owner);
+        try (var displays = mockConstruction(NoteDisplayLocal.class)) {
+            assertThat(display()).isEmpty();
+            assertThat(displays.constructed()).isEmpty();
+            verifyNoInteractions(demographics);
+            assertThat(note.getDemographic_no()).isEqualTo(owner);
         }
     }
 
