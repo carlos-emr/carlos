@@ -592,10 +592,10 @@ finding is named in its evidence cell.
 
 ## 15. Found while extending scheduling coverage (October 2026)
 
-Verified by reading `develop` at `0422b8dda1`; no live run yet, so each row is
-`needs-live-check`. 269 is pinned by `admin-manage-sites` (expectedFailure), which SKIPs on
-installs with `multisites=off`. 270 and 271 are routes with no UI entry, so per the suite's
-rule they get no check.
+Verified by reading `develop` at `0422b8dda1`. 269 was then confirmed live (15 Oct 2026, private
+Tomcat, `multisites=on`) and is pinned by `admin-manage-sites` (expectedFailure), which SKIPs on
+installs with `multisites=off`. 270 and 271 stay `needs-live-check`: they are routes with no UI
+entry, so per the suite's rule they get no check.
 
 | # | Defect | Evidence | Status |
 |---|---|---|---|
