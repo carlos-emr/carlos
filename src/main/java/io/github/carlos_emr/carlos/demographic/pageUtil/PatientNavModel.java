@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.commons.lang3.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -105,6 +106,13 @@ public final class PatientNavModel {
      * the waiting list shows unless {@code DEMOGRAPHIC_WAITING_LIST=true} and only when a list exists;
      * the user's own settings decide the document browser link and whether popups open in tabs.
      */
+    // FindSecBugs IMPROPER_UNICODE: two case folds, neither an access decision. The server's billregion setting
+    // is upper-cased and compared with "ON", here and by /billing when Create Invoice passes it on: it picks
+    // which billing links and form show, each still behind its _billing check and its target's own check, and
+    // no non-ASCII character upper-cases onto O or N. The signed-in user's own open-in-tab preference:
+    // equalsIgnoreCase does match U+017F (long s) to s, but the result only chooses a tab or a popup window
+    // for this user's links, with the same targets and checks.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "two case folds, neither an access decision: the server billregion setting, upper-cased and compared with ON here and by /billing, picks which billing links and form show, each still behind its _billing check and its target's own check, and no non-ASCII character upper-cases onto O or N; the signed-in user's own open-in-tab preference, where equalsIgnoreCase does match U+017F (long s) to s, only chooses a tab or a popup window for this user's links")
     static PatientNavModel build(HttpServletRequest request, Demographic demographic, Page page, Properties properties,
             UserPropertyDAO userProperties, BooleanSupplier waitingListFound, boolean portalSwitchedOn) {
         HttpSession session = request.getSession();
