@@ -4,14 +4,21 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const test = require('node:test');
-const { readLedger, readMigrations, upgradeErrors } = require('./lib/flyway-ledger');
+const { currentLine, floorErrors, readLedger, readMigrations, upgradeErrors } = require('./lib/flyway-ledger');
 
-const released = readLedger(path.join(__dirname, 'flyway-released-migrations.txt'))
-  .map(([tag, file, hash]) => ({ tag, path: file, hash }));
+const rows = readLedger(path.join(__dirname, 'flyway-released-migrations.txt'));
+const released = rows.filter(([first]) => first !== 'floor').map(([tag, file, hash]) => ({ tag, path: file, hash }));
+const floors = Object.fromEntries(rows.filter(([first]) => first === 'floor').map(([, line, version]) => [line, version]));
 
 test('every published release can upgrade to this branch', () => {
   assert.ok(released.length > 40, 'must read the seeded ledger');
   assert.deepEqual(upgradeErrors(released, readMigrations()), []);
+});
+
+test('new migrations on this release line stay below its floor', (t) => {
+  const floor = floors[currentLine()];
+  if (!floor) return t.skip(`no floor for line ${currentLine()}: it is the newest line`);
+  assert.deepEqual(floorErrors(floor, released, readMigrations()), []);
 });
 
 // Known cases, on a small made-up release so each rule is visible on its own.
@@ -36,4 +43,15 @@ test('judges Ontario and BC separately', () => {
   const bcOnly = [{ tag: 'r3', path: 'bc/V1.0.70__b.sql', hash: 'h70' }];
   assert.deepEqual(upgradeErrors(bcOnly, { 'bc/V1.0.70__b.sql': 'h70', 'on/V1.0.65__o.sql': 'h65' }), []);
   assert.equal(upgradeErrors(bcOnly, { 'bc/V1.0.70__b.sql': 'h70', 'common/V1.0.65__c.sql': 'h65' }).length, 1);
+});
+
+test('refuses a release migration at or above the floor before it ships (release 1.0.61 while develop owns 1.0.60)', () => {
+  const errors = floorErrors('1.0.60', shipped.slice(0, 1), { 'common/V1.0.56__a.sql': 'h56', 'common/V1.0.61__hotfix.sql': 'x' });
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /V1\.0\.61__hotfix\.sql is at or above this line's floor 1\.0\.60/);
+  assert.deepEqual(floorErrors('1.0.60', shipped.slice(0, 1), { 'common/V1.0.56__a.sql': 'h56', 'common/V1.0.59.1__fix.sql': 'x' }), []);
+});
+
+test('refuses any new migration on a frozen line (floor at its own released top)', () => {
+  assert.equal(floorErrors('1.0.56', shipped.slice(0, 1), { 'common/V1.0.56__a.sql': 'h56', 'common/V1.0.56.1__fix.sql': 'x' }).length, 1);
 });

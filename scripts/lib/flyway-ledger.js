@@ -103,6 +103,28 @@ function upgradeErrors(released, files) {
 }
 
 /**
+ * On a release line with a newer line after it, new migrations must stay below the newer line's
+ * first version, or installs of this line could never upgrade to it. floor: version text such as
+ * "1.0.60"; a floor at the line's own released top freezes the line. Returns error strings.
+ */
+function floorErrors(floor, released, files) {
+  const releasedPaths = new Set(released.map((e) => e.path));
+  const limit = versionOf(`V${floor}__floor.sql`);
+  return Object.keys(files).sort()
+    .filter((file) => !releasedPaths.has(file) && compareVersions(versionOf(file), limit) >= 0)
+    .map((file) => `${file} is at or above this line's floor ${floor}; a newer line already uses those numbers, `
+      + `so use a version below ${floor} (for example a .1 sub-version) or none at all if the line is frozen`);
+}
+
+/** Release line of this checkout ("2026.08"), from the project version in pom.xml. */
+function currentLine(pom = path.join(MIGRATION_ROOT, '..', '..', '..', 'pom.xml')) {
+  // The first <version> in pom.xml is the project's own (CalVer, kept per branch across forward merges).
+  if (!fs.existsSync(pom)) return null;
+  const match = /<version>(\d{4}\.\d{2})\./.exec(fs.readFileSync(pom, 'utf8'));
+  return match ? match[1] : null;
+}
+
+/**
  * Migrations must be listed in the order they merged, each above everything listed before it in
  * its set, unless marked "forward-merge" (a released migration arriving from a release branch).
  * order: [{ path, forwardMerge }]; files: readMigrations() shape. Returns error strings.
@@ -133,4 +155,6 @@ function orderErrors(order, files) {
   return errors;
 }
 
-module.exports = { MIGRATION_ROOT, contentHash, readMigrations, readLedger, upgradeErrors, orderErrors, versionOf };
+module.exports = {
+  MIGRATION_ROOT, contentHash, currentLine, floorErrors, orderErrors, readLedger, readMigrations, upgradeErrors, versionOf,
+};

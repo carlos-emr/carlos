@@ -5,8 +5,16 @@
 # A migration not listed here must use a version above every listed version of its set
 # (common+on, common+bc), or installs of the newest listed tag could not upgrade.
 #
-# When a tag is published, append its migrations on each branch that carries this file:
-#   node scripts/flyway-record-release.js <tag>
+# When a tag is published, append its migrations on the tag's own line and on every newer line
+# (develop at its next forward merge):  node scripts/flyway-record-release.js <tag>
+#
+# "floor <line> <version>": on that release line (the YYYY.MM of the project version in pom.xml),
+# new migrations must stay below <version>, because a newer line already uses the numbers above it.
+# Set it to the newer line's lowest version when that line starts adding its own migrations, and
+# lower it to this line's own released top (no new migrations at all) once the newer line ships a
+# release: from then on its installs could not take a later migration from this line.
+floor 2026.08 1.0.60
+#
 # Seeded on 2026-10-15 from tags 2026.08.0-alpha1 to 2026.08.0-alpha19.
 2026.08.0-alpha1 bc/V1.0.1__bc_schema.sql 0b02b8433e015280460399cbb6736061d87e21bbe9497c28c81132b6ae0e5e0e
 2026.08.0-alpha1 bc/V1.0.2__bc_data.sql 28e92ac9cb804790f15e68170ed753f69ce7912082677763c994d84132015f66

@@ -6,9 +6,9 @@
  *
  *   node scripts/flyway-record-release.js 2026.08.0-alpha20
  *
- * Run it once per published tag, on every branch that carries the ledger (the release branch and
- * develop at its next forward merge). It reads the tag from git, so it works from any branch, and
- * only adds migrations not already listed; running it twice changes nothing.
+ * Run it once per published tag, on the tag's own line and on every newer line (develop at its next
+ * forward merge). It refuses a tag that is not in the current branch's history, and only adds
+ * migrations not already listed; running it twice changes nothing.
  */
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -25,7 +25,13 @@ function git(args, options = {}) {
 function main(tag) {
   if (!tag) throw new Error('usage: node scripts/flyway-record-release.js <tag>');
   git(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`]);
-  const listed = new Set(readLedger(LEDGER).map(([, file]) => file));
+  try {
+    git(['merge-base', '--is-ancestor', tag, 'HEAD']);
+  } catch {
+    // A newer line's tag recorded on an older branch would fail there as "missing" for good.
+    throw new Error(`${tag} is not in this branch's history; record it on its own line and on newer lines only`);
+  }
+  const listed = new Set(readLedger(LEDGER).filter(([first]) => first !== 'floor').map(([, file]) => file));
   const added = [];
   for (const line of git(['ls-tree', '-r', tag, '--', PREFIX]).toString().trim().split('\n')) {
     const [meta, full] = line.split('\t');
