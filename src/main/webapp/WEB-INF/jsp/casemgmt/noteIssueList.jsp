@@ -263,6 +263,16 @@
 
 
 <div id="noteIssues" data-saved-note-id="${carlos:forHtmlAttribute(ajaxsave)}">
+    <c:if test="${empty ajaxsave}">
+        <div class="add-issues">
+            <label for="issueAutocomplete"><fmt:message key="encounter.Index.assnIssue"/></label>
+            <input type="text" id="issueAutocomplete" class="issueAutocomplete" name="issueSearch"
+                   size="25" autocomplete="off" onkeypress="return submitIssue(event);">
+            <fmt:message key="encounter.assign.title" var="assignIssueLabel"/>
+            <input type="button" id="asgnIssues" value="${carlos:forHtmlAttribute(assignIssueLabel)}"
+                   onclick="return assignNoteIssue(event);">
+        </div>
+    </c:if>
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>
@@ -273,11 +283,7 @@
     <c:if test="${issueCheckList.issue.resolved == true}">
         <tr>
             <td style="width: 50%; background-color: #CCCCFF;">
-                <c:set var="winame" value="window${issueCheckList.issueDisplay.description}"/>
-                <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-                <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
+                <c:set var="winame" value="noteIssueDetails${status.index}" />
 
                 <c:set var="submitString" value="this.form.method.value='issueChange'; this.form.lineId.value='${status.index}'; return ajaxUpdateIssues('issueChange', $('noteIssues').up().id);" />
                 <c:set var="id" value="noteIssue${status.index}" />
@@ -285,7 +291,7 @@
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -352,12 +358,8 @@
             <c:forEach var="issueCheckList" items="${caseManagementEntryForm.issueCheckList}" varStatus="status">
     <c:if test="${issueCheckList.issue.resolved == false}">
 
-        <c:set var="winame" value="window${issueCheckList.issueDisplay.description}" />
-        <c:set var="winame" value="${fn:replace(winame, ' ', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '/', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, '*', '_')}" />
-        <c:set var="winame" value="${fn:replace(winame, \"'\", '')}" />
-        <c:set var="winame" value="${fn:escapeXml(winame)}" />
+        <c:set var="winame" value="noteIssueDetails${status.index}" />
+
         <c:set var="countUnresolvedIssue" value="${status.index + 1}" />
 
         <c:if test="${countUnresolvedIssue % 2 == 0}">
@@ -371,10 +373,10 @@
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
-                ${issueCheckList.issueDisplay.description}
+                ${carlos:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
             <c:if test="${issueCheckList.used == false}">
@@ -435,10 +437,14 @@
 <script type="text/javascript">
 (function () {
     // AJAX responses re-evaluate this fragment, so keep its declarations isolated.
+    <c:if test="${empty ajaxsave}">
+        initializeIssueAutocomplete(document.getElementById('noteIssues'));
+    </c:if>
 
     //check to see if we need to update div containers to most recent note id
     //this happens only when we're called thru ajaxsave
     <c:if test="${not empty ajaxsave}">
+        destroyNoteIssueAutocomplete();
         var origId = "${carlos:forJavaScriptBlock(origNoteId)}";
         var newId = "${carlos:forJavaScriptBlock(ajaxsave)}";
         var oldDiv;

@@ -66,7 +66,7 @@
  *     through the Ontario billing UI (the day sheet's B link > OHIP form > Next > Save, with an owned billing
  *     physician and a synthetic HIN), asserts the claim was saved and the appointment is Billed (B), then pins
  *     finding 228: an appointmentArchive row keeps the status the bill save replaced (t). The bill save
- *     (BillingOnLookupService.updateApptStatus) archives nothing.
+ *     (BillingOnLookupService.updateApptStatus) archives the appointment before it sets Billed.
  *
  * Fixtures: the workflow's owned FAKE patient; two appointment rows (marker in the reason); the notes written
  * through the chart; in the billing variant also an owned billing physician (createBillingFixture), a synthetic
@@ -381,8 +381,8 @@ async function workflow(s) {
   if (PIN === 'billing') {
     // Pinned to finding 228. The appointment edit, the status link and the chart's legacy encounter save archive the
     // appointment BEFORE changing its status; the Ontario bill save (BillingOnSave2Action >
-    // BillingClaimSubmissionService.updateApptStatus > BillingOnLookupService.updateApptStatus) sets Billed and
-    // merges with no archive row at all.
+    // BillingClaimSubmissionService.updateApptStatus > BillingOnLookupService.updateApptStatus) archives the
+    // appointment before it sets Billed (fixed for #4589).
     await s.step('an Ontario OHIP bill saved from the To Do appointment writes the claim and marks the appointment Billed (B)', async () => {
       await reloadDaySheet();
       const form = await g.openBillForm(s, appointments.todo);
