@@ -71,12 +71,19 @@
         <button type="submit" name="footerAction" value="clear" class="btn btn-outline-secondary"><fmt:message key="email.myFooter.clear"/></button>
     </form>
     <h5 class="mt-4"><fmt:message key="email.compose.footer.clinicHeading"/></h5>
+    <c:choose>
+        <c:when test="${clinicFooterOff}">
+            <p class="small text-muted" id="clinicFooterOffNote"><fmt:message key="email.compose.footer.clinicOff"/></p>
+        </c:when>
+        <c:otherwise>
     <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
     <c:if test="${not empty clinicFooterLogoPreview}">
         <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt="" style="max-width: 100%; height: auto;"/>
     </c:if>
     <div class="border bg-white p-2 footer-editor-mail" style="white-space: pre-wrap;"
          data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+        </c:otherwise>
+    </c:choose>
     <c:if test="${clinicFooterMissing}">
         <p class="alert alert-warning"><fmt:message key="email.compose.footer.clinicRequired"/></p>
     </c:if>

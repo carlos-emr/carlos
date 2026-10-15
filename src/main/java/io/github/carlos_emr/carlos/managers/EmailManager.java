@@ -276,7 +276,7 @@ public class EmailManager {
                 return EmailSendResult.failed(createFailedEmailLog(emailData,
                         footerPolicyMessage(loggedInInfo, "email.compose.footer.clinicChanged")), false);
             }
-            if (clinic.html().isEmpty()) {
+            if (clinic.missingRequiredFooter()) {
                 return EmailSendResult.failed(createFailedEmailLog(emailData,
                         footerPolicyMessage(loggedInInfo, "email.compose.footer.clinicRequired")), false);
             }

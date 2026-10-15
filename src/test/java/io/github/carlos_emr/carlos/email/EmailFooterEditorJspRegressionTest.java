@@ -222,6 +222,43 @@ class EmailFooterEditorJspRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should offer Required or Off inside the clinic footer form, and say when it is off")
+    void shouldOfferRequiredOrOff_andSayWhenOff() throws IOException {
+        String configure = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
+        int form = configure.indexOf("id=\"clinicFooterForm\"");
+        int end = configure.indexOf("</form>", form);
+        for (var mode : io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.Mode.values()) {
+            int radio = configure.indexOf("value=\"" + mode.value() + "\" ${clinicFooterOff ?", form);
+            assertThat(radio).as(mode.name()).isGreaterThan(form).isLessThan(end);
+        }
+        assertThat(configure)
+                .contains("name=\"clinicFooterMode\"")
+                .contains("<c:when test=\"${param.clinicFooterOutcome eq 'modeSaved'}\">")
+                .contains("<fmt:message key=\"admin.configureEmail.footer.offNote\"/>");
+        for (Path page : List.of(Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp"),
+                Path.of("src/main/webapp/WEB-INF/jsp/email/myEmailFooter.jsp"))) {
+            String jsp = Files.readString(page, StandardCharsets.UTF_8);
+            int off = jsp.indexOf("<c:when test=\"${clinicFooterOff}\">");
+            assertThat(off).as(page.toString()).isGreaterThan(0);
+            assertThat(jsp.indexOf("<fmt:message key=\"email.compose.footer.clinicOff\"/>", off)).as(page.toString())
+                    .isGreaterThan(off).isLessThan(jsp.indexOf("data-footer-html=\"${carlos:forHtmlAttribute(clinicFooter)}\"", off));
+        }
+        Properties english = bundle("en");
+        for (String key : List.of("admin.configureEmail.footer.modeLegend", "admin.configureEmail.footer.modeRequired",
+                "admin.configureEmail.footer.modeOff", "admin.configureEmail.footer.modePortalNote",
+                "admin.configureEmail.footer.modeSaved", "admin.configureEmail.footer.offNote",
+                "admin.configureEmail.footer.policyHelp", "email.compose.footer.clinicOff")) {
+            for (String locale : LOCALES) {
+                String text = bundle(locale).getProperty(key);
+                assertThat(text).as(locale + " " + key).isNotBlank();
+                if (!"en".equals(locale)) {
+                    assertThat(text).as(locale + " " + key).isNotEqualTo(english.getProperty(key));
+                }
+            }
+        }
+    }
+
     private static Properties bundle(String locale) throws IOException {
         Properties properties = new Properties();
         try (InputStream in = Files.newInputStream(

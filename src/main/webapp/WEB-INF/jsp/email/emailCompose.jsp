@@ -633,6 +633,11 @@
                 <div class="card shadow-sm rounded mt-3 mb-3" id="clinicFooterCard">
                     <div class="card-body">
                         <h5><fmt:message key="email.compose.footer.clinicHeading"/></h5>
+                        <c:choose>
+                            <c:when test="${clinicFooterOff}">
+                                <p class="small text-muted" id="clinicFooterOffNote"><fmt:message key="email.compose.footer.clinicOff"/></p>
+                            </c:when>
+                            <c:otherwise>
                         <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
                         <div class="d-flex align-items-start" style="gap: 12px;">
                             <c:if test="${not empty clinicFooterLogoPreview}">
@@ -642,6 +647,8 @@
                             <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap; min-width: 0;"
                                  data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
                         </div>
+                            </c:otherwise>
+                        </c:choose>
                         <c:if test="${clinicFooterMissing}">
                             <p class="alert alert-warning mt-2"><fmt:message key="email.compose.footer.clinicRequired"/></p>
                         </c:if>

@@ -297,7 +297,7 @@ public class EmailData {
             return;
         }
         requireUnfrozenFooter();
-        if (snapshot == null || snapshot.html().isEmpty()) {
+        if (snapshot == null || snapshot.missingRequiredFooter()) {
             throw new IllegalStateException("Clinic email footer is required");
         }
         String personal = EmailFooterHtml.clean(footer);
@@ -305,7 +305,9 @@ public class EmailData {
                 || EmailFooterHtml.visibleLength(personal) > FOOTER_MAX_LENGTH) {
             throw new IllegalArgumentException("Personal email footer is too long");
         }
+        // With the clinic footer turned off, the user's own footer is all there is.
         String combined = personal.isEmpty() ? snapshot.html()
+                : snapshot.html().isEmpty() ? personal
                 : "<div>" + personal + "</div><br><div>" + snapshot.html() + "</div>";
         combined = EmailFooterHtml.clean(combined);
         int bytes = combined.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;

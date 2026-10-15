@@ -94,8 +94,11 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         }
 
         String clinicFooter = clinicFooters.clinicFooter();
+        boolean footerOff = clinicFooters.mode() == ClinicEmailFooterService.Mode.OFF;
         request.setAttribute("clinicFooter", clinicFooter);
-        request.setAttribute("clinicFooterMissing", clinicFooter.isEmpty());
+        request.setAttribute("clinicFooterMode", footerOff ? "off" : "required");
+        request.setAttribute("clinicFooterOff", footerOff);
+        request.setAttribute("clinicFooterMissing", !footerOff && clinicFooter.isEmpty());
         request.setAttribute("clinicFooterFingerprint",
                 io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
         restoreFooterDraft(request);

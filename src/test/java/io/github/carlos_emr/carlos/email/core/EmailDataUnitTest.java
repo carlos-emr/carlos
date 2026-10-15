@@ -293,6 +293,36 @@ class EmailDataUnitTest {
     }
 
     @Test
+    void shouldSendOnlyThePersonalFooter_andNoLogo_whenTheClinicFooterIsOff() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.setFooter("<b>Dr Example</b>");
+        data.freezeFooter(ClinicEmailFooterSnapshot.OFF);
+        assertThat(data.getSentFooter()).isEqualTo("<b>Dr Example</b>");
+        assertThat(data.getTransmittedBody()).isEqualTo("Body\n\nDr Example");
+        assertThat(data.getFooterLogo()).isNull();
+    }
+
+    @Test
+    void shouldSendWithoutAnyFooter_whenTheClinicFooterIsOffAndThereIsNoPersonalOne() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.freezeFooter(ClinicEmailFooterSnapshot.OFF);
+        assertThat(data.getSentFooter()).isEmpty();
+        assertThat(data.isFooterFrozen()).isTrue();
+    }
+
+    @Test
+    void shouldCarryNothingFromTheClinic_whenTheSnapshotIsOff() {
+        var off = new ClinicEmailFooterSnapshot("FAKE Clinic", new EmailInlineImage("logo@test", "image/png", new byte[] {1}), true);
+        assertThat(off).isEqualTo(ClinicEmailFooterSnapshot.OFF);
+        assertThat(off.html()).isEmpty();
+        assertThat(off.logo()).isNull();
+        assertThat(off.missingRequiredFooter()).isFalse();
+        assertThat(new ClinicEmailFooterSnapshot("", null).missingRequiredFooter()).isTrue();
+    }
+
+    @Test
     void shouldFreezeFooterAndDefensivelyCopyLogo() {
         byte[] bytes = {1, 2, 3};
         var clinic = new ClinicEmailFooterSnapshot("FAKE Clinic", new EmailInlineImage("logo@test", "image/png", bytes));

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.email.admin;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.Mode;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.SaveResult;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -31,7 +32,10 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-/** Only administrators may edit the mandatory clinic footer. Personal footers never alter it. */
+/**
+ * Saves the clinic email footer and whether it is required or off (Configure Email). Only
+ * administrators may; personal footers never alter it. Each change is audited.
+ */
 public final class SaveClinicEmailFooter2Action extends ActionSupport {
     private final SecurityInfoManager security;
     private final ClinicEmailFooterService footers;
@@ -45,7 +49,7 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
         this.footers = footers;
     }
 
-    // FindSecBugs UNVALIDATED_REDIRECT: the only redirect is to this application's own context path plus the fixed route /admin/ViewConfigureEmail and one of five fixed outcome constants; no request value is part of the URL.
+    // FindSecBugs UNVALIDATED_REDIRECT: the only redirect is to this application's own context path plus the fixed route /admin/ViewConfigureEmail and one of the fixed outcome constants; no request value is part of the URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is this application's context path plus a fixed route and a fixed outcome constant; no request value is part of the URL")
     @Override
     public String execute() throws Exception {
@@ -66,21 +70,34 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
             response.sendError(400);
             return NONE;
         }
+        String requestedMode = request.getParameter("clinicFooterMode");
+        Mode mode = requestedMode == null ? null : Mode.parse(requestedMode);
+        if (requestedMode != null && mode == null) {
+            response.sendError(400);
+            return NONE;
+        }
         String outcome;
         try {
-            SaveResult result = footers.save(html, shown);
-            outcome = result == SaveResult.STALE ? "stale" : result == SaveResult.SAVED ? "saved" : "unchanged";
+            ClinicEmailFooterService.Saved saved = footers.save(html, shown, mode);
+            SaveResult result = saved.footer();
+            boolean modeChanged = saved.modeChanged();
             if (result == SaveResult.SAVED) {
                 LogAction.addLog(user.getLoggedInProviderNo(), "update", "emailFooterClinicDefault", "",
                         request.getRemoteAddr());
             }
+            if (modeChanged) {
+                LogAction.addLog(user.getLoggedInProviderNo(), "update", "emailFooterClinicMode", mode.value(),
+                        request.getRemoteAddr());
+            }
+            outcome = result == SaveResult.STALE ? "stale" : result == SaveResult.SAVED ? "saved"
+                    : modeChanged ? "modeSaved" : "unchanged";
         } catch (IllegalArgumentException e) {
             outcome = "invalid";
         } catch (org.springframework.dao.ConcurrencyFailureException | jakarta.persistence.PersistenceException e) {
             outcome = "conflict";
         }
         // A refused save must not lose what the administrator typed: the page puts it back.
-        if (!"saved".equals(outcome) && !"unchanged".equals(outcome)) {
+        if ("invalid".equals(outcome) || "conflict".equals(outcome) || "stale".equals(outcome)) {
             ClinicFooterDraft.keep(request, html, shown, "stale".equals(outcome));
         }
         // Fixed application route and fixed outcome constants; request text never reaches this URL.

@@ -133,6 +133,26 @@ class ViewConfigureEmail2ActionUnitTest {
         assertThat(request.getAttribute("clinicFooterDraftKept")).isNull();
     }
 
+    @Test
+    @DisplayName("should show the choice, and warn about a missing footer only while it is required")
+    void shouldWarnAboutAMissingFooter_onlyWhileRequired() throws Exception {
+        allowAdminRead();
+        when(clinicFooters.clinicFooter()).thenReturn("");
+        when(clinicFooters.mode()).thenReturn(ClinicEmailFooterService.Mode.REQUIRED);
+
+        action().execute();
+        assertThat(request.getAttribute("clinicFooterMode")).isEqualTo("required");
+        assertThat(request.getAttribute("clinicFooterMissing")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicFooterOff")).isEqualTo(false);
+
+        request.clearAttributes();
+        when(clinicFooters.mode()).thenReturn(ClinicEmailFooterService.Mode.OFF);
+        action().execute();
+        assertThat(request.getAttribute("clinicFooterMode")).isEqualTo("off");
+        assertThat(request.getAttribute("clinicFooterMissing")).isEqualTo(false);
+        assertThat(request.getAttribute("clinicFooterOff")).isEqualTo(true);
+    }
+
     private void allowAdminRead() {
         when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull(String.class))).thenReturn(true);
     }

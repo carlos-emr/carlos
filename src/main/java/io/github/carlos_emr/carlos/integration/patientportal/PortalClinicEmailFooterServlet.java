@@ -38,7 +38,10 @@ import java.util.Collections;
 import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 
-/** Read-only provider of the current mandatory clinic footer to the portal's mail worker. */
+/**
+ * Read-only provider of the saved clinic footer to the portal's mail worker. The portal's emails need
+ * it even when an administrator turned the footer off for CARLOS's own emails.
+ */
 @WebServlet(name = "PortalClinicEmailFooter", urlPatterns = "/ws/portal/email-footer")
 public final class PortalClinicEmailFooterServlet extends HttpServlet {
     private static final Logger logger = MiscUtils.getLogger();
@@ -48,7 +51,7 @@ public final class PortalClinicEmailFooterServlet extends HttpServlet {
 
     public PortalClinicEmailFooterServlet() {
         this(PatientPortalSettings::fromCarlosProperties,
-                () -> SpringUtils.getBean(ClinicEmailFooterService.class).snapshot());
+                () -> SpringUtils.getBean(ClinicEmailFooterService.class).portalSnapshot());
     }
 
     PortalClinicEmailFooterServlet(Supplier<PatientPortalSettings> settings,

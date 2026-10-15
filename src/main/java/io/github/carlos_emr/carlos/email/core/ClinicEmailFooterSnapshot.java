@@ -21,13 +21,36 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
-/** Trusted clinic content captured at compose preparation, never populated from form fields. */
-public record ClinicEmailFooterSnapshot(String html, EmailInlineImage logo) {
+/**
+ * Trusted clinic content captured at compose preparation, never populated from form fields.
+ *
+ * @param html the clinic footer, cleaned; empty when none is set or the footer is turned off
+ * @param logo the logo the email carries, or {@code null}
+ * @param clinicFooterOff whether an administrator turned the clinic footer off: the email then
+ *     carries no clinic footer and no logo, and may be sent without one
+ */
+public record ClinicEmailFooterSnapshot(String html, EmailInlineImage logo, boolean clinicFooterOff) {
+
+    /** What an email carries while the clinic footer is turned off: nothing from the clinic. */
+    public static final ClinicEmailFooterSnapshot OFF = new ClinicEmailFooterSnapshot("", null, true);
+
     public ClinicEmailFooterSnapshot {
-        html = EmailFooterHtml.clean(html);
-        if (logo != null) {
+        html = clinicFooterOff ? "" : EmailFooterHtml.clean(html);
+        if (clinicFooterOff) {
+            logo = null;
+        } else if (logo != null) {
             logo = new EmailInlineImage(logo.contentId(), logo.contentType(), logo.bytes().clone());
         }
+    }
+
+    /** A clinic footer that is required (the default): an email needs it to be sent. */
+    public ClinicEmailFooterSnapshot(String html, EmailInlineImage logo) {
+        this(html, logo, false);
+    }
+
+    /** @return whether an email with this snapshot must wait for an administrator to set a footer */
+    public boolean missingRequiredFooter() {
+        return !clinicFooterOff && html.isEmpty();
     }
 
     @Override

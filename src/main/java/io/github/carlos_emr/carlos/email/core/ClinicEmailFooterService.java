@@ -28,9 +28,48 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Clinic text is independent of optional personal text and is included in every new email. */
+/**
+ * The clinic email footer: text set by an administrator, independent of each user's own footer.
+ *
+ * <p>An administrator chooses whether it is {@link Mode#REQUIRED required} (the default: every new
+ * email carries it, and none can be sent until it is set) or {@link Mode#OFF off} (emails sent from
+ * CARLOS carry no clinic footer and no logo). The choice covers CARLOS's own emails only: the
+ * patient portal's emails still need the saved footer ({@link #portalSnapshot()}).</p>
+ */
 @Service
 public class ClinicEmailFooterService {
+
+    /** Whether CARLOS's emails must carry the clinic footer. */
+    public enum Mode {
+        /** Every new email carries the clinic footer; none can be sent until it is set. */
+        REQUIRED("required"),
+        /** Emails sent from CARLOS carry no clinic footer and no logo. */
+        OFF("off");
+
+        private final String value;
+
+        Mode(String value) {
+            this.value = value;
+        }
+
+        /** @return the stored and posted form, {@code required} or {@code off} */
+        public String value() {
+            return value;
+        }
+
+        /** @return the mode named by {@code value}, or {@code null} when it names none */
+        public static Mode parse(String value) {
+            for (Mode mode : values()) {
+                if (mode.value.equals(value)) {
+                    return mode;
+                }
+            }
+            return null;
+        }
+    }
+
+    static final String MODE_PROPERTY = "email_footer_clinic_mode";
+
     private final UserPropertyDAO properties;
     private final EmailFooterLogoService logos;
 
@@ -52,10 +91,61 @@ public class ClinicEmailFooterService {
      * @return {@code true} when no clinic footer is set
      */
     public boolean requiredFooterMissing() {
-        return clinicFooter().isEmpty();
+        return mode() == Mode.REQUIRED && clinicFooter().isEmpty();
     }
 
+    /**
+     * @return whether CARLOS's emails must carry the clinic footer; {@link Mode#REQUIRED} until an
+     *     administrator chooses otherwise, and for any stored value it does not recognise
+     */
+    public Mode mode() {
+        UserProperty row = properties.getProp(MODE_PROPERTY);
+        Mode mode = row == null ? null : Mode.parse(row.getValue());
+        return mode == null ? Mode.REQUIRED : mode;
+    }
+
+    /**
+     * Sets whether CARLOS's emails must carry the clinic footer. Serialized with clinic footer saves.
+     *
+     * @param mode the new mode
+     * @return {@code true} when the mode changed; the caller audits it
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public boolean saveMode(Mode mode) {
+        if (mode == null) {
+            throw new IllegalArgumentException("Clinic footer mode is missing");
+        }
+        properties.lockClinicEmailFooterSettings();
+        UserProperty row = properties.getProp(MODE_PROPERTY);
+        Mode current = row == null ? null : Mode.parse(row.getValue());
+        // No row, or one it does not recognise, reads as required: choosing required changes nothing.
+        if ((current == null ? Mode.REQUIRED : current) == mode) {
+            return false;
+        }
+        if (row == null) {
+            row = new UserProperty();
+            row.setName(MODE_PROPERTY);
+        }
+        row.setValue(mode.value());
+        properties.saveProp(row);
+        return true;
+    }
+
+    /** @return what a new email from CARLOS carries from the clinic, as the mode says */
     public ClinicEmailFooterSnapshot snapshot() {
+        if (mode() == Mode.OFF) {
+            return ClinicEmailFooterSnapshot.OFF;
+        }
+        return portalSnapshot();
+    }
+
+    /**
+     * The saved clinic footer and its logo whatever the mode: the patient portal's emails still need
+     * them when CARLOS's own emails have the footer turned off.
+     *
+     * @return the saved footer and logo; the footer is empty when none is saved
+     */
+    public ClinicEmailFooterSnapshot portalSnapshot() {
         String html = clinicFooter();
         return new ClinicEmailFooterSnapshot(html, html.isEmpty() ? null : logos.inlineLogo());
     }
@@ -63,7 +153,8 @@ public class ClinicEmailFooterService {
     /** Render the same trusted clinic snapshot carried by the server-side compose token. */
     public static void expose(jakarta.servlet.http.HttpServletRequest request, ClinicEmailFooterSnapshot snapshot) {
         request.setAttribute("clinicFooter", snapshot == null ? "" : snapshot.html());
-        request.setAttribute("clinicFooterMissing", snapshot == null || snapshot.html().isEmpty());
+        request.setAttribute("clinicFooterMissing", snapshot == null || snapshot.missingRequiredFooter());
+        request.setAttribute("clinicFooterOff", snapshot != null && snapshot.clinicFooterOff());
         request.setAttribute("clinicFooterLogoPreview", null);
         if (snapshot != null && snapshot.logo() != null) {
             EmailInlineImage logo = snapshot.logo();
@@ -77,6 +168,33 @@ public class ClinicEmailFooterService {
     }
 
     public enum SaveResult { SAVED, UNCHANGED, STALE }
+
+    /**
+     * What a save from Configure Email changed.
+     *
+     * @param footer what happened to the footer text
+     * @param modeChanged whether the required/off choice changed
+     */
+    public record Saved(SaveResult footer, boolean modeChanged) {
+    }
+
+    /**
+     * Saves the footer text and the required/off choice together, in one transaction. A refused or
+     * stale text save changes nothing, the choice included. With {@link Mode#OFF}, blank text is not
+     * a refusal: it leaves the saved footer, which the patient portal's emails still use.
+     *
+     * @param html the footer as the page posted it
+     * @param shownFingerprint the fingerprint of the footer the page showed
+     * @param mode the choice posted with it, or {@code null} to leave it as it is
+     * @return what changed; the caller audits each change
+     * @throws IllegalArgumentException when the text is refused (blank while required, or too long)
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Saved save(String html, String shownFingerprint, Mode mode) {
+        SaveResult footer = mode == Mode.OFF && html != null && EmailFooterHtml.clean(html).isEmpty()
+                ? SaveResult.UNCHANGED : save(html, shownFingerprint);
+        return new Saved(footer, footer != SaveResult.STALE && mode != null && saveMode(mode));
+    }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public SaveResult save(String html, String shownFingerprint) {

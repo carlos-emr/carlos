@@ -92,11 +92,15 @@
             <c:if test="${clinicFooterMissing}">
                 <p class="alert alert-warning"><fmt:message key="email.compose.footer.clinicRequired"/></p>
             </c:if>
+            <c:if test="${clinicFooterOff}">
+                <p class="alert alert-info" id="clinicFooterOffNote"><fmt:message key="admin.configureEmail.footer.offNote"/></p>
+            </c:if>
             <c:if test="${not empty param.clinicFooterOutcome}">
                 <p class="alert alert-info" role="status">
                     <c:choose>
                         <c:when test="${param.clinicFooterOutcome eq 'saved'}"><fmt:message key="admin.configureEmail.footer.policySaved"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'unchanged'}"><fmt:message key="admin.configureEmail.footer.policyUnchanged"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'modeSaved'}"><fmt:message key="admin.configureEmail.footer.modeSaved"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'stale'}"><fmt:message key="admin.configureEmail.footer.policyStale"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'conflict'}"><fmt:message key="admin.configureEmail.footer.policyConflict"/></c:when>
                         <c:otherwise><fmt:message key="admin.configureEmail.footer.policyInvalid"/></c:otherwise>
@@ -126,6 +130,22 @@
                 <form action="${ctx}/admin/saveClinicEmailFooter" method="post" id="clinicFooterForm" class="mt-3">
                     <input type="hidden" name="clinicFooter" id="clinicFooter" value="${carlos:forHtmlAttribute(clinicFooter)}"/>
                     <input type="hidden" name="clinicFooterFingerprint" value="${carlos:forHtmlAttribute(clinicFooterFingerprint)}"/>
+                    <%-- Required (the default) or off, saved with the text by the same button, so choosing
+                         never reloads the page over unsaved footer text. --%>
+                    <fieldset class="mb-3" id="clinicFooterModeChoice">
+                        <legend class="fs-6 fw-semibold"><fmt:message key="admin.configureEmail.footer.modeLegend"/></legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="clinicFooterMode" id="clinicFooterModeRequired"
+                                   value="required" ${clinicFooterOff ? '' : 'checked'}/>
+                            <label class="form-check-label" for="clinicFooterModeRequired"><fmt:message key="admin.configureEmail.footer.modeRequired"/></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="clinicFooterMode" id="clinicFooterModeOff"
+                                   value="off" ${clinicFooterOff ? 'checked' : ''}/>
+                            <label class="form-check-label" for="clinicFooterModeOff"><fmt:message key="admin.configureEmail.footer.modeOff"/></label>
+                        </div>
+                        <div class="form-text"><fmt:message key="admin.configureEmail.footer.modePortalNote"/></div>
+                    </fieldset>
                     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
                             data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview">
                         <fmt:message key="email.footerEditor.open"/></button>

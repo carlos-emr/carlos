@@ -64,6 +64,68 @@ class ClinicEmailFooterServiceUnitTest {
         verifyNoInteractions(logos);
     }
 
+    private static UserProperty row(String name, String value) {
+        UserProperty row = new UserProperty();
+        row.setName(name);
+        row.setValue(value);
+        return row;
+    }
+
+    @Test
+    void shouldBeRequired_untilAnAdministratorTurnsTheFooterOff() {
+        assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.REQUIRED);
+        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "sometimes"));
+        assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.REQUIRED);
+        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
+        assertThat(service.mode()).isEqualTo(ClinicEmailFooterService.Mode.OFF);
+    }
+
+    @Test
+    void shouldGiveCarlosEmailsNothing_butThePortalTheSavedFooter_whenOff() {
+        when(properties.getProp("email_footer_clinic_mode")).thenReturn(row("email_footer_clinic_mode", "off"));
+        when(properties.findClinicEmailFooter()).thenReturn(List.of(row("email_footer_clinic_default", "FAKE Clinic")));
+
+        assertThat(service.snapshot()).isEqualTo(ClinicEmailFooterSnapshot.OFF);
+        assertThat(service.requiredFooterMissing()).isFalse();
+        assertThat(service.portalSnapshot().html()).isEqualTo("FAKE Clinic");
+        assertThat(service.portalSnapshot().clinicFooterOff()).isFalse();
+    }
+
+    @Test
+    void shouldStoreTheMode_underTheFooterLock_onlyWhenItChanges() {
+        assertThat(service.saveMode(ClinicEmailFooterService.Mode.REQUIRED)).isFalse();
+        verify(properties, never()).saveProp(any(UserProperty.class));
+
+        assertThat(service.saveMode(ClinicEmailFooterService.Mode.OFF)).isTrue();
+        var order = inOrder(properties);
+        order.verify(properties).lockClinicEmailFooterSettings();
+        order.verify(properties).getProp("email_footer_clinic_mode");
+        order.verify(properties).saveProp(argThat((UserProperty saved) ->
+                "email_footer_clinic_mode".equals(saved.getName()) && "off".equals(saved.getValue())));
+    }
+
+    @Test
+    void shouldTurnTheFooterOff_withBlankText_leavingTheSavedFooter() {
+        var saved = service.save("<b> </b>", ClinicEmailFooterService.fingerprint("FAKE Clinic"),
+                ClinicEmailFooterService.Mode.OFF);
+
+        assertThat(saved).isEqualTo(new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, true));
+        verify(properties, never()).updateClinicEmailFooter(any(), any());
+        verify(properties, never()).findClinicEmailFooterForUpdate();
+    }
+
+    @Test
+    void shouldLeaveTheMode_whenTheTextSaveIsStale() {
+        when(properties.findClinicEmailFooterForUpdate()).thenReturn(List.of(row("email_footer_clinic_default", "FAKE newer")));
+
+        var saved = service.save("FAKE typed", ClinicEmailFooterService.fingerprint("FAKE older"),
+                ClinicEmailFooterService.Mode.OFF);
+
+        assertThat(saved.footer()).isEqualTo(ClinicEmailFooterService.SaveResult.STALE);
+        assertThat(saved.modeChanged()).isFalse();
+        verify(properties, never()).getProp("email_footer_clinic_mode");
+    }
+
     @Test
     void shouldRefuseBlankSave_withoutChangingConfiguredClinic() {
         assertThatThrownBy(() -> service.save("<b> </b>", ClinicEmailFooterService.fingerprint("Clinic")))
