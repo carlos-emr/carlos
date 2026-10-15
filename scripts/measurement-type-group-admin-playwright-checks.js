@@ -12,8 +12,10 @@
 // Asserts each write in MariaDB: measurementGroup membership add/remove, group and
 // type deletion (with measurementTypeDeleted audit rows), types and instructions
 // saved by the Add forms, duplicate type refused, and that the chart's measurement
-// popup offers the owned type. Steps that need no Add form run first on SQL-seeded
-// types and group; the Add forms come last because they are what currently fails.
+// popup offers the owned type. Add Measurement Group stores nothing until a type is
+// chosen (#3335): an Add with no type is refused, a setup closed before choosing
+// types leaves no group, and the created group reaches the chart's measurement menu
+// with its type. Steps that need no Add form run first on SQL-seeded types and group.
 //
 // Fixtures: FAKEPW<hex> type codes, display names, group names and style-sheet name
 // (the admin validator rejects '-'); cleanup deletes only those rows and asserts it.
@@ -27,6 +29,7 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow} = require('./lib/workflow-session');
+const {waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 
 const ROUTE = '/encounter/oscarMeasurements/';
 
@@ -57,13 +60,14 @@ async function workflow(s) {
   const seededGroup = `FAKEPW ${hex} seeded group`;
   const editedGroup = `FAKEPW ${hex} edited group`;
   const createdGroup = `FAKEPW ${hex} new group`;
+  const abandonedGroup = `FAKEPW ${hex} closed group`;
   const cssName = `FAKEPW${hex}.css`;
   const cssUploadDir = process.env.MEASUREMENT_CSS_UPLOAD_DIR;
   const uploadedFile = path.join(cssUploadDir, cssName);
   const types = [seeded, peer, created];
   const codes = types.map(t => q(t.type)).join(',');
   const displays = types.map(t => q(t.display)).join(',');
-  const groups = [seededGroup, editedGroup, createdGroup].map(q).join(',');
+  const groups = [seededGroup, editedGroup, createdGroup, abandonedGroup].map(q).join(',');
   const typeRows = t => sql.rows(`SELECT type,typeDisplayName,typeDescription,measuringInstruction,validation
     FROM measurementType WHERE type=${q(t.type)} AND typeDisplayName=${q(t.display)} ORDER BY id`);
   const members = group => sql.rows(`SELECT typeDisplayName FROM measurementGroup WHERE name=${q(group)}
@@ -131,22 +135,33 @@ async function workflow(s) {
   }
   const listedType = (popup, t) => popup.locator('tr.data').filter({has: popup.getByRole('link', {name: t.type, exact: true})});
 
-  await s.step('the chart measurement menu offers the group and its popup the owned type', async () => {
+  // The chart builds its measurement menu when it loads, so a group created after the chart
+  // opened is only listed once the chart is reloaded.
+  async function assertChartOffers(group, t, label, {reload = false, instructions = [t.instruction]} = {}) {
     const chart = await s.chart();
-    const link = chart.locator('#leftNavBar .menu a, #rightNavBar .menu a').filter({hasText: seededGroup});
-    h.assert(await link.count() === 1, 'The chart measurement menu does not list the owned group');
+    if (reload) {
+      await chart.reload();
+      await waitForNavbars(chart, 20000);
+    }
+    const link = chart.locator('#leftNavBar .menu a, #rightNavBar .menu a').filter({hasText: group});
+    h.assert(await link.count() === 1, `The chart measurement menu does not list ${group}`);
     await revealAuditLink(chart, link, 20000);
-    const entry = await s.popup(chart, link, 'measurement-entry');
+    const entry = await s.popup(chart, link, label);
     await entry.waitForLoadState('load');
-    await h.assertNotErrorPage(entry, 'measurement-entry');
-    const row = entry.locator(`[id="row-${seeded.type}"]`);
+    await h.assertNotErrorPage(entry, label);
+    const row = entry.locator(`[id="row-${t.type}"]`);
     await row.waitFor();
     h.assert(await entry.locator('tr.data[id^="row-"]').count() === 1, 'The group popup offers types outside the group');
-    h.assert((await row.locator('span').first().innerText()).trim() === seeded.display, 'The entry row is not labelled with the display name');
-    h.assert((await row.locator('label').allInnerTexts()).map(t => t.trim()).join('|') === seeded.instruction,
-      'The entry row does not offer the measuring instruction');
+    h.assert((await row.locator('span').first().innerText()).trim() === t.display, 'The entry row is not labelled with the display name');
+    const offered = (await row.locator('label').allInnerTexts()).map(text => text.trim()).sort();
+    h.assert(JSON.stringify(offered) === JSON.stringify([...instructions].sort()),
+      'The entry row does not offer exactly the measuring instructions');
     h.assert(await row.locator('input[name^="inputValue-"]').count() === 1, 'The entry row has no value input');
     await entry.close();
+  }
+
+  await s.step('the chart measurement menu offers the group and its popup the owned type', async () => {
+    await assertChartOffers(seededGroup, seeded, 'measurement-entry');
   });
 
   await s.step('Modify Measurement Style opens the owned group without changing it', async () => {
@@ -176,7 +191,8 @@ async function workflow(s) {
     await popup.close();
   });
 
-  // Every step from here needs an Add form or a Process*MeasurementGroupAction page.
+  // Every step from here needs an Add form or a Process*MeasurementGroupAction page; before
+  // #3335 each of those links answered 405.
   await s.step('Add Measurement Type saves the new type with its validation rule', async () => {
     const popup = await open('Add Measurement Type', 'add-measurement-type');
     await popup.locator('#type').fill(created.type.toLowerCase());
@@ -240,15 +256,42 @@ async function workflow(s) {
     await popup.close();
   });
 
-  await s.step('Add Measurement Group defines a group and adds the new type to it', async () => {
-    const popup = await open('Add Measurement Group', 'add-measurement-group');
-    await popup.locator('input[name="groupName"]').fill(createdGroup);
+  async function defineGroup(group, label) {
+    const popup = await open('Add Measurement Group', label);
+    await popup.locator('input[name="groupName"]').fill(group);
     await landOn(popup, 'SetupAddMeasurementGroup', () => popup.locator('input[type="submit"][name="submit"]').click());
-    h.assert(styles(createdGroup) === '1', 'The new group has no measurementGroupStyle row');
+    await popup.locator('select[name="selectedAddTypes"]').waitFor();
+    h.assert(styles(group) === '0' && members(group).length === 0,
+      'Defining the name stored the group before any type was chosen');
+    return popup;
+  }
+
+  await s.step('closing Add Measurement Group before choosing a type leaves no group behind', async () => {
+    const popup = await defineGroup(abandonedGroup, 'abandon-measurement-group');
+    await popup.close();
+    h.assert(styles(abandonedGroup) === '0' && members(abandonedGroup).length === 0, 'The closed setup left group rows');
+    const list = await open('Edit Measurement Group', 'abandoned-group-list');
+    h.assert(await list.locator('#selectedGroupName option').filter({hasText: abandonedGroup}).count() === 0,
+      'The group list offers the group whose setup was closed');
+    await list.close();
+  });
+
+  await s.step('Add Measurement Group refuses an Add with no type, then creates the group with the new type', async () => {
+    const popup = await defineGroup(createdGroup, 'add-measurement-group');
+    await landOn(popup, 'AddMeasurementGroup', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
+    await popup.locator('.action-errors').getByText(`Select at least one measurement type to create the group ${createdGroup}.`).waitFor();
+    h.assert(styles(createdGroup) === '0' && members(createdGroup).length === 0, 'An Add with no type chosen stored the group');
     await popup.locator('select[name="selectedAddTypes"]').selectOption(created.display);
     await landOn(popup, 'SetupEditMeasurementGroup', () => popup.getByRole('button', {name: 'Add', exact: true}).click());
+    h.assert(styles(createdGroup) === '1', 'The new group has no measurementGroupStyle row');
     h.assert(JSON.stringify(members(createdGroup)) === JSON.stringify([created.display]), 'The new type was not added to the new group');
     await popup.close();
+  });
+
+  await s.step('the chart measurement menu offers the created group and its popup the new type', async () => {
+    // The new type carries both instructions stored by the steps above.
+    await assertChartOffers(createdGroup, created, 'created-group-entry',
+      {reload: true, instructions: [created.instruction, instruction2]});
   });
 
   await s.step('Delete in View All Measurement Types removes every owned type and records each row', async () => {

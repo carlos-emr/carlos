@@ -4419,7 +4419,7 @@
       "env": [
         "MEASUREMENT_CSS_UPLOAD_DIR"
       ],
-      "notes": "Fails on 2026.08: the Customize Measurements Add links answer 405 (HttpMethodGuardFilter treats their GET form-openers as mutators).",
+      "notes": "Customize Measurements types, instructions, groups and style sheets end to end; Add Measurement Group stores nothing until a type is chosen (an Add with none is refused, a closed setup leaves no group) and the created group reaches the chart's measurement menu with its type (#3335).",
       "fixtures": "Owns a synthetic patient, FAKEPW<hex> measurement types, groups and a style sheet (DB row plus the file in MEASUREMENT_CSS_UPLOAD_DIR, the server's oscarMeasurement_css_upload_path); removes and verifies all of them. SKIPs when MEASUREMENT_CSS_UPLOAD_DIR is not set."
     },
     {
@@ -4889,8 +4889,23 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its first step on 2026.08: View Mapping throws ReferenceError (stripe is not defined); the add/remove/remap pages also answer 405.",
+      "notes": "LOINC mapping admin end to end: View Mapping loads without a script error, the Add and Remove/Remap links open the read-only View* gates, Search reloads them by GET, an Update with nothing selected and a cancelled DELETE write nothing (#3335).",
       "fixtures": "Owns two X<hex> LOINC codes and the mapping and recyclebin rows that reference them; maps one existing unmapped measurement type to an owned code only for the run; removes and verifies all of them."
+    },
+    {
+      "name": "measurement-customization-routes",
+      "script": "scripts/measurement-customization-routes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Every Customize Measurements link opens its form by GET (no 405, no script error), the group-definition continuation renders without storing a group, and every write route of the page refuses GET and HEAD (#3335).",
+      "fixtures": "Seeds one FAKEPW measurement type, one FAKEPW group (style row and member), one owned X<hex> LOINC mapping and one FAKEPW style-sheet row; cleanup deletes only those and anything a write could have created under the owned names, and asserts it."
     },
     {
       "name": "provider-preferences-cpp-dx",
@@ -6287,7 +6302,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds two FAKEPW measurement types and three marker-named measurement groups with style rows; cleanup deletes only those and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every measurement-group write refused GET/HEAD, groups 2 and 3 are unchanged, and the pages loaded cleanly': EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete write on GET; the pages also raise the /styles.css MIME errors of finding L87."
+      "notes": "EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete refuse GET/HEAD (#3335). The last step also reports the /styles.css MIME errors of finding L87 if the group pages still raise them."
     },
     {
       "name": "get-reject-inbox-queue",

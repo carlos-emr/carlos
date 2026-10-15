@@ -75,6 +75,14 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
     }
 
     public String execute() throws ServletException, IOException {
+        // Writes only from the mapping forms' POST. Customize Measurements ▸ Add Measurement
+        // Mapping and the page's Search open the read-only ViewAddMeasurementMap gate instead,
+        // so a GET here can only be a link, image tag or prefetch (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
@@ -84,7 +92,12 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
 
             if (loinc_code != null && identifier != null) {
 
-                String[] measurement = identifier.split(",");
+                // identifier is "code,labType,name"; the name may itself contain commas.
+                String[] measurement = identifier.split(",", 3);
+                if (measurement.length < 3 || loinc_code.isBlank() || "0".equals(loinc_code)) {
+                    // "None Selected" in either list (both submit "0"): nothing to map.
+                    return "failure";
+                }
                 MeasurementMapConfig mmc = new MeasurementMapConfig();
                 if (!mmc.checkLoincMapping(loinc_code, measurement[1])) {
                     mmc.mapMeasurement(measurement[0], loinc_code, measurement[2], measurement[1]);
@@ -97,7 +110,7 @@ public class EctAddMeasurementMap2Action extends ActionSupport {
             return outcome;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
 
         }
     }

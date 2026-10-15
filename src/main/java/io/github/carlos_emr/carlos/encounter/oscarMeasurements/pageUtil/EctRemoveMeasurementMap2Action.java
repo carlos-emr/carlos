@@ -74,17 +74,33 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
     }
 
     public String execute() throws ServletException, IOException {
+        // Writes only from the mapping forms' POST. Customize Measurements ▸ Remove/Remap
+        // Measurement Mapping and the page's Search open the read-only ViewRemoveMeasurementMap
+        // gate instead, so a GET here can only be a link, image tag or prefetch (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-        if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
 
             String id = request.getParameter("id");
             String identifier = request.getParameter("identifier");
             String name = request.getParameter("name");
             String type = request.getParameter("type");
             String loinc_code = request.getParameter("loinc_code");
+            // The recycle-bin entry is attributed to the signed-in provider, not to whatever
+            // provider number the form carries.
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
             String outcome = "continue";
 
             if (id != null) {
+                if (!id.matches("\\d{1,9}")) {
+                    // No mapping row was chosen (or the id is not one): nothing to remove.
+                    return "failure";
+                }
 
                 MeasurementMapConfig mmc = new MeasurementMapConfig();
 
@@ -93,13 +109,13 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
                 if (identifier != null && name != null && type != null && loinc_code != null) {
                     if (!mmc.checkLoincMapping(loinc_code, type)) {
                         mmc.mapMeasurement(identifier, loinc_code, name, type);
-                        mmc.removeMapping(id, request.getParameter("provider_no"));
+                        mmc.removeMapping(id, providerNo);
                         outcome = "success";
                     } else {
                         outcome = "failedcheck";
                     }
                 } else {
-                    mmc.removeMapping(id, request.getParameter("provider_no"));
+                    mmc.removeMapping(id, providerNo);
                     outcome = "success";
                 }
 
@@ -108,7 +124,7 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
             return outcome;
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
 
     }

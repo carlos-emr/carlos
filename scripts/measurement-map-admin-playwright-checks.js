@@ -11,7 +11,9 @@
 // Asserts the measurementMap rows each save writes: two owned LOINC definitions
 // (and a duplicate refused), a FLOWSHEET mapping of a measurement type to the owned
 // code, its remap to the second code and every deletion, with the recyclebin rows
-// the removals record; plus what View Mapping and the search lists show.
+// the removals record; plus what View Mapping and the search lists show. Since #3335
+// the Add and Remove/Remap links open the read-only View* gates, Search reloads them
+// by GET, an Update with nothing selected and a cancelled DELETE write nothing.
 //
 // Fixtures: owned X<hex> LOINC codes named with the run marker. The measurement type
 // is an existing unmapped type (types are listed from an application cache that a
@@ -178,13 +180,24 @@ async function workflow(s) {
     await view.close();
   });
 
-  // Every step from here opens a page through a link that currently answers 405.
+  // Every step from here opens a page through a link that answered 405 before #3335.
   const offeredCodes = async page => (await page.locator('select[name="loinc_code"] option').allInnerTexts())
     .map(t => t.trim()).filter(t => t.startsWith(`X${hex.slice(0, 11)}`));
   await s.step('Add Measurement Mapping offers both owned codes to map to', async () => {
     const page = await open('Add Measurement Mapping', 'add-measurement-mapping');
     h.assert(JSON.stringify(await offeredCodes(page)) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
       'The identifier mapping page does not offer exactly the owned codes');
+    await page.close();
+  });
+
+  await s.step('Update Measurement Mapping with nothing selected reports failure and writes nothing', async () => {
+    const page = await open('Add Measurement Mapping', 'empty-measurement-mapping');
+    const before = mapRows().length;
+    const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'AddMeasurementMap',
+      () => page.getByRole('button', {name: 'Update Measurement Mapping', exact: true}).click()));
+    h.assert(dialogs.length === 1 && dialogs[0].text === 'Failed to update the measurement mappings',
+      'An Update with nothing selected did not report failure exactly once');
+    h.assert(mapRows().length === before, 'An Update with nothing selected wrote a mapping');
     await page.close();
   });
 
@@ -216,6 +229,16 @@ async function workflow(s) {
     // The recycle-bin keyword is the removed row's id; scoping to these ids leaves out the
     // entry the REMAP step recorded for the row it replaced.
     const removedIds = sql.rows(`SELECT id FROM measurementMap WHERE loinc_code IN (${owned})`).map(([id]) => id);
+    // Cancelling the confirmation must not submit the form (the button used to submit anyway).
+    const kept = mapRows().length;
+    const submitted = page.waitForEvent('framenavigated', {timeout: 5000, predicate: f => f === page.mainFrame()})
+      .then(() => true, () => false);
+    const cancelled = await h.withExpectedDialogs(page,
+      () => ownedRow().getByRole('button', {name: 'DELETE', exact: true}).click(), {accept: false});
+    h.assert(!(await submitted), 'A cancelled DELETE still submitted the form');
+    h.assert(cancelled.map(d => d.text).join('|') === 'Are you sure you want to delete the mapping?',
+      'DELETE did not ask for confirmation exactly once');
+    h.assert(mapRows().length === kept, 'A cancelled DELETE removed a mapping');
     for (let left = mapRows().length; left > 0; left--) {
       h.assert(await ownedRow().count() === 1, 'The removal table does not list a remaining owned mapping');
       const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',
@@ -231,7 +254,8 @@ async function workflow(s) {
     await page.close();
   });
 
-  // Search posts the form to the GET-only View* gate (405 today), so it is asserted last.
+  // Search reloads the GET-only View* gate with the search fields (it POSTed there, a 405,
+  // before #3335).
   await s.step('Search by name on Add Measurement Mapping narrows the codes to the owned ones', async () => {
     sql.execute(`INSERT INTO measurementMap(loinc_code,ident_code,name,lab_type)
       VALUES ${codes.map(c => `(${q(c.loinc)},${q(c.loinc)},${q(c.name)},'PATHL7')`).join(',')}`);

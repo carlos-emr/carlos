@@ -26,6 +26,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -863,6 +865,60 @@ class HttpMethodGuardFilterUnitTest {
         void shouldStripPathParameters_fromMutatorActionSegment() {
             assertThat(HttpMethodGuardFilter.extractActionName("/admin/ProviderDelete;jsessionid=secret"))
                     .isEqualTo("ProviderDelete");
+        }
+    }
+
+    /**
+     * Customize Measurements (issue #3335). The Setup* routes only load lists into the
+     * session and render a form, so GET must reach them; the write routes stay POST-only.
+     */
+    @Nested
+    @DisplayName("Customize Measurements routes")
+    class MeasurementCustomization {
+
+        @ParameterizedTest(name = "GET {0} renders its form")
+        @ValueSource(strings = {
+                "SetupAddMeasurementType",
+                "SetupAddMeasuringInstruction",
+                "SetupAddMeasurementGroup",
+                "SetupStyleSheetList",
+                "SetupGroupList",
+                "SetupEditMeasurementGroup",
+                "ViewAddMeasurementMap",
+                "ViewRemoveMeasurementMap",
+                "ViewViewMeasurementMap"
+        })
+        void shouldPassThrough_forGetToMeasurementFormRoute(String route) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/oscarMeasurements/" + route);
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @ParameterizedTest(name = "GET {0} is refused")
+        @ValueSource(strings = {
+                "AddMeasurementMap",
+                "NewMeasurementMap",
+                "RemoveMeasurementMap",
+                "RemapMeasurementMap",
+                "AddMeasurementType",
+                "AddMeasuringInstruction",
+                "AddMeasurementGroup",
+                "DeleteMeasurementTypes"
+        })
+        void shouldBlock_forGetToMeasurementWriteRoute(String route) throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/encounter/oscarMeasurements/" + route);
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
         }
     }
 

@@ -111,9 +111,11 @@ public class HttpMethodGuardFilter implements Filter {
             "documenterrorreportupload", // MOH report upload/import/apply endpoint; action also gates mutating prefixes
             "newmeasurementmap",      // EctAddMeasurementMap2Action
             "remapmeasurementmap",    // EctRemoveMeasurementMap2Action
-            "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action
-            "setupaddmeasurementtype",       // EctSetupAddMeasurementType2Action
-            "setupaddmeasuringinstruction",  // EctSetupAddMeasuringInstruction2Action
+            // The SetupAddMeasurement{Type,Group} and SetupAddMeasuringInstruction routes are NOT
+            // listed: they only load lists and render the Add form, and the Customize Measurements
+            // links (and the group-definition continuation) open them by GET. Listing them made
+            // every one of those forms answer 405 (#3335). Their writes go to AddMeasurementType,
+            // AddMeasuringInstruction and AddMeasurementGroup, which the "add" prefix still blocks.
             "rbtaddtogroup",          // RBTAddToGroup2Action (starts with "rbt", not "add")
             "reportreassign",         // ReportReassign2Action (reassigns lab reports to other providers)
             "forward"                 // ReportReassign2Action (lab/MDS forwarding — same mutator class, 4 URLs)
