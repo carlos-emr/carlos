@@ -2886,6 +2886,39 @@ was opened for"; a scratch copy that read the patient from the popup's URL and k
 itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
 patient-less POST was answered as a success and the locked login was served (HTTP 200).
 
+### Schedule group Delete and View groups Save/Delete (2026-10-15, issue #4515)
+
+Finding 80. Administration ▸ Schedule Management ▸ Search/Edit/Delete Groups ▸ Delete answered HTTP 500 because
+`adminnewgroup.jsp` read the CSRFGuard token as a group member. Preferences ▸ View groups ▸ Save and Delete left a blank
+`/provider/providercontrol` page because they ran inside that page's server-side include, which ignores a redirect.
+`release/2026.08` at 244556ad plus the fix branch was packaged as `2026.09.0~snapshot26`, the same way as the MDS run above.
+The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags. DrugRef was built on the host from
+`1941e14`. `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and
+`lintian --fail-on error` passed. carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset, the retrying `BASE_IMAGE`). `carlos-ctl check` reported "All
+checks passed"; the installer's transient "NOT ready to use" left no marker.
+
+| Run | `my-groups` | `get-reject-provider-groups` |
+|---|---|---|
+| fixed packages | PASS, all 8 steps. The admin Delete posts its CSRF token, answers 200 with the notice and removes the ticked row. View groups Save and Delete land on the group list. | PASS. `DeleteMyGroupMembers` and `SaveMyGroup` answer 405 to GET and HEAD; the retired include routes write nothing. |
+| pre-fix `adminnewgroup.jsp` swapped in | FAILS: "Search/Edit/Delete Groups ▸ Delete answered HTTP 500" | not run |
+| pre-fix `providernewgroup.jsp`, `providersavemygroup.jsp` and `providercontrol.jsp` swapped in | FAILS: "Save did not return to the group list (left on /carlos/provider/providercontrol)" | not run |
+
+The first fixed run also surfaced a latent error on the deletion notice, which the 500 had kept anyone from reaching:
+`setfocus()` focused a group-name field the notice does not render. It is guarded in the same change.
+
+The other checks that touch group routes also ran on the fixed packages:
+- `browser-surface`, `schedule-setting`, `appointment-group-copy-cut`, `report-age-sex-visit` and
+  `csrf-runtime-form-month-view-group` pass.
+- `xss-poison-admin-detail` is `known-fail` on finding 122.
+- `report-daysheet-labs` fails on finding 54, as its suite notes expect; its group day-sheet step passes.
+- `admin-role-management` refuses to run without an exclusive-deployment opt-in.
+- `appointment-group-paste-restriction` SKIPs on a missing fixture.
+
+The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
+save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
+the same way, and the same `echart` script fails there at the same step, so this change did not cause it.
+
 ### Allergy class shortcuts validation (2026-10-15, issue #4576)
 
 `release/2026.08` at `378db4ed` plus the #4576 fix branch was packaged unstamped as `2026.09.0~snapshot26`.
