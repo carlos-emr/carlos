@@ -286,6 +286,8 @@ public class FrmPDFServlet extends HttpServlet {
      * For multi-line text (textarea)
      * ie.  aci : left, 20, 308, 0, BaseFont.HELVETICA, 8, _, 238, 222, 10
      * requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines
+     * A multi-line field can add {@code continue=<heading>} and further settings after spacingBtwnLines so
+     * that text which does not fit prints on extra pages instead of being dropped; see {@link ColumnContinuation}.
      * <p>
      * NOTE: When working on these forms in linux, it helps to load the PDF file into gimp, switch to pt. coordinate system and use the mouse to find the coordinates.
      * Prepare to be bored!
@@ -429,7 +431,7 @@ public class FrmPDFServlet extends HttpServlet {
             props.setProperty("current_user", currentUser);
             props.setProperty("current_date", currentDate);
 
-            props.setProperty("printer_info", "Printed on " + currentDate + " by " + currentUser + ": Page " + currentPage + " of " + totalPages);
+            props.setProperty("printer_info", printerInfo(currentDate, currentUser, currentPage, totalPages));
 
             //initialise measurement collections = a list of pages sections measurements
             List<List<List<String>>> xMeasurementValues = new ArrayList<List<List<String>>>();
@@ -539,6 +541,19 @@ public class FrmPDFServlet extends HttpServlet {
             Rectangle pSize = reader.getPageSize(1);
             height = pSize.getHeight();
 
+            // A column opted in to continuation (see ColumnContinuation) prints what does not fit its box
+            // on extra pages after the template's; count them first so every page's "Page x of y" is right.
+            final Properties printValues = props;
+            ColumnContinuation continuation = ColumnContinuation.plan(printCfg, cfgFileNo, props,
+                    name -> printValues.getProperty(name) != null ? printValues.getProperty(name)
+                            : measurements.getProperty(name, ""),
+                    height, totalPages + 1);
+            if (continuation.pages() > 0) {
+                totalPages += continuation.pages();
+                props.setProperty("total_pages", String.valueOf(totalPages));
+                props.setProperty("printer_info", printerInfo(currentDate, currentUser, currentPage, totalPages));
+            }
+
             PdfContentByte cb = writer.getDirectContent();
             ColumnText ct = new ColumnText(cb);
             int i = 0;
@@ -553,7 +568,6 @@ public class FrmPDFServlet extends HttpServlet {
                 cb.addTemplate(page1, 1, 0, 0, 1, 0, 0);
 
                 BaseFont bf; // = normFont;
-                String encoding;
 
                 cb.setRGBColorStroke(0, 0, 1);
                 //cb.setFontAndSize(bf, 8);
@@ -563,7 +577,6 @@ public class FrmPDFServlet extends HttpServlet {
 
                 if (i <= cfgFileNo) {
 
-                    String[] fontType;
                     for (Enumeration e = printCfg[i - 1].propertyNames(); e.hasMoreElements(); ) {
                         tempName = new StringBuilder(e.nextElement().toString());
                         cfgVal = printCfg[i - 1].getProperty(tempName.toString()).split(",");
@@ -571,36 +584,9 @@ public class FrmPDFServlet extends HttpServlet {
                             cfgVal[x].trim();
                         }
 
-                        if (cfgVal[4].indexOf(";") > -1) {
-                            fontType = cfgVal[4].split(";");
-                            if (fontType[1].trim().equals("italic"))
-                                fontFlags = Font.ITALIC;
-                            else if (fontType[1].trim().equals("bold"))
-                                fontFlags = Font.BOLD;
-                            else if (fontType[1].trim().equals("bolditalic"))
-                                fontFlags = Font.BOLDITALIC;
-                            else
-                                fontFlags = Font.NORMAL;
-                        } else {
-                            fontFlags = Font.NORMAL;
-                            fontType = new String[]{cfgVal[4].trim()};
-                        }
-
-                        if (fontType[0].trim().equals("BaseFont.HELVETICA")) {
-                            fontType[0] = BaseFont.HELVETICA;
-                            encoding = BaseFont.CP1252;  //latin1 encoding
-                        } else if (fontType[0].trim().equals("BaseFont.HELVETICA_OBLIQUE")) {
-                            fontType[0] = BaseFont.HELVETICA_OBLIQUE;
-                            encoding = BaseFont.CP1252;
-                        } else if (fontType[0].trim().equals("BaseFont.ZAPFDINGBATS")) {
-                            fontType[0] = BaseFont.ZAPFDINGBATS;
-                            encoding = BaseFont.ZAPFDINGBATS;
-                        } else {
-                            fontType[0] = BaseFont.COURIER;
-                            encoding = BaseFont.CP1252;
-                        }
-
-                        bf = PdfFonts.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
+                        CfgFont cfgFont = cfgFont(cfgVal[4]);
+                        bf = cfgFont.baseFont();
+                        fontFlags = cfgFont.flags();
                         propValue = props.getProperty(tempName.toString());
                         //if not in regular config then check measurements
                         if (propValue == null) {
@@ -609,18 +595,17 @@ public class FrmPDFServlet extends HttpServlet {
 
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
+                            if (continuation.prints(i, tempName.toString())) {
+                                continuation.fillBox(i, tempName.toString(), cb);
+                                continue;
+                            }
                             int fontSize = 12;
                             try {
                                 fontSize = Integer.parseInt(cfgVal[5].trim());
                             } catch (NumberFormatException nfe) {
                                 log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
                             }
-                            Font font;
-                            if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
-                                font = new Font(bf, fontSize, fontFlags, Color.BLACK);
-                            } else {
-                                font = new Font(bf, fontSize, fontFlags);
-                            }
+                            Font font = cfgFont.columnFont(fontSize);
                             //ct.setSimpleColumn(60, 300, 200, 500, 10,
                             // Element.ALIGN_LEFT);
                             //ct.addText(new Phrase(15, "xxxx xxxxx xxxxx xxxxx xxx
@@ -872,6 +857,11 @@ public class FrmPDFServlet extends HttpServlet {
                 } //end if there are properties to process
 
             }
+
+            // What did not fit an opted-in column's box, on the extra pages counted above.
+            final int lastPage = totalPages;
+            continuation.writePages(document, cb,
+                    pageNo -> printerInfo(currentDate, currentUser, String.valueOf(pageNo), lastPage));
         } catch (DocumentException dex) {
             baosPDF.reset();
             throw dex;
@@ -902,6 +892,64 @@ public class FrmPDFServlet extends HttpServlet {
         }
 
         return baosPDF;
+    }
+
+    /** The "Printed on ... Page x of y" line at the top of every printed page. */
+    static String printerInfo(String date, String user, String page, int totalPages) {
+        return "Printed on " + date + " by " + user + ": Page " + page + " of " + totalPages;
+    }
+
+    /**
+     * A print-config font value, such as {@code BaseFont.HELVETICA} or {@code BaseFont.HELVETICA;italic}:
+     * its base font and its {@link Font} style flags.
+     */
+    record CfgFont(BaseFont baseFont, int flags) {
+
+        /** The font a text column prints in at this size. */
+        Font columnFont(int size) {
+            // Hack to stop blue outline from bold text
+            return flags == Font.BOLD ? new Font(baseFont, size, flags, Color.BLACK) : new Font(baseFont, size, flags);
+        }
+    }
+
+    /**
+     * Reads a print-config font value. Helvetica, Helvetica oblique and ZapfDingbats are recognised;
+     * anything else prints in Courier. A {@code ;italic}, {@code ;bold} or {@code ;bolditalic} suffix
+     * sets the style.
+     */
+    static CfgFont cfgFont(String value) throws DocumentException, java.io.IOException {
+        String[] fontType;
+        int fontFlags;
+        if (value.indexOf(";") > -1) {
+            fontType = value.split(";");
+            if (fontType[1].trim().equals("italic"))
+                fontFlags = Font.ITALIC;
+            else if (fontType[1].trim().equals("bold"))
+                fontFlags = Font.BOLD;
+            else if (fontType[1].trim().equals("bolditalic"))
+                fontFlags = Font.BOLDITALIC;
+            else
+                fontFlags = Font.NORMAL;
+        } else {
+            fontFlags = Font.NORMAL;
+            fontType = new String[]{value.trim()};
+        }
+
+        String encoding;
+        if (fontType[0].trim().equals("BaseFont.HELVETICA")) {
+            fontType[0] = BaseFont.HELVETICA;
+            encoding = BaseFont.CP1252;  //latin1 encoding
+        } else if (fontType[0].trim().equals("BaseFont.HELVETICA_OBLIQUE")) {
+            fontType[0] = BaseFont.HELVETICA_OBLIQUE;
+            encoding = BaseFont.CP1252;
+        } else if (fontType[0].trim().equals("BaseFont.ZAPFDINGBATS")) {
+            fontType[0] = BaseFont.ZAPFDINGBATS;
+            encoding = BaseFont.ZAPFDINGBATS;
+        } else {
+            fontType[0] = BaseFont.COURIER;
+            encoding = BaseFont.CP1252;
+        }
+        return new CfgFont(PdfFonts.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED), fontFlags);
     }
 
     /**
