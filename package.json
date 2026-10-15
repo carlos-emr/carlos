@@ -403,6 +403,7 @@
     "test:form-catalog-smoke-position-hazard-css-playwright": "FORM_CATALOG_ONLY=positionhazard.open node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-rourke2006-reopen-playwright": "FORM_CATALOG_ONLY=rourke2006.reopen,rourke2006.print node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-adfv2-window-playwright": "FORM_CATALOG_ONLY=adfv2.redisplay node scripts/form-catalog-smoke-playwright-checks.js",
+    "test:form-adfv2-save-exit-playwright": "node scripts/form-adfv2-save-exit-playwright-checks.js",
     "test:form-catalog-smoke-bare-contact-playwright": "FORM_CATALOG_ONLY=positionhazard.bare,healthpassport.bare node scripts/form-catalog-smoke-playwright-checks.js",
     "test:palliative-care-save-reopen-playwright": "node scripts/palliative-care-save-reopen-playwright-checks.js",
     "test:billing-on-gst-css-benefit-playwright": "node scripts/billing-on-gst-css-benefit-playwright-checks.js",
@@ -608,7 +609,9 @@
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
     "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js",
     "test:waf-clinical-text-corpus-rx-comment-save-playwright": "WAF_CORPUS_ONLY=rx-comment-save node scripts/waf-clinical-text-corpus-playwright-checks.js",
-    "test:waf-clinical-text-corpus-incoming-encounter-reason-playwright": "WAF_CORPUS_ONLY=incoming-encounter-reason node scripts/waf-clinical-text-corpus-playwright-checks.js"
+    "test:waf-clinical-text-corpus-incoming-encounter-reason-playwright": "WAF_CORPUS_ONLY=incoming-encounter-reason node scripts/waf-clinical-text-corpus-playwright-checks.js",
+    "test:bc-master-record-navigation-playwright": "node scripts/bc-master-record-navigation-playwright-checks.js",
+    "test:echart-issues-filter-browser": "node scripts/echart-issues-filter-browser-check.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

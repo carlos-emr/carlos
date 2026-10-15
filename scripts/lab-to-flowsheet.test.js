@@ -19,6 +19,7 @@ const entries = manifest.checks.filter((entry) => entry.script === 'scripts/lab-
 test('shouldReadTheTargetAsANumber_whateverTheOperatorAndEscaping', () => {
   assert.equal(check.targetOf('fade=[on] header=[A1C] body=[Target &lt;= 7.0%]'), 7);
   assert.equal(check.targetOf('Target <= 7.0%'), 7);
+  assert.equal(check.targetOf('body=[Target &amp;lt;= 7.0%]'), 7, 'the tooltip body is encoded twice in the page HTML');
   assert.equal(check.targetOf('Target < 6.5 %'), 6.5);
   assert.equal(check.targetOf('Target ≤ 8%'), 8);
 });
@@ -77,7 +78,8 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
     'lab-to-flowsheet': { pin: undefined, finding: 258, step: check.STEP.link },
     // Finding 256 is fixed (#4613): its entry keeps the value steps but no longer expects them to fail.
     'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value, fixed: true },
-    'lab-to-flowsheet-fraction': { pin: 'fraction', finding: 257, step: check.STEP.fraction },
+    // Finding 257 is fixed: its pin step is now a plain assertion, so the entry carries no expectedFailure.
+    'lab-to-flowsheet-fraction': { pin: 'fraction', fixed: true },
     'lab-to-flowsheet-observed-time': { pin: 'time', finding: 259, step: check.STEP.time },
     // Finding 262 is fixed (#4619): its entry keeps the pin step but no longer expects it to fail.
     'lab-to-flowsheet-upload-time': { pin: 'seconds', finding: 262, step: check.STEP.seconds, fixed: true },
