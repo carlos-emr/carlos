@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
 // Native group-note Rev plus adversarial requests. Every patient, login, facility and link is owned.
+const {randomBytes} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {runWorkflow} = require('./lib/workflow-session');
@@ -32,7 +33,9 @@ async function workflow(s) {
   let futureId;
   let groupLink;
   let childrenRemoved = false;
-  const ownerName = `${marker}-OWNER`;
+  // The recipient search must not also load the unrelated owner through a shared surname prefix.
+  const ownerName = `FAKE-GROUP${randomBytes(8).toString('hex')}`;
+  h.assert(!ownerName.includes(marker), 'The owner fixture must not match the recipient search term');
   s.cleanup(() => cleanupAll(
     () => {
       if (!owner) { childrenRemoved = true; return; }
@@ -117,8 +120,12 @@ async function workflow(s) {
     const ownerBeforeChart = JSON.stringify(readPatientState(sql, owner));
     readerSession = await loginAs(reader);
     readerSession.context.on('page', page => h.wireStrictPage(page, 'group-history', recorder));
-    const {masterPage} = await openMasterRecord(readerSession.context, readerSession.page, recorder,
+    const {masterPage, searchPage} = await openMasterRecord(readerSession.context, readerSession.page, recorder,
       {searchTerm: marker, preferredDemographicNo: patient, timeout: 30000});
+    h.assert(await searchPage.locator('a[title="Master Demographic File"]').count() === 1,
+      'The recipient search must return exactly one patient');
+    h.assert(new URL(masterPage.url()).searchParams.get('demographic_no') === String(patient),
+      'The single search result must be the recipient');
     chart = await openChart(readerSession.context, masterPage, recorder, 30000);
     await waitForNavbars(chart, 30000);
     h.assert(JSON.stringify(readPatientState(sql, owner)) === ownerBeforeChart,
