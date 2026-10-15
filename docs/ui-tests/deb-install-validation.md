@@ -2958,3 +2958,59 @@ On the rebuilt packages the same allergy, CSRF, CDS and export checks passed aga
 server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
 while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
 reach the allergy code.
+
+### Write-integrity guards and stale Master Record edits (2026-10-15, issue #4225)
+
+The six #4225 workflows still failing on `release/2026.08` were `double-submit-appointment`, `double-submit-billing-on`,
+`double-submit-demographic-add`, `double-submit-admin-adds`, `concurrency-demographic-edit` and
+`concurrency-demographic-ext-insert`. `release/2026.08` at `c793fb04` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26+issue4225.N`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags.
+DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`). `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. carlos-ctl was 1.1.2 from its release. Each build was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo dataset, `BUILD_CA_BUNDLE` for the egress proxy's CA);
+`carlos-ctl check` reported "all checks passed", and the installer's transient "NOT ready to use" left no marker.
+
+Build `.1` packaged the fix's first commits. Build `.2` added the review fixes (per-patient `_demographic` check before
+the conflict page, transactions the claim observes on Add Demographic and Add Service). The two later commits, the
+Name Used version and `LogSafe` on the update warnings, change `DemographicEditVersion` and `DemographicUpdate2Action`
+only. Their compiled classes were copied into the build `.2` webapp and the service restarted, so the second run tested
+the branch head.
+
+| Check | build `.1` | build `.2` + head classes | `release/2026.08` classes and JSPs swapped in |
+|---|---|---|---|
+| `double-submit-appointment` | PASS | PASS | FAILS: the slow-response re-click booked 2 appointments |
+| `double-submit-billing-on` | PASS | PASS | FAILS: double Enter and the slow re-click each wrote 2 headers and 2 item sets |
+| `double-submit-demographic-add` | PASS | PASS | FAILS: reloading the result page registered a second patient |
+| `double-submit-admin-adds` | PASS | PASS | FAILS: back-to-back clicks, the slow re-click and the reload each added the service twice |
+| `double-submit-intentional-adds` (new) | PASS | PASS | FAILS: "Reloading the confirmation added the service again" |
+| `concurrency-demographic-edit` | PASS | PASS | FAILS: the stale save reverted the other session's phone number to blank |
+| `concurrency-demographic-ext-insert` | PASS | PASS | FAILS: HTTP 500 (`uk_demo_ext`), the whole save rolled back |
+| `demographic-stale-edit-recovery` (new) | PASS | PASS | FAILS: "A stale Update Record answered HTTP 500, expected the 409 conflict page" |
+
+The swap used the classes compiled from `c793fb04` against the packaged WAR's libraries and that commit's five form JSPs,
+then `carlos-ctl restart`. After the fixed files were restored, the target checks passed again.
+
+On build `.2` with the head classes, these demographic, Add Service and replay regressions passed: `demographic-add`,
+`demographic-edit-update`, `demographic-master-crud-smoke`, `master-record-tabs`, `demographic-gates`,
+`gap-records-demographic-add-fields`, `gap-records-demographic-edit-clinical`, `consultation-services-admin`,
+`get-reject-consult-config`, `clinical-freetext`, `echart-print` and `echart-new-patient-notes`.
+`xss-poison-master-record` is `known-fail` on finding 117. Four failed in ways their manifest notes or the diff
+account for:
+- `waiting-list` fails at its first step, as its notes expect, because `edit.jsp` renders the list read-only.
+- `boundary-demographic-text` fails at its last step on the silently truncated `pref_name`, pronoun and gender, as
+  its notes expect.
+- `phi-in-error-pages` misses two cells in code this change does not touch: `demographic/printDemoLabelAction`
+  answers 500 instead of 400, and `admin/DemographicMergeRecord` answers 200. The guarded routes answered as provoked.
+- `waf-clinical-text-corpus` fails at its prevention row with the harness error "Invalid URL". Its appointment add
+  and update rows, through the guarded `AddRecord`, pass.
+
+On build `.1` the billing and appointment regressions passed: `billing-on-submit`, `billing-on-group-disk-zero-total`,
+`billing-review-failed-calculation`, the five `gap-billing-*` form checks, `appointment-patient-typeahead`,
+`schedule-quick-search-appointment`, the three `gap-provider-appointment-*` booking checks, `popup-opener-day-sheet`
+and `echart-note-verify-appointment-status-billing`. `csrf-negative-matrix` passed its appointment, demographic and
+Ontario bill families with the new tokens dropped from the replay. Four others did not pass:
+- `audit-log-billing-on` fails at its last step on the missing audit row, as its notes describe.
+- `authz-write-role-matrix-billing` is the pinned `known-fail` on finding 199.
+- `authz-write-role-matrix` stops at its allergy family, and `csrf-negative-matrix` at its prevention family. Both
+  replay a token an earlier guard already spent: the allergy `saveToken` (#4390) and `carlosPreventionSubmission`
+  (#4455). Those families need a freshly rendered token, as the eForm family has; neither action is in this change.
