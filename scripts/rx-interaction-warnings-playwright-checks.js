@@ -21,6 +21,8 @@
  *     overrides the provider's (facility < provider < patient);
  *   - removing a card re-checks and clears its partner's warning;
  *   - discontinuing the current theophylline re-checks and clears the ciprofloxacin card's warning;
+ *   - a custom drug, which has no ATC code and so cannot be checked, is marked "not checked"
+ *     rather than left looking clean;
  *   - a check the server reports as unavailable is shown as "unavailable", never as a clean card;
  *   - the endpoint answers only for a named patient whose Rx is open (400 / 404 otherwise).
  *
@@ -33,6 +35,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
 
 const CIPRO = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
 const WARFARIN = { term: 'COUMADIN 5', name: 'COUMADIN TAB 5MG', atc: 'B01AA03' };
@@ -42,6 +45,7 @@ const LABEL = { major: 'Major interaction', moderate: 'Moderate interaction', mi
 const EFFECT = { A: 'augments', I: 'inhibits' };
 const EVIDENCE = { G: 'good', F: 'fair', P: 'poor' };
 const UNAVAILABLE = 'Drug interaction check unavailable';
+const NOT_CHECKED = 'Interactions not checked';
 
 /** DrugRef's graded record for a pair, in whichever direction it is filed, as the page words it. */
 function drugRefPair(sql, one, other) {
@@ -251,6 +255,16 @@ async function workflow(s) {
       'The theophylline was not discontinued');
     h.assert(body.status === 'checked' && body.warnings.length === 0, `Unexpected check after discontinuing: ${JSON.stringify(body)}`);
     assertMarkers(await shownMarkers(rx), [], 'after discontinuing theophylline');
+  });
+
+  await s.step('a custom drug DrugRef cannot classify is marked as not checked, never as clean', async () => {
+    let customCard;
+    const body = await interactionCheck(rx, patient, async () => { customCard = await stageCustomDrug(rx, `${marker} compounded cream`); });
+    h.assert(body.status === 'checked' && JSON.stringify(body.unchecked) === JSON.stringify([customCard]),
+      `The custom drug was not reported as unchecked: ${JSON.stringify(body)}`);
+    assertMarkers(await shownMarkers(rx), [`unchecked_${customCard}: ${NOT_CHECKED}`], 'with a custom drug staged');
+    h.assert((await rx.locator(`#unchecked_${customCard}`).getAttribute('title')).includes('no ATC code'),
+      'The not-checked note does not say why');
   });
 
   await s.step('a check the server reports as unavailable is shown as unavailable, not as a clean card', async () => {

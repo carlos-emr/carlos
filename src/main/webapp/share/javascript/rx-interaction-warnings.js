@@ -2,12 +2,14 @@
 /*
  * Drug-drug interaction markers on the Rx page's staged prescription cards (issue #4506).
  *
- * Each staged card (fieldset set_<randomId>, rendered by prescribe.jsp) carries four hidden
- * markers, major_/moderate_/minor_/unknown_<randomId>, each marked data-rx-interaction. The
- * server (GET rx/interactionWarnings?demographicNo=N) checks every staged drug against the other
- * staged drugs and the patient's current medications and answers
+ * Each staged card (fieldset set_<randomId>, rendered by prescribe.jsp) carries five hidden
+ * markers, major_/moderate_/minor_/unknown_/unchecked_<randomId>, each marked data-rx-interaction.
+ * The server (GET rx/interactionWarnings?demographicNo=N) checks every staged drug against the
+ * other staged drugs and the patient's current medications and answers
  *   {status: 'checked'|'off'|'unavailable', level, warnings: [{randomId, severity, partner,
- *    summary, evidence, comment}]}
+ *    summary, evidence, comment}], unchecked: [randomId]}
+ * where unchecked names the cards whose drug has no ATC code, so DrugRef could not check them;
+ * those are marked "not checked" rather than left looking clean.
  * render() clears every marker and shows the warnings it is given. Anything other than a
  * well-formed 'checked' or 'off' answer is shown as "check unavailable" in #interactingDrugErrorMsg,
  * never as a clean result: a failed check must not look like "no interactions".
@@ -29,6 +31,9 @@
     };
     var UNAVAILABLE = 'Drug interaction check unavailable. '
         + 'Review the patient’s medications for interactions before prescribing.';
+    var NOT_CHECKED = 'Interactions not checked';
+    var NOT_CHECKED_DETAIL = 'This drug has no ATC code, so DrugRef cannot check it for interactions. '
+        + 'Review its interactions before prescribing.';
     var CARD = /^set_/;
 
     function isText(value) {
@@ -42,7 +47,8 @@
 
     function isAnswer(result) {
         return !!result && (result.status === 'checked' || result.status === 'off')
-            && Array.isArray(result.warnings) && result.warnings.every(isWarning);
+            && Array.isArray(result.warnings) && result.warnings.every(isWarning)
+            && (result.unchecked === undefined || (Array.isArray(result.unchecked) && result.unchecked.every(isText)));
     }
 
     function clear(marker) {
@@ -76,6 +82,14 @@
         }
         setStatus(document, answered ? result.status : 'unavailable');
         if (!answered || result.status !== 'checked') return;
+
+        (result.unchecked || []).forEach(function (randomId) {
+            var marker = document.getElementById('unchecked_' + randomId);
+            if (!marker) return;
+            marker.textContent = NOT_CHECKED;
+            marker.title = NOT_CHECKED_DETAIL;
+            marker.style.display = 'inline';
+        });
 
         var groups = {};
         var order = [];
@@ -177,7 +191,7 @@
         return observer;
     }
 
-    var api = {render: render, create: create, watch: watch, UNAVAILABLE: UNAVAILABLE};
+    var api = {render: render, create: create, watch: watch, UNAVAILABLE: UNAVAILABLE, NOT_CHECKED: NOT_CHECKED};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.RxInteractionWarnings = api;
 }(typeof window === 'undefined' ? globalThis : window));

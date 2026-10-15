@@ -45,15 +45,15 @@ class RxDrugRefInteractionsUnitTest {
     }
 
     private static Hashtable<String, Object> interaction() {
-        Hashtable<String, Object> record = new Hashtable<>();
-        record.put("affectingatc", "J01MA02");
-        record.put("affectedatc", "R03DA04");
-        record.put("significance", "3");
-        return record;
+        Hashtable<String, Object> entry = new Hashtable<>();
+        entry.put("affectingatc", "J01MA02");
+        entry.put("affectedatc", "R03DA04");
+        entry.put("significance", "3");
+        return entry;
     }
 
     private static List<Object> answerFor(Object answer) throws Exception {
-        try (MockedConstruction<SimpleXmlRpcClient> clients = mockConstruction(SimpleXmlRpcClient.class,
+        try (MockedConstruction<SimpleXmlRpcClient> _ = mockConstruction(SimpleXmlRpcClient.class,
                 (client, context) -> when(client.execute(eq("fetch"), any())).thenReturn(answer))) {
             return new ArrayList<Object>(new RxDrugRef("http://localhost/drugref").getInteractions(codes()));
         }

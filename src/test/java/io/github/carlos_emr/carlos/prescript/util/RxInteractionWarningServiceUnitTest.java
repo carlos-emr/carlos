@@ -67,16 +67,16 @@ class RxInteractionWarningServiceUnitTest {
     private static Map<?, ?> interaction(String affectingAtc, String affectingDrug, String effect,
                                          String affectedAtc, String affectedDrug, String significance) {
         // Hashtable, as the XML-RPC client builds it: no null values.
-        Hashtable<String, Object> record = new Hashtable<>();
-        record.put("affectingatc", affectingAtc);
-        record.put("affectingdrug", affectingDrug);
-        record.put("effect", effect);
-        record.put("affectedatc", affectedAtc);
-        record.put("affecteddrug", affectedDrug == null ? "" : affectedDrug);
-        record.put("significance", significance);
-        record.put("evidence", "G");
-        record.put("comment", "Monitor theophylline levels.");
-        return record;
+        Hashtable<String, Object> entry = new Hashtable<>();
+        entry.put("affectingatc", affectingAtc);
+        entry.put("affectingdrug", affectingDrug);
+        entry.put("effect", effect);
+        entry.put("affectedatc", affectedAtc);
+        entry.put("affecteddrug", affectedDrug == null ? "" : affectedDrug);
+        entry.put("significance", significance);
+        entry.put("evidence", "G");
+        entry.put("comment", "Monitor theophylline levels.");
+        return entry;
     }
 
     private static Map<?, ?> ciproTheophylline(String significance) {
@@ -194,6 +194,30 @@ class RxInteractionWarningServiceUnitTest {
                 .check(0, List.of(new StagedDrug(11L, CIPRO)), List.of(THEOPHYLLINE));
 
         assertThat(result.status()).isEqualTo(Status.UNAVAILABLE);
+    }
+
+    @Test
+    @DisplayName("should report a staged drug with no ATC code as not checked rather than clean")
+    void shouldReportUnchecked_whenAStagedDrugHasNoAtcCode() {
+        FixedLookup lookup = new FixedLookup(List.of(ciproTheophylline("3")));
+        RxInteractionWarningService service = new RxInteractionWarningService(lookup);
+
+        Result checked = service.check(0,
+                List.of(new StagedDrug(11L, CIPRO), new StagedDrug(33L, null), new StagedDrug(44L, " ")), List.of(THEOPHYLLINE));
+        Result alone = service.check(0, List.of(new StagedDrug(33L, "")), List.of(THEOPHYLLINE));
+        Result off = service.check(RxInteractionWarningLevelResolver.NONE, List.of(new StagedDrug(33L, null)), List.of());
+        Result failed = new RxInteractionWarningService(codes -> null)
+                .check(0, List.of(new StagedDrug(11L, CIPRO), new StagedDrug(33L, null)), List.of(THEOPHYLLINE));
+
+        assertThat(checked.status()).isEqualTo(Status.CHECKED);
+        assertThat(checked.unchecked()).containsExactly(33L, 44L);
+        assertThat(checked.warnings()).extracting(Warning::randomId).containsExactly(11L);
+        assertThat(alone.status()).isEqualTo(Status.CHECKED);
+        assertThat(alone.unchecked()).containsExactly(33L);
+        // Off and unavailable say nothing card by card: the page shows nothing, or the global notice.
+        assertThat(off.unchecked()).isEmpty();
+        assertThat(failed.status()).isEqualTo(Status.UNAVAILABLE);
+        assertThat(failed.unchecked()).isEmpty();
     }
 
     @Test

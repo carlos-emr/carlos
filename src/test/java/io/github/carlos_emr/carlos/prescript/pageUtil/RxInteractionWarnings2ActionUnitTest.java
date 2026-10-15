@@ -173,7 +173,31 @@ class RxInteractionWarnings2ActionUnitTest {
         assertThat(warning.get("summary").asText()).isEqualTo("CIPROFLOXACIN augments THEOPHYLLINE <b>");
         assertThat(warning.get("evidence").asText()).isEqualTo("good");
         assertThat(warning.get("comment").asText()).isEqualTo("Monitor levels.");
+        assertThat(json.get("unchecked")).isEmpty();
         assertThat(lookups).containsExactly(List.of(CIPRO, THEOPHYLLINE));
+    }
+
+    @Test
+    @DisplayName("should list a staged drug with no ATC code as unchecked and leave custom notes out")
+    void shouldListUncheckedCard_whenAStagedDrugHasNoAtcCode() throws Exception {
+        RxSessionBean bean = stageCipro();
+        RxPrescriptionData.Prescription custom = new RxPrescriptionData.Prescription(0, PROVIDER, PATIENT);
+        custom.setRandomId(515151L);
+        custom.setCustomName("Compounded cream");
+        bean.getStashList().add(custom);
+        RxPrescriptionData.Prescription note = new RxPrescriptionData.Prescription(0, PROVIDER, PATIENT);
+        note.setRandomId(626262L);
+        note.setCustomNote(true);
+        bean.getStashList().add(note);
+        request.setParameter("demographicNo", String.valueOf(PATIENT));
+
+        action().execute();
+
+        JsonNode json = json();
+        assertThat(json.get("status").asText()).isEqualTo("checked");
+        assertThat(json.get("unchecked")).hasSize(1);
+        assertThat(json.get("unchecked").get(0).asText()).isEqualTo("515151");
+        assertThat(json.get("warnings").get(0).get("randomId").asText()).isEqualTo("424242");
     }
 
     @Test
@@ -250,7 +274,8 @@ class RxInteractionWarnings2ActionUnitTest {
         request.setParameter("demographicNo", String.valueOf(PATIENT));
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull())).thenReturn(false);
 
-        assertThatThrownBy(() -> action().execute())
+        RxInteractionWarnings2Action action = action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         assertThat(lookups).isEmpty();
@@ -263,7 +288,8 @@ class RxInteractionWarnings2ActionUnitTest {
         request.setParameter("demographicNo", String.valueOf(PATIENT));
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), eq(PATIENT))).thenReturn(false);
 
-        assertThatThrownBy(() -> action().execute())
+        RxInteractionWarnings2Action action = action();
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_rx)");
         assertThat(lookups).isEmpty();
@@ -277,7 +303,8 @@ class RxInteractionWarnings2ActionUnitTest {
         request.setParameter("demographicNo", String.valueOf(PATIENT));
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> action().execute()).isInstanceOf(SecurityException.class);
+        RxInteractionWarnings2Action action = action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         assertThat(lookups).isEmpty();
         assertThat(response.getContentAsByteArray()).isEmpty();
     }

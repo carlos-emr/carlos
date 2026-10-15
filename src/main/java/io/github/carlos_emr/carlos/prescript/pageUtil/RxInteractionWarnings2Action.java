@@ -13,12 +13,12 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -60,7 +60,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * filled, so no interaction was ever shown.</p>
  *
  * <p>Response: {@code {"status":"checked"|"off"|"unavailable","level":0-4,"warnings":[{"randomId",
- * "severity","partner","summary","evidence","comment"}]}}. {@code unavailable} means DrugRef could
+ * "severity","partner","summary","evidence","comment"}],"unchecked":["randomId"]}}. {@code unchecked}
+ * lists the staged drugs DrugRef cannot classify (no ATC code), which the page marks as not checked. {@code unavailable} means DrugRef could
  * not be asked and nothing is known; the page says so instead of showing an empty, reassuring
  * result. Read-only: nothing is stored or changed, so the page uses GET; any other method gets the
  * same answer.</p>
@@ -116,13 +117,10 @@ public final class RxInteractionWarnings2Action extends ActionSupport {
      * would go on warning.
      */
     private static Collection<String> activeAtcCodes(int demographicNo) {
-        Set<String> codes = new LinkedHashSet<>();
-        for (RxPrescriptionData.Prescription prescription : new RxPrescriptionData().getActivePrescriptionsByPatient(demographicNo)) {
-            if (prescription.isValidAtcCode()) {
-                codes.add(prescription.getAtcCode());
-            }
-        }
-        return codes;
+        return Arrays.stream(new RxPrescriptionData().getActivePrescriptionsByPatient(demographicNo))
+                .filter(RxPrescriptionData.Prescription::isValidAtcCode)
+                .map(RxPrescriptionData.Prescription::getAtcCode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /**
@@ -155,10 +153,11 @@ public final class RxInteractionWarnings2Action extends ActionSupport {
             return NONE;
         }
 
-        List<StagedDrug> staged = new ArrayList<>();
-        for (RxPrescriptionData.Prescription prescription : bean.getStash()) {
-            staged.add(new StagedDrug(prescription.getRandomId(), prescription.getAtcCode()));
-        }
+        // A custom note is free text, not a drug: there is nothing to check and nothing to flag.
+        List<StagedDrug> staged = Arrays.stream(bean.getStash())
+                .filter(prescription -> !prescription.isCustomNote())
+                .map(prescription -> new StagedDrug(prescription.getRandomId(), prescription.getAtcCode()))
+                .toList();
         writeJson(response, check(loggedInInfo, demographicNo, staged));
         return NONE;
     }
@@ -196,6 +195,8 @@ public final class RxInteractionWarnings2Action extends ActionSupport {
             item.put("evidence", warning.evidence());
             item.put("comment", warning.comment());
         }
+        ArrayNode unchecked = json.putArray("unchecked");
+        result.unchecked().forEach(randomId -> unchecked.add(Long.toString(randomId)));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Cache-Control", "no-store");

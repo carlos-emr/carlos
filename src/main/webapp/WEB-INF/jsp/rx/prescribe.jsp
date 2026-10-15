@@ -328,7 +328,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="major" style="display:none;background-color:#b71c1c;color:#fff;font-weight:bold;padding:0 4px;"></span>&nbsp;<span
                 id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="moderate" style="display:none;background-color:#ffb74d;color:#000;padding:0 4px;"></span>&nbsp;<span
                 id="minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="minor" style="display:none;background-color:#fff176;color:#000;padding:0 4px;"></span>&nbsp;<span
-                id="unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unknown" style="display:none;background-color:#c5e1a5;color:#000;padding:0 4px;"></span>
+                id="unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unknown" style="display:none;background-color:#c5e1a5;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="unchecked_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unchecked" style="display:none;background-color:#e0e0e0;color:#000;padding:0 4px;"></span>
         </div>
         <div id="siAutoComplete_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
              style="overflow:visible;display:none;margin-top:1px;margin-bottom:10px"<%}%> >

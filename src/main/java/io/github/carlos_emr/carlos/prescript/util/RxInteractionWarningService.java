@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Vector;
 
@@ -134,11 +135,24 @@ public class RxInteractionWarningService {
     }
 
     /**
-     * @param status   whether the check ran
-     * @param level    the warning level applied
-     * @param warnings the warnings to show, most serious first; empty unless {@link Status#CHECKED}
+     * @param status    whether the check ran
+     * @param level     the warning level applied
+     * @param warnings  the warnings to show, most serious first; empty unless {@link Status#CHECKED}
+     * @param unchecked the staged cards whose drug has no ATC code, so DrugRef could not compare them
+     *                  with anything; empty unless {@link Status#CHECKED}. A blank card must not read
+     *                  as "no interactions".
      */
-    public record Result(Status status, int level, List<Warning> warnings) {
+    public record Result(Status status, int level, List<Warning> warnings, List<Long> unchecked) {
+
+        public Result {
+            warnings = List.copyOf(warnings);
+            unchecked = List.copyOf(unchecked);
+        }
+
+        /** A result with no unchecked cards. */
+        public Result(Status status, int level, List<Warning> warnings) {
+            this(status, level, warnings, List.of());
+        }
     }
 
     private static final Comparator<Warning> MOST_SERIOUS_FIRST = Comparator
@@ -174,68 +188,76 @@ public class RxInteractionWarningService {
         if (level == RxInteractionWarningLevelResolver.NONE) {
             return new Result(Status.OFF, level, List.of());
         }
+        List<Long> unchecked = new ArrayList<>();
         Set<String> stagedCodes = new LinkedHashSet<>();
         for (StagedDrug drug : staged) {
             String code = atc(drug.atcCode());
-            if (code != null) {
+            if (code == null) {
+                unchecked.add(drug.randomId());
+            } else {
                 stagedCodes.add(code);
             }
         }
         Set<String> codes = new LinkedHashSet<>(stagedCodes);
-        for (String current : currentAtcCodes) {
-            String code = atc(current);
-            if (code != null) {
-                codes.add(code);
-            }
-        }
+        currentAtcCodes.stream().map(RxInteractionWarningService::atc).filter(Objects::nonNull).forEach(codes::add);
         // A card can only interact with a second, different drug.
         if (stagedCodes.isEmpty() || codes.size() < 2) {
-            return new Result(Status.CHECKED, level, List.of());
+            return new Result(Status.CHECKED, level, List.of(), unchecked);
         }
 
-        List<Map<?, ?>> interactions;
+        List<Map<?, ?>> interactions = interactionsAmong(codes);
+        if (interactions == null) {
+            return new Result(Status.UNAVAILABLE, level, List.of());
+        }
+        Set<Warning> warnings = new LinkedHashSet<>();
+        for (Map<?, ?> interaction : interactions) {
+            warnings.addAll(warningsFor(level, interaction, staged));
+        }
+        List<Warning> sorted = new ArrayList<>(warnings);
+        sorted.sort(MOST_SERIOUS_FIRST);
+        return new Result(Status.CHECKED, level, sorted, unchecked);
+    }
+
+    /** DrugRef's interactions among the codes, or {@code null} when it could not answer. */
+    private List<Map<?, ?>> interactionsAmong(Set<String> codes) {
         try {
-            interactions = lookup.interactionsAmong(new ArrayList<>(codes));
+            List<Map<?, ?>> interactions = lookup.interactionsAmong(new ArrayList<>(codes));
+            if (interactions == null) {
+                logger.error("Drug interaction check unavailable (no answer from DrugRef)");
+            }
+            return interactions;
         } catch (Exception e) {
             // The class name only: the ATC codes and DrugRef's text describe this patient's medications.
             logger.error("Drug interaction check unavailable ({})", e.getClass().getSimpleName());
-            return new Result(Status.UNAVAILABLE, level, List.of());
+            return null;
         }
-        if (interactions == null) {
-            logger.error("Drug interaction check unavailable (no answer from DrugRef)");
-            return new Result(Status.UNAVAILABLE, level, List.of());
-        }
+    }
 
-        Set<Warning> warnings = new LinkedHashSet<>();
-        for (Map<?, ?> interaction : interactions) {
-            String effectCode = text(interaction.get("effect")).trim();
-            if ("N".equals(effectCode) || "n".equals(effectCode)) {
-                continue;
-            }
-            Severity severity = Severity.of(interaction.get("significance"));
-            if (!RxInteractionWarningLevelResolver.isShown(level, severity.significance())) {
-                continue;
-            }
-            String affectingAtc = atc(text(interaction.get("affectingatc")));
-            String affectedAtc = atc(text(interaction.get("affectedatc")));
-            String affectingDrug = name(interaction.get("affectingdrug"), affectingAtc);
-            String affectedDrug = name(interaction.get("affecteddrug"), affectedAtc);
-            String summary = affectingDrug + " " + effect(effectCode) + " " + affectedDrug;
-            String evidence = evidence(text(interaction.get("evidence")).trim());
-            String comment = text(interaction.get("comment")).trim();
-            for (StagedDrug drug : staged) {
-                String code = atc(drug.atcCode());
-                if (code == null || code.equals(affectingAtc) == code.equals(affectedAtc)) {
-                    // Not part of this interaction, or both sides of it (no drug interacts with itself).
-                    continue;
-                }
+    /** The warnings one interaction record puts on the staged cards it involves. */
+    private static List<Warning> warningsFor(int level, Map<?, ?> interaction, List<StagedDrug> staged) {
+        String effectCode = text(interaction.get("effect")).trim();
+        Severity severity = Severity.of(interaction.get("significance"));
+        if ("N".equals(effectCode) || "n".equals(effectCode)
+                || !RxInteractionWarningLevelResolver.isShown(level, severity.significance())) {
+            return List.of();
+        }
+        String affectingAtc = atc(text(interaction.get("affectingatc")));
+        String affectedAtc = atc(text(interaction.get("affectedatc")));
+        String affectingDrug = name(interaction.get("affectingdrug"), affectingAtc);
+        String affectedDrug = name(interaction.get("affecteddrug"), affectedAtc);
+        String summary = affectingDrug + " " + effect(effectCode) + " " + affectedDrug;
+        String evidence = evidence(text(interaction.get("evidence")).trim());
+        String comment = text(interaction.get("comment")).trim();
+        List<Warning> warnings = new ArrayList<>();
+        for (StagedDrug drug : staged) {
+            String code = atc(drug.atcCode());
+            // A card warns when it is exactly one side of the interaction: no drug interacts with itself.
+            if (code != null && code.equals(affectingAtc) != code.equals(affectedAtc)) {
                 String partner = code.equals(affectingAtc) ? affectedDrug : affectingDrug;
                 warnings.add(new Warning(drug.randomId(), severity, partner, summary, evidence, comment));
             }
         }
-        List<Warning> sorted = new ArrayList<>(warnings);
-        sorted.sort(MOST_SERIOUS_FIRST);
-        return new Result(Status.CHECKED, level, List.copyOf(sorted));
+        return warnings;
     }
 
     /**

@@ -103,6 +103,9 @@ that the page never asked.
 - **Failures are visible.** A DrugRef error, an error struct (`{"Error": ...}`) or an empty answer makes the
   check `unavailable`, and the page says so above the cards; it never renders an unanswered check as a
   card with no interactions.
+- **Unclassified drugs are flagged.** A staged drug with no ATC code (a custom drug) cannot be checked; the
+  answer lists it under `unchecked` and its card says "Interactions not checked". Free-text custom notes
+  are not drugs and are left out.
 
 Browser regression: `scripts/rx-interaction-warnings-playwright-checks.js`.
 

@@ -1,9 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {render, create, watch, UNAVAILABLE} = require('../src/main/webapp/share/javascript/rx-interaction-warnings');
+const {render, create, watch, UNAVAILABLE, NOT_CHECKED} = require('../src/main/webapp/share/javascript/rx-interaction-warnings');
 
-/** Two staged cards (7 and 8), each with the four markers prescribe.jsp renders, plus the stage message. */
+/** Two staged cards (7 and 8), each with the five markers prescribe.jsp renders, plus the stage message. */
 function fixture() {
   const elements = {};
   function element(id, severity) {
@@ -14,7 +14,7 @@ function fixture() {
   }
   const markers = [];
   for (const card of ['7', '8']) {
-    for (const severity of ['major', 'moderate', 'minor', 'unknown']) markers.push(element(`${severity}_${card}`, severity));
+    for (const severity of ['major', 'moderate', 'minor', 'unknown', 'unchecked']) markers.push(element(`${severity}_${card}`, severity));
   }
   const message = element('interactingDrugErrorMsg');
   const document = {
@@ -60,6 +60,21 @@ test('lists every partner once and keeps each severity on its own marker', () =>
   assert.match(f.elements.major_7.title, /THEOPHYLLINE augments CIPROFLOXACIN \(evidence: good\)$/m);
 });
 
+test('marks a card DrugRef could not classify as not checked, never as clean', () => {
+  const f = fixture();
+  render(f.document, {status: 'checked', level: 0, warnings: [major('7', 'THEOPHYLLINE')], unchecked: ['8']});
+  assert.deepEqual(f.shown(), ['major_7: Major interaction: THEOPHYLLINE', `unchecked_8: ${NOT_CHECKED}`]);
+  assert.match(f.elements.unchecked_8.title, /no ATC code/);
+  render(f.document, {status: 'checked', level: 0, warnings: [], unchecked: []});
+  assert.deepEqual(f.shown(), [], 'a later answer without the card clears its note');
+});
+
+test('shows no not-checked note when the warning level is none', () => {
+  const f = fixture();
+  render(f.document, {status: 'off', level: 4, warnings: [], unchecked: ['8']});
+  assert.deepEqual(f.shown(), []);
+});
+
 test('clears earlier markers when a later check finds nothing', () => {
   const f = fixture();
   render(f.document, {status: 'checked', level: 0, warnings: [major('7', 'THEOPHYLLINE')]});
@@ -80,7 +95,8 @@ test('shows nothing and no message when the warning level is none', () => {
 
 for (const result of [null, {}, {status: 'unavailable', level: 0, warnings: []}, {status: 'checked'},
   {status: 'checked', warnings: [{randomId: 7, severity: 'major', partner: 'X', summary: '', evidence: '', comment: ''}]},
-  {status: 'checked', warnings: [{randomId: '7', severity: 'severe', partner: 'X', summary: '', evidence: '', comment: ''}]}]) {
+  {status: 'checked', warnings: [{randomId: '7', severity: 'severe', partner: 'X', summary: '', evidence: '', comment: ''}]},
+  {status: 'checked', warnings: [], unchecked: '8'}, {status: 'checked', warnings: [], unchecked: [8]}]) {
   test(`reports an unavailable or malformed answer instead of a clean check: ${JSON.stringify(result)}`, () => {
     const f = fixture();
     render(f.document, {status: 'checked', level: 0, warnings: [major('7', 'THEOPHYLLINE')]});
