@@ -260,6 +260,68 @@ test('upgrade verifier rejects a deleted lab filter when the skeleton lacks the 
   assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
 });
 
+// The one-time Help-link rewrite: the old stock resource_base_url (a path that now returns 404) becomes the line the
+// package's skeleton carries. The old line is the postinst's HELP_URL_OLD; the new one is the shipped carlos.properties.
+const HELP_URL_OLD = /^\s*HELP_URL_OLD='([^']*)'$/m.exec(
+  fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8'))[1];
+const HELP_URL_NEW = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'carlos.properties'), 'utf8')
+  .split('\n').find(line => line.startsWith('resource_base_url='));
+const HELP_URL_SENTINEL = '.help-url-default-migrated';
+
+function helpUrlFixture(t, { sentinel = false } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${HELP_URL_OLD}\nother=kept\n`);
+  if (sentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+  fixture.baseline();
+  return { ...fixture, props };
+}
+
+test('upgrade verifier states the postinst old Help link and the shipped new one', () => {
+  const verify = fs.readFileSync(path.join(__dirname, 'deb-upgrade-verify.sh'), 'utf8');
+  assert.ok(verify.includes(`HELP_URL_OLD='${HELP_URL_OLD}'`), 'verifier old Help link');
+  assert.ok(verify.includes(`HELP_URL_NEW='${HELP_URL_NEW}'`), 'verifier new Help link');
+  assert.equal(HELP_URL_OLD, 'resource_base_url=http://oscarmanual.org/14/');
+  assert.notEqual(HELP_URL_NEW, HELP_URL_OLD);
+});
+
+test('upgrade verifier accepts the one-time Help-link migration', t => {
+  const fixture = helpUrlFixture(t);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${HELP_URL_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*Help link: yes/);
+  assert.match(result.stdout, /PASS the old stock Help link was migrated/);
+  assert.match(result.stdout, /PASS Help-link migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['an unsanctioned change to the Help link', 'resource_base_url=https://help.example.org/', false, /FAIL cfg.carlos.properties.sha changed/],
+  ['a Help-link migration that skipped its sentinel', HELP_URL_NEW, false, /FAIL Help-link migration sentinel missing/],
+  ['a Help-link rewrite after the migration already ran', HELP_URL_NEW, 'pre', /FAIL cfg.carlos.properties.sha changed/],
+  ['an upgrade that left the old Help link in place', HELP_URL_OLD, 'post', /FAIL the Help link was not migrated/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = helpUrlFixture(t, { sentinel: sentinel === 'pre' });
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${after}\nother=kept\n`);
+    if (sentinel === 'post') fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
+test('upgrade verifier accepts an operator Help link that did not change', t => {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=true\nresource_base_url=https://help.example.org/\nother=kept\n');
+  fixture.baseline();
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /PASS cfg.carlos.properties.sha preserved/);
+});
+
 for (const [name, overrides, error, status] of [
   ['failed post snapshot', { FAIL_QUERY: 'COUNT(*) FROM appointment' }, /post-upgrade baseline failed/, 2],
   ['failed document inventory', { FAIL_QUERY: 'SELECT HEX' }, /document inventory query failed/, 2],
