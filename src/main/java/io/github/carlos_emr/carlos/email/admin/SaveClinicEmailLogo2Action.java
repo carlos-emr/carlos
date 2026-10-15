@@ -193,9 +193,11 @@ public class SaveClinicEmailLogo2Action extends ActionSupport implements Uploade
     public String getInputResultName() {
         HttpServletRequest request = ServletActionContext.getRequest();
         // execute never runs on this path (Struts refused the file), so the footer text is kept here,
-        // for an administrator who could have saved it.
+        // for an administrator who could have saved it, and only from the page's own POST: a GET must
+        // not put text in an administrator's editor.
         LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (user != null && securityInfoManager.hasPrivilege(user, "_admin", SecurityInfoManager.WRITE, null)) {
+        if ("POST".equals(request.getMethod()) && user != null
+                && securityInfoManager.hasPrivilege(user, "_admin", SecurityInfoManager.WRITE, null)) {
             keepFooterDraft(request);
         }
         while (request instanceof HttpServletRequestWrapper wrapper) {

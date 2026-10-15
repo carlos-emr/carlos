@@ -349,11 +349,17 @@ class SaveClinicEmailLogo2ActionUnitTest {
         when(multipart.getParameter(ClinicFooterDraft.HTML_PARAM)).thenReturn("FAKE typed footer");
         when(multipart.getParameter(ClinicFooterDraft.FINGERPRINT_PARAM)).thenReturn(SHOWN);
         when(multipart.getSession()).thenReturn(session);
+        when(multipart.getMethod()).thenReturn("POST");
 
         assertThat(runUploadInterceptors(multipart)).isEqualTo("uploadTooBig");
         assertThat(ClinicFooterDraft.take(request)).as("no _admin write").isNull();
 
         allowAdminWrite();
+        when(multipart.getMethod()).thenReturn("GET");
+        runUploadInterceptors(multipart);
+        assertThat(ClinicFooterDraft.take(request)).as("a GET keeps nothing").isNull();
+
+        when(multipart.getMethod()).thenReturn("POST");
         assertThat(runUploadInterceptors(multipart)).isEqualTo("uploadTooBig");
         assertThat(ClinicFooterDraft.take(request)).isEqualTo(new ClinicFooterDraft("FAKE typed footer", SHOWN, false));
         verifyNoInteractions(logoService);
