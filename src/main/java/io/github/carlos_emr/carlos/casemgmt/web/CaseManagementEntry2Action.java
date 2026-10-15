@@ -949,6 +949,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     Appointment appointment = appointmentDao.find(Integer.parseInt(appointmentNo));
                     if (appointment != null) {
                         ApptStatusData statusData = new ApptStatusData();
+                        // Archive the version being replaced, before the status changes (issue #4589).
+                        ((AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class)).archiveAppointment(appointment);
                         appointment.setStatus(statusData.signStatus());
                         appointmentDao.merge(appointment);
                     }
