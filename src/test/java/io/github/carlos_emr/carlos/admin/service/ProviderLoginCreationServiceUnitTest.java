@@ -38,6 +38,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,14 +53,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -85,8 +91,10 @@ class ProviderLoginCreationServiceUnitTest {
     private final ProviderSiteDao providerSiteDao = mock(ProviderSiteDao.class);
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final Map<String, String> originalProperties = new HashMap<>();
+    private final LoggedInInfo actor = mock(LoggedInInfo.class);
 
     private ProviderLoginCreationService service;
+    private MockedStatic<LogAction> logAction;
 
     @BeforeEach
     void setUp() {
@@ -99,10 +107,12 @@ class ProviderLoginCreationServiceUnitTest {
         property("multioffice.admin.role.name", "");
         service = new ProviderLoginCreationService(securityDao, secuserroleDao, secRoleDao,
                 programDao, programProviderDao, providerDao, providerSiteDao, securityInfoManager);
+        logAction = mockStatic(LogAction.class);
     }
 
     @AfterEach
     void restoreProperties() {
+        logAction.close();
         originalProperties.forEach((name, value) -> {
             if (value == null) {
                 CarlosProperties.getInstance().remove(name);
@@ -149,7 +159,7 @@ class ProviderLoginCreationServiceUnitTest {
             when(secRoleDao.findByName("doctor")).thenReturn(doctor);
             Security login = login("700001");
 
-            service.createLoginWithRole(login, "doctor");
+            service.createLoginWithRole(actor, login, "doctor");
 
             InOrder order = inOrder(securityDao, secuserroleDao);
             order.verify(securityDao).persist(login);
@@ -158,6 +168,46 @@ class ProviderLoginCreationServiceUnitTest {
             assertThat(assignment.getValue().getProviderNo()).isEqualTo("700001");
             assertThat(assignment.getValue().getRoleName()).isEqualTo("doctor");
             assertThat(assignment.getValue().getActiveyn()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should audit the login and the role strictly, after writing them")
+        void shouldAuditLoginAndRoleStrictly_afterWrites() {
+            SecRole doctor = role(2, "doctor");
+            when(secRoleDao.findByName("doctor")).thenReturn(doctor);
+            Security login = login("700001");
+
+            service.createLoginWithRole(actor, login, "doctor");
+
+            InOrder order = inOrder(securityDao, secuserroleDao);
+            order.verify(securityDao).persist(login);
+            order.verify(secuserroleDao).save(any(Secuserrole.class));
+            logAction.verify(() -> LogAction.addLogStrict(
+                    eq(actor), eq(LogConst.ADD), eq(LogConst.CON_SECURITY), eq("fixture2689"), isNull(), isNull()));
+            logAction.verify(() -> LogAction.addLogStrict(
+                    eq(actor), eq(LogConst.ADD), eq(LogConst.CON_ROLE), eq("700001|doctor"), isNull(), isNull()));
+            logAction.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString()),
+                    never());
+        }
+
+        @Test
+        @DisplayName("should let an audit failure propagate so the transaction rolls the login back")
+        void shouldPropagateAuditFailure_soLoginRollsBack() {
+            SecRole doctor = role(2, "doctor");
+            when(secRoleDao.findByName("doctor")).thenReturn(doctor);
+            logAction.when(() -> LogAction.addLogStrict(any(), anyString(), anyString(), anyString(), isNull(), isNull()))
+                    .thenThrow(new IllegalStateException("audit store unavailable"));
+
+            assertThatThrownBy(() -> service.createLoginWithRole(actor, login("700001"), "doctor"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("should refuse to write anything without the acting administrator")
+        void shouldRefuseWithoutActor_forAuditTrail() {
+            assertThatThrownBy(() -> service.createLoginWithRole(null, login("700001"), "doctor"))
+                    .isInstanceOf(NullPointerException.class);
+            verifyNoInteractions(securityDao, secuserroleDao, programProviderDao);
         }
 
         @Test
@@ -177,7 +227,7 @@ class ProviderLoginCreationServiceUnitTest {
             other.setActiveyn(1);
             when(secuserroleDao.findByProviderNo("700001")).thenReturn(List.of(other, held));
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             ArgumentCaptor<Secuserrole> saved = ArgumentCaptor.forClass(Secuserrole.class);
             verify(secuserroleDao).save(saved.capture());
@@ -197,7 +247,7 @@ class ProviderLoginCreationServiceUnitTest {
             inactive.setActiveyn(0);
             when(secuserroleDao.findByProviderNo("700001")).thenReturn(List.of(inactive));
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             verify(secuserroleDao).save(inactive);
             assertThat(inactive.getActiveyn()).isEqualTo(1);
@@ -208,7 +258,7 @@ class ProviderLoginCreationServiceUnitTest {
         void shouldWriteNothing_whenRoleIsUnknown() {
             when(secRoleDao.findByName("ghost")).thenReturn(null);
 
-            assertThatThrownBy(() -> service.createLoginWithRole(login("700001"), "ghost"))
+            assertThatThrownBy(() -> service.createLoginWithRole(actor, login("700001"), "ghost"))
                     .isInstanceOf(ProviderLoginCreationService.UnknownRoleException.class);
 
             verify(securityDao, never()).persist(any(Security.class));
@@ -218,7 +268,7 @@ class ProviderLoginCreationServiceUnitTest {
         @Test
         @DisplayName("should write nothing when no role is given")
         void shouldWriteNothing_whenRoleIsNull() {
-            assertThatThrownBy(() -> service.createLoginWithRole(login("700001"), null))
+            assertThatThrownBy(() -> service.createLoginWithRole(actor, login("700001"), null))
                     .isInstanceOf(ProviderLoginCreationService.UnknownRoleException.class);
 
             verify(securityDao, never()).persist(any(Security.class));
@@ -233,7 +283,7 @@ class ProviderLoginCreationServiceUnitTest {
             when(programDao.getProgramByName("OSCAR")).thenReturn(program(10016));
             when(programProviderDao.getProgramProvider("700001", 10016L)).thenReturn(null);
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             ArgumentCaptor<ProgramProvider> membership = ArgumentCaptor.forClass(ProgramProvider.class);
             verify(programProviderDao).saveProgramProvider(membership.capture());
@@ -255,7 +305,7 @@ class ProviderLoginCreationServiceUnitTest {
             existing.setRoleId(2L);
             when(programProviderDao.getProgramProvider("700001", 10016L)).thenReturn(existing);
 
-            service.createLoginWithRole(login("700001"), "receptionist");
+            service.createLoginWithRole(actor, login("700001"), "receptionist");
 
             verify(programProviderDao).saveProgramProvider(existing);
             assertThat(existing.getRoleId()).isEqualTo(1L);
@@ -269,7 +319,7 @@ class ProviderLoginCreationServiceUnitTest {
             SecRole doctor = role(2, "doctor");
             when(secRoleDao.findByName("doctor")).thenReturn(doctor);
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             verify(secuserroleDao).save(any(Secuserrole.class));
             verifyNoInteractions(programDao, programProviderDao);
@@ -282,7 +332,7 @@ class ProviderLoginCreationServiceUnitTest {
             SecRole doctor = role(2, "doctor");
             when(secRoleDao.findByName("doctor")).thenReturn(doctor);
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             verify(secuserroleDao).save(any(Secuserrole.class));
             verifyNoInteractions(programDao, programProviderDao);
@@ -295,7 +345,7 @@ class ProviderLoginCreationServiceUnitTest {
             when(secRoleDao.findByName("doctor")).thenReturn(doctor);
             when(programDao.getProgramByName("OSCAR")).thenReturn(null);
 
-            service.createLoginWithRole(login("700001"), "doctor");
+            service.createLoginWithRole(actor, login("700001"), "doctor");
 
             verify(secuserroleDao).save(any(Secuserrole.class));
             verify(programProviderDao, never()).getProgramProvider(anyString(), anyLong());

@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -101,6 +102,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
     private final Map<String, String> originalProperties = new HashMap<>();
     private ProviderLoginCreationService service;
     private Long programId;
+    private LoggedInInfo admin;
 
     @BeforeEach
     void setUp() {
@@ -113,6 +115,9 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         Provider provider = new Provider(PROVIDER_NO, "Fixture", "doctor", "F", "GP", "RoleOnCreate");
         provider.setStatus("1");
         providerDao.saveProvider(provider);
+        // The audit entries record the acting administrator; any provider row serves here.
+        admin = new LoggedInInfo();
+        admin.setLoggedInProvider(provider);
         entityManager.createNativeQuery("MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (?1, ?2)")
                 .setParameter(1, ROLE_NO)
                 .setParameter(2, ROLE_NAME)
@@ -154,7 +159,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should store the login, one active role and the OSCAR program membership with that role")
     void shouldStoreLoginRoleAndMembership_whenRoleIsConfigured() {
-        service.createLoginWithRole(newLogin(), ROLE_NAME);
+        service.createLoginWithRole(admin, newLogin(), ROLE_NAME);
         entityManager.flush();
         entityManager.clear();
 
@@ -170,6 +175,20 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         ProgramProvider membership = programProviderDao.getProgramProvider(PROVIDER_NO, programId);
         assertThat(membership).isNotNull();
         assertThat(membership.getRoleId()).isEqualTo((long) ROLE_NO);
+
+        // Both audit entries were written in the creating transaction, by the acting admin.
+        assertThat(auditRows("securityRecord", USER_NAME)).isEqualTo(1L);
+        assertThat(auditRows("role", PROVIDER_NO + "|" + ROLE_NAME)).isEqualTo(1L);
+    }
+
+    private long auditRows(String content, String contentId) {
+        return entityManager.createQuery(
+                        "select count(l) from OscarLog l where l.content = :content and l.contentId = :contentId"
+                                + " and l.providerNo = :admin", Long.class)
+                .setParameter("content", content)
+                .setParameter("contentId", contentId)
+                .setParameter("admin", PROVIDER_NO)
+                .getSingleResult();
     }
 
     @Test
@@ -182,7 +201,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         secuserroleDao.save(earlier);
         entityManager.flush();
 
-        service.createLoginWithRole(newLogin(), ROLE_NAME);
+        service.createLoginWithRole(admin, newLogin(), ROLE_NAME);
         entityManager.flush();
         entityManager.clear();
 
@@ -203,7 +222,7 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should store nothing when the chosen role is not configured")
     void shouldStoreNothing_whenRoleIsUnknown() {
-        assertThatThrownBy(() -> service.createLoginWithRole(newLogin(), "no_such_role_2689"))
+        assertThatThrownBy(() -> service.createLoginWithRole(admin, newLogin(), "no_such_role_2689"))
                 .isInstanceOf(ProviderLoginCreationService.UnknownRoleException.class);
         entityManager.flush();
         entityManager.clear();
@@ -211,5 +230,6 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         assertThat(securityDao.findByUserName(USER_NAME)).isEmpty();
         assertThat(secuserroleDao.findByProviderNo(PROVIDER_NO)).isEmpty();
         assertThat(programProviderDao.getProgramProvider(PROVIDER_NO, programId)).isNull();
+        assertThat(auditRows("securityRecord", USER_NAME)).isZero();
     }
 }

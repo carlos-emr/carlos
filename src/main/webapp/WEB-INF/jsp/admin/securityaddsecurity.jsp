@@ -28,6 +28,20 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Result page of Add a Login Record (admin/SecurityAddSecurity, POST only).
+
+    Features:
+        Runs SecurityAddSecurityHelper, which validates the form and creates the login with its
+        chosen role in one transaction, then shows the outcome message. On success it names the
+        role assigned (#2689) and links to Assign Role to Provider to review role assignments.
+
+    Parameters:
+        The Add a Login Record form fields; see securityaddarecord.jsp.
+
+    @since 2001 (OSCAR McMaster); assigned-role confirmation added 2026-10-15 (#2689)
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

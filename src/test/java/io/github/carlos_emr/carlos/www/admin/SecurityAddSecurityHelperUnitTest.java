@@ -25,8 +25,6 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.admin.service.ProviderLoginCreationService;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.jsp.PageContext;
@@ -105,7 +103,7 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
     private String reject() {
         new SecurityAddSecurityHelper().addProvider(page);
         verify(records, never()).persist(any(Security.class));
-        verify(loginCreation, never()).createLoginWithRole(any(), any());
+        verify(loginCreation, never()).createLoginWithRole(any(), any(), any());
         verify(passwords, never()).encodePassword(any());
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
         verify(page).setAttribute(eq("message"), message.capture());
@@ -149,7 +147,7 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
     void shouldCreateEncodedLoginWithChosenRole_whenPasswordAndConfirmationAreValid() {
         new SecurityAddSecurityHelper().addProvider(page);
         ArgumentCaptor<Security> row = ArgumentCaptor.forClass(Security.class);
-        verify(loginCreation).createLoginWithRole(row.capture(), eq("doctor"));
+        verify(loginCreation).createLoginWithRole(any(), row.capture(), eq("doctor"));
         verify(passwords).encodePassword("Valid1!Password");
         assertThat(row.getValue().getPassword()).isEqualTo("encoded-test-password");
         assertThat(row.getValue().getUserName()).isEqualTo("fixture4167");
@@ -159,12 +157,12 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAuditLoginAndRole_whenLoginIsCreated() {
+    void shouldLeaveAuditToTheTransactionalService_whenLoginIsCreated() {
+        // The service writes both audit entries strictly, inside the creating transaction; the
+        // helper must not add best-effort asynchronous copies.
         new SecurityAddSecurityHelper().addProvider(page);
-        logActionMock.verify(() -> LogAction.addLog(
-                any(), eq(LogConst.ADD), eq(LogConst.CON_SECURITY), eq("fixture4167"), any()));
-        logActionMock.verify(() -> LogAction.addLog(
-                any(), eq(LogConst.ADD), eq(LogConst.CON_ROLE), eq("999998|doctor"), any()));
+        verify(loginCreation).createLoginWithRole(any(), any(Security.class), eq("doctor"));
+        logActionMock.verifyNoInteractions();
     }
 
     @ParameterizedTest
@@ -196,7 +194,7 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReportRoleInvalidWithoutAudit_whenRoleIsRemovedBeforeTheWrite() {
         doThrow(new ProviderLoginCreationService.UnknownRoleException())
-                .when(loginCreation).createLoginWithRole(any(), any());
+                .when(loginCreation).createLoginWithRole(any(), any(), any());
         new SecurityAddSecurityHelper().addProvider(page);
         verify(page).setAttribute("message", "admin.securityaddsecurity.msgRoleInvalid");
         verify(page, never()).setAttribute(eq(SecurityAddSecurityHelper.ASSIGNED_ROLE_ATTRIBUTE), any());

@@ -28,6 +28,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Add a Login Record form (Administration > User Management): creates a provider's login.
+
+    Features:
+        Provider dropdown limited to active providers without a login (site-scoped on multisite
+        installs). Role dropdown with no preselection, listing the roles Assign Role to Provider
+        would offer this administrator: every login is created with the role chosen here (#2689).
+        Browser checks mirror the server's; SecurityAddSecurityHelper is authoritative.
+
+    Parameters:
+        None (posts user_name, password, conPassword, provider_no, role_name, PIN, expiry,
+        forcePasswordReset and enableMfa to admin/SecurityAddSecurity).
+
+    @since 2001 (OSCAR McMaster); role selection added 2026-10-15 (#2689)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>

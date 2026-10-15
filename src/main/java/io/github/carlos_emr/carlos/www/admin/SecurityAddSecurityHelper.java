@@ -43,8 +43,6 @@ import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 
@@ -176,16 +174,13 @@ public class SecurityAddSecurityHelper {
         Security s = newLogin(request, userName, password);
 
         try {
-            loginCreationService.createLoginWithRole(s, roleName);
+            // Writes the login, the role and both audit entries in one transaction.
+            loginCreationService.createLoginWithRole(loggedInInfo, s, roleName);
         } catch (ProviderLoginCreationService.UnknownRoleException roleRemovedMeanwhile) {
             // The role was deleted between the list check and the write; nothing was saved.
             return "admin.securityaddsecurity.msgRoleInvalid";
         }
 
-        String actingProviderNo = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
-        LogAction.addLog(actingProviderNo, LogConst.ADD, LogConst.CON_SECURITY, userName, request.getRemoteAddr());
-        // Same audit entry Assign Role to Provider writes when it adds a role.
-        LogAction.addLog(actingProviderNo, LogConst.ADD, LogConst.CON_ROLE, s.getProviderNo() + "|" + roleName, request.getRemoteAddr());
         pageContext.setAttribute(ASSIGNED_ROLE_ATTRIBUTE, roleName);
 
         return "admin.securityaddsecurity.msgAdditionSuccess";

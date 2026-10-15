@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.providers.gate;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -60,11 +61,14 @@ import static org.mockito.Mockito.when;
  * <p>Issue #2689: a receptionist's schedule polled the Messenger count, whose tag threw for a
  * role without {@code _msg}, and the poll answered HTTP 500. The gate now validates the tab id
  * and requires the privilege the tab's menu entry is rendered under.</p>
+ *
+ * <p>The base class mocks SpringUtils and LogAction; this test also mocks the Struts and
+ * LoggedInInfo statics, and the action receives its SecurityInfoManager directly.</p>
  */
 @Tag("unit")
 @Tag("security")
 @DisplayName("Schedule tab alert refresh gate")
-class ViewTabAlertsRefresh2ActionUnitTest {
+class ViewTabAlertsRefresh2ActionUnitTest extends CarlosUnitTestBase {
 
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);

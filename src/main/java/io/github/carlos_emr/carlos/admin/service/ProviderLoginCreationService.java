@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.admin.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -39,6 +40,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -67,6 +70,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Because a role now comes with the login, the server also re-checks which provider it is for
  * ({@link #isEligibleProvider}): a crafted POST must not create a login, and a role, for a
  * provider the form's dropdown withholds from this administrator.</p>
+ *
+ * <p>The login and role audit entries are written strictly, in the same transaction: a granted
+ * role must never commit without its audit record, nor an audit record survive a rolled-back
+ * grant.</p>
  *
  * @since 2026-10-15
  */
@@ -165,12 +172,16 @@ public class ProviderLoginCreationService {
      * {@link #assignableRoleNames(LoggedInInfo)}; the role is looked up again here so a role
      * deleted in the meantime fails the whole creation instead of writing a dangling name.</p>
      *
-     * @param login    the unsaved login row, with its provider number set
-     * @param roleName the role the administrator selected
+     * @param loggedInInfo the administrator creating the login, recorded on the audit entries
+     * @param login        the unsaved login row, with its provider number set
+     * @param roleName     the role the administrator selected
      * @throws UnknownRoleException when {@code roleName} names no configured role; nothing is
      *                              written
+     * @throws RuntimeException     when an audit entry cannot be persisted; the transaction,
+     *                              including the login and the role, rolls back
      */
-    public void createLoginWithRole(Security login, String roleName) {
+    public void createLoginWithRole(LoggedInInfo loggedInInfo, Security login, String roleName) {
+        Objects.requireNonNull(loggedInInfo, "loggedInInfo");
         SecRole role = roleName == null ? null : secRoleDao.findByName(roleName);
         if (role == null) {
             throw new UnknownRoleException();
@@ -198,6 +209,12 @@ public class ProviderLoginCreationService {
             membership.setRoleId(role.getId().longValue());
             programProviderDao.saveProgramProvider(membership);
         }
+
+        // Same audit entries as before (and as Assign Role to Provider writes for a role), but
+        // strict: they join this transaction instead of the best-effort asynchronous queue.
+        LogAction.addLogStrict(loggedInInfo, LogConst.ADD, LogConst.CON_SECURITY, login.getUserName(), null, null);
+        LogAction.addLogStrict(loggedInInfo, LogConst.ADD, LogConst.CON_ROLE,
+                login.getProviderNo() + "|" + role.getName(), null, null);
     }
 
     /** The provider's existing assignment of this role, active or not, or {@code null}. */
