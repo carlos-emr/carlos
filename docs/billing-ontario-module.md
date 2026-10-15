@@ -30,7 +30,14 @@ claims for Ontario-resident patients. It implements:
   one-to-three-digit value, blank means `0000`) so the batch header, the disk
   file name and the batch counter share one four-character key. A value that
   still is not well formed is reported per provider by Generate OHIP File
-  before any disk is written (issue #4277).
+  before any disk is written (issue #4277). The provider's OHIP billing number
+  and specialty code (also free text, the specialty read as `00` when blank)
+  must fill their six- and two-character batch-header fields
+  (`support/OhipProviderFields`). A run that includes a provider whose
+  stored value has another length is refused the same way, naming the
+  provider and the field. Before that check, the wrong-length header stopped
+  the run on that provider after its disk was allocated, while the
+  simulation only showed an error line.
   The claim file name (`H`, month letter, group or OHIP number, `.NNN`)
   restarts at `.001` each month and so recurs every year, while
   `billing_on_diskname.ohipfilename` is unique. Disk allocation therefore
