@@ -3014,3 +3014,11 @@ Ontario bill families with the new tokens dropped from the replay. Four others d
 - `authz-write-role-matrix` stops at its allergy family, and `csrf-negative-matrix` at its prevention family. Both
   replay a token an earlier guard already spent: the allergy `saveToken` (#4390) and `carlosPreventionSubmission`
   (#4455). Those families need a freshly rendered token, as the eForm family has; neither action is in this change.
+
+After the swap was undone, `double-submit-appointment`, `double-submit-demographic-add`,
+`concurrency-demographic-ext-insert` and `demographic-stale-edit-recovery` passed again, and the smoke tier passed 11 of 12.
+`echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save and refresh", the step
+the #4515 validation above saw fail the same way on unmodified `release/2026.08`. The server-log audit over that window
+found no unexplained signature (6 known). Over the whole session the audit's unexplained signatures were
+`DemographicLabelPdf` (the `phi-in-error-pages` probe of `printDemoLabelAction`), a `ClientAbortException` from a provider
+signature image, and two `uk_demo_ext_single_value` violations logged during the deliberate pre-fix run.
