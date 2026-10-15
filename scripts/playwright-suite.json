@@ -3657,6 +3657,21 @@
       "env": []
     },
     {
+      "name": "flowsheet-measurement-delete",
+      "script": "scripts/flowsheet-measurement-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Flowsheet ▸ saved reading ▸ Add Measurement Data ▸ Delete (DeleteData2): removes the reading, keeps a measurementsDeleted copy, refuses a GET with 405.",
+      "fixtures": "Seeds and removes an active diabetes diagnosis and one NRTF reading for its own FAKE patient, and the measurementsDeleted copy the delete writes."
+    },
+    {
       "name": "cdm-measurement-report",
       "script": "scripts/cdm-measurement-report-playwright-checks.js",
       "tiers": [
