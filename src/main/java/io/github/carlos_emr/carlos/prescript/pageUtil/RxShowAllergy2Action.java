@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
@@ -92,15 +94,27 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * <li>direction - String direction to move ("up" or "down")</li>
      * </ul>
      *
-     * @return String NONE (redirect handled manually)
+     * @return String NONE (redirect handled manually, or 405 for a non-POST request)
      * @throws RuntimeException if redirect fails
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        // Reordering rewrites the patient's allergy positions, so it is POST-only: CSRFGuard does not
+        // check GET, and a link or image tag must not be able to reorder a chart (#3908). The
+        // display and allergyData paths of this action stay GET-compatible.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String demoNoParam = request.getParameter("demographicNo");
@@ -109,11 +123,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
         reorder(request);
         try {
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
-            if (patient != null) {
-                // demoNoParam validated as numeric at method entry
-                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            }
             response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -152,7 +161,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String method = request.getParameter("method");
@@ -171,44 +180,38 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
 
         String user_no = (String) request.getSession().getAttribute("user");
-        String demo_no = request.getParameter("demographicNo");
         String view = request.getParameter("view");
 
-        if (demo_no == null) {
+        // The patient must be named: a missing one keeps the old "failure" page, and a malformed,
+        // non-positive or conflicting one (demographicNo=1&demographic_no=2) is a bad request. "0"
+        // used to pass the digits check and fail inside activate() with a 500 (#3908).
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo == RxSessionBeanResolver.NOT_REQUESTED) {
             return "failure";
         }
-        if (!demo_no.matches("\\d{1,9}")) {
-            return "failure";
+        if (demographicNo <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        // Opening allergies activates the patient's Rx session, which later patient-less Rx pages
+        // fall back to: authorise this patient (patient-level _allergy read and record access)
+        // before anything is activated, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo, "_allergy", "r");
         // Setup bean
-        RxSessionBean bean;
-
-        if (request.getSession().getAttribute("RxSessionBean") != null) {
-            bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if ((bean.getProviderNo() != user_no) || (bean.getDemographicNo() != Integer.parseInt(demo_no))) {
-                bean = new RxSessionBean();
-            }
-
-        } else {
-            bean = new RxSessionBean();
-        }
-
-
-        bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(demo_no));
+        // Per-patient state (#3875). The old code compared providerNo Strings with != and so
+        // replaced the bean (and wiped the staged drafts) every time allergies were opened.
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNo, user_no);
         if (view != null) {
             bean.setView(view);
         }
-
-        // demographicNo validated via Integer.parseInt(); bean setters use validated values
-        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         if (patient == null) {
             return "failure";
         }
-        request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Not stored in the session any more: ShowAllergies2.jsp loads the patient for this
+        // request's bean through RxSessionBeanResolver.resolvePatient (#3875).
         return "success";
     }
 
@@ -223,6 +226,13 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */
     private void getAllergyData(LoggedInInfo loggedInInfo) throws IOException {
+        // The check reads the named patient's allergies: authorise that patient before anything is
+        // read, outside the catch-all below so a refusal is a 403 and not a "check failed" (#3908).
+        String requestedPatient = request.getParameter("demographicNo");
+        if (requestedPatient != null && requestedPatient.matches("[1-9]\\d{0,8}")) {
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    Integer.parseInt(requestedPatient), "_allergy", "r");
+        }
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode result = mapper.createObjectNode();
         result.put("id", request.getParameter("id"));
@@ -281,7 +291,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
         try {
             int level = Integer.parseInt(allergy.getSeverityOfReaction());
             return level >= 1 && level <= 3 ? level : 0; // 5 means No Reaction.
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return 0;
         }
     }
@@ -321,6 +331,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
             MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
             return;
         }
+        // Reordering changes this patient's allergy list: patient-level _allergy update and record
+        // access, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                Integer.parseInt(demographicNo), "_allergy", "u");
         String allergyIdParam = request.getParameter("allergyId");
         if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
             MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");

@@ -59,10 +59,12 @@ class PdfFooterStampersUnitTest {
     class FooterSupportTests {
 
         @Test
-        @DisplayName("should create default Helvetica font when constructed")
-        void shouldCreateDefaultHelveticaFont_whenConstructed() {
+        @DisplayName("should create embedded Unicode font when constructed")
+        void shouldCreateEmbeddedUnicodeFont_whenConstructed() {
             FooterSupport footer = new FooterSupport() {};
             assertThat(footer.getFont()).isNotNull();
+            assertThat(footer.getFont().isEmbedded()).isTrue();
+            assertThat(footer.getFont().charExists('Ł')).isTrue();
             assertThat(footer.getFontSize()).isEqualTo(12);
         }
 
@@ -81,8 +83,8 @@ class PdfFooterStampersUnitTest {
             footer.setFont(BaseFont.COURIER, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
             BaseFont font = footer.getFont();
             assertThat(font).isNotNull();
-            // The PostScript name for built-in Courier is "Courier"
-            assertThat(font.getPostscriptFontName()).isEqualTo("Courier");
+            // Preserve monospaced layout with an embedded Unicode face.
+            assertThat(font.getPostscriptFontName()).isEqualTo("LiberationMono");
         }
 
         @Test

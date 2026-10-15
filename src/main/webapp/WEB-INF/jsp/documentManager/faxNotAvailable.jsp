@@ -28,11 +28,22 @@
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 </head>
 <body class="p-4">
+<c:choose>
+<c:when test="${requestScope.documentCapacityBusy}">
+<div class="alert alert-info" role="status">
+    <p><fmt:message key="faxAnnotateViewer.status.documentServerBusy"/></p>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="window.close()"><fmt:message key="faxNotAvailable.close"/></button>
+</div>
+<script src="${pageContext.request.contextPath}/js/annotationCapacityWait.js"></script>
+</c:when>
+<c:otherwise>
 <div class="alert alert-warning" role="alert">
     <h5 class="alert-heading"><fmt:message key="faxNotAvailable.heading"/></h5>
     <p class="mb-2"><carlos:encode value="${requestScope.message}" context="html"/></p>
     <hr/>
     <button type="button" class="btn btn-secondary btn-sm" onclick="window.close()"><fmt:message key="faxNotAvailable.close"/></button>
 </div>
+</c:otherwise>
+</c:choose>
 </body>
 </html>

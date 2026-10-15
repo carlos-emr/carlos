@@ -34,8 +34,9 @@ import org.apache.logging.log4j.Logger;
  *
  * <p>Consult print and attachment flows must use the demographic stored on the
  * {@link ConsultationRequest}, not a submitted request parameter or request attribute. This helper
- * centralizes that lookup and the shared mismatch warning so all callers handle spoofed or stale
- * submitted demographic values consistently.</p>
+ * centralizes that lookup so all callers handle a missing, spoofed or stale submitted demographic
+ * the same way: a missing one is filled in from the saved consultation, and one that names another
+ * patient is refused.</p>
  */
 public final class ConsultationDemographicResolver {
 
@@ -48,7 +49,8 @@ public final class ConsultationDemographicResolver {
      *
      * @param consultationRequestDao DAO used to load the consultation request
      * @param requestId consultation request identifier; may be a String or another scalar request attribute type
-     * @param submittedDemographicId demographic submitted by the caller; ignored when it differs from the persisted value
+     * @param submittedDemographicId demographic submitted by the caller, or blank; a value that differs from the
+     *                               persisted one is refused with {@link FailureReason#MISMATCHED_DEMOGRAPHIC}
      * @param context short log context such as {@code preview}, {@code PDF}, or {@code print}
      * @param logger logger for safe operational diagnostics
      * @return Resolution containing the persisted demographic id, or a failure reason when it cannot be resolved
@@ -79,16 +81,28 @@ public final class ConsultationDemographicResolver {
             return Resolution.unresolved(FailureReason.MISSING_CONSULTATION_REQUEST, null);
         }
 
-        String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
         String submittedDemographic = Objects.toString(submittedDemographicId, null);
-        if (StringUtils.isNotBlank(submittedDemographic) && !consultationDemographicId.equals(submittedDemographic)
-                && logger != null && logger.isWarnEnabled()) {
-            // The request id is enough to investigate; the patient's id stays out of the log.
-            logger.warn("Ignoring mismatched consultation {} demographic requestId={}",
-                    safeContext(context), parsedRequestId);
+        if (StringUtils.isNotBlank(submittedDemographic)
+                && !consultationRequest.getDemographicId().equals(parseDemographicId(submittedDemographic))) {
+            // A request that names another patient is suspect, not stale: refuse it rather than
+            // quietly render the consult's own patient. The request id is enough to investigate;
+            // the patient's id stays out of the log.
+            if (logger != null && logger.isWarnEnabled()) {
+                logger.warn("Refusing mismatched consultation {} demographic requestId={}",
+                        safeContext(context), parsedRequestId);
+            }
+            return Resolution.unresolved(FailureReason.MISMATCHED_DEMOGRAPHIC, null);
         }
 
-        return Resolution.resolved(consultationDemographicId);
+        return Resolution.resolved(String.valueOf(consultationRequest.getDemographicId()));
+    }
+
+    private static Integer parseDemographicId(String demographicId) {
+        try {
+            return Integer.valueOf(demographicId.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static String safeContext(String context) {
@@ -104,7 +118,9 @@ public final class ConsultationDemographicResolver {
     public enum FailureReason {
         MISSING_REQUEST_ID,
         INVALID_REQUEST_ID,
-        MISSING_CONSULTATION_REQUEST
+        MISSING_CONSULTATION_REQUEST,
+        /** The submitted demographic is not the consultation's patient. */
+        MISMATCHED_DEMOGRAPHIC
     }
 
     /**

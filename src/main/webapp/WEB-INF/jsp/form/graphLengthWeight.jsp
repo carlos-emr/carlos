@@ -58,7 +58,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"> <%-- NOSONAR --%>
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/rourkeStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
     </head>
 
     <%

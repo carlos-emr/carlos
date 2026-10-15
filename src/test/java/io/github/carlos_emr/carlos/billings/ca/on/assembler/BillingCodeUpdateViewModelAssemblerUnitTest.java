@@ -26,6 +26,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCodeUpdateVie
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,5 +62,42 @@ class BillingCodeUpdateViewModelAssemblerUnitTest {
         BillingCodeUpdateViewModel model = assembler.assemble(request, null);
 
         assertThat(model.getMode()).isEqualTo(BillingCodeUpdateViewModel.Mode.UPDATE_DESCRIPTION);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "document.forms[1].elements['servicecode0'].value",
+        "document.forms[1].elements['servicecode11'].value",
+        "document.forms[0].elements['serviceCode0'].value",
+        "document.forms[0].elements['serviceCode11'].value",
+        "document.serviceform.xml_other1.value"
+    })
+    void shouldPreserveSupportedAttachmentTarget(String target) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("update", "Confirm");
+        request.setParameter("nameF", target);
+        request.setParameter("code_A007A", "on");
+        var model = new BillingCodeUpdateViewModelAssembler().assemble(request, null);
+        assertThat(model.getNameFSafe()).isEqualTo(target);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "document.forms[1].elements['servicecode0'].value;alert(1)",
+        "document.forms[1].elements['servicecode0\\'];alert(1)//'].value",
+        "document.forms[1].elements['servicecode0'].innerHTML",
+        "document.forms[2].elements['servicecode0'].value",
+        "document.forms[1].elements['demographic_no'].value",
+        "document.forms[1].elements['servicecode0'].value\n",
+        "document.forms[alert(1)].elements['servicecode0'].value",
+        "<script>alert(1)</script>"
+    })
+    void shouldRejectExecutableOrUnsupportedAttachmentTarget(String target) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("update", "Confirm");
+        request.setParameter("nameF", target);
+        request.setParameter("code_A007A", "on");
+        var model = new BillingCodeUpdateViewModelAssembler().assemble(request, null);
+        assertThat(model.getNameFSafe()).isEmpty();
     }
 }

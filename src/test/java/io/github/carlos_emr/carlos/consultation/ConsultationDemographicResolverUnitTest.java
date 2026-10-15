@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
 class ConsultationDemographicResolverUnitTest {
 
     @Test
-    @DisplayName("resolves the persisted consultation demographic when the submitted demographic differs")
-    void shouldResolvePersistedDemographic_whenSubmittedDemographicDiffers() {
+    @DisplayName("refuses a submitted demographic that is not the consultation's patient")
+    void shouldReturnMismatchedDemographic_whenSubmittedDemographicDiffers() {
         ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
         Logger logger = mock(Logger.class);
         ConsultationRequest consultationRequest = new ConsultationRequest();
@@ -32,12 +32,58 @@ class ConsultationDemographicResolverUnitTest {
         Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, "9", "999",
                 "preview", logger);
 
-        assertThat(resolution.isResolved()).isTrue();
-        assertThat(resolution.demographicId()).isEqualTo("1");
-        assertThat(resolution.failureReason()).isNull();
+        assertThat(resolution.isResolved()).isFalse();
+        assertThat(resolution.demographicId()).isNull();
+        assertThat(resolution.failureReason()).isEqualTo(FailureReason.MISMATCHED_DEMOGRAPHIC);
         verify(consultationRequestDao).find(9);
         // The patient's id is not logged; the request id identifies the consult.
-        verify(logger).warn("Ignoring mismatched consultation {} demographic requestId={}", "preview", 9);
+        verify(logger).warn("Refusing mismatched consultation {} demographic requestId={}", "preview", 9);
+    }
+
+    @Test
+    @DisplayName("refuses a submitted demographic that is not a number")
+    void shouldReturnMismatchedDemographic_whenSubmittedDemographicMalformed() {
+        ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
+        ConsultationRequest consultationRequest = new ConsultationRequest();
+        consultationRequest.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
+
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, "9", "1x",
+                "PDF", mock(Logger.class));
+
+        assertThat(resolution.failureReason()).isEqualTo(FailureReason.MISMATCHED_DEMOGRAPHIC);
+    }
+
+    @Test
+    @DisplayName("resolves the persisted consultation demographic when none is submitted")
+    void shouldResolvePersistedDemographic_whenSubmittedDemographicBlank() {
+        ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
+        Logger logger = mock(Logger.class);
+        ConsultationRequest consultationRequest = new ConsultationRequest();
+        consultationRequest.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
+
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, "9", null,
+                "PDF", logger);
+
+        assertThat(resolution.isResolved()).isTrue();
+        assertThat(resolution.demographicId()).isEqualTo("1");
+        verifyNoInteractions(logger);
+    }
+
+    @Test
+    @DisplayName("resolves when the submitted demographic is the consultation's patient")
+    void shouldResolvePersistedDemographic_whenSubmittedDemographicMatches() {
+        ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
+        ConsultationRequest consultationRequest = new ConsultationRequest();
+        consultationRequest.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
+
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, 9, " 1 ",
+                "print", mock(Logger.class));
+
+        assertThat(resolution.isResolved()).isTrue();
+        assertThat(resolution.demographicId()).isEqualTo("1");
     }
 
     @Test

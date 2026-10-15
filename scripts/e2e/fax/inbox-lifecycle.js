@@ -4,13 +4,13 @@
 // live server actions and asserts each database transition:
 //
 //   1. redirected to the inbox   — providerLabRouting(DOC) provider_no=0 status=N
-//   2. attached to a patient     — documentUpdate(demog) -> ctl_document module_id
+//   2. attached to a patient     — documentUpdateAjax(demog) -> ctl_document module_id
 //                                  set to the demographic + a chart note created
-//   3. attached to a provider    — documentUpdate(flagproviders) -> a
+//   3. attached to a provider    — documentUpdateAjax(flagproviders) -> a
 //                                  providerLabRouting row for that provider
 //   4. provider interacts (files)— fileLabAjax(DOC) -> that row's status -> 'F'
 //
-// The two server actions (documentManager/ManageDocument!documentUpdate and
+// The two server actions (documentManager/ManageDocument!documentUpdateAjax and
 // oscarMDS/FileLabs!fileLabAjax) are the exact endpoints the inbox UI calls;
 // they are posted from within an authenticated page so the session cookies and
 // the scraped CSRFGuard token travel with them. Assertions are made against the
@@ -63,10 +63,12 @@ async function main() {
 
     // STEP 2 + 3: file the document to the patient and route it to the provider.
     const r1 = await postForm(p, c.base + '/documentManager/ManageDocument', {
-      method: 'documentUpdate', documentId: doc, doc_no: doc, docType: 'Received Fax',
+      method: 'documentUpdateAjax', documentId: doc, docType: 'Received Fax',
       documentDescription: 'E2E inbound fax', observationDate: '', demog: demo, flagproviders: provider,
     });
-    must(r1.status === 200, `documentUpdate returned HTTP ${r1.status} (expected 200)`);
+    must(r1.status === 200, `documentUpdateAjax returned HTTP ${r1.status} (expected 200)`);
+    must(/^application\/json(?:;|$)/i.test(r1.contentType), 'documentUpdateAjax did not return JSON');
+    must(JSON.parse(r1.body).patientId === demo, 'documentUpdateAjax returned another patient');
 
     const linked = sql(`SELECT COUNT(*) FROM ctl_document WHERE document_no=${doc} AND module='demographic' AND module_id=${demo}`);
     must(parseInt(linked, 10) > 0, `document ${doc} was not linked to demographic ${demo}`);
@@ -76,6 +78,9 @@ async function main() {
 
     const routed = sql(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_no=${doc} AND lab_type='DOC' AND provider_no='${provider}'`);
     must(parseInt(routed, 10) > 0, `document ${doc} was not routed to provider ${provider}`);
+    // removeLinkFromDocument retains the routing history with status X.
+    must(sql(`SELECT status FROM providerLabRouting WHERE lab_no=${doc} AND lab_type='DOC' AND provider_no='0' ORDER BY id DESC LIMIT 1`) === 'X',
+      'the assigned document was left in the UNCLAIMED inbox');
     console.log(`STEP 3 attached-to-provider: PASS (providerLabRouting -> provider ${provider})`);
 
     // STEP 4: the provider files (acknowledges) the item in their inbox.

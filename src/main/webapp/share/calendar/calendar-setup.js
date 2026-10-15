@@ -160,6 +160,8 @@ Calendar._doSetup = function (params) {
     /* ── Build flatpickr options ─────────────────────────────────────── */
     var fpOpts = {
         allowInput: true,
+        // Forms with their own input shortcut can reserve opening for the calendar button.
+        clickOpens: params.clickOpens !== false,
         dateFormat: Calendar._convertFormat(params.ifFormat || null)
     };
 
@@ -238,7 +240,14 @@ Calendar._doSetup = function (params) {
 
     /* ── Initialise flatpickr on the input element ───────────────────── */
     var target = inputEl || buttonEl;
+    // Legacy Calendar.setup did not rewrite the field before the form's onload
+    // handler. eForms often receive an ISO date and format it themselves there.
+    var initialValue = inputEl ? inputEl.value : null;
+    if (!params.multiple && /^\d{4}-\d{2}-\d{2}$/.test(initialValue || "")) {
+        fpOpts.defaultDate = flatpickr.parseDate(initialValue, "Y-m-d");
+    }
     var fp = flatpickr(target, fpOpts);
+    if (inputEl && !params.multiple) inputEl.value = initialValue;
 
     /* ── Button trigger ──────────────────────────────────────────────── */
     if (buttonEl && buttonEl !== inputEl) {
@@ -246,6 +255,14 @@ Calendar._doSetup = function (params) {
             e.preventDefault();
             e.stopPropagation();
             fp.toggle();
+            // Hand keyboard activation to a selectable day so arrow keys and Enter
+            // work even when allowInput prevents Flatpickr's input-key navigation.
+            if (params.clickOpens === false && e.detail === 0 && fp.isOpen && fp.calendarContainer) {
+                var day = fp.calendarContainer.querySelector(".flatpickr-day.selected:not(.flatpickr-disabled)")
+                    || fp.calendarContainer.querySelector(".flatpickr-day.today:not(.flatpickr-disabled)")
+                    || fp.calendarContainer.querySelector(".flatpickr-day:not(.flatpickr-disabled):not(.hidden)");
+                if (day) day.focus();
+            }
         });
     }
 

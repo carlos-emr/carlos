@@ -33,6 +33,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -42,13 +43,16 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.OrderedMapIterator;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
+import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -171,6 +175,13 @@ public class MeasurementFlowSheet {
     /** Filename of an optional HTML fragment displayed at the top of the flowsheet view. */
     private String topHTMLFileName = null;
 
+    /**
+     * Flowsheet-level DRL file named by the root {@code ds_rules} attribute, or {@code null}.
+     * A customized flowsheet is an exported-and-reparsed copy of its base, so the export has to
+     * re-declare this file or the copy runs with no flowsheet-level decision support (#4433).
+     */
+    private String dsRulesFileName = null;
+
     /** Whether this flowsheet appears for all patients regardless of diagnosis codes. */
     private boolean universal;
 
@@ -188,6 +199,19 @@ public class MeasurementFlowSheet {
      * and recommendations for the entire flowsheet.
      */
     KieBase ruleBase = null;
+
+    /**
+     * The compiled {@link #dsRulesFileName} DRL, or {@code null} if none was declared or it did not
+     * load. It is also {@link #ruleBase} unless item recommendations replaced it during parsing.
+     */
+    private KieBase flowsheetRuleBase = null;
+
+    /**
+     * Item recommendations added by customizations to a flowsheet whose only rules are its
+     * {@code ds_rules} file. Run after {@link #ruleBase} instead of replacing it; see
+     * {@link #loadCustomizedRuleBase(boolean)}.
+     */
+    private KieBase customizationRuleBase = null;
 
     /**
      * Flag indicating whether the flowsheet-level rule base has been successfully compiled.
@@ -703,7 +727,12 @@ public class MeasurementFlowSheet {
      * warnings or recommendations to the {@link MeasurementInfo} object.</p>
      *
      * <p>After successful compilation, the {@link #rulesLoaded} flag is set to {@code true}.
-     * If no recommendations exist across any items, the rule base remains {@code null}.</p>
+     * If no recommendations exist across any items, the rule base is left unchanged.</p>
+     *
+     * <p>Compiled recommendations <em>replace</em> any rule base already loaded from the
+     * flowsheet's {@code ds_rules} file: a definition that ships both runs only its item
+     * recommendations. Customized copies use {@link #loadCustomizedRuleBase(boolean)} instead,
+     * which keeps a file-only flowsheet's rules running.</p>
      *
      * @see Recommendation#getRuleBaseElement()
      * @see RuleBaseCreator#getRuleBase(String, List)
@@ -771,19 +800,39 @@ public class MeasurementFlowSheet {
      *       {@code /oscar/encounter/oscarMeasurements/flowsheets/}.</li>
      * </ol>
      *
-     * <p>The compiled {@link KieBase} is stored in the {@link #ruleBase} field and the
-     * {@link #rulesLoaded} flag is set to {@code true}. Note that {@code rulesLoaded}
-     * is set even if an exception occurs during compilation.</p>
+     * <p>The compiled {@link KieBase} is stored in the {@link #ruleBase} field and
+     * {@link #rulesLoaded} reports whether a rule base is present afterwards.</p>
+     *
+     * <p>The file name is recorded before loading (see {@link #getDsRulesFileName()}) so a copy of
+     * this flowsheet re-declares it. A blank name, as in {@code painAssistant.xml}'s
+     * {@code ds_rules=""}, declares no rules file and is ignored.</p>
+     *
+     * <p>Compiled rules are cached in {@link RuleBaseFactory} by a hash of the DRL text, so the
+     * flowsheets that share a file (diab.drl backs several) and scoped definitions parsed per
+     * request compile it once. Keying on content rather than on the name means a DRL edited under
+     * {@code MEASUREMENT_DS_DIRECTORY} takes effect when the flowsheets are next reloaded.
+     * Customized copies do not call this; they take the base's compiled rules through
+     * {@link #useFlowsheetRulesOf(MeasurementFlowSheet)}.</p>
      *
      * @param string String the DRL filename (e.g., {@code "diab.drl"}, {@code "hypertension.drl"})
-     * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
-     * @see DroolsHelper#loadFromUrl(URL)
+     * @see DroolsHelper#readDrl(URL)
+     * @see DroolsHelper#createKieBaseFromDrl(String)
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void loadRuleBase(String string) {
+        if (string == null || string.isBlank()) {
+            return;
+        }
+        dsRulesFileName = string;
+        // The named file replaces whatever ran before; if it does not load, run nothing rather than
+        // stale rules, so getMessages reports the missing file.
+        flowsheetRuleBase = null;
+        customizationRuleBase = null;
+        ruleBase = null;
+        rulesLoaded = false;
         try {
-            boolean fileFound = false;
+            String drl = null;
             // Priority 1: Check for DRL file on the filesystem (allows site-specific customization)
             String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
@@ -792,26 +841,102 @@ public class MeasurementFlowSheet {
                 if (file.isFile() && file.canRead()) {
                     log.debug("Loading DRL from file: {}", file.getName());
                     try (FileInputStream fis = new FileInputStream(file)) {
-                        ruleBase = DroolsHelper.loadFromInputStream(fis);
+                        drl = IOUtils.toString(fis, StandardCharsets.UTF_8);
                     }
-                    fileFound = true;
                 }
             }
 
             // Priority 2: Fall back to classpath resource bundled with the application
-            if (!fileFound) {
+            if (drl == null) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/encounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
                 if (url == null) {
                     log.warn("DRL resource not found on classpath for flowsheet rule: {}", string);
                     return;
                 }
                 log.debug("loading from URL {}", url.getFile());
-                ruleBase = DroolsHelper.loadFromUrl(url);
+                drl = DroolsHelper.readDrl(url);
             }
+            flowsheetRuleBase = compileFlowsheetRules(drl);
+            ruleBase = flowsheetRuleBase;
         } catch (Exception e) {
             log.error("Failed to load flowsheet rule base from DRL file: {}", string, e);
         }
         rulesLoaded = (ruleBase != null);
+    }
+
+    /**
+     * Compiles flowsheet-level DRL text, reusing an earlier compilation of identical text.
+     *
+     * @param drl String the complete DRL file content
+     * @return KieBase the compiled rule base
+     * @throws DroolsCompilationException if the DRL does not compile
+     */
+    private static KieBase compileFlowsheetRules(String drl) throws DroolsCompilationException {
+        String cacheKey = "MeasurementFlowSheet:" + DigestUtils.sha256Hex(drl);
+        KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        KieBase compiled = DroolsHelper.createKieBaseFromDrl(drl);
+        RuleBaseFactory.putRuleBase(cacheKey, compiled);
+        return compiled;
+    }
+
+    /**
+     * Gives a customized copy its source flowsheet's {@code ds_rules} file and compiled rules.
+     *
+     * <p>The result is what parsing the copy with its {@code ds_rules} attribute would produce,
+     * without reading or compiling the file again: the file's rules apply unless this copy's own
+     * item recommendations compiled. Sharing the source's {@link KieBase} keeps a copy on exactly
+     * the rules its base runs, even after the file is edited on disk and before the next reload,
+     * and keeps a file that fails to compile from being retried on every customized page view.</p>
+     *
+     * @param source MeasurementFlowSheet the base flowsheet this copy was made from
+     * @see MeasurementTemplateFlowSheetConfig#makeNewFlowsheet(MeasurementFlowSheet)
+     */
+    void useFlowsheetRulesOf(MeasurementFlowSheet source) {
+        dsRulesFileName = source.dsRulesFileName;
+        flowsheetRuleBase = source.flowsheetRuleBase;
+        if (!rulesLoaded && flowsheetRuleBase != null) {
+            ruleBase = flowsheetRuleBase;
+            rulesLoaded = true;
+        }
+    }
+
+    /**
+     * Reports whether this flowsheet's only rules are its {@code ds_rules} file, that is, no item
+     * recommendation replaced the file's rules when it was parsed.
+     *
+     * @return boolean {@code true} when {@link #getMessages(MeasurementInfo)} runs only the file
+     */
+    boolean runsOnlyFlowsheetRules() {
+        return flowsheetRuleBase != null && ruleBase == flowsheetRuleBase;
+    }
+
+    /**
+     * Recompiles the rules of a customized copy once its items have changed.
+     *
+     * <p>Parsing lets item recommendations replace the {@code ds_rules} file: a definition that
+     * ships both runs only its recommendations. Applied to a customized copy, that rule would let a
+     * single warning a clinician adds through Update Flowsheet silently remove every
+     * flowsheet-level warning the file produces (#4433). So when the base flowsheet ran only its
+     * file, the customization's recommendations run alongside the file instead. A base whose own
+     * items carry recommendations keeps the parse-time behaviour.</p>
+     *
+     * <p>Customizations change only the items, never the compiled rules, so whether the copy runs
+     * only its file is still the base's answer when this runs.</p>
+     *
+     * @see MeasurementTemplateFlowSheetConfig#getFlowSheet(String, java.util.List)
+     */
+    void loadCustomizedRuleBase() {
+        boolean keepFlowsheetRules = runsOnlyFlowsheetRules();
+        customizationRuleBase = null;
+        loadRuleBase();
+        if (keepFlowsheetRules && flowsheetRuleBase != null && ruleBase != flowsheetRuleBase) {
+            customizationRuleBase = ruleBase;
+            ruleBase = flowsheetRuleBase;
+            rulesLoaded = true;
+        }
     }
 
     /**
@@ -965,33 +1090,73 @@ public class MeasurementFlowSheet {
      *        by the rules to add warnings and recommendations
      * @return MeasurementInfo the same object, now populated with any clinical messages
      *         generated by the rules
-     * @throws Exception if the rule base has not been loaded (i.e., neither
-     *         {@link #loadRuleBase()} nor {@link #loadRuleBase(String)} has been called)
+     * @throws IllegalStateException if this flowsheet has no rule base; the message says
+     *         whether its rules file did not load, its item recommendations did not compile,
+     *         or it declares no rules at all
+     * @throws Exception if executing the rules fails
      * @see MeasurementInfo
      * @see #loadRuleBase()
      * @see #loadRuleBase(String)
      */
     public MeasurementInfo getMessages(MeasurementInfo mi) throws Exception {
         if (!rulesLoaded) {
-            throw new IllegalStateException(
-                    "Flowsheet '" + name + "' has no loaded Drools rule base; "
-                    + "check logs for prior compilation errors during startup");
+            throw new IllegalStateException(describeMissingRules());
         }
 
-        // Create a new stateful session for this evaluation
-        KieSession kieSession = ruleBase.newKieSession();
-        try {
+        fireRules(ruleBase, mi);
+        // A customized copy's own recommendations run after the flowsheet's rules file, so for a
+        // measurement both warn about, the customization's message is the one kept per item.
+        if (customizationRuleBase != null) {
+            fireRules(customizationRuleBase, mi);
+        }
+        return mi;
+    }
+
+    private void fireRules(KieBase rules, MeasurementInfo mi) {
+        // A new stateful session per evaluation; closing it disposes it (KieSession.close()
+        // delegates to dispose()), so the session never outlives this call.
+        try (KieSession kieSession = rules.newKieSession()) {
             // Insert the patient's measurement data as the Drools fact
             kieSession.insert(mi);
             kieSession.fireAllRules();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Failed to execute flowsheet decision support rules for flowsheet: {}", name, e);
             throw e;
-        } finally {
-            // Always dispose the session to release resources
-            kieSession.dispose();
         }
-        return mi;
+    }
+
+    /**
+     * Explains why {@link #getMessages(MeasurementInfo)} has no rules to run.
+     *
+     * <p>Most missing rule bases are not compilation failures: a flowsheet may declare no rules, or
+     * name a rules file that is absent. Saying which keeps a missing file from being read as a DRL
+     * syntax problem (#4433).</p>
+     *
+     * @return String a message naming this flowsheet and what its rules are missing
+     */
+    private String describeMissingRules() {
+        String prefix = "Flowsheet '" + name + "' has no decision support rules loaded: ";
+        List<String> missing = new ArrayList<>();
+        if (dsRulesFileName != null) {
+            missing.add("its rules file '" + dsRulesFileName + "' was not loaded");
+        }
+        if (hasItemRecommendations()) {
+            missing.add("its item recommendations did not compile");
+        }
+        if (missing.isEmpty()) {
+            return prefix + "it declares no decision support rules (no ds_rules file and no item recommendations)";
+        }
+        return prefix + String.join(" and ", missing) + "; see the earlier rule-loading error";
+    }
+
+    private boolean hasItemRecommendations() {
+        for (Object item : itemList.values()) {
+            List<Recommendation> recommendations = ((FlowSheetItem) item).getRecommendations();
+            if (recommendations != null && !recommendations.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1151,6 +1316,20 @@ public class MeasurementFlowSheet {
      */
     public String getTopHTMLFileName() {
         return topHTMLFileName;
+    }
+
+    /**
+     * Returns the flowsheet-level DRL file named by the root {@code ds_rules} attribute.
+     *
+     * <p>The name is kept even when the file fails to load, so an exported copy declares the same
+     * rules as its source and {@link #getMessages(MeasurementInfo)} can say which file is missing.</p>
+     *
+     * @return String the DRL filename (e.g., {@code "diab.drl"}), or {@code null} if the flowsheet
+     *         declares no flowsheet-level rules file
+     * @see MeasurementTemplateFlowSheetConfig#getExportFlowsheet(MeasurementFlowSheet)
+     */
+    public String getDsRulesFileName() {
+        return dsRulesFileName;
     }
 
     /**

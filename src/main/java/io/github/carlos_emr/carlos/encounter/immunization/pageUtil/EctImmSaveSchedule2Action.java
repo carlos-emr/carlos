@@ -68,12 +68,26 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        if (request.getParameter("hdnAction").equalsIgnoreCase("Configure"))
+        if ("Configure".equalsIgnoreCase(request.getParameter("hdnAction")))
             return "configure";
 
-        if (request.getParameter("hdnAction").equalsIgnoreCase("ShowAll")) {
+        if ("ShowAll".equalsIgnoreCase(request.getParameter("hdnAction"))) {
             request.setAttribute("showDeleted", "true");
             return "reload";
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        int expectedVersion;
+        try {
+            expectedVersion = Integer.parseInt(request.getParameter("scheduleVersion"));
+            if (expectedVersion <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A schedule version is required. Reload the schedule.");
+            return NONE;
         }
 
         try {
@@ -108,7 +122,7 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
                     String comments = request.getParameter(String.valueOf(String.valueOf(sRow)).concat("_comments_text"));
                     NodeList cmnts = row.getElementsByTagName("comments");
                     if (cmnts.getLength() > 0)
-                        UtilXML.setText(cmnts.item(0), comments);
+                        cmnts.item(0).setTextContent(comments);
                     else
                         UtilXML.addNode(row, "comments", comments);
                 }
@@ -119,7 +133,10 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
             EctImmImmunizationData imm = new EctImmImmunizationData();
             String demographicNo = request.getParameter("demographic_no");
             String providerNo = (String) request.getSession().getAttribute("user");
-            imm.saveImmunizations(demographicNo, providerNo, sXML);
+            if (!imm.saveImmunizations(demographicNo, providerNo, sXML, expectedVersion)) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                return NONE;
+            }
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Error", ex);
             throw new ServletException("Exception occurred in SaveScheduleAction", ex);

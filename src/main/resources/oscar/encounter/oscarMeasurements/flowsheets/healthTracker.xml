@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  Originally written for the Department of Family Medicine, McMaster University.
+  Now maintained by the CARLOS EMR Project (2026+).
+  https://github.com/carlos-emr/carlos
+  CARLOS has no affiliation with OSCAR or McMaster University.
+
+    Document    : healthTracker.xml
+    Description : Backing flowsheet for the CARLOS Health Tracker
+                  (/encounter/oscarMeasurements/ViewHealthTracker?template=tracker).
+
+  Deliberately ships with NO <header>/<item> elements. The Health Tracker is a
+  per-provider/per-patient scratch flowsheet: clinicians populate it themselves
+  through Edit Flowsheet, and those additions are stored as FlowSheetCustomization
+  rows rather than in this file. The empty definition is what makes the page's
+  "It looks like you are not tracking any measurements!" first-run state reachable.
+
+  It also carries no is_universal / dxcode_triggers / program_triggers attributes.
+  That is intentional: it keeps "tracker" out of getUniveralFlowsheets() and the
+  dx-trigger tables, so the Health Tracker never renders as just another entry in
+  the encounter left-nav flowsheet list. Its single nav entry is contributed by
+  EctDisplayMeasurements2Action, gated on the health_tracker property.
+-->
+<flowsheet name="tracker" display_name="Health Tracker" ds_rules="tracker.drl" top_HTML="" warning_colour="#E00000" recommendation_colour="yellow">
+    <indicator key="LOW" colour="#9999FF" />
+    <indicator key="HIGH" colour="orange" />
+    <indicator key="HIGH 1" colour="#E00000" />
+</flowsheet>

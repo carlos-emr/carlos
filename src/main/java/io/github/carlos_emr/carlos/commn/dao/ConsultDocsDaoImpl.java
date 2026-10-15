@@ -31,6 +31,12 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -73,15 +79,36 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "WHERE cd.deleted IS NULL "
                     + "AND cd.requestId = :requestId "
                     + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
-                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + " OR "
-                    + "(cd.docType = :labType AND NOT EXISTS (SELECT plr.id FROM PatientLabRouting plr, ConsultationRequest cr "
-                    + "WHERE cr.id = cd.requestId AND plr.labNo = cd.documentNo AND plr.demographicNo = cr.demographicId))"
-                    + ") "
+                    // Labs are not named here: an unavailable lab stays listed on the consult form by its
+                    // source-qualified key until it is selected again, and print and fax refuse it.
+                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + ") "
                     // A stable order, so every screen lists the same attachments the same way.
                     + "ORDER BY cd.docType, cd.documentNo";
 
-    public ConsultDocsDaoImpl() {
+    private final PatientLabRoutingDao patientLabRoutingDao;
+
+    @Autowired
+    public ConsultDocsDaoImpl(PatientLabRoutingDao patientLabRoutingDao) {
         super(ConsultDocs.class);
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
+
+    @Override
+    public void persist(AbstractModel<?> model) {
+        ConsultDocs attachment = (ConsultDocs) model;
+        if (ConsultDocs.DOCTYPE_LAB.equals(attachment.getDocType())) {
+            var owner = entityManager.find(ConsultationRequest.class,
+                    attachment.getRequestId());
+            if (owner == null || owner.getDemographicId() == null) {
+                throw new IllegalArgumentException("Lab attachment parent is missing");
+            }
+            String selection = attachment.getLabType() == null ? Integer.toString(attachment.getDocumentNo())
+                    : attachment.getLabType() + ":" + attachment.getDocumentNo();
+            var reference = LabAttachmentReference.resolve(
+                    selection, owner.getDemographicId(), patientLabRoutingDao);
+            attachment.setLabType(reference.source());
+        }
+        super.persist(model);
     }
 
     public List<ConsultDocs> findByRequestIdDocNoDocType(Integer requestId, Integer documentNo, String docType) {
@@ -119,14 +146,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
 
     @Override
     public List<Object[]> findLabs(Integer consultationId) {
-        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr, ConsultationRequest cr "
-                + "WHERE plr.labNo = cd.documentNo "
-                + "AND plr.demographicNo = cr.demographicId "
-                + "AND cr.id = cd.requestId "
-                + "AND cd.requestId = :consultationId "
-                + "AND cd.docType = :docType "
-                + "AND cd.deleted IS NULL "
-                + "ORDER BY cd.documentNo");
+        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND plr.labType = cd.labType AND EXISTS (select owner.id from ConsultationRequest owner where owner.id = cd.requestId and owner.demographicId = plr.demographicNo) AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter("consultationId", consultationId);
         q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();
@@ -145,6 +165,12 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         query.setParameter("documentType", ConsultDocs.DOCTYPE_DOC);
         query.setParameter("deletedDocumentStatus", Document.STATUS_DELETED);
         query.setParameter("demographicModule", DEMOGRAPHIC_MODULE);
-        query.setParameter("labType", ConsultDocs.DOCTYPE_LAB);
+    }
+
+    @Override
+    public List<ConsultDocs> findByRequestIdDocTypeForUpdate(Integer id, String docType) {
+        return entityManager.createQuery("select x from ConsultDocs x where x.requestId = :id and x.docType = :docType and x.deleted is null", ConsultDocs.class)
+                .setParameter("id", id).setParameter("docType", docType)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 }

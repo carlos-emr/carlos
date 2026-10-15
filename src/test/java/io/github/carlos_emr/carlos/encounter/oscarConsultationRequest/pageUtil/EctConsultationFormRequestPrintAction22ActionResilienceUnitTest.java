@@ -89,6 +89,9 @@ class EctConsultationFormRequestPrintAction22ActionResilienceUnitTest extends Ca
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(ConsultationManager.class, mock(ConsultationManager.class));
         registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
+        // The action's constructor looks up develop's owner filter (#3867); these tests call its helpers directly.
+        registerMock(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService.class,
+                mock(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService.class));
         faxManager = mock(FaxManager.class);
         registerMock(FaxManager.class, faxManager);
 

@@ -96,6 +96,62 @@ table#scheduleTable tfoot {
     margin-bottom: 0;
 }
 
+/* The day sheet's top bar keeps all of itself reachable on a sideways
+   scroll. schedulePage.js.jsp adds the class and the variables; without them,
+   nothing here applies and the page behaves as before. Month view, reports and
+   other pages using this file do not load that script, so they are unaffected. */
+@media screen {
+    body.sticky-schedule-header {
+        /* Let the body span the page's full width (schedule or bar, whichever is
+           wider), so the bar can travel with a sideways scroll. */
+        min-width: fit-content;
+    }
+    body.sticky-schedule-header #fixedHeaderWrapper {
+        /* 0 when the bar fits; negative when it is wider than the window, so it
+           stops once its right end is in view. */
+        left: var(--schedule-header-left, 0px);
+        width: max-content;
+        /* Its background always covers the whole visible width. */
+        min-width: var(--schedule-visible-width, 100%);
+        background-color: whitesmoke;
+    }
+    body.sticky-schedule-header table#scheduleTable {
+        /* The body may be as wide as the bar. While the schedule fits the
+           window, keep it at the window's width and hold it at the window's
+           left edge: a sideways scroll then moves only the bar, and the
+           schedule, with the provider names stuck above its columns, stays in
+           the window. The table moves as one, so each name stays over its own
+           column. */
+        width: var(--schedule-visible-width, 100%);
+        position: sticky;
+        left: 0;
+    }
+    body.sticky-schedule-header.schedule-overflows table#scheduleTable {
+        /* Once its own columns need more than the window, the schedule has to
+           scroll sideways anyway: it then spans the page and scrolls with it,
+           names included, so keyboard focus, find-in-page and scrollIntoView
+           bring any column into view. */
+        width: 100%;
+        position: static;
+    }
+    body.sticky-schedule-header #system_message,
+    body.sticky-schedule-header #facility_message {
+        /* Notices stay readable in the window instead of stretching to the
+           page's full width. */
+        position: sticky;
+        left: 0;
+        max-width: var(--schedule-visible-width, 100%);
+    }
+    body.sticky-schedule-header #password-expiry-warning {
+        /* The password-expiry notice (schedulePage.js.jsp puts it first in the
+           body) keeps its "Change password" button in the window too; 1rem
+           allows for its m-2 margins. */
+        position: sticky;
+        left: 0;
+        max-width: calc(var(--schedule-visible-width, 100%) - 1rem);
+    }
+}
+
 table#firstTable {
     width: 100%;
     background-color: white;
@@ -154,13 +210,44 @@ table#scheduleNavigation tr td.title {
     white-space: nowrap;
 }
 
+/* Sticky schedule layering: provider headers stick just under #fixedHeaderWrapper,
+   above the appointment rows. schedulePage.js.jsp sets --schedule-header-height to
+   the bar's measured height; 55px is that height at default settings. */
 tr td.infirmaryView {
     position: sticky;
-    top: 50px;
+    top: var(--schedule-header-height, 55px);
     left: 0;
     height: 25px;
     padding: 0 5px;
     right: 0;
+    z-index: 10; /* above appointment rows, below #fixedHeaderWrapper (1000) */
+}
+
+/* The provider's name and buttons, inside the name cell: they stay in the visible part of their
+   own column when only part of it is in view, for example a column widened to fill a page that
+   the bar makes wider than the window. */
+@media screen {
+    tr td.infirmaryView > .providerNameSticky {
+        display: inline-block;
+        position: sticky;
+        left: 0;
+        right: 0;
+    }
+
+    /* #868 item 3: a soft shadow under the names. Chrome does not draw a
+       box-shadow on a cell of a border-collapse table, so draw a strip below
+       the cell instead (the sticky cell is its containing block). Screen only:
+       printed, it would lie over the first row. */
+    tr td.infirmaryView::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        height: 4px;
+        background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0));
+        pointer-events: none;
+    }
 }
 
 td#group {
@@ -170,6 +257,13 @@ td#group {
 table#scheduleNavigation, table#monthScheduleNavigation {
     width: 100%;
     height: 25px;
+}
+
+/* #fixedHeaderWrapper owns sticky behavior for #scheduleNavigation; keep only
+   the table's visual styling here. The shadow under the sticky header is drawn
+   under the provider names (tr td.infirmaryView::after), not here. */
+table#scheduleNavigation {
+    background-color: whitesmoke;
 }
 
 table#scheduleNavigation tr td {

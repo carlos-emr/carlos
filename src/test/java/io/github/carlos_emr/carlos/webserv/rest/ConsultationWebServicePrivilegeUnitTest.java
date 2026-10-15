@@ -122,6 +122,17 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Mock
     private DemographicConverter demographicConverter;
 
+    // Release/2026.08's transactional, patient-scoped writes and attachment ownership checks
+    // (#3867, 06b71cdeec) need these collaborators.
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao demographicDao;
+
+    @Mock
+    private io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService attachmentOwnershipService;
+
     private ConsultationWebService service;
     private LoggedInInfo loggedInInfo;
 
@@ -144,6 +155,13 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "responseConverter", responseConverter);
         injectDependency(service, "specialistConverter", specialistConverter);
         injectDependency(service, "demographicConverter", demographicConverter);
+        injectDependency(service, "transactionManager", transactionManager);
+        injectDependency(service, "demographicDao", demographicDao);
+        injectDependency(service, "attachmentOwnershipService", attachmentOwnershipService);
+        // Reads also require chart access (release #3867). These tests are about the _con
+        // privilege, so chart access holds unless a test says otherwise.
+        org.mockito.Mockito.lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any()))
+                .thenReturn(true);
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
         registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
         registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
@@ -165,19 +183,17 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should deny getResponse for a null responseId by authorizing the supplied demographic")
-    void shouldDenyGetResponse_whenResponseIdNullAndCallerLacksPrivilege() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(99))).thenReturn(false);
-
-        // A null (omitted) responseId must route to the "new response" branch and authorize the
-        // supplied demographic, rather than unboxing null into the responseId > 0 comparison (NPE).
+    @DisplayName("should reject getResponse with an omitted responseId before any authorization")
+    void shouldReturnBadRequest_whenResponseIdNull() {
+        // An omitted responseId is a malformed read (release #4045), not a new response: it is
+        // refused before any privilege lookup and never unboxed into the responseId > 0 test.
         assertThatThrownBy(() -> service.getResponse(null, 99))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
-                        .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
         verify(consultationManager, never()).getResponse(any(), any());
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", 99);
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
     }
 
     @Test
@@ -467,7 +483,9 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseUpdate_whenRequestDoesNotExist() {
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
-        when(demographicManager.getDemographic(loggedInInfo, 99)).thenReturn(new Demographic());
+        // The patient-scoped write check (release #3867) uses the int overload.
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), anyInt())).thenReturn(true);
+        when(demographicDao.getDemographicById(99)).thenReturn(new Demographic());
         var data = new io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestTo1();
         data.setId(123);
         data.setDemographicId(99);

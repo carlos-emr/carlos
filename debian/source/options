@@ -10,6 +10,9 @@ tar-ignore = "debian/build"
 tar-ignore = "debian/.debhelper"
 tar-ignore = "debian/carlos-emr"
 tar-ignore = "debian/carlos-emr-drugref"
+# No longer built (the transitional package was dropped after 2026.08.0~alpha17),
+# but a checkout that built one can still hold its staging directory, which
+# dh_clean no longer knows to remove -- keep it out of the source tarball.
 tar-ignore = "debian/carlos-emr-eform-renderer"
 tar-ignore = "debian/tmp"
 tar-ignore = "debian/files"

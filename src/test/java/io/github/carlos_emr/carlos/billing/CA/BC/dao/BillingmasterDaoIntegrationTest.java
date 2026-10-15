@@ -26,7 +26,10 @@ import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +41,8 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,10 +57,55 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("dao")
 @Tag("billing-bc")
 @Transactional
+@Isolated("Installs and removes the H2 TO_DAYS dialect adapter")
 public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private BillingmasterDAO dao;
+
+    @Autowired
+    @Qualifier("dataSource")
+    private DataSource dataSource;
+
+    private Integer fixtureBillingId;
+    private Integer fixtureMasterId;
+
+    /**
+     * Test-only adapter for MySQL TO_DAYS ordering. The query compares day ordinals,
+     * never their absolute epoch. Both ISO input dates and stored MSP yyyyMMdd dates
+     * are accepted; vendor behavior remains covered by the BC database/browser checks.
+     */
+    public static Long toDays(String value) {
+        if (value == null) return null;
+        String isoDate = value.matches("[0-9]{8}")
+                ? value.substring(0, 4) + "-" + value.substring(4, 6) + "-" + value.substring(6, 8)
+                : value;
+        try {
+            return java.time.LocalDate.parse(isoDate).toEpochDay();
+        } catch (java.time.format.DateTimeParseException invalidDate) {
+            // MySQL TO_DAYS returns NULL for invalid legacy values, so unrelated
+            // generated fixture rows must not turn a date-filter query into an error.
+            return null;
+        }
+    }
+
+    @BeforeEach
+    void createDateDialectAdapter() throws Exception {
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE ALIAS IF NOT EXISTS TO_DAYS FOR "
+                    + "'io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingmasterDaoIntegrationTest.toDays'");
+        }
+    }
+
+    @AfterEach
+    void removeDateDialectAdapterAndCommittedFixtures() throws Exception {
+        // This DAO uses REQUIRES_NEW, so explicitly remove only this test's committed rows.
+        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+            if (fixtureMasterId != null) statement.executeUpdate("DELETE FROM billingmaster WHERE billingmaster_no=" + fixtureMasterId);
+            if (fixtureBillingId != null) statement.executeUpdate("DELETE FROM billing WHERE billing_no=" + fixtureBillingId);
+            statement.execute("DROP ALIAS IF EXISTS TO_DAYS");
+        }
+    }
 
     @Test
     @Tag("create")
@@ -125,22 +174,47 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list for various field combinations with no matching data")
-    @org.junit.jupiter.api.Disabled("Uses MySQL-specific to_days() function not available in H2")
     void shouldReturnEmptyList_whenNoMatchingBillingMasterData() throws Exception {
         List<Object[]> results1 = dao.getBillingMasterByVariousFields("ST", null, null, null);
         assertThat(results1).isEmpty();
 
-        List<Object[]> results2 = dao.getBillingMasterByVariousFields("ST", null, null, "01-01-2012");
+        List<Object[]> results2 = dao.getBillingMasterByVariousFields("ST", null, null, "2012-01-01");
         assertThat(results2).isEmpty();
 
-        List<Object[]> results3 = dao.getBillingMasterByVariousFields("ST", null, "01-01-2011", "01-01-2012");
+        List<Object[]> results3 = dao.getBillingMasterByVariousFields("ST", null, "2011-01-01", "2012-01-01");
         assertThat(results3).isEmpty();
 
         List<Object[]> results4 = dao.getBillingMasterByVariousFields("ST", "01", null, null);
         assertThat(results4).isEmpty();
 
-        List<Object[]> results5 = dao.getBillingMasterByVariousFields("ST", "01", "01-01-2011", "01-01-2012");
+        List<Object[]> results5 = dao.getBillingMasterByVariousFields("ST", "01", "2011-01-01", "2012-01-01");
         assertThat(results5).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should filter persisted billing rows by provider, status and exclusive service dates")
+    void shouldFilterPersistedBilling_whenProviderStatusAndDateRangeChange() {
+        Billing billing = new Billing();
+        billing.setProviderNo("9164055");
+        dao.save(billing);
+        fixtureBillingId = billing.getId();
+        Billingmaster master = new Billingmaster();
+        master.setBillingNo(billing.getId());
+        master.setBillingstatus("R6");
+        master.setServiceDate("20260304");
+        dao.save(master);
+        fixtureMasterId = master.getBillingmasterNo();
+
+        List<Object[]> results = dao.getBillingMasterByVariousFields("R6", "9164055", "2026-03-03", "2026-03-05");
+        assertThat(results).hasSize(1);
+        assertThat(((Number) results.get(0)[0]).intValue()).isEqualTo(fixtureBillingId);
+        assertThat(((Number) results.get(0)[18]).intValue()).isEqualTo(fixtureMasterId);
+        assertThat(dao.getBillingMasterByVariousFields("R6", "9164055", null, null)).hasSize(1);
+        assertThat(dao.getBillingMasterByVariousFields("R6", "other-provider", null, null)).isEmpty();
+        assertThat(dao.getBillingMasterByVariousFields("different-status", "9164055", null, null)).isEmpty();
+        assertThat(dao.getBillingMasterByVariousFields("R6", "9164055", "2026-03-04", null)).isEmpty();
+        assertThat(dao.getBillingMasterByVariousFields("R6", "9164055", null, "2026-03-04")).isEmpty();
     }
 
     @Test
