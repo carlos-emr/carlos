@@ -823,18 +823,21 @@ public class BillingCorrectionRecordService {
      * Unbills (soft-deletes) one claim and its items, unless the claim is already billed or
      * settled.
      *
-     * <p>The decision is made from the status <em>stored</em> on the claim header, read inside
-     * the same transaction as the write. Callers must not pass a browser-supplied status in: the
-     * Billing History page posts one, but a hand-built request can post any value, so it can only
-     * ever be a hint (issue #4538). Billed and settled claims are the ones the history page does
-     * not offer Unbill for ({@link BillingStatus#isSubmittedOrSettled(String)}).</p>
+     * <p>The decision is made from the status <em>stored</em> on the claim header, read with a
+     * row lock ({@code SELECT ... FOR UPDATE}) inside the same transaction as the write, so a
+     * claim that is submitted or settled concurrently is either seen as such here or makes this
+     * call wait until that change commits; the stale status cannot be written over with D.
+     * Callers must not pass a browser-supplied status in: the Billing History page posts one,
+     * but a hand-built request can post any value, so it can only ever be a hint (issue #4538).
+     * Billed and settled claims are the ones the history page does not offer Unbill for
+     * ({@link BillingStatus#isSubmittedOrSettled(String)}).</p>
      *
      * @param headerId   {@code billing_on_cheader1.id} of the claim
      * @param providerNo provider recorded in the billing audit rows
      * @return what happened; only {@link UnbillOutcome#DELETED} changed any data
      */
     public UnbillOutcome unbillClaim(int headerId, String providerNo) {
-        BillingONCHeader1 header = cheader1Dao.find(headerId);
+        BillingONCHeader1 header = cheader1Dao.findForUpdate(headerId);
         if (header == null) {
             return UnbillOutcome.NOT_FOUND;
         }

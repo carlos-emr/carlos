@@ -53,6 +53,7 @@ import java.lang.reflect.Method;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -252,11 +253,15 @@ class BillingCorrectionRecordServiceUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"B", "S"})
     void shouldRefuseUnbill_whenStoredStatusIsBilledOrSettled(String storedStatus) {
-        when(cheader1Dao.find(42)).thenReturn(headerWithStatus(storedStatus));
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus(storedStatus));
 
         BillingCorrectionRecordService.UnbillOutcome outcome = service.unbillClaim(42, "999998");
 
         assertThat(outcome).isEqualTo(BillingCorrectionRecordService.UnbillOutcome.REFUSED_BILLED_OR_SETTLED);
+        // The status is read with a row lock, never a plain read: a claim submitted or settled
+        // between the read and the write must not be overwritten with D (review of #4666).
+        verify(cheader1Dao).findForUpdate(42);
+        verify(cheader1Dao, never()).find(anyInt());
         // A refused unbill must not touch the claim, its items or the audit trail.
         verifyNoInteractions(correctionPersister, billOnItemDao);
     }
@@ -265,7 +270,7 @@ class BillingCorrectionRecordServiceUnitTest {
     @NullSource
     @ValueSource(strings = {"O", "P", "N", "I", "W", "A", "D"})
     void shouldDeleteClaimAndItems_whenStoredStatusIsNotBilledOrSettled(String storedStatus) {
-        when(cheader1Dao.find(42)).thenReturn(headerWithStatus(storedStatus));
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus(storedStatus));
         when(correctionPersister.updateBillingStatus("42", "D", "999998")).thenReturn(true);
         BillingONItem item = new BillingONItem();
         item.setStatus("O");
@@ -281,7 +286,7 @@ class BillingCorrectionRecordServiceUnitTest {
 
     @Test
     void shouldReportNotFound_whenNoClaimHasTheId() {
-        when(cheader1Dao.find(42)).thenReturn(null);
+        when(cheader1Dao.findForUpdate(42)).thenReturn(null);
 
         BillingCorrectionRecordService.UnbillOutcome outcome = service.unbillClaim(42, "999998");
 
@@ -291,7 +296,7 @@ class BillingCorrectionRecordServiceUnitTest {
 
     @Test
     void shouldReportNotFound_whenPersisterCannotUpdateTheClaim() {
-        when(cheader1Dao.find(42)).thenReturn(headerWithStatus("O"));
+        when(cheader1Dao.findForUpdate(42)).thenReturn(headerWithStatus("O"));
         when(correctionPersister.updateBillingStatus("42", "D", "999998")).thenReturn(false);
         when(billOnItemDao.getBillingItemByCh1Id(42)).thenReturn(Collections.emptyList());
 
