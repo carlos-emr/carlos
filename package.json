@@ -403,6 +403,7 @@
     "test:form-catalog-smoke-position-hazard-css-playwright": "FORM_CATALOG_ONLY=positionhazard.open node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-rourke2006-reopen-playwright": "FORM_CATALOG_ONLY=rourke2006.reopen,rourke2006.print node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-catalog-smoke-adfv2-window-playwright": "FORM_CATALOG_ONLY=adfv2.redisplay node scripts/form-catalog-smoke-playwright-checks.js",
+    "test:form-adfv2-save-exit-playwright": "node scripts/form-adfv2-save-exit-playwright-checks.js",
     "test:form-catalog-smoke-bare-contact-playwright": "FORM_CATALOG_ONLY=positionhazard.bare,healthpassport.bare node scripts/form-catalog-smoke-playwright-checks.js",
     "test:palliative-care-save-reopen-playwright": "node scripts/palliative-care-save-reopen-playwright-checks.js",
     "test:billing-on-gst-css-benefit-playwright": "node scripts/billing-on-gst-css-benefit-playwright-checks.js",

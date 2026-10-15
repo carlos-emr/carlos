@@ -5691,12 +5691,26 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "ADFv2, pinned to finding 240: Save posts into a window named apptProviderSearch, so the saved record opens in a second window and the first keeps the unsaved form. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
-      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 240,
-        "step": "ADFv2: Save redisplays the saved record in the window it was pressed in"
-      }
+      "notes": "ADFv2, finding 240 (fixed, #4598): Save posts into the window it was pressed in, so the saved record is redisplayed there instead of in a second window. The redisplay pair stays in its own entry so a regression is attributed to the finding; Save and Exit is form-adfv2-save-exit. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-adfv2-save-exit",
+      "script": "scripts/form-adfv2-save-exit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "ADFv2, finding 240 (fixed, #4598), the Save and Exit half: from the Forms menu, Save and Exit is confirmed once, posted into the form's own window (answered by close.jsp), and that window closes with no other window opened; exactly one formAdfV2 row holds the typed values and the signing provider. Before the fix the post went to a window named apptProviderSearch, which close.jsp closed, and the form window stayed open on the unsaved form. The Save half is form-catalog-smoke-adfv2-window; scripts/adfv2-save-window-target.test.js runs the page's handlers.",
+      "fixtures": "Owned synthetic patient and one marker-named encounterForm registration of formadfv2; cleanup deletes the owned patient's formAdfV2 rows and the registration, and asserts both gone. The registration is clinic-wide (the shipped row is hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-bare-contact",
