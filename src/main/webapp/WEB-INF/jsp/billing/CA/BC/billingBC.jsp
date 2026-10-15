@@ -1344,7 +1344,7 @@
         </div>
         <%}%>
 
-        <form style="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
+        <form name="BillingCreateBillingForm" id="bcBillingForm" class="d-flex flex-wrap align-items-center gap-2" method="post"
               action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
@@ -1353,8 +1353,13 @@
             <%
                 // set up this form
                 BillingCreateBillingForm thisForm = (BillingCreateBillingForm) request.getSession().getAttribute("BillingCreateBillingForm");
-
-                if (thisForm != null) {
+                // Since the Struts 1 form bean was removed nothing stores this form in the session, and the
+                // page answered HTTP 500 on every open (issue #4716). Build it here, so the defaults below
+                // are computed and the fields further down show them, as the bound form used to.
+                if (thisForm == null) {
+                    thisForm = new BillingCreateBillingForm();
+                }
+                {
 
                     thisForm.setXml_provider(bean.getBillingProvider());
                     String visitLocation = CarlosProperties.getInstance().getProperty("visitlocation");
@@ -1461,7 +1466,7 @@
                                                 </option>
                                                 <% for (int j = 0; j < billphysician.length; j++) { %>
                                                 <option
-                                                        value="<%=billphysician[j].getProviderNo()%>"><carlos:encode value='<%= billphysician[j].getProviderName() %>' context="html"/>
+                                                        value="<%=billphysician[j].getProviderNo()%>" <%= billphysician[j].getProviderNo().equals(thisForm.getXml_provider()) ? "selected" : "" %>><carlos:encode value='<%= billphysician[j].getProviderName() %>' context="html"/>
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1475,12 +1480,13 @@
 
                                             <label for="xml_billtype"><fmt:message key="billing.billingtype"/></label>
                                             <select class="form-select" id="xml_billtype"
-                                                         property="xml_billtype" onchange="CheckType();gotoPrivate();">
-                                                <option value="MSP">Bill MSP</option>
-                                                <option value="WCB">Bill WCB</option>
-                                                <option value="ICBC">Bill ICBC</option>
-                                                <option value="Pri">Private</option>
-                                                <option value="DONOTBILL">Do Not Bill</option>
+                                                         name="xml_billtype" onchange="CheckType();gotoPrivate();">
+                                                <% String formBillType = thisForm.getXml_billtype(); %>
+                                                <option value="MSP" <%= "MSP".equals(formBillType) ? "selected" : "" %>>Bill MSP</option>
+                                                <option value="WCB" <%= "WCB".equals(formBillType) ? "selected" : "" %>>Bill WCB</option>
+                                                <option value="ICBC" <%= "ICBC".equals(formBillType) ? "selected" : "" %>>Bill ICBC</option>
+                                                <option value="Pri" <%= "Pri".equals(formBillType) ? "selected" : "" %>>Private</option>
+                                                <option value="DONOTBILL" <%= "DONOTBILL".equals(formBillType) ? "selected" : "" %>>Do Not Bill</option>
                                             </select>
 
                                         </div>
@@ -1498,7 +1504,7 @@
                                                         ;
                                                 %>
                                                 <option
-                                                        value="<carlos:encode value='<%= locationDescription %>' context="htmlAttribute"/>"><carlos:encode value='<%= billlocation[i].getDescription() %>' context="html"/>
+                                                        value="<carlos:encode value='<%= locationDescription %>' context="htmlAttribute"/>" <%= locationDescription.equals(thisForm.getXml_location()) ? "selected" : "" %>><carlos:encode value='<%= billlocation[i].getDescription() %>' context="html"/>
                                                 </option>
                                                 <%} %>
                                             </select>
@@ -1516,7 +1522,7 @@
                                                     for (BillingFormData.BillingVisit billingVisit : billvisit) {
                                                 %>
                                                 <option
-                                                        value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>">
+                                                        value="<carlos:encode value='<%= billingVisit.getVisitType() %>' context="htmlAttribute"/>" <%= billingVisit.getVisitType() != null && billingVisit.getVisitType().equals(thisForm.getXml_visittype()) ? "selected" : "" %>>
                                                     <carlos:encode value='<%= billingVisit.getDescription() %>' context="html"/>
                                                 </option>
                                                 <%}%>
@@ -1542,7 +1548,7 @@
                                         </a>
                                         <input type="text" style="min-width:100px;" class="form-control"
                                                    name="xml_appointment_date" size="10" readonly="true"
-                                                   id="xml_appointment_date"/>
+                                                   id="xml_appointment_date" value="<carlos:encode value='<%= thisForm.getXml_appointment_date() %>' context="htmlAttribute"/>"/>
                                     </div>
 
                                 </td>
@@ -1617,7 +1623,7 @@
                                         <label for="dependent">Dependent</label>
                                         <select class="form-select" name="dependent" id="dependent">
                                             <option value="00">No</option>
-                                            <option value="66">Yes</option>
+                                            <option value="66" <%= "66".equals(thisForm.getDependent()) ? "selected" : "" %>>Yes</option>
                                         </select>
                                     </div>
 
@@ -1666,7 +1672,8 @@
                                                 }
                                             }
                                             request.setAttribute("paymentMethodList", types);
-                                            request.setAttribute("defaultPaymentMethod", CarlosProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
+                                            request.setAttribute("defaultPaymentMethod", StringUtils.isNotBlank(thisForm.getXml_encounter())
+                                                    ? thisForm.getXml_encounter() : CarlosProperties.getInstance().getProperty("DEFAULT_PAYMENT_METHOD", ""));
                                         %>
                                         <select class="form-select" id="xml_encounter" name="xml_encounter">
                                             <c:forEach items="${paymentMethodList}" var="paymentMethod">
@@ -1803,6 +1810,7 @@
                                                 <td>
                                                     <div class="input-group">
                                                         <input type="text" class="form-control" name="xml_refer1"
+                                                                   value="<carlos:encode value='<%= thisForm.getXml_refer1() %>' context="htmlAttribute"/>"
                                                                    onkeypress="return grabEnter(event,'ReferralScriptAttach1()')"/>
                                                         <button type="button" class="btn btn-primary"
                                                                 onclick="ReferralScriptAttach('xml_refer1')">
@@ -1813,8 +1821,8 @@
                                                 <td>
                                                     <select class="form-select" name="refertype1">
                                                         <option value="">Select Type</option>
-                                                        <option value="T">Refer To</option>
-                                                        <option value="B">Refer By</option>
+                                                        <option value="T" <%= "T".equals(thisForm.getRefertype1()) ? "selected" : "" %>>Refer To</option>
+                                                        <option value="B" <%= "B".equals(thisForm.getRefertype1()) ? "selected" : "" %>>Refer By</option>
                                                     </select>
                                                 </td>
                                             </tr>
@@ -1833,8 +1841,8 @@
                                                 <td>
                                                     <select class="form-select" name="refertype2">
                                                         <option value="">Select Type</option>
-                                                        <option value="T">Refer To</option>
-                                                        <option value="B">Refer By</option>
+                                                        <option value="T" <%= "T".equals(thisForm.getRefertype2()) ? "selected" : "" %>>Refer To</option>
+                                                        <option value="B" <%= "B".equals(thisForm.getRefertype2()) ? "selected" : "" %>>Refer By</option>
                                                     </select>
                                                 </td>
                                             </tr>
@@ -2148,10 +2156,11 @@
                                     <td align="left" colspan="2">
                                         <select class="form-select" name="correspondenceCode"
                                                      onchange="correspondenceNote();">
+                                            <% String formCorrespondence = thisForm.getCorrespondenceCode(); %>
                                             <option value="0">No Correspondence</option>
-                                            <option value="N">Electronic Correspondence</option>
-                                            <option value="C">Paper Correspondence</option>
-                                            <option value="B">Both</option>
+                                            <option value="N" <%= "N".equals(formCorrespondence) ? "selected" : "" %>>Electronic Correspondence</option>
+                                            <option value="C" <%= "C".equals(formCorrespondence) ? "selected" : "" %>>Paper Correspondence</option>
+                                            <option value="B" <%= "B".equals(formCorrespondence) ? "selected" : "" %>>Both</option>
                                         </select>
                                     </td>
                                 </tr>

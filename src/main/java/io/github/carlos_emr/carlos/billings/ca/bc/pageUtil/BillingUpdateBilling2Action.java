@@ -58,6 +58,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -84,6 +85,13 @@ public final class BillingUpdateBilling2Action
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        // The bill's number comes from the receipt's hidden field; without it there is nothing to
+        // update, so refuse the request plainly instead of failing on the number (issue #4717).
+        if (this.getBillingNo() == null || !this.getBillingNo().matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
         String creator = (String) request.getSession().getAttribute("user");
 
         BillRecipient recip = new BillRecipient();
@@ -95,7 +103,12 @@ public final class BillingUpdateBilling2Action
         recip.setBillingNoString(this.getBillingNo());
         MSPReconcile msprec = new MSPReconcile();
         BillingViewBean bean = new BillingViewBean();
-        bean.updateBill(this.getBillingNo(), request.getParameter("billingProvider"));
+        // The receipt posts no provider. Change the payee only when one is sent, so updating an
+        // invoice's recipient or note never blanks it (issue #4717).
+        String payee = request.getParameter("billingProvider");
+        if (StringUtils.isNotBlank(payee)) {
+            bean.updateBill(this.getBillingNo(), payee);
+        }
 
         msprec.saveOrUpdateBillRecipient(recip);
         BillingNote n = new BillingNote();
