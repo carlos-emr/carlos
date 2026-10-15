@@ -39,8 +39,9 @@ async function workflow(s) {
     }
   });
   const make = (key, address, city) => {
-    const id = sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,postalCode,phone1,fax,email,notes,status)
-      VALUES(${q(names[key])},${q(address)},${q(city)},'ON','M1A 1A1','416-555-0301','416-555-0302','pharmacy@example.invalid',${q(notes)},'1');
+    // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
+    const id = sql.value(`INSERT INTO pharmacyInfo(uid,name,address,city,province,postalCode,phone1,fax,email,notes,status)
+      VALUES(0,${q(names[key])},${q(address)},${q(city)},'ON','M1A 1A1','416-555-0301','416-555-0302','pharmacy@example.invalid',${q(notes)},'1');
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'A pharmacy fixture was not created');
     ids.push(id);

@@ -42,6 +42,11 @@ async function runSurfaceHealth(names, options = {}) {
       try {
         page = await openSurface(session.context, session.schedulePage, surface, session.recorder, timeout);
       } catch (error) {
+        // openSurface may have navigated the schedule itself (a same-tab fallback) before it threw, e.g. onto an
+        // error page; put the schedule back so the next surface is opened from the schedule, not from there.
+        if (session.schedulePage.url() !== scheduleUrl) {
+          await session.schedulePage.goto(scheduleUrl, { waitUntil: 'domcontentloaded', timeout }).catch(() => {}); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- scheduleUrl is the schedule page's own address, captured after login
+        }
         if (error && error.name === 'SkipCheck') {
           console.log(`  ${name}: not offered here (${error.message})`);
           continue;

@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -64,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -93,16 +95,51 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    /**
+     * Observation-time layouts the HL7 message parsers hand back. HL7 OBR-7 may carry 14 digits (with
+     * seconds), 12 (no seconds), 10 (hour only) or 8 (date only), and the parsers (e.g.
+     * {@code CMLHandler.formatDateTime}, {@code DefaultGenericHandler}) render them as these shapes.
+     */
+    private static final String[] OBSERVATION_DATE_PATTERNS = {
+            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"};
+
+    /**
+     * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
+     * component so a result observed in the past is never re-dated to the moment it was filed
+     * (issue #4619). Each layout must match the whole value and be a real calendar time, so a short
+     * layout can never silently swallow the date prefix of a longer or malformed value.
+     *
+     * @param observationDate the handler's formatted timestamp, may be null
+     * @return the parsed instant, or {@code null} when no supported layout matches
+     */
+    static Date parseObservationDate(String observationDate) {
+        if (observationDate == null) {
+            return null;
+        }
+        String trimmed = observationDate.trim();
+        for (String pattern : OBSERVATION_DATE_PATTERNS) {
+            // SimpleDateFormat is not thread-safe, so build one per call.
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date parsed = format.parse(trimmed, position);
+            if (parsed != null && position.getIndex() == trimmed.length()) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
         String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
         String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
         String min = Integer.toString(calender.get(Calendar.MINUTE));
         String second = Integer.toString(calender.get(Calendar.SECOND));
         String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
@@ -244,11 +281,13 @@ public class Hl7textResultsData {
                     /*
                      * This should be the OBR date - not the date the lab or measurement was received.
                      */
-                    try {
-                        m.setDateObserved(simpleDateFormat.parse(observationDate));
-                    } catch (Exception e) {
-                        m.setDateObserved(new Date());
+                    Date observed = parseObservationDate(observationDate);
+                    if (observed == null) {
+                        logger.warn("Unparseable HL7 observation time for lab " + LogSafe.sanitize(lab_no)
+                                + "; filing the measurement as observed now");
+                        observed = new Date();
                     }
+                    m.setDateObserved(observed);
 
                     m.setAppointmentNo(0);
 

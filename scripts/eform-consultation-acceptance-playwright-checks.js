@@ -39,10 +39,15 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   EFORM_CONSULT_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   EFORM_CONSULT_SCREENSHOT_DIR=/tmp
  *   LIBRARY_EFORM_NAME='Signature trick' (optional stored form with BGImage1/BGImage2)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). It
+ * used to save it for DEMO patient 1 and never removed the imported template, so every run left an active template, an instance
+ * and twelve values behind. The instance, its values and the patient are now deleted by the patient's key, and the template by its
+ * unique name, and each is asserted gone.
  */
 
 const fs = require('fs');
@@ -50,6 +55,8 @@ const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -57,7 +64,8 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = process.env.EFORM_CONSULT_DEMOGRAPHIC_NO || '1';
+// The owned patient the eForm is saved for, created in main (never a demo patient).
+let demographicNo = null;
 const screenshotDir = process.env.EFORM_CONSULT_SCREENSHOT_DIR || '/tmp';
 
 const bgImageName = 'playwright_consult_acceptance_bg.png';
@@ -610,6 +618,10 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   let libraryFid = null;
   let libraryRuntimeProbe = null;
   let browser = null;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
 
   const launchOptions = {
     headless: true,
@@ -620,6 +632,9 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   }
 
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
     const landingPage = await login(context);
@@ -689,10 +704,39 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
-    if (browser) {
-      await browser.close();
+    // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
+    // `finally` would replace the failure of the check itself.
+    const cleanupErrors = [];
+    try {
+      if (browser) {
+        await browser.close();
+      }
+    } catch (error) {
+      cleanupErrors.push(error);
     }
     cleanupFixtureFiles(fixture);
+    try {
+      // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
+      try {
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => String(error.message).split('\n')[0]).join('; ')}`);
+      process.exitCode = 1;
+    }
   }
 })().catch((error) => {
   console.error('FAIL eForm consultation acceptance Playwright check');

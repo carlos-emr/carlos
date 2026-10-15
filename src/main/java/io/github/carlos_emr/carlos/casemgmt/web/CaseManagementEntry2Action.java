@@ -949,6 +949,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     Appointment appointment = appointmentDao.find(Integer.parseInt(appointmentNo));
                     if (appointment != null) {
                         ApptStatusData statusData = new ApptStatusData();
+                        // Archive the version being replaced, before the status changes (issue #4589).
+                        ((AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class)).archiveAppointment(appointment);
                         appointment.setStatus(statusData.signStatus());
                         appointmentDao.merge(appointment);
                     }
@@ -2933,7 +2935,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         this.setCaseNote_history(note.getHistory());
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getAuditString());
+        // The note's own demographic number is the patient the audit row is filed under; the note
+        // text goes in the data slot. Passing the text as the sixth argument put it in the
+        // demographicNo parameter, which logged it as a NumberFormatException and lost the patient (#4426).
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_CME_NOTE, noteid, request.getRemoteAddr(), note.getDemographic_no(), note.getAuditString());
 
         return "historyview";
     }
