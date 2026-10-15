@@ -47,6 +47,7 @@ const {
   validateMysqlHost,
   wirePage,
 } = require('./eform-local-playwright-utils');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -192,7 +193,7 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
   initMysqlDefaults();
   try {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl), viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);
     const page = await context.newPage();
     await page.addInitScript(() => { window.confirm = () => true; });

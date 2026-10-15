@@ -62,7 +62,8 @@
  *             The handler parses the 24-hour observation time with the 12-hour pattern hh, which reads 12 as 0, so
  *             12:15 is stored as 00:15 (the date is right; the order of same-day results is not).
  *   fraction  Pinned to finding 257, right after step 8: the flowsheet flags an A1C reported as a fraction above
- *             the target. omdDiabetesFlowsheet.xml flags only a value above 7; its fraction rule is commented out.
+ *             the target. MeasurementDSHelper.getDataAsDouble() scales an A1C below 1 by 100 (finding 257, fixed), so the
+ *             flowsheet's single 'above 7' rule flags 0.095 as 9.5%.
  *   seconds   Pinned to finding 262, LAST (after step 9): a lab UPLOADED with an observation time that has no seconds
  *             (OBR-7 of 12 digits) is filed as observed at that time. CMLHandler.formatDateTime returns
  *             "yyyy-MM-dd HH:mm" for it, Hl7textResultsData parses with "yyyy-MM-dd hh:mm:ss", the parse throws and
@@ -128,7 +129,8 @@ const DIAB_TEMPLATE = 'diab2';
 
 /** The flowsheet's own A1C target ("Target <= 7.0%") as a number, or null. */
 function targetOf(guideline) {
-  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&lt;/g, '<'));
+  // The page encodes the tooltip body twice (SafeEncode.forTooltipText, #4448), so the raw HTML holds `&amp;lt;`.
+  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&(?:amp;)?lt;/g, '<'));
   return match ? Number(match[1]) : null;
 }
 
