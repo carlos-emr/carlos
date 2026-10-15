@@ -14,7 +14,8 @@
 // with DB-identical code, status and start date; Clear empties the code list;
 // a quick list chosen in the report adds its codes; a quick list the patient
 // registry marks as its default is never preselected in the report, so a
-// single-code Add adds only that code (issue #4547).
+// single-code Add adds only that code, and a list created while the report is
+// open appears on its next render (issue #4547).
 // Fixtures: owned FAKE- patient, its dxresearch/partial_date rows, a seeded
 // quick list FAKE-<hex>; cleanup deletes only those and asserts they are gone.
 // Coverage plan: §2.5 dx-registry-status-update.
@@ -245,6 +246,17 @@ async function workflow(s) {
     assert(await markedOption.count() >= 1, 'Precondition: the patient registry did not mark a default quick list');
     const marked = await markedOption.first().getAttribute('value');
     await again.close();
+    // The report rebuilds its lists for every render, so one created while it is open appears
+    // on its next Add. The name is the run marker's hex tail, safe in a CSS attribute selector.
+    const created = `F${marker.slice(-7)}N`;
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM quickList WHERE quickListName=${sqlString(created)}`);
+      assert(sql.value(`SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(created)}`) === '0',
+        'The quick list created while the report was open was not removed');
+    });
+    sql.execute(`INSERT INTO quickList (quickListName, createdByProvider, dxResearchCode, codingSystem)
+      VALUES (${sqlString(created)}, ${sqlString(provider)}, '496', 'icd9')`);
+    const createdOption = report.locator(`select[name="quickListName"] option[value="${created}"]`);
     // The registry may mark more than one list; the report's own value is what an Add posts.
     const preselected = () => report.locator('select[name="quickListName"]').inputValue();
     const added = [];
@@ -260,6 +272,7 @@ async function workflow(s) {
         `A single-code Add of ${code} added other criteria: ${shown.join(',')}`);
       const after = await preselected();
       assert(after === '', `After adding ${code} the report preselected quick list "${after}" (registry marked "${marked}")`);
+      assert(await createdOption.count() === 1, `After adding ${code} the report does not offer the quick list created while it was open`);
     }
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
     assert(await codeRows().count() === 0, 'Clear left single-code criteria behind');
