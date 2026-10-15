@@ -27,20 +27,21 @@ public final class SecurityUpdatePinHandler {
     }
 
     /**
-     * Applies the Local/Remote PIN-lock checkboxes. The edit form disables those checkboxes
-     * (and the PIN inputs) while Enable MFA is ticked, and browsers do not submit disabled
-     * controls, so an absent value then means "not editable", not "cleared". Treating it as
-     * unchecked would silently drop both flags, leaving the account password-only once MFA is
-     * later disabled. With MFA enabled the stored flags are therefore kept as they are.
+     * Applies the Local/Remote PIN-lock checkboxes. A checkbox that is unticked is simply not
+     * submitted, so absence alone cannot tell "cleared" from "not editable": the edit form
+     * disables the checkboxes while Enable MFA is ticked and omits them entirely when the
+     * legacy PIN section is not offered. The form therefore posts a marker field only while
+     * the checkboxes are editable; without it the stored flags are kept, so enabling MFA
+     * cannot silently drop them and leave the account password-only once MFA is disabled.
      *
      * @param security the already-authorized record being edited
-     * @param enableMfa whether this save leaves Enable MFA ticked
-     * @param localLockSet raw {@code b_LocalLockSet} value, or null when unchecked or disabled
-     * @param remoteLockSet raw {@code b_RemoteLockSet} value, or null when unchecked or disabled
+     * @param flagsEditable whether the form posted the editable-checkboxes marker
+     * @param localLockSet raw {@code b_LocalLockSet} value, or null when unticked
+     * @param remoteLockSet raw {@code b_RemoteLockSet} value, or null when unticked
      * @throws NumberFormatException when a submitted flag is not an integer
      */
-    public static void applyLockFlags(Security security, boolean enableMfa, String localLockSet, String remoteLockSet) {
-        if (enableMfa) return;
+    public static void applyLockFlags(Security security, boolean flagsEditable, String localLockSet, String remoteLockSet) {
+        if (!flagsEditable) return;
         security.setBLocallockset(localLockSet == null ? 0 : Integer.parseInt(localLockSet));
         security.setBRemotelockset(remoteLockSet == null ? 0 : Integer.parseInt(remoteLockSet));
     }

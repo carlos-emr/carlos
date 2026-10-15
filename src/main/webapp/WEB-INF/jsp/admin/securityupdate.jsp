@@ -107,9 +107,10 @@
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
                 s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-                // The form disables the lock checkboxes while MFA is ticked, so their absence
-                // must not clear the stored flags (finding 62 / #4503).
-                SecurityUpdatePinHandler.applyLockFlags(s, "1".equals(request.getParameter("enableMfa")),
+                // Lock flags change only when the form says the checkboxes were editable; they are
+                // disabled while MFA is ticked and absent without the legacy PIN section
+                // (finding 62 / #4503).
+                SecurityUpdatePinHandler.applyLockFlags(s, "1".equals(request.getParameter("lockFlagsEditable")),
                         request.getParameter("b_LocalLockSet"), request.getParameter("b_RemoteLockSet"));
 
                 if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(newPassword)) {

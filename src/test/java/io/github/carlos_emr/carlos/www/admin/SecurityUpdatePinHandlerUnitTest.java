@@ -73,29 +73,29 @@ class SecurityUpdatePinHandlerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepLockFlags_whenMfaEnabledAndCheckboxesOmitted() {
+    void shouldKeepLockFlags_whenCheckboxesNotEditable() {
         Security security = record();
         security.setBLocallockset(1);
         security.setBRemotelockset(1);
-        SecurityUpdatePinHandler.applyLockFlags(security, true, null, null);
+        SecurityUpdatePinHandler.applyLockFlags(security, false, null, null);
         assertThat(security.getBLocallockset()).isEqualTo(1);
         assertThat(security.getBRemotelockset()).isEqualTo(1);
     }
 
     @Test
-    void shouldClearLockFlags_whenMfaDisabledAndCheckboxesUnticked() {
+    void shouldClearLockFlags_whenEditableAndUnticked() {
         Security security = record();
         security.setBLocallockset(1);
         security.setBRemotelockset(1);
-        SecurityUpdatePinHandler.applyLockFlags(security, false, null, null);
+        SecurityUpdatePinHandler.applyLockFlags(security, true, null, null);
         assertThat(security.getBLocallockset()).isZero();
         assertThat(security.getBRemotelockset()).isZero();
     }
 
     @Test
-    void shouldApplySubmittedLockFlags_whenMfaDisabled() {
+    void shouldApplySubmittedLockFlags_whenEditable() {
         Security security = record();
-        SecurityUpdatePinHandler.applyLockFlags(security, false, "1", null);
+        SecurityUpdatePinHandler.applyLockFlags(security, true, "1", null);
         assertThat(security.getBLocallockset()).isEqualTo(1);
         assertThat(security.getBRemotelockset()).isZero();
     }
