@@ -361,7 +361,9 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                         stagedFiles.add(staged);
                         return staged.toFile();
                     });
-            default -> { }
+            default -> {
+                // The remaining cases need no setup beyond the shared fixture.
+            }
         }
         try (MockedConstruction<HHSEmrDownloadHandler> filters = mockConstruction(
                     HHSEmrDownloadHandler.class, (filter, context) ->
@@ -369,7 +371,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                 MockedStatic<OtherIdManager> otherIds = mockStatic(OtherIdManager.class);
                 MockedStatic<LabUpload2Action> signatures = mockStatic(LabUpload2Action.class, call -> runRealMethods
                         ? call.callRealMethod() : RETURNS_DEFAULTS.answer(call));
-                AutoCloseable jcaFault = injectJcaFault(testCase)) {
+                AutoCloseable _ = injectJcaFault(testCase)) {
             if (testCase == Case.STAGED_SIGNATURE_READ_FAILURE || testCase == Case.SAVED_SIGNATURE_READ_FAILURE) {
                 signatures.when(() -> LabUpload2Action.validateSignature(any(), anyString(), any(File.class)))
                         .thenAnswer(call -> {

@@ -160,17 +160,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
             try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile)) {
                 InputStream decrypted = decryptMessage(encrypted, key, clientKey);
-                if (decrypted == null) {
+                if (decrypted == null || !stageEnvelope(decrypted, staged)) {
                     return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
-                }
-                try {
-                    stageDecrypted(decrypted, staged);
-                } catch (IOException e) {
-                    if (e.getCause() instanceof BadPaddingException
-                            || e.getCause() instanceof IllegalBlockSizeException) {
-                        return respond(OUTCOME_REJECTED, audit, HttpServletResponse.SC_BAD_REQUEST);
-                    }
-                    throw e;
                 }
             }
 
@@ -195,7 +186,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
             if (signatureValid) {
                 File file = saved;
-                String filePath = file.getPath();
                 logger.debug("Validated Successfully");
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
@@ -292,6 +282,25 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         }
     }
 
+    /**
+     * Stages the decrypted message. The message is decrypted while it is read, so a malformed
+     * envelope only shows up here, as bad padding or block size.
+     *
+     * @return {@code false} for that malformed envelope (a sender rejection); any other read or
+     *     write fault propagates
+     */
+    private static boolean stageEnvelope(InputStream decrypted, File staged) throws IOException {
+        try {
+            stageDecrypted(decrypted, staged);
+            return true;
+        } catch (IOException e) {
+            if (e.getCause() instanceof BadPaddingException || e.getCause() instanceof IllegalBlockSizeException) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
     // A cleanup failure must not replace the existing response or delete a stored document.
     private static void deleteStaged(File staged) {
         if (staged == null) return;
@@ -346,7 +355,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         byte[] newSecretKey;
         try {
             newSecretKey = cipher.doFinal(wrappedKey);
-        } catch (BadPaddingException | IllegalBlockSizeException e) {
+        } catch (BadPaddingException | IllegalBlockSizeException _) {
             return null;
         }
         // Legacy AES supports these encoded key sizes. A malformed unwrapped key is
