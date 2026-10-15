@@ -132,6 +132,7 @@
     "test:schedule-template-crud-playwright": "node scripts/schedule-template-crud-playwright-checks.js",
     "test:billing-service-code-admin-playwright": "node scripts/billing-service-code-admin-playwright-checks.js",
     "test:specialist-add-cpso-playwright": "node scripts/specialist-add-cpso-playwright-checks.js",
+    "test:echart-note-lifecycle-playwright": "node scripts/echart-note-lifecycle-playwright-checks.js",
     "test:echart-note-sign-bill-playwright": "node scripts/echart-note-sign-bill-playwright-checks.js",
     "test:echart-note-verify-appointment-status-playwright": "node scripts/echart-note-verify-appointment-status-playwright-checks.js",
     "test:echart-note-verify-appointment-status-archive-playwright": "ECHART_VERIFY_PIN=archive node scripts/echart-note-verify-appointment-status-playwright-checks.js",

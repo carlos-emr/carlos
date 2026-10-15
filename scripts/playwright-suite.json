@@ -1007,6 +1007,24 @@
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) and one appointment for it: the appointment and its archive rows, the notes and their rows, locks and drafts, the eChart rows and the patient are removed by key and asserted gone. It no longer runs on a demo patient, whose stored encounter-note draft a saved note makes the application delete. No clinic-wide state is changed."
     },
     {
+      "name": "echart-note-lifecycle",
+      "script": "scripts/echart-note-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "fixtures": "Owned synthetic patient; the notes are written through the chart and removed by patient id with their links, exts, issue rows and eChart rows, and verified gone (the runner clears the patient's note locks and drafts).",
+      "expectedFailure": {
+        "finding": 269,
+        "step": "Sign & Save of the edit stores a new revision with the same uuid and keeps the first one unchanged"
+      },
+      "notes": "Expected to fail where finding 269 stands: Sign & Save of an edited signed note answers 500 because the edit form posts observation_date as a raw timestamp. The note-history step after it then does not run."
+    },
+    {
       "name": "echart-note-soft-wrap",
       "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
       "tiers": [

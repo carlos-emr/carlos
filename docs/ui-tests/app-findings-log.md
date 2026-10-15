@@ -590,6 +590,16 @@ finding is named in its evidence cell.
 | 267 | **A plain doctor is offered Administration ▸ Manage Flowsheets and is refused it.** The Administration panel now opens for the seeded doctor (#4316 admits any `_admin*` read), but `leftNav.jspf:669-671` lists Manage Flowsheets for `_admin,_admin.flowsheet` read and `ManageFlowsheets2Action` (`:60-63`) requires `_admin`, `_admin.misc` or `_admin.flowsheet` write. The doctor role holds `_admin.flowsheet` read only, so the link answers 403. It is the mismatch of #4238 one step further | Live: `admin-role-management` (2026-10-09, 2026.09.0~snapshot26 package, release/2026.08 at 0c43d2f862): after Schedule ▸ Administration opens for the throwaway doctor, `GET admin/ManageFlowsheets` answers 403, so the step "before the role is assigned the throwaway doctor has no Add A Role and is refused it" fails. With that one request replaced by a probe, the check passes through its last step. Source: the nav and action lines above and `database/mysql/migration/on/V1.0.2__on_data.sql:36038`. Filed as #4623. | `issue-filed` |
 | 268 | **Job Type Management raises a DataTables "Cannot reinitialise DataTable" alert after every save.** `jobTypes.jsp` removes the table rows and calls `listJobs()`, whose `getJobTypes()` runs `initiate()` and so calls `.DataTable(...)` on `#jobTypeTable` a second time | Live: `admin-jobs` (2026-10-09, packaged install): every earlier step passes, then the check fails on an unexpected alert, "DataTables warning: table id=jobTypeTable - Cannot reinitialise DataTable". Source: `jobTypes.jsp:113-160`. Tracked in #3402. | `issue-filed` |
 
+## 15. Found by the chart-note lifecycle check (October 2026)
+
+Seen live on `develop` at `0422b8dda1` (15 Oct 2026, private Tomcat on JDK 25, throwaway schema,
+FAKE data). The scheduling checks (#4709) also add a section 15 with findings 269–271, so
+whichever of the two lands second renumbers its section and findings at merge.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 269 | **Editing a signed chart note and pressing Sign & Save answers HTTP 500, and the edit is not stored.** In the reopened chart, the signed note's Edit link opens it for editing, and Sign & Save (`savePage('saveAndExit')`) posts `observation_date` as a raw timestamp (`2026-10-15 19:03:06.0`, the `java.sql.Timestamp.toString()` form). `CaseManagementEntry2Action.noteSave` (`:1671`) parses it with `dd-MMM-yyyy H:mm` and throws `ParseException`, which the exception interceptor answers with 500. A new note posts `15-Oct-2026 19:03` and saves. The input the edit form renders is formatted (`noteIssueList.jsp:113-115`); where the raw value comes from is not traced yet. | Live: `echart-note-lifecycle` fails at "Sign & Save of the edit stores a new revision with the same uuid and keeps the first one unchanged", and its message carries the posted value (2 of 2 runs). `echart-note-soft-wrap` fails the same way at "Edit-link editor soft-wraps and Sign & Save stores only the typed line breaks" (2 of 3 runs here). Source: `noteSave` parse at `CaseManagementEntry2Action.java:1671`. Not yet compared with the devcontainer. | `open` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
