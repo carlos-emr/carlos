@@ -60,13 +60,14 @@ package DiabetesA1C;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
 // ---------------------------------------------------------------------------
-// Above-target A1C - percentage format (A1C >= 7.0%)
-// Values >=7.0% indicate suboptimal glycemic control per Diabetes Canada.
+// Above-target A1C (A1C > 7.0%)
+// Values above the 7.0% target indicate suboptimal glycemic control per
+// Diabetes Canada; exactly 7.0% is at target (flowsheet guideline "<= 7.0%").
 // ---------------------------------------------------------------------------
 rule "A1C"
     when
         m : MeasurementDSHelper()
-        eval( m.getDataAsDouble() >= 7 )
+        eval( m.getDataAsDouble() > 7 )
         eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");

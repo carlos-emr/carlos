@@ -186,6 +186,19 @@ class MeasurementDSHelperUnitTest {
             assertThat(colourAfterFiring(kieBase, helperFor("A1C", "6.3"))).isNull();
         }
 
+        @Test
+        void shouldFlagShippedDrlOnlyAboveTarget_forFractionAndPercent() throws Exception {
+            org.kie.api.KieBase kieBase = io.github.carlos_emr.carlos.drools.DroolsHelper
+                    .loadMeasurementRuleBase("diab-A1C.drl", io.github.carlos_emr.carlos.drools.DroolsHelper.class);
+
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.075"))).isEqualTo("HIGH");
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "7.5"))).isEqualTo("HIGH");
+            // Exactly at the 7.0% target is not above it, as a fraction or a percent.
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.07"))).isNull();
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "7.0"))).isNull();
+            assertThat(colourAfterFiring(kieBase, helperFor("A1C", "0.063"))).isNull();
+        }
+
         private String colourAfterFiring(org.kie.api.KieBase kieBase, MeasurementDSHelper helper) {
             org.kie.api.runtime.KieSession session = kieBase.newKieSession();
             try {
