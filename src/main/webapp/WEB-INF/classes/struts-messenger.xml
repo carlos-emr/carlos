@@ -61,9 +61,11 @@
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
             <result name="success">/messenger/ViewMessage</result>
         </action>
+        <!-- POST demographic_no + item keys; the action renders each item server-side (no
+             client-posted HTML) and either streams a preview PDF (NONE) or stores the PDFs on
+             the compose session and closes the chooser (success). -->
         <action name="messenger/Doc2PDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp</result>
-            <result name="attaching">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>
         </action>
         <action name="messenger/PreviewPDF" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgPreviewPDF2Action">
             <result name="success">/WEB-INF/jsp/messenger/generatePreviewPDF.jsp</result>

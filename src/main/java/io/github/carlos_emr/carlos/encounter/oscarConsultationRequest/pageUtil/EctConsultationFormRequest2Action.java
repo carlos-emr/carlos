@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -145,6 +146,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String PRINT_PREVIEW_ERROR_MESSAGE = "A print preview of this consultation could not be generated. Please try again or contact support.";
     private static final String INVALID_CONSULTATION_REQUEST_ID = "Invalid consultation request id";
     private static final String CONSULTATION_REQUEST_UNAVAILABLE = "Consultation request unavailable";
+    private static final String ATTACHMENTS_NOT_VERIFIED =
+            "One or more attachments could not be verified for this patient. Please re-open the consultation from the patient's chart and attach the documents again.";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = CONSULT_PREVIEW_UNAVAILABLE_PREFIX + CONSULTATION_REQUEST_UNAVAILABLE + ".";
 
@@ -230,6 +233,69 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         request.setAttribute(ATTR_ERROR_MESSAGE, message);
     }
 
+    /**
+     * Rejects the save, before its first write, when a newly attached DOC/LAB/EFORM/HRM id is not
+     * the consultation patient's (issue #3867). The transactional save repeats validation under the parent lock; this preflight
+     * reports an actionable form error before entering that transaction.
+     * The message is deliberately generic: it does not say which attachment failed.
+     *
+     * @return {@code true} to continue; {@code false} after recording the input error
+     */
+    private boolean consultAttachmentsVerified(LoggedInInfo loggedInInfo, Integer requestId, int demographicId,
+                                               String[] attachedDocuments, String[] attachedLabs, String[] attachedForms,
+                                               String[] attachedEForms, String[] attachedHRMDocuments) {
+        Map<DocumentType, String[]> attachmentsByType = new EnumMap<>(DocumentType.class);
+        attachmentsByType.put(DocumentType.DOC, attachedDocuments);
+        attachmentsByType.put(DocumentType.LAB, attachedLabs);
+        attachmentsByType.put(DocumentType.FORM, attachedForms);
+        attachmentsByType.put(DocumentType.EFORM, attachedEForms);
+        attachmentsByType.put(DocumentType.HRM, attachedHRMDocuments);
+        try {
+            documentAttachmentManager.verifyConsultAttachments(loggedInInfo, requestId, demographicId, attachmentsByType);
+            return true;
+        } catch (SecurityException | IllegalArgumentException e) {
+            logger.warn("Rejected consultation save: attachments could not be verified for the consultation patient");
+            // The input result forwards to ViewRequest, which reads the patient from "de" or this
+            // attribute. Without it the retry form rendered as "null, null" with every patient
+            // field blank. The form re-runs its own patient-scoped _con check on this value.
+            request.setAttribute("demographicId", String.valueOf(demographicId));
+            if (requestId != null) {
+                request.setAttribute("reqId", String.valueOf(requestId));
+            }
+            rejectInput(ATTACHMENTS_NOT_VERIFIED);
+            return false;
+        }
+    }
+
+    /**
+     * Requires access to the patient's record when this submission attaches records or discloses the
+     * consultation packet (print preview, fax). A patient-scoped {@code _con} write grant is not the
+     * circle-of-care check: a provider can hold it while blocked from the patient's chart. Runs before
+     * the consultation, its signature or any attachment is written.
+     */
+    private void requirePatientRecordAccessForDisclosure(LoggedInInfo loggedInInfo, int demographicId, String submission,
+                                                         String[]... attachmentLists) {
+        boolean disclosesRecords = submission.endsWith("And Fax") || submission.endsWith("And Print Preview");
+        for (String[] attachments : attachmentLists) {
+            disclosesRecords |= hasAttachmentIds(attachments);
+        }
+        if (disclosesRecords && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicId)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+    private static boolean hasAttachmentIds(String[] attachments) {
+        if (attachments == null) {
+            return false;
+        }
+        for (String id : attachments) {
+            if (StringUtils.isNotBlank(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void requireConsultWritePrivilege(LoggedInInfo loggedInInfo, String demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", demographicNo)) {
             throw new SecurityException("missing required sec object (_con)");
@@ -312,6 +378,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 return null;
             }
             if (verification.isVerified()) {
+                // The preview is the consultation packet with every attachment: same indistinguishable
+                // refusal as a failed write check when the user may not access this patient's record.
+                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, verification.target().demographicId())) {
+                    request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+                    return null;
+                }
                 return verification.target().demographicNo();
             }
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
@@ -336,7 +408,37 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
             return null;
         }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(resolution.demographicId()))) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+            return null;
+        }
         return resolution.demographicId();
+    }
+
+    /** Saves the consultation fields, extras and every attachment family in one transaction. */
+    private int saveConsultationWithAttachments(LoggedInInfo loggedInInfo, ConsultationRequest consult, boolean create) {
+        return new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
+            ConsultationRequestDao requests = SpringUtils.getBean(ConsultationRequestDao.class);
+            ConsultationRequestExtDao extras = SpringUtils.getBean(ConsultationRequestExtDao.class);
+            if (create) requests.persist(consult);
+            else requests.merge(consult);
+            int id = consult.getId();
+            if (!create) extras.clear(id);
+            Enumeration<String> names = request.getParameterNames();
+            while (names.hasMoreElements()) {
+                String name = names.nextElement();
+                if (name.startsWith("ext_")) extras.persist(createExtEntry(id, name.substring(4), request.getParameter(name)));
+            }
+            int patient = consult.getDemographicId();
+            String provider = consult.getProviderNo();
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, getDocNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, getLabNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, getFormNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, geteFormNo(), provider, id, patient);
+            documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, getHrmNo(), provider, id, patient);
+            return id;
+        });
     }
 
     /**
@@ -382,11 +484,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         String appointmentHour = this.getAppointmentHour();
         String appointmentPm = this.getAppointmentPm();
-        String[] attachedDocuments = this.getDocNo();
-        String[] attachedLabs = this.getLabNo();
-        String[] attachedForms = this.getFormNo();
-        String[] attachedEForms = this.geteFormNo();
-        String[] attachedHRMDocuments = this.getHrmNo();
         List<String> documents = new ArrayList<String>();
 
         if (appointmentPm.equals("PM") && Integer.parseInt(appointmentHour) < 12) {
@@ -414,7 +511,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-        ConsultationRequestExtDao consultationRequestExtDao = (ConsultationRequestExtDao) SpringUtils.getBean(ConsultationRequestExtDao.class);
         ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
@@ -433,6 +529,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
                 demographicNo = String.valueOf(demographicId);
                 requireConsultWritePrivilege(loggedInInfo, demographicNo);
+                requirePatientRecordAccessForDisclosure(loggedInInfo, demographicId, submission, getDocNo(),
+                        getLabNo(), getFormNo(), geteFormNo(), getHrmNo());
+
+                // Before the signature, the consultation and any attachment are written (#3867).
+                if (!consultAttachmentsVerified(loggedInInfo, null, demographicId, getDocNo(),
+                        getLabNo(), getFormNo(), geteFormNo(), getHrmNo())) {
+                    return INPUT;
+                }
 
                 if (newSignature) {
                     // Manual signature from tablet/signature pad. Capture intent up front: a null result
@@ -574,30 +678,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     consult.setProfessionalSpecialist(professionalSpecialist);
                 }
 
-                consultationRequestDao.persist(consult);
-
-                int consultationRequestId = consult.getId();
+                int consultationRequestId = saveConsultationWithAttachments(loggedInInfo, consult, true);
                 requestId = String.valueOf(consultationRequestId);
                 consultTargetWriteVerified = true;
-                MiscUtils.getLogger().debug("saved new consult id " + requestId);
-
-                Enumeration e = request.getParameterNames();
-                while (e.hasMoreElements()) {
-                    String name = (String) e.nextElement();
-                    if (name.startsWith("ext_")) {
-                        String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
-                    }
-                }
-
-                // now that we have consultation id we can save any attached docs as well
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Invalid Date ({})", e.getClass().getSimpleName());
+            } catch (ParseException | IllegalArgumentException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation date or attachment selection");
+                return NONE;
             }
             request.setAttribute("reqId", requestId);
             request.setAttribute("transType", "2");
@@ -620,6 +706,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             int demographicId = target.demographicId();
             demographicNo = target.demographicNo();
             consultTargetWriteVerified = true;
+            requirePatientRecordAccessForDisclosure(loggedInInfo, demographicId, submission, getDocNo(),
+                    getLabNo(), getFormNo(), geteFormNo(), getHrmNo());
+
+            // Before the archive copy, the merge and any attachment are written (#3867).
+            if (!consultAttachmentsVerified(loggedInInfo, consultationRequestId, demographicId, getDocNo(),
+                    getLabNo(), getFormNo(), geteFormNo(), getHrmNo())) {
+                return INPUT;
+            }
 
             try {
                 consultationManager.archiveConsultationRequest(consultationRequestId);
@@ -758,31 +852,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     date = DateUtils.parseDate(this.getFollowUpDate(), format);
                     consult.setFollowUpDate(date);
                 }
-                consultationRequestDao.merge(consult);
-
-                consultationRequestExtDao.clear(consultationRequestId);
-                Enumeration e = request.getParameterNames();
-                while (e.hasMoreElements()) {
-                    String name = (String) e.nextElement();
-                    if (name.startsWith("ext_")) {
-                        String value = request.getParameter(name);
-                        consultationRequestExtDao.persist(createExtEntry(consultationRequestId, name.substring(name.indexOf("_") + 1), value));
-                    }
-                }
-
-                // save any additional attachments added on the update
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.DOC, attachedDocuments, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.LAB, attachedLabs, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.FORM, attachedForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.EFORM, attachedEForms, providerNo, consultationRequestId, demographicId);
-                documentAttachmentManager.attachToConsult(loggedInInfo, DocumentType.HRM, attachedHRMDocuments, providerNo, consultationRequestId, demographicId);
-                // The form does not list an attachment whose target was deleted or moved to another
+                saveConsultationWithAttachments(loggedInInfo, consult, false);
+                // The form does not list a document or eForm whose target was deleted or moved to another
                 // patient, so it is missing from the lists above. attachToConsult keeps it attached
                 // rather than detaching it silently; name it on the page shown after the save.
                 request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
                         documentAttachmentManager.getUnavailableConsultAttachmentWarnings(consultationRequestId));
-            } catch (ParseException e) {
-                MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+            } catch (ParseException | IllegalArgumentException e) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation date or attachment selection");
+                return NONE;
             }
 
             request.setAttribute("transType", "1");
@@ -804,6 +882,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                                 request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                             }
                         }
+                        // THIS branch is the one Print uses, and Print never saves: the form was
+                        // POSTed by AJAX precisely so the clinician keeps their edits. Ask the PDF
+                        // to render those edits rather than the stored record (issue #3721).
+                        request.setAttribute(ConsultationPreviewOverlay.PREVIEW_USES_UNSAVED_VALUES_ATTRIBUTE, Boolean.TRUE);
                         HttpServletResponse renderResponse = createRenderOnlyResponse(response);
                         HttpServletResponse previousResponse = ServletActionContext.getResponse();
                         // This preview shows the attachment warnings to the user, so an attachment
@@ -855,6 +937,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 ConsultationWriteTarget target = verification.target();
                 demographicNo = target.demographicNo();
                 requestId = String.valueOf(target.consultationRequestId());
+                requirePatientRecordAccessForDisclosure(loggedInInfo, target.demographicId(), submission);
             }
 
             String[] faxRecipients = request.getParameterValues("faxRecipients");
@@ -871,49 +954,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
 
             // call-back document descriptions into documents parameter.
-            List<EDoc> attachedDocumentList = EDocUtil.listDocs(loggedInInfo, demographicNo, requestId, EDocUtil.ATTACHED);
-            CommonLabResultData commonLabResultData = new CommonLabResultData();
-            List<LabResultData> attachedLabList = commonLabResultData.populateLabResultsData(loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED);
-
-            List<EctFormData.PatientForm> attachedFormsList = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
-
-            List<EFormData> attachedEFormsList = consultationManager.getAttachedEForms(requestId);
-
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocumentsList = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId);
-
-            if (attachedDocumentList != null) {
-                for (EDoc documentItem : attachedDocumentList) {
-                    String description = documentItem.getDescription();
-                    if (StringUtils.isEmpty(description)) {
-                        description = documentItem.getFileName();
-                    }
-                    documents.add(description);
-                }
-            }
-
-            if (attachedLabList != null) {
-                for (LabResultData labResultData : attachedLabList) {
-                    documents.add(labResultData.getDisciplineDisplayString());
-                }
-            }
-
-            if (attachedFormsList != null && !attachedFormsList.isEmpty()) {
-                for (EctFormData.PatientForm attachedForm : attachedFormsList) {
-                    documents.add(attachedForm.formName);
-                }
-            }
-
-            if (attachedEFormsList != null && !attachedEFormsList.isEmpty()) {
-                for (EFormData attachedEForm : attachedEFormsList) {
-                    documents.add(attachedEForm.getFormName());
-                }
-            }
-
-            if (attachedHRMDocumentsList != null && !attachedHRMDocumentsList.isEmpty()) {
-                for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocumentsList) {
-                    documents.add(attachedHRMDocument.get("name") + "");
-                }
-            }
+            documents.addAll(faxCoverDocumentNames(loggedInInfo, requestId, demographicNo));
 
 			List<FaxConfig>	accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
 
@@ -958,6 +999,73 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
         response.sendRedirect(forward);
         return NONE;
+    }
+
+    /**
+     * Names of the consultation's attachments for the fax cover page.
+     *
+     * <p>Issue #3867: document descriptions, lab disciplines and eForm names are PHI, and the
+     * lookups below resolve attachments by consultation id alone. The cover page lists only the
+     * patient's own documents, HL7 labs (by listed lab type as well as number) and eForms, i.e. what the faxed packet itself contains
+     * ({@code renderConsultationFormWithAttachments} applies the same filter). HRMs and forms are
+     * already looked up per patient.</p>
+     *
+     * @param demographicNo the consultation's verified (stored) patient
+     */
+    List<String> faxCoverDocumentNames(LoggedInInfo loggedInInfo, String requestId, String demographicNo) {
+        AttachmentOwnershipService ownership = SpringUtils.getBean(AttachmentOwnershipService.class);
+        Integer ownerDemographicNo = Integer.valueOf(demographicNo);
+        List<String> documents = new ArrayList<>();
+        List<EDoc> attachedDocumentList = ownership.retainOwned(DocumentType.DOC, ownerDemographicNo,
+                EDocUtil.listDocs(loggedInInfo, demographicNo, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
+        CommonLabResultData commonLabResultData = new CommonLabResultData();
+        List<LabResultData> attachedLabList = ownership.retainOwned(DocumentType.LAB, ownerDemographicNo,
+                AttachmentOwnershipService.renderableLabsOnly(
+                        commonLabResultData.populateLabResultsData(loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED)),
+                LabResultData::getSegmentID);
+
+        List<EctFormData.PatientForm> attachedFormsList = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
+
+        List<EFormData> attachedEFormsList = ownership.retainOwned(DocumentType.EFORM, ownerDemographicNo,
+                consultationManager.getAttachedEForms(requestId),
+                eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
+
+        ArrayList<HashMap<String, ? extends Object>> attachedHRMDocumentsList = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId);
+
+        if (attachedDocumentList != null) {
+            for (EDoc documentItem : attachedDocumentList) {
+                String description = documentItem.getDescription();
+                if (StringUtils.isEmpty(description)) {
+                    description = documentItem.getFileName();
+                }
+                documents.add(description);
+            }
+        }
+
+        if (attachedLabList != null) {
+            for (LabResultData labResultData : attachedLabList) {
+                documents.add(labResultData.getDisciplineDisplayString());
+            }
+        }
+
+        if (attachedFormsList != null && !attachedFormsList.isEmpty()) {
+            for (EctFormData.PatientForm attachedForm : attachedFormsList) {
+                documents.add(attachedForm.formName);
+            }
+        }
+
+        if (attachedEFormsList != null && !attachedEFormsList.isEmpty()) {
+            for (EFormData attachedEForm : attachedEFormsList) {
+                documents.add(attachedEForm.getFormName());
+            }
+        }
+
+        if (attachedHRMDocumentsList != null && !attachedHRMDocumentsList.isEmpty()) {
+            for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocumentsList) {
+                documents.add(attachedHRMDocument.get("name") + "");
+            }
+        }
+        return documents;
     }
 
     private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
@@ -1062,7 +1170,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         request.setAttribute("demographicId", demographicNo);
         try {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
-            // The renderer normalizes demographicId to the persisted consultation patient.
+            // The renderer sets demographicId to the saved consultation's patient (it refuses a conflicting one).
             String consultationDemographicNo = Objects.toString(request.getAttribute("demographicId"), "");
             int parsedConsultationDemographicNo = Integer.parseInt(consultationDemographicNo);
             String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);

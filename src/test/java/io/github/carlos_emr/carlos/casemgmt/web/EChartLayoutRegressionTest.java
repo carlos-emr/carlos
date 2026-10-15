@@ -31,6 +31,8 @@ class EChartLayoutRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp");
     private static final Path CHART_NOTES =
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp");
+    private static final Path NOTES_PAGINATION_JS =
+            Path.of("src/main/webapp/js/newCaseManagementView.js.jsp");
 
     @Test
     @DisplayName("should render notes panel once via AJAX when rendering new encounter layout")
@@ -54,8 +56,17 @@ class EChartLayoutRegressionTest {
 
         assertThat(jsp).doesNotContain("layoutIncludesDependencies");
         assertThat(jsp).contains("newCaseManagementView.js.jsp");
-        // Each render arms its own scroll poll; the previous one must be stopped first.
-        assertThat(jsp).contains("stopNotesScrollCheck();");
+        // Each render goes through notesLoadFirstPage() (#3609): the pagination state lives in
+        // the page script, so a filter/save reload must start the offset over or the batches
+        // between the first page and where paging had reached are never shown again; and the
+        // poll it arms must stop the previous one first, or a reload leaves a timer polling
+        // for the life of the chart.
+        assertThat(jsp).contains("notesLoadFirstPage();");
+        assertThat(jsp).doesNotContain("setInterval(");
+        String js = Files.readString(NOTES_PAGINATION_JS, StandardCharsets.UTF_8);
+        assertThat(js)
+                .containsPattern("function notesLoadFirstPage\\(\\)\\s*\\{\\s*notesOffset = 0;")
+                .containsPattern("function startNotesScrollCheck\\(\\)\\s*\\{\\s*stopNotesScrollCheck\\(\\);");
     }
 
     @Test

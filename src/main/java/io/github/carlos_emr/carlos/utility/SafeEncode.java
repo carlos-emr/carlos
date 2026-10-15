@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.regex.Pattern;
 
 import org.owasp.encoder.Encode;
 
@@ -65,7 +66,7 @@ public final class SafeEncode {
 
     /** Human-readable context list, reused by callers that report a bad context name. */
     public static final String VALID_CONTEXTS =
-            "Valid contexts: html, htmlAttribute, htmlUnquotedAttribute, "
+            "Valid contexts: html, htmlWithBreakMarkers, htmlAttribute, htmlUnquotedAttribute, "
                     + "javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource, "
                     + "uri, uriComponent, cssString, cssUrl, "
                     + "xml, xmlAttribute, xmlContent, xmlComment, cdata, java.";
@@ -73,6 +74,14 @@ public final class SafeEncode {
     private SafeEncode() {
         // static-only
     }
+
+    /**
+     * Raw-text line-break markers accepted by {@link #forHtmlContentWithBreakMarkers(String)}:
+     * {@code <br>}, {@code <br/>} and {@code <br />}, case-insensitive. Deliberately narrow —
+     * no attributes, no other tags — and free of nested quantifiers so it stays linear on
+     * untrusted input.
+     */
+    private static final Pattern BREAK_MARKER = Pattern.compile("(?i)<br\\s*/?>");
 
     /** Coalesce {@code null} to empty string. */
     private static String nz(String s) {
@@ -136,12 +145,72 @@ public final class SafeEncode {
         return builder == null ? encoded : builder.toString();
     }
 
+    /**
+     * Encode HTML content whose producer marks line breaks with {@code <br>} tags, and render
+     * those breaks (and any raw newlines) as {@code <br/>}.
+     *
+     * <p>Built for HL7 lab text: the lab message handlers translate the HL7 {@code \.br\}
+     * escape into a literal {@code <br />} inside the string they return, and that marker is a
+     * shared contract (the lab PDF, the upload splitter and the demographic export all parse
+     * it). Plain {@link #forHtmlContent(String)} escapes the marker, so the page shows a
+     * visible {@code <br />} instead of a line break.
+     *
+     * <p>The markers are turned into {@code \n} in the <em>raw</em> value, which is then passed
+     * through {@link #forHtmlContentWithBreaks(String)}: everything is HTML-encoded first and
+     * the only markup emitted is the constant {@code <br/>}. Any other tag, attribute or entity
+     * in the value stays escaped, so this does not widen the XSS surface. A marker that
+     * carries attributes (for example {@code <br onclick=...>}) is not a marker and is escaped
+     * like any other text.
+     *
+     * <p>Adapted from open-osp/Open-O PR #225 ({@code HtmlEncodingUtils.encodeForHtmlAllowingBreaks},
+     * Liam Stanziani), reworked to substitute the markers before encoding rather than un-escaping
+     * encoded output, and to reuse CARLOS's null-safe newline rendering. See issue #3953.
+     *
+     * @param value String the untrusted text; {@code null} renders as empty
+     * @return String the HTML-encoded text with line breaks rendered as {@code <br/>}
+     */
+    public static String forHtmlContentWithBreakMarkers(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        return forHtmlContentWithBreaks(BREAK_MARKER.matcher(value).replaceAll("\n"));
+    }
+
+    /**
+     * Writes encoded text with recognized break markers rendered as {@code <br/>}.
+     *
+     * @param out destination writer
+     * @param value untrusted text; {@code null} renders as empty
+     * @throws IOException if writing to the destination fails
+     */
+    public static void forHtmlContentWithBreakMarkers(Writer out, String value) throws IOException {
+        out.write(forHtmlContentWithBreakMarkers(value));
+    }
+
     public static void forHtmlContent(Writer out, String value) throws IOException {
         Encode.forHtmlContent(out, nz(value));
     }
 
     public static String forHtmlAttribute(String value) {
         return Encode.forHtmlAttribute(nz(value));
+    }
+
+    /**
+     * Encodes untrusted text for the {@code header=[..]} / {@code body=[..]} segments of a
+     * boxover {@code title} attribute.
+     *
+     * <p>The browser decodes the attribute, and {@code boxover.js} then assigns the decoded
+     * string to {@code innerHTML}. The value therefore needs two layers: HTML-content encoding
+     * (so it is still inert text after the attribute is decoded) and attribute encoding (so it
+     * cannot leave the attribute). Attribute encoding alone leaves stored markup live.
+     * Literal markup the page itself wants in a tooltip (for example {@code &lt;br/&gt;}) must
+     * be added around this call, never passed through it.
+     *
+     * @param value untrusted text; {@code null} yields an empty string
+     * @return text safe to place inside a boxover tooltip segment
+     */
+    public static String forTooltipText(String value) {
+        return forHtmlAttribute(forHtmlContent(value));
     }
 
     public static void forHtmlAttribute(Writer out, String value) throws IOException {
@@ -330,6 +399,9 @@ public final class SafeEncode {
         switch (ctx.toLowerCase()) {
             case "html", "htmlcontent":
                 forHtmlContent(out, value);
+                return;
+            case "htmlwithbreakmarkers":
+                forHtmlContentWithBreakMarkers(out, value);
                 return;
             case "forhtml":
                 forHtml(out, value);

@@ -53,6 +53,8 @@ public final class BillingReportControlViewModel {
     private final String xmlAppointmentDate;
     private final int curYear;
     private final int curMonth;
+    private final boolean includeNoShow;
+    private final boolean includeCancelled;
     private final List<ProviderOption> providerOptions;
 
     private BillingReportControlViewModel(Builder b) {
@@ -62,6 +64,8 @@ public final class BillingReportControlViewModel {
         this.xmlAppointmentDate = BillingViewStrings.nullToEmpty(b.xmlAppointmentDate);
         this.curYear = b.curYear;
         this.curMonth = b.curMonth;
+        this.includeNoShow = b.includeNoShow;
+        this.includeCancelled = b.includeCancelled;
         this.providerOptions = b.providerOptions == null
                 ? Collections.emptyList()
                 : List.copyOf(b.providerOptions);
@@ -75,6 +79,10 @@ public final class BillingReportControlViewModel {
     public String getXmlAppointmentDate() { return xmlAppointmentDate; }
     public int getCurYear() { return curYear; }
     public int getCurMonth() { return curMonth; }
+    /** Echo of the unbilled report's "Include No-Show" checkbox. */
+    public boolean isIncludeNoShow() { return includeNoShow; }
+    /** Echo of the unbilled report's "Include Cancelled" checkbox. */
+    public boolean isIncludeCancelled() { return includeCancelled; }
     public List<ProviderOption> getProviderOptions() { return providerOptions; }
 
     public static final class Builder {
@@ -84,6 +92,8 @@ public final class BillingReportControlViewModel {
         private String xmlAppointmentDate;
         private int curYear;
         private int curMonth;
+        private boolean includeNoShow;
+        private boolean includeCancelled;
         private List<ProviderOption> providerOptions;
 
         public Builder reportAction(String v) { this.reportAction = v; return this; }
@@ -92,6 +102,8 @@ public final class BillingReportControlViewModel {
         public Builder xmlAppointmentDate(String v) { this.xmlAppointmentDate = v; return this; }
         public Builder curYear(int v) { this.curYear = v; return this; }
         public Builder curMonth(int v) { this.curMonth = v; return this; }
+        public Builder includeNoShow(boolean v) { this.includeNoShow = v; return this; }
+        public Builder includeCancelled(boolean v) { this.includeCancelled = v; return this; }
         public Builder providerOptions(List<ProviderOption> v) { this.providerOptions = v; return this; }
 
         public BillingReportControlViewModel build() {

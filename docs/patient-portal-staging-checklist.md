@@ -25,15 +25,17 @@ Nothing here authorises real patient data; that is the readiness record's job.
 
 ## 0. Decide first
 
-These decisions are tracked in [#3674](https://github.com/carlos-emr/carlos/issues/3674). Record
-the answers before configuring anything, because the TLS pin and both public URLs depend on them.
+Work through sections 1 to 3 of [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md)
+and record the answers in the clinic's copy of
+[`patient-portal-deployment-record-template.md`](patient-portal-deployment-record-template.md)
+before configuring anything, because the TLS pin and both public URLs depend on them.
 
 - [ ] Portal hostname patients will open (`patient_portal.public_base_url`).
 - [ ] Hostname CARLOS will call for the internal API (`patient_portal.base_url`). It may be the same
       host as the patient-facing one, but its `/internal/carlos/` route must be reachable only from
       CARLOS.
-- [ ] Who hosts the portal, and who owns and renews its TLS certificate. Pin rotation (section 2)
-      needs that person.
+- [ ] Who hosts the portal, and who owns and renews its TLS certificate. Pin rotation (section 5
+      of the TLS runbook) needs that person.
 - [ ] Mail relay for the portal (STARTTLS, authenticated) and for CARLOS (the clinic's sending
       account). They may be the same provider; they are configured separately.
 - [ ] SMS provider for the portal's MFA codes, reached through the portal's HTTPS SMS webhook.
@@ -78,9 +80,11 @@ deployment secret manager, and never reuse staging values in production.
 - [ ] Key pair generated with the `openssl` commands in `carlos.properties`. The private key goes
       only to CARLOS; the portal gets the raw public key in its keyring JSON,
       `{"<key-id>":"<public-key>"}`.
-- [ ] Pin computed from the **verified certificate file** obtained from whoever runs nginx, using
-      the command in `carlos.properties`. Do not copy a pin from a live connection or from a
-      mismatch error: that trusts whatever answered.
+- [ ] Key and pin set up as in section 4 of the TLS runbook: a key you generated, with its pin
+      checked by a second person (a portal already on another tool's key follows the runbook's
+      migration). Do not copy a pin from a live connection or from a mismatch error: that trusts
+      whatever answered.
+- [ ] A standby pin is configured alongside the live one (runbook section 5).
 - [ ] The portal's certificate also validates normally: the CARLOS JVM truststore trusts its issuer,
       and the hostname matches. A pin is checked in addition to normal validation, not instead of
       it.
@@ -124,14 +128,18 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Database
 
-- [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
-      columns on `emailLog`), `V1.0.43` (invitation delivery table and default grant) and
-      `develop`'s `V1.0.54` (approved SMS consent wording), the highest version.
-- [ ] The staging database is treated as disposable. It is at `V1.0.54` without the migrations
-      `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
-      cannot be upgraded once those migrations reach `develop`: rebuild it instead. Rebuild it too
-      if it ran this branch's `V1.0.43` before 5 Oct 2026 (an `INT` `email_log_id` and an extra
-      doctor grant): that file's checksum has changed, so Flyway validation refuses it.
+- [ ] Flyway applied `V1.0.73` (portal security objects), `V1.0.74` (portal email delivery
+      columns on `emailLog`), `V1.0.75` (invitation delivery table and default grant), `V1.0.76`
+      (approved SMS consent wording), `V1.0.77` (one live consent per type) and `V1.0.78` (SMS
+      settings), the highest version.
+- [ ] The staging database is treated as disposable. A database migrated before the
+      2026.08.0-alpha19 forward-merge lacks the migrations `release/2026.08` holds below its
+      high-water mark, and CARLOS runs Flyway without `outOfOrder`, so it cannot be upgraded:
+      rebuild it instead. The same applies if it ran develop's migrations under their old numbers
+      (`V1.0.24`–`V1.0.28`, `V1.0.31`–`V1.0.32`, `V1.0.41`–`V1.0.43`, `V1.0.54`, `V1.0.57` and
+      `V1.0.59`, now `V1.0.66`–`V1.0.78`): Flyway validation then reports applied versions that no
+      longer exist. A copy run before 5 Oct 2026 also differs (an `INT` `email_log_id` and an extra doctor
+      grant).
 
 ### Email
 
@@ -145,8 +153,8 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
-`V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
+`V1.0.75` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
+`V1.0.73`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
 `_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
@@ -237,6 +245,12 @@ private key: redact the code in screenshots.
       decisions; stopped between prepare and send, CARLOS stops the attempt itself.
 - [ ] Rotate the staff-assertion key with old and new keys overlapping, as in `carlos.properties`,
       and confirm no call fails during the change.
+- [ ] Rotate the portal's TLS key with the five steps in section 5 of
+      [`patient-portal-tls-runbook.md`](patient-portal-tls-runbook.md); the Patient portal page
+      loads after steps 2, 4 and 5.
+- [ ] Move the portal to the standby key as in the runbook's compromise steps, with the old pin
+      removed first: portal calls fail from step 1 until nginx serves the standby key, and then
+      the page loads.
 
 ## 6. Sign-off
 
@@ -247,7 +261,10 @@ private key: redact the code in screenshots.
       certificates revoked), and the portal's SMTP and SMS webhook credentials. Production gets
       fresh ones.
 - [ ] Staging test users and the test patient's portal account disabled or deleted at teardown, and
-      any pin or setting changed for a drill restored.
+      any pin or setting changed for a drill restored, except pins the TLS drills retired: after
+      the rotation and standby drills, keep the pins they left in place.
+- [ ] Production verification in section 6 of the TLS runbook done and recorded in the clinic's
+      deployment record.
 - [ ] The portal's `REAL_DATA_READINESS.md` record started for the clinic. Real patients are
       invited only after it is signed.
 

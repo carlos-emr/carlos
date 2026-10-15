@@ -135,4 +135,20 @@ class BillingOnDiskLoaderUnitTest {
                 () -> loader.getMRIList("not-a-date", "also-bad", "0"))
                 .isInstanceOf(BillingDataLoadException.class);
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldQueryThroughEndOfLastDay_whenMriRangeCarriesTimestamps() throws Exception {
+        // OSCAR 19 parsed the end bound as a timestamp; a date-only parse stopped the
+        // range at 31 December 00:00:00 and hid every disk created that day.
+        when(diskNameDao.findByCreateDateRangeAndStatus(any(), any(), anyString()))
+                .thenReturn(List.of());
+
+        loader.getMRIList("2026-01-01 00:00:01", "2026-12-31 23:59:59", "U");
+
+        org.mockito.ArgumentCaptor<Date> end = org.mockito.ArgumentCaptor.forClass(Date.class);
+        org.mockito.Mockito.verify(diskNameDao).findByCreateDateRangeAndStatus(any(), end.capture(), org.mockito.ArgumentMatchers.eq("U"));
+        assertThat(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(end.getValue()))
+                .isEqualTo("2026-12-31 23:59:59");
+    }
 }

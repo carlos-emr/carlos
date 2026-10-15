@@ -64,7 +64,7 @@ public final class OnThirdPartyBillingAddressSearchViewModel {
     private final String orderBy;
     private final String limit1;
     private final String limit2;
-    /** Resolved list of address rows (already encoded into {@link AddressEntry#onClickHandler}). */
+    /** Address rows with JavaScript-escaped handler arguments; the JSP encodes the complete HTML attribute. */
     private final List<AddressEntry> addresses;
     /** True when the page should render "No results found" hint. */
     private final boolean showNoResults;

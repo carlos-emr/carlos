@@ -47,6 +47,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
@@ -54,6 +56,9 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -61,6 +66,7 @@ import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -115,6 +121,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     private LabManager labManager;
     private ConsultDocsDao consultDocsDao;
     private ConsultationRequestDao consultationRequestDao;
+    private DocumentDao selectionDocuments;
+    private EFormDataDao selectionEForms;
     private ConsultationManager consultationManager;
     private DocumentManager documentManager;
     private EformDataManager eformDataManager;
@@ -171,6 +179,24 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                 .thenReturn(new ArrayList<HashMap<String, ? extends Object>>());
         when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.<EctFormData.PatientForm>of());
         when(nioFileManager.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenReturn(outputPdf);
+
+        // develop's checks (#3867): a render authorizes the consult's own patient and keeps only that
+        // patient's attachments, and a save syncs rows under the locked parent in a transaction.
+        // Lenient: each test reaches only some of them.
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, 1))
+                .thenReturn(true);
+        org.mockito.Mockito.lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 1)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(consultationManager.getRequest(loggedInInfo, 9)).thenReturn(consultationRequest);
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        org.mockito.Mockito.lenient().when(ownership.retainOwned(any(), any(), any(), any()))
+                .thenAnswer(call -> call.getArgument(2) == null ? List.of() : call.getArgument(2));
+        ReflectionTestUtils.setField(manager, "attachmentOwnershipService", ownership);
+        org.springframework.transaction.PlatformTransactionManager transactions =
+                createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        org.mockito.Mockito.lenient().when(transactions.getTransaction(any()))
+                .thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        org.mockito.Mockito.lenient().when(consultationRequestDao.lockForAttachmentSync(9)).thenReturn(consultationRequest);
+        registerMock(ConsultationRequestDao.class, consultationRequestDao);
     }
 
     @AfterEach
@@ -187,7 +213,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     @DisplayName("coerces request attributes before resolving the consultation patient")
     void shouldCoerceRequestAttributes_whenRenderingConsultationWithAttachments() throws Exception {
         request.setAttribute("reqId", Integer.valueOf(9));
-        request.setAttribute("demographicId", Integer.valueOf(999));
+        // The consultation's own patient, as an Integer: it is stored back as the String "1".
+        request.setAttribute("demographicId", Integer.valueOf(1));
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
                 MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
@@ -206,33 +233,31 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     }
 
     @Test
-    @DisplayName("uses the persisted consultation demographic when the request attribute does not match")
-    void shouldUsePersistedConsultationDemographic_whenRequestAttributeDoesNotMatch() throws Exception {
+    @DisplayName("refuses to render when the request attribute names another patient than the consultation's")
+    void shouldRefuseRender_whenRequestAttributeDoesNotMatchConsultationDemographic() throws Exception {
         request.setAttribute("reqId", "9");
         request.setAttribute("demographicId", "999");
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
-                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
                 MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                     .thenReturn(loggedInInfo);
-            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
-                    .thenReturn(new ArrayList<>());
 
-            Path result = manager.renderConsultationFormWithAttachments(request, response);
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
 
-            assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute("demographicId")).isEqualTo("1");
             verify(consultationRequestDao).find(9);
-            verify(consultationManager).getAttachedForms(loggedInInfo, 9, 1);
-            assertThat(commonLabResultDataMock.constructed()).hasSize(1);
+            verify(consultationManager, never()).renderConsultationForm(any());
+            assertThat(commonLabResultDataMock.constructed()).isEmpty();
         }
     }
 
     @Test
     @DisplayName("warns and skips malformed lab segment ids")
     void shouldWarnAndSkipLab_whenSegmentIdIsMalformed() throws Exception {
-        LabResultData malformedLab = new LabResultData();
+        // An HL7 lab, so the source check passes and the segment id is what fails.
+        LabResultData malformedLab = new LabResultData(LabResultData.HL7TEXT);
         malformedLab.setSegmentID("BAD");
         request.setAttribute("reqId", "9");
         request.setAttribute("demographicId", "1");
@@ -258,7 +283,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     @Test
     @DisplayName("rejects an eForm packet when an attached lab segment id is malformed")
     void shouldRejectEformPacket_whenAttachedLabSegmentIdIsMalformed() throws Exception {
-        LabResultData malformedLab = new LabResultData();
+        // An HL7 lab, so the source check passes and the segment id is what fails.
+        LabResultData malformedLab = new LabResultData(LabResultData.HL7TEXT);
         malformedLab.setSegmentID("BAD");
         EFormData storedEform = mock(EFormData.class);
         when(storedEform.getDemographicId()).thenReturn(1);
@@ -298,10 +324,10 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     @DisplayName("lists unavailable attachment warnings without rendering anything")
     void shouldListUnavailableWarnings_withoutRendering() {
         when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
-                .thenReturn(List.of(consultDoc(80, "D"), consultDoc(20, "L")));
+                .thenReturn(List.of(consultDoc(80, "D"), consultDoc(915, "E")));
 
         assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
-                .containsExactly("D:80 UNAVAILABLE", "L:20 UNAVAILABLE");
+                .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
         assertThat(manager.getUnavailableConsultAttachmentWarnings(null)).isEmpty();
         assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)).isNull();
         verifyNoInteractions(consultationManager);
@@ -315,8 +341,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
                 .thenReturn(List.of(
                         consultDoc(80, "D"),
-                        consultDoc(915, "E"),
-                        consultDoc(20, "L")));
+                        consultDoc(915, "E")));
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
                 MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
@@ -330,7 +355,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
             assertThat(result).isEqualTo(outputPdf);
             assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
-                    .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE", "L:20 UNAVAILABLE");
+                    .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
             verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
         }
     }
@@ -686,6 +711,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     void shouldKeepUnavailableAttachmentAttached_whenUpdateOmitsIt() throws Exception {
         ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
         stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        // The real selection check refuses a deleted document; the kept one must not reach it.
+        deletedDocument(80);
 
         // The form was opened after document 80 was deleted, so it lists, and submits, no documents.
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
@@ -703,6 +730,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     void shouldDetachRemovedAvailableAttachment_withoutWarning() throws Exception {
         ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
         stubConsultAttachments(List.of(removedDocument), List.of());
+        ownDocument(81);
 
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
 
@@ -713,18 +741,24 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     }
 
     @Test
-    @DisplayName("keeps and warns for unavailable attachments while detaching removed available ones in the same save")
+    @DisplayName("keeps and warns for unavailable documents and eForms while detaching removed available ones in the same save")
     void shouldKeepUnavailableAndDetachRemovedAttachments_withMixedUpdate() throws Exception {
         ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
         ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
         ConsultDocs keptDocument = attachedRow(3, 82, ConsultDocs.DOCTYPE_DOC);
-        ConsultDocs movedLab = attachedRow(4, 20, ConsultDocs.DOCTYPE_LAB);
         // Shares its number with the unavailable document 80, but is an available lab: detached.
+        // Labs are never in the unavailable lookup: the form lists an unavailable lab itself.
         ConsultDocs removedLab = attachedRow(5, 80, ConsultDocs.DOCTYPE_LAB);
         ConsultDocs movedEform = attachedRow(6, 915, ConsultDocs.DOCTYPE_EFORM);
         stubConsultAttachments(
-                List.of(deletedDocument, removedDocument, keptDocument, movedLab, removedLab, movedEform),
-                List.of(deletedDocument, movedLab, movedEform));
+                List.of(deletedDocument, removedDocument, keptDocument, removedLab, movedEform),
+                List.of(deletedDocument, movedEform));
+        // Real selection check: 82 is the patient's own; 80 is deleted and eForm 915 is another
+        // patient's, so either would be refused if it reached the check.
+        ownDocument(82);
+        ownDocument(81);
+        deletedDocument(80);
+        otherPatientsEForm(915);
 
         // The reopened form lists document 82 only; the user unticked document 81 and lab 80.
         manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"82"}, "999998", 9, 1);
@@ -733,12 +767,11 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
         assertThat(deletedDocument.getDeleted()).isNull();
         assertThat(keptDocument.getDeleted()).isNull();
-        assertThat(movedLab.getDeleted()).isNull();
         assertThat(movedEform.getDeleted()).isNull();
         assertThat(removedDocument.getDeleted()).isEqualTo("Y");
         assertThat(removedLab.getDeleted()).isEqualTo("Y");
         verify(consultDocsDao, never()).persist(any());
-        List<String> expectedWarnings = List.of("D:80 UNAVAILABLE", "L:20 UNAVAILABLE", "E:915 UNAVAILABLE");
+        List<String> expectedWarnings = List.of("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
         assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactlyElementsOf(expectedWarnings);
         assertThat(warnings(renderConsultationWarnings())).containsExactlyElementsOf(expectedWarnings);
     }
@@ -783,6 +816,59 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         }
     }
 
+    @Test
+    @DisplayName("still refuses a newly selected document of another patient while an unavailable one is kept")
+    void shouldRefuseNewForeignDocument_whileKeepingUnavailableAttachment() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        foreignDocument(83);
+
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"83"}, "999998", 9, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Attachment does not belong to this patient");
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("keeps an unavailable attachment a form opened before it became unavailable submits again")
+    void shouldKeepUnavailableAttachment_whenStaleFormResubmitsIt() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"80"}, "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("lets a user who may not read documents update a consult with an unavailable one, changing nothing")
+    void shouldAllowUpdateWithoutDocumentRead_whenOnlyUnavailableAttachmentIsOmitted() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1"))
+                .thenReturn(false);
+        // The preflight looks the parent up through find(Object), not the find(int) the render uses.
+        ConsultationRequest parent = new ConsultationRequest();
+        parent.setDemographicId(1);
+        org.mockito.Mockito.lenient().when(consultationRequestDao.find((Object) Integer.valueOf(9))).thenReturn(parent);
+
+        // The form lists no documents, which is the stored set less the unavailable one: unchanged.
+        manager.verifyConsultAttachments(loggedInInfo, 9, 1, java.util.Map.of(DocumentType.DOC, new String[0]));
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
     /**
      * Serves {@code rows} the way the DAO does: only rows not yet detached, so a row this save
      * detaches drops out of every later lookup, the unavailable-attachment one included.
@@ -794,10 +880,24 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of());
         ReflectionTestUtils.setField(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 1)).thenReturn(true);
+        // develop's real per-selection read and ownership check, over mocked lookups.
+        selectionDocuments = mock(DocumentDao.class);
+        selectionEForms = mock(EFormDataDao.class);
+        registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(securityInfoManager, selectionDocuments,
+                selectionEForms, mock(HRMDocumentToDemographicDao.class), mock(FormsManager.class)));
+        for (String privilege : List.of("_edoc", "_eform", "_lab", "_hrm")) {
+            org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, privilege, SecurityInfoManager.READ, "1"))
+                    .thenReturn(true);
+        }
 
         when(consultDocsDao.findByRequestIdDocType(eq(9), anyString())).thenAnswer(invocation -> rows.stream()
                 .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
                 .toList());
+        // develop's sync reads the same rows under the parent lock.
+        org.mockito.Mockito.lenient().when(consultDocsDao.findByRequestIdDocTypeForUpdate(eq(9), anyString()))
+                .thenAnswer(invocation -> rows.stream()
+                        .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
+                        .toList());
         when(consultDocsDao.findByRequestIdDocNoDocType(eq(9), any(Integer.class), anyString()))
                 .thenAnswer(invocation -> rows.stream()
                         .filter(row -> row.getDeleted() == null
@@ -808,6 +908,46 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                 .filter(row -> row.getDeleted() == null
                         && unavailableRows.stream().anyMatch(unavailable -> unavailable == row))
                 .toList());
+    }
+
+    /** A live document filed to the consultation's patient (1). */
+    private void ownDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A document of the consultation's patient that was deleted (document.status 'D'). */
+    private void deletedDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('D');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A live document filed to another patient (2). */
+    private void foreignDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 2, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** An eForm filed to another patient (2). */
+    private void otherPatientsEForm(int fdid) {
+        EFormData eForm = new EFormData();
+        eForm.setDemographicId(2);
+        org.mockito.Mockito.lenient().when(selectionEForms.find(fdid)).thenReturn(eForm);
     }
 
     private Object renderConsultationWarnings() throws Exception {

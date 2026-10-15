@@ -52,6 +52,10 @@
     Parameters:
     - tickler_no:           ID of the tickler to edit (required)
     - parentAjaxId:         Encounter navbar element ID for reload notification
+    - docNo/labNo/eFormNo/hrmNo/formNo + attachmentsSubmitted (POST only):
+                            Picker selections (ticklerAttachmentsPanel.jspf), see #3984
+    - rendered<Type> + attachmentsRendered (POST only):
+                            The stored attachments this page rendered; only these can be detached
 
     @since CARLOS EMR 2026
 --%>
@@ -75,11 +79,13 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -104,7 +110,6 @@
     }
 %>
 <%
-    boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     String ticklerNoStr = request.getParameter("tickler_no");
 
     Integer ticklerNo = null;
@@ -134,10 +139,6 @@
     String stComplete = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stComplete");
     String stDeleted = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.stDeleted");
 
-    String prHigh = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.high");
-    String prNormal = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.normal");
-    String prLow = LocaleUtils.getMessage(request.getLocale(), "tickler.ticklerMain.priority.low");
-
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
@@ -154,10 +155,34 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="tickler.ticklerEdit.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <%-- jQuery UI JS is page-specific (global-head ships only its CSS); the attachment picker is a UI dialog. --%>
+        <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <style>
             /* Links — CARLOS primary blue */
             a { color: var(--carlos-primary); }
             a:hover { color: #28619a; }
+
+            /* Tickler attachments (#3984): the picker dialog styles itself; these cover the
+               Manage Attachments row and the jQuery UI close control it repurposes. */
+            .attachments-cell { white-space: nowrap; }
+            #attachmentNames { white-space: normal; margin-top: 6px; font-size: 12px; }
+            #attachmentNames .attachment-group-heading { font-weight: 600; margin-top: 4px; }
+            #attachmentNames ul { list-style: none; margin: 2px 0 4px; padding-left: 1.2em; }
+            #attachmentNames li { padding: 1px 0; }
+            .ui-dialog { font-size: small !important; z-index: 1060; }
+            .ui-widget-overlay { z-index: 1055; }
+            .save-and-close-button {
+                width: auto !important;
+                height: auto !important;
+                background-color: var(--carlos-primary) !important;
+                color: #fff !important;
+                border: none !important;
+                border-radius: 4px !important;
+                padding: 0.35rem 0.75rem !important;
+                font-size: 0.8rem !important;
+                white-space: nowrap;
+            }
+            .save-and-close-button:hover { opacity: 0.85 !important; }
 
             /* Section headers — CARLOS primary */
             .section-header {
@@ -250,6 +275,7 @@
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -350,17 +376,9 @@
                 if (btn) { btn.disabled = false; }
             }
 
-            function validateSelectedProgram() {
-                if (document.serviceform.program_assigned_to && document.serviceform.program_assigned_to.value === "none") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                }
-                return true;
-            }
-
             function validate(form) {
-                if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
+                CarlosTicklerValidation.reset();
+                if (validateDate(form)) {
                     // Disable update button to prevent double-submit
                     var btn = document.querySelector('.action-bar-bottom [name="updateTickler"]');
                     if (btn) { btn.disabled = true; }
@@ -450,8 +468,7 @@
 
             function validateDate(form) {
                 if (form.xml_appointment_date.value === "" || !IsDate(form.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
-                    document.getElementById("error").style.display = 'block';
+                    CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                     return false;
                 } else {
                     return true;
@@ -470,7 +487,7 @@
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>
-            <div id="error" class="alert alert-danger" style="display:none;"></div>
+            <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
 
             <%-- 1. Compact demographic card --%>
             <div class="demo-card">
@@ -515,10 +532,13 @@
                     <%
                         Set<TicklerComment> tComments = t.getComments();
                         for (TicklerComment tc : tComments) {
+                            // TicklerComment.provider is @NotFound(IGNORE); an orphaned legacy comment
+                            // has a null provider and must not abort the page.
+                            Provider commentProvider = tc.getProvider();
                     %>
                     <tr class="tickler-comment-row">
                         <td style="white-space:pre-wrap;"><carlos:encode value='<%= tc.getMessage() %>' context="html"/></td>
-                        <td><carlos:encode value='<%= tc.getProvider().getLastName() %>' context="html"/>, <carlos:encode value='<%= tc.getProvider().getFirstName() %>' context="html"/></td>
+                        <td><% if (commentProvider != null) { %><carlos:encode value='<%= commentProvider.getLastName() %>' context="html"/>, <carlos:encode value='<%= commentProvider.getFirstName() %>' context="html"/><% } %></td>
                         <td><%=datetimeFormat.format(tc.getUpdateDate())%></td>
                     </tr>
                     <%}%>
@@ -568,12 +588,12 @@
 
                         <label for="priority"><fmt:message key="tickler.ticklerEdit.priority"/></label>
                         <select class="form-select" name="priority" id="priority">
-                            <% if (t.getPriorityWeb().equals(prHigh)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.high"/>"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <% if (t.getPriorityWeb().equals(prNormal)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.normal"/>"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <% if (t.getPriorityWeb().equals(prLow)) { selected = "selected"; } else { selected = ""; }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.low"/>"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.High) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="High"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Normal) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Normal"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <% if (t.getPriority() == Tickler.PRIORITY.Low) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="Low"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
 
                         <label for="assignedToProviders"><fmt:message key="tickler.ticklerEdit.assignedTo"/></label>
@@ -602,6 +622,16 @@
                 </div>
             </div>
 
+            <%-- 3b. Attachments (#3984): documents, labs, eForms, forms and HRM reports from the shared picker --%>
+            <div class="section-header mt-3"><fmt:message key="tickler.attachments.label"/></div>
+            <div style="border: 1px solid var(--carlos-border); border-top: none; padding: 10px;">
+                <%
+                    java.util.List<TicklerAttachmentData> ticklerAttachments = ticklerAttachmentService.listAttachments(loggedInInfo, t);
+                    String ticklerAttachmentDemographicNo = String.valueOf(t.getDemographicNo());
+                %>
+                <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsPanel.jspf" %>
+            </div>
+
             <%-- 4. Sticky action bar --%>
             <div class="action-bar-bottom">
                 <oscar:oscarPropertiesCheck property="tickler_email_enabled" value="true">
@@ -616,6 +646,7 @@
                        value="<fmt:message key="global.btnBack"/>" onClick="window.close()"/>
             </div>
         </form>
+        <%@ include file="/WEB-INF/jsp/tickler/ticklerAttachmentsDialog.jspf" %>
     </div>
 
     </body>

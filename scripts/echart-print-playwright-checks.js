@@ -36,10 +36,8 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   ECHART_DEMOGRAPHIC_NO=1
  *   ECHART_PROVIDER_NO=999998
- *   ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true only when the target patient is known
- *     to be test data but does not carry the FAKE-/PLAYWRIGHT- name prefix
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   ALLOW_NON_LOCAL_BASE_URL=true only for a disposable install that is not
  *     loopback — the chart's draft autosave writes what this check types, so a
  *     private LAN address, host.docker.internal and the compose name `carlos`
@@ -47,15 +45,23 @@
  *
  * What it writes. Nothing is saved as a note, but the eChart's own 5s draft
  * autosave posts whatever is in the textarea, so the corpus phrases land in the
- * patient's draft (casemgmt_tmpsave) while the prints run. Because the loopback
- * guard bounds the host and not the data, the check first opens the patient's
- * master record and refuses to run unless the first or last name carries the
- * synthetic-data prefix (FAKE-, PLAYWRIGHT-). It reads the note before its first
- * print and, when the prints are done, puts that text back and either writes it
- * back over the draft (a clinician's restored draft) or deletes the draft through
- * the page's own cancel path (a fresh note).
+ * patient's draft (casemgmt_tmpsave) while the prints run. The patient is a FAKE
+ * one this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker)
+ * and removes: it used to be DEMO patient 1, whose own stored draft the cleanup
+ * took for "a fresh note" (it holds only the generated header) and deleted through
+ * the page's cancel path, so the demo lost a casemgmt_tmpsave row on every run.
+ * Because the loopback guard bounds the host and not the data, the check still opens
+ * the patient's master record first and refuses to run unless the first or last name
+ * carries the synthetic-data prefix (FAKE-, PLAYWRIGHT-). It reads the note before its
+ * first print and, when the prints are done, puts that text back and either writes it
+ * back over the draft or deletes the draft through the page's own cancel path (the
+ * owned patient has no draft of its own, so it is the cancel path). The patient's
+ * rows are then deleted by its key and asserted gone.
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
+const h = require('./lib/playwright-harness');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const fs = require('fs');
 const { chromium } = require('playwright');
 
@@ -64,9 +70,9 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = requireDigits(process.env.ECHART_DEMOGRAPHIC_NO || '1', 'ECHART_DEMOGRAPHIC_NO');
+// The owned patient whose chart is printed, created in main (never a demo patient).
+let demographicNo = null;
 const providerNo = requireDigits(process.env.ECHART_PROVIDER_NO || '999998', 'ECHART_PROVIDER_NO');
-const allowNonSyntheticPatient = process.env.ECHART_ALLOW_NON_SYNTHETIC_PATIENT === 'true';
 
 // Name prefixes that mark a patient as test data: FAKE- is what the demo dataset's
 // sanitisation writes on every person name, PLAYWRIGHT- is what the fixture-owning
@@ -238,8 +244,7 @@ async function login(context) {
  * Opens the master record and reads the names off the form's own controls (not
  * FormData: a name field the role cannot edit is disabled and would be skipped).
  * Either name carrying a synthetic prefix is enough; a record with neither is
- * refused unless ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true says the operator knows
- * what it is. The refusal deliberately does not print the names.
+ * refused. The refusal deliberately does not print the names.
  */
 async function verifySyntheticPatient(page) {
   const search = new URLSearchParams({
@@ -254,15 +259,9 @@ async function verifySyntheticPatient(page) {
   });
   const synthetic = [names.firstName, names.lastName].some((name) =>
     SYNTHETIC_NAME_PREFIXES.some((prefix) => name.trim().toUpperCase().startsWith(prefix)));
-  if (!synthetic && !allowNonSyntheticPatient) {
-    throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
-      + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not type into its chart. Point `
-      + 'ECHART_DEMOGRAPHIC_NO at a test patient, or set ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true only if you '
-      + 'know this record is test data');
-  }
   if (!synthetic) {
-    console.log(`WARNING demographic ${demographicNo} carries no synthetic-data name prefix; `
-      + 'proceeding because ECHART_ALLOW_NON_SYNTHETIC_PATIENT=true');
+    throw new Error(`demographic ${demographicNo} does not carry a synthetic-data name prefix `
+      + `(${SYNTHETIC_NAME_PREFIXES.join(' or ')}), so this check will not type into its chart`);
   }
 }
 
@@ -442,19 +441,28 @@ async function printChart(page, noteText, flags, expectAutosave) {
 }
 
 (async () => {
-  const browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
-  // Certificate verification is only relaxed for loopback, where the packaged
-  // install serves its own self-signed cert. A target opted in with
-  // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
-  // check logs in with real credentials. Same contract as
-  // billing-on-third-party and allergy-rx-alert, and the same loopback test as
-  // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
-  const context = await browser.newContext({
-    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
-    acceptDownloads: true,
-  });
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let browser = null;
 
+  // Patient creation, browser launch and context setup are all inside the try whose finally removes the patient and disposes the
+  // mysql option file, so a browser that fails to launch cannot strand a FAKE-PW patient.
   try {
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+    // Certificate verification is only relaxed for loopback, where the packaged
+    // install serves its own self-signed cert. A target opted in with
+    // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
+    // check logs in with real credentials. Same contract as
+    // billing-on-third-party and allergy-rx-alert, and the same loopback test as
+    // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+      acceptDownloads: true,
+    });
+
     const page = await login(context);
     // Before anything is typed into a chart: refuse a patient that is not test data.
     await verifySyntheticPatient(page);
@@ -581,7 +589,16 @@ async function printChart(page, noteText, flags, expectAutosave) {
       + `(${NOTE_BODIES.length} note bodies, then ${PRINT_SELECTIONS.length} print selections `
       + `on the worst-case body); ${cleanupOutcome}`);
   } finally {
-    await browser.close();
+    try {
+      if (browser) await closeBrowserWithChartCleanup(browser, baseUrl);
+    } finally {
+      try {
+        // After the browser is gone: the patient's draft, note lock, eChart row and the patient, by its key.
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker);
+      } finally {
+        sql.dispose();
+      }
+    }
   }
 })().catch((error) => {
   console.error('FAIL eChart print Playwright check');

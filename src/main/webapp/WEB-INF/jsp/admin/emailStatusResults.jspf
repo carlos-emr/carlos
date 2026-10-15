@@ -11,33 +11,47 @@
 <c:if test="${emailStatusResult.status eq 'PENDING' and empty emailStatusDetail}">
     <fmt:message key="admin.manageEmails.pendingDetail" var="emailStatusDetail"/>
 </c:if>
+<%-- The status tag is worded from the bundle (EmailStatus.getMessageKey), so RESOLVED reads the same
+     here as after the page's own Resolve. The stored value, the filter value and the CSS classes stay
+     keyed on the raw status, except that SUCCESS's tag uses status-tag-accepted. SUCCESS only records
+     that the SMTP relay or API accepted the message. A later bounce is never written back, so the tag
+     must not read as delivered (issue #3834): it says "ACCEPTED BY MAIL SERVER" in a neutral grey,
+     not the green of RESOLVED. --%>
+<c:set var="emailStatusLabel" value=""/>
+<c:if test="${not empty emailStatusResult.status}">
+    <fmt:message key="${emailStatusResult.status.messageKey}" var="emailStatusLabel"/>
+</c:if>
+<c:set var="emailStatusClass" value="status-tag-${fn:toLowerCase(emailStatusResult.status)}"/>
+<c:if test="${emailStatusResult.status eq 'SUCCESS'}">
+    <c:set var="emailStatusClass" value="status-tag-accepted"/>
+</c:if>
 <!-- Email Card -->
 <div class="card email-status-card mt-1">
     <div class="card-body vertical-status-divider vertical-status-divider-${fn:toLowerCase(emailStatusResult.status)}" id="cardBody${emailStatusResult.logId}">
         <table class="email-info-table table table-borderless">
             <tr>
-                <th>Subject</th>
+                <th><fmt:message key="admin.manageEmails.card.subject"/></th>
                 <td>${carlos:forHtml(emailStatusResult.subject)}</td>                      
             </tr>
             <tr>
-                <th>From</th>
+                <th><fmt:message key="admin.manageEmails.card.from"/></th>
                 <td>${carlos:forHtml(emailStatusResult.senderFullName)} &lt;${carlos:forHtml(emailStatusResult.senderEmail)}&gt;</td>
             </tr>
             <tr>
-                <th>To</th>
+                <th><fmt:message key="admin.manageEmails.card.to"/></th>
                 <td>${carlos:forHtml(emailStatusResult.recipientFullName)} &lt;${carlos:forHtml(emailStatusResult.recipientEmail)}&gt;</td>
             </tr>
             <tr>
-                <th>Encryption</th>
+                <th><fmt:message key="admin.manageEmails.card.encryption"/></th>
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
                         <%-- The PDF password is deliberately not rendered here (issue #3112): show only
                              that the email was encrypted, never the credential itself. --%>
-                        <i class="fa-solid fa-lock"></i> Encrypted
+                        <i class="fa-solid fa-lock"></i> <fmt:message key="admin.manageEmails.card.encrypted"/>
                     </c:when>
                     <c:otherwise>
-                        <i class="fa-solid fa-unlock"></i> Unencrypted
+                        <i class="fa-solid fa-unlock"></i> <fmt:message key="admin.manageEmails.card.unencrypted"/>
                     </c:otherwise>
                 </c:choose>
                 </td>
@@ -94,23 +108,26 @@
         <table class="table table-borderless">
             <tr>
                 <td class="status-and-date">
-                    <div class="status-tag status-tag-${fn:toLowerCase(emailStatusResult.status)}" id="emailStatus${emailStatusResult.logId}"
+                    <div class="status-tag ${emailStatusClass}" id="emailStatus${emailStatusResult.logId}"
                         ${ empty emailStatusDetail ? '' : "data-bs-toggle='popover'" } data-bs-trigger='hover click' data-bs-content="${carlos:forHtmlAttribute(emailStatusDetail)}">
-                        ${carlos:forHtml(emailStatusResult.status)}
+                        ${carlos:forHtml(emailStatusLabel)}
                     </div>
                     <div class="date-time text-muted">
                         ${carlos:forHtml(emailStatusResult.createdDate)} &#x2022; ${carlos:forHtml(emailStatusResult.createdTime)} 
                         <c:if test="${not empty emailStatusResult.providerFullName}">
-							by ${carlos:forHtml(emailStatusResult.providerFullName)}
-						</c:if>
+                            <%-- fmt:message does not encode its parameters, so the name is encoded here. --%>
+                            <fmt:message key="admin.manageEmails.card.sentBy">
+                                <fmt:param value="${carlos:forHtml(emailStatusResult.providerFullName)}"/>
+                            </fmt:message>
+                        </c:if>
                     </div>
                 </td>
                 <td class="action-menu">
                     <c:if test="${canResolveEmails and emailStatusResult.resolvable}">
-                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
+                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> <fmt:message key="admin.manageEmails.card.resolve"/></button>
                     </c:if>
                     <c:if test="${empty emailStatusResult.portalInviteDemographicNo and (emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable)}">
-                        <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
+                        <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> <fmt:message key="admin.manageEmails.card.copyAsNewEmail"/></button>
                     </c:if>
                 </td>
             </tr>

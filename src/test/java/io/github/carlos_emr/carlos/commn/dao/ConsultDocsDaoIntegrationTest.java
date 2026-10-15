@@ -75,12 +75,20 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     private static final String INSERT_DEMOGRAPHIC_SQL = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, provider_no, patient_status) VALUES (:id, 'Test', 'Patient', 'M', :providerNo, 'AC')";
 
     private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted) {
+        return createConsultDoc(requestId, documentNo, docType, deleted, null);
+    }
+
+    private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted, String labType) {
         ConsultDocs doc = new ConsultDocs();
         doc.setRequestId(requestId);
         doc.setDocumentNo(documentNo);
         doc.setDocType(docType);
         doc.setDeleted(deleted);
-        consultDocsDao.persist(doc);
+        doc.setLabType(labType);
+        // Read/filter fixtures include pre-migration bare lab rows. New lab writes are
+        // validated separately by LabAttachmentSourceDaoIntegrationTest.
+        if ("L".equals(docType)) entityManager.persist(doc);
+        else consultDocsDao.persist(doc);
         entityManager.flush();
         return doc;
     }
@@ -263,7 +271,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should find only labs routed to the consultation demographic")
+        @DisplayName("should find only labs routed to the consultation demographic under the attachment's own source")
         void shouldFindLabsOnlyForConsultationDemographic_whenConsultHasStaleLabRows() {
             int demographicNo = 82001;
             int otherDemographicNo = 82002;
@@ -273,10 +281,13 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             createPatientLabRouting(7001, "MDS", demographicNo);
             createPatientLabRouting(7002, "MDS", otherDemographicNo);
             createPatientLabRouting(7004, "MDS", demographicNo);
-            createConsultDoc(consult.getId(), 7001, ConsultDocs.DOCTYPE_LAB, null);
-            createConsultDoc(consult.getId(), 7002, ConsultDocs.DOCTYPE_LAB, null);
-            createConsultDoc(consult.getId(), 7003, ConsultDocs.DOCTYPE_LAB, null);
-            createConsultDoc(consult.getId(), 7004, ConsultDocs.DOCTYPE_LAB, ConsultDocs.DELETED);
+            createPatientLabRouting(7005, "MDS", demographicNo);
+            createConsultDoc(consult.getId(), 7001, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7002, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7003, ConsultDocs.DOCTYPE_LAB, null, "MDS");
+            createConsultDoc(consult.getId(), 7004, ConsultDocs.DOCTYPE_LAB, ConsultDocs.DELETED, "MDS");
+            // Routed to the patient, but stored with another source: not this attachment's lab.
+            createConsultDoc(consult.getId(), 7005, ConsultDocs.DOCTYPE_LAB, null, "HL7");
 
             List<Object[]> results = consultDocsDao.findLabs(consult.getId());
 
@@ -292,7 +303,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should report unavailable active eForm, document, lab and HRM attachments for runtime warnings")
+        @DisplayName("should report unavailable active eForm, document and HRM attachments for runtime warnings")
         void shouldReportUnavailableActiveAttachments_forRuntimeWarnings() {
             AttachmentFixture fixture = createAttachmentFixture();
 
@@ -308,9 +319,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
                             fixture.missingDocument.getId(),
                             fixture.deletedDocument.getId(),
                             fixture.wrongPatientDocument.getId(),
-                            fixture.activeLabWithMissingTarget.getId(),
-                            fixture.wrongPatientLab.getId(),
                             fixture.activeHrmWithMissingTarget.getId());
+            // Labs are not named here: the consult form lists an unavailable lab itself until its
+            // source is selected again, and print and fax refuse it until then.
+            assertThat(results).extracting(ConsultDocs::getDocType).doesNotContain(ConsultDocs.DOCTYPE_LAB);
             // The same order on every screen: by type, then id.
             assertThat(results).extracting(ConsultDocs::getDocType).isSorted();
         }

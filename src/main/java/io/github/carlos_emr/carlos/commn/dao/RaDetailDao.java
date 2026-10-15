@@ -42,8 +42,14 @@ public interface RaDetailDao extends AbstractDao<RaDetail> {
 
     List<Integer> findUniqueBillingNoByRaHeaderNoAndProviderAndNotErrorCode(Integer raHeaderNo, String providerOhipNo, String codes);
 
+    /**
+     * Returns RA details whose RA header payment date falls between {@code startDate} and
+     * {@code endDate}, both inclusive. RA payment dates are stored as {@code yyyyMMdd} strings, so
+     * an RA paid on the end date itself (for example the last day of the month) is included.
+     */
     List<RaDetail> getRaDetailByDate(Date startDate, Date endDate, Locale locale);
 
+    /** Same as {@link #getRaDetailByDate(Date, Date, Locale)}, restricted to one provider's OHIP number. */
     List<RaDetail> getRaDetailByDate(Provider p, Date startDate, Date endDate, Locale locale);
 
     List<RaDetail> getRaDetailByClaimNo(String claimNo);

@@ -53,6 +53,7 @@
 const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { clickOpensPopup } = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart } = require('./echart-navbar-modules-playwright-checks');
@@ -176,7 +177,7 @@ async function main() {
       await formPage.close().catch(() => {});
     }
   } finally {
-    await browser.close().catch(() => {});
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 }
 

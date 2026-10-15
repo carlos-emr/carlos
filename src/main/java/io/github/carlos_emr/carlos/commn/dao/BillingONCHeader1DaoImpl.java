@@ -320,11 +320,11 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<BillingONCHeader1> get3rdPartyInvoiceByProvider(Provider p, Date start, Date end, Locale locale) {
-        String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bCh1.providerNo=?1 and bPay.paymentdate >= ?2 and bPay.paymentdate <= ?3 order by bCh1.id";
+        String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bCh1.providerNo=?1 and bPay.paymentdate >= ?2 and bPay.paymentdate < ?3 order by bCh1.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, p.getProviderNo());
         query.setParameter(2, start);
-        query.setParameter(3, end);
+        query.setParameter(3, BillingPaymentDateRange.endExclusive(end));
 
         List<BillingONCHeader1> results = query.getResultList();
 
@@ -333,10 +333,10 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
     @Override
     public List<BillingONCHeader1> get3rdPartyInvoiceByDate(Date start, Date end, Locale locale) {
-        String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bPay.paymentdate >= ?1 and bPay.paymentdate <= ?2 order by bCh1.id";
+        String sql = "select distinct bCh1 from BillingONPayment bPay, BillingONCHeader1 bCh1 where bPay.billingNo=bCh1.id and bPay.paymentdate >= ?1 and bPay.paymentdate < ?2 order by bCh1.id";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, start);
-        query.setParameter(2, end);
+        query.setParameter(2, BillingPaymentDateRange.endExclusive(end));
 
         List<BillingONCHeader1> results = query.getResultList();
 
@@ -488,9 +488,9 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         // Build query
         StringBuilder sqlCommand = new StringBuilder("select h from ").append(BillingONCHeader1.class.getSimpleName()).append(" h WHERE ");
         sqlCommand.append("h.providerNo = ?").append(counter++).append(" AND h.status IN (?").append(counter++).append(") ");
-        // Set date range lower/upper bounds (if date range is provided)
+        // Simulation and claim-file service dates include both bounds; null bounds stay open.
         if (dateRange.getFrom() != null) {
-            sqlCommand.append(" AND h.billingDate > ?").append(counter++);
+            sqlCommand.append(" AND h.billingDate >= ?").append(counter++);
         }
         if (dateRange.getTo() != null) {
             sqlCommand.append(" AND h.billingDate <= ?").append(counter++);
@@ -690,6 +690,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         app.and("bch.demographicNo = d.demographicNo");
         app.and("bch.demographicNo = :demoNo", "demoNo", demoNo);
         app.and("bch.payProgram = :payProgram", "payProgram", payProgram);
+        app.and("(bch.status IS NULL OR bch.status <> 'D')");
         app.and("bch.billingDate >= :fromDate", "fromDate", (new SimpleDateFormat("yyyy-MM-dd")).format(fromDate));
         app.and("bch.billingDate <= :toDate", "toDate", (new SimpleDateFormat("yyyy-MM-dd")).format(toDate));
         app.addOrder("bch.id");

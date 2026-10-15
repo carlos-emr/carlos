@@ -189,6 +189,10 @@ public class GenerateRaSummaryViewModelAssembler {
                                                      Totals totals) {
         String account = String.valueOf(rad.getBillingNo());
         String demoHin = nullToEmpty(rad.getHin());
+        // The stored HR4 field includes a two-character version after its
+        // twelve-character number; legacy imports may contain only the number.
+        if (demoHin.length() > 12) demoHin = demoHin.substring(0, 12);
+        demoHin = demoHin.trim();
         String demoName = "";
         String demoDocName = "";
         String location = "";
@@ -223,7 +227,12 @@ public class GenerateRaSummaryViewModelAssembler {
         // would then drift below the source records. The strict variant
         // throws NumberFormatException on a malformed value so the action
         // sees the failure and skips the persister call.
-        BigDecimal paid = BillingMoney.parseOptionalNonNegativeAmount(paidAmount, "paidAmount");
+        // Signed: an HR5 recovery carries a negative paid amount (spec: Amount
+        // Paid Sign), and OSCAR 19 summed it; rejecting it made the whole RA
+        // summary page fail and skipped the totals persister. Still strict on a
+        // malformed value (throws), so the persisted reconciliation cannot drift.
+        BigDecimal paid = paidAmount == null || paidAmount.trim().isEmpty()
+                ? BillingMoney.zeroAmount() : BillingMoney.amount(paidAmount);
         totals.invoiced = totals.invoiced.add(invoiced);
         totals.paid = totals.paid.add(paid);
 
