@@ -260,5 +260,18 @@ class EctMeasurementMapWrite2ActionsUnitTest extends CarlosUnitTestBase {
             assertThat(mapping.getValue().getLoincCode()).isEqualTo("X67890");
             verify(mapDao).remove(12);
         }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"0", "", " "})
+        void shouldKeepTheMappingAndReportFailure_whenRemapHasNoCodeSelected(String loinc) throws Exception {
+            request.addParameter("id", "12");
+            request.addParameter("identifier", "WT");
+            request.addParameter("name", "FAKE Weight");
+            request.addParameter("type", "FLOWSHEET");
+            request.addParameter("loinc_code", loinc);
+
+            assertThat(new EctRemoveMeasurementMap2Action().execute()).isEqualTo("failure");
+            verifyNoInteractions(mapDao, recycleBinDao);
+        }
     }
 }

@@ -108,9 +108,9 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
     /**
      * Removes mapping row {@code id}. When the request also names an identifier, name, lab type
      * and code (the Remap form), that mapping is written first and the old row removed after,
-     * unless the code is already mapped for that type.
+     * unless the code is already mapped for that type or no code was chosen.
      *
-     * @return the Struts result: {@code success} or {@code failedcheck}
+     * @return the Struts result: {@code success}, {@code failedcheck} or {@code failure}
      */
     private String removeOrRemap(String id, String providerNo) {
         String identifier = request.getParameter("identifier");
@@ -120,6 +120,11 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
         MeasurementMapConfig mmc = new MeasurementMapConfig();
 
         if (identifier != null && name != null && type != null && loincCode != null) {
+            if (loincCode.isBlank() || "0".equals(loincCode)) {
+                // "None Selected" (the Remap list's default): there is no code to remap to, and
+                // going on would store code 0 and then remove the mapping being replaced.
+                return "failure";
+            }
             if (mmc.checkLoincMapping(loincCode, type)) {
                 return "failedcheck";
             }

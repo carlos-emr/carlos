@@ -13,7 +13,8 @@
 // code, its remap to the second code and every deletion, with the recyclebin rows
 // the removals record; plus what View Mapping and the search lists show. Since #3335
 // the Add and Remove/Remap links open their pages by GET (a write still needs POST), Search
-// reloads them by GET, an Update with nothing selected and a cancelled DELETE write nothing.
+// reloads them by GET, and an Update or Remap with nothing selected and a cancelled DELETE
+// write nothing.
 //
 // Fixtures: owned X<hex> LOINC codes named with the run marker. The measurement type
 // is an existing unmapped type (types are listed from an application cache that a
@@ -198,6 +199,27 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].text === 'Failed to update the measurement mappings',
       'An Update with nothing selected did not report failure exactly once');
     h.assert(mapRows().length === before, 'An Update with nothing selected wrote a mapping');
+    await page.close();
+  });
+
+  // The Remap list defaults to None Selected (code 0); remapping to it used to store a code-0
+  // mapping and then remove the one being replaced.
+  await s.step('REMAP with nothing selected reports failure and keeps the mapping', async () => {
+    const page = await open('Remove/Remap Measurement Mapping', 'empty-remap-measurement-mapping');
+    const flowsheet = () => JSON.stringify(mapRows().filter(r => r[3] === 'FLOWSHEET'));
+    const before = flowsheet();
+    const oldId = sql.value(`SELECT id FROM measurementMap WHERE loinc_code=${q(first.loinc)} AND lab_type='FLOWSHEET'`);
+    const row = codeRow(page, first.loinc).filter({hasText: 'FLOWSHEET'});
+    const remap = await s.popup(page, row.getByRole('button', {name: 'REMAP', exact: true}), 'empty-remap-measurement');
+    h.assert((await remap.locator('select[name="loinc_code"]').inputValue()) === '0', 'The Remap list does not default to None Selected');
+    const dialogs = await h.withExpectedDialogs(remap, () => landOn(remap, 'RemapMeasurementMap',
+      () => remap.getByRole('button', {name: 'Remap Measurement', exact: true}).click()));
+    h.assert(dialogs.length === 1 && dialogs[0].text === 'Failed to remap the measurement',
+      'A Remap with nothing selected did not report failure exactly once');
+    h.assert(flowsheet() === before, 'A Remap with nothing selected changed the FLOWSHEET mapping');
+    h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE table_name='measurementMap' AND keyword=${q(oldId)}`) === '0',
+      'A Remap with nothing selected removed the mapping it was to replace');
+    await remap.close();
     await page.close();
   });
 
