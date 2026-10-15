@@ -1,0 +1,265 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/form/formVTForm.jsp'), 'utf8');
+const xml = fs.readFileSync(path.join(__dirname, '../src/main/webapp/form/VTForm.xml'), 'utf8');
+const globalScript = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/global.js'), 'utf8');
+const script = jsp.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1]
+  .replace(/<fmt:message\b[^>]*\/>/g, 'Confirm save')
+  .replace(/<%=[\s\S]*?%>/g, 'null');
+const markup = jsp.replace(/<%[\s\S]*?%>/g, '')
+  .replace(/<!--[\s\S]*?-->/g, '')
+  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
+  .replace(/<fmt:message\b[^>]*\/>/g, 'Label')
+  .replace(/\$\{[^}]*}/g, '');
+const eyeTypes = ['iDia', 'iHyp', 'iOth', 'iRef'];
+const footTypes = ['FTEx', 'FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt', 'FTRe'];
+
+// Build the form collection from the actual JSP controls, including duplicate radio names and
+// numeric indices. Missing/malformed controls remain missing; the harness never invents fields.
+function page(saved = {}, confirmed = true) {
+  const nodes = [];
+  const byId = new Map();
+  for (const tag of markup.matchAll(/<([a-z][\w:-]*)\b([^>]*?)>/gi)) {
+    const attrs = {};
+    for (const attribute of tag[2].matchAll(/([^\s="'<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g)) {
+      attrs[attribute[1]] = attribute[2] ?? attribute[3] ?? attribute[4] ?? '';
+    }
+    const node = {tag: tag[1].toLowerCase(), attrs, name: attrs.name || '', type: attrs.type || 'text',
+      value: attrs.value ?? (attrs.type === 'checkbox' ? 'on' : ''), checked: Object.hasOwn(attrs, 'checked'),
+      disabled: Object.hasOwn(attrs, 'disabled'),
+      style: {display: attrs.style?.match(/display\s*:\s*([^;]+)/)?.[1].trim() || ''}};
+    nodes.push(node);
+    if (attrs.id) byId.set(attrs.id, node);
+  }
+  const elements = nodes.filter(node => ['input', 'textarea', 'select', 'button'].includes(node.tag));
+  const form = {elements};
+  for (const name of new Set(elements.map(field => field.name).filter(Boolean))) {
+    const fields = elements.filter(field => field.name === name);
+    const named = fields.length === 1 ? fields[0] : fields;
+    if (fields.length > 1) Object.defineProperty(named, 'value', {
+      get() { return fields.find(field => field.checked)?.value || ''; },
+    });
+    elements[name] = named;
+    form[name] = named;
+  }
+  const effects = {closed: 0, printed: 0, confirmations: 0};
+  const context = {document: {forms: [form], getElementById: id => byId.get(id) || null,
+    querySelectorAll(selector) {
+      assert.equal(selector, '#vt-form-values [data-field]');
+      return Object.entries(saved).map(([field, value]) => ({dataset: {field, value}}));
+    }},
+    confirm() { effects.confirmations++; return confirmed; },
+    close() { effects.closed++; }, print() { effects.printed++; }, focus() {}, resizeTo() {},
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(globalScript, context);
+  vm.runInContext(script, context);
+  const run = handler => vm.runInContext(`(function () { ${handler} }).call(window)`, context);
+  const fields = name => elements.filter(field => field.name === name);
+  function click(field) {
+    assert(!field.disabled, `Cannot click disabled ${field.name}`);
+    if (field.type === 'checkbox') field.checked = !field.checked;
+    if (field.type === 'radio') for (const candidate of fields(field.name)) candidate.checked = candidate === field;
+    return field.attrs.onclick ? run(field.attrs.onclick) : undefined;
+  }
+  function submitted() {
+    const result = new URLSearchParams();
+    for (const field of elements) {
+      if (!field.name || field.disabled || ['button', 'submit'].includes(field.type)) continue;
+      if (['checkbox', 'radio'].includes(field.type) && !field.checked) continue;
+      result.append(field.name, field.value);
+    }
+    return result;
+  }
+  context.initialize();
+  return {context, nodes, form, fields, effects, click, run, submitted};
+}
+
+test('fresh VT initialization resolves every visible eye/foot control without inventing an iEx result', () => {
+  const p = page();
+  for (const type of [...eyeTypes, ...footTypes]) {
+    const radios = p.fields(`value(${type}Value)`);
+    assert.deepEqual(radios.map(field => field.value), ['yes', 'no']);
+    assert(radios.every(field => field.disabled));
+  }
+  assert.match(xml, /<type>iEx<\/type>/);
+  assert.match(xml, /<type>WHR<\/type>/);
+  for (const type of ['iEx', 'WHR']) {
+    for (const suffix of ['Value', 'Date', 'Comments']) {
+      const fields = p.fields(`value(${type}${suffix})`);
+      assert.equal(fields.length, 1);
+      assert.equal(fields[0].type, 'hidden');
+      assert.equal(fields[0].disabled, false);
+      assert.equal(p.submitted().get(`value(${type}${suffix})`), '');
+    }
+  }
+});
+
+test('DM and PVD native handlers enable only the applicable eye and foot groups', () => {
+  const p = page();
+  const disabled = types => types.every(type => p.fields(`value(${type}Value)`).every(field => field.disabled));
+  p.click(p.form['value(PVDValue)']);
+  assert.equal(disabled(footTypes), false);
+  assert.equal(disabled(eyeTypes), true);
+  p.click(p.form['value(DMValue)']);
+  assert.equal(disabled(eyeTypes), false);
+  p.click(p.form['value(PVDValue)']);
+  assert.equal(disabled(footTypes), false);
+  p.click(p.form['value(DMValue)']);
+  assert.equal(disabled(footTypes), true);
+  assert.equal(disabled(eyeTypes), true);
+});
+
+test('DpSc and FTEx No controls share their Yes group and clear without touching adjacent fields', () => {
+  const p = page({DMValue: 'yes'});
+  for (const [type, index] of [['DpSc', 'DpScId'], ['FTEx', 'FTExId']]) {
+    const radios = p.fields(`value(${type}Value)`);
+    assert.equal(radios.length, 2);
+    p.click(radios[0]);
+    assert.equal(p.form[`value(${type}Value)`].value, 'yes');
+    p.click(radios[1]);
+    assert.equal(p.form[`value(${type}Value)`].value, 'no');
+    assert.deepEqual(p.submitted().getAll(`value(${type}Value)`), ['no']);
+    p.run(`clearAll(${index}, ${index}-1);`);
+    assert.equal(p.form[`value(${type}Value)`].value, '');
+  }
+  assert.equal(p.form['value(DMValue)'].checked, true);
+  assert.equal(p.fields('=').length, 0);
+});
+
+test('foot exam Yes/No handler retains its dependent radio behavior', () => {
+  const p = page({DMValue: 'yes'});
+  p.click(p.fields('value(FTExValue)')[1]);
+  for (const type of ['FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt']) {
+    assert.equal(p.form[`value(${type}Value)`].value, 'no');
+    assert.equal(p.fields(`value(${type}Value)`)[0].disabled, true);
+  }
+  p.click(p.fields('value(FTExValue)')[0]);
+  for (const type of footTypes.slice(1)) assert.equal(p.fields(`value(${type}Value)`)[0].disabled, false);
+});
+
+test('each clear link clears its own radio group and preserves every other result', () => {
+  const p = page({DMValue: 'yes'});
+  let precedingRadio;
+  let cleared = 0;
+  for (const node of p.nodes) {
+    if (node.type === 'radio') precedingRadio = node;
+    if (!node.attrs.href?.startsWith('javascript:clearAll(')) continue;
+    assert(precedingRadio, 'Clear must follow an actual radio group');
+    for (const field of p.form.elements) {
+      if (field.type === 'radio') field.checked = field.value === 'yes';
+    }
+    p.run(node.attrs.href);
+    for (const field of p.form.elements) {
+      if (field.type !== 'radio') continue;
+      assert.equal(field.checked, field.name !== precedingRadio.name && field.value === 'yes',
+        `${precedingRadio.name} clear must preserve ${field.name}`);
+    }
+    cleared++;
+  }
+  assert.equal(cleared, 19);
+});
+
+test('waist and hip edits retain raw values without deriving a new ratio', () => {
+  const p = page({WCValue: '090.5', HCValue: '101.25'});
+  assert.equal(p.form['value(WHRValue)'].type, 'hidden');
+  for (const [name, value] of [['WC', '092.50'], ['HC', '105.25']]) {
+    const field = p.form[`value(${name}Value)`];
+    field.value = value;
+    if (field.attrs.onchange) p.run(field.attrs.onchange);
+  }
+  p.context.onSave();
+  assert.equal(p.submitted().get('value(WCValue)'), '092.50');
+  assert.equal(p.submitted().get('value(HCValue)'), '105.25');
+  assert.equal(p.submitted().get('value(WHRValue)'), '');
+});
+
+for (const mode of ['onSave', 'onSaveExit']) {
+  test(`${mode} preserves hidden iEx/WHR history and copies visible support fields as literal values`, () => {
+    const literal = '<b>literal & "quoted"</b>\nsecond line';
+    const saved = {DMValue: 'yes', iExValue: 'yes', iExDate: '2020-01-02', iExComments: literal,
+      WHRValue: '0.8750', WHRDate: '2019-06-07', WHRComments: literal,
+      DpScValue: 'no', FTExValue: 'no', iDiaValue: 'yes'};
+    const p = page(saved);
+    p.form.iDate.value = '2026-03-04';
+    p.form.iComments.value = 'New visible eye comment';
+    p.form.SmkDate.value = '2026-03-05';
+    p.form.SmkComments.value = literal;
+    p.form.FTDate.value = '2026-03-06';
+    p.form.FTComments.value = literal;
+    p.form['value(WCValue)'].value = '090.50';
+    p.form['value(HCValue)'].value = '100.25';
+    const result = p.context[mode]();
+    assert.equal(p.form.submit.value, mode === 'onSave' ? 'save' : 'exit');
+    if (mode === 'onSaveExit') assert.equal(result, true);
+    const posted = p.submitted();
+    for (const type of ['iEx', 'WHR']) {
+      for (const suffix of ['Value', 'Date', 'Comments']) {
+        assert.equal(posted.get(`value(${type}${suffix})`), saved[`${type}${suffix}`]);
+      }
+    }
+    for (const type of eyeTypes) {
+      assert.equal(posted.get(`value(${type}Date)`), '2026-03-04');
+      assert.equal(posted.get(`value(${type}Comments)`), 'New visible eye comment');
+    }
+    for (const type of ['SmkS', 'SmkH', 'SmkC', ...footTypes]) {
+      assert.equal(posted.get(`value(${type}Comments)`), literal);
+    }
+    const reopened = {};
+    for (const [name, value] of posted) {
+      const key = name.match(/^value\(([^)]+)\)$/);
+      if (key) reopened[key[1]] = value;
+    }
+    const again = page(reopened);
+    for (const key of ['iExValue', 'iExDate', 'iExComments', 'WHRValue', 'WHRDate', 'WHRComments',
+      'DpScValue', 'FTExValue', 'iDiaValue']) {
+      assert.equal(again.submitted().get(`value(${key})`), saved[key]);
+    }
+  });
+}
+
+test('new saves leave the unedited iEx value empty and Save and Exit cancellation is retained', () => {
+  const p = page({}, false);
+  assert.equal(p.context.onSaveExit(), false);
+  assert.equal(p.effects.confirmations, 1);
+  assert.equal(p.submitted().get('value(iExValue)'), '');
+});
+
+test('every existing inline click/change/clear handler executes against the real control names', () => {
+  const p = page({DMValue: 'yes', PVDValue: 'yes'});
+  for (const node of p.nodes) {
+    for (const event of ['onclick', 'onchange']) {
+      if (node.attrs[event]) assert.doesNotThrow(() => p.run(node.attrs[event]), `${node.name} ${event}`);
+    }
+    if (node.attrs.href?.startsWith('javascript:')) {
+      assert.doesNotThrow(() => p.run(node.attrs.href), node.attrs.href);
+    }
+  }
+  assert(p.effects.printed > 0);
+  assert(p.effects.closed > 0);
+});
+
+test('Show/Hide Detail toggles the existing counselling and medication sections in both directions', () => {
+  const p = page();
+  const sections = ['subjective', 'detailHistory', 'detailFT', 'detailEye', 'detailLab',
+    'counselling', 'medications', 'medicationAllergies'];
+  const section = id => p.context.document.getElementById(id);
+  for (const id of sections) assert.equal(section(id).style.display, 'none', id);
+  p.context.showHideDetail();
+  for (const id of sections) assert.equal(section(id).style.display, 'block', id);
+  p.context.showHideDetail();
+  for (const id of sections) assert.equal(section(id).style.display, 'none', id);
+});
+
+test('saved VT values stay in encoded data attributes and are restored through DOM properties', () => {
+  assert(jsp.includes('data-field="${carlos:forHtmlAttribute(field.key)}"'));
+  assert(jsp.includes('data-value="${carlos:forHtmlAttribute(field.value)}"'));
+  assert(script.includes('field.value = stored.dataset.value;'));
+  assert(!script.includes('innerHTML'));
+});

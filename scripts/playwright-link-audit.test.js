@@ -10,6 +10,7 @@ const { createRecorder } = require('./lib/playwright-harness');
 const adminSkips = require('./admin-index-links-playwright-checks').SKIP_ITEMS;
 const masterSkips = require('./master-record-tabs-playwright-checks').SKIP_ITEMS;
 const chartSkips = require('./echart-navbar-modules-playwright-checks').SKIP_ITEMS;
+const { watchPopupModuleRefresh } = require('./echart-navbar-modules-playwright-checks');
 
 test('the same item rendered in two permission branches is opened once', () => {
   // admin.jsp renders several groups twice, once per oscarSec branch, so an
@@ -1197,6 +1198,89 @@ test('popup teardown awaits its cleanup and still closes the popup if cleanup fa
     assert.equal(cleaned, true);
     assert.equal(popup.closed, true);
   }
+});
+
+function popupRefreshFixture({registered = true, status = 200} = {}) {
+  const vm = require('node:vm');
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    return {promise, resolve};
+  };
+  const response = deferred(); const body = deferred(); const detached = deferred(); const retired = deferred();
+  const window = {name: 'formWindow', openWindows: {}, reloadWindows: {}};
+  if (registered) {
+    window.openWindows.formWindow = {closed: false};
+    window.reloadWindows.formWindow = '/carlos/encounter/displayForms?demographicNo=123';
+    window.reloadWindows.formWindowdiv = 'forms';
+  }
+  const state = {armed: false, disposed: 0, domWaits: 0, predicate: null};
+  const previous = {isConnected: true, dispose: async () => { state.disposed++; }};
+  const document = {baseURI: 'https://fixture.invalid/carlos/', getElementById: id => id === 'forms' ? {children: [{}]} : null};
+  const evaluate = (fn, argument) => vm.runInNewContext(`(${fn.toString()})(argument)`, {window, document, URL, argument});
+  const chart = {
+    evaluate: async (fn, argument) => evaluate(fn, argument),
+    locator(selector) {
+      assert.equal(selector, 'id=forms');
+      return {locator: () => ({first: () => ({elementHandle: async () => previous})})};
+    },
+    waitForResponse(predicate) { state.armed = true; state.predicate = predicate; return response.promise; },
+    async waitForFunction(fn, argument) {
+      state.domWaits++;
+      await (argument === previous ? detached.promise : retired.promise);
+      assert.equal(evaluate(fn, argument), true);
+    },
+  };
+  const popup = {isClosed: () => false, evaluate: async fn => evaluate(fn)};
+  const request = (method = 'POST', url = 'https://fixture.invalid/carlos/encounter/displayForms?demographicNo=123') => ({
+    request: () => ({method: () => method}), url: () => url,
+    status: () => status, finished: () => body.promise,
+  });
+  return {chart, popup, state, request, response, body, detached, retired, previous, window};
+}
+
+test('chart popup refresh waits for its exact response, DOM replacement and retired close callback before the next link', async () => {
+  const fixture = popupRefreshFixture();
+  const watcher = await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000);
+  assert.equal(fixture.state.armed, true, 'Response observation must precede popup closure');
+  assert.equal(fixture.state.predicate(fixture.request()), true);
+  assert.equal(fixture.state.predicate(fixture.request('GET')), false);
+  assert.equal(fixture.state.predicate(fixture.request('POST', 'https://fixture.invalid/carlos/encounter/displayForms?demographicNo=456')), false);
+  let complete = false;
+  watcher.settled.then(() => { complete = true; });
+  fixture.response.resolve(fixture.request());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'Headers alone do not finish the refresh');
+  fixture.body.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'An old attached module cannot be resolved for the next click');
+  fixture.previous.isConnected = false;
+  fixture.detached.resolve();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(complete, false, 'The close callback must finish removing its registered window');
+  delete fixture.window.openWindows.formWindow;
+  delete fixture.window.reloadWindows.formWindow;
+  fixture.retired.resolve();
+  await watcher.settled;
+  assert.equal(complete, true);
+  assert.equal(fixture.state.disposed, 1);
+});
+
+test('chart popup refresh reports an unsuccessful response without retrying or accepting replacement markup', async () => {
+  const fixture = popupRefreshFixture({status: 500});
+  const watcher = await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000);
+  fixture.response.resolve(fixture.request()); fixture.body.resolve();
+  await assert.rejects(watcher.settled, /module refresh failed/);
+  assert.equal(fixture.state.domWaits, 0);
+  assert.equal(fixture.state.disposed, 1);
+});
+
+test('unregistered and already closed popups do not invent a module refresh', async () => {
+  const fixture = popupRefreshFixture({registered: false});
+  assert.equal(await watchPopupModuleRefresh(fixture.chart, fixture.popup, 1000), null);
+  assert.equal(await watchPopupModuleRefresh(fixture.chart, {isClosed: () => true}, 1000), null);
+  assert.equal(fixture.state.armed, false);
+  assert.equal(fixture.state.disposed, 0);
 });
 
 function identityAnchor(text, attributes, module = 'docs', navbar = 'leftNavBar') {

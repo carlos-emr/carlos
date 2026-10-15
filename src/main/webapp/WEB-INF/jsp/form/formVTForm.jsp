@@ -80,7 +80,7 @@
 
     <script type="text/javascript">
 
-        var waist, hip, ratio;
+        var WHRBId;
         var smkSDate, smkHDate, smkCDate;
         var smkSCmt, smkHCmt, smkCCmt;
         var DpScId, StScId, LcCtId;
@@ -88,9 +88,9 @@
         var FTExId, ftNeId, ftIsId, ftInId, ftUlId, ftOtId, ftReId;
         var FTExDate, ftNeDate, ftIsDate, ftInDate, ftUlDate, ftOtDate, ftReDate;
         var FTExCmt, ftNeCmt, ftIsCmt, ftInCmt, ftUlCmt, ftOtCmt, ftReCmt;
-        var eyeExId, eyeHypId, eyeDiaId, eyeOthId, eyeRefId;
-        var eyeExCmt, eyeHypCmt, eyeDiaCmt, eyeOthCmt, eyeRefCmt;
-        var eyeExDate, eyeHypDate, eyeDiaDate, eyeOthDate, eyeRefDate;
+        var eyeHypId, eyeDiaId, eyeOthId, eyeRefId;
+        var eyeHypCmt, eyeDiaCmt, eyeOthCmt, eyeRefCmt;
+        var eyeHypDate, eyeDiaDate, eyeOthDate, eyeRefDate;
         var MIValue, AngValue, ACSValue, RVTNValue, CADValue, DMValue, PVDValue;
         var HTNValue, HchlValue, CVDValue;
         var HbA1Value, HbA1Date, HbA1Cmt;
@@ -214,7 +214,6 @@
 
 
             showHideItem('detailLab');
-            showHideItem('detailCounselling');
 
             showHideItem('medications');
             showHideItem('medicationAllergies');
@@ -223,54 +222,6 @@
             showHideItem('medLabel');
 
 
-        }
-
-        function updateWaistHip() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[hip].value = parseInt(parseInt(w) / parseFloat(r));
-            } else if (document.forms[0].elements[hip].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[hip].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[waist].value = parseInt(parseFloat(r) * parseInt(h));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
-        }
-
-        function updateWaistAndRatio() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[hip].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[hip].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[ratio].value = parseInt(w) / parseInt(h);
-            } else if (document.forms[0].elements[hip].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[hip].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = false;
-                document.forms[0].elements[waist].value = parseInt(parseFloat(r) * parseInt(h));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
-        }
-
-        function updateHipAndRatio() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[hip].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[hip].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[ratio].value = parseInt(w) / parseInt(h);
-            } else if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = false;
-                document.forms[0].elements[hip].value = parseInt(parseInt(w) / parseFloat(r));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
         }
 
         function storeSMKSupportData() {
@@ -346,52 +297,17 @@
 
         function storeEyeExamSupportData() {
 
-            document.forms[0].elements[eyeExDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeHypDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeDiaDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeOthDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeRefDate].value = document.forms[0].iDate.value;
 
-            document.forms[0].elements[eyeExCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeHypCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeDiaCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeOthCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeRefCmt].value = document.forms[0].iComments.value;
         }
 
-
-        function controlEyeExam() {
-
-            if (document.forms[0].elements[eyeExId].checked == false) {
-                //enable all foot exam checkbox
-                //alert("enable all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].disabled = false;
-                document.forms[0].elements[eyeDiaId - 1].disabled = false;
-                document.forms[0].elements[eyeOthId - 1].disabled = false;
-                document.forms[0].elements[eyeRefId - 1].disabled = false;
-                //document.forms[0].elements[eyeHypId].disabled= false;
-                //document.forms[0].elements[eyeDiaId].disabled= false;
-                //document.forms[0].elements[eyeOthId].disabled= false;
-                //document.forms[0].elements[eyeRefId].disabled= false;
-            } else if (document.forms[0].elements[eyeExId].checked == true) {
-                //uncheck and disable all foot exam checkbox
-                //alert("uncheck all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].checked = false;
-                document.forms[0].elements[eyeDiaId - 1].checked = false;
-                document.forms[0].elements[eyeOthId - 1].checked = false;
-                document.forms[0].elements[eyeRefId - 1].checked = false;
-                document.forms[0].elements[eyeHypId].checked = true;
-                document.forms[0].elements[eyeDiaId].checked = true;
-                document.forms[0].elements[eyeOthId].checked = true;
-                document.forms[0].elements[eyeRefId].checked = true;
-
-                //alert("disable all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].disabled = true;
-                document.forms[0].elements[eyeDiaId - 1].disabled = true;
-                document.forms[0].elements[eyeOthId - 1].disabled = true;
-                document.forms[0].elements[eyeRefId - 1].disabled = true;
-            }
-        }
 
         function initialize() {
             var e = document.forms[0].elements;
@@ -413,14 +329,8 @@
 
             for (i = 0; i < e.length; i++) {
                 switch (e[i].name) {
-                    case 'value(WHRValue)':
-                        ratio = i;
-                        break;
-                    case 'value(WCValue)':
-                        waist = i;
-                        break;
-                    case 'value(HCValue)':
-                        hip = i;
+                    case 'value(WHRBValue)':
+                        WHRBId = i;
                         break;
                     case 'value(SmkSDate)':
                         smkSDate = i;
@@ -531,9 +441,6 @@
                         ftReCmt = i;
                         break;
 
-                    case 'value(iExDate)':
-                        eyeExDate = i;
-                        break;
                     case 'value(iHypDate)':
                         eyeHypDate = i;
                         break;
@@ -547,9 +454,6 @@
                         eyeRefDate = i;
                         break;
 
-                    case 'value(iExComments)':
-                        eyeExCmt = i;
-                        break;
                     case 'value(iHypComments)':
                         eyeHypCmt = i;
                         break;
@@ -563,9 +467,6 @@
                         eyeRefCmt = i;
                         break;
 
-                    case 'value(iExValue)':
-                        eyeExId = i;
-                        break;
                     case 'value(iHypValue)':
                         eyeHypId = i;
                         break;
@@ -662,13 +563,11 @@
         }
 
         function disableEyeExam(control) {
-            document.forms[0].elements[eyeExId - 1].disabled = control;
             document.forms[0].elements[eyeHypId - 1].disabled = control;
             document.forms[0].elements[eyeDiaId - 1].disabled = control;
             document.forms[0].elements[eyeOthId - 1].disabled = control;
             document.forms[0].elements[eyeRefId - 1].disabled = control;
 
-            document.forms[0].elements[eyeExId].disabled = control;
             document.forms[0].elements[eyeHypId].disabled = control;
             document.forms[0].elements[eyeDiaId].disabled = control;
             document.forms[0].elements[eyeOthId].disabled = control;
@@ -745,6 +644,17 @@
         <input type="hidden" name="value(formName)" value="VTForm"/>
         <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(requestScope.formDemographicNo)}"/>
         <input type="hidden" name="value(formId)" id="value(formId)" value="${carlos:forHtmlAttribute(requestScope.formValues['formId'])}"/>
+        <%-- The XML/record still contains iEx, but this view has no editor for it. Preserve its
+             stored value and metadata through the encoded formValues restoration without
+             treating it as a visible radio pair or replacing its date/comments on save. --%>
+        <input type="hidden" name="value(iExValue)"/>
+        <input type="hidden" name="value(iExDate)"/>
+        <input type="hidden" name="value(iExComments)"/>
+        <%-- WHR likewise has stored fields but no ratio editor on this page. Retain its
+             history without deriving a new result from the standalone WC/HC inputs. --%>
+        <input type="hidden" name="value(WHRValue)"/>
+        <input type="hidden" name="value(WHRDate)"/>
+        <input type="hidden" name="value(WHRComments)"/>
         <table class="Head" class="hidePrint" width="640px" cellpadding="0"
                cellspacing="0">
             <tr>
@@ -1079,7 +989,7 @@
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <input type="radio" name="value(DpScValue)" value="yes"/>Yes
-                                                        <input type="radio" name="="value(DpScValue)" value="no"/>No
+                                                        <input type="radio" name="value(DpScValue)" value="no"/>No
                                                         <a
                                                             title="clear all"
                                                             href="javascript:clearAll(DpScId, DpScId-1)">&nbsp
@@ -1362,7 +1272,7 @@
                                                         <input type="radio" name="value(WHRBValue)" value="yes"/>Yes
                                                         <input type="radio" name="value(WHRBValue)" value="no"/>No <a
                                                             title="clear all"
-                                                            href="javascript:clearAll(MedAId, MedAId-1)">&nbsp
+                                                            href="javascript:clearAll(WHRBId, WHRBId-1)">&nbsp
                                                         <font style="text-decoration: underline; color: blue;">clr</font>
                                                     </a></td>
                                                     <td class="dataEntryTable" align="center">
@@ -1389,7 +1299,7 @@
 
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WCValue)" size="5%" onchange="javascript: updateHipAndRatio();"/>
+                                                        <input type="text" name="value(WCValue)" size="5%"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <input type="text" name="value(WCComments)" size="30%" tabindex="9999" /></td>
@@ -1414,7 +1324,7 @@
                                                         </c:if>
                                                     </td>
                                                     <td width="18%" class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HCValue)" size="5%" onchange="javascript: updateWaistAndRatio();"/>
+                                                        <input type="text" name="value(HCValue)" size="5%"/>
                                                     </td>
                                                     <td width="33%" class="dataEntryTable" align="center">
                                                         <input type="text" name="value(HCComments)" size="30%" tabindex="9999"/>
@@ -1565,7 +1475,7 @@
                                                     </td>
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTExValue)"
                                                             onclick="javascript:controlFTExam();" value="yes"/>Yes
-                                                        <input type="radio" name="="value(FTExValue)"
+                                                        <input type="radio" name="value(FTExValue)"
                                                                 onclick="javascript:controlFTExam();" value="no"/>No <a
                                                                 title="clear all"
                                                                 href="javascript:clearAll(FTExId, FTExId-1)">&nbsp

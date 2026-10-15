@@ -50,7 +50,12 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     private static final String DEFINITION = "<formProp><measurement><type>WT</type>"
             + "<typeDesc>Weight</typeDesc><measuringInstrc>in kg</measuringInstrc>"
             + "<validationRule><name>Weight</name><regularExp>.*</regularExp>"
-            + "<maxLength>20</maxLength></validationRule></measurement></formProp>";
+            + "<maxLength>20</maxLength></validationRule></measurement>"
+            + "<measurement><type>iEx</type><typeDesc>Eye</typeDesc><validationRule>"
+            + "<name>Yes/No</name><regularExp>yes|no</regularExp></validationRule></measurement>"
+            + "<measurement><type>WHR</type><typeDesc>Ratio</typeDesc><validationRule>"
+            + "<name>Ratio</name><isNumeric>1</isNumeric><minValue>0.5</minValue><maxValue>2</maxValue>"
+            + "</validationRule></measurement></formProp>";
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private LoggedInInfo user;
@@ -165,6 +170,12 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
                 assertThat(values.get("WTComments")).isEqualTo("Owned <script> text");
                 assertThat(values.get("subjective")).isEqualTo("Owned subjective");
                 verify(owned).close();
+            } else {
+                assertThat(values.get("iExValue")).isEqualTo("");
+                assertThat(values.get("iExDate")).isEqualTo("");
+                assertThat(values.get("WHRValue")).isEqualTo("");
+                assertThat(values.get("WHRDate")).isEqualTo("");
+                assertThat(values.get("WTDate")).isNotNull().isNotEqualTo("");
             }
             assertThat(request.getSession().getAttribute("EctSessionBean")).isSameAs(lastChart);
             assertThat(lastChart.getDemographicNo()).isEqualTo(other);
@@ -232,6 +243,39 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             when(rows.getString(i + 1)).thenReturn(values[i]);
         }
         return rows;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "exit"})
+    void shouldIgnoreForgedHiddenHistory_beforeValidationAndMeasurementWrites(String submit) throws Exception {
+        request.setParameter("demographic_no", "101");
+        request.setParameter("submit", submit);
+        for (String type : List.of("iEx", "WHR")) {
+            request.setParameter("value(" + type + "Value)", "forged invalid clinical result");
+            request.setParameter("value(" + type + "Date)", "not a date");
+            request.setParameter("value(" + type + "Comments)", "forged comment");
+        }
+        try (var servlet = servlet(); var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
+                when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
+            FrmForm2Action action = new FrmForm2Action();
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            // Validation errors remain observable even though this legacy action overwrites its
+            // boolean valid flag later; checking only a successful response would miss this guard.
+            assertThat(action.getActionErrors()).isEmpty();
+            ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class);
+            verify(records.constructed().getFirst()).saveFormRecord(saved.capture(), anyString(), eq("101"));
+            assertThat(saved.getValue()).doesNotContainKeys("iExValue", "iExDate", "iExComments",
+                    "WHRValue", "WHRDate", "WHRComments");
+            if ("exit".equals(submit)) {
+                ArgumentCaptor<Measurement> captured = ArgumentCaptor.forClass(Measurement.class);
+                verify(measurements).persist(captured.capture());
+                assertThat(captured.getValue().getType()).isEqualTo("WT");
+                verify(measurements).find(any(MeasurementDaoImpl.SearchCriteria.class));
+                verifyNoMoreInteractions(measurements);
+            } else {
+                verifyNoInteractions(measurements);
+            }
+        }
     }
 
     @ParameterizedTest

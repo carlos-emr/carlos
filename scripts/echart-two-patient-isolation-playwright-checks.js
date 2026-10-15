@@ -50,6 +50,7 @@ const B_WEIGHT = '87.4';
 const OBSERVED = '2026-02-03';
 const A_FIRST_NAME = 'PatientAlpha';
 const B_FIRST_NAME = 'PatientBravo';
+const RETAINED_VT_FIELDS = ['iExValue', 'iExDate', 'iExComments', 'WHRValue', 'WHRDate', 'WHRComments'];
 // Large Forms menus alternate these columns; a configured form can occupy either one.
 const FORM_MENU_ITEMS = '#forms #menu1 a:is(.menuItemleft, .menuItemright)';
 // Unique tokens (nothing else on a page contains them), so a plain substring says whose name a page prints.
@@ -124,6 +125,58 @@ function assertRequestPatient(request, expected) {
   ]);
   h.assert(owners.length > 0 && owners.every(owner => owner === expected),
     'The request did not explicitly identify only its own patient');
+}
+
+function assertVitalsMoreHistory({url, ids, text}, expected) {
+  const address = new URL(url);
+  h.assert(address.pathname.endsWith('/encounter/oscarMeasurements/SetupDisplayHistory')
+    && address.searchParams.get('demographicNo') === expected.patient && address.searchParams.get('type') === 'BP',
+  'Vitals More did not request its own patient and measurement type');
+  h.assert(ids.length === 1 && ids[0] === expected.id, 'Vitals More displayed another patient\'s measurement rows');
+  h.assert(expected.ownName(text) && !expected.otherName(text)
+    && text.includes(expected.value) && !text.includes(expected.otherValue),
+  'Vitals More displayed another patient\'s name or BP');
+}
+
+/** Finish a native note save before another patient's operation protects this patient's full rows. */
+async function saveCurrentChartNote(chart, sql, patient, noteText) {
+  const owner = patientKey(patient);
+  const editor = chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+  h.assert(await editor.isEditable(), 'The current chart note is not editable');
+  const previousId = await chart.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+  await chart.waitForFunction(() => !window.autoSaveXhr, undefined, {timeout: TIMEOUT});
+  const [saved] = await Promise.all([
+    chart.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/CaseManagementEntry')
+      && new URLSearchParams(response.request().postData() || '').get('method') === 'save', {timeout: TIMEOUT}),
+    chart.locator('#saveImg').first().click(),
+  ]);
+  await saved.finished();
+  h.assert(saved.status() === 200, 'The current chart note did not save');
+  assertRequestPatient(saved.request(), owner);
+  const submitted = new URLSearchParams(saved.request().postData() || '');
+  h.assert(submitted.get('noteId') === previousId && submitted.get('caseNote_note') === noteText,
+    'The native Save changed the current revision or raw note payload');
+  const savedId = await chart.waitForFunction(({previousId, owner}) => {
+    const form = document.forms.caseManagementEntryForm;
+    const editor = document.getElementById(window.caseNote);
+    const observation = document.getElementById('observationDate');
+    const id = form?.elements.noteId?.value;
+    return /^[1-9]\d*$/.test(id) && id !== previousId
+      && form.elements.demographicNo.value === owner && editor && observation
+      && window.origCaseNote === editor.value
+      && window.origObservationDate === observation.value
+      && !window.autoSaveXhr && id;
+  }, {previousId, owner}, {timeout: TIMEOUT});
+  const savedNoteId = patientKey(await savedId.jsonValue());
+  await savedId.dispose();
+  // noteSave trims only outer whitespace. Bind the check to the UI's returned revision ID,
+  // since an older measurement note can legitimately have identical text.
+  await expectValue(sql, `SELECT note FROM casemgmt_note WHERE note_id=${savedNoteId}
+    AND demographic_no=${owner}`, noteText.trim(), 'The returned note revision changed its text or patient');
+  await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${owner}`, '0',
+    'The saved current note retained a background draft');
+  h.assert(await editor.isEditable(), 'The saved current note is no longer editable');
 }
 
 function isOwnedLockRelease(request, patient, noteId, provider) {
@@ -491,34 +544,6 @@ async function run(s) {
       assertPatientStateUnchanged(otherBefore, snapshot(d.other), `${d.label}'s forms read/reload`);
     });
 
-    await s.step(`${d.label}'s Vitals More history retains its patient after the other chart is selected`, async () => {
-      await activateOther(d.otherChart);
-      const before = snapshot(d.other);
-      await d.chart.locator('#menuTitle3 a').hover();
-      const vitals = d.chart.locator('#menu3 a:is(.menuItemleft, .menuItemright)').filter({hasText: /^\s*Vitals\s*$/});
-      const group = await s.popup(d.chart, vitals, `${d.label}-vitals-history`);
-      const patientField = group.locator('input[name="demographicNo"]');
-      await patientField.waitFor({state: 'attached'});
-      h.assert(await patientField.inputValue() === d.patient, 'Vitals More opened from another patient\'s entry form');
-      const more = group.locator('i[onclick*="SetupDisplayHistory?type=WT"]');
-      await more.waitFor({state: 'visible', timeout: TIMEOUT});
-      h.assert(await more.count() === 1, 'Vitals must offer exactly one WT history control');
-      await activateOther(d.otherChart);
-      const history = await s.popup(group, more, `${d.label}-vitals-more-history`);
-      await history.locator('tr.data').first().waitFor({state: 'visible', timeout: TIMEOUT});
-      const address = new URL(history.url());
-      h.assert(address.pathname.endsWith('/encounter/oscarMeasurements/SetupDisplayHistory')
-        && address.searchParams.get('demographicNo') === d.patient && address.searchParams.get('type') === 'WT',
-      'Vitals More did not request its own patient and measurement type');
-      const ids = await history.locator('input[name="deleteCheckbox"]').evaluateAll(els => els.map(el => el.value));
-      const text = norm(await history.locator('body').innerText());
-      h.assert(ids.length === 1 && ids[0] === d.weightId, 'Vitals More displayed another patient\'s measurement rows');
-      h.assert(d.ownName(text) && !d.otherName(text) && text.includes(d.ownWeight) && !text.includes(d.otherWeight),
-        'Vitals More displayed another patient\'s name or weight');
-      await history.close();
-      await group.close();
-      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s Vitals More history`);
-    });
   }
 
   // ---- Writes in both directions, with the opposite chart selected immediately before each save.
@@ -532,9 +557,11 @@ async function run(s) {
   }
 
   for (const d of directions) {
+    const bpValue = d.label === 'A' ? '128/82' : '142/86';
+    const otherBpValue = d.label === 'A' ? '142/86' : '128/82';
     await isolatedWrite(d, 'measurement entry', async () => {
       const comment = `${marker}-${d.label}-bp`;
-      const value = d.label === 'A' ? '128/82' : '142/86';
+      const value = bpValue;
       await d.chart.locator('#menuTitle3 a').hover();
       const vitals = d.chart.locator('#menu3 a:is(.menuItemleft, .menuItemright)').filter({hasText: /^\s*Vitals\s*$/});
       const group = await s.popup(d.chart, vitals, `${d.label}-vitals`);
@@ -553,6 +580,42 @@ async function run(s) {
       entered[d.label].bp = patientKey(sql.value(`SELECT id FROM measurements WHERE ${where}`));
       h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE ${where}`) === d.patient
         && sql.value(`SELECT dataField FROM measurements WHERE ${where}`) === value, 'The measurement crossed patients or changed value');
+
+      // Measurement entry also appends a note in its own chart. Finish that native workflow before
+      // taking later snapshots of this patient: an unsaved note otherwise autosaves every five
+      // seconds and replaces its draft row while the other patient's independent step runs.
+      const editor = d.chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+      const noteText = await editor.inputValue();
+      h.assert(noteText.includes(comment) && noteText.includes(value), 'Measurement entry lost its own chart note');
+      await saveCurrentChartNote(d.chart, sql, d.patient, noteText);
+    });
+
+    // The configured Vitals group contains BP, not necessarily WT. Its native save above supplies
+    // the prior value that makes the More control appear, without changing group configuration.
+    await s.step(`${d.label}'s Vitals More history retains its patient after the other chart is selected`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      await d.chart.locator('#menuTitle3 a').hover();
+      const vitals = d.chart.locator('#menu3 a:is(.menuItemleft, .menuItemright)').filter({hasText: /^\s*Vitals\s*$/});
+      const group = await s.popup(d.chart, vitals, `${d.label}-vitals-history`);
+      const patientField = group.locator('input[name="demographicNo"]');
+      await patientField.waitFor({state: 'attached'});
+      h.assert(await patientField.inputValue() === d.patient, 'Vitals More opened from another patient\'s entry form');
+      const more = group.locator('[onclick*="SetupDisplayHistory?type=BP"]');
+      await more.waitFor({state: 'visible', timeout: TIMEOUT});
+      h.assert(await more.count() === 1, 'Vitals must offer exactly one BP history control');
+      await activateOther(d.otherChart);
+      const history = await s.popup(group, more, `${d.label}-vitals-more-history`);
+      await history.locator('tr.data').first().waitFor({state: 'visible', timeout: TIMEOUT});
+      const ids = await history.locator('input[name="deleteCheckbox"]').evaluateAll(els => els.map(el => el.value));
+      const text = norm(await history.locator('body').innerText());
+      assertVitalsMoreHistory({url: history.url(), ids, text}, {
+        patient: d.patient, id: entered[d.label].bp, value: bpValue, otherValue: otherBpValue,
+        ownName: d.ownName, otherName: d.otherName,
+      });
+      await history.close();
+      await group.close();
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s Vitals More history`);
     });
 
     await isolatedWrite(d, 'Dx Add', async () => {
@@ -638,6 +701,11 @@ async function run(s) {
       const patientField = form.locator('input[name="demographic_no"]');
       await patientField.waitFor({state: 'attached'});
       h.assert(await patientField.inputValue() === d.patient, 'Vascular Tracker setup chose another patient');
+      for (const field of RETAINED_VT_FIELDS) {
+        const carrier = form.locator(`input[name="value(${field})"]`);
+        h.assert(await carrier.getAttribute('type') === 'hidden' && await carrier.inputValue() === '',
+          'A new Vascular Tracker fabricated retained clinical data');
+      }
       const text = norm(await formPage.content());
       h.assert(d.ownName(text) && !d.otherName(text), 'Vascular Tracker displays another patient');
       const value = d.label === 'A' ? '62.3' : '88.5';
@@ -659,6 +727,9 @@ async function run(s) {
       entered[d.label].form = id;
       h.assert(sql.value(`SELECT demographic_no FROM formVTForm WHERE ID=${id}`) === d.patient
         && sql.value(`SELECT WTValue FROM formVTForm WHERE ID=${id}`) === value, 'Vascular Tracker crossed patients or changed value');
+      h.assert(JSON.stringify(sql.rows(`SELECT ${RETAINED_VT_FIELDS.join(',')} FROM formVTForm WHERE ID=${id}`))
+        === JSON.stringify([RETAINED_VT_FIELDS.map(() => null)]),
+      'A new Vascular Tracker invented retained values or metadata');
       await formPage.waitForURL(url => url.pathname.endsWith('/form/SetupForm')
         && url.searchParams.get('demographic_no') === d.patient && url.searchParams.get('formId') === id);
       await form.locator('[name="value(formId)"]').waitFor({state: 'attached'});
@@ -788,10 +859,40 @@ async function run(s) {
       'Save & Exit did not submit the reopened A form through the native control');
     await closed;
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Save & Exit did not ask for confirmation exactly once');
+    return data;
   }
 
   await isolatedWrite(directions[0], 'Vascular Tracker Save & Exit', async () => {
+    // Only this run's saved A form receives historical data. The non-editable carriers must
+    // preserve its original database values, including NULL, even if the browser submits changes.
+    const historical = ['yes', null, `${marker}-historical-eye`, '0.88', '2026-01-07', `${marker}-historical-ratio`];
+    const ownedForm = `ID=${entered.A.form} AND demographic_no=${A} AND WTComments=${q(`${marker}-A-vt`)}`;
+    const editedQuery = `SELECT formEdited FROM formVTForm WHERE ${ownedForm}`;
+    const editedBefore = sql.rows(editedQuery);
+    h.assert(editedBefore.length === 1, 'The historical VT fixture does not own exactly one form');
+    // Preserve the saved revision's timestamp: SQL's automatic timestamp may use a different
+    // timezone from the application and otherwise make this older row appear newer after Save & Exit.
+    h.assert(sql.value(`UPDATE formVTForm SET ${RETAINED_VT_FIELDS.map((field, index) =>
+      `${field}=${historical[index] === null ? 'NULL' : q(historical[index])}`).join(',')},formEdited=formEdited
+      WHERE ${ownedForm} AND ${RETAINED_VT_FIELDS.map(field => `${field} IS NULL`).join(' AND ')};
+      SELECT ROW_COUNT()`) === '1', 'The historical VT fixture no longer owns an untouched A form');
+    h.assert(JSON.stringify(sql.rows(editedQuery)) === JSON.stringify(editedBefore),
+      'Seeding historical VT fields changed the saved revision timestamp');
+    const retainedQuery = `SELECT ${RETAINED_VT_FIELDS.join(',')} FROM formVTForm WHERE ${ownedForm}`;
+    h.assert(JSON.stringify(sql.rows(retainedQuery)) === JSON.stringify([historical]),
+      'The owned historical VT fixture was not stored exactly');
+    const retainedMeasurements = `SELECT * FROM measurements WHERE demographicNo IN (${patients})
+      AND type IN ('iEx','WHR') ORDER BY id`;
+    h.assert(sql.rows(retainedMeasurements).length === 0, 'The retention fixture already has unrelated retained-type measurements');
     const {popup, form} = await reopenVascularTracker(chartA, 'A-vascular-tracker-exit', entered.A.form);
+    const tampered = ['no', '2031-09-23', `${marker}-tampered-eye`, '1.11', '2031-09-24', `${marker}-tampered-ratio`];
+    for (let index = 0; index < RETAINED_VT_FIELDS.length; index++) {
+      const carrier = form.locator(`input[name="value(${RETAINED_VT_FIELDS[index]})"]`);
+      h.assert(await carrier.getAttribute('type') === 'hidden'
+        && await carrier.inputValue() === (historical[index] ?? ''),
+      'The reopened VT did not restore its historical hidden value or metadata');
+      await carrier.evaluate((element, value) => { element.value = value; }, tampered[index]);
+    }
     const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
     const draft = await editor.inputValue();
     const previousForm = sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`);
@@ -805,7 +906,11 @@ async function run(s) {
     }
     // Form setup must not make the save pass merely by restoring the session's patient to A.
     await activateOther(chartB);
-    await saveAndExitVascularTracker(popup, form, entered.A.form);
+    const submitted = await saveAndExitVascularTracker(popup, form, entered.A.form);
+    for (let index = 0; index < RETAINED_VT_FIELDS.length; index++) {
+      h.assert(submitted.get(`value(${RETAINED_VT_FIELDS[index]})`) === tampered[index],
+        'The native Save & Exit did not submit the tampered hidden fields to the retention guard');
+    }
     h.assert(await editor.inputValue() === `${draft}\nSee Vascular Tracker Template`,
       'Save & Exit did not append literal completion text to A\'s current note');
     for (const [id, pending] of refreshes) {
@@ -825,22 +930,38 @@ async function run(s) {
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`)) === JSON.stringify(previousForm),
       'Save & Exit changed the previous saved form');
     entered.A.form = patientKey(sql.value(`SELECT MAX(ID) FROM formVTForm WHERE demographic_no=${A}`));
+    h.assert(JSON.stringify(sql.rows(`SELECT ${RETAINED_VT_FIELDS.join(',')} FROM formVTForm
+      WHERE ID=${entered.A.form} AND demographic_no=${A}`)) === JSON.stringify([historical]),
+    'Save & Exit accepted tampered retained fields or changed the historical NULL date');
+    h.assert(sql.rows(retainedMeasurements).length === 0,
+      'Save & Exit fabricated a measurement from a retained iEx or WHR value');
   });
 
-  await s.step('A form saved after its opener navigates to B closes without changing B\'s draft or clinical rows', async () => {
+  await s.step('A form saved after its opener navigates to B closes without changing B\'s current note or clinical rows', async () => {
     const {popup, form} = await reopenVascularTracker(chartA, 'A-vascular-tracker-foreign-opener', entered.A.form);
     await form.locator('[name="value(WTValue)"]').fill('63.4');
     await form.locator('[name="value(WTComments)"]').fill(`${marker}-A-vt-after-navigation`);
     const noteId = await chartA.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
     const lockQuery = `SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${A} AND provider_no=${q(provider)} AND note_id=${Number(noteId)}`;
     h.assert(sql.value(lockQuery) === '1', 'The departing A chart did not hold its own note lock');
+    const otherLockQuery = `SELECT note_id,demographic_no,provider_no FROM casemgmt_note_lock
+      WHERE demographic_no=${B} ORDER BY note_id,provider_no`;
+    const otherLocks = sql.rows(otherLockQuery);
+    h.assert(otherLocks.length > 0, 'B did not hold its own note lock before A navigated');
     const releases = [];
     const candidates = [];
-    const onRequest = request => { if (isOwnedLockRelease(request, A, noteId, provider)) releases.push(request); };
     const onFailure = request => {
       if (releases.includes(request)) candidates.push({request, entry: recorder.requestFailures.at(-1)});
     };
-    chartA.on('request', onRequest);
+    // Chromium omits an unintercepted Blob beacon's body from request events. A temporary
+    // pass-through exposes its real bytes without rewriting the request or mocking its response.
+    const releaseEndpoint = h.appUrl(s.config.baseUrl, '/CaseManagementEntry');
+    const passReleaseThrough = async route => {
+      const request = route.request();
+      if (isOwnedLockRelease(request, A, noteId, provider) && request.frame().page() === chartA) releases.push(request);
+      await route.continue();
+    };
+    await context.route(releaseEndpoint, passReleaseThrough);
     chartA.on('requestfailed', onFailure);
     try {
       // Real navigation preserves the popup's WindowProxy opener while replacing its patient/document.
@@ -851,18 +972,23 @@ async function run(s) {
       'The form opener did not actually navigate to B');
       h.assert(releases.length > 0, 'Navigation did not send A\'s explicit note-lock release');
       await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
+      h.assert(JSON.stringify(sql.rows(otherLockQuery)) === JSON.stringify(otherLocks),
+        'Releasing A\'s note lock changed B\'s note locks');
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
-      chartA.off('request', onRequest);
       chartA.off('requestfailed', onFailure);
+      await context.unroute(releaseEndpoint, passReleaseThrough);
     }
     const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
-    const draft = await editor.inputValue();
+    // Settle B's own draft through its native Save before protecting every B row. Otherwise a
+    // legitimate periodic autosave could replace B's draft during A's independent form save.
+    await saveCurrentChartNote(chartA, sql, B, await editor.inputValue());
+    const currentNote = await editor.inputValue();
     const before = snapshot(B);
     const previousForm = sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`);
     h.assert(await popup.evaluate(() => window.opener.demographicNo) === B, 'The A form lost its actual B opener');
     await saveAndExitVascularTracker(popup, form, entered.A.form);
-    h.assert(await editor.inputValue() === draft, 'A\'s completion text contaminated B\'s current draft');
+    h.assert(await editor.inputValue() === currentNote, 'A\'s completion text contaminated B\'s current note');
     const measurements = `type='WT' AND comments=${q(`${marker}-A-vt-after-navigation`)} AND demographicNo IN (${patients})`;
     await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE ${measurements}`, '1', 'The foreign-opener save lost A\'s measurement');
     h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE ${measurements}`) === A
@@ -889,4 +1015,4 @@ async function workflow(s) {
 if (require.main === module) runWorkflow('echart-two-patient-isolation', workflow, { openPatient: true });
 module.exports = { workflow, patientStateQueries, readPatientState, assertPatientStateUnchanged,
   invalidPatientParameters, assertRequestPatient, isOwnedLockRelease, consumeDeliveredLockReleases,
-  prepareVascularTrackerFixture };
+  prepareVascularTrackerFixture, assertVitalsMoreHistory, saveCurrentChartNote };

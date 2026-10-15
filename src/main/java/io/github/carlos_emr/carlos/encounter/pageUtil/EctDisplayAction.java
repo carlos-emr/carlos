@@ -93,6 +93,8 @@ public class EctDisplayAction extends ActionSupport {
      */
     private static final Set<String> RELOAD_URL_SUPPRESSED_PARAMS =
             Set.of("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
+    private static final Set<String> RELOAD_CONTEXT_PARAMS =
+            Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo");
 
     private boolean enabled;
 
@@ -413,7 +415,8 @@ public class EctDisplayAction extends ActionSupport {
      * </ul>
      *
      * <p>Every other parameter is preserved (notably {@code hC}, the module's heading
-     * colour), so a refreshed box renders exactly like the first load.</p>
+     * colour). Identical context values merged from the URL and POST body appear only once,
+     * so repeated refreshes retain a stable URL without growing patient/appointment copies.</p>
      *
      * @param requestUri   the already-encoded request URI of the display action, including
      *                     the context path (e.g. {@code /carlos/encounter/displayTickler})
@@ -442,7 +445,8 @@ public class EctDisplayAction extends ActionSupport {
 
     /**
      * Appends one request parameter to the query string, repeating the key once per value so a
-     * multi-valued parameter survives the round trip.
+     * multi-valued parameter survives the round trip. Identical patient/provider/appointment
+     * context values are emitted once because the caller also posts its window's context.
      *
      * <p>A null or empty {@code values} array is emitted as a bare key. That is defensive rather
      * than a shape the container produces: a servlet parameter map surfaces even {@code ?flag}
@@ -455,7 +459,9 @@ public class EctDisplayAction extends ActionSupport {
             joiner.add(encodedKey);
             return;
         }
+        Set<String> emittedContext = RELOAD_CONTEXT_PARAMS.contains(name) ? new java.util.HashSet<>() : null;
         for (String value : values) {
+            if (emittedContext != null && !emittedContext.add(value == null ? "" : value)) continue;
             String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
             joiner.add(encodedKey + "=" + encodedValue);
         }

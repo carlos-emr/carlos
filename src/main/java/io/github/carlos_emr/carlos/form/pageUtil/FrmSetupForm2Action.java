@@ -203,9 +203,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     request.setAttribute(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
                 } else {
                     // Set default values for new form entries
+                    String initialDate = "VTForm".equals(formName)
+                            && ("iEx".equals(mt.getType()) || "WHR".equals(mt.getType())) ? "" : today;
                     this.setValue(mt.getType() + "Value", "");
-                    this.setValue(mt.getType() + "Date", today);
-                    request.setAttribute(mt.getType() + "Date", today);
+                    this.setValue(mt.getType() + "Date", initialDate);
+                    request.setAttribute(mt.getType() + "Date", initialDate);
                     request.setAttribute(mt.getType() + "Comments", "");
                 }
 
@@ -314,8 +316,12 @@ public final class FrmSetupForm2Action extends ActionSupport {
             if (!rs.next()) throw new IllegalArgumentException("Invalid form patient or record");
             ResultSetMetaData md = rs.getMetaData();
             for (int i = 1; i <= md.getColumnCount(); i++) {
-                String value = Misc.getString(rs, i);
-                if (value != null) props.setProperty(md.getColumnName(i), value);
+                String column = md.getColumnName(i);
+                // VT's uneditable history must retain SQL NULL and raw whitespace on save.
+                boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(
+                        "iExValue", "iExDate", "iExComments", "WHRValue", "WHRDate", "WHRComments").contains(column);
+                String value = retainedVtField ? rs.getString(i) : Misc.getString(rs, i);
+                if (value != null) props.setProperty(column, value);
             }
         }
         return props;

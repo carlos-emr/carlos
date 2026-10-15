@@ -21,19 +21,27 @@ same patient; navigating that opener to another patient prevents the append.
 - The original browser check from release commit `3d5f85fbb6` reproduced the
   crossover: both initial patient controls passed, then A's post-B read failed.
   Owned fixture cleanup was verified.
-- 410 targeted Java checks pass: 137 patient-context/measurement/note/graph cases,
-  12 incoming-encounter cases, 40 form cases, 193 existing chart/appointment
-  regressions, 17 authorization/routing cases, and 11 existing measurement/JSP
-  encoding regressions. Unit tests exercise the production actions with mocked service boundaries.
-- H2 integration tests exercise actual measurement queries/deletion tombstones and
-  form record ownership, including rejecting a mixed-patient deletion batch before
-  any mutation.
+- 444 targeted Java checks pass: 141 patient-context/measurement/note/graph cases,
+  12 incoming-encounter cases, 56 form cases, 193 existing chart/appointment
+  regressions, 17 authorization/routing cases, 11 existing measurement/JSP
+  encoding regressions, seven existing reload-URL cases, and seven latest-form
+  integration cases. Unit tests exercise production actions with mocked service boundaries.
+- The new H2 integration coverage includes 31 cases for actual measurement
+  queries/deletion tombstones, form ownership, Vascular Tracker historical-field
+  retention, and latest-form selection. It rejects mixed-patient deletion before
+  mutation, ignores forged uneditable fields, preserves SQL NULL and raw history,
+  and resolves equal form-edit timestamps deterministically. The old latest-form
+  query fails four of the seven new selection cases as a negative control.
 - Existing chart revision, CPP transaction, appointment, authorization, and routing
   regression tests are rerun after changes.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites include 61 panel/completion/isolation cases and seven
-  navbar-readiness cases.
+  focused client suites pass 67 panel/completion/isolation cases, 12 Vascular
+  Tracker script cases, and 93 link-audit/navbar-readiness cases. The manifest
+  suite passes 63 checks. An earlier complete local run passed 3,719 tests with
+  five existing TODOs. A later full run exhausted the runtime's disk quota in
+  two unchanged demo-data suites; their isolated rerun passes 64 tests with four
+  existing TODOs. Current-head CI runs the complete suite.
 - The expanded `echart-two-patient-isolation` Playwright workflow drives real
   reads and writes for both patients, rejects invalid/conflicting identities and
   foreign form IDs, and checks the other patient's complete clinical rows after
@@ -41,6 +49,18 @@ same patient; navigating that opener to another patient prevents the append.
   navigation of the opener to another patient before completion. The seeded VT
   registration is temporarily enabled for this exclusive test and its exact prior
   registry row is restored and asserted during cleanup.
+- The actual-app Ontario and BC workflows each pass all 23 steps, including both native
+  measurement saves and history links, VT Update/reopen/Save and Exit, retained
+  historical data despite forged hidden inputs, and same-login opener navigation.
+  Its navigation check captures the real unload beacon through an unmodified
+  pass-through route and verifies the exact patient/note/provider and database
+  lock removal; it does not mock a response or relax the request-error checks.
+  Cleanup leaves zero owned rows across 20 tables in each database and restores
+  all form registrations exactly (102 in Ontario, 55 in BC). On the same
+  production overlay, the navbar catalogue
+  passes 24 opened links (14 configured policy skips), and the document/note suite
+  passes 16 steps using its already-merged recorder fix from release commit
+  `2336e371b68c`. Their fixture and file cleanup also passes.
 
 Local browser validation uses an isolated Tomcat/MariaDB deployment based on the
 previously audited WAR, with compiled production classes and changed web resources
@@ -49,8 +69,9 @@ GitHub CI provides the clean build and JSP compilation checks.
 
 ## Additional faults found
 
-These are source-review findings outside the modern eChart navbar/history/form
-isolation fix. They have not been reproduced in a separate live legacy-mode run.
+These findings remain outside the patient-isolation and form runtime-error repairs.
+They were found by source review or form-script tests; each has not received a
+separate live reproduction.
 
 1. **Vascular Tracker partial saves:** Save and Exit writes measurements before
    inserting the form, without a common rollback. A later form SQL failure can
@@ -73,3 +94,18 @@ isolation fix. They have not been reproduced in a separate live legacy-mode run.
    `isAllowedAccessToPatientRecord`, which additionally enforces patient-specific
    chart restrictions. Measurement deletion already performs both checks. This
    existing authorization gap needs a separate restriction-focused fix and tests.
+6. **Vascular Tracker waist/hip ratio UI:** its XML definition includes WHR, but
+   the form has no visible WHR control. Obsolete handlers targeting that missing
+   control are removed; WC and HC remain independent entered values. Existing
+   WHR values, dates, and comments are retained without inventing a new derived
+   clinical value. Restoring a visible, validated ratio workflow is separate work.
+7. **Classic editor billing path:** legacy `Index2.jsp` stores the application
+   context as `casemgmt_oscar_baseurl`, while the classic editor's Add Billing link
+   appends the context again. That entry path can therefore produce
+   `/carlos/carlos/billing`. This existing base-URL composition needs separate
+   validation for local and external legacy deployments; it was not live-tested here.
+8. **Historical form-row links:** `EctDisplayForm2Action` labels saved rows with
+   their service date but constructs their shortcut URL with `formId=latest`
+   rather than that row's form ID. An older row can therefore reopen the newest
+   record. This source finding needs separate historical-selection coverage; the
+   isolation workflow deliberately verifies the currently advertised latest link.

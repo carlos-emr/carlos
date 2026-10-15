@@ -1,9 +1,11 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 const {
   patientStateQueries, readPatientState, assertPatientStateUnchanged, invalidPatientParameters, assertRequestPatient,
-  isOwnedLockRelease, consumeDeliveredLockReleases, prepareVascularTrackerFixture,
+  isOwnedLockRelease, consumeDeliveredLockReleases, prepareVascularTrackerFixture, assertVitalsMoreHistory,
+  saveCurrentChartNote,
 } = require('./echart-two-patient-isolation-playwright-checks');
 
 test('patient snapshots preserve all columns, SQL nulls, empty values and child rows', () => {
@@ -75,6 +77,143 @@ test('navbar patient assertion rejects missing identity and conflicting query or
   }
 });
 
+test('Vitals More requires the exact freshly saved BP row, patient, value and route in both directions', () => {
+  for (const [patient, other, id, value, otherValue] of [
+    ['123', '456', '91', '128/82', '142/86'], ['456', '123', '92', '142/86', '128/82'],
+  ]) {
+    const expected = {patient, id, value, otherValue,
+      ownName: text => text.includes(`Patient${patient}`), otherName: text => text.includes(`Patient${other}`)};
+    const actual = {url: `https://fixture.invalid/carlos/encounter/oscarMeasurements/SetupDisplayHistory?type=BP&demographicNo=${patient}`,
+      ids: [id], text: `Patient${patient} BP ${value}`};
+    assert.doesNotThrow(() => assertVitalsMoreHistory(actual, expected));
+    for (const changed of [
+      {...actual, url: actual.url.replace(`demographicNo=${patient}`, `demographicNo=${other}`)},
+      {...actual, url: actual.url.replace('type=BP', 'type=WT')},
+      {...actual, url: actual.url.replace('SetupDisplayHistory', 'WrongRoute')},
+      {...actual, ids: ['999']}, {...actual, ids: []}, {...actual, ids: [id, '999']},
+      {...actual, text: `Patient${other} BP ${value}`},
+      {...actual, text: `Patient${patient} BP ${otherValue}`},
+      {...actual, text: `${actual.text} Patient${other}`},
+      {...actual, text: `${actual.text} ${otherValue}`},
+    ]) assert.throws(() => assertVitalsMoreHistory(changed, expected), /Vitals More/);
+  }
+});
+
+function nativeNoteSaveFixture({status = 200, submitted = {}, editable = true} = {}) {
+  const raw = "\n  Own <tag>&' literal\nsecond  line\n";
+  const note = {value: raw};
+  const observation = {value: '15-Oct-2026 00:25'};
+  const elements = {noteId: {value: '17'}, demographicNo: {value: '123'}};
+  const browser = {caseNote: 'current-note', origCaseNote: 'Before editing',
+    origObservationDate: observation.value, autoSaveXhr: null};
+  const document = {forms: {caseManagementEntryForm: {elements}}, getElementById(id) {
+    return id === 'current-note' ? note : id === 'observationDate' ? observation : null;
+  }};
+  const events = [];
+  const queries = [];
+  const body = new URLSearchParams({method: 'save', demographicNo: '123', noteId: '17', caseNote_note: raw, ...submitted});
+  const makeResponse = (method = 'POST', route = 'CaseManagementEntry', data = body) => ({
+    request: () => ({method: () => method, url: () => `https://fixture.invalid/carlos/${route}`,
+      postData: () => data.toString()}),
+    url: () => `https://fixture.invalid/carlos/${route}`,
+    status: () => status,
+    async finished() { events.push('body finished'); },
+  });
+  let acceptSave;
+  const chart = {
+    locator(selector) {
+      if (selector === '#caseManagementEntryForm textarea[name="caseNote_note"]') return {
+        async isEditable() { return editable; },
+      };
+      if (selector === '#caseManagementEntryForm [name="noteId"]') return {
+        async inputValue() { return elements.noteId.value; },
+      };
+      assert.equal(selector, '#saveImg');
+      return {first() { return {async click() {
+        assert(acceptSave, 'The response listener must precede native Save');
+        events.push('native click');
+        acceptSave(makeResponse());
+      }}; }};
+    },
+    waitForResponse(predicate) {
+      events.push('listener armed');
+      for (const response of [makeResponse('GET'), makeResponse('POST', 'OtherAction'),
+        makeResponse('POST', 'CaseManagementEntry', new URLSearchParams({method: 'autosave'}))]) {
+        assert.equal(predicate(response), false);
+      }
+      assert.equal(predicate(makeResponse()), true);
+      return new Promise(resolve => { acceptSave = resolve; });
+    },
+    async waitForFunction(callback, argument) {
+      const evaluate = () => vm.runInNewContext(`(${callback.toString()})(argument)`, {window: browser, document, argument});
+      if (argument === undefined) {
+        assert.equal(evaluate(), true);
+        events.push('autosave settled');
+        return;
+      }
+      assert.equal(events.at(-1), 'body finished');
+      elements.noteId.value = '18';
+      note.value = raw.trim();
+      browser.origCaseNote = note.value;
+      assert.equal(evaluate(), '18');
+      // A fresh ID alone is insufficient: fragments must restore this patient's complete clean state.
+      for (const [object, key, pending] of [[elements.noteId, 'value', '17'],
+        [elements.demographicNo, 'value', '456'], [browser, 'origCaseNote', 'Old note'],
+        [browser, 'origObservationDate', 'Old date'], [browser, 'autoSaveXhr', {}]]) {
+        const previous = object[key];
+        object[key] = pending;
+        assert(!evaluate(), `${key} must settle before the protected snapshot`);
+        object[key] = previous;
+      }
+      events.push('new revision settled');
+      return {async jsonValue() { return evaluate(); }, async dispose() { events.push('handle disposed'); }};
+    },
+  };
+  const sql = {value(query) {
+    assert.equal(events.at(-1), 'handle disposed');
+    queries.push(query);
+    if (query.startsWith('SELECT note ')) {
+      assert.match(query, /WHERE note_id=18\s+AND demographic_no=123$/);
+      return raw.trim();
+    }
+    assert.equal(query, 'SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=123');
+    return '0';
+  }};
+  return {chart, sql, raw, queries, events};
+}
+
+test('native note Save binds the raw POST and own new revision, waits for both clean baselines, and clears drafts', async () => {
+  const f = nativeNoteSaveFixture();
+  await saveCurrentChartNote(f.chart, f.sql, '123', f.raw);
+  assert.deepEqual(f.events, ['autosave settled', 'listener armed', 'native click', 'body finished',
+    'new revision settled', 'handle disposed']);
+  assert.equal(f.queries.length, 2);
+});
+
+test('failed native note saves cannot reach a protected database snapshot', async () => {
+  for (const status of [409, 500]) {
+    const f = nativeNoteSaveFixture({status});
+    await assert.rejects(saveCurrentChartNote(f.chart, f.sql, '123', f.raw), /current chart note did not save/);
+    assert.deepEqual(f.queries, []);
+    assert(!f.events.includes('new revision settled'));
+  }
+});
+
+test('native note Save rejects foreign identity, a changed old revision, and normalized raw payloads', async () => {
+  for (const submitted of [{demographicNo: '456'}, {noteId: '99'}, {caseNote_note: "Own <tag>&' literal\nsecond  line"}]) {
+    const f = nativeNoteSaveFixture({submitted});
+    await assert.rejects(saveCurrentChartNote(f.chart, f.sql, '123', f.raw), /own patient|raw note payload/);
+    assert.deepEqual(f.queries, []);
+  }
+});
+
+test('native note Save refuses a noneditable chart before dispatch', async () => {
+  const f = nativeNoteSaveFixture({editable: false});
+  await assert.rejects(saveCurrentChartNote(f.chart, f.sql, '123', f.raw), /not editable/);
+  assert.deepEqual(f.events, []);
+  assert.deepEqual(f.queries, []);
+});
+
 function lockRelease(overrides = {}) {
   return {url: () => 'https://fixture.invalid/carlos/CaseManagementEntry', method: () => 'POST', resourceType: () => 'ping',
     postData: () => 'method=releaseNoteLock&demographicNo=123&noteId=0&providerNo=999',
@@ -89,6 +228,14 @@ test('the unload proof binds the exact patient, note, provider, method and ping 
       postData: () => `${lockRelease().postData()}&${extra}`,
     })),
   ]) assert.equal(isOwnedLockRelease(lockRelease(change), '123', '0', '999'), false);
+});
+
+test('the unload proof matches the captured positive saved revision and rejects a stale zero or other revision', () => {
+  const releaseSaved = lockRelease({postData: () => 'method=releaseNoteLock&demographicNo=123&noteId=18&providerNo=999'});
+  assert.equal(isOwnedLockRelease(releaseSaved, '123', '18', '999'), true);
+  assert.equal(isOwnedLockRelease(releaseSaved, '123', '0', '999'), false);
+  assert.equal(isOwnedLockRelease(releaseSaved, '123', '19', '999'), false);
+  assert.equal(isOwnedLockRelease(lockRelease(), '123', '18', '999'), false);
 });
 
 test('delivered unload consumption removes only the captured abandoned ping and preserves unrelated failures', () => {
@@ -114,8 +261,14 @@ function vascularTrackerRegistry(displayOrder = '0', options = {}) {
   const before = structuredClone(registry);
   const cleanups = [];
   const writes = [];
+  const identityPredicates = {
+    form_name: /BINARY form_name='((?:''|[^'])*)'/,
+    form_value: /BINARY form_value='((?:''|[^'])*)'/,
+    form_table: /BINARY form_table='((?:''|[^'])*)'/,
+  };
   const sqlLiteral = (query, column) => {
-    const match = query.match(new RegExp(`BINARY ${column}='((?:''|[^'])*)'`));
+    assert(Object.hasOwn(identityPredicates, column), 'Unsupported registry identity column');
+    const match = query.match(identityPredicates[column]);
     assert(match, `UPDATE must guard ${column}`);
     return match[1].replace(/''/g, "'");
   };

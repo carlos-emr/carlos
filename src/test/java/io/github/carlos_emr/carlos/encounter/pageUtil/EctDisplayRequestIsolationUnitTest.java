@@ -14,6 +14,13 @@ import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -105,6 +112,86 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
             verify(appointments).find(Integer.valueOf(9002));
             verifyNoMoreInteractions(appointments);
             verifyNoInteractions(demographics, templates, groups, charts, messages);
+            assertGlobalUnchanged();
+        }
+    }
+
+    @Test
+    void shouldKeepReloadUrlsStableAcrossMergedQueryAndPostCyclesWithoutLosingRepeatedFilters() throws Exception {
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        String reload = "/carlos/encounter/displayMeasurements?demographicNo=101&demographic_no=101"
+                + "&appointmentNo=9001&curProviderNo=A11111&providerNo=999998"
+                + "&hC=%23ABCDEF&hC=%23ABCDEF&reason=Lab+Results&filter=first&filter=second&filter=first";
+        Map<String, String> postedContext = Map.of("demographicNo", "101", "demographic_no", "101",
+                "appointmentNo", "9001", "curProviderNo", "A11111", "providerNo", "999998");
+        String stable = null;
+        try (var moduleSecurity = mockConstruction(SecurityManager.class,
+                (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            for (int cycle = 0; cycle < 6; cycle++) {
+                MockHttpServletRequest request = reloadRequest(reload);
+                // A servlet merges these POST values with the copies already in the reload URL.
+                postedContext.forEach(request::addParameter);
+                request.setParameter("cmd", "measurements");
+                request.setParameter("reloadURL", reload);
+                request.setParameter("numToDisplay", "6");
+                request.setParameter("CSRF-TOKEN", "do-not-reflect");
+                RecordingDisplay action = execute(request, new MockHttpServletResponse());
+                assertThat(action.result).isEqualTo("success");
+                reload = ((NavBarDisplayDAO) request.getAttribute("DAO")).getReloadUrl();
+                Map<String, List<String>> parameters = queryParameters(reload);
+                postedContext.forEach((name, value) -> assertThat(parameters.get(name)).as(name).containsExactly(value));
+                assertThat(parameters.get("hC")).containsExactly("#ABCDEF", "#ABCDEF");
+                assertThat(parameters.get("filter")).containsExactly("first", "second", "first");
+                assertThat(parameters.get("reason")).containsExactly("Lab Results");
+                assertThat(parameters).doesNotContainKeys("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
+                assertThat(reload).startsWith("/carlos/encounter/displayMeasurements?").doesNotContain("://");
+                if (stable == null) stable = reload;
+                else assertThat(reload).as("reload cycle %s", cycle).isEqualTo(stable);
+            }
+        }
+        verify(appointments, times(6)).find(Integer.valueOf(9001));
+        verifyNoMoreInteractions(appointments);
+        verifyNoInteractions(demographics, templates, groups, charts, messages);
+        assertGlobalUnchanged();
+    }
+
+    @Test
+    void shouldRetainDistinctContextValuesAndGenuineRepeatedNonidentityValuesInTheStandaloneBuilder() {
+        Map<String, String[]> parameters = new LinkedHashMap<>();
+        Map<String, List<String>> distinct = Map.of(
+                "demographicNo", List.of("101", "202"), "demographic_no", List.of("101", "202"),
+                "appointmentNo", List.of("9001", "9002"), "curProviderNo", List.of("A11111", "B22222"),
+                "providerNo", List.of("999998", "A11111"));
+        distinct.forEach((name, values) -> parameters.put(name, new String[]{values.get(0), values.get(0), values.get(1)}));
+        parameters.put("hC", new String[]{"red", "red", "blue"});
+        parameters.put("filter", new String[]{"active", "active", "signed"});
+        Map<String, List<String>> result = queryParameters(EctDisplayAction.buildReloadUrl(
+                "/carlos/encounter/displayMeasurements", parameters));
+        distinct.forEach((name, values) -> assertThat(result.get(name)).as(name).containsExactlyElementsOf(values));
+        assertThat(result.get("hC")).containsExactly("red", "red", "blue");
+        assertThat(result.get("filter")).containsExactly("active", "active", "signed");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"demographicNo", "demographic_no"})
+    void shouldRejectConflictingQueryAndPostPatientsBeforeBuildingAReloadDao(String postedAlias) throws Exception {
+        MockHttpServletRequest request = reloadRequest(
+                "/carlos/encounter/displayMeasurements?demographicNo=101&appointmentNo=9001&filter=first&filter=second");
+        request.addParameter(postedAlias, "202");
+        request.setParameter("cmd", "measurements");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var daos = mockConstruction(NavBarDisplayDAO.class);
+             var beans = mockConstruction(EctSessionBean.class);
+             var moduleSecurity = mockConstruction(SecurityManager.class)) {
+            RecordingDisplay action = execute(request, response);
+            assertThat(action.result).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(action.loaded).isNull();
+            assertThat(request.getAttribute("DAO")).isNull();
+            assertThat(daos.constructed()).isEmpty();
+            assertThat(beans.constructed()).isEmpty();
+            assertThat(moduleSecurity.constructed()).isEmpty();
+            verifyNoInteractions(security, demographics, templates, groups, charts, appointments, messages);
             assertGlobalUnchanged();
         }
     }
@@ -381,6 +468,29 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("appointmentNo", appointment);
         if (patient != null) request.setParameter("demographicNo", patient);
         return request;
+    }
+
+    private MockHttpServletRequest reloadRequest(String url) {
+        URI uri = URI.create(url);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", uri.getPath());
+        request.setContextPath("/carlos");
+        request.setSession(session);
+        request.setQueryString(uri.getRawQuery());
+        queryParameters(url).forEach((name, values) -> request.addParameter(name, values.toArray(String[]::new)));
+        return request;
+    }
+
+    private static Map<String, List<String>> queryParameters(String url) {
+        Map<String, List<String>> parameters = new LinkedHashMap<>();
+        String query = URI.create(url).getRawQuery();
+        if (query == null || query.isEmpty()) return parameters;
+        for (String parameter : query.split("&")) {
+            String[] parts = parameter.split("=", 2);
+            String name = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+            String value = parts.length == 2 ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8) : "";
+            parameters.computeIfAbsent(name, ignored -> new ArrayList<>()).add(value);
+        }
+        return parameters;
     }
 
     private RecordingDisplay execute(MockHttpServletRequest request, MockHttpServletResponse response) throws Exception {

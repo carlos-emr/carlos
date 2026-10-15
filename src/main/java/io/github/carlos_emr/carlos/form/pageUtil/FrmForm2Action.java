@@ -171,8 +171,9 @@ public class FrmForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
         }
+        final Properties currentRecord;
         try {
-            FrmSetupForm2Action.loadFormRecord(trustedFormName, formId, demographicNo);
+            currentRecord = FrmSetupForm2Action.loadFormRecord(trustedFormName, formId, demographicNo);
         } catch (IllegalArgumentException foreignRecord) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
             return NONE;
@@ -222,6 +223,10 @@ public class FrmForm2Action extends ActionSupport {
         logger.debug("current mem 5 " + currentMem());
         for (int i = 0; i < measurementTypes.size(); i++) {
             mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
+            if (isRetainedVtType(trustedFormName, mt.getType())) {
+                // These types have no editor in VT. Client carriers are not clinical input.
+                continue;
+            }
             validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
             String inputValue = (String) this.getValue(mt.getType() + "Value");
             String observationDate = (String) this.getValue(mt.getType() + "Date");
@@ -281,8 +286,12 @@ public class FrmForm2Action extends ActionSupport {
             for (int i = 0; i < measurementTypes.size(); i++) {
                 logger.debug("current mem 7.1." + i + " " + currentMem());
                 mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
-                validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
                 String type = mt.getType();
+                if (isRetainedVtType(trustedFormName, type)) {
+                    retainStoredTriplet(props, currentRecord, type);
+                    continue;
+                }
+                validation = (EctValidationsBean) mt.getValidationRules().elementAt(0);
                 String inputValue = (String) this.getValue(type + "Value");
                 String lastData = (String) this.getValue(type + "LastData");
                 String lastDataEnteredDate = (String) this.getValue(type + "LastDataEnteredDate");
@@ -428,6 +437,20 @@ public class FrmForm2Action extends ActionSupport {
             }
         }
         return valid;
+    }
+
+    private static boolean isRetainedVtType(String formName, String type) {
+        return "VTForm".equals(formName) && ("iEx".equals(type) || "WHR".equals(type));
+    }
+
+    private static void retainStoredTriplet(Properties target, Properties currentRecord, String type) {
+        if (currentRecord == null) return;
+        for (String suffix : List.of("Value", "Date", "Comments")) {
+            String key = type + suffix;
+            String value = currentRecord.getProperty(key);
+            // An absent property is SQL NULL; preserve it instead of inventing a date or value.
+            if (value != null) target.setProperty(key, value);
+        }
     }
 
     private boolean write2MeasurementTable(String demographicNo, String providerNo,
