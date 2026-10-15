@@ -521,10 +521,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<fmt:message key="admin.admin.issueEditor"/>
 					</a></li>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-						<fmt:message key="admin.admin.surveyManager"/>
-					</a></li>
-					<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/DefaultEncounterIssue">
 						<fmt:message key="admin.admin.defaultEncounterIssue"/>
 					</a></li>
@@ -566,13 +562,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 						<li><a href="javascript:void(0);"
 						class="xlink" rel="${ctx}/issueAdmin?method=list">
 							<fmt:message key="admin.admin.issueEditor"/>
-						</a></li>
-					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>"
-						objectName="_admin.userCreatedForms" rights="r">
-						<li><a href="javascript:void(0);"
-						class="xlink" rel="${ctx}/SurveyManager">
-							<fmt:message key="admin.admin.surveyManager"/>
 						</a></li>
 					</security:oscarSec>
 				</ul>

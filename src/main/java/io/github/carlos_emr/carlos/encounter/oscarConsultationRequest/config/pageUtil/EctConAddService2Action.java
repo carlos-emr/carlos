@@ -66,8 +66,6 @@ public class EctConAddService2Action extends ActionSupport {
         consultationServiceDao.persist(cs);
         request.setAttribute("SERVADD", service);
 
-        EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
-        constructSpecialistsScriptsFile.makeString(request.getLocale());
         return SUCCESS;
     }
 
