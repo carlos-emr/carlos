@@ -312,7 +312,7 @@
                 <%-- No option is preselected: the administrator chooses the role explicitly,
                      and only from the roles Assign Role to Provider would let them assign. --%>
                 <tr>
-                    <td align="right"><label for="role_name"><fmt:message key="admin.securityrecord.formRole"/></label>:
+                    <td style="text-align: right"><label for="role_name"><fmt:message key="admin.securityrecord.formRole"/></label>:
                     </td>
                     <td><select name="role_name" id="role_name" aria-required="true">
                         <option value="">-- select one --</option>

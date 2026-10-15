@@ -146,12 +146,8 @@ public class ProviderLoginCreationService {
             return false;
         }
         if (IsPropertiesOn.isMultisitesEnable() && hasSiteAccessPrivacy(loggedInInfo)) {
-            for (Provider shared : providerSiteDao.findActiveProvidersBySharedSites(loggedInInfo.getLoggedInProviderNo())) {
-                if (providerNo.equals(shared.getProviderNo())) {
-                    return true;
-                }
-            }
-            return false;
+            return providerSiteDao.findActiveProvidersBySharedSites(loggedInInfo.getLoggedInProviderNo()).stream()
+                    .anyMatch(shared -> providerNo.equals(shared.getProviderNo()));
         }
         Provider provider = providerDao.getProvider(providerNo);
         return provider != null && "1".equals(provider.getStatus());

@@ -116,6 +116,30 @@ public class SecurityAddSecurityHelper {
                 ? null : "admin.securityaddsecurity.msgPasswordInvalid";
     }
 
+    /** The unsaved login row for an already validated request; the password is encoded here. */
+    private Security newLogin(ServletRequest request, String userName, String password) {
+        Security s = new Security();
+        s.setUserName(userName);
+        s.setPassword(securityManager.encodePassword(password));
+        s.setProviderNo(request.getParameter("provider_no"));
+        s.setPin(request.getParameter("pin"));
+        s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
+        s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
+        s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
+        s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
+        s.setForcePasswordReset("1".equals(request.getParameter("forcePasswordReset")));
+        s.setPasswordUpdateDate(new Date());
+        s.setPinUpdateDate(new Date());
+        if ("1".equals(request.getParameter("enableMfa"))) {
+            s.setUsingMfa(Boolean.TRUE);
+            s.setBLocallockset(0);
+            s.setBRemotelockset(0);
+        } else {
+            s.setUsingMfa(Boolean.FALSE);
+        }
+        return s;
+    }
+
     private String process(PageContext pageContext) {
         ServletRequest request = pageContext.getRequest();
 
@@ -149,33 +173,7 @@ public class SecurityAddSecurityHelper {
             return "admin.securityaddsecurity.msgRoleInvalid";
         }
 
-        String digestedPassword = securityManager.encodePassword(password);
-        Security s = new Security();
-        s.setUserName(userName);
-        s.setPassword(digestedPassword);
-        s.setProviderNo(request.getParameter("provider_no"));
-        s.setPin(request.getParameter("pin"));
-        s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
-        s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-        s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
-        s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
-
-        if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
-            s.setForcePasswordReset(Boolean.TRUE);
-        } else {
-            s.setForcePasswordReset(Boolean.FALSE);
-        }
-
-        s.setPasswordUpdateDate(new Date());
-        s.setPinUpdateDate(new Date());
-
-		if (request.getParameter("enableMfa") != null && request.getParameter("enableMfa").equals("1")) {
-			s.setUsingMfa(Boolean.TRUE);
-			s.setBLocallockset(0);
-			s.setBRemotelockset(0);
-		} else {
-			s.setUsingMfa(Boolean.FALSE);
-		}
+        Security s = newLogin(request, userName, password);
 
         try {
             loginCreationService.createLoginWithRole(s, roleName);

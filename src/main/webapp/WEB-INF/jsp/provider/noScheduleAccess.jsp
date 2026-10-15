@@ -44,7 +44,7 @@
 --%>
 <% response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN); %>
 <!DOCTYPE html>
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
