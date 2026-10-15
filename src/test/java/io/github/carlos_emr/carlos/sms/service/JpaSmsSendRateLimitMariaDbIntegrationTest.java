@@ -127,8 +127,8 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         }
         schemaUrl = serverUrl + schema;
         try (Connection fixture = DriverManager.getConnection(schemaUrl, user, password)) {
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_transaction (");
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_provider_rate_limit (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_transaction (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (");
             executeMigrationStatement(fixture, "add_sms_consent", "ALTER TABLE sms_transaction");
         }
         entityManagerFactory = new Configuration().addAnnotatedClass(SmsProviderRateLimit.class)
