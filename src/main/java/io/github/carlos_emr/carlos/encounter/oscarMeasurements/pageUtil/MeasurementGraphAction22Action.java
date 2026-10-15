@@ -268,11 +268,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 }
                 try {
@@ -376,11 +373,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 }
             }
@@ -507,11 +501,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 }
             }
@@ -894,11 +885,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 }
                 try {
@@ -1008,11 +996,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
@@ -1040,11 +1025,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 if (StringUtils.isNotEmpty(result)) {
                     result = result.replaceAll(NUMERIC_REGEX, "");
                     if (NumberUtils.isParsable(result)) {
-                        double plotted = Double.parseDouble(result);
-                        if (A1cPercent.appliesTo(mdb.getType())) {
-                            plotted = A1cPercent.toPercent(plotted);
-                        }
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()), plotted);
+                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
+                                plottedValue(mdb.getType(), result));
                     }
                 } else {
                     log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
@@ -1136,5 +1118,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return renderer;
     }
 
-
+    /**
+     * Parses a measurement result for plotting. An A1C reported as a fraction (0.095) is plotted
+     * as percent (9.5) so labs that report either form share one axis (issue #4614).
+     */
+    private static double plottedValue(String measurementType, String result) {
+        double value = Double.parseDouble(result);
+        return A1cPercent.appliesTo(measurementType) ? A1cPercent.toPercent(value) : value;
+    }
 }
