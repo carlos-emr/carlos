@@ -26,7 +26,7 @@ function element(tag, props = {}) {
   }, props);
 }
 
-function harness() {
+function harness({ searchData = [{ description: ' Safe & Sound ', code: 'A"B', id: 12 }], searchFails = false } = {}) {
   const list = element('ul');
   const cpp = element('form', { id: 'frmIssueNotes', elements: { issueChange: { value: '' } }, children: [list],
     querySelector: selector => selector === '#issueIdList' ? list : null });
@@ -56,10 +56,11 @@ function harness() {
       off() { events.delete(target); return this; },
     };
   }
-  jQuery.get = (url, data) => { requests.push({ url, data }); return {
-    abort() {}, done(fn) { fn([{ description: ' Safe & Sound ', code: 'A"B', id: 12 }]); return this; }, fail() {},
+  jQuery.ajax = options => { requests.push(options); return {
+    abort() {}, done(fn) { if (!searchFails) fn(searchData); return this; },
+    fail(fn) { if (searchFails) fn(); return this; },
   }; };
-  jQuery.map = (items, fn) => items.map(fn);
+  jQuery.map = (items, fn) => items.map(fn).filter(item => item != null);
   const document = { forms: { caseManagementEntryForm: note, frmIssueNotes: cpp },
     getElementById: id => fields[id] || null,
     createElement: tag => element(tag), createTextNode: text => element('#text', { textContent: text }),
@@ -122,6 +123,8 @@ test('autocomplete sends search as request data and routes each pick to its owni
   h.widgets.get(h.input).source({ term }, data => { results = data; });
   assert.equal(h.requests[0].data.term, term);
   assert.equal(h.requests[0].url, '/carlos/CaseManagementEntry');
+  assert.equal(h.requests[0].method, 'GET');
+  assert.equal(h.requests[0].dataType, 'json');
   assert.equal(results[0].value, 'Safe & Sound');
   const selected = { item: { id: 12, value: 'Safe & Sound' } };
   assert.equal(h.widgets.get(h.input).select({}, selected), false);
@@ -132,6 +135,32 @@ test('autocomplete sends search as request data and routes each pick to its owni
   assert.equal(h.list.children.length, 1);
   assert.equal(h.note.elements.newIssueId.value, '12');
   assert.equal(h.cppInput.value, '');
+});
+
+test('autocomplete responds once with no suggestions for non-array payloads or failed requests', () => {
+  for (const options of [{searchData: null}, {searchData: {}}, {searchData: 'not an array'},
+    {searchData: 42}, {searchData: []}, {searchFails: true}]) {
+    const h = harness(options); h.context.initializeIssueAutocomplete(h.document);
+    for (const input of [h.input, h.cppInput]) {
+      const responses = [];
+      h.widgets.get(input).source({term: 'Safety'}, data => responses.push(Array.from(data)));
+      assert.deepEqual(responses, [[]]);
+    }
+  }
+});
+
+test('autocomplete skips malformed items before trimming descriptions and preserves valid suggestions', () => {
+  const h = harness({searchData: [null, false, 42, 'invalid', {}, {description: null},
+    {description: 17}, {description: {}}, {description: []},
+    {id: 12, description: ' Safe & Sound ', code: 'A"B'}]});
+  h.context.initializeIssueAutocomplete(h.document);
+  for (const input of [h.input, h.cppInput]) {
+    const responses = [];
+    h.widgets.get(input).source({term: 'Safety'}, data => responses.push(data));
+    assert.equal(responses.length, 1);
+    assert.equal(responses[0].length, 1);
+    assert.deepEqual({...responses[0][0]}, {id: 12, label: 'Safe & Sound (A"B)', value: 'Safe & Sound'});
+  }
 });
 
 test('initialization is idempotent and typing invalidates only the note selection', () => {

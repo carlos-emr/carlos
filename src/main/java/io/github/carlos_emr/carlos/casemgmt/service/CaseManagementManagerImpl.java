@@ -1776,11 +1776,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         String uuid = note.getUuid();
         if (uuid == null || uuid.isBlank()) {
             if (note.getId() == null) return null;
-            CaseManagementNote original = caseManagementNoteDAO.getNoteForUpdate(note.getId());
-            if (original == null) throw new StaleNoteRevisionException();
-            if (!Objects.equals(original.getDemographic_no(), note.getDemographic_no())) {
-                throw new SecurityException("Note belongs to a different demographic");
-            }
+            CaseManagementNote original = getLegacyNoteForUpdate(note);
             uuid = original.getUuid();
             if (uuid == null || uuid.isBlank()) {
                 uuid = UUID.randomUUID().toString();
@@ -1804,6 +1800,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
         // REST annotation clients send a UUID without an ID; retain their existing links too.
         return latest;
+    }
+
+    private CaseManagementNote getLegacyNoteForUpdate(CaseManagementNote submitted) {
+        CaseManagementNote original = caseManagementNoteDAO.getNoteForUpdate(submitted.getId());
+        if (original == null) throw new StaleNoteRevisionException();
+        if (!Objects.equals(original.getDemographic_no(), submitted.getDemographic_no())) {
+            throw new SecurityException("Note belongs to a different demographic");
+        }
+        return original;
     }
 
     private void copyRevisionMetadata(Long previousId, CaseManagementNote revision) {

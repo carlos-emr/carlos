@@ -3085,14 +3085,23 @@ function updateCPPNote() {
             search.autocomplete({
                 source: function (request, response) {
                     if (pendingSearch) pendingSearch.abort();
-                    pendingSearch = jQuery.get(ctx + '/CaseManagementEntry', {
-                        method: 'issueList', demographicNo: demographicNo,
-                        providerNo: providerNo, term: request.term
+                    pendingSearch = jQuery.ajax({
+                        url: ctx + '/CaseManagementEntry',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {method: 'issueList', demographicNo: demographicNo,
+                            providerNo: providerNo, term: request.term}
                     }).done(function (data) {
                         if (disposed || input.isConnected === false) return;
+                        if (!Array.isArray(data)) {
+                            response([]);
+                            return;
+                        }
                         response(jQuery.map(data, function (item) {
-                            return {label: item.description.trim() + ' (' + item.code + ')',
-                                value: item.description.trim(), id: item.id};
+                            if (!item || typeof item.description !== 'string') return null;
+                            var description = item.description.trim();
+                            return {label: description + ' (' + item.code + ')',
+                                value: description, id: item.id};
                         }));
                     }).fail(function () { if (!disposed) response([]); });
                 },

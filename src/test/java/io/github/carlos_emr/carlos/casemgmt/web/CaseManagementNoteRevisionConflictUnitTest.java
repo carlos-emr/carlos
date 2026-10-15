@@ -43,6 +43,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Regression coverage for rejected note saves and draft recovery.
+ *
+ * @since 2026-10-14
+ */
 @Tag("unit")
 @Tag("casemgmt")
 class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {

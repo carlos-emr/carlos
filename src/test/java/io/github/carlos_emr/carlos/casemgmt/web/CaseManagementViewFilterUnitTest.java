@@ -19,7 +19,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/** Exercises the filter handoff through the real note-list action and selection criteria. */
+/**
+ * Exercises the filter handoff through the real note-list action and selection criteria.
+ *
+ * @since 2026-10-14
+ */
 @Tag("unit")
 class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
     private CaseManagementView2Action action;

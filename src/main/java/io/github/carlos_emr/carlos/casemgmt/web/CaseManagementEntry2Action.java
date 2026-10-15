@@ -1616,7 +1616,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setIssues(issueset);
         Boolean useNewCaseMgmt = Boolean.valueOf((String) session.getAttribute("newCaseManagement"));
         if (useNewCaseMgmt) {
-            ongoing = saveCheckedIssues_newCme(request, demo, note, issuelist, checkedlist, issueset, noteSet, ongoing);
+            ongoing = prepareCheckedIssues(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
         } else {
             ongoing = saveCheckedIssues_oldCme(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
         }
@@ -1817,30 +1817,24 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
     }
 
-    private String saveCheckedIssues_newCme(HttpServletRequest request, String demo, CaseManagementNote note, List<CaseManagementIssue> issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
+    private String prepareCheckedIssues(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist,
+                                        List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
         int demographicNo = Integer.parseInt(demo);
 
         for (int i = 0; i < checkedlist.size(); i++) {
             CheckBoxBean checkBoxBean = checkedlist.get(i);
             IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
 
-            if (issueDisplay.resolved != null && issueDisplay.resolved.equals("unresolved")) {
+            if ("unresolved".equals(issueDisplay.resolved)) {
                 ongoing = ongoing + issueDisplay.getDescription() + "\n";
             }
 
             boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
 
-            CaseManagementIssue caseManagementIssue = null;
-            caseManagementIssue = caseManagementIssueDao.getIssuebyIssueCode(demo, issueDisplay.code);
-            if (caseManagementIssue == null && isChecked) {
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue = prepareCheckedIssue(demo, issue, issuelist);
-                }
-            }
+            CaseManagementIssue caseManagementIssue = findCheckedIssue(demo, issueDisplay, isChecked, issuelist);
 
             if (caseManagementIssue == null) continue;
-            else copyIssueDisplayToCaseManagementIssue(caseManagementIssue, issueDisplay);
+            copyIssueDisplayToCaseManagementIssue(caseManagementIssue, issueDisplay);
 
             if (isChecked) {
                 checkBoxBean.setChecked("on");
@@ -1861,6 +1855,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
         }
         return ongoing;
+    }
+
+    private CaseManagementIssue findCheckedIssue(String demo, IssueDisplay display, boolean checked,
+                                                 List<CaseManagementIssue> pending) {
+        CaseManagementIssue existing = caseManagementIssueDao.getIssuebyIssueCode(demo, display.code);
+        if (existing != null || !checked) return existing;
+        Issue issue = issueDao.findIssueByCode(display.code);
+        return issue == null ? null : prepareCheckedIssue(demo, issue, pending);
     }
 
     private CaseManagementIssue prepareCheckedIssue(String demo, Issue issue, List<CaseManagementIssue> pending) {

@@ -44,11 +44,14 @@ const html = `<!doctype html><html><body>
     const page = await browser.newPage(); const errors = []; const queries = [];
     page.on('pageerror', error => errors.push(error.message));
     const issueName = 'A & B <img src=x onerror="window.issueInjected=true">';
+    const validIssueResponse = {contentType: 'application/json',
+      body: JSON.stringify([{id: 12, description: issueName, code: 'SAFE'}])};
+    let issueResponse = validIssueResponse;
     await page.route('http://echart.test/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname === '/CaseManagementEntry') {
         queries.push(url.searchParams.get('term'));
-        await route.fulfill({ contentType: 'application/json', body: JSON.stringify([{ id: 12, description: issueName, code: 'SAFE' }]) });
+        await route.fulfill(issueResponse);
       } else await route.fulfill({ contentType: 'text/html', body: html });
     });
     await page.goto('http://echart.test/fixture');
@@ -129,6 +132,43 @@ const html = `<!doctype html><html><body>
       assert.equal(await page.locator('.ui-helper-hidden-accessible').count(), 2, 'Detached note live regions must be removed');
     }
     console.log('PASS replacement editor binds once, follows latest id, and destroys detached widget');
+
+    const malformedItems = [null, false, 42, 'invalid', {}, {description: null}, {description: 17},
+      {description: {}}, {description: []}];
+    const searchCases = [
+      {name: 'HTML error page', contentType: 'text/html', body: '<html><body>Login required</body></html>'},
+      {name: 'malformed JSON', contentType: 'application/json', body: '[{"description":'},
+      {name: 'null JSON', contentType: 'application/json', body: 'null'},
+      {name: 'object JSON', contentType: 'application/json', body: '{"description":"not an array"}'},
+      {name: 'invalid items', contentType: 'application/json', body: JSON.stringify(malformedItems)},
+      {name: 'HTTP failure', status: 503, contentType: 'text/plain', body: 'Unavailable'},
+      {name: 'script response', contentType: 'text/javascript', body: 'window.issueJsonInjected=true;'},
+      {name: 'mixed items with plain content type', contentType: 'text/plain', body: JSON.stringify([
+        ...malformedItems, {id: 12, description: ' Safe & Sound ', code: 'SAFE'},
+      ]), expected: [{id: 12, label: 'Safe & Sound (SAFE)', value: 'Safe & Sound'}]},
+    ];
+    for (const selector of ['#issueAutocomplete', '#issueAutocompleteCPP']) {
+      const search = page.locator(selector);
+      for (const {name, expected = [], ...response} of searchCases) {
+        issueResponse = response;
+        await search.evaluate(input => {
+          window.issueSearchResponses = [];
+          jQuery(input).one('autocompleteresponse', (event, ui) => window.issueSearchResponses.push(ui.content));
+        });
+        await search.fill(name);
+        await page.waitForFunction(() => window.issueSearchResponses.length > 0, null, {timeout: 5000});
+        assert.deepEqual(await page.evaluate(() => window.issueSearchResponses), [expected], name);
+        assert.equal(await search.evaluate(input => jQuery(input).autocomplete('instance').pending), 0, name);
+        assert.equal(await search.evaluate(input => input.classList.contains('ui-autocomplete-loading')), false, name);
+      }
+      issueResponse = validIssueResponse;
+      await pick(selector);
+    }
+    assert.equal(await page.evaluate(() => window.issueJsonInjected), undefined);
+    assert.equal(await page.locator('#newIssueId').inputValue(), '12');
+    assert.equal(await choice.count(), 1);
+    assert.equal(await choice.isChecked(), true);
+    console.log('PASS JSON-only autocomplete handles HTML/malformed/failed responses and invalid items, clears pending state, and recovers in both forms');
 
     await page.locator('#notesFilterToggle').click();
     assert.equal(await page.locator('#filter').isVisible(), true);

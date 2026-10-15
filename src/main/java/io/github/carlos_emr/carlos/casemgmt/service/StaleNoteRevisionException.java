@@ -7,7 +7,11 @@ import jakarta.persistence.PessimisticLockException;
 import org.hibernate.exception.SnapshotIsolationException;
 import org.springframework.dao.ConcurrencyFailureException;
 
-/** The submitted edit no longer describes the latest persisted note revision. */
+/**
+ * The submitted edit no longer describes the latest persisted note revision.
+ *
+ * @since 2026-10-14
+ */
 public class StaleNoteRevisionException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 

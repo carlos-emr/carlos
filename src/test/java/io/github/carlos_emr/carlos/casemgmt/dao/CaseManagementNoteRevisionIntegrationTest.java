@@ -26,7 +26,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-/** Verifies that chart revisions insert new rows and retain historical associations. */
+/**
+ * Verifies that chart revisions insert new rows and retain historical associations.
+ *
+ * @since 2026-10-14
+ */
 class CaseManagementNoteRevisionIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
     @Autowired
     @Qualifier("CaseManagementNoteExtDAO")

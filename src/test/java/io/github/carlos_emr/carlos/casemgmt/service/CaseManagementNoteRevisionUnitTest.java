@@ -22,6 +22,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Regression coverage for immutable note revisions.
+ *
+ * @since 2026-10-14
+ */
 @Tag("unit")
 @Tag("casemgmt")
 class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
@@ -213,7 +218,7 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
 
         CaseManagementNote saved = manager.saveNoteRevisionSimple(submitted);
 
-        assertThat(UUID.fromString(saved.getUuid()).toString()).isEqualTo(saved.getUuid());
+        assertThat(UUID.fromString(saved.getUuid())).hasToString(saved.getUuid());
         assertThat(original.getUuid()).isEqualTo(saved.getUuid());
         assertThat(original.getNote()).isEqualTo("Original assessment");
         assertThat(original.getHistory()).isEqualTo("Original assessment");

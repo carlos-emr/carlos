@@ -35,7 +35,11 @@ import java.util.concurrent.TimeoutException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Uses the isolated test database, including separate transactions for competing legacy editors. */
+/**
+ * Uses the isolated test database, including separate transactions for competing legacy editors.
+ *
+ * @since 2026-10-15
+ */
 class CaseManagementLegacyNoteRevisionIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
     @Autowired
     @Qualifier("CaseManagementNoteExtDAO")
@@ -95,7 +99,7 @@ class CaseManagementLegacyNoteRevisionIntegrationTest extends CaseManagementNote
         entityManager.clear();
 
         CaseManagementNote original = caseManagementNoteDAO.getNote(originalId);
-        assertThat(UUID.fromString(revision.getUuid()).toString()).isEqualTo(revision.getUuid());
+        assertThat(UUID.fromString(revision.getUuid())).hasToString(revision.getUuid());
         assertThat(original.getUuid()).isEqualTo(revision.getUuid());
         assertThat(original.getNote()).isEqualTo("Original assessment");
         assertThat(original.getHistory()).isEqualTo("Original history");
@@ -109,7 +113,8 @@ class CaseManagementLegacyNoteRevisionIntegrationTest extends CaseManagementNote
         assertThat(extensions.getExtByNote(revision.getId())).extracting(CaseManagementNoteExt::getValue).containsExactly("2020");
         assertThat(links.getLinkByNote(originalId)).hasSize(1);
         assertThat(links.getLinkByNote(revision.getId())).extracting(CaseManagementNoteLink::getTableId).containsExactly(77L);
-        assertThatThrownBy(() -> service().saveNoteRevisionSimple(stale)).isInstanceOf(StaleNoteRevisionException.class);
+        CaseManagementManagerImpl manager = service();
+        assertThatThrownBy(() -> manager.saveNoteRevisionSimple(stale)).isInstanceOf(StaleNoteRevisionException.class);
         assertThat(caseManagementNoteDAO.getNotesByUUID(revision.getUuid())).extracting(CaseManagementNote::getId)
                 .containsExactly(originalId, revision.getId());
     }

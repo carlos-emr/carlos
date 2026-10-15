@@ -26,7 +26,11 @@ import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Runs the production JDBC/Hibernate/Spring exception conversion, without a database connection. */
+/**
+ * Runs the production JDBC/Hibernate/Spring exception conversion, without a database connection.
+ *
+ * @since 2026-10-14
+ */
 @Tag("unit")
 @Tag("casemgmt")
 class StaleNoteRevisionExceptionUnitTest {
