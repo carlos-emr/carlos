@@ -22,7 +22,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, refusedHead, urlFor, signIn } = require('./lib/authz-read-probe');
-const { DENIED, ERROR_PAGE_REFUSALS, patientQuery } = require('./lib/authz-read-routes');
+const { DENIED, ERROR_PAGE_REFUSALS, BC_BILLING_ERROR_PAGE_REFUSALS, patientQuery } = require('./lib/authz-read-routes');
 
 // A route each role may open, proving the login is alive (a dead session would also "refuse").
 const CONTROL = {
@@ -83,13 +83,16 @@ async function workflow(s) {
   const errorPages = [];
   let tested = 0;
   await s.step('controls for the error-page refusals: the full-privilege login is served the same URLs', async () => {
+    // The BC billing views join the sweep only where the BC billing schema exists to serve them.
+    const bcBilling = sql.value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='billingmaster'") === '1';
+    const routes = bcBilling ? [...ERROR_PAGE_REFUSALS, ...BC_BILLING_ERROR_PAGE_REFUSALS] : ERROR_PAGE_REFUSALS;
     const served = [];
-    for (const route of ERROR_PAGE_REFUSALS) {
+    for (const route of routes) {
       const result = await probe(s.context, urlFor(config, `${route}?${query}`));
       // A route that answers the control login with an empty body (a logging endpoint) proves nothing.
       if (classify(result) === 'served') served.push(route);
     }
-    h.assert(served.length >= ERROR_PAGE_REFUSALS.length * 0.8, `Only ${served.length} of ${ERROR_PAGE_REFUSALS.length} control routes were served`);
+    h.assert(served.length >= routes.length * 0.8, `Only ${served.length} of ${routes.length} control routes were served`);
     tested = served.length;
     for (const route of served) {
       const result = await probe(sessions.er_clerk.context, urlFor(config, `${route}?${query}`));
