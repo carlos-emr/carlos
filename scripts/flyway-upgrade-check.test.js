@@ -16,8 +16,11 @@ test('every published release can upgrade to this branch', () => {
 });
 
 test('new migrations on this release line stay below its floor', (t) => {
-  const floor = floors[currentLine()];
-  if (!floor) return t.skip(`no floor for line ${currentLine()}: it is the newest line`);
+  const line = currentLine();
+  // An unreadable version must not switch the floor off quietly on a release branch.
+  assert.ok(line, 'cannot read the release line (YYYY.MM) from the first <version> in pom.xml');
+  const floor = floors[line];
+  if (!floor) return t.skip(`no floor for line ${line}: it is the newest line`);
   assert.deepEqual(floorErrors(floor, released, readMigrations()), []);
 });
 
