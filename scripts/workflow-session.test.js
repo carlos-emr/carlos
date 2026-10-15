@@ -116,3 +116,80 @@ for (const contextOptions of [undefined, { locale: 'en-US' }]) {
     assert.equal(closed, true);
   });
 }
+
+/*
+ * The runner compares a check's failing step with the manifest's expectedFailure.step, so step()
+ * must hand the label of the step that threw to runCheck's result. Everything else in the
+ * session is a double; runCheck is the real one with a process stand-in, so the exit code of
+ * the test process is untouched.
+ */
+async function runStepped(t, workflow, { cleanupFails = false } = {}) {
+  const h = require('./lib/playwright-harness');
+  const { runWorkflow } = require('./lib/workflow-session');
+  const realRunCheck = h.runCheck;
+  const processRef = { exitCode: null, env: {}, on() {}, removeListener() {} };
+  const browser = { async newContext() { return { setDefaultTimeout() {}, on() {} }; }, async close() {} };
+  t.mock.method(h, 'readConfig', () => ({ testUser: 'fixture', mysql: {}, ignoreHTTPSErrors: true }));
+  t.mock.method(h, 'createSqlRunner', () => ({ value: () => '999998', dispose() {} }));
+  t.mock.method(h, 'launchBrowser', async () => browser);
+  t.mock.method(h, 'login', async () => ({}));
+  t.mock.method(h, 'runCheck', (options) => realRunCheck({ ...options, processRef, stdout: { log() {} } }));
+  t.mock.method(console, 'log', () => {});
+  t.mock.method(console, 'error', () => {});
+  return runWorkflow('stepped-workflow', async (session) => {
+    if (cleanupFails) session.cleanup(() => { throw new Error('DELETE failed'); });
+    await workflow(session);
+  }, { openPatient: false });
+}
+
+test('shouldRecordFailedStep_whenAStepThrows', async (t) => {
+  const result = await runStepped(t, async (s) => {
+    await s.step('first step', async () => {});
+    await s.step('second step', async () => { throw new Error('boom'); });
+    await s.step('third step', async () => { throw new Error('never reached'); });
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal(result.failedStep, 'second step');
+});
+
+test('shouldRecordTheInnermostStep_whenStepsNest', async (t) => {
+  const result = await runStepped(t, async (s) => {
+    await s.step('outer wrapper', async () => {
+      await s.step('inner step', async () => { throw new Error('boom'); });
+    });
+  });
+  assert.equal(result.failedStep, 'inner step');
+});
+
+test('shouldAttributeAStrictPageErrorToTheStepThatCausedIt', async (t) => {
+  const result = await runStepped(t, async (s) => {
+    await s.step('quiet step', async () => {});
+    await s.step('noisy step', async () => { s.recorder.pageErrors.push({ label: 'page', text: 'ReferenceError: x is not defined' }); });
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal(result.failedStep, 'noisy step');
+});
+
+test('shouldOmitFailedStep_whenTheWorkflowFailsOutsideAnyStep', async (t) => {
+  const result = await runStepped(t, async (s) => {
+    await s.step('only step', async () => {});
+    throw new Error('thrown between steps');
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal('failedStep' in result, false);
+});
+
+test('shouldRecordNoFailedStep_whenEveryStepPasses', async (t) => {
+  const result = await runStepped(t, async (s) => { await s.step('only step', async () => {}); });
+  assert.equal(result.outcome, 'PASS');
+  assert.equal('failedStep' in result, false);
+});
+
+test('shouldFlagCleanupFailure_whenOwnedCleanupFailsAfterAStepFailure', async (t) => {
+  const result = await runStepped(t, async (s) => {
+    await s.step('the known step', async () => { throw new Error('boom'); });
+  }, { cleanupFails: true });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal(result.failedStep, 'the known step');
+  assert.equal(result.cleanupFailed, true);
+});

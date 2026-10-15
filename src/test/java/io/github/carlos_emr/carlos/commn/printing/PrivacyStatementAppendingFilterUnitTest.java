@@ -15,8 +15,11 @@ package io.github.carlos_emr.carlos.commn.printing;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -203,6 +206,101 @@ class PrivacyStatementAppendingFilterUnitTest {
             assertThat(response.getContentAsString()).contains("Test confidentiality statement.");
         } finally {
             props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should append through the writer when a caller probes the stream after the writer")
+    void shouldAppendThroughWriter_whenCallerProbesStreamAfterWriter() throws Exception {
+        // Issue #3446: GET /ws/oauth/authorize forwards to a JSP (writer), then CXF closes the
+        // void JAX-RS response with getOutputStream().close() and swallows the container's
+        // IllegalStateException. The wrapper used to record the stream as obtained before
+        // that call failed, so the filter appended through the stream and the consent page
+        // answered 500.
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+            request.setServletPath("/ws");
+            ExclusiveChannelResponse response = new ExclusiveChannelResponse();
+            String body = "<html><body>consent</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write(body);
+                try {
+                    servletResponse.getOutputStream().close();
+                } catch (IllegalStateException expected) {
+                    // What CXF's AbstractHTTPDestination.closeResponseOutputStream does.
+                }
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .startsWith(body)
+                    .contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    @Test
+    @DisplayName("should append through the stream when a caller probes the writer after the stream")
+    void shouldAppendThroughStream_whenCallerProbesWriterAfterStream() throws Exception {
+        io.github.carlos_emr.CarlosProperties props = io.github.carlos_emr.CarlosProperties.getInstance();
+        props.setProperty("confidentiality_statement.v1", "Test confidentiality statement.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/casemgmt/viewNotes");
+            request.setServletPath("/casemgmt/viewNotes");
+            ExclusiveChannelResponse response = new ExclusiveChannelResponse();
+            String body = "<html><body>notes</body></html>";
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+                try {
+                    servletResponse.getWriter();
+                } catch (IllegalStateException expected) {
+                    // A caller that tries the other channel and tolerates the refusal.
+                }
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getContentAsString())
+                    .startsWith(body)
+                    .contains("Test confidentiality statement.");
+        } finally {
+            props.remove("confidentiality_statement.v1");
+        }
+    }
+
+    /**
+     * Enforces the servlet rule a real container applies and MockHttpServletResponse does not:
+     * once the writer or the output stream is obtained, asking for the other one throws.
+     */
+    private static class ExclusiveChannelResponse extends MockHttpServletResponse {
+
+        private boolean writerObtained;
+        private boolean streamObtained;
+
+        @Override
+        public PrintWriter getWriter() throws UnsupportedEncodingException {
+            if (streamObtained) {
+                throw new IllegalStateException("getOutputStream() has already been called for this response");
+            }
+            writerObtained = true;
+            return super.getWriter();
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            if (writerObtained) {
+                throw new IllegalStateException("getWriter() has already been called for this response");
+            }
+            streamObtained = true;
+            return super.getOutputStream();
         }
     }
 

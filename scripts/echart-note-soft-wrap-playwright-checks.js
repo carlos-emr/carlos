@@ -69,6 +69,7 @@
 
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { settleOperations } = require('./graceful-signal-cancellation');
 
 // Long enough to wrap several times in an 84-column editor at any chart width.
 const LONG_PARAGRAPH_WORDS = 90;
@@ -219,9 +220,11 @@ async function openEditorAndSettle(chart, open) {
     && new URLSearchParams(r.request().postData() || '').get('method') === method;
   const issueList = chart.waitForResponse((r) => isPost(r, 'edit'), { timeout: 30000 });
   const issuesPanel = chart.waitForResponse((r) => /\/encounter\/displayIssues/.test(r.url()), { timeout: 30000 });
-  await open();
-  await (await issueList).finished();
-  await (await issuesPanel).finished();
+  // Settle both waits together: awaiting one while the other is pending lets a second timeout
+  // reject unhandled and kill the process before the workflow's cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, list, panel] = await settleOperations([Promise.resolve().then(open), issueList, issuesPanel]);
+  await settleOperations([list.finished(), panel.finished()]);
 }
 
 /**

@@ -990,7 +990,7 @@ function renderRxStage() {
 
                                                     <div style="text-indent: 5px">
                                                     <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')">
-                                                        <%=drug.getRxDisplay()%>
+                                                        <carlos:encode value='<%= drug.getRxDisplay() %>'/>
                                                     </a>
                                                     </div>
 
@@ -1012,7 +1012,7 @@ function renderRxStage() {
                                                             </div>
                                                         </div>
                                                         <div style="text-indent: 5px">
-                                                        <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')"><%=drug.getRxDisplay()%></a>
+                                                        <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')"><carlos:encode value='<%= drug.getRxDisplay() %>'/></a>
                                                         </div>
 
 
@@ -2913,7 +2913,11 @@ function updateQty(element){
 		}
 		<%}%>
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString();
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString();
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,
@@ -2949,7 +2953,11 @@ function updateQty(element){
 		}
 		<%}%>		
 		setPharmacyId();
-        var data=new URLSearchParams(new FormData(document.getElementById('drugForm'))).toString() + '&clearSaved=true';
+        // The search box is not prescription data; submitting it again can trigger
+        // WAF signatures even though the staged drug's name has a prose exclusion.
+        var saveFields = new FormData(document.getElementById('drugForm'));
+        saveFields.delete('searchString');
+        var data=new URLSearchParams(saveFields).toString() + '&clearSaved=true';
         var url= ctx + "/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand="+ Math.floor(Math.random()*10001);
         CarlosAjax.request(url,
         {method: 'post',postBody:data,synchronous:true,

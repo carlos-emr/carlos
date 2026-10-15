@@ -242,12 +242,13 @@ public class RaDescriptionFileParser {
 
     private static String decodeTransCode(String code) {
         return switch (code) {
-            case "10" -> "Advance";
+            // Labels as the MOH technical specification names the HR7 codes.
+            case "10" -> "Recovery of Advance";
             case "20" -> "Reduction";
             case "30" -> "Unused";
-            case "40" -> "Advance repayment";
-            case "50" -> "Accounting adjustment";
-            case "70" -> "Attachments";
+            case "40" -> "Payment";
+            case "50" -> "Estimated Payment for Unprocessed Claims";
+            case "70" -> "Unused";
             default -> code;
         };
     }

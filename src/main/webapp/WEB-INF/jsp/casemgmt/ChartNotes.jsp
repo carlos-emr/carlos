@@ -213,12 +213,10 @@
     notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
-        notesLoader(0, notesIncrement, demographicNo);
-        // Filter and save reloads re-render this fragment into #notCPP and run this handler
-        // again in the same window. Without the stop, the earlier interval handle would be
-        // overwritten here and its timer would poll on, unstoppable, for the life of the chart.
-        stopNotesScrollCheck();
-        notesScrollCheckInterval = setInterval('notesIncrementAndLoadMore()', 1000);
+        // Resets the pagination state an earlier render of this fragment left behind, loads
+        // the newest page and arms the scroll poll; see notesLoadFirstPage() in
+        // newCaseManagementView.js.jsp.
+        notesLoadFirstPage();
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
@@ -556,6 +554,12 @@
     <span id="notesLoading">
 		<img src="${carlos:forHtmlAttribute(ctx)}/images/DMSLoader.gif">Loading Notes...
 	</span>
+    <%-- Shown by notesLoader() when a notes fetch rendered nothing (issue #3609); the link
+         asks for the batch again and re-arms the scroll poll. Hidden until then. --%>
+    <span id="notesLoadFailed" role="alert" style="display: none;">
+        <fmt:message key="encounter.Index.msgNotesLoadFailed"/>
+        <button type="button" onclick="notesRetryLoad();"><fmt:message key="encounter.Index.btnRetryLoadNotes"/></button>
+    </span>
 
 
     <div id="issueList"

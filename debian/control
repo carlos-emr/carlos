@@ -101,7 +101,11 @@ Depends:
 # package's postinst runs (Policy 7.2). Raise the floor whenever this
 # package starts using a new verb or flag. carlos-ctl carries the
 # python3-bcrypt, iproute2, procps and jq the CLI itself needs.
- carlos-ctl (>= 1.1.0),
+# 1.1.2 for a behaviour rather than a verb: it is the first release whose
+# import-o19 holds the database-ownership lock this postinst, the DrugRef
+# postinst and finish-install take before their o19 guard check (#3678).
+# Against an older CLI the lock check here excludes nothing from an import.
+ carlos-ctl (>= 1.1.2),
  debconf (>= 0.5) | debconf-2.0,
 # --- eForm renderer (vendored Chromium under /usr/lib/carlos-emr/chromium) ---
 # Chromium's direct DT_NEEDED set, minus what the Essential/base system already

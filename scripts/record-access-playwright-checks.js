@@ -3,6 +3,7 @@
 // Authenticated ownership checks use only synthetic rows owned by this run.
 const {assert, sqlString} = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
+const {grantEpisodeModule} = require('./lib/episode-module-access');
 
 async function workflow(s) {
   const {sql, marker, patient, provider, context} = s;
@@ -23,6 +24,8 @@ async function workflow(s) {
   const episode = sql.value(`INSERT INTO Episode (demographicNo,description,startDate,status,lastUpdateUser,lastUpdateTime)
     VALUES (${otherPatient},${sqlString(marker)},'2026-01-02','Current',${sqlString(provider)},NOW()); SELECT LAST_INSERT_ID()`);
   assert(/^[1-9]\d*$/.test(episode), 'Episode fixture was not created');
+  // The seeded roles deny the Episode module's two gate objects; grant both to the test login for this run (#4566).
+  grantEpisodeModule(s);
   const chart = await s.chart();
   const editor = await s.popup(chart, chart.locator('#menuTitleepisode a').first(), 'episode-access-editor');
   await editor.waitForFunction(() => document.querySelector('input[name="CSRF-TOKEN"]')?.value);

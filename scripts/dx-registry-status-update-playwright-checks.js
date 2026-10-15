@@ -12,7 +12,10 @@
 // reactivates the same row; Delete from active archives it (status D); the
 // report's Active/Resolved/Deleted/All filters list exactly the owned rows
 // with DB-identical code, status and start date; Clear empties the code list;
-// a quick list chosen in the report adds its codes.
+// a quick list chosen in the report adds its codes; a quick list the patient
+// registry marks as its default is never preselected in the report, so a
+// single-code Add adds only that code, and a list created while the report is
+// open appears on its next render (issue #4547).
 // Fixtures: owned FAKE- patient, its dxresearch/partial_date rows, a seeded
 // quick list FAKE-<hex>; cleanup deletes only those and asserts they are gone.
 // Coverage plan: §2.5 dx-registry-status-update.
@@ -222,7 +225,9 @@ async function workflow(s) {
       await report.locator('select[name="quickListName"]').selectOption(quickList);
       await submit(report.getByRole('button', { name: 'Add', exact: true }));
       assert(await codeRows().count() === 3, 'Mixed-case list/manual codes produced duplicate report criteria');
-      const matching = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${alphabeticCode}$`, 'i') }) });
+      // alphabeticCode is built from the run marker with every non-[a-z0-9] character removed, so the
+      // pattern is a literal alphanumeric anchor with no regex metacharacters to backtrack on.
+      const matching = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${alphabeticCode}$`, 'i') }) }); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- alphabeticCode is alphanumeric only (line 36), so no ReDoS is possible
       assert(await matching.count() === 1, 'The alphabetic code appears more than once');
     }
     assert(JSON.stringify(sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch
@@ -230,6 +235,47 @@ async function workflow(s) {
       'Case-insensitive report criteria changed patient diagnoses');
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
     assert(await codeRows().count() === 0, 'Clear left alphabetic criteria behind');
+  });
+  // Issue #4547: the patient registry stores a quick-list handler that marks a default list
+  // selected. Opened while the report is up, it must not preselect that list in the report,
+  // or the next single-code Add posts the whole list with it.
+  await s.step('a quick list the patient registry marks is never preselected in the report', async () => {
+    const echart = await s.chart();
+    const again = await s.popup(echart, echart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-status-registry-reopen');
+    const markedOption = again.locator('#dxCodeQuicklist select[name="quickList"] option[selected]');
+    assert(await markedOption.count() >= 1, 'Precondition: the patient registry did not mark a default quick list');
+    const marked = await markedOption.first().getAttribute('value');
+    await again.close();
+    // The report rebuilds its lists for every render, so one created while it is open appears
+    // on its next Add. The name is the run marker's hex tail, safe in a CSS attribute selector.
+    const created = `F${marker.slice(-7)}N`;
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM quickList WHERE quickListName=${sqlString(created)}`);
+      assert(sql.value(`SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(created)}`) === '0',
+        'The quick list created while the report was open was not removed');
+    });
+    sql.execute(`INSERT INTO quickList (quickListName, createdByProvider, dxResearchCode, codingSystem)
+      VALUES (${sqlString(created)}, ${sqlString(provider)}, '496', 'icd9')`);
+    const createdOption = report.locator(`select[name="quickListName"] option[value="${created}"]`);
+    // The registry may mark more than one list; the report's own value is what an Add posts.
+    const preselected = () => report.locator('select[name="quickListName"]').inputValue();
+    const added = [];
+    for (const code of ['401', '272']) {
+      await report.locator('#codingSystem').selectOption('icd9');
+      await typeAutocomplete(report, '#codesearch', CODES[code], { option: new RegExp(`^${code}: `) });
+      const before = await preselected();
+      assert(before === '', `Before adding ${code} the report preselected quick list "${before}" (registry marked "${marked}")`);
+      await submit(report.getByRole('button', { name: 'Add', exact: true }));
+      added.push(code);
+      const shown = await codeRows().evaluateAll(trs => trs.map(tr => tr.querySelectorAll('td')[1].textContent.trim()));
+      assert(JSON.stringify(shown.sort()) === JSON.stringify([...added].sort()),
+        `A single-code Add of ${code} added other criteria: ${shown.join(',')}`);
+      const after = await preselected();
+      assert(after === '', `After adding ${code} the report preselected quick list "${after}" (registry marked "${marked}")`);
+      assert(await createdOption.count() === 1, `After adding ${code} the report does not offer the quick list created while it was open`);
+    }
+    await submit(report.getByRole('button', { name: 'Clear', exact: true }));
+    assert(await codeRows().count() === 0, 'Clear left single-code criteria behind');
   });
 }
 
