@@ -19,8 +19,9 @@ same patient; navigating that opener to another patient prevents the append.
 The touched Vascular Tracker markup also has contextual labels for 41 controls,
 real column headers for its three entry matrices, and presentation semantics only
 for the nested historical date/value layouts. Deprecated font wrappers are replaced
-with spans. Existing control names, ordering, values, IDs and clinical scripts are
-preserved.
+with spans. Existing control names, DOM order, values, IDs and clinical scripts are
+preserved. The Medication Adherence comments field's misspelled keyboard-order
+attribute is corrected, with native Tab navigation covered by the browser check.
 
 ## Verification
 
@@ -48,7 +49,7 @@ preserved.
   SQL failures return a controlled 500 before clinical prefill or forwarding.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites pass 74 panel/completion/isolation cases, 20 Vascular
+  focused client suites pass 74 panel/completion/isolation cases, 21 Vascular
   Tracker script cases, and 93 link-audit/navbar-readiness cases. The manifest
   suite passes 63 checks. An earlier complete local run passed 3,719 tests with
   five existing TODOs. A later full run exhausted the runtime's disk quota in
@@ -63,7 +64,7 @@ preserved.
   registry row is restored and asserted during cleanup.
   Each patient's native VT setup additionally verifies all 41 repaired control
   names/label associations, unique DOM IDs, the three matrices' column-header
-  names in both detail states, native Weight-label focus, and unchanged complete
+  names in both detail states, native Weight-label focus and MedR-to-MedA Tab navigation, and unchanged complete
   control state/FormData after the accessibility inspection.
 - The actual-app Ontario and BC workflows each pass all 23 steps, including both native
   measurement saves and history links, VT Update/reopen/Save and Exit, retained

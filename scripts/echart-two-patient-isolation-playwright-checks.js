@@ -231,6 +231,12 @@ async function assertVascularTrackerAccessibility(page, form) {
     await page.locator('label[for="vt-WT-value"]').click();
     h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-WT-value',
       'The native weight label did not focus its textbox');
+    await form.locator('#vt-MedR-comments').focus();
+    await page.keyboard.press('Tab');
+    h.assert(await page.evaluate(() => document.activeElement?.id) === 'vt-MedA-comments',
+      'Native Tab from MedR comments did not focus MedA comments');
+    h.assert(await form.locator('#vt-MedA-comments').evaluate(node => node.tabIndex === 9999 && !node.hasAttribute('abindex')),
+      'MedA comments lost its tabindex or retained the legacy abindex typo');
   } finally {
     if (examinationToggled) {
       await page.locator('#examLabel a').click();

@@ -319,6 +319,16 @@ test('affected VT controls have unique IDs and contextual labels without changin
   assert.equal(p.form.elements.length, 186, 'Accessibility must not introduce clinical controls');
 });
 
+test('MedA comments use the same explicit tab order as the preceding medication comments', () => {
+  const p = page();
+  const preceding = p.form['value(MedRComments)'];
+  const comments = p.form['value(MedAComments)'];
+  assert.equal(comments.attrs.tabindex, '9999');
+  assert.equal(comments.attrs.tabindex, preceding.attrs.tabindex);
+  assert.equal(Object.hasOwn(comments.attrs, 'abindex'), false);
+  assert(p.form.elements.indexOf(comments) > p.form.elements.indexOf(preceding));
+});
+
 test('entry matrices retain four real column headers with names even when detail text is collapsed', () => {
   for (const id of ['vt-medication-adherence', 'vital', 'detailVital']) {
     const tableStart = jsp.lastIndexOf('<table', jsp.indexOf(`id="${id}"`));

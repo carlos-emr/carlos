@@ -1203,7 +1203,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(MedADate)" id="value(MedADate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-MedA-comments" aria-labelledby="vt-MedA-label vt-comments-label" type="text" name="value(MedAComments)" size="30%" abindex="9999"/></td>
+                                                        <input id="vt-MedA-comments" aria-labelledby="vt-MedA-label vt-comments-label" type="text" name="value(MedAComments)" size="30%" tabindex="9999"/></td>
                                                 </tr>
                                             </table>
                                         </td>
