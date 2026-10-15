@@ -609,6 +609,58 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
+     * The Inbox Hub's Acknowledged toggle lists what was acknowledged today, bounded by WHEN the
+     * routing row was acknowledged rather than by the document's own dates: a document scanned or
+     * observed long ago and acknowledged today must still be listed, and one acknowledged last year
+     * must not drag the provider's whole history into the list. Every query shape the toggle can
+     * combine with (patient, unmatched, name search) takes the bound.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData (acknowledged-since bound)")
+    @Tag("read")
+    @Tag("filter")
+    class PopulateDocumentResultsDataAcknowledgedSince {
+
+        private final Date startOfToday = java.sql.Timestamp.valueOf("2026-10-15 00:00:00");
+
+        private int routeAcknowledgedDocument(int moduleId, String acknowledgedAt) {
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            ProviderLabRoutingModel routing = createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "A");
+            routing.setTimestamp(java.sql.Timestamp.valueOf(acknowledgedAt));
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @org.junit.jupiter.params.provider.CsvSource({"provider,true", "provider,false", "patient,true",
+                "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list only documents acknowledged since the bound, whatever their own dates")
+        void shouldListOnlyDocumentsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) ? -1 : demoId;
+            // The documents' own observation and content dates are 2026-03-04: only the
+            // acknowledgement time tells them apart.
+            int acknowledgedToday = routeAcknowledgedDocument(moduleId, "2026-10-15 09:12:00");
+            int acknowledgedLastYear = routeAcknowledgedDocument(moduleId, "2025-01-10 16:40:00");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            ArrayList<LabResultData> unbounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+            ArrayList<LabResultData> bounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, startOfToday);
+
+            assertThat(unbounded).as("both documents are acknowledged, so an unbounded search lists both")
+                    .extracting(result -> result.segmentID)
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedToday), String.valueOf(acknowledgedLastYear));
+            assertThat(bounded).extracting(result -> result.segmentID)
+                    .containsExactly(String.valueOf(acknowledgedToday));
+        }
+    }
+
+    /**
      * The Inbox patient search matched a document through {@code d.hin LIKE :patientHealthNumber},
      * which a NULL HIN never satisfies, so a patient without a health card number disappeared from
      * every name search.

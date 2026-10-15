@@ -289,10 +289,15 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, null, null);
     }
 
+    @Override
+    public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate) {
+        return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, null);
+    }
+
     @SuppressWarnings("unchecked")
     @NativeSql({"hl7TextInfo", "providerLabRouting", "ctl_document", "demographic"})
     @Override
-    public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate) {
+    public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate, Date acknowledgedSince) {
         String sql;
 
         SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
@@ -325,6 +330,12 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
             }
         }
 
+        // Acknowledging stamps the routing row, so the acknowledgement bound sits on the routing
+        // row (alias plr in every subquery that reads one), never on the lab's own dates: a lab
+        // acknowledged today stays listed however old its result is.
+        String acknowledgedSinceSql = acknowledgedSince == null ? "" : " AND plr.timestamp >= :acknowledgedSince ";
+        String routingStatusSql = ("".equals(status) ? " IS NOT NULL " : " = :status ") + acknowledgedSinceSql;
+
         if (mixLabsAndDocs) {
             if ("0".equals(demographicNo)) {
                 sql = " SELECT info.label, info.lab_no, info.sex, info.health_no, info.result_status, "
@@ -336,7 +347,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                         + " WHERE plr.lab_type = 'HL7'"
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
-                        + " AND plr.status" + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status" + routingStatusSql
                         + ((isAbnormal != null && isAbnormal) ? "AND info.result_status = 'A'" :
                         (isAbnormal != null && !isAbnormal) ? "AND (info.result_status IS NULL OR info.result_status != 'A')" : "")
                         + dateSql
@@ -354,7 +365,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " (cd.module_id = :demographicNo "
                         + "	AND cd.document_no = plr.lab_no"
                         + "	AND plr.lab_type = 'DOC'  	"
-                        + " AND plr.status" + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status" + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo )" : " )")
                         + " ORDER BY id DESC) AS Y"
                         + " UNION"
@@ -362,7 +373,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " (SELECT DISTINCT plr.id, plr.lab_type, plr.lab_no, plr.status  FROM providerLabRouting plr, patientLabRouting plr2"
                         + " WHERE"
                         + "	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7'"
-                        + "	AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + "	AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 	AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = :demographicNo "
                         + " ORDER BY id DESC) AS Z"
@@ -386,7 +397,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + "				WHERE "
                         + " COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "					AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
-                        + "					AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
+                        + "					AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 		) AS X "
                         + " 		UNION "
                         + "			(SELECT DISTINCT plr.id, plr.lab_type, plr.lab_no, plr.status, d.demographic_no "
@@ -394,7 +405,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + "				WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "					AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                          + 					(isAbnormal != null ? " AND plr.lab_no = info.lab_no AND "+(!isAbnormal? "(info.result_status IS NULL OR info.result_status != 'A')": "(info.result_status = 'A')")+" " : " " )
-                        + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
+                        + " AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 				AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no "
                         + " 		) "
                         + " 		UNION "
@@ -403,7 +414,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " WHERE COALESCE(info.first_name, '') like :patientFirstName AND COALESCE(info.last_name, '') like :patientLastName AND COALESCE(info.health_no, '') like :patientHealthNumber "
                         + " 				AND plr.lab_type = 'HL7' AND plr.lab_no = info.lab_no "
                          +					(isAbnormal != null ? " AND "+(isAbnormal? "info.result_status = 'A'": "(info.result_status IS NULL OR info.result_status != 'A')")+"" : " ")
-                        + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
+                        + " 				AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 				AND plr.lab_no NOT IN (SELECT DISTINCT lab_no FROM patientLabRouting WHERE lab_type = 'HL7' AND demographic_no != 0) "
                         + " 		) "
                         + " 		ORDER BY id DESC "
@@ -420,6 +431,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " LEFT JOIN providerLabRouting plr ON plr.lab_no = info.lab_no "
                         + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON message.lab_id = info.lab_no" : "")
                         + (!status.equals("") ? " WHERE plr.status = :status AND plr.lab_type = 'HL7' " : " WHERE plr.lab_type = 'HL7'")
+                        + acknowledgedSinceSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "") + " AND plr.lab_no = info.lab_no "
                         + (isAbnormal != null ? " AND (" + (!isAbnormal ? "info.result_status IS NULL OR" : "") + " info.result_status " + (isAbnormal ? "" : "!") + "= 'A') " : " ")
                         + dateSql
@@ -437,7 +449,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                         + " WHERE plr.lab_type = 'HL7'"
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
-                        + " AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ")
+                        + " AND plr.status " + routingStatusSql
                         + (isAbnormal != null && isAbnormal ? "AND info.result_status = 'A'" :
                         isAbnormal != null && !isAbnormal ? "AND (info.result_status IS NULL OR info.result_status != 'A')" : "")
                         + dateSql
@@ -453,7 +465,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " WHERE 	(d.demographic_no = :demographicNo "
                         + " 		AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no "
                         + " 		AND plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
-                        + " 		AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
+                        + " 		AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " 		) "
                         + " ORDER BY plr.id DESC "
                         + " ) AS X "
@@ -475,14 +487,14 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         + " WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + " 				AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no "
                         + " 				AND plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
-                        + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
+                        + " 				AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " 		) AS X "
                         + " 		UNION "
                         + " 		(SELECT DISTINCT plr.id, plr.lab_type, plr.status, plr.lab_no, NULL AS demographic_no "
                         + " 			FROM providerLabRouting plr, hl7TextInfo info "
                         + " WHERE COALESCE(info.first_name, '') like :patientFirstName AND COALESCE(info.last_name, '') like :patientLastName AND COALESCE(info.health_no, '') like :patientHealthNumber "
                         + " 				AND plr.lab_type = 'HL7' AND plr.lab_no = info.lab_no "
-                        + " 				AND plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
+                        + " 				AND plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 				AND plr.lab_no NOT IN (SELECT DISTINCT lab_no FROM patientLabRouting WHERE lab_type = 'HL7' AND demographic_no != 0) "
                         + " 		) "
                         + " 		ORDER BY id DESC "
@@ -497,7 +509,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                 sql = " SELECT info.label, info.lab_no, info.sex, info.health_no, info.result_status," + (dateSearchType.equals("receivedCreated") ? " message.created" : "info.obr_date") + ", info.priority, " +
                         "info.requesting_client, info.discipline, info.last_name, info.first_name, info.report_status,  info.accessionNum, info.final_result_count, plr.status "
                         + " FROM providerLabRouting plr, hl7TextInfo info " + (dateSearchType.equals("receivedCreated") ? ", hl7TextMessage message " : "")
-                        + " WHERE plr.status " + ("".equals(status) ? " IS NOT NULL " : " = :status ") + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
+                        + " WHERE plr.status " + routingStatusSql + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + "   AND lab_type = 'HL7' and info.lab_no = plr.lab_no " + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id = info.lab_no " : "")
                         + dateSql
                         + (isAbnormal != null ? " AND (" + (!isAbnormal ? "info.result_status IS NULL OR" : "") + " info.result_status " + (isAbnormal ? "" : "!") + "= 'A') " : " ")
@@ -517,6 +529,8 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", inboxCalendarDate(endDate).plusDays(1).toString());
         if (providerNo != null && sql.contains(":providerNo")) query.setParameter("providerNo", providerNo);
         if (status != null && sql.contains(":status")) query.setParameter("status", status);
+        // A timestamp, not a string: the routing column is a TIMESTAMP and the bound is an instant.
+        if (acknowledgedSince != null && sql.contains(":acknowledgedSince")) query.setParameter("acknowledgedSince", new java.sql.Timestamp(acknowledgedSince.getTime()));
         if (demographicNo != null && sql.contains(":demographicNo")) query.setParameter("demographicNo", demographicNo);
         if (patientFirstName != null && sql.contains(":patientFirstName")) query.setParameter("patientFirstName", "%" + patientFirstName + "%");
         if (patientLastName != null && sql.contains(":patientLastName")) query.setParameter("patientLastName", "%" + patientLastName + "%");

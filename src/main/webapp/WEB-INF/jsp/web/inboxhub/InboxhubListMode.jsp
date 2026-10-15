@@ -23,8 +23,10 @@
 <div class="inbox-toolbar">
         <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${carlos:forJavaScript(currentUser)}')">
         <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${carlos:forJavaScript(currentUser)}')"/>
-        <%-- Acknowledged toggle: switches between showing New vs Acknowledged items --%>
-        <label class="inbox-toolbar-link" for="ackToggle">
+        <%-- Acknowledged toggle: switches between New items and what was acknowledged TODAY (by
+             acknowledgement time; see fetchInboxhubData). Older acknowledgements are reached through
+             the search panel's Acknowledged status, which the title says. --%>
+        <label class="inbox-toolbar-link" for="ackToggle" title="<fmt:message key='inboxhub.toolbar.acknowledgedTodayTitle'/>">
             <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)"><fmt:message key="inboxhub.toolbar.acknowledged"/>
         </label>
         <%-- Rapid Review toggle: after acknowledging a lab in the popup, auto-opens the next item --%>

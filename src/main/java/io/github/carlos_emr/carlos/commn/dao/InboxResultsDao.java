@@ -39,6 +39,20 @@ public interface InboxResultsDao {
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate);
 
+    /**
+     * As above, additionally keeping only routing rows changed at or after {@code acknowledgedSince}.
+     *
+     * <p>The bound is the routing row's own {@code timestamp}, which acknowledging a document
+     * stamps; it is independent of the document's observation and content dates. The Inbox Hub
+     * toolbar uses it to list today's acknowledgements without paging in the whole history.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
+                                                                String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                                Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
+                                                                Date acknowledgedSince);
+
     //String getStringValue(Object value);
 }
  

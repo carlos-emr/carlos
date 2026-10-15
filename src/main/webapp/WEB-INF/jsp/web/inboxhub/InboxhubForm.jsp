@@ -542,6 +542,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     function fetchInboxhubData() {
         // Re-serialize the search form so programmatic checkbox/radio changes take effect
         inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
+        // The toolbar's Acknowledged toggle lists what was acknowledged TODAY. List mode loads
+        // every page of whatever it asks for, so a bare status=A paged in every result the
+        // provider had ever acknowledged, with the progress bar measured against the New totals.
+        // The server bounds it by acknowledgement time, so a lab acknowledged today still shows
+        // however old its result is; older acknowledgements stay reachable from the search panel,
+        // which never sends this. Carried in inboxSearchFormData so every later page keeps it.
+        if (ackToggleState) {
+            inboxSearchFormData += "&query.acknowledgedToday=true";
+        }
         const viewModeBtn = document.getElementById("btnViewMode");
         viewModeBtn.disabled = true;
         resetDataPageCount();
@@ -1448,10 +1457,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     /**
-     * Toggles the inbox between showing New items and Acknowledged items.
-     * Updates the hidden status filter field and refreshes the inbox data.
+     * Toggles the inbox between showing New items and what was acknowledged today.
+     * Updates the hidden status filter field and refreshes the inbox data; while the toggle is
+     * on, fetchInboxhubData asks the server for today's acknowledgements only.
      *
-     * @param {boolean} checked - true to show Acknowledged, false to show New
+     * @param {boolean} checked - true to show today's acknowledgements, false to show New
      */
     function toggleAcknowledged(checked) {
         ackToggleState = checked;

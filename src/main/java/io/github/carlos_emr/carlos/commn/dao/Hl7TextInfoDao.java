@@ -88,6 +88,21 @@ public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
                                                  Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch,
                                                  Date startDate, Date endDate);
 
+    /**
+     * As above, additionally keeping only routing rows changed at or after {@code acknowledgedSince}.
+     *
+     * <p>The bound is the routing row's own {@code timestamp}: acknowledging a lab stamps it, so
+     * paired with the acknowledged status it selects what was acknowledged since then, however old
+     * the result itself is. The Inbox Hub toolbar uses it to list today's acknowledgements without
+     * paging in the provider's whole acknowledged history.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName,
+                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch,
+                                                 Date startDate, Date endDate, Date acknowledgedSince);
+
     public List<Object> findDisciplines(Integer labid);
 
     public List<Hl7TextInfo> findByFillerOrderNumber(String fillerOrderNum);
