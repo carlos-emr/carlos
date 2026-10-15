@@ -27,14 +27,23 @@ The chart's identity banner (`newEncounterHeader.jsp`) also names the patient it
 chart request carries. It previously read the login-wide `EctSessionBean`, which
 `IncomingEncounter` still rewrites for whichever chart was entered last, so refreshing
 A's chart after entering B showed B's name, date of birth and health number above A's
-notes. Save and Exit's panel refresh asks for the usual six rows (`numToDisplay=6`), and
-`loadDiv()` treats an undeclared `appointmentNo` (the standalone notes view) as no
-appointment instead of throwing.
+notes. The notes panel (`ChartNotes.jsp`, rendered into every chart) likewise opens
+Browse Notes for its own request's patient and takes the Bill/provider entry metadata from
+the session bean only when that bean is this chart's. Save and Exit's panel refresh asks
+for the usual six rows (`numToDisplay=6`), and `loadDiv()` treats an undeclared
+`appointmentNo` (the standalone notes view) as no appointment instead of throwing.
+
+A navbar request whose appointment no longer belongs to the chart's patient (deleted, or
+moved by cut and paste while the chart was open; or a forged number) now renders as a chart
+without an appointment instead of answering 400 for every module. The foreign or missing
+appointment's provider is still never used.
 
 The Vascular Tracker routing, binding and script repairs also fix findings 103
 (#3358), 254 and 255 (#4612). Their pinned `clinical-forms-save-reopen-vascular-tracker`,
 `-save` and `-script` checks pass live, so the findings are marked fixed and the pins
-are now regressions.
+are now regressions. The eye-exam comment box is read back from a row its save writes
+(`iDiaComments`, as the date reads `iDiaDate`) and is encoded; it previously rendered the
+retained `iEx` column, so the comment vanished on reopen and the next Update cleared it.
 
 ## Verification
 
@@ -100,9 +109,9 @@ GitHub CI provides the clean build and JSP compilation checks.
 A follow-up validation built this branch from source (exploded WAR on Tomcat 11, Ontario
 demo data, JDK 25):
 
-- The extended `echart-two-patient-isolation` check has 24 steps. Its new banner step fails
-  on the previous head ("A's refreshed chart names another patient in its identity banner")
-  and passes with the header fix. `activateOther()` now enters the other chart through
+- The extended `echart-two-patient-isolation` check has 24 steps. Its new refresh step
+  (banner and Browse Notes patient) fails on the previous head ("A's refreshed chart names
+  another patient in its identity banner") and passes with the header fix. `activateOther()` now enters the other chart through
   `IncomingEncounter`. Navbar requests no longer rewrite the session bean, so reloading a
   chart URL left the session on the last-entered patient, and the B-direction steps could
   not detect a regression. The first 23 steps pass in every run, and one complete run passed
@@ -114,8 +123,14 @@ demo data, JDK 25):
   unmodified check from `5f736b9a` does the same on this deployment, so it is a property of that
   browser build rather than of these changes; the reference devcontainer run should confirm it.
 - `EncounterHeaderPatientIsolationUnitTest` (5 cases) fails 3 cases against the previous
-  header. The client tests for the `numToDisplay` refresh and the undeclared appointment
-  global each fail without their fix.
+  header. `ChartNotesPatientIsolationUnitTest` pins the notes panel's patient source, and the
+  navbar unit test now expects a dropped stale appointment rather than a 400. The client tests
+  for the `numToDisplay` refresh, the undeclared appointment global and the eye-exam comment
+  round trip each fail without their fix.
+- A multi-agent adversarial review of the follow-up work (five reviewers, two refuting
+  verifiers per finding) confirmed the notes-panel crossover, the stale-appointment 400, the
+  eye-exam comment round trip and three documentation errors, all fixed here or in the
+  follow-up issues; nine other candidate findings were refuted.
 - Sandbox-only accommodations, not committed: Chromium 141 with Playwright 1.60 text-decodes
   the `image/png;charset=UTF-8` plot body, so the local copy re-fetched it through the same
   session; menu hovers were forced; and the `measurementsExt` snapshot query used an
@@ -128,7 +143,7 @@ They were found by source review or form-script tests; each has not received a
 separate live reproduction. Each is tracked in its own issue: items 1, 2 and 6 in
 #4674, item 3 (with the other remaining `EctSessionBean` readers, including the chart
 print's MRP line) in #4673, item 4 in #4676, item 5 in #4675, item 7 in #4677 and
-item 8 in #4678.
+item 8 in #4678. The Vascular Tracker's remaining unencoded output of stored text is #4681.
 
 1. **Vascular Tracker partial saves:** Save and Exit writes measurements before
    inserting the form, without a common rollback. A later form SQL failure can
@@ -141,11 +156,11 @@ item 8 in #4678.
    The separate legacy encounter editor therefore needs its own patient-bound
    save/revision work. Modern case-management saves have separate regression
    coverage and do not use that endpoint.
-4. **Legacy appointment dropdown:** the `appointmentList` entry branch loads the
-   selected appointment's patient before checking agreement with the requested
-   patient. The rendered page rejects a mismatch, but the lookup and metadata
-   preparation have already occurred. That legacy switching flow needs a separate
-   ownership and navigation fix.
+4. **Dead legacy appointment switch:** the `appointmentList` entry branch is reached
+   only by a hand-built request (its one URL builder, `getAnotherEncounter()` in
+   `encounter.js`, has no callers and sends no patient). It prepares the named
+   appointment's patient, with that patient's read privilege enforced, before the
+   rendered page rejects the mismatch. The branch and its builder should be removed.
 5. **Patient-record restrictions in measurements:** history, setup, write, and
    graph routes check measurement privileges but do not call
    `isAllowedAccessToPatientRecord`, which additionally enforces patient-specific

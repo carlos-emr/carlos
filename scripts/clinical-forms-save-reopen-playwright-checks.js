@@ -95,8 +95,8 @@ const FORMS = [
   // so nothing downstream of the open can hold it up; the form behind it is VT2.
   { key: 'VT', title: 'Vascular Tracker', path: '../form/SetupForm.do', query: 'formName=VTForm&',
     table: 'formVTForm', openOnly: true, ready: { button: 'Update VT' } },
-  // The same form registered the way the route is mapped (SetupForm without the .do suffix; SetupForm.do is also
-  // refused by the action's own check of the registration). It saves through form/SubmitForm, names its inputs
+  // The same form registered the way the route is mapped (SetupForm without the .do suffix, which the action's own
+  // registration check now accepts either way). It saves through form/SubmitForm, names its inputs
   // `value(Name)` (the column is Name), and has an Update VT button instead of Save. Its Save answered 400 (finding
   // 254) and every load and Update VT threw a TypeError from the missing eye-exam inputs (finding 255); both are fixed
   // in #4667 and stay covered as regressions.

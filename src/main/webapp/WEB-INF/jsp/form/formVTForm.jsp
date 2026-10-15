@@ -1694,13 +1694,11 @@
                                                             value="<%=request.getAttribute("iDiaDate")%>" size="10%"/>
                                                     </td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
-                                                        align="center"><textarea name="iComments" wrap="hard"
+                                                        align="center"><%-- Read back from a row storeEyeExamSupportData() writes (the date
+                                                             likewise reads iDiaDate); iEx is retained history only, so it is
+                                                             shown only for a legacy record whose eye rows hold no comment. --%><textarea name="iComments" wrap="hard"
                                                                                  cols="24"
-                                                                                 style="height: 80">
-                                                        <c:if test="${not empty iExComments}">
-                                                        ${iExComments}
-                                                        </c:if>
-                                                        </textarea>
+                                                                                 style="height: 80"><carlos:encode value="${not empty iDiaComments ? iDiaComments : iExComments}"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>

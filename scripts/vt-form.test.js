@@ -270,6 +270,28 @@ test('Show/Hide Detail toggles the existing counselling and medication sections 
   for (const id of sections) assert.equal(section(id).style.display, 'none', id);
 });
 
+test('each shared comment box is read back from a row its save writes, encoded', () => {
+  // The eye and foot comment boxes are copied into every row of their section on save. A box
+  // rendered from a column no save writes shows nothing (or stale legacy text) on reopen, and
+  // the next save copies that over the comment the clinician entered (the iEx regression).
+  const fieldOf = new Map([...script.matchAll(/case 'value\((\w+)\)':\s*(\w+) = i;/g)].map(match => [match[2], match[1]]));
+  for (const box of ['iComments', 'FTComments']) {
+    const written = new Set([...script.matchAll(new RegExp(
+      `elements\\[(\\w+)\\]\\.value = document\\.forms\\[0\\]\\.${box}\\.value`, 'g'))]
+      .map(match => fieldOf.get(match[1])));
+    assert(written.size > 0 && !written.has(undefined), `${box} save targets resolve to named fields`);
+    const content = jsp.match(new RegExp(`<textarea[^>]*\\bname="${box}"[^>]*>([\\s\\S]*?)</textarea>`))[1];
+    const rendered = [...content.matchAll(/\b(\w+Comments)\b/g)].map(match => match[1]);
+    assert(rendered.length > 0, `${box} renders a stored comment`);
+    assert(written.has(rendered[0]), `${box} renders ${rendered[0]}, which its save never writes`);
+    if (box === 'iComments') {
+      // Stored free text reaches the page encoded, with no template whitespace added to it.
+      assert.match(content, /^<carlos:encode value="\$\{not empty iDiaComments \? iDiaComments : iExComments\}"\/>$/);
+      assert(!written.has('iExComments'), 'iEx stays retained history, never rewritten from the box');
+    }
+  }
+});
+
 test('saved VT values stay in encoded data attributes and are restored through DOM properties', () => {
   assert(jsp.includes('data-field="${carlos:forHtmlAttribute(field.key)}"'));
   assert(jsp.includes('data-value="${carlos:forHtmlAttribute(field.value)}"'));

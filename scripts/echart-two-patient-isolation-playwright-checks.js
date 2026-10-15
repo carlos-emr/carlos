@@ -561,12 +561,18 @@ async function run(s) {
       'The freshly entered chart names another patient in its identity banner');
   }
 
-  /** Reload a chart window's own address in a fresh window, as a refresh would, and read its banner. */
-  async function reloadedBanner(chart) {
+  /**
+   * Reload a chart window's own address in a fresh window, as a refresh would, and read whose
+   * banner it shows and which patient its notes panel's Browse Notes button opens.
+   */
+  async function reloadedChart(chart) {
     const fresh = await context.newPage();
     await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
     await waitForNavbars(fresh, TIMEOUT);
-    return bannerOwner(fresh);
+    const browse = fresh.locator('#note-control-panel button[onclick*="ViewNoteBrowser"]');
+    await browse.waitFor({ state: 'attached', timeout: TIMEOUT });
+    const onclick = await browse.getAttribute('onclick');
+    return { ...await bannerOwner(fresh), noteBrowser: (onclick.match(/demographic_no=(\d+)/) || [])[1] };
   }
 
   // ---- Controls: with a single chart open nothing can cross, so a failure here is a broken
@@ -620,15 +626,17 @@ async function run(s) {
       'B\'s Forms module does not carry B\'s demographic number on every Add Form link');
   });
 
-  await s.step('each chart refreshed after the other was opened keeps its own identity banner', async () => {
+  await s.step('each chart refreshed after the other was opened keeps its own identity banner and note browser', async () => {
     // B was entered last, so the login-wide encounter bean is B's while A's page reloads.
-    const a = await reloadedBanner(chartA);
+    const a = await reloadedChart(chartA);
     h.assert(a.namesA && !a.namesB, 'A\'s refreshed chart names another patient in its identity banner');
+    h.assert(a.noteBrowser === String(A), `A's refreshed chart browses the notes of ${ownerLabel(a.noteBrowser)}`);
     // Entering A again makes the bean A's while B's page reloads; then B is entered again so the
     // steps below start from the same order as before (B entered last).
     await activateOther(chartA);
-    const b = await reloadedBanner(chartB);
+    const b = await reloadedChart(chartB);
     h.assert(b.namesB && !b.namesA, 'B\'s refreshed chart names another patient in its identity banner');
+    h.assert(b.noteBrowser === String(B), `B's refreshed chart browses the notes of ${ownerLabel(b.noteBrowser)}`);
     await activateOther(chartB);
   });
 

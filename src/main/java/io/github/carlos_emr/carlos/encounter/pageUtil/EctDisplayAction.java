@@ -192,8 +192,18 @@ public class EctDisplayAction extends ActionSupport {
         bean.currentDate = resolveCurrentDate();
         bean.providerNo = resolveProviderNo();
         bean.demographicNo = demographicNo;
-        bean.appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
-        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, bean.appointmentNo);
+        String appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
+        Appointment appointment = findOwnedAppointment(demographicNo, appointmentNo);
+        if (appointment == null && appointmentNo != null && !"0".equals(appointmentNo)) {
+            // A chart window keeps the appointment it was opened with, but the visit can be deleted
+            // or moved by cut and paste while the chart is open, and a request can name another
+            // patient's visit. Continue as a chart without an appointment rather than failing every
+            // module, and never borrow that appointment's provider or link new work to it.
+            logger.debug("Navbar appointment context is not an appointment of the requested patient; continuing without it");
+            appointmentNo = "0";
+        }
+        bean.appointmentNo = appointmentNo;
+        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment);
         populateEncounterRequestFields(bean);
         exposeEncounterRequestBean(bean);
         return bean;
@@ -216,17 +226,27 @@ public class EctDisplayAction extends ActionSupport {
         return providerNo;
     }
 
-    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo) {
-        // An entry snapshot or explicit provider must not legitimize a foreign appointment.
-        // This is the only appointment lookup needed; do not initialize the full chart.
-        if (appointmentNo != null && !"0".equals(appointmentNo)) {
-            Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(appointmentNo));
-            if (appointment == null || !demographicNo.equals(String.valueOf(appointment.getDemographicNo()))) {
-                throw new IllegalArgumentException("Appointment does not belong to the requested patient");
-            }
-            if (appointment.getProviderNo() != null && appointment.getProviderNo().matches("[a-zA-Z0-9]{1,6}")) {
-                return appointment.getProviderNo();
-            }
+    /**
+     * The requested appointment when it still exists and belongs to the requested patient, else null.
+     * This is the only appointment lookup a navbar request needs; do not initialize the full chart.
+     *
+     * @throws IllegalArgumentException (as NumberFormatException) for a blank or out-of-range number
+     */
+    private Appointment findOwnedAppointment(String demographicNo, String appointmentNo) {
+        if (appointmentNo == null || "0".equals(appointmentNo)) {
+            return null;
+        }
+        Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(appointmentNo));
+        return appointment != null && demographicNo.equals(String.valueOf(appointment.getDemographicNo()))
+                ? appointment : null;
+    }
+
+    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment) {
+        // Only an appointment the requested patient owns may supply the provider; an entry snapshot
+        // or explicit provider must not legitimize a foreign appointment (it was dropped above).
+        if (ownedAppointment != null && ownedAppointment.getProviderNo() != null
+                && ownedAppointment.getProviderNo().matches("[a-zA-Z0-9]{1,6}")) {
+            return ownedAppointment.getProviderNo();
         }
         String currentProviderNo = request.getParameter("curProviderNo");
         if (currentProviderNo != null && !currentProviderNo.isEmpty() && !currentProviderNo.matches("[a-zA-Z0-9]{1,6}")) {

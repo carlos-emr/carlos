@@ -358,7 +358,11 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({"false,false", "false,true", "true,false", "true,true"})
-    void shouldRejectMissingOrForeignAppointmentsDespiteMatchingCacheOrExplicitProvider(boolean foreign, boolean explicit) throws Exception {
+    void shouldDropTheAppointment_whenItIsMissingOrBelongsToAnotherPatient(boolean foreign, boolean explicit) throws Exception {
+        // A visit deleted, or moved by cut and paste, while its chart is open leaves the window with a
+        // stale appointment number; a forged request can name another patient's visit. Either way the
+        // module renders as a chart without an appointment instead of failing, and neither the foreign
+        // visit's provider nor the cached provider of the dropped visit is used.
         remember("101", "9003", "A11111");
         remember("202", "9002", "B22222");
         if (foreign) when(appointments.find(Integer.valueOf(9003))).thenReturn(appointment(202, "B22222"));
@@ -367,11 +371,16 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         else request.removeParameter("curProviderNo");
         when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
         MockHttpServletResponse response = new MockHttpServletResponse();
-        RecordingDisplay action = execute(request, response);
-        assertThat(action.result).isEqualTo("none");
-        assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(action.loaded).isNull();
-        assertThat(request.getAttribute("EctSessionBean")).isNull();
+        try (var moduleSecurity = mockConstruction(SecurityManager.class,
+                (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            RecordingDisplay action = execute(request, response);
+            assertThat(action.result).isEqualTo("success");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(action.loaded.demographicNo).isEqualTo("101");
+            assertThat(action.loaded.appointmentNo).isEqualTo("0");
+            assertThat(action.loaded.curProviderNo).isEqualTo(explicit ? "C33333" : "999998");
+            assertThat(request.getAttribute("EctSessionBean")).isSameAs(action.loaded);
+        }
         verify(appointments).find(Integer.valueOf(9003));
         verifyNoMoreInteractions(appointments);
         verifyNoInteractions(demographics, templates, groups, charts, messages);
