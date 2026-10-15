@@ -54,11 +54,14 @@ async function staleSave(s, page) {
   return response;
 }
 
-/** The conflict table's row whose "your entry" and "current" cells hold these values. */
-function conflictRow(page, yours, current) {
-  return page.locator('#demographicConflictDifferences tbody tr')
-    .filter({ has: page.locator('td.yours', { hasText: new RegExp(`^${yours}$`) }) })
-    .filter({ has: page.locator('td.current', { hasText: new RegExp(`^${current}$`) }) });
+/**
+ * How many conflict-table rows hold exactly these "your entry" and "current" values. Compared as
+ * plain text, so a blank value matches only a blank cell and no value is read as a pattern.
+ */
+function conflictRows(page, yours, current) {
+  return page.locator('#demographicConflictDifferences tbody tr').evaluateAll((rows, [y, c]) => rows.filter(row =>
+    row.querySelector('td.yours')?.textContent.trim() === y
+      && row.querySelector('td.current')?.textContent.trim() === c).length, [yours, current]);
 }
 
 async function workflow(s) {
@@ -96,9 +99,9 @@ async function workflow(s) {
     await s.master.locator('[name="city"]').first().fill(cityA);
     await staleSave(s, s.master);
     await s.master.locator('#demographicUpdateConflict').waitFor({ state: 'visible', timeout: TIMEOUT });
-    h.assert(await conflictRow(s.master, cityA, '').count() === 1,
+    h.assert(await conflictRows(s.master, cityA, '') === 1,
       'The conflict page does not show the city session A typed beside the record\'s current (blank) city');
-    h.assert(await conflictRow(s.master, '', phoneB).count() === 1,
+    h.assert(await conflictRows(s.master, '', phoneB) === 1,
       'The conflict page does not show the stale blank phone beside the number session B saved');
     h.assert(col('phone') === phoneB && col('city') === '',
       `The refused save changed the record (phone ${col('phone') === phoneB ? 'kept' : 'changed'}, city ${col('city') === '' ? 'blank' : 'written'})`);
@@ -140,7 +143,7 @@ async function workflow(s) {
 
     await s.master.locator('[name="city"]').first().fill(cityA2);
     await staleSave(s, s.master);
-    h.assert(await conflictRow(s.master, cityA2, cityA).count() === 1,
+    h.assert(await conflictRows(s.master, cityA2, cityA) === 1,
       'The second conflict page does not show the new city beside the stored one');
     const current = await clickOpensPopup(s.master, s.master.locator('#openCurrentRecord'),
       { context: s.context, recorder: s.recorder, label: 'current-record', timeout: TIMEOUT });
