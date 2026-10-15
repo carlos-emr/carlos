@@ -60,8 +60,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  */
 public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
-    private final MeasurementGroupCreationService creationService;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient MeasurementGroupCreationService creationService;
 
     public EctDefineNewMeasurementGroup2Action(SecurityInfoManager securityInfoManager,
                                                MeasurementGroupCreationService creationService) {

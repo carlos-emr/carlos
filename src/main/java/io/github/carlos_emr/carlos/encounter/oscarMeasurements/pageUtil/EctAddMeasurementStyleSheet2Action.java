@@ -72,8 +72,8 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
 
     // An instance field like its siblings: a static one was resolved when the class was first
     // loaded, which is before a Spring context exists in a unit test.
-    private MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient MeasurementCSSLocationDao dao = SpringUtils.getBean(MeasurementCSSLocationDao.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute()
             throws ServletException, IOException {
