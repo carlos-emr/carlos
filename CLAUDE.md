@@ -404,6 +404,18 @@ result. PR #2043 showed this surfaces in CARLOS as `CARLOS Error: 0` because
 Track broader cleanup of legacy mixed direct-response actions in
 GitHub issue #2064.
 
+### Duplicate Submissions and Stale Edits
+
+A create form that a double click, a slow-response re-click or a reload of its POST result page
+can repeat must save once per rendering: use `FormSubmissionGuard` (issue #4225). Render its
+token into the form and claim it in the action before validation. Answer a repeat of a saved
+rendering with the first save's own result page, and map `submissionRefused` to
+`/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
+field must refuse a form rendered from an older version rather than overwrite the newer record;
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
+that deliberately replay a captured POST must drop `carlosFormSubmission` and
+`demographicVersion`. See `docs/form-submission-guard.md`.
+
 ## Layer Names — class naming policy
 
 **Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
