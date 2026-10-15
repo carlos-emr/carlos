@@ -29,6 +29,8 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -170,6 +172,25 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         return patientLabRouting;
     }
 
+    private HRMDocument createHrmDocument() {
+        HRMDocument hrmDocument = new HRMDocument();
+        hrmDocument.setReportType("Diagnostic Imaging Report");
+        hrmDocument.setReportStatus("S");
+        hrmDocument.setTimeReceived(new Date());
+        entityManager.persist(hrmDocument);
+        entityManager.flush();
+        return hrmDocument;
+    }
+
+    private void matchHrmDocumentToDemographic(Integer hrmDocumentId, int demographicNo) {
+        HRMDocumentToDemographic link = new HRMDocumentToDemographic();
+        link.setHrmDocumentId(hrmDocumentId);
+        link.setDemographicNo(demographicNo);
+        link.setTimeAssigned(new Date());
+        entityManager.persist(link);
+        entityManager.flush();
+    }
+
 
     @Nested
     @DisplayName("CRUD operations")
@@ -282,7 +303,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should report unavailable active eForm and document attachments for runtime warnings")
+        @DisplayName("should report unavailable active eForm, document and HRM attachments for runtime warnings")
         void shouldReportUnavailableActiveAttachments_forRuntimeWarnings() {
             AttachmentFixture fixture = createAttachmentFixture();
 
@@ -297,12 +318,72 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
                             fixture.patientIndependentEForm.getId(),
                             fixture.missingDocument.getId(),
                             fixture.deletedDocument.getId(),
-                            fixture.wrongPatientDocument.getId());
+                            fixture.wrongPatientDocument.getId(),
+                            fixture.activeHrmWithMissingTarget.getId());
             // Labs are not named here: the consult form lists an unavailable lab itself until its
             // source is selected again, and print and fax refuse it until then.
             assertThat(results).extracting(ConsultDocs::getDocType).doesNotContain(ConsultDocs.DOCTYPE_LAB);
             // The same order on every screen: by type, then id.
             assertThat(results).extracting(ConsultDocs::getDocType).isSorted();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should report an HRM attachment whose report is gone, unmatched or matched to another patient")
+        void shouldReportHrmAttachment_whenReportIsMissingOrNotMatchedToConsultPatient() {
+            int demographicNo = 83001;
+            int otherDemographicNo = 83002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument matchedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(matchedReport.getId(), demographicNo);
+            HRMDocument rematchedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(rematchedReport.getId(), otherDemographicNo);
+            HRMDocument unmatchedReport = createHrmDocument();
+
+            createConsultDoc(consult.getId(), matchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs rematched = createConsultDoc(consult.getId(), rematchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs unmatched = createConsultDoc(consult.getId(), unmatchedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+            ConsultDocs missingRecord = createConsultDoc(consult.getId(), 990009, ConsultDocs.DOCTYPE_HRM, null);
+            createConsultDoc(consult.getId(), 990010, ConsultDocs.DOCTYPE_HRM, ConsultDocs.DELETED);
+
+            List<ConsultDocs> results = consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId());
+
+            assertThat(results)
+                    .extracting(ConsultDocs::getId)
+                    .containsExactlyInAnyOrder(rematched.getId(), unmatched.getId(), missingRecord.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient")
+        void shouldNotReportHrmAttachment_whenReportIsMatchedToConsultPatient() {
+            int demographicNo = 83101;
+            createDemographic(demographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument report = createHrmDocument();
+            matchHrmDocumentToDemographic(report.getId(), demographicNo);
+            createConsultDoc(consult.getId(), report.getId(), ConsultDocs.DOCTYPE_HRM, null);
+
+            assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient and another")
+        void shouldNotReportHrmAttachment_whenReportIsMatchedToBothPatients() {
+            int demographicNo = 83301;
+            int otherDemographicNo = 83302;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument sharedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(sharedReport.getId(), otherDemographicNo);
+            matchHrmDocumentToDemographic(sharedReport.getId(), demographicNo);
+            createConsultDoc(consult.getId(), sharedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+
+            assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
         }
 
         @Test

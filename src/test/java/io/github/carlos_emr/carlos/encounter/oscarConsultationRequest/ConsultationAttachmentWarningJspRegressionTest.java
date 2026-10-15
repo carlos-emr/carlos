@@ -139,14 +139,16 @@ class ConsultationAttachmentWarningJspRegressionTest {
     private static final String PREFIX = "encounter.oscarConsultationRequest.";
     /** Keys worded through MessageFormat (fmt:param or ConsultAttachmentWarning), where a lone ' is eaten. */
     private static final List<String> FORMATTED_KEYS = List.of(
-            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.notRendered",
+            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.fileUnavailable",
+            PREFIX + "attachmentWarning.notRendered",
             PREFIX + "attachmentWarning.printBlocked", "consultation.fax.unavailableNotConfirmed",
             "consultation.fax.attachmentsNotRendered");
     private static final List<String> NEW_KEYS = List.of(
             PREFIX + "msgAttachmentsUnavailable",
             PREFIX + "ConsultationFormRequest.msgPreviewAttachmentsUnavailable",
             PREFIX + "ConsultationFormRequest.msgPreviewRequestFailed",
-            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.notRendered",
+            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.fileUnavailable",
+            PREFIX + "attachmentWarning.notRendered",
             PREFIX + "attachmentWarning.printBlocked",
             PREFIX + "attachmentType.document", PREFIX + "attachmentType.lab", PREFIX + "attachmentType.eform",
             PREFIX + "attachmentType.hrm", PREFIX + "attachmentType.form", PREFIX + "attachmentType.unknown",

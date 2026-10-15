@@ -56,6 +56,11 @@ public final class ConsultAttachmentWarning implements Serializable {
          * consult is sent without it.
          */
         UNAVAILABLE("encounter.oscarConsultationRequest.attachmentWarning.unavailable"),
+        /**
+         * An HRM report whose file is missing or cannot be read. Treated as unavailable (left out;
+         * a fax goes ahead once staff confirm), with its own wording.
+         */
+        FILE_UNAVAILABLE("encounter.oscarConsultationRequest.attachmentWarning.fileUnavailable"),
         /** Its target exists but could not be read or rendered; print and fax refuse the consult. */
         NOT_RENDERED("encounter.oscarConsultationRequest.attachmentWarning.notRendered");
 
@@ -96,6 +101,18 @@ public final class ConsultAttachmentWarning implements Serializable {
     }
 
     /**
+     * An attachment whose record is there but whose stored file is missing or cannot be read (an
+     * HRM report), left out like an unavailable one.
+     *
+     * @param type the attachment type, or {@code null} if it is not known
+     * @param id the attachment id; anything but letters, digits, '-' and '_' shows as "?"
+     * @return the warning
+     */
+    public static ConsultAttachmentWarning fileUnavailable(DocumentType type, Object id) {
+        return new ConsultAttachmentWarning(type, id, Reason.FILE_UNAVAILABLE);
+    }
+
+    /**
      * An attachment whose target exists but could not be read or rendered.
      *
      * @param type the attachment type, or {@code null} if it is not known
@@ -110,8 +127,13 @@ public final class ConsultAttachmentWarning implements Serializable {
         return reason;
     }
 
+    /**
+     * @return whether it is left out without blocking print or fax (once confirmed, for a fax):
+     *         true for {@link Reason#UNAVAILABLE} and {@link Reason#FILE_UNAVAILABLE}, false for
+     *         {@link Reason#NOT_RENDERED}
+     */
     public boolean isUnavailable() {
-        return reason == Reason.UNAVAILABLE;
+        return reason != Reason.NOT_RENDERED;
     }
 
     /** @return the attachment id, or "?" when it was missing or not a plain id */
