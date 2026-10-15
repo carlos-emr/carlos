@@ -11,25 +11,36 @@ const globalScript = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js
 const script = jsp.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1]
   .replace(/<fmt:message\b[^>]*\/>/g, 'Confirm save')
   .replace(/<%=[\s\S]*?%>/g, 'null');
-const markup = jsp.replace(/<%[\s\S]*?%>/g, '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '')
-  .replace(/<fmt:message\b[^>]*\/>/g, 'Label')
-  .replace(/\$\{[^}]*}/g, '');
 const eyeTypes = ['iDia', 'iHyp', 'iOth', 'iRef'];
 const footTypes = ['FTEx', 'FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt', 'FTRe'];
+
+// Tokenize the checked-in JSP fixture, never produce filtered HTML. Complete JSP/comment/
+// script blocks are consumed before opening tags; quoted '>' stays inside its attribute.
+// This is a source-test reader, not a sanitizer or a general JSP/HTML renderer.
+function* fixtureTags(source) {
+  const tokens = /<%[\s\S]*?%>|<!--[\s\S]*?-->|<script\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/script\s*>|<([a-z][\w:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>|(<%|<!--)/gi;
+  for (const token of source.matchAll(tokens)) {
+    assert(!token[3], 'Unterminated JSP/comment block in fixture');
+    if (!token[1]) continue;
+    assert.notEqual(token[1].toLowerCase(), 'script', 'Unterminated script block in fixture');
+    const attributes = token[2].replace(/<%[\s\S]*?%>/g, '')
+      .replace(/<fmt:message\b[^>]*\/>/g, 'Label')
+      .replace(/\$\{[^}]*}/g, '');
+    const attrs = {};
+    for (const attribute of attributes.matchAll(/([^\s="'<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g)) {
+      attrs[attribute[1]] = attribute[2] ?? attribute[3] ?? attribute[4] ?? '';
+    }
+    yield {tag: token[1].toLowerCase(), attrs};
+  }
+}
 
 // Build the form collection from the actual JSP controls, including duplicate radio names and
 // numeric indices. Missing/malformed controls remain missing; the harness never invents fields.
 function page(saved = {}, confirmed = true) {
   const nodes = [];
   const byId = new Map();
-  for (const tag of markup.matchAll(/<([a-z][\w:-]*)\b([^>]*?)>/gi)) {
-    const attrs = {};
-    for (const attribute of tag[2].matchAll(/([^\s="'<>/]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?/g)) {
-      attrs[attribute[1]] = attribute[2] ?? attribute[3] ?? attribute[4] ?? '';
-    }
-    const node = {tag: tag[1].toLowerCase(), attrs, name: attrs.name || '', type: attrs.type || 'text',
+  for (const {tag, attrs} of fixtureTags(jsp)) {
+    const node = {tag, attrs, name: attrs.name || '', type: attrs.type || 'text',
       value: attrs.value ?? (attrs.type === 'checkbox' ? 'on' : ''), checked: Object.hasOwn(attrs, 'checked'),
       disabled: Object.hasOwn(attrs, 'disabled'),
       style: {display: attrs.style?.match(/display\s*:\s*([^;]+)/)?.[1].trim() || ''}};
@@ -237,7 +248,9 @@ test('every existing inline click/change/clear handler executes against the real
     for (const event of ['onclick', 'onchange']) {
       if (node.attrs[event]) assert.doesNotThrow(() => p.run(node.attrs[event]), `${node.name} ${event}`);
     }
-    if (node.attrs.href?.startsWith('javascript:')) {
+    // Every anchor in this JSP is an inline event script. Execute each one, including its
+    // JavaScript label, rather than silently ignoring an unexpected anchor in the fixture.
+    if (node.tag === 'a' && Object.hasOwn(node.attrs, 'href')) {
       assert.doesNotThrow(() => p.run(node.attrs.href), node.attrs.href);
     }
   }
@@ -262,4 +275,35 @@ test('saved VT values stay in encoded data attributes and are restored through D
   assert(jsp.includes('data-value="${carlos:forHtmlAttribute(field.value)}"'));
   assert(script.includes('field.value = stored.dataset.value;'));
   assert(!script.includes('innerHTML'));
+});
+
+test('fixture scanner skips fake controls inside JSP, comments and mixed-case script blocks', () => {
+  const source = `<% String example = "<input name='fake-jsp'>"; %>
+    <%-- <input name="fake-jsp-comment"> --%>
+    <!-- <input name="fake-comment"> -->
+    <ScRiPt type="text/javascript">const example = '<input name="fake-script">';</sCrIpT>
+    <SCRIPT src="fixture.js" data-example="a > b"><input name="fake-external-script"></SCRIPT>
+    <input name="real" value="actual">`;
+  assert.deepEqual([...fixtureTags(source)], [{tag: 'input', attrs: {name: 'real', value: 'actual'}}]);
+});
+
+test('fixture scanner rejects unterminated blocks instead of inventing enclosed controls', () => {
+  for (const source of ['<!-- <input name="fake">', '<% String example = "<input name=\'fake\'>";',
+    '<script>const example = \'<input name="fake">\';',
+    '<SCRIPT src="fixture.js" data-example="a > b"><input name="fake">']) {
+    assert.throws(() => [...fixtureTags(source)], /Unterminated .* block in fixture/);
+  }
+});
+
+test('fixture scanner retains quoted delimiters and event attributes after JSP labels', () => {
+  const source = `<input name="value(WTComments)" value="a > b" title='c > d'>
+    <input type="submit" value="<fmt:message key="global.btnExit"/>" onclick="return onExit();">
+    <input name="value(formId)" value="\${requestScope.formValues['formId']}">
+    <a href="javascript:showHideItem('detailEye');" title="Eye > detail">Open</a>`;
+  assert.deepEqual([...fixtureTags(source)], [
+    {tag: 'input', attrs: {name: 'value(WTComments)', value: 'a > b', title: 'c > d'}},
+    {tag: 'input', attrs: {type: 'submit', value: 'Label', onclick: 'return onExit();'}},
+    {tag: 'input', attrs: {name: 'value(formId)', value: ''}},
+    {tag: 'a', attrs: {href: "javascript:showHideItem('detailEye');", title: 'Eye > detail'}},
+  ]);
 });

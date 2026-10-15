@@ -21,8 +21,8 @@ same patient; navigating that opener to another patient prevents the append.
 - The original browser check from release commit `3d5f85fbb6` reproduced the
   crossover: both initial patient controls passed, then A's post-B read failed.
   Owned fixture cleanup was verified.
-- 444 targeted Java checks pass: 141 patient-context/measurement/note/graph cases,
-  12 incoming-encounter cases, 56 form cases, 193 existing chart/appointment
+- 447 targeted Java checks pass: 143 patient-context/measurement/note/graph cases,
+  12 incoming-encounter cases, 57 form cases, 193 existing chart/appointment
   regressions, 17 authorization/routing cases, 11 existing measurement/JSP
   encoding regressions, seven existing reload-URL cases, and seven latest-form
   integration cases. Unit tests exercise production actions with mocked service boundaries.
@@ -34,9 +34,12 @@ same patient; navigating that opener to another patient prevents the append.
   query fails four of the seven new selection cases as a negative control.
 - Existing chart revision, CPP transaction, appointment, authorization, and routing
   regression tests are rerun after changes.
+- CodeRabbit's two error-path findings are covered: absent billing demographics
+  use empty names without borrowing another chart's metadata; form-record lookup
+  SQL failures return a controlled 500 before clinical prefill or forwarding.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites pass 67 panel/completion/isolation cases, 12 Vascular
+  focused client suites pass 67 panel/completion/isolation cases, 15 Vascular
   Tracker script cases, and 93 link-audit/navbar-readiness cases. The manifest
   suite passes 63 checks. An earlier complete local run passed 3,719 tests with
   five existing TODOs. A later full run exhausted the runtime's disk quota in

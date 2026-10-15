@@ -138,6 +138,9 @@ public final class FrmSetupForm2Action extends ActionSupport {
         } catch (IllegalArgumentException foreignRecord) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
             return NONE;
+        } catch (SQLException lookupFailure) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to read form record");
+            return NONE;
         }
         Demographic patient = new DemographicData().getDemographic(loggedInInfo, demo);
         if (patient == null) {

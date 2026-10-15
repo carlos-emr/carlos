@@ -1477,8 +1477,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             bean.demographicNo = demographicNo;
             bean.providerNo = loggedInInfo.getLoggedInProviderNo();
             bean.curProviderNo = bean.providerNo;
-            bean.patientFirstName = demographic.getFirstName();
-            bean.patientLastName = demographic.getLastName();
+            bean.patientFirstName = demographic == null ? "" : demographic.getFirstName();
+            bean.patientLastName = demographic == null ? "" : demographic.getLastName();
         }
         String requestedAppointment = request.getParameter("appointmentNo");
         if (StringUtils.isBlank(requestedAppointment)) requestedAppointment = bean.appointmentNo;

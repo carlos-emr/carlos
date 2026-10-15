@@ -362,6 +362,29 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldReturnControlledServerError_whenOwnedRecordLookupFails() throws Exception {
+        request.setParameter("demographic_no", "101");
+        request.setParameter("value(formId)", "88");
+        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+             var records = mockConstruction(FrmRecordHelp.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+                    .thenThrow(new SQLException("Synthetic lookup failure"));
+
+            assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to read form record");
+            assertThat(response.getForwardedUrl()).isNull();
+            assertThat(response.getRedirectedUrl()).isNull();
+            assertThat(request.getAttribute("formPatient")).isNull();
+            assertThat(request.getAttribute("formValues")).isNull();
+            assertThat(records.constructed()).isEmpty();
+            verifyNoInteractions(measurements, demographics, charts);
+            assertThat(request.getSession().getAttribute("EctSessionBean")).isSameAs(lastChart);
+            assertThat(lastChart.getDemographicNo()).isEqualTo("202");
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"SetupForm.doUnexpected?formName=VTForm", "SetupFormOther?formName=VTForm", "Other?formName=VTForm"})
     void shouldRejectUnregisteredEndpoint_despiteMatchingFormTable(String route) throws Exception {
