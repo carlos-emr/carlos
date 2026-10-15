@@ -97,7 +97,7 @@
 
 const { chromium } = require('playwright');
 const { createFaxConfigGuard } = require('./lib/fax-config-state');
-const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
+const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -294,7 +294,7 @@ async function main() {
     context = await browser.newContext({
       // A packaged standalone install begins with a self-signed certificate.
       // Remote targets explicitly opted into above must still prove their TLS.
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1360, height: 1100 },
     });
 

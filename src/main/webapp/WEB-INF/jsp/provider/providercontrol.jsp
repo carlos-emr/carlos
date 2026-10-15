@@ -176,8 +176,10 @@
             {"savedeletetemplate", "providertemplate.jsp"},
             {"ar1", "formar1_99_12.jsp"},
             {"ar2", "formar2_99_08.jsp"},
-            {"newgroup", "/provider/ViewProviderNewGroup"},
-            {"savemygroup", "/provider/SaveMyGroup"}
+            // Read-only views. Saving and deleting group members are POSTed straight to
+            // provider/SaveMyGroup and provider/DeleteMyGroupMembers: a redirect issued from an
+            // included page is ignored, so the former savemygroup mode left a blank page (#4515).
+            {"newgroup", "/provider/ViewProviderNewGroup"}
 
     };
 
