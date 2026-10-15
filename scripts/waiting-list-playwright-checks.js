@@ -230,7 +230,7 @@ async function workflow(s) {
     await manager.locator('#selectedWL').selectOption(listId);
     await ui.clickAndAwaitReload(manager, manager.locator('input[type="button"][onclick*="goToPage"]'),
       { timeout: 20000, label: 'Generate Report' });
-    await manager.waitForURL(new RegExp(`waitingListId=${listId}(&|$)`), { timeout: 20000 });
+    await manager.waitForURL(url => url.searchParams.get('waitingListId') === listId, { timeout: 20000 });
     await h.assertNotErrorPage(manager, 'the waiting-list report');
     h.assert(await manager.locator('a', { hasText: marker }).count() === 1, 'The waiting-list report does not list the patient once');
     const notes = await manager.locator('textarea[name$="].note"]').evaluateAll(areas => areas.map(area => area.value));
