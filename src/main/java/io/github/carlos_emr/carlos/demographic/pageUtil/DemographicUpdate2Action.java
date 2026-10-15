@@ -140,6 +140,12 @@ public class DemographicUpdate2Action extends ActionSupport {
             return ERROR;
         }
 
+        // The record-level check the Master Record itself enforces (DemographicEdit2Action): a user
+        // kept from this patient may neither change the record nor read it back from the conflict page.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", String.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
         Demographic demographic = demographicDao.getDemographic(demoNo);
         if (demographic == null) {
             logger.warn("DemographicUpdate2Action: demographic_no={} not found", demoNo);
@@ -147,6 +153,187 @@ public class DemographicUpdate2Action extends ActionSupport {
             return ERROR;
         }
 
+        applyForm(demographic, proNo);
+
+        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        if (!fieldLengthValidationErrors.isEmpty()) {
+            logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
+                    String.join("; ", fieldLengthValidationErrors));
+            request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
+        }
+
+        // The extension rows this form writes. Their ids are resolved from the patient's existing
+        // rows when they are saved, not taken from the form (see the write phase below).
+        List<DemographicExt> extensions = new ArrayList<>();
+        for (String key : DemographicEditVersion.editedExtensionKeys()) {
+            extensions.add(new DemographicExt(proNo, demographicNo, key, request.getParameter(key)));
+        }
+
+        // --- HIN duplicate check must run before any persistence to prevent partial updates ---
+        boolean hinDupCheckException = false;
+        String hcType = request.getParameter("hc_type");
+        String ver = request.getParameter("ver");
+        if (hcType != null && ver != null && hcType.equals("BC") && ver.equals("66")) {
+            hinDupCheckException = true;
+        }
+
+        if (request.getParameter("hin") != null && request.getParameter("hin").length() > 5 && !hinDupCheckException) {
+            String paramNameHin = request.getParameter("hin").trim();
+            boolean outOfDomain = true;
+            List<Demographic> hinDemoList = demographicDao.searchDemographicByHIN(
+                    paramNameHin, 100, 0, loggedInInfo.getLoggedInProviderNo(), outOfDomain);
+            for (Demographic hinDemo : hinDemoList) {
+                if (!hinDemo.getDemographicNo().toString().equals(demoNo)) {
+                    if (hinDemo.getVer() != null && !hinDemo.getVer().equals("66")) {
+                        request.setAttribute("hinDuplicateDemo", hinDemo);
+                        return "duplicate";
+                    }
+                }
+            }
+        }
+
+        // --- Write under a row lock (issue #4225) ---
+        // The patient row is locked before anything is written and every write below commits
+        // together, so two saves of one patient cannot interleave. A form that carries the
+        // version it was rendered from is refused when that is no longer the record's version:
+        // writing it would put back every field another user changed since it was opened (a
+        // cleared phone number), so the newer record is kept and the user's entries are shown on
+        // the conflict page instead.
+        final int patientNo = demographicNo;
+        final String postedVersion = request.getParameter(DemographicEditVersion.PARAMETER);
+        UpdateOutcome outcome = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                .execute(status -> {
+                    Demographic current = demographicDao.findForUpdate(patientNo);
+                    if (current == null) {
+                        status.setRollbackOnly();
+                        return UpdateOutcome.whenMissing();
+                    }
+                    if (DemographicEditVersion.isPresent(postedVersion)) {
+                        Map<String, String> currentExtensions = demographicExtDao.getAllValuesForDemo(patientNo);
+                        DemographicCust currentCust = demographicCustDao.find(patientNo);
+                        String currentVersion = DemographicEditVersion.of(current, currentExtensions, currentCust);
+                        if (!currentVersion.equals(postedVersion)) {
+                            status.setRollbackOnly();
+                            return UpdateOutcome.whenStale(currentVersion, DemographicEditVersion.differences(
+                                    demographic, postedExtensionValues(extensions), postedCust(patientNo),
+                                    current, currentExtensions, currentCust));
+                        }
+                    }
+
+                    // The form is applied to the locked row, not to the copy read before the lock, so a
+                    // column the form does not write keeps the value the row holds now.
+                    applyForm(current, proNo);
+                    writeConsents(loggedInInfo, current);
+
+                    // Each extension row is matched to the patient's existing row by key, never by an
+                    // id the form posted: a form rendered before the rows existed posts no ids and
+                    // used to insert them a second time (uk_demo_ext), and a posted id could name
+                    // another patient's row.
+                    Map<String, Integer> rowIds = new HashMap<>();
+                    for (DemographicExt row : demographicExtDao.getDemographicExtByDemographicNo(patientNo)) {
+                        rowIds.putIfAbsent(row.getKey(), row.getId());
+                    }
+                    for (DemographicExt extension : extensions) {
+                        extension.setId(rowIds.get(extension.getKey()));
+                        demographicExtDao.saveEntity(extension);
+                        rowIds.putIfAbsent(extension.getKey(), extension.getId());
+                    }
+
+                    OtherIdManager.saveIdDemographic(patientNo, "meditech_id", request.getParameter("meditech_id"));
+
+                    Long archiveId = demographicArchiveDao.archiveRecord(current);
+                    for (DemographicExt extension : extensions) {
+                        DemographicExtArchive archive = new DemographicExtArchive(extension);
+                        archive.setArchiveId(archiveId);
+                        archive.setValue(request.getParameter(archive.getKey()));
+                        demographicExtArchiveDao.saveEntity(archive);
+                    }
+
+                    demographicDao.save(current);
+
+                    DemographicCust demographicCust = demographicCustDao.find(patientNo);
+                    if (demographicCust != null) {
+                        applyPostedCust(demographicCust);
+                        demographicCustDao.merge(demographicCust);
+                    } else {
+                        demographicCustDao.persist(postedCust(patientNo));
+                    }
+                    return UpdateOutcome.whenSaved();
+                });
+
+        if (outcome == null || outcome.missing()) {
+            logger.warn("DemographicUpdate2Action: the patient record was removed before the update could be saved");
+            addActionError("Patient record not found");
+            return ERROR;
+        }
+        if (!outcome.saved()) {
+            return refuseStaleForm(demoNo, outcome);
+        }
+
+        try {
+            DemographicNameAgeString.resetDemographic(demoNo);
+        } catch (Exception nameAgeEx) {
+            logger.error("ERROR RESETTING NAME AGE", nameAgeEx);
+        }
+
+        PreventionManager prevMgr = SpringUtils.getBean(PreventionManager.class);
+        prevMgr.removePrevention(demoNo);
+
+        LogAction.addLog(proNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC,
+                demoNo, request.getRemoteAddr(), demoNo);
+
+        io.github.carlos_emr.carlos.waitinglist.WaitingList wL =
+                io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
+        if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
+            WLWaitingListUtil.updateWaitingListRecord(
+                    request.getParameter("list_id"), request.getParameter("waiting_list_note"),
+                    demoNo, request.getParameter("waiting_list_referral_date"));
+
+            String listId = request.getParameter("list_id");
+            if (listId != null && !listId.isEmpty() && !"0".equalsIgnoreCase(listId)) {
+                int listIdInt;
+                try {
+                    listIdInt = Integer.parseInt(listId);
+                } catch (NumberFormatException e) {
+                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                    return null;
+                }
+                List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
+                        listIdInt, demographicNo);
+                if (waitingListList.isEmpty()) {
+                    List<Appointment> apptList = appointmentDao.findNonCancelledFutureAppointments(demographicNo);
+                    request.setAttribute("demographicNo", demoNo);
+                    request.setAttribute("wlDemoNo", demoNo);
+                    request.setAttribute("wlListId", listId);
+                    request.setAttribute("wlNote", StringUtils.noNull(request.getParameter("waiting_list_note")));
+                    request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
+                    request.setAttribute("addToWl", Boolean.TRUE);
+                    request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
+                    return SUCCESS;
+                } else {
+                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                    return null;
+                }
+            } else {
+                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+                return null;
+            }
+        } else {
+            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+            return null;
+        }
+    }
+
+    /**
+     * Copies the posted Master Record form onto {@code demographic}: every field the edit form
+     * writes, plus the audit columns. Applied first to a copy for validation and the duplicate-HIN
+     * check, then to the row locked for the write, so a column the form does not write keeps
+     * whatever the locked row holds.
+     */
+    private void applyForm(Demographic demographic, String proNo) {
         demographic.setLastName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("first_name")));
         demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
@@ -266,174 +453,6 @@ public class DemographicUpdate2Action extends ActionSupport {
             demographic.setPatientStatusDate(MyDateFormat.getSysDate(yearTmp + '-' + monthTmp + '-' + dayTmp));
         } else {
             demographic.setPatientStatusDate(null);
-        }
-
-        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
-        if (!fieldLengthValidationErrors.isEmpty()) {
-            logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
-                    String.join("; ", fieldLengthValidationErrors));
-            request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return "validationError";
-        }
-
-        // The extension rows this form writes. Their ids are resolved from the patient's existing
-        // rows when they are saved, not taken from the form (see the write phase below).
-        List<DemographicExt> extensions = new ArrayList<>();
-        for (String key : DemographicEditVersion.editedExtensionKeys()) {
-            extensions.add(new DemographicExt(proNo, demographicNo, key, request.getParameter(key)));
-        }
-
-        // --- HIN duplicate check must run before any persistence to prevent partial updates ---
-        boolean hinDupCheckException = false;
-        String hcType = request.getParameter("hc_type");
-        String ver = request.getParameter("ver");
-        if (hcType != null && ver != null && hcType.equals("BC") && ver.equals("66")) {
-            hinDupCheckException = true;
-        }
-
-        if (request.getParameter("hin") != null && request.getParameter("hin").length() > 5 && !hinDupCheckException) {
-            String paramNameHin = request.getParameter("hin").trim();
-            boolean outOfDomain = true;
-            List<Demographic> hinDemoList = demographicDao.searchDemographicByHIN(
-                    paramNameHin, 100, 0, loggedInInfo.getLoggedInProviderNo(), outOfDomain);
-            for (Demographic hinDemo : hinDemoList) {
-                if (!hinDemo.getDemographicNo().toString().equals(demoNo)) {
-                    if (hinDemo.getVer() != null && !hinDemo.getVer().equals("66")) {
-                        request.setAttribute("hinDuplicateDemo", hinDemo);
-                        return "duplicate";
-                    }
-                }
-            }
-        }
-
-        // --- Write under a row lock (issue #4225) ---
-        // The patient row is locked before anything is written and every write below commits
-        // together, so two saves of one patient cannot interleave. A form that carries the
-        // version it was rendered from is refused when that is no longer the record's version:
-        // writing it would put back every field another user changed since it was opened (a
-        // cleared phone number), so the newer record is kept and the user's entries are shown on
-        // the conflict page instead.
-        final int patientNo = demographicNo;
-        final String postedVersion = request.getParameter(DemographicEditVersion.PARAMETER);
-        UpdateOutcome outcome = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
-                .execute(status -> {
-                    Demographic current = demographicDao.findForUpdate(patientNo);
-                    if (current == null) {
-                        status.setRollbackOnly();
-                        return UpdateOutcome.whenMissing();
-                    }
-                    if (DemographicEditVersion.isPresent(postedVersion)) {
-                        Map<String, String> currentExtensions = demographicExtDao.getAllValuesForDemo(patientNo);
-                        DemographicCust currentCust = demographicCustDao.find(patientNo);
-                        String currentVersion = DemographicEditVersion.of(current, currentExtensions, currentCust);
-                        if (!currentVersion.equals(postedVersion)) {
-                            status.setRollbackOnly();
-                            return UpdateOutcome.whenStale(currentVersion, DemographicEditVersion.differences(
-                                    demographic, postedExtensionValues(extensions), postedCust(patientNo),
-                                    current, currentExtensions, currentCust));
-                        }
-                    }
-
-                    writeConsents(loggedInInfo, demographic);
-
-                    // Each extension row is matched to the patient's existing row by key, never by an
-                    // id the form posted: a form rendered before the rows existed posts no ids and
-                    // used to insert them a second time (uk_demo_ext), and a posted id could name
-                    // another patient's row.
-                    Map<String, Integer> rowIds = new HashMap<>();
-                    for (DemographicExt row : demographicExtDao.getDemographicExtByDemographicNo(patientNo)) {
-                        rowIds.putIfAbsent(row.getKey(), row.getId());
-                    }
-                    for (DemographicExt extension : extensions) {
-                        extension.setId(rowIds.get(extension.getKey()));
-                        demographicExtDao.saveEntity(extension);
-                        rowIds.putIfAbsent(extension.getKey(), extension.getId());
-                    }
-
-                    OtherIdManager.saveIdDemographic(patientNo, "meditech_id", request.getParameter("meditech_id"));
-
-                    Long archiveId = demographicArchiveDao.archiveRecord(demographic);
-                    for (DemographicExt extension : extensions) {
-                        DemographicExtArchive archive = new DemographicExtArchive(extension);
-                        archive.setArchiveId(archiveId);
-                        archive.setValue(request.getParameter(archive.getKey()));
-                        demographicExtArchiveDao.saveEntity(archive);
-                    }
-
-                    demographicDao.save(demographic);
-
-                    DemographicCust demographicCust = demographicCustDao.find(patientNo);
-                    if (demographicCust != null) {
-                        applyPostedCust(demographicCust);
-                        demographicCustDao.merge(demographicCust);
-                    } else {
-                        demographicCustDao.persist(postedCust(patientNo));
-                    }
-                    return UpdateOutcome.whenSaved();
-                });
-
-        if (outcome == null || outcome.missing()) {
-            logger.warn("DemographicUpdate2Action: the patient record was removed before the update could be saved");
-            addActionError("Patient record not found");
-            return ERROR;
-        }
-        if (!outcome.saved()) {
-            return refuseStaleForm(demoNo, outcome);
-        }
-
-        try {
-            DemographicNameAgeString.resetDemographic(demoNo);
-        } catch (Exception nameAgeEx) {
-            logger.error("ERROR RESETTING NAME AGE", nameAgeEx);
-        }
-
-        PreventionManager prevMgr = SpringUtils.getBean(PreventionManager.class);
-        prevMgr.removePrevention(demoNo);
-
-        LogAction.addLog(proNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC,
-                demoNo, request.getRemoteAddr(), demoNo);
-
-        io.github.carlos_emr.carlos.waitinglist.WaitingList wL =
-                io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
-        if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
-            WLWaitingListUtil.updateWaitingListRecord(
-                    request.getParameter("list_id"), request.getParameter("waiting_list_note"),
-                    demoNo, request.getParameter("waiting_list_referral_date"));
-
-            String listId = request.getParameter("list_id");
-            if (listId != null && !listId.isEmpty() && !"0".equalsIgnoreCase(listId)) {
-                int listIdInt;
-                try {
-                    listIdInt = Integer.parseInt(listId);
-                } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                    return null;
-                }
-                List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
-                        listIdInt, demographicNo);
-                if (waitingListList.isEmpty()) {
-                    List<Appointment> apptList = appointmentDao.findNonCancelledFutureAppointments(demographicNo);
-                    request.setAttribute("demographicNo", demoNo);
-                    request.setAttribute("wlDemoNo", demoNo);
-                    request.setAttribute("wlListId", listId);
-                    request.setAttribute("wlNote", StringUtils.noNull(request.getParameter("waiting_list_note")));
-                    request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
-                    request.setAttribute("addToWl", Boolean.TRUE);
-                    request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
-                    return SUCCESS;
-                } else {
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                    return null;
-                }
-            } else {
-                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                return null;
-            }
-        } else {
-            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-            return null;
         }
     }
 

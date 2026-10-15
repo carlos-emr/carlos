@@ -62,6 +62,10 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -110,6 +114,14 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             EctConEditDepartments2Action.class);
 
     private final Map<Class<?>, Object> previousSecurity = new HashMap<>();
+
+    /** A transaction manager that begins and ends nothing, for actions that open a transaction. */
+    static final class NoOpTransactionManager extends AbstractPlatformTransactionManager {
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { }
+        @Override protected void doRollback(DefaultTransactionStatus status) { }
+    }
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockHttpServletRequest request;
@@ -119,6 +131,8 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         security = createAndRegisterMock(SecurityInfoManager.class);
+        // Add Service commits its insert in a transaction its submission guard observes (issue #4225).
+        registerMock(PlatformTransactionManager.class, new NoOpTransactionManager());
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_con"), anyString(), ArgumentMatchers.<String>isNull()))
                 .thenReturn(true);
 
@@ -190,19 +204,28 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
         @DisplayName("Add Service adds one service when one rendered form is submitted twice (issue #4225)")
         void shouldAddOneService_whenOneRenderingIsSubmittedTwice() throws Exception {
             ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            org.mockito.Mockito.doAnswer(inv -> {
+                inv.<ConsultationServices>getArgument(0).setServiceId(61);
+                return null;
+            }).when(services).persist(any(ConsultationServices.class));
+            ConsultationServices stored = new ConsultationServices();
+            stored.setServiceDesc("Cardiology FAKE");
+            when(services.find(Integer.valueOf(61))).thenReturn(stored);
             String token = FormSubmissionGuard.issue(request.getSession(),
                     FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null);
             request.setParameter(FormSubmissionGuard.PARAMETER, token);
             EctConAddService2Action first = new EctConAddService2Action();
             first.setService("Cardiology FAKE");
             EctConAddService2Action repeat = new EctConAddService2Action();
-            repeat.setService("Cardiology FAKE");
+            // The repeat carries an edited name; the confirmation still names what was saved.
+            repeat.setService("Cardiology EDITED");
 
             assertThat(first.execute()).isEqualTo(ActionSupport.SUCCESS);
             request.removeAttribute("SERVADD");
             assertThat(repeat.execute()).isEqualTo(ActionSupport.SUCCESS);
 
             verify(services).persist(any(ConsultationServices.class));
+            verify(services).find(Integer.valueOf(61));
             assertThat(request.getAttribute("SERVADD")).isEqualTo("Cardiology FAKE");
             verifyNoMoreInteractions(services);
         }

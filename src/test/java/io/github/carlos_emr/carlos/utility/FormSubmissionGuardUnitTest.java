@@ -176,6 +176,18 @@ class FormSubmissionGuardUnitTest {
         assertThat(attempt(token, "42").result()).isEqualTo("7");
     }
 
+    @Test
+    void shouldCloseQuietly_whenTheSessionEndedDuringTheSave() {
+        String token = FormSubmissionGuard.issue(session, Scope.BILLING_ON_SAVE, "42");
+        Claim claim = attempt(token, "42").claim();
+        claim.saved("9001");
+        session.invalidate();
+
+        claim.close();
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "   "})
     void shouldReportAbsent_forBlankToken(String token) {

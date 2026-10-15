@@ -327,10 +327,16 @@ public final class FormSubmissionGuard {
             boolean retry = canRetry();
             Entry outcome = new Entry(issued.scope(), issued.binding(), retry ? State.ISSUED : State.SAVED,
                     retry ? null : result);
-            synchronized (WebUtils.getSessionMutex(session)) {
-                LinkedHashMap<String, Entry> entries = copyEntries(session);
-                putBounded(entries, token, outcome);
-                session.setAttribute(SESSION_KEY, new Pending(entries));
+            try {
+                synchronized (WebUtils.getSessionMutex(session)) {
+                    LinkedHashMap<String, Entry> entries = copyEntries(session);
+                    putBounded(entries, token, outcome);
+                    session.setAttribute(SESSION_KEY, new Pending(entries));
+                }
+            } catch (IllegalStateException invalidated) {
+                // The session ended while the save ran (a logout in another tab). Its tokens went
+                // with it, so there is nothing to record, and the save's own outcome must not be
+                // turned into an error page.
             }
         }
     }

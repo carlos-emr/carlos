@@ -40,14 +40,16 @@ by content.
 
 The claim frees the token only when the attempt provably wrote nothing:
 
-- Transactional saves call `claim.storageStarted()` first inside the save's transaction. A
-  rollback (`STATUS_ROLLED_BACK`) frees the token. Any other or unknown outcome keeps it spent.
-  The appointment add and the Ontario bill save run their writes in one `TransactionTemplate` for
-  this reason, and the bill save marks a "nothing saved" result rollback-only.
-- Non-transactional legacy flows call `claim.saved(id)` as soon as the first durable write has
-  committed. Add Demographic does this after the patient row is saved, and Add Service after its
-  single insert. If they fail before that point, the form can be submitted again. After it, a
-  repeat shows the first result instead of creating a second record.
+- The save calls `claim.storageStarted()` first inside a `TransactionTemplate` around the write
+  that creates the record. A rollback (`STATUS_ROLLED_BACK`) frees the token. Any other or unknown
+  outcome keeps it spent, including a commit whose acknowledgement was lost. Add Appointment
+  commits the appointment and its MC number together. The Ontario bill save marks a "nothing
+  saved" result rollback-only. Add Demographic wraps only the patient row, because its later
+  writes run in their own transactions. Add Service wraps its single insert.
+- After the commit, the action calls `claim.saved(id)` so a repeat can render the first result. If
+  a later step fails, the token stays spent and a repeat shows the first result instead of
+  creating a second record. A repeat's page shows what was saved (the service name, the patient's
+  name), never the repeat's own fields: those were not saved.
 
 Claim the token before validation. Once the first save has stored a patient, the HIN check would
 otherwise refuse the repeat as a duplicate of the patient it just created.

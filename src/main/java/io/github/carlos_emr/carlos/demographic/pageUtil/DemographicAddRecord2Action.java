@@ -52,6 +52,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -129,7 +131,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         switch (attempt.verdict()) {
             case PROCEED, ABSENT -> { }
             case ALREADY_SAVED -> {
-                return showAdded(attempt.result());
+                return showAdded(attempt.result(), demographicDao.getDemographic(attempt.result()));
             }
             default -> {
                 return FormSubmissionGuard.refuse(request, response, attempt.verdict());
@@ -288,7 +290,14 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         }
 
-        demographicDao.save(demographic);
+        // The patient row commits in a transaction the claim observes: a save that rolled back
+        // leaves the form submittable, and one whose commit could not be confirmed never does.
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            if (claim != null) {
+                claim.storageStarted();
+            }
+            demographicDao.save(demographic);
+        });
 
         String dem = demographic.getDemographicNo().toString();
         if (claim != null) {
@@ -433,15 +442,19 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         }
 
-        return showAdded(dem);
+        return showAdded(dem, demographic);
     }
 
     /**
      * The result page for the registered patient {@code dem}, with the appointment-return
      * parameters the form carried. A repeated submission of an already-saved form ends here too,
-     * so the user sees the same page whichever of the two responses the browser kept.
+     * so the user sees the same page whichever of the two responses the browser kept; its name,
+     * chart number and doctor are read from the saved patient, never from the repeat, whose
+     * entries were not saved.
+     *
+     * @param saved the registered patient, or null when it can no longer be read
      */
-    private String showAdded(String dem) {
+    private String showAdded(String dem, Demographic saved) {
         request.setAttribute("demographicNo", dem);
         request.setAttribute("fromAppt", request.getParameter("fromAppt"));
         request.setAttribute("startTime", request.getParameter("start_time"));
@@ -452,9 +465,15 @@ public class DemographicAddRecord2Action extends ActionSupport {
         request.setAttribute("day2", request.getParameter("day"));
         request.setAttribute("endTime", request.getParameter("end_time"));
         request.setAttribute("duration", request.getParameter("duration"));
-        request.setAttribute("bufName", request.getParameter("last_name") + "," + request.getParameter("first_name"));
-        request.setAttribute("bufChart", StringUtils.trimToEmpty(request.getParameter("chart_no")));
-        request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(request.getParameter("staff")));
+        if (saved != null) {
+            request.setAttribute("bufName", saved.getLastName() + "," + saved.getFirstName());
+            request.setAttribute("bufChart", StringUtils.trimToEmpty(saved.getChartNo()));
+            request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(saved.getProviderNo()));
+        } else {
+            request.setAttribute("bufName", request.getParameter("last_name") + "," + request.getParameter("first_name"));
+            request.setAttribute("bufChart", StringUtils.trimToEmpty(request.getParameter("chart_no")));
+            request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(request.getParameter("staff")));
+        }
         // Pass through remaining appointment params for URL construction in view
         request.setAttribute("creator", request.getParameter("creator"));
         request.setAttribute("appointmentDate", request.getParameter("appointment_date"));

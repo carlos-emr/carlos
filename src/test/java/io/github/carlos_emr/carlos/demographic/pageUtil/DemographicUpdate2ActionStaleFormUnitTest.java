@@ -58,7 +58,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -137,7 +137,7 @@ class DemographicUpdate2ActionStaleFormUnitTest extends CarlosUnitTestBase {
         waitingLists.when(WaitingList::getInstance).thenReturn(noWaitingList);
 
         when(info.getLoggedInProviderNo()).thenReturn("999998");
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), nullable(String.class))).thenReturn(true);
         when(consents.getActiveConsentTypes()).thenReturn(List.of());
         when(archives.archiveRecord(any(Demographic.class))).thenReturn(5L);
 
@@ -277,6 +277,42 @@ class DemographicUpdate2ActionStaleFormUnitTest extends CarlosUnitTestBase {
         // A key the patient has no row for yet is inserted once, as a new row.
         assertThat(saved.getAllValues()).filteredOn(extension -> "hPhoneExt".equals(extension.getKey()))
                 .singleElement().satisfies(extension -> assertThat(extension.getId()).isNull());
+    }
+
+    @Test
+    void shouldWriteTheFormOntoTheLockedRow_keepingColumnsTheFormDoesNotWrite() throws Exception {
+        databaseAfterAnotherSave();
+        // Read before the lock, the copy still had the old value; the locked row has the newer one.
+        when(demographics.getDemographic(String.valueOf(PATIENT))).thenAnswer(inv -> {
+            Demographic before = stored("555-0187");
+            before.setPatientType("OLD");
+            return before;
+        });
+        Demographic locked = stored("555-0187");
+        locked.setPatientType("NEWER");
+        when(demographics.findForUpdate(PATIENT)).thenReturn(locked);
+
+        new DemographicUpdate2Action().execute();
+
+        ArgumentCaptor<Demographic> saved = ArgumentCaptor.forClass(Demographic.class);
+        verify(demographics).save(saved.capture());
+        assertThat(saved.getValue()).isSameAs(locked);
+        assertThat(saved.getValue().getPatientType()).isEqualTo("NEWER");
+        assertThat(saved.getValue().getCity()).isEqualTo("CITY-A");
+        verify(archives).archiveRecord(locked);
+    }
+
+    @Test
+    void shouldRefuseBeforeReadingThePatient_whenTheUserIsKeptFromThisRecord() {
+        databaseAfterAnotherSave();
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("w"), eq(String.valueOf(PATIENT))))
+                .thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DemographicUpdate2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+        verify(demographics, never()).getDemographic(anyString());
+        verify(demographics, never()).findForUpdate(any());
     }
 
     @Test

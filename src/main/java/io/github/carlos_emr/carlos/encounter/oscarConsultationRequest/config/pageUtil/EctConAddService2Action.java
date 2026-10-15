@@ -39,6 +39,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -46,6 +47,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Adds a consultation service from Consultation configuration &gt; Add Service.
@@ -82,7 +85,9 @@ public class EctConAddService2Action extends ActionSupport {
         switch (attempt.verdict()) {
             case PROCEED, ABSENT -> { }
             case ALREADY_SAVED -> {
-                request.setAttribute("SERVADD", service);
+                // Confirm what the first add saved, not what this repeat carries.
+                ConsultationServices saved = consultationServiceDao.find(ConversionUtils.fromIntString(attempt.result()));
+                request.setAttribute("SERVADD", saved != null ? saved.getServiceDesc() : service);
                 return SUCCESS;
             }
             default -> {
@@ -94,9 +99,14 @@ public class EctConAddService2Action extends ActionSupport {
             ConsultationServices cs = new ConsultationServices();
             cs.setActive(ConsultationServiceDao.ACTIVE);
             cs.setServiceDesc(service);
-            // A single insert in the DAO's own transaction: when persist() returns the service is
-            // stored, and when it throws nothing was, so the form stays submittable for a retry.
-            consultationServiceDao.persist(cs);
+            // The insert commits in a transaction the claim observes: a rolled-back add leaves the
+            // form submittable, and one whose commit could not be confirmed never does.
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+                if (claim != null) {
+                    claim.storageStarted();
+                }
+                consultationServiceDao.persist(cs);
+            });
             if (claim != null) {
                 claim.saved(String.valueOf(cs.getId()));
             }

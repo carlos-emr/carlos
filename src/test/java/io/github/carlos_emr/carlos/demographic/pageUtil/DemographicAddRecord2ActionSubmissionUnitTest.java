@@ -43,6 +43,10 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,6 +80,18 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
     private final ProgramDao programs = mock(ProgramDao.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private final MockHttpSession session = new MockHttpSession();
+    private final RecordingTransactionManager transactions = new RecordingTransactionManager();
+
+    /** A no-op transaction manager that records how each transaction ended. */
+    static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
+        int commits;
+        int rollbacks;
+
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
+        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+    }
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -96,6 +112,7 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         registerMock(PatientConsentManager.class, consents);
         registerMock(ProgramDao.class, programs);
         registerMock(AdmissionDao.class, mock(AdmissionDao.class));
+        registerMock(PlatformTransactionManager.class, transactions);
 
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenAnswer(inv -> request);
@@ -162,6 +179,41 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("demographicNo")).isEqualTo("321");
         assertThat(request.getAttribute("bufName")).isEqualTo("FAKE-PW-RP,Check");
         verify(demographics, times(1)).save(any(Demographic.class));
+    }
+
+    @Test
+    void shouldShowTheSavedPatient_whenARepeatCarriesEditedEntries() {
+        String token = rendering();
+        submit(token, "FAKE-PW-SAVED");
+        Demographic saved = new Demographic(321);
+        saved.setLastName("FAKE-PW-SAVED");
+        saved.setFirstName("Check");
+        when(demographics.getDemographic("321")).thenReturn(saved);
+
+        String repeat = submit(token, "FAKE-PW-EDITED");
+
+        assertThat(repeat).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("bufName")).isEqualTo("FAKE-PW-SAVED,Check");
+        verify(demographics, times(1)).save(any(Demographic.class));
+    }
+
+    @Test
+    void shouldLeaveTheFormSubmittable_whenThePatientSaveRolledBack() {
+        String token = rendering();
+        doAnswer(inv -> {
+            throw new IllegalStateException("database unavailable");
+        }).doAnswer(inv -> {
+            inv.<Demographic>getArgument(0).setDemographicNo(322);
+            return null;
+        }).when(demographics).save(any(Demographic.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> submit(token, "FAKE-PW-RETRY"))
+                .isInstanceOf(IllegalStateException.class);
+        String retry = submit(token, "FAKE-PW-RETRY");
+
+        assertThat(retry).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("demographicNo")).isEqualTo("322");
+        assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
     @Test
