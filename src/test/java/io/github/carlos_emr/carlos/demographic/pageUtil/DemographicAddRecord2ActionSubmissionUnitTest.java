@@ -25,13 +25,16 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.waitinglist.WaitingList;
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -49,11 +52,13 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -178,6 +183,29 @@ class DemographicAddRecord2ActionSubmissionUnitTest extends CarlosUnitTestBase {
         assertThat(reload).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("demographicNo")).isEqualTo("321");
         assertThat(request.getAttribute("bufName")).isEqualTo("FAKE-PW-RP,Check");
+        verify(demographics, times(1)).save(any(Demographic.class));
+    }
+
+    @Test
+    void shouldKeepTheFormSpentAndLogTheGap_whenARelatedRowFailsAfterThePatientCommits() {
+        DemographicCustDao custs = mock(DemographicCustDao.class);
+        registerMock(DemographicCustDao.class, custs);
+        doThrow(new IllegalStateException("custom row failed")).doNothing().when(custs).persist(any(DemographicCust.class));
+        String token = rendering();
+
+        try (LogCapture log = LogCapture.forLogger(DemographicAddRecord2Action.class)) {
+            assertThatThrownBy(() -> submit(token, "FAKE-PW-TAIL")).isInstanceOf(IllegalStateException.class);
+
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage()).contains("patient 321 was registered");
+            });
+        }
+        // The patient row exists, so the reload shows it rather than registering a second patient.
+        String reload = submit(token, "FAKE-PW-TAIL");
+
+        assertThat(reload).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("demographicNo")).isEqualTo("321");
         verify(demographics, times(1)).save(any(Demographic.class));
     }
 

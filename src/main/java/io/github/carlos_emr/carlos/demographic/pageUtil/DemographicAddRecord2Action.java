@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -93,6 +94,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
     private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
     private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
 
+    /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
+    private String registeredDemographicNo;
+
     /**
      * Processes a demographic add form POST, persisting all related records and
      * setting response attributes for the view template.
@@ -139,6 +143,16 @@ public class DemographicAddRecord2Action extends ActionSupport {
         }
         try (FormSubmissionGuard.Claim claim = attempt.claim()) {
             return addRecord(loggedInInfo, claim);
+        } catch (RuntimeException e) {
+            // The patient row is already committed and the form is spent, so a reload shows the
+            // registered patient rather than adding another; record that the rest may be missing.
+            // The exception itself is logged with its incident id by the exception interceptor.
+            if (registeredDemographicNo != null) {
+                logger.error("DemographicAddRecord2Action: patient {} was registered, but a later registration step failed;"
+                        + " its custom, consent, extension, archive or admission rows may be incomplete",
+                        LogSafe.sanitize(registeredDemographicNo));
+            }
+            throw e;
         }
     }
 
@@ -300,6 +314,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         });
 
         String dem = demographic.getDemographicNo().toString();
+        registeredDemographicNo = dem;
         if (claim != null) {
             claim.saved(dem);
         }

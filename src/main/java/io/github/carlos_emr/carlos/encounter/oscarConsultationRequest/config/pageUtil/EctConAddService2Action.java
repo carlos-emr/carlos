@@ -85,9 +85,13 @@ public class EctConAddService2Action extends ActionSupport {
         switch (attempt.verdict()) {
             case PROCEED, ABSENT -> { }
             case ALREADY_SAVED -> {
-                // Confirm what the first add saved, not what this repeat carries.
+                // Confirm what the first add saved, never what this repeat carries: a row that cannot be
+                // found is answered as an unconfirmed save rather than echoing the repeat's own entry.
                 ConsultationServices saved = consultationServiceDao.find(ConversionUtils.fromIntString(attempt.result()));
-                request.setAttribute("SERVADD", saved != null ? saved.getServiceDesc() : service);
+                if (saved == null) {
+                    return FormSubmissionGuard.refuse(request, response, FormSubmissionGuard.Verdict.UNCONFIRMED);
+                }
+                request.setAttribute("SERVADD", saved.getServiceDesc());
                 return SUCCESS;
             }
             default -> {
@@ -107,7 +111,8 @@ public class EctConAddService2Action extends ActionSupport {
                 }
                 consultationServiceDao.persist(cs);
             });
-            if (claim != null) {
+            // Only an insert that produced an id can be shown again; without one the claim ends unconfirmed.
+            if (claim != null && cs.getId() != null && cs.getId() > 0) {
                 claim.saved(String.valueOf(cs.getId()));
             }
         }

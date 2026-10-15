@@ -231,6 +231,30 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("A repeat of an add that recorded no id is refused as unconfirmed, not confirmed with its own entry")
+        void shouldRefuseRepeatAsUnconfirmed_whenTheFirstAddRecordedNoId() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            String token = FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null);
+            request.setParameter(FormSubmissionGuard.PARAMETER, token);
+            EctConAddService2Action first = new EctConAddService2Action();
+            first.setService("Cardiology FAKE");
+            EctConAddService2Action repeat = new EctConAddService2Action();
+            repeat.setService("Cardiology EDITED");
+
+            assertThat(first.execute()).isEqualTo(ActionSupport.SUCCESS);
+            request.removeAttribute("SERVADD");
+            assertThat(repeat.execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(request.getAttribute("formSubmissionMessageKey"))
+                    .isEqualTo("global.formSubmission.unconfirmed");
+            assertThat(request.getAttribute("SERVADD")).isNull();
+            verify(services).persist(any(ConsultationServices.class));
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
         @DisplayName("Add Service refuses a token this session did not issue and adds nothing")
         void shouldRefuseWithoutAdding_forATokenThisSessionDidNotIssue() throws Exception {
             ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
