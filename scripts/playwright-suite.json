@@ -4014,7 +4014,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates one marker-named provider group (test provider + two active demo providers) through Administration and the provider My Group pages; snapshots and restores ProviderPreference.myGroupNo; deletes the group through the UI and again in cleanup. The Group Preferences (billing form) step runs only when the Ontario link is present."
+      "fixtures": "Creates one marker-named provider group (test provider + two active demo providers) through Administration and the provider My Group pages; snapshots and restores ProviderPreference.myGroupNo; deletes the group through the UI (Search/Edit/Delete Groups ▸ Delete for the rows it lists, View groups for any it hides) and again in cleanup. The Group Preferences (billing form) step runs only when the Ontario link is present."
     },
     {
       "name": "retired-provider-history",
@@ -6173,7 +6173,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds one marker-named mygroup (test provider + three active demo providers, names copied from provider); uses three more demo providers as add targets; cleanup deletes every row of the marker group and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD…' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
+      "notes": "Since #4515 Delete posts to provider/DeleteMyGroupMembers and Save to provider/SaveMyGroup (both POST-only, both answer 405 to GET/HEAD); the retired providercontrol displaymode=newgroup/savemygroup/vary and ViewProviderNewGroup routes are probed for 'no write' only, because they answer with a page or 404 rather than 405."
     },
     {
       "name": "get-reject-rourke-form",

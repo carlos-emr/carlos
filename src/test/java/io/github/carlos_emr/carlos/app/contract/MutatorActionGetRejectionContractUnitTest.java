@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.service.MyGroupMembershipService;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
@@ -35,6 +36,7 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Actio
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -276,6 +278,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
             Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                     "_lab", "w"),
+            // --- providers ---
+            // Preferences > View groups > Delete (#4515): removes the ticked group memberships.
+            // The providers package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+            Arguments.of("io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action",
+                    "_admin", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -369,6 +376,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
+        // Schedule groups (#4515): GET opens Add a Group; the group list's Delete (submit present)
+        // removes memberships and must be a POST. Covered by AdminGroupActionsTest.
+        "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
@@ -534,6 +544,7 @@ class MutatorActionGetRejectionContractUnitTest {
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
+        "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
@@ -572,6 +583,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
+        // providers slice: DeleteMyGroupMembers2Action deletes group memberships and is POST-only
+        // (unconditional mutator, #4515).
+        "io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action",
         // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
@@ -810,6 +824,11 @@ class MutatorActionGetRejectionContractUnitTest {
             ProviderLinkingRulesService rules = (ProviderLinkingRulesService)
                     autoMocks.computeIfAbsent(ProviderLinkingRulesService.class, Mockito::mock);
             return new SaveProviderLinkingRules2Action(mock(SecurityInfoManager.class), rules);
+        }
+        if (actionClass.equals(DeleteMyGroupMembers2Action.class)) {
+            MyGroupMembershipService memberships = (MyGroupMembershipService)
+                    autoMocks.computeIfAbsent(MyGroupMembershipService.class, Mockito::mock);
+            return new DeleteMyGroupMembers2Action(mock(SecurityInfoManager.class), memberships);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
