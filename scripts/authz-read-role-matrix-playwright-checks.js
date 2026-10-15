@@ -49,7 +49,7 @@ async function workflow(s) {
   for (const role of Object.keys(DENIED)) {
     const opensAdminIndex = fixture.rolePrivileges(role).some(entry => {
       const [object, right] = entry.split(':');
-      return ADMIN_INDEX_GATE.includes(object) && /^[rx]$/.test(right);
+      return ADMIN_INDEX_GATE.includes(object) && /^[rwux]$/.test(right);
     });
     denied[role] = opensAdminIndex ? DENIED[role].filter(route => !ADMIN_INDEX_ROUTES.includes(route)) : DENIED[role];
   }
