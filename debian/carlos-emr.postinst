@@ -1003,6 +1003,14 @@ OAUTH_ACCESS_DEFAULTS
                         echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
                         exit 1
                     fi
+                elif [ -f "${PROPERTIES}" ] \
+                    && grep -E '^HL7_LAB_MEASUREMENT_FILTER[[:space:]]*[=:]' "${PROPERTIES}" | tail -n 1 | grep -qF -e '[+-\\?]{1,4}'; then
+                    # Not the exact stock line (CRLF endings, trailing blanks, an
+                    # edited copy, a second definition), so it is the operator's to
+                    # change, but the definition in effect (java.util.Properties
+                    # keeps the last) still carries the alternative that cuts
+                    # values: say so once, when the sentinel is written.
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still has the alternative ^([+-\\?]{1,4}), which files lab results of five or more digits and signs as their first four characters (#4613); it was left as it is because it is not the exact stock line. Compare it with ${SHARE}/skel/carlos.properties." >&2
                 fi
                 mkdir -p "${STATE}"
                 : > "${LAB_FILTER_SENTINEL}"

@@ -178,12 +178,12 @@ const LAB_FILTER_NEW = fs.readFileSync(path.join(__dirname, '..', 'src', 'main',
   .split('\n').find(line => line.startsWith('HL7_LAB_MEASUREMENT_FILTER='));
 const LAB_FILTER_SENTINEL = '.lab-measurement-filter-migrated';
 
-function labFilterFixture(t, { sentinel = false } = {}) {
+function labFilterFixture(t, { sentinel = false, skelLine = LAB_FILTER_NEW } = {}) {
   const fixture = setup(t);
   const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
   const skel = path.join(fixture.env.CARLOS_SHARE_DIR, 'skel', 'carlos.properties');
   fs.mkdirSync(path.dirname(skel), { recursive: true });
-  fs.writeFileSync(skel, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\n`);
+  fs.writeFileSync(skel, `rx_fax_enabled=true\n${skelLine === null ? '' : `${skelLine}\n`}`);
   fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n`);
   if (sentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
   fixture.baseline();
@@ -227,6 +227,26 @@ for (const [name, after, sentinel, error] of [
     assert.match(result.stdout, error);
   });
 }
+
+test('upgrade verifier rejects an unmigrated lab filter when the skeleton itself still has the old line', t => {
+  // The skeleton's digest equals the old one, so "post equals skeleton" proves nothing.
+  const fixture = labFilterFixture(t, { skelLine: LAB_FILTER_OLD });
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated/);
+  assert.doesNotMatch(result.stdout, /PASS the old stock HL7_LAB_MEASUREMENT_FILTER was migrated/);
+});
+
+test('upgrade verifier rejects a deleted lab filter when the skeleton lacks the key', t => {
+  // No definition on either side digests alike; a deletion is not the sanctioned rewrite.
+  const fixture = labFilterFixture(t, { skelLine: null });
+  fs.writeFileSync(fixture.props, 'rx_fax_enabled=true\nother=kept\n');
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
 
 for (const [name, overrides, error, status] of [
   ['failed post snapshot', { FAIL_QUERY: 'COUNT(*) FROM appointment' }, /post-upgrade baseline failed/, 2],

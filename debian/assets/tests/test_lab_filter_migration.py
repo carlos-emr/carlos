@@ -76,12 +76,14 @@ class TestLabFilterMigration(unittest.TestCase):
         self.skel.write_text("other=stock\n{0}\n".format(shipped_line()),
                              encoding="utf-8")
 
-    def run_block(self, lock_held="1"):
+    def run_block(self, lock_held="1", path=None):
         # The postinst sets these four itself; the block reads them as shell
         # variables, which the environment provides here.
         env = dict(os.environ, PROVISION_LOCK_HELD=lock_held,
                    STATE=str(self.state), SHARE=str(self.share),
                    PROPERTIES=str(self.properties))
+        if path:
+            env["PATH"] = path + os.pathsep + env["PATH"]
         return subprocess.run(["sh", "-c", "set -e\n" + migration_block()],
                               env=env, capture_output=True, text=True,
                               check=False)
@@ -107,6 +109,7 @@ class TestLabFilterMigration(unittest.TestCase):
                          "before=1\n{0}\nafter=2\n".format(shipped_line()))
         self.assertIn("corrected the stock HL7_LAB_MEASUREMENT_FILTER",
                       result.stdout)
+        self.assertNotIn("WARNING", result.stderr)
         self.assertEqual(stat.S_IMODE(self.properties.stat().st_mode), 0o640)
         self.assertTrue((self.state / SENTINEL).exists())
         self.assertEqual(list(self.etc.iterdir()), [self.properties],
@@ -121,6 +124,8 @@ class TestLabFilterMigration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
         self.assertTrue((self.state / SENTINEL).exists())
+        # the definition in effect is the operator's, so nothing to warn about
+        self.assertNotIn("WARNING", result.stderr)
 
     def test_leaves_a_value_the_operator_chose(self):
         self.write_properties("before=1", KEY + "^\\\\d+")
@@ -131,6 +136,62 @@ class TestLabFilterMigration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
         self.assertTrue((self.state / SENTINEL).exists())
+        self.assertNotIn("WARNING", result.stderr)
+
+    def test_warns_when_the_old_filter_has_crlf_line_endings(self):
+        # java.util.Properties reads CRLF, so the cut goes on; the line is not
+        # the exact stock one, so it is left alone and named instead.
+        self.properties.write_bytes(
+            "before=1\r\n{0}\r\n".format(old_line()).encode("utf-8"))
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("still has the alternative", result.stderr)
+        self.assertIn("#4613", result.stderr)
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def test_warns_when_the_old_filter_has_trailing_blanks(self):
+        self.write_properties(old_line() + "  ")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("still has the alternative", result.stderr)
+
+    def test_rewrites_a_file_without_a_final_newline(self):
+        self.properties.write_text("before=1\n" + old_line(),
+                                   encoding="utf-8")
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_text(encoding="utf-8"),
+                         "before=1\n{0}\n".format(shipped_line()))
+
+    def test_keeps_the_file_and_fails_when_the_rewrite_fails(self):
+        # A chown that fails stands in for any failed step of the rewrite.
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        chown = bin_dir / "chown"
+        chown.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        chown.chmod(0o755)
+        self.write_properties("before=1", old_line())
+        before = self.properties.read_bytes()
+
+        result = self.run_block(path=str(bin_dir))
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("could not rewrite HL7_LAB_MEASUREMENT_FILTER",
+                      result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertEqual(list(self.etc.iterdir()), [self.properties],
+                         "the temporary file is left behind")
+        self.assertFalse((self.state / SENTINEL).exists())
 
     def test_runs_only_once(self):
         self.write_properties(old_line())

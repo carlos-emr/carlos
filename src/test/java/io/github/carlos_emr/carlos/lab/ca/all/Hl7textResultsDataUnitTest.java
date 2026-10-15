@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 @Tag("unit")
@@ -159,12 +160,19 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldSkipMeasurement_whenFilteredValueIsLongerThanDataField() {
-        // A packaged install runs MariaDB with sql_mode="" and jdbcCompliantTruncation=false, so a longer value
-        // would be cut to the column silently; a strict server would roll back the whole lab instead (#4613).
+        // A packaged install (MariaDB sql_mode="", jdbcCompliantTruncation=false in the JDBC URL) would cut a longer
+        // value to the column silently; a strict server would roll back the whole lab instead (#4613).
         String tooLong = "1".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1);
 
-        assertThat(fileResult(tooLong, ".*", "2026-10-09 11:20:29", LocalDateTime.parse("2026-10-13T10:05:19")))
-                .isNull();
+        try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+            assertThat(fileResult(tooLong, ".*", "2026-10-09 11:20:29", LocalDateTime.parse("2026-10-13T10:05:19")))
+                    .isNull();
+
+            // The warning says why and where, and never carries the result itself.
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains((Measurement.DATA_FIELD_MAX_LENGTH + 1) + " characters", "lab 4616", "OBX 0-0")
+                    .doesNotContain("1111111111"));
+        }
         verify(measurementDao, never()).persist(any(Measurement.class));
     }
 
@@ -291,7 +299,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "++ (moderate)| ++",
                 "2026-10-09   | 2026-10-09",
                 "negative     | negative",
-                "112.5<br />  | 112.5"})
+                "112.5<br />  | 112.5",
+                // A leading break marker is stripped before the filter runs, and so is the space it leaves.
+                "<br /> -5.2  | -5.2",
+                "<br />112.5  | 112.5",
+                "<br />negative | negative"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 

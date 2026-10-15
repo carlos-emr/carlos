@@ -102,9 +102,9 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
     private String providerNo;
 
     /**
-     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged MariaDB runs with
-     * {@code sql_mode=""} and {@code jdbcCompliantTruncation=false}, so a longer value is cut to fit without an
-     * error; writers that must not file a cut value check this first.
+     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged install runs MariaDB
+     * with {@code sql_mode=""} and sets {@code jdbcCompliantTruncation=false} in its JDBC URL, so a longer value is cut
+     * to fit without an error; writers that must not file a cut value check this first.
      */
     public static final int DATA_FIELD_MAX_LENGTH = 255;
 

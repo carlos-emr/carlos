@@ -262,17 +262,20 @@ public class Hl7textResultsData {
                  * Trim and remove HTML
                  */
                 String trimmed = StringUtils.trimToEmpty(result);
-                trimmed = trimmed.replaceAll("\\<br\\s?/?\\>", "");
+                // Trim again once the markers are gone: a result such as "<br /> -5.2" (handlers turn \.br\ into
+                // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
+                // result such as "<br />negative", not at all.
+                trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
                 Matcher matcher = pattern.matcher(trimmed.toLowerCase());
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {
                     // The match, not the whole result, is the value filed: the filter both selects and extracts.
                     String value = matcher.group();
-                    // measurements.dataField holds 255 characters. The packaged MariaDB (sql_mode="",
-                    // jdbcCompliantTruncation=false) would cut a longer value to fit without an error, and a strict
-                    // server would roll back the whole lab. The lab report keeps the full result, so such a value is
-                    // left out of measurements rather than filed as something the lab did not send (#4613).
+                    // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
+                    // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
+                    // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
+                    // a value is left out of measurements rather than filed as something the lab did not send (#4613).
                     if (value.length() > Measurement.DATA_FIELD_MAX_LENGTH) {
                         logger.warn("A result of " + value.length() + " characters matched HL7_LAB_MEASUREMENT_FILTER"
                                 + " but is longer than a measurement holds; not filed as a measurement (lab "

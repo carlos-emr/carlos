@@ -149,6 +149,9 @@ OAUTH_ACCESS_DEFAULTS=(
 # old stock line plus its newline: the LAB_FILTER_OLD of debian/carlos-emr.postinst,
 # and a contract test holds the two together.
 LAB_FILTER_OLD_SHA=8a16bd11665e3306
+# The digest of no definition at all (sha256 of empty input): a skeleton that
+# lacks the key, or an /etc file whose key was deleted, never sanctions a rewrite.
+LAB_FILTER_NONE_SHA=e3b0c44298fc1c14
 ht_pre=$(g "$PRE" cfg.healthTracker 2>/dev/null || true); ht_post=$(g "$POST" cfg.healthTracker 2>/dev/null || true)
 ht_sentinel_pre=$(g "$PRE" sentinel..health-tracker-default-migrated 2>/dev/null || true)
 od_sentinel_pre=$(g "$PRE" sentinel..oscar-feature-defaults-migrated 2>/dev/null || true)
@@ -181,10 +184,12 @@ done
 lf_pre=$(g "$PRE" cfg.labFilter.sha 2>/dev/null || true); lf_post=$(g "$POST" cfg.labFilter.sha 2>/dev/null || true)
 lf_skel=$(g "$POST" cfg.labFilter.skel.sha 2>/dev/null || true)
 lf_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-migrated 2>/dev/null || true)
+# The skeleton's line counts only when it exists and is not the old line itself.
+lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
 lf_ok=0; lf_changed=no
 if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
   lf_ok=1
-elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ -n "$lf_skel" ] && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
 fi
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
@@ -227,7 +232,7 @@ fi
 # The lab filter rewrite is asserted when the PRE snapshot carries exactly the
 # old stock line and the migration has not run yet.
 if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
-  [ -n "$lf_skel" ] && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+  lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
 fi
 # Like the health_tracker check above, the migration is only asserted when the
