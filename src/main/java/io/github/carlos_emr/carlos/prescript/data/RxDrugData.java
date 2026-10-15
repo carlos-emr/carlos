@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Vector;
 
 public class RxDrugData {
@@ -886,6 +887,7 @@ public class RxDrugData {
      *
      * @param atcCode  String the ATC code of the drug to check for allergy warnings
      * @param allergies Allergy[] array of patient allergies to check against; must not be null
+     *                 or contain null
      * @param missing  List&lt;Allergy&gt; optional list to collect allergies that could not be
      *                 matched by the DrugRef service; pass null to discard missing results
      * @return Allergy[] array of allergies that triggered warnings for the specified drug, in
@@ -897,7 +899,9 @@ public class RxDrugData {
         if (allergies.length == 0) return new Allergy[0];
         Vector<Map<String, String>> allergyData = new Vector<>();
         for (int i = 0; i < allergies.length; i++) {
-            Allergy allergy = allergies[i];
+            // Callers pass the patient's allergy list; a null entry is a caller bug, refused here
+            // before DrugRef is asked rather than surfacing later as an unexplained NPE.
+            Allergy allergy = Objects.requireNonNull(allergies[i], "allergies must not contain null");
             AllergyAtcClass.Shortcut shortcut = AllergyAtcClass.shortcutOf(allergy);
             if (shortcut != null) {
                 // A shortcut allergy is asked under both names DrugRef may hold the class under, as

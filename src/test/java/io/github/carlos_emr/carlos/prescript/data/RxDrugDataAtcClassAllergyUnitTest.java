@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockConstruction;
@@ -222,6 +223,20 @@ class RxDrugDataAtcClassAllergyUnitTest {
             assertThat(new RxDrugData().getAllergyWarnings("J01", new Allergy[]{cleared}, stillMissing)).isEmpty();
         }
         assertThat(stillMissing).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should refuse an allergy list with a null entry before asking DrugRef")
+    void shouldRefuseAllergyList_whenAnEntryIsNull() {
+        Allergy[] allergies = {classAllergy("PENICILLINS", "J01C"), null};
+        RxDrugData drugData = new RxDrugData();
+
+        try (MockedConstruction<RxDrugRef> drugRef = drugRefAnswers(List.of(), List.of())) {
+            assertThatThrownBy(() -> drugData.getAllergyWarnings(AMOXIL, allergies, new ArrayList<>()))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("allergies must not contain null");
+            assertThat(drugRef.constructed()).isEmpty();
+        }
     }
 
     /** The allergy entries RxDrugData sends DrugRef for {@code allergies}, with a clear answer. */
