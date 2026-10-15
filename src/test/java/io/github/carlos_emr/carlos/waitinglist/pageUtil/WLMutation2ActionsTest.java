@@ -21,6 +21,11 @@
  */
 package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao;
+import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -32,6 +37,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -55,6 +61,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -186,7 +193,25 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
             mockRequest.setParameter("waitingListNote", "Needs evening slot");
             mockRequest.setParameter("onListSince", "2026-04-14");
 
-            String result = new WLAdd2WaitingList2Action().execute();
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("owner");
+            ProviderPreferenceDao preferences = mock(ProviderPreferenceDao.class);
+            WaitingListNameDao lists = mock(WaitingListNameDao.class);
+            registerMock(ProviderPreferenceDao.class, preferences);
+            registerMock(WaitingListNameDao.class, lists);
+            ProviderPreference preference = new ProviderPreference();
+            preference.setMyGroupNo("groupA");
+            when(preferences.find("owner")).thenReturn(preference);
+            WaitingListName list = new WaitingListName();
+            list.setId(7);
+            when(lists.findCurrentByGroup("groupA")).thenReturn(List.of(list));
+            CarlosProperties properties = mock(CarlosProperties.class);
+            when(properties.getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")).thenReturn(true);
+
+            String result;
+            try (MockedStatic<CarlosProperties> propertyContext = mockStatic(CarlosProperties.class)) {
+                propertyContext.when(CarlosProperties::getInstance).thenReturn(properties);
+                result = new WLAdd2WaitingList2Action().execute();
+            }
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getRedirectedUrl())
@@ -195,6 +220,8 @@ class WLMutation2ActionsTest extends CarlosUnitTestBase {
                 () -> WLWaitingListUtil.add2WaitingList("7", "Needs evening slot", "123", "2026-04-14"));
             verify(mockSecurityInfoManager)
                 .hasPrivilege(mockLoggedInInfo, "_demographic", "w", null);
+            verify(preferences).find("owner");
+            verify(lists).findCurrentByGroup("groupA");
         }
     }
 
