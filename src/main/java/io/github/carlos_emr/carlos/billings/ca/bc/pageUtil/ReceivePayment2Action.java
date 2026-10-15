@@ -87,6 +87,9 @@ public class ReceivePayment2Action
 
         request.setAttribute(FORM_ATTRIBUTE, this);
         if (!isWellFormed()) {
+            // paymentReceived is bindable from the request; a forged true would send this error
+            // re-render into the confirmation branch, which formats the (malformed) amount.
+            this.setPaymentReceived(false);
             this.setPaymentMethodList(ViewReceivePayment2Action.manualPaymentTypes());
             addActionError("Enter an amount such as 25.00 and choose a payment method.");
             return SUCCESS;

@@ -203,6 +203,18 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the form showing when a forged paymentReceived accompanies a bad amount")
+    void shouldNotShowConfirmation_whenPaymentReceivedForged() throws Exception {
+        RecordingAction action = postAction("77", "55", "abc", "3");
+        action.setPaymentReceived(true);
+
+        action.execute();
+
+        assertThat(action.saves).isZero();
+        assertThat(action.isPaymentReceived()).isFalse();
+    }
+
+    @Test
     @DisplayName("should save nothing when the bill line, invoice or method is missing or not numeric")
     void shouldNotSave_whenIdentifiersMalformed() throws Exception {
         for (RecordingAction action : List.of(
