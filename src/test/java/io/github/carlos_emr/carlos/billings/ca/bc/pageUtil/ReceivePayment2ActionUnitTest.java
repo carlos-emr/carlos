@@ -23,7 +23,10 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
+import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -72,6 +75,7 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private BillingPaymentTypeDao mockPaymentTypeDao;
+    @Mock private BillingDao mockBillingDao;
     @Mock private LoggedInInfo mockLoggedInInfo;
 
     private MockHttpServletRequest request;
@@ -105,12 +109,14 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(BillingPaymentTypeDao.class, mockPaymentTypeDao);
+        registerMock(BillingDao.class, mockBillingDao);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), any(), isNull()))
                 .thenReturn(true);
+        givenBill(77, 55, "Pri");
         when(mockPaymentTypeDao.findAll()).thenReturn(List.of(
                 paymentType(1, "CASH"), paymentType(2, "ELECTRONIC"), paymentType(3, "CHEQUE"),
                 paymentType(4, "ELECTRONIC")));
@@ -121,6 +127,15 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();
+    }
+
+    private void givenBill(int line, int invoice, String type) {
+        Billingmaster master = new Billingmaster();
+        master.setBillingmasterNo(line);
+        master.setBillingNo(invoice);
+        Billing bill = new Billing();
+        bill.setBillingtype(type);
+        when(mockBillingDao.findByBillingMasterNo(line)).thenReturn(List.<Object[]>of(new Object[]{master, bill}));
     }
 
     private static BillingPaymentType paymentType(int id, String name) {
@@ -188,7 +203,7 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest(name = "amount \"{0}\"")
-    @ValueSource(strings = {"", " ", "abc", "-5", "1e3", "12.345", "1234567", "25 "})
+    @ValueSource(strings = {"", " ", "abc", "-5", "1e3", "12.345", "1234567", "12345", "25 ", "0", "0.00"})
     @DisplayName("should re-render the form and save nothing when the amount is not a plain money value")
     void shouldNotSave_whenAmountMalformed(String amount) throws Exception {
         RecordingAction action = postAction("77", "55", amount, "3");
@@ -200,6 +215,74 @@ class ReceivePayment2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.isPaymentReceived()).isFalse();
         assertThat(action.hasActionErrors()).isTrue();
         assertThat(action.getPaymentMethodList()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("should save nothing when the invoice does not own the billing line")
+    void shouldNotSave_whenInvoiceDoesNotOwnLine() throws Exception {
+        RecordingAction action = postAction("77", "56", "10", "3");
+
+        action.execute();
+
+        assertThat(action.saves).isZero();
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should save nothing when the billing line does not exist")
+    void shouldNotSave_whenLineMissing() throws Exception {
+        RecordingAction action = postAction("78", "55", "10", "3");
+
+        action.execute();
+
+        assertThat(action.saves).isZero();
+        assertThat(action.isPaymentReceived()).isFalse();
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should save nothing when the bill is not a private bill")
+    void shouldNotSave_whenBillIsNotPrivate() throws Exception {
+        givenBill(77, 55, "MSP");
+        RecordingAction action = postAction("77", "55", "10", "3");
+
+        action.execute();
+
+        assertThat(action.saves).isZero();
+        assertThat(action.hasActionErrors()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should save nothing when the method is one the form does not offer")
+    void shouldNotSave_whenMethodNotOffered() throws Exception {
+        // 2 is ELECTRONIC, 99 does not exist.
+        for (String method : List.of("2", "99")) {
+            RecordingAction action = postAction("77", "55", "10", method);
+            action.execute();
+            assertThat(action.saves).isZero();
+        }
+    }
+
+    @Test
+    @DisplayName("should save nothing when a refund would overflow the history amount column")
+    void shouldNotSave_whenRefundOverflowsColumn() throws Exception {
+        RecordingAction action = postAction("77", "55", "9999.99", "3");
+        action.setIsRefund("true");
+
+        action.execute();
+
+        assertThat(action.saves).isZero();
+    }
+
+    @Test
+    @DisplayName("should record the largest payment the column holds")
+    void shouldRecordPayment_whenAmountIsColumnMaximum() throws Exception {
+        RecordingAction action = postAction("77", "55", "9999.99", "3");
+
+        action.execute();
+
+        assertThat(action.saves).isEqualTo(1);
+        assertThat(action.savedAmount).isEqualTo(9999.99);
     }
 
     @Test

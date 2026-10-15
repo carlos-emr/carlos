@@ -69,7 +69,7 @@
                     ${carlos:forHtmlContent(receivePaymentActionForm.billingmasterNo)}</p>
             </div>
             <p><label> <fmt:message key="oscar.billing.CA.BC.amount"/>
-                <input type="text" maxlength="6" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->
+                <input type="text" maxlength="7" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->
             </label></p>
             <p>
                 <label> <fmt:message key="oscar.billing.CA.BC.method"/>
