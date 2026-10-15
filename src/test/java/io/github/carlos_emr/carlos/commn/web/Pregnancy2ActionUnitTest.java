@@ -149,11 +149,12 @@ class Pregnancy2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(episodes, em, transactions);
     }
 
-    @ParameterizedTest @ValueSource(strings = {"", "-1", "0", "bad", "2147483648"})
+    @ParameterizedTest @ValueSource(strings = {"", "-1", "0", "bad", "2147483648", "https://example.invalid", "//example.invalid"})
     void shouldRejectPatient_whenIdentifierInvalid(String patient) throws Exception {
         request.setParameter("demographicNo", patient);
         action.create();
         assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getDemographicNo()).isNull();
         verifyNoInteractions(episodes, em, transactions);
     }
 
@@ -225,7 +226,7 @@ class Pregnancy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test void shouldCreateAndRedirect_whenSubmissionValid() throws Exception {
-        action.create();
+        assertThat(action.create()).isEqualTo("saved");
         verify(em).persist(argThat(value -> value instanceof Episode episode
                 && episode.getDemographicNo() == 101 && "Current".equals(episode.getStatus())
                 && "Literal <script> ' & notes".equals(episode.getNotes()) && "999001".equals(episode.getLastUpdateUser())));
@@ -237,11 +238,13 @@ class Pregnancy2ActionUnitTest extends CarlosUnitTestBase {
         order.verify(em).persist(any());
         order.verify(em).flush();
         verify(transactions).commit(any());
-        assertThat(response.getRedirectedUrl()).isEqualTo("/Pregnancy?method=list&demographicNo=101&saved=true");
+        assertThat(action.getDemographicNo()).isEqualTo(101);
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 
     @Test void shouldCompleteAndAudit_whenSubmissionValid() throws Exception {
-        action.complete();
+        assertThat(action.complete()).isEqualTo("saved");
+        assertThat(action.getDemographicNo()).isEqualTo(101);
         assertThat(stored.getStatus()).isEqualTo("Complete");
         assertThat(stored.getEndDateStr()).isEqualTo("2026-02-03");
         assertThat(stored.getLastUpdateUser()).isEqualTo("999001");

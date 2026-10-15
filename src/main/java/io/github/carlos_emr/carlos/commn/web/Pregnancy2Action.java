@@ -80,6 +80,7 @@ public class Pregnancy2Action extends ActionSupport {
     private EpisodeDao episodeDao = SpringUtils.getBean(EpisodeDao.class);
     private ObjectMapper objectMapper = new ObjectMapper();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private Integer demographicNo;
 
     // Allowlist of form class names valid for pregnancy-related AJAX form saves.
     // Prevents user-controlled input from loading arbitrary classes via FrmRecordFactory.
@@ -247,6 +248,7 @@ public class Pregnancy2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(info, "_pregnancy", right, patient)) {
             throw new SecurityException("missing required sec object (_pregnancy)");
         }
+        demographicNo = patient;
         request.setAttribute("demographicNo", Integer.toString(patient));
         request.setAttribute("canWrite", securityInfoManager.hasPrivilege(info, "_pregnancy", "w", patient));
         return patient;
@@ -311,10 +313,11 @@ public class Pregnancy2Action extends ActionSupport {
 
     private String finishMutation(Mutation result) throws IOException {
         if (result.status() != 200) return reject(result.status(), result.error());
-        response.sendRedirect(request.getContextPath() + "/Pregnancy?method=list&demographicNo="
-                + request.getAttribute("demographicNo") + "&saved=true");
-        return NONE;
+        return "saved";
     }
+
+    /** Returns the authorized patient identifier used by the fixed post-save Struts redirect. */
+    public Integer getDemographicNo() { return demographicNo; }
 
     private String invalidForm(String message) throws IOException { return reject(400, message); }
     private String postRequired() throws IOException {

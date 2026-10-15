@@ -109,7 +109,17 @@ class PregnancyTransactionIntegrationTest {
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             List<?> patientsBefore = patientRows();
             try {
-                new Pregnancy2Action().execute();
+                Pregnancy2Action action = new Pregnancy2Action();
+                String result = action.execute();
+                // This invokes the action only. Native Playwright verifies that the fixed
+                // Struts result turns a successful commit into an actual HTTP 302 redirect.
+                if (response.getStatus() == 200) {
+                    assertThat(result).isEqualTo("saved");
+                    assertThat(action.getDemographicNo()).isEqualTo(patientId);
+                    assertThat(response.getRedirectedUrl()).isNull();
+                } else {
+                    assertThat(result).isEqualTo("none");
+                }
                 return response.getStatus();
             } finally {
                 assertThat(patientRows()).usingRecursiveComparison().isEqualTo(patientsBefore);
@@ -128,13 +138,13 @@ class PregnancyTransactionIntegrationTest {
     }
 
     @Test void shouldPersistLifecycle_whenRealJpaTransactionCommits() throws Exception {
-        assertThat(submit("create", patient, null, "Original <literal> & ' notes")).isEqualTo(302);
+        assertThat(submit("create", patient, null, "Original <literal> & ' notes")).isEqualTo(200);
         Episode saved = rows().get(0);
         assertThat(saved.getDemographicNo()).isEqualTo(patient);
         assertThat(saved.getStatus()).isEqualTo("Current");
         assertThat(saved.getLastUpdateUser()).isEqualTo("999001");
         assertThat(saved.getStartDateStr()).isEqualTo("2026-01-02");
-        assertThat(submit("complete", patient, saved.getId(), "Completed")).isEqualTo(302);
+        assertThat(submit("complete", patient, saved.getId(), "Completed")).isEqualTo(200);
         Episode complete = rows().get(0);
         assertThat(complete.getStatus()).isEqualTo("Complete");
         assertThat(complete.getEndDateStr()).isEqualTo("2026-02-03");
@@ -149,7 +159,7 @@ class PregnancyTransactionIntegrationTest {
         assertThatThrownBy(() -> submit("complete", patient, before.getId(), "fail")).isInstanceOf(RuntimeException.class);
         Episode after = rows().get(0);
         assertThat(after).usingRecursiveComparison().ignoringFields("formatter").isEqualTo(before);
-        assertThat(submit("complete", patient, before.getId(), "Retry")).isEqualTo(302);
+        assertThat(submit("complete", patient, before.getId(), "Retry")).isEqualTo(200);
         assertThat(rows().get(0).getNotes()).isEqualTo("Retry");
     }
 
@@ -157,7 +167,7 @@ class PregnancyTransactionIntegrationTest {
         write(em -> em.createNativeQuery("ALTER TABLE Episode ADD CONSTRAINT pregnancy_failure CHECK (notes <> 'fail')").executeUpdate());
         assertThatThrownBy(() -> submit("create", patient, null, "fail")).isInstanceOf(RuntimeException.class);
         assertThat(rows()).isEmpty();
-        assertThat(submit("create", patient, null, "Retry")).isEqualTo(302);
+        assertThat(submit("create", patient, null, "Retry")).isEqualTo(200);
         assertThat(rows()).hasSize(1);
     }
 
@@ -169,7 +179,7 @@ class PregnancyTransactionIntegrationTest {
             var first = executor.submit(submit);
             var second = executor.submit(submit);
             assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
-                    .containsExactlyInAnyOrder(302, 409);
+                    .containsExactlyInAnyOrder(200, 409);
             assertThat(rows()).hasSize(1);
         } finally {
             executor.shutdownNow();
