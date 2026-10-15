@@ -82,7 +82,7 @@ class PatientEncounterWorksheetPdfUnitTest extends CarlosUnitTestBase {
         try (PDDocument pdf = render(SHORT_ALLERGIES, "FAKE short note.")) {
             List<Line> allergies = allergyLines(pdf);
             assertThat(allergies).hasSize(1);
-            assertThat(allergies.get(0).text()).isEqualTo(SHORT_ALLERGIES);
+            assertThat(plain(allergies.get(0).text()).replace(", ", ",")).isEqualTo(SHORT_ALLERGIES);
             assertThat(allergies.get(0).y()).isCloseTo(225, within());
             assertThat(allergies.get(0).x0()).isCloseTo(36, within());
             assertThat(allergies.get(0).size()).isCloseTo(8, within());
@@ -103,7 +103,8 @@ class PatientEncounterWorksheetPdfUnitTest extends CarlosUnitTestBase {
             });
             assertThat(lines.get(0).y()).isCloseTo(222, within());
             assertThat(lines.get(1).y()).isCloseTo(230, within());
-            assertThat(boxText(pdf, 215, 233.5)).isEqualTo(allergies);
+            // Lines may break after a comma; the list itself has no ", ".
+            assertThat(boxText(pdf, 215, 233.5).replace(", ", ",")).isEqualTo(allergies);
         }
     }
 
@@ -148,9 +149,34 @@ class PatientEncounterWorksheetPdfUnitTest extends CarlosUnitTestBase {
             assertThat(page2.indexOf("Allergies (continued)")).isGreaterThanOrEqualTo(0)
                     .isLessThan(page2.indexOf("Encounter Notes (continued)"));
             assertThat(page2).contains(END_OF_ALLERGIES).contains(END_OF_NOTES);
-            assertThat(boxText(pdf, 215, 233.5) + " " + continued(pdf, "Allergies (continued)")).isEqualTo(allergies);
+            assertThat((boxText(pdf, 215, 233.5) + " " + continued(pdf, "Allergies (continued)")).replace(", ", ","))
+                    .isEqualTo(allergies);
             assertThat(boxText(pdf, 258, 632) + " " + continued(pdf, "Encounter Notes (continued)"))
                     .isEqualTo(normalize(notes(90)));
+        }
+    }
+
+    @Test
+    void shouldKeepEachAllergyWhole_acrossLinesAndPages() throws Exception {
+        // Names with spaces, as real allergies have; the worksheet page joins them with bare commas.
+        String allergies = IntStream.rangeClosed(1, 60).mapToObj(n -> String.format("FAKE Sulfa drug %02d", n))
+                .collect(Collectors.joining(","));
+        try (PDDocument pdf = render(allergies, "FAKE short note.")) {
+            List<String> printed = new ArrayList<>();
+            for (Line line : allergyLines(pdf)) {
+                printed.add(line.text().replaceAll("\\s*\u2026\\s*\\(continued on page \\d+\\)$", ""));
+            }
+            for (int page = 2; page <= pdf.getNumberOfPages(); page++) {
+                lines(pdf, page).stream().filter(line -> line.y() > 50 && !line.text().endsWith("(continued)"))
+                        .forEach(line -> printed.add(line.text()));
+            }
+            List<String> items = new ArrayList<>();
+            for (String line : printed) {
+                String text = plain(line).replace(", ", ",");
+                assertThat(text).as("a line must end between two allergies").matches("FAKE Sulfa drug \\d\\d(,FAKE Sulfa drug \\d\\d)*,?");
+                items.addAll(List.of(text.split(",")));
+            }
+            assertThat(String.join(",", items)).isEqualTo(allergies);
         }
     }
 
@@ -195,7 +221,15 @@ class PatientEncounterWorksheetPdfUnitTest extends CarlosUnitTestBase {
     }
 
     private static String normalize(String text) {
-        return text.replaceAll("\\s+", " ").trim();
+        return plain(text).replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Printed text as typed: no-break spaces back to spaces, and the hair space the allergies list puts
+     * after each comma dropped (text extraction may also report it as a plain space after the comma).
+     */
+    private static String plain(String text) {
+        return text.replace('\u00a0', ' ').replace("\u200a", "").trim();
     }
 
     /** Page 1 text inside one box (y between the two values), with the continuation marker taken off. */

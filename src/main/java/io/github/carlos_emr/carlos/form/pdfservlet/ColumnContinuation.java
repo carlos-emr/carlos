@@ -59,7 +59,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *   <li>{@code patient=<text>}: the line at the top of every extra page that says whose page it is;
  *       each {@code {name}} becomes that print value;</li>
  *   <li>{@code fallback=<size>/<leading>/<top>}: a smaller font size, leading and top to try when
- *       the text does not fit the box at the column's own size.</li>
+ *       the text does not fit the box at the column's own size;</li>
+ *   <li>{@code list}: the text is a comma-separated list, so lines and pages break only between its
+ *       items, never inside one (a no-break space inside each item, a hair space after each comma;
+ *       OpenPDF does not break at a zero-width space in this font).</li>
  * </ul>
  *
  * <p>The extra pages repeat the form's {@code printer_info} line, so every page says "Page x of y".
@@ -367,11 +370,11 @@ final class ColumnContinuation {
             this.bottom = Float.parseFloat(values[8].trim());
             this.leading = Float.parseFloat(values[9].trim());
             this.own = new Fit(font.columnFont(size), leading, top);
-            this.text = text;
             String heading = "";
             String marker = "";
             String patient = "";
             Fit fallback = null;
+            boolean list = false;
             for (int i = OPT_IN_INDEX; i < values.length; i++) {
                 String value = values[i].trim();
                 int eq = value.indexOf('=');
@@ -381,6 +384,7 @@ final class ColumnContinuation {
                     case "continue" -> heading = setting;
                     case "marker" -> marker = setting;
                     case "patient" -> patient = setting;
+                    case "list" -> list = true;
                     case "fallback" -> {
                         String[] parts = setting.split("/");
                         fallback = new Fit(font.columnFont(Integer.parseInt(parts[0].trim())),
@@ -393,6 +397,12 @@ final class ColumnContinuation {
             this.marker = marker;
             this.patient = patient;
             this.fallback = fallback;
+            this.text = list ? wholeItems(text) : text;
+        }
+
+        /** Lets a line break only after a comma: a no-break space inside each item, a hair space after each comma. */
+        static String wholeItems(String list) {
+            return list.replace(' ', '\u00a0').replace(",", ",\u200a");
         }
 
         static Column parse(int templatePage, String name, String[] values, String text)
