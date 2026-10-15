@@ -7,6 +7,8 @@
  * by that patient and still finds rows whose id read was lost after the INSERT.
  */
 const h = require('./playwright-harness');
+const { clickOpensPopupOrNavigates } = require('./playwright-ui');
+const { revealAuditLink } = require('./playwright-link-audit');
 
 /** Skip unless the database has the BC billing schema (billregion=BC installs). */
 function requireBcBillingSchema(sql) {
@@ -133,4 +135,58 @@ async function reportBillStatus(page, ui, { status, showPrivate = true, from = '
   await h.assertNotErrorPage(page, `BC Bill Status report (${status})`);
 }
 
-module.exports = { requireBcBillingSchema, makeBcPatient, registerOwnedBcBillCleanup, seedOwnedBcBill, openBillStatus, reportBillStatus };
+/**
+ * Administration ▸ Billing ▸ Edit Invoices: the clinic-wide Bill Status, loaded into the
+ * Administration frame. The Master Record's Invoice List is the same page fixed to one patient, and
+ * there billStatus.jsp lists every status whatever the radio says; the status filter is the
+ * clinic-wide page's. Returns { admin, frame }: the page that holds the frame, and the frame.
+ */
+async function openClinicBillStatus(s) {
+  const timeout = 30000;
+  const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
+    { context: s.context, recorder: s.recorder, label: 'bc-administration', timeout });
+  const link = admin.getByRole('link', { name: 'Edit Invoices', exact: true, includeHidden: true });
+  await revealAuditLink(admin, link, timeout);
+  await link.click();
+  const deadline = Date.now() + timeout;
+  let frame;
+  while (!(frame = admin.frames().find(f => f.parentFrame() && new URL(f.url(), 'http://x').pathname.endsWith('/billing/CA/BC/reprocessBill')))) {
+    h.assert(Date.now() < deadline, 'Edit Invoices did not load Bill Status into the administration frame');
+    await admin.waitForTimeout(100);
+  }
+  await frame.waitForLoadState('domcontentloaded');
+  await h.assertNotErrorPage(frame, 'Clinic-wide Bill Status');
+  return { admin, frame };
+}
+
+/**
+ * Fill the clinic-wide Bill Status form for one patient and press Create Report. The form is a GET
+ * back to the same route inside the frame; the answer is awaited on the page that holds the frame
+ * (a frame has no request events of its own).
+ */
+async function reportClinicBillStatus({ admin, frame }, { demographicNo, status, showPrivate = true, from = '', to = '' }) {
+  const timeout = 30000;
+  const form = frame.locator('form[name="serviceform"]');
+  await form.locator('input[name="demographicNo"]').fill(String(demographicNo));
+  await form.locator(`input[name="billTypes"][value="${status}"]`).check();
+  const privateBox = form.locator('input[name="showPRIV"]');
+  if (await privateBox.isChecked() !== showPrivate) await privateBox.setChecked(showPrivate);
+  for (const name of ['showMSP', 'showWCB', 'showICBC']) {
+    const box = form.locator(`input[name="${name}"]`);
+    if (!await box.isChecked()) await box.check();
+  }
+  await form.locator('#xml_vdate').fill(from);
+  await form.locator('#xml_appointment_date').fill(to);
+  await Promise.all([
+    admin.waitForResponse(response => response.request().method() === 'GET'
+      && new URL(response.url()).pathname.endsWith('/billing/CA/BC/reprocessBill')
+      && new URL(response.url()).searchParams.get('billTypes') === status
+      && new URL(response.url()).searchParams.get('demographicNo') === String(demographicNo), { timeout }),
+    form.locator('input[type="submit"][value="Create Report"]').click(),
+  ]);
+  await frame.waitForLoadState('domcontentloaded');
+  await h.assertNotErrorPage(frame, `Clinic-wide Bill Status report (${status})`);
+}
+
+module.exports = { requireBcBillingSchema, makeBcPatient, registerOwnedBcBillCleanup, seedOwnedBcBill, openBillStatus, reportBillStatus,
+  openClinicBillStatus, reportClinicBillStatus };

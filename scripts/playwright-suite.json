@@ -3512,7 +3512,11 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC MSP bill entry: Create Invoice, diagnosis and fee-code searches, Continue (review), Save Bill; asserts the billing header and billingmaster line, and a 405 for a GET Save Bill.",
+      "notes": "BC MSP bill entry: Create Invoice, diagnosis and fee-code searches, Continue (review), Save Bill; asserts the billing header and billingmaster line, and a 405 for a GET Save Bill. Expected to FAIL at its first step while app-findings-log.md finding 274 stands (the BC bill form answers 500 on every open).",
+      "expectedFailure": {
+        "finding": 274,
+        "step": "Create Invoice opens the BC bill form for the owned patient with the owned billing physician"
+      },
       "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
     },
     {
@@ -3542,10 +3546,10 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Expected to FAIL at the Receive Payment step while app-findings-log.md finding 164 (#4551) stands.",
+      "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Expected to FAIL at the Update Invoice step while app-findings-log.md finding 275 stands (empty billingNo, HTTP 500), and then at the Receive Payment step while finding 164 (#4551) stands.",
       "expectedFailure": {
-        "finding": 164,
-        "step": "Receive Payment records a full payment and marks the private bill paid"
+        "finding": 275,
+        "step": "Update Invoice saves the bill-to and the note against the owned bill and keeps its payee"
       },
       "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
     },

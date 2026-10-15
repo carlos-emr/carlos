@@ -18,6 +18,10 @@
  * Save Bill writes one MSP bill (billing header, status O) and one billingmaster line with the code,
  * units, fee, diagnosis, PHN, the physician's practitioner number, today's service date and status O.
  *
+ * Expected to FAIL at its first step while app-findings-log.md finding 274 stands: billingBC.jsp
+ * reads a session form nothing sets any more and calls it unguarded, so the BC bill form answers
+ * HTTP 500 on every open (confirmed live 2026-10-15).
+ *
  * Fixtures: one billing physician (a clone of the test login's provider with a FAKE practitioner
  * and payee number, last name = the run marker), one BC fee code (billingservice, 9xxxx, 12.34) and
  * one diagnostic code (diagnosticcode, Zxxxx), both described by the run marker, for the workflow's

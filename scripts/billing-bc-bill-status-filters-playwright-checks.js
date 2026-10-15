@@ -8,11 +8,15 @@
  * checked that its filters return the right bills. The filter form is a GET back to the same
  * route; the list comes from MSPReconcile.getBills (BillingDaoImpl.findByManyThings).
  *
- * User path: Master record ▸ Billing ▸ Invoice List (Bill Status filtered to the patient) ▸ status
- * radio / bill-type boxes / service-date window ▸ Create Report. Asserted, by each owned bill's
- * Edit link: the patient filter is fixed to the owned patient; each status lists exactly the owned
- * bill in that status (Not Submitted, Settled, Bill Patient); "All" with Private unticked lists both
- * MSP bills and not the private one; a service-date window that ends before the bills lists none.
+ * User path: Master record ▸ Billing ▸ Invoice List (Bill Status fixed to the patient), then
+ * Administration ▸ Billing ▸ Edit Invoices (the clinic-wide Bill Status, in the Administration frame)
+ * ▸ Demographic / status radio / bill-type boxes / service-date window ▸ Create Report. The Invoice
+ * List lists every status of its patient by design (billStatus.jsp sets the status to "%" when the
+ * patient is fixed), so the filters are checked on the clinic-wide page, narrowed to the owned
+ * patient. Asserted, by each owned bill's Edit link: the Invoice List is fixed to the owned patient
+ * and lists its three bills; each status lists exactly the owned bill in that status (Not
+ * Submitted, Settled, Bill Patient); "All" with Private unticked lists both MSP bills and not the
+ * private one; a service-date window that ends before the bills lists none.
  * The page writes nothing; a direct request is never used.
  *
  * Fixtures: three bills (billing + billingmaster) for the workflow's own FAKE patient, made a BC
@@ -44,15 +48,24 @@ async function workflow(s) {
     return shown.sort().join(',');
   }
 
-  const report = (page, options) => bc.reportBillStatus(page, ui, options);
-
-  let status;
-  await s.step('Invoice List opens Bill Status fixed to the owned patient', async () => {
-    status = await bc.openBillStatus(s, ui);
-    const patientBox = status.locator('form[name="serviceform"] input[name="demographicNo"]');
+  await s.step('Invoice List opens Bill Status fixed to the owned patient, listing its three bills', async () => {
+    const invoices = await bc.openBillStatus(s, ui);
+    const patientBox = invoices.locator('form[name="serviceform"] input[name="demographicNo"]');
     h.assert(await patientBox.inputValue() === String(s.patient), 'Bill Status is not filtered to the owned patient');
     h.assert(await patientBox.getAttribute('readonly') !== null, 'The patient filter of an Invoice List can be changed');
+    const shown = await listed(invoices);
+    h.assert(shown === 'billPatient,notSubmitted,settled', `The Invoice List listed [${shown}] instead of the three owned bills`);
+    await invoices.close();
   });
+
+  let clinic;
+  await s.step('Administration ▸ Billing ▸ Edit Invoices opens the clinic-wide Bill Status', async () => {
+    clinic = await bc.openClinicBillStatus(s);
+    h.assert(await clinic.frame.locator('form[name="serviceform"] input[name="demographicNo"]').getAttribute('readonly') === null,
+      'The clinic-wide Bill Status has no editable Demographic filter');
+  });
+  const report = options => bc.reportClinicBillStatus(clinic, { demographicNo: s.patient, ...options });
+  const status = { locator: selector => clinic.frame.locator(selector) };
 
   for (const [label, statusCode, expected] of [
     ['Not Submitted', 'O', 'notSubmitted'],
@@ -60,26 +73,26 @@ async function workflow(s) {
     ['Bill Patient', 'P', 'billPatient'],
   ]) {
     await s.step(`status ${label} lists exactly the owned bill in that status`, async () => {
-      await report(status, { status: statusCode });
+      await report({ status: statusCode });
       const shown = await listed(status);
       h.assert(shown === expected, `Status ${label} listed [${shown}] instead of [${expected}]`);
     });
   }
 
   await s.step('All with Private unticked lists both MSP bills and not the private one', async () => {
-    await report(status, { status: '%', showPrivate: false });
+    await report({ status: '%', showPrivate: false });
     const shown = await listed(status);
     h.assert(shown === 'notSubmitted,settled', `All without Private listed [${shown}] instead of [notSubmitted,settled]`);
   });
 
   await s.step('All with every type lists the three owned bills', async () => {
-    await report(status, { status: '%' });
+    await report({ status: '%' });
     const shown = await listed(status);
     h.assert(shown === 'billPatient,notSubmitted,settled', `All listed [${shown}] instead of all three owned bills`);
   });
 
   await s.step('a service-date window that ends before the bills lists none of them', async () => {
-    await report(status, { status: '%', from: '2000-01-01', to: '2000-12-31' });
+    await report({ status: '%', from: '2000-01-01', to: '2000-12-31' });
     const shown = await listed(status);
     h.assert(shown === '', `A window in 2000 listed [${shown}]`);
   });
