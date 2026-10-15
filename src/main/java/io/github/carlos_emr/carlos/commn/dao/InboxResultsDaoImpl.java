@@ -152,14 +152,14 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
-        return new ArrayList<>(populateDocumentResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+        return populateDocumentResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null);
     }
 
     @SuppressWarnings("unchecked")
-    public List<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
-                                                           String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
-                                                           Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
-                                                           Date acknowledgedSince) {
+    public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
+                                                                String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                                Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate,
+                                                                Date acknowledgedSince) {
         if (providerNo == null) {
             providerNo = "";
         }
