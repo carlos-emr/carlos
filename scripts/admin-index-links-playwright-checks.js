@@ -106,9 +106,13 @@ async function main() {
 
     // Finding 191 / issue #4564: the HSFO and HSFO2 submission entries pointed at
     // admin/RecommitHSFO and admin/RecommitHSFO2, which have no route, and were
-    // retired. They only rendered on a site that set hsfo.loginSiteCode, so a
-    // default install never showed the dead link; this keeps the panel from
-    // offering either entry again. Checked on the whole catalogue, before the
+    // retired. They only rendered on a site that set hsfo.loginSiteCode or
+    // hsfo2.loginSiteCode, so on an install that leaves both unset (the default)
+    // this assertion cannot see them and passes regardless: it is only a
+    // browser-level guard when run against a deployment that sets one of those
+    // properties (the packaged-install validation for #4564 did). The
+    // unconditional guard is AdministrationHsfoRemovalUnitTest, which reads
+    // leftNav.jspf itself. Checked on the whole catalogue, before the
     // ADMIN_LINKS_ONLY filter narrows it.
     const retiredHsfo = catalogue.filter((item) => /hsfo/i.test(`${item.text} ${item.href || ''} ${item.route || ''}`));
     assert(retiredHsfo.length === 0,
