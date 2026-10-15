@@ -2752,3 +2752,31 @@ Two more harness notes from the review round that followed, both on the same sna
   a console error "Failed to load resource ... 400" from the Save that finding 254 refuses sometimes lands inside the window in
   which the check reads the page's problems. It does so with the old wait and with the wait for the Save navigation that
   CodeRabbit asked for (4 runs each, 1 of 4 failed elsewhere in each), so it predates that change. It is not fixed here.
+
+### Legacy MDS lab display validation (2026-10-14, issue #4567)
+
+`release/2026.08` at `e9ce38de` plus the #4654 fix branch was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR was
+compiled on the host with the `debian/rules` Maven flags, and `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder
+with `CARLOS_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`) and passed as
+`DRUGREF_WAR`, because Maven Central answered 429 to the builder container. carlos-ctl was 1.1.2 from its release. The packages
+were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported "All checks
+passed"). Behind an egress proxy that dropped some parallel apt downloads, `BASE_IMAGE` named an `ubuntu:26.04` derivative whose
+only change is `Acquire::Retries "8"` with `Acquire::Queue-Mode "access"` and pipelining off.
+
+| Run | `legacy-lab-display-mds` |
+|---|---|
+| fixed packages | display (two results with their own values, the note, no `#mdsLoadFailed` banner), acknowledge and the picker pass; stops at Forward: `known-fail` on finding 184 |
+| pre-fix MDS classes and `SegmentDisplay.jsp` swapped into the installed webapp | fails at the display step with the error page (finding 194, as reported) |
+| only `MdsOBXDaoImpl` put back to an entity query | fails at the display step: "shows 2 result rows for the seeded test … Glucose, expected 1" |
+
+`legacy-lab-display` (CML) was unchanged: `known-fail` on finding 184. `legacy-lab-display-pathnet` SKIPs on Ontario. The smoke tier
+passed 12/12. After the fixed classes were restored, the journal held no MDS error; the server-log audit's remaining unexplained
+signature was `getMatchingCMLLabs (ClassCastException)`, raised by the CML check's page (finding 197).
+
+The swaps used `cp` and `touch` on the installed JSP and a `carlos-ctl restart`. After a restart, Jasper recompiles a JSP whose
+source is newer than its compiled class, so Tomcat's work directory does not need clearing.
+
+A follow-up covered a report with versions whose older version cannot be read. Two FAKE versions of one accession were seeded
+(`1988000001`, `1988000002`, removed after); the older one had two `mdsPV1` rows, so its load failed with "Duplicate row was found".
+Opening the newer one showed only its own routing status, and the older version's status lines were silently missing. With the
+per-version warning in `SegmentDisplay.jsp`, the page shows "Version: v1 — Part of this lab report could not be loaded…" in their place.

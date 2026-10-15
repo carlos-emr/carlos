@@ -54,7 +54,8 @@ public class ProviderData {
     public static String beautifyProviderName(String name) {
         String[] subStrings;
 
-        if (name.length() > 0) {
+        // A visit segment may leave a doctor field null; that is no provider, not an error.
+        if (name != null && name.length() > 0) {
             try {
                 subStrings = name.split("\\^");
                 if (subStrings.length >= 18) {

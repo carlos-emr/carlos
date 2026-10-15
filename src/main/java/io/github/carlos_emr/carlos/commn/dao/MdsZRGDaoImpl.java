@@ -48,9 +48,13 @@ public class MdsZRGDaoImpl extends AbstractDaoImpl<MdsZRG> implements MdsZRGDao 
 
     @Override
     public List<Object[]> findById(Integer id) {
-        String sql = "SELECT zrg.reportGroupDesc, zrg.reportGroupId, count(zrg.reportGroupID), zrg.reportGroupHeading, zrg.reportSequence " +
-                "FROM MdsZRG zrg where zrg.id = :id group by zrg.reportGroupDesc, zrg.reportGroupID " +
-                "ORDER BY zrg.reportSequence";
+        // One row per report group. The heading and sequence are aggregated rather than selected bare:
+        // a group with one row reads its own heading, a group with several reads its headings with
+        // findReportGroupHeadingsById, and groups are listed by their first report sequence.
+        String sql = "SELECT zrg.reportGroupsDesc, zrg.reportGroupId, count(zrg.reportGroupId), " +
+                "min(zrg.reportGroupHeading), min(zrg.reportSequence) " +
+                "FROM MdsZRG zrg where zrg.id = :id group by zrg.reportGroupsDesc, zrg.reportGroupId " +
+                "ORDER BY min(zrg.reportSequence)";
         Query query = entityManager.createQuery(sql);
         query.setParameter("id", id);
         return query.getResultList();

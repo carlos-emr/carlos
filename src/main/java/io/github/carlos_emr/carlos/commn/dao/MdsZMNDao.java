@@ -40,5 +40,24 @@ public interface MdsZMNDao extends AbstractDao<MdsZMN> {
 
     MdsZMN findBySegmentIdAndResultMnemonic(Integer id, String rm);
 
+    /**
+     * Returns the result codes the report filed under one report group.
+     *
+     * @param id the report's segmentID
+     * @param reportSequence the report group id ({@code mdsZRG.reportGroupID}) the codes belong to
+     * @return the non-null result codes, in database order; empty when the group has none
+     */
     List<String> findResultCodes(Integer id, String reportSequence);
+
+    /**
+     * Returns every mnemonic row of one report as scalar columns.
+     *
+     * <p>The MDS detail tables have no primary key and the entity maps the shared segmentID as its
+     * id, so this deliberately does not return {@link MdsZMN} entities: Hibernate would resolve all
+     * rows of the report to the first one.</p>
+     *
+     * @param id the report's segmentID
+     * @return rows of {@code [resultMnemonic, reportName, units, referenceRange]}, all {@code String}
+     */
+    List<Object[]> findMnemonicsBySegmentId(Integer id);
 }
