@@ -99,6 +99,30 @@ fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` c
 `formConsultant.jsp` swapped into the installed webapp the check **FAILS** at "Letterhead: the redisplayed and
 the reopened form show every saved value again". A Comments value that itself begins with a line break is
 pinned statically by `scripts/letterhead-comments-textarea.test.js`, not by this browser check.
+`form-catalog-smoke-adfv2-window` (issue #4598, finding 240) lost its expected-failure pin on
+2026-10-15. The same change added `form-adfv2-save-exit-playwright-checks.js`. Both were run against
+2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch in an Ubuntu 26.04 container
+(DrugRef from its pinned ref, carlos-ctl 1.1.2 from its tag). Two DrugRef test-scope jars that Maven's
+transport kept failing to fetch through the egress proxy were seeded into the build's local repository.
+The packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- Both checks **PASS**. Save redisplays the saved record in the window it was pressed in. Save and
+  Exit is confirmed once, answered by `close.jsp` in the form's own window, and that window closes
+  with no other window opened.
+- With the pre-fix `formadfv2.jsp` installed (its compiled class deleted, then `carlos-ctl restart`),
+  both checks **FAIL** at those steps: the record was redisplayed, or the closing page answered, in
+  another window.
+- The rest of the form catalogue family matched its manifest: `form-catalog-smoke` and
+  `-letterhead-restore` pass, the seven pinned entries are known failures, and `--residue-audit`
+  reported no residue.
+
+`close.jsp` closes its window while the CSRFGuard script injected into it is still loading. The new
+check therefore excuses that one aborted `/csrfguard` script load, proven by `navigatedAway()`, as
+`legacy-lab-display` does.
+`clinical-forms-save-reopen` failed on this install at "Mental Health Form 14: Print Pdf answers a PDF
+carrying the saved prose", on two runs. Its other failing pairs are pinned by its own variants. That
+form is not touched here and no finding records the print failure yet.
 `rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
 run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
 (DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the

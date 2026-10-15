@@ -26,6 +26,23 @@ const FACILITY = 'FAKE Facility';
 const isFormPost = response => response.request().method() === 'POST'
   && new URL(response.url()).pathname.endsWith('/form/formname');
 
+/**
+ * close.jsp closes its window while the CSRFGuard client script the response filter injects is still loading, and
+ * Chromium reports that load as aborted. It is the browser giving up a load because its document went away, not an
+ * application failure: excuse exactly that one, on the form's window, proven by navigatedAway(), and nothing else
+ * (the same rule as legacy-lab-display-playwright-checks.js).
+ */
+function excuseAbandonedCsrfGuardLoad(recorder, label) {
+  for (let i = recorder.requestFailures.length - 1; i >= 0; i -= 1) {
+    const entry = recorder.requestFailures[i];
+    if (entry.label === label && entry.resourceType === 'script' && /ERR_ABORTED/.test(entry.errorText || '')
+      && new URL(entry.url).pathname.endsWith('/csrfguard')
+      && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) {
+      recorder.requestFailures.splice(i, 1);
+    }
+  }
+}
+
 async function workflow(s) {
   const { sql, patient, provider, marker, context } = s;
   const name = `${marker} ADF`;
@@ -55,7 +72,8 @@ async function workflow(s) {
     h.assert(listed === 1, `The Forms menu lists the registered ADFv2 ${listed} times, not once`);
     form = await s.popup(chart, link, 'form-ADF');
     h.assert(new URL(form.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
-    await form.getByRole('button', { name: 'Save and Exit', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+    // The form repeats its buttons above and below the questions; the first row is the one a clinician sees on opening.
+    await form.getByRole('button', { name: 'Save and Exit', exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
   });
 
   await s.step('ADFv2: Save and Exit stores the form and closes the window it was pressed in, opening no other', async () => {
@@ -76,7 +94,7 @@ async function workflow(s) {
     try {
       dialogs = await h.withExpectedDialogs(form, async () => {
         try {
-          await form.getByRole('button', { name: 'Save and Exit', exact: true }).click({ noWaitAfter: true });
+          await form.getByRole('button', { name: 'Save and Exit', exact: true }).first().click({ noWaitAfter: true });
         } catch (error) {
           // close.jsp can close the window before Chromium acknowledges the click; only that is accepted.
           if (!form.isClosed() || !/Target page, context or browser has been closed/.test(error.message)) throw error;
@@ -102,6 +120,7 @@ async function workflow(s) {
     h.assert(row[1] === FACILITY, 'The stored sendFacility differs from what was typed');
     h.assert(row[2] === '1', 'The stored capTreatDecY is not ticked');
     h.assert(row[3] === provider, 'The row is not attributed to the signed-in provider');
+    excuseAbandonedCsrfGuardLoad(s.recorder, 'form-ADF');
   });
 }
 
