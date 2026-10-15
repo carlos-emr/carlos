@@ -91,4 +91,20 @@ class BillingDigSearchJspRegressionTest {
         // The rows used "<a>" where "</a>" was meant, opening a stray empty link after every code.
         assertThat(jsp).doesNotContain("<a></font>");
     }
+
+    @Test
+    @DisplayName("should label each row's description field without showing the label")
+    void shouldLabelEachDescriptionField_withHiddenLabel() throws IOException {
+        String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
+
+        // intCount goes up once per row before the row is written, so each id is unique on the page.
+        for (String code : new String[]{"Dcode", "Dcode2"}) {
+            assertThat(jsp).contains("<label for=\"dxDesc<%=intCount%>\" class=\"visually-hidden\">Description for <%="
+                    + ENCODE + "forHtml(" + code + ")%></label><input type=\"text\" id=\"dxDesc<%=intCount%>\"");
+        }
+        // Three row templates: one for a search by code or text, two for a search by both.
+        assertThat(jsp.split("<label for=\"dxDesc<%=intCount%>\"", -1)).hasSize(4);
+        assertThat(jsp.split("<input type=\"text\" id=\"dxDesc<%=intCount%>\"", -1)).hasSize(4);
+        assertThat(jsp).contains(".visually-hidden { position: absolute;");
+    }
 }
