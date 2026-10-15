@@ -76,7 +76,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
             //set link for lefthand module title
             String winName = "measurements" + bean.demographicNo;
-            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex");
+            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=" + bean.demographicNo);
 
             String url;
 
@@ -285,7 +285,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
-                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "'); return false;");
+                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "&demographicNo=" + bean.demographicNo + "'); return false;");
                     Dao.addItem(item);
                 }
 

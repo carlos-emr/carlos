@@ -892,6 +892,10 @@
     function requestNavbarColumn(url, div, params, column) {
         var state = window.carlosNavbarLoadState;
         if (!state) return;
+        // Every window owns its patient and appointment, including popup-triggered reloads.
+        // A login-wide session bean cannot identify which chart issued this request.
+        params = (params ? params + "&" : "") + "demographicNo=" + encodeURIComponent(demographicNo)
+            + "&appointmentNo=" + encodeURIComponent(appointmentNo == null ? "0" : appointmentNo);
         var previous = state.modules[div];
         var module = {column: column || (previous && previous.column), status: "loading"};
         if (module.column !== "leftNavBar" && module.column !== "rightNavBar") {
@@ -1397,6 +1401,8 @@ function updateCPPNote() {
             url,
             {
                 method: 'post',
+                postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
+                    + '&appointmentNo=' + encodeURIComponent(appointmentNo == null ? '0' : appointmentNo),
                 evalScripts: true,
                 onSuccess: function (request) {
                     $(div).update(request.responseText);

@@ -35,6 +35,7 @@ import java.util.Vector;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -49,6 +51,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -83,6 +86,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
 
         request = new MockHttpServletRequest();
         request.setContextPath("/carlos");
+        request.setParameter("curProviderNo", "999998");
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
@@ -141,9 +145,13 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         RecordingDisplayAction action = new RecordingDisplayAction();
         request.getSession().setAttribute("EctSessionBean", bean);
         request.setParameter("cmd", "episode");
+        request.setParameter("demographicNo", "123");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", "123")).thenReturn(true);
 
-        String result = action.execute();
+        String result;
+        try (MockedConstruction<EctSessionBean> beans = mockConstruction(EctSessionBean.class)) {
+            result = action.execute();
+        }
 
         assertThat(result).isEqualTo("success");
         NavBarDisplayDAO dao = (NavBarDisplayDAO) request.getAttribute("DAO");
@@ -157,14 +165,13 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject panel loading when demographic is missing for rebuild")
-    void shouldRejectPanelLoading_whenDemographicMissingForRebuild() {
+    void shouldRejectPanelLoading_whenDemographicMissingForRebuild() throws Exception {
         request.setParameter("cmd", "episode");
 
         EctDisplayEpisode2Action action = new EctDisplayEpisode2Action();
 
-        assertThatThrownBy(action::execute)
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("Missing required demographicNo");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
 
         verifyNoInteractions(securityInfoManager, episodeDao);
         rolePrivilegeMock.verifyNoInteractions();
@@ -178,10 +185,14 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         RecordingDisplayAction action = new RecordingDisplayAction();
         request.getSession().setAttribute("EctSessionBean", bean);
         request.setParameter("cmd", "episode");
+        request.setParameter("demographicNo", "123");
         request.setParameter("json", "TRUE");
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", "123")).thenReturn(true);
 
-        String result = action.execute();
+        String result;
+        try (MockedConstruction<EctSessionBean> beans = mockConstruction(EctSessionBean.class)) {
+            result = action.execute();
+        }
 
         assertThat(result).isNull();
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");

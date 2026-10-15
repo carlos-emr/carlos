@@ -20,8 +20,8 @@
  * window. Back in A's window the modules are reloaded the way the app reloads them (close a popup
  * the module opened), and then the module, the history, the plot, the Forms module and a form
  * opened from it must still be A's and must not have become B's. Writes, asserted after: a
- * measurement, a Dx code, a CPP item (Risk Factors), a prevention and a history Delete, each made
- * from A's window, land on A and leave every one of B's row counts unchanged.
+ * measurement, a Dx code, a CPP item (Risk Factors), a prevention and a history Delete, made in
+ * both directions, land on the selected patient and leave the other patient's full rows unchanged.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha), a second FAKE patient (B,
  * PatientBravo, last name the run marker) and one WT measurement each (61.2 kg for A, 87.4 kg for
@@ -29,14 +29,15 @@
  * measurements, Dx, prevention, note, CPP and lock rows by key and asserts each is gone. No
  * clinic-wide state is changed.
  *
- * Not driven: the Vascular Tracker (SetupForm), the only form routed through FrmSetupForm2Action.
- * As seeded it is broken end to end (its registration is a .do route that answers 404, SetupForm
- * refuses the .do with HTTP 400 and SubmitForm answers 400), so a form save cannot be exercised
- * here; finding 182 is pinned through the history, the module reload and the Forms module instead.
+ * Vascular Tracker setup, Update and reopen are driven for both patients. Save & Exit closes
+ * the popup, writes A's measurements and appends only to A's editor; a second exit after the
+ * opener navigates to B must leave B's editor and complete clinical rows unchanged. Invalid patient
+ * parameters and cross-patient form IDs are rejected without exposing names or changing either
+ * patient's rows. CPP signature hashes and VT forms are included in owned fixture cleanup.
  */
 const crypto = require('node:crypto');
 const h = require('./lib/playwright-harness');
-const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { clickAndAwaitReload, csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -54,6 +55,94 @@ const namesB = text => text.includes(B_FIRST_NAME);
 
 const norm = text => text.replace(/\s+/g, ' ').trim();
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+
+function patientKey(value) {
+  h.assert(/^[1-9]\d*$/.test(String(value)), 'An owned patient key is invalid');
+  return String(value);
+}
+
+/** Clinical rows, including child data and signatures; no session locks or access-audit timestamps. */
+function patientStateQueries(patient) {
+  const id = patientKey(patient);
+  const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${id}`;
+  const measurements = `SELECT id FROM measurements WHERE demographicNo=${id}
+    UNION SELECT originalId FROM measurementsDeleted WHERE demographicNo=${id}`;
+  return {
+    demographic: `SELECT * FROM demographic WHERE demographic_no=${id}`,
+    demographicExtensions: `SELECT * FROM demographicExt WHERE demographic_no=${id} ORDER BY id`,
+    measurements: `SELECT * FROM measurements WHERE demographicNo=${id} ORDER BY id`,
+    deletedMeasurements: `SELECT * FROM measurementsDeleted WHERE demographicNo=${id} ORDER BY id`,
+    measurementExtensions: `SELECT * FROM measurementsExt WHERE measurement_id IN (${measurements}) ORDER BY id`,
+    diagnoses: `SELECT * FROM dxresearch WHERE demographic_no=${id} ORDER BY dxresearch_no`,
+    notes: `SELECT * FROM casemgmt_note WHERE demographic_no=${id} ORDER BY note_id`,
+    noteExtensions: `SELECT * FROM casemgmt_note_ext WHERE note_id IN (${notes}) ORDER BY id`,
+    noteLinks: `SELECT * FROM casemgmt_note_link WHERE note_id IN (${notes}) ORDER BY id`,
+    noteIssues: `SELECT * FROM casemgmt_issue_notes WHERE note_id IN (${notes}) ORDER BY note_id,id`,
+    issues: `SELECT * FROM casemgmt_issue WHERE demographic_no=${id} ORDER BY id`,
+    signatures: `SELECT * FROM hash_audit WHERE type='enc' AND id IN (${notes}) ORDER BY pkid`,
+    cpp: `SELECT * FROM casemgmt_cpp WHERE demographic_no=${id} ORDER BY id`,
+    echart: `SELECT * FROM eChart WHERE demographicNo=${id} ORDER BY eChartId`,
+    drafts: `SELECT * FROM casemgmt_tmpsave WHERE demographic_no=${id} ORDER BY id`,
+    preventions: `SELECT * FROM preventions WHERE demographic_no=${id} ORDER BY id`,
+    preventionExtensions: `SELECT * FROM preventionsExt WHERE prevention_id IN
+      (SELECT id FROM preventions WHERE demographic_no=${id}) ORDER BY id`,
+    forms: `SELECT * FROM formVTForm WHERE demographic_no=${id} ORDER BY ID`,
+  };
+}
+
+function readPatientState(sql, patient) {
+  return Object.fromEntries(Object.entries(patientStateQueries(patient)).map(([name, query]) => [name, sql.rows(query)]));
+}
+
+function assertPatientStateUnchanged(before, after, operation) {
+  h.assert(JSON.stringify(Object.keys(before).sort()) === JSON.stringify(Object.keys(after).sort()),
+    `${operation}: the patient snapshot is incomplete`);
+  for (const name of Object.keys(before)) {
+    h.assert(JSON.stringify(before[name]) === JSON.stringify(after[name]),
+      `${operation}: the other patient's ${name} rows changed`);
+  }
+}
+
+function invalidPatientParameters(patient, other) {
+  return [
+    ['missing', []],
+    ['malformed', [['demographicNo', 'not-a-patient']]],
+    ['zero', [['demographic_no', '0']]],
+    ['conflicting aliases', [['demographicNo', patientKey(patient)], ['demographic_no', patientKey(other)]]],
+    ['conflicting repeated parameter', [['demographicNo', patientKey(patient)], ['demographicNo', patientKey(other)]]],
+  ];
+}
+
+function assertRequestPatient(request, expected) {
+  const query = new URL(request.url()).searchParams;
+  const body = new URLSearchParams(request.postData() || '');
+  const owners = [query, body].flatMap(parameters => [
+    ...parameters.getAll('demographicNo'), ...parameters.getAll('demographic_no'),
+  ]);
+  h.assert(owners.length > 0 && owners.every(owner => owner === expected),
+    'The request did not explicitly identify only its own patient');
+}
+
+function isOwnedLockRelease(request, patient, noteId, provider) {
+  const data = new URLSearchParams(request.postData() || '');
+  return request.method() === 'POST' && request.resourceType() === 'ping'
+    && new URL(request.url()).pathname.endsWith('/CaseManagementEntry')
+    && [['method', 'releaseNoteLock'], ['demographicNo', patient], ['noteId', noteId], ['providerNo', provider]]
+      .every(([name, value]) => data.getAll(name).length === 1 && data.get(name) === String(value));
+}
+
+// Called only after SQL proves the departed chart's lock was released. Each candidate was
+// captured by that page's requestfailed listener, bound to its exact owned release POST.
+function consumeDeliveredLockReleases(recorder, candidates) {
+  for (const {request, entry} of candidates) {
+    if (entry && entry.url === request.url() && entry.resourceType === 'ping'
+        && entry.errorText === request.failure()?.errorText && /ERR_ABORTED/.test(entry.errorText)
+        && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) {
+      const index = recorder.requestFailures.indexOf(entry);
+      if (index >= 0) recorder.requestFailures.splice(index, 1);
+    }
+  }
+}
 
 async function run(s) {
   const { sql, patient: A, provider, marker, context, recorder } = s;
@@ -82,8 +171,17 @@ async function run(s) {
       'Patient B was not removed');
   });
   s.cleanup(() => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${B}
+      AND last_name=${q(marker)}`) === '1', 'Patient B ownership changed before child cleanup');
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${patients})`;
-    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
+    const ownedNotes = sql.rows(notes).map(row => patientKey(row[0])).join(',') || '0';
+    const ownedPreventions = sql.rows(`SELECT id FROM preventions WHERE demographic_no IN (${patients})`)
+      .map(row => patientKey(row[0])).join(',') || '0';
+    const ownedMeasurements = sql.rows(`SELECT id FROM measurements WHERE demographicNo IN (${patients})
+      UNION SELECT originalId FROM measurementsDeleted WHERE demographicNo IN (${patients})`)
+      .map(row => patientKey(row[0])).join(',') || '0';
+    sql.execute(`DELETE FROM hash_audit WHERE type='enc' AND id IN (${ownedNotes});
+      DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note WHERE demographic_no IN (${patients});
@@ -95,15 +193,25 @@ async function run(s) {
       DELETE FROM dxresearch WHERE demographic_no IN (${patients});
       DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id WHERE p.demographic_no IN (${patients});
       DELETE FROM preventions WHERE demographic_no IN (${patients});
+      DELETE FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements});
       DELETE FROM measurements WHERE demographicNo IN (${patients});
-      DELETE FROM measurementsDeleted WHERE demographicNo IN (${patients})`);
+      DELETE FROM measurementsDeleted WHERE demographicNo IN (${patients});
+      DELETE FROM formVTForm WHERE demographic_no IN (${patients})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM casemgmt_issue_notes WHERE note_id IN (${ownedNotes}))
+      + (SELECT COUNT(*) FROM casemgmt_note_ext WHERE note_id IN (${ownedNotes}))
+      + (SELECT COUNT(*) FROM casemgmt_note_link WHERE note_id IN (${ownedNotes}))
+      + (SELECT COUNT(*) FROM hash_audit WHERE type='enc' AND id IN (${ownedNotes}))
       + (SELECT COUNT(*) FROM eChart WHERE demographicNo IN (${patients}))
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM preventions WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM preventionsExt WHERE prevention_id IN (${ownedPreventions}))
+      + (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements}))
+      + (SELECT COUNT(*) FROM formVTForm WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo IN (${patients}))
       + (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo IN (${patients}))`) === '0',
     'Owned chart rows were not removed');
@@ -116,17 +224,7 @@ async function run(s) {
   const weight = { a: seedWeight(A, A_WEIGHT), b: seedWeight(B, B_WEIGHT) };
   h.assert(/^[1-9]\d*$/.test(weight.a) && /^[1-9]\d*$/.test(weight.b), 'The WT measurement fixtures were not created');
 
-  /** Row counts that a write from A's window must leave alone for B. */
-  const counts = demo => sql.rows(`SELECT
-    (SELECT COUNT(*) FROM measurements WHERE demographicNo=${demo}),
-    (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo=${demo}),
-    (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${demo}),
-    (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${demo}),
-    (SELECT COUNT(*) FROM preventions WHERE demographic_no=${demo})`)[0].join(',');
-  let bBaseline;
-  const assertBUnchanged = what => h.assert(counts(B) === bBaseline,
-    `${what}: patient B's rows changed (measurements, archived measurements, Dx, notes, preventions: `
-    + `${bBaseline} became ${counts(B)})`);
+  const snapshot = patient => readPatientState(sql, patient);
 
   // ---- Page helpers ----------------------------------------------------------------------------
   const moduleText = async (chart, id) => norm(await chart.locator(`#${id}`).innerText());
@@ -145,7 +243,7 @@ async function run(s) {
   }
 
   /** The digest of the plot the history's Plot control opens (the plot is deterministic per data set). */
-  async function plotOf(history) {
+  async function plotOf(history, expectedPatient) {
     const rendered = context.waitForEvent('response', {
       predicate: r => new URL(r.url()).pathname.endsWith('/GraphMeasurements') && r.request().isNavigationRequest(),
       timeout: TIMEOUT,
@@ -153,6 +251,8 @@ async function run(s) {
     rendered.catch(() => {});
     await history.locator('input[onclick*="GraphMeasurements"]').click();
     const response = await rendered;
+    h.assert(new URL(response.url()).searchParams.get('demographic_no') === expectedPatient,
+      'The Plot control requested another patient');
     h.assert(response.status() === 200 && (response.headers()['content-type'] || '').startsWith('image/png'),
       'The Plot control did not answer with a PNG');
     const bytes = await response.body();
@@ -176,7 +276,17 @@ async function run(s) {
    */
   async function closeAndAwaitModuleReload(chart, popup, id) {
     await chart.locator(`#${id} > *`).first().evaluate(el => { el.setAttribute('data-stale-before-reload', '1'); });
+    const route = {measurements: 'displayMeasurements', forms: 'displayForms', preventions: 'displayPrevention'}[id];
+    h.assert(route, 'The reload check needs a known navbar route');
+    const reloaded = chart.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/encounter/${route}`),
+      {timeout: TIMEOUT});
+    reloaded.catch(() => {});
     await popup.close();
+    const response = await reloaded;
+    await response.finished();
+    const expected = new URL(chart.url()).searchParams.get('demographicNo');
+    h.assert(response.status() === 200, `The ${id} reload did not succeed`);
+    assertRequestPatient(response.request(), expected);
     await chart.locator(`#${id} [data-stale-before-reload]`).waitFor({ state: 'detached', timeout: TIMEOUT })
       .catch(() => { throw new Error(`The ${id} module did not reload after the popup it opened closed`); });
   }
@@ -184,7 +294,7 @@ async function run(s) {
   /** The Add Form links of the Forms module: the demographic number each carries. */
   async function formLinkOwners(chart) {
     const handlers = await chart.locator('#forms a.menuItemleft').evaluateAll(els => els.map(e => e.getAttribute('onclick') || ''));
-    return handlers.map(onclick => (onclick.match(/demographic_no=(\d+)/) || [])[1]).filter(Boolean);
+    return handlers.map(onclick => (onclick.match(/demographic(?:_no|No)=(\d+)/) || [])[1]);
   }
 
   /** Open the first Add Form item of a chart window's Forms module. */
@@ -211,19 +321,20 @@ async function run(s) {
   let chartA;
   let chartB;
   let plotA;
-  const entered = {};
+  let plotB;
+  const entered = {A: {}, B: {}};
 
   /**
-   * Load B's chart afresh, in a window of its own, so that B is the most recently loaded chart
+   * Load the other chart afresh, in a window of its own, so it is the most recently loaded chart
    * whatever the previous step did. A chart load is what rebuilds the session's patient, and any
    * module of A's window that names its patient (the CPP boxes do) rebuilds it back to A, so
    * without this a write step could pass only because an earlier step had pointed the session at
    * A. A new window rather than chartB.reload(): leaving a chart sends its note-lock release
    * beacon, which the browser reports as an aborted ping and the strict recorder counts as a failure.
    */
-  async function reloadB() {
+  async function activateOther(chart) {
     const fresh = await context.newPage();
-    await fresh.goto(chartB.url(), { waitUntil: 'domcontentloaded' });
+    await fresh.goto(chart.url(), { waitUntil: 'domcontentloaded' });
     await waitForNavbars(fresh, TIMEOUT);
   }
 
@@ -237,7 +348,7 @@ async function run(s) {
     h.assert(history.ids.length === 1 && history.ids[0] === weight.a,
       'A\'s history, opened alone, does not list exactly A\'s measurement');
     h.assert(namesA(history.text) && !namesB(history.text), 'A\'s history is not headed with A\'s name');
-    plotA = await plotOf(history.popup);
+    plotA = await plotOf(history.popup, A);
     await closePlot();
     await history.popup.close();
     const owners = await formLinkOwners(chartA);
@@ -268,155 +379,421 @@ async function run(s) {
     const history = await openWeightHistory(chartB, 'b-history');
     h.assert(history.ids.length === 1 && history.ids[0] === weight.b, 'B\'s history does not list exactly B\'s measurement');
     h.assert(namesB(history.text) && !namesA(history.text), 'B\'s history is not headed with B\'s name');
-    h.assert(await plotOf(history.popup) !== plotA,
+    plotB = await plotOf(history.popup, B);
+    h.assert(plotB !== plotA,
       'The two patients\' plots are identical, so a plot cannot say whose data it shows');
     await closePlot();
     await history.popup.close();
     const owners = await formLinkOwners(chartB);
     h.assert(owners.length > 0 && owners.every(owner => owner === String(B)),
       'B\'s Forms module does not carry B\'s demographic number on every Add Form link');
-    bBaseline = counts(B);
   });
 
-  // ---- Reads from A's window with B open: the first defect step on 2026.08 ---------------------
-  await s.step('A\'s reloaded navbar, measurement history and plot show only A\'s rows', async () => {
-    const problems = [];
-    // 1. The history link was rendered while A was the only chart; it names no patient, so the
-    //    server decides whose history to show.
-    const first = await openWeightHistory(chartA, 'a-history-with-b-open');
-    if (first.ids.join() !== weight.a) problems.push(`A's history lists the measurement(s) of ${idsLabel(first.ids)}`);
-    if (namesB(first.text) || !namesA(first.text)) problems.push('A\'s history is headed with another patient\'s name');
-    if (await plotOf(first.popup) !== plotA) problems.push('A\'s plot is not the plot of A\'s data');
-    await closePlot();
-    // 2. Closing the history makes the app reload the module, as it does after every module popup.
-    await closeAndAwaitModuleReload(chartA, first.popup, 'measurements');
-    const text = await moduleText(chartA, 'measurements');
-    if (!text.includes(A_WEIGHT)) problems.push('A\'s reloaded Measurements module does not list A\'s weight');
-    if (text.includes(B_WEIGHT)) problems.push('A\'s reloaded Measurements module lists B\'s weight');
-    // 3. The reloaded module's own link, followed again.
-    const again = await openWeightHistory(chartA, 'a-history-after-reload');
-    if (again.ids.join() !== weight.a) problems.push(`A's history, opened from the reloaded module, lists the measurement(s) of ${idsLabel(again.ids)}`);
-    await again.popup.close();
-    h.assert(problems.length === 0, `A's window, with B's chart open, no longer shows only A: ${problems.join('; ')}`);
-  });
+  const directions = [
+    {label: 'A', patient: A, chart: chartA, other: B, otherChart: chartB, weightId: weight.a,
+      ownWeight: A_WEIGHT, otherWeight: B_WEIGHT, plot: plotA, ownName: namesA, otherName: namesB},
+    {label: 'B', patient: B, chart: chartB, other: A, otherChart: chartA, weightId: weight.b,
+      ownWeight: B_WEIGHT, otherWeight: A_WEIGHT, plot: plotB, ownName: namesB, otherName: namesA},
+  ];
+  for (const d of directions) {
+    await s.step(`${d.label}'s reloaded navbar, measurement history and plot show only ${d.label}'s rows`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const problems = [];
+      const first = await openWeightHistory(d.chart, `${d.label}-history-with-other-open`);
+      if (first.ids.join() !== d.weightId) problems.push(`history lists the measurement(s) of ${idsLabel(first.ids)}`);
+      if (d.otherName(first.text) || !d.ownName(first.text)) problems.push('history is headed with another patient\'s name');
+      if (await plotOf(first.popup, d.patient) !== d.plot) problems.push('plot is not the plot of this patient\'s data');
+      await closePlot();
+      // Re-select the opposite chart before the close-triggered reload too.
+      await activateOther(d.otherChart);
+      await closeAndAwaitModuleReload(d.chart, first.popup, 'measurements');
+      const text = await moduleText(d.chart, 'measurements');
+      if (!text.includes(d.ownWeight)) problems.push('reloaded Measurements module lost the patient\'s weight');
+      if (text.includes(d.otherWeight)) problems.push('reloaded Measurements module lists the other patient\'s weight');
+      await activateOther(d.otherChart);
+      const again = await openWeightHistory(d.chart, `${d.label}-history-after-reload`);
+      if (again.ids.join() !== d.weightId || d.otherName(again.text) || !d.ownName(again.text)) {
+        problems.push('history from the reloaded module is for another patient');
+      }
+      if (await plotOf(again.popup, d.patient) !== d.plot) problems.push('plot from the reloaded history changed patients');
+      await closePlot();
+      await again.popup.close();
+      h.assert(problems.length === 0, `${d.label}'s window crossed patients: ${problems.join('; ')}`);
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s read/reload`);
+    });
 
-  await s.step('a form opened from A\'s chart shows A', async () => {
-    const problems = [];
-    // Open an Add Form item and close it: the Forms module reloads when the popup closes.
-    const before = await openFirstForm(chartA, 'a-form-before-reload');
-    await closeAndAwaitModuleReload(chartA, before, 'forms');
-    const owners = await formLinkOwners(chartA);
-    if (owners.some(owner => owner !== String(A))) {
-      problems.push(`A's reloaded Forms module carries ${[...new Set(owners.map(ownerLabel))].join('+')} on its Add Form links`);
+    await s.step(`a form opened from ${d.label}'s chart shows ${d.label} before and after reload`, async () => {
+      await activateOther(d.otherChart);
+      const otherBefore = snapshot(d.other);
+      const problems = [];
+      const before = await openFirstForm(d.chart, `${d.label}-form-before-reload`);
+      const initialOwner = await formOwner(before);
+      h.assert(initialOwner.demographicNo === d.patient && initialOwner[d.label === 'A' ? 'namesA' : 'namesB']
+        && !initialOwner[d.label === 'A' ? 'namesB' : 'namesA'], 'The initial form belongs to the wrong patient');
+      await activateOther(d.otherChart);
+      await closeAndAwaitModuleReload(d.chart, before, 'forms');
+      const owners = await formLinkOwners(d.chart);
+      if (!owners.length || owners.some(owner => owner !== d.patient)) {
+        problems.push('reloaded Forms module lost its explicit patient on an Add Form link');
+      }
+      await activateOther(d.otherChart);
+      const form = await openFirstForm(d.chart, `${d.label}-form-after-reload`);
+      const owner = await formOwner(form);
+      if (owner.demographicNo !== d.patient) problems.push(`the form is for ${ownerLabel(owner.demographicNo)}`);
+      if (!owner[d.label === 'A' ? 'namesA' : 'namesB'] || owner[d.label === 'A' ? 'namesB' : 'namesA']) {
+        problems.push('the form is headed with another patient\'s name');
+      }
+      await form.close();
+      h.assert(problems.length === 0, `${d.label}'s Forms module crossed patients: ${problems.join('; ')}`);
+      assertPatientStateUnchanged(otherBefore, snapshot(d.other), `${d.label}'s forms read/reload`);
+    });
+  }
+
+  // ---- Writes in both directions, with the opposite chart selected immediately before each save.
+  async function isolatedWrite(d, description, body) {
+    await s.step(`${description} in ${d.label}'s window leaves the other patient's full state unchanged`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      await body();
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s ${description}`);
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'measurement entry', async () => {
+      const comment = `${marker}-${d.label}-bp`;
+      const value = d.label === 'A' ? '128/82' : '142/86';
+      await d.chart.locator('#menuTitle3 a').hover();
+      const vitals = d.chart.locator('#menu3 a.menuItemleft').filter({hasText: 'Vitals'});
+      const group = await s.popup(d.chart, vitals, `${d.label}-vitals`);
+      const row = group.locator('#row-BP');
+      await row.waitFor({state: 'visible', timeout: TIMEOUT});
+      h.assert(new URL(group.url()).searchParams.get('demographicNo') === d.patient, 'Vitals opened for another patient');
+      await row.locator('input[name^="inputValue-"]').fill(value);
+      await row.locator('input[name^="date-"]').fill('2026-03-04');
+      await row.locator('input[name^="comments-"]').fill(comment);
+      await activateOther(d.otherChart);
+      const closed = group.waitForEvent('close', {timeout: TIMEOUT});
+      await group.getByRole('button', {name: 'Submit', exact: true}).click();
+      await closed;
+      const where = `type='BP' AND comments=${q(comment)} AND demographicNo IN (${patients})`;
+      await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE ${where}`, '1', 'The measurement was not saved exactly once');
+      entered[d.label].bp = patientKey(sql.value(`SELECT id FROM measurements WHERE ${where}`));
+      h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE ${where}`) === d.patient
+        && sql.value(`SELECT dataField FROM measurements WHERE ${where}`) === value, 'The measurement crossed patients or changed value');
+    });
+
+    await isolatedWrite(d, 'Dx Add', async () => {
+      const code = d.label === 'A' ? '250' : '401';
+      const plus = d.chart.locator('#Dx a[onclick*="setupDxResearch"]').filter({hasText: '+'}).first();
+      const registry = await s.popup(d.chart, plus, `${d.label}-dx`);
+      const form = registry.locator('form[action*="/oscarResearch/oscarDxResearch/dxResearch"]');
+      await form.locator('input[name="demographicNo"]').waitFor({state: 'attached'});
+      h.assert(await form.locator('input[name="demographicNo"]').inputValue() === d.patient, 'Dx opened for another patient');
+      await form.locator('select[name="selectedCodingSystem"]').selectOption('icd9');
+      await form.locator('input[name="xml_research1"]').fill(code);
+      await activateOther(d.otherChart);
+      await clickAndAwaitReload(registry, form.locator('input[name="codeAdd"]'), {label: 'Dx Add'});
+      const owned = `dxresearch_code=${q(code)} AND coding_system='icd9' AND demographic_no IN (${patients})`;
+      await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE ${owned}`, '1', 'The Dx code was not saved exactly once');
+      h.assert(sql.value(`SELECT demographic_no FROM dxresearch WHERE ${owned}`) === d.patient, 'Dx crossed patients');
+      await registry.close();
+    });
+
+    await isolatedWrite(d, 'CPP Sign & Save', async () => {
+      const note = `${marker} ${d.label} risk factor`;
+      await d.chart.locator('#rightNavBar a[title="Add Item"][onclick*="Risk Factors"]').first().click();
+      const dialog = d.chart.locator('#showEditNote');
+      await dialog.waitFor({state: 'visible'});
+      await d.chart.locator('#noteEditTxt').fill(note);
+      const action = await d.chart.locator('#frmIssueNotes').evaluate(form => form.action);
+      h.assert(new URL(action).searchParams.get('demographicNo') === d.patient, 'CPP editor targets another patient');
+      await activateOther(d.otherChart);
+      const [response] = await Promise.all([
+        d.chart.waitForResponse(r => r.request().method() === 'POST'
+          && r.url() === action, {timeout: TIMEOUT}),
+        dialog.locator('input[type="image"][title="Sign & Save"]').click(),
+      ]);
+      await response.finished();
+      h.assert(response.status() === 302, 'The CPP save did not return its listing redirect');
+      await dialog.waitFor({state: 'hidden'});
+      const owned = `note=${q(note)} AND demographic_no IN (${patients})`;
+      await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE ${owned}`, '1', 'The CPP item was not saved exactly once');
+      const id = patientKey(sql.value(`SELECT note_id FROM casemgmt_note WHERE ${owned}`));
+      h.assert(sql.value(`SELECT demographic_no FROM casemgmt_note WHERE note_id=${id}`) === d.patient
+        && sql.value(`SELECT signed FROM casemgmt_note WHERE note_id=${id}`) === '1', 'The signed CPP item crossed patients');
+      h.assert(sql.value(`SELECT COUNT(*) FROM hash_audit WHERE type='enc' AND id=${id}`) === '1',
+        'The signed CPP item did not create exactly one owned signature');
+      await d.chart.locator(`#rightNavBar a[id="listNote${id}"]`).waitFor({state: 'visible'});
+    });
+
+    await isolatedWrite(d, 'prevention entry', async () => {
+      const date = d.label === 'A' ? '2026-01-05' : '2026-01-06';
+      const plus = () => d.chart.locator('#preventions a[onclick*="ViewPreventionIndex"]').filter({hasText: '+'}).first();
+      const initial = await s.popup(d.chart, plus(), `${d.label}-prevention-reload`);
+      await activateOther(d.otherChart);
+      await closeAndAwaitModuleReload(d.chart, initial, 'preventions');
+      await activateOther(d.otherChart);
+      const list = await s.popup(d.chart, plus(), `${d.label}-prevention`);
+      h.assert(new URL(list.url()).searchParams.get('demographic_no') === d.patient, 'Preventions opened for another patient');
+      await list.locator('#immunization').fill('Fluzone');
+      const editor = await s.popup(list,
+        list.locator('#immunization_choices [class*="item"], #immunization_choices div, #immunization_choices li').first(),
+        `${d.label}-prevention-editor`);
+      await editor.locator('[name="given"][value="given"]').check();
+      await editor.locator('#prevDate').fill(date);
+      await editor.locator('[name="comments"]').fill(`${marker}-${d.label}-prevention`);
+      await activateOther(d.otherChart);
+      await editor.locator('input[type="submit"][name="action"]').first().click();
+      const owned = `prevention_type='Inf' AND deleted=0 AND DATE(prevention_date)=${q(date)} AND demographic_no IN (${patients})`;
+      await expectValue(sql, `SELECT COUNT(*) FROM preventions WHERE ${owned}`, '1', 'The prevention was not saved exactly once');
+      h.assert(sql.value(`SELECT demographic_no FROM preventions WHERE ${owned}`) === d.patient, 'Prevention crossed patients');
+      for (const page of [editor, list]) if (!page.isClosed()) await page.close();
+    });
+
+    await isolatedWrite(d, 'Vascular Tracker setup and Update', async () => {
+      await d.chart.locator('#menuTitle1 a').hover();
+      const item = d.chart.locator('#forms a.menuItemleft').filter({hasText: 'Vascular Tracker'}).first();
+      const formPage = await s.popup(d.chart, item, `${d.label}-vascular-tracker`);
+      const form = formPage.locator('form[action$="/form/SubmitForm"]');
+      const patientField = form.locator('input[name="demographic_no"]');
+      await patientField.waitFor({state: 'attached'});
+      h.assert(await patientField.inputValue() === d.patient, 'Vascular Tracker setup chose another patient');
+      const text = norm(await formPage.content());
+      h.assert(d.ownName(text) && !d.otherName(text), 'Vascular Tracker displays another patient');
+      const value = d.label === 'A' ? '62.3' : '88.5';
+      await form.locator('[name="value(WTValue)"]').fill(value);
+      await form.locator('[name="value(visitCod)"]').fill('2026-03-05');
+      await form.locator('[name="value(WTComments)"]').fill(`${marker}-${d.label}-vt`);
+      await activateOther(d.otherChart);
+      const [saved] = await Promise.all([
+        formPage.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/SubmitForm')),
+        form.locator('input[type="submit"][onclick*="onSave();"]').first().click(),
+      ]);
+      await saved.finished();
+      const sent = new URLSearchParams(saved.request().postData() || '');
+      h.assert(saved.status() === 302 && sent.get('demographic_no') === d.patient && sent.get('submit') === 'save',
+        'Vascular Tracker Update did not submit its explicit patient and return its form redirect');
+      const where = `demographic_no IN (${patients}) AND WTComments=${q(`${marker}-${d.label}-vt`)}`;
+      await expectValue(sql, `SELECT COUNT(*) FROM formVTForm WHERE ${where}`, '1', 'Vascular Tracker was not saved exactly once');
+      const id = patientKey(sql.value(`SELECT ID FROM formVTForm WHERE ${where}`));
+      entered[d.label].form = id;
+      h.assert(sql.value(`SELECT demographic_no FROM formVTForm WHERE ID=${id}`) === d.patient
+        && sql.value(`SELECT WTValue FROM formVTForm WHERE ID=${id}`) === value, 'Vascular Tracker crossed patients or changed value');
+      await formPage.waitForURL(url => url.pathname.endsWith('/form/SetupForm')
+        && url.searchParams.get('demographic_no') === d.patient && url.searchParams.get('formId') === id);
+      await form.locator('[name="value(formId)"]').waitFor({state: 'attached'});
+      h.assert(await patientField.inputValue() === d.patient
+        && await form.locator('[name="value(formId)"]').inputValue() === id
+        && await form.locator('[name="value(WTValue)"]').inputValue() === value, 'The saved Vascular Tracker did not reopen for its patient');
+      entered[d.label].formData = await form.evaluate(element => [...new FormData(element).entries()]);
+      entered[d.label].token = await csrfTokenPresent(formPage);
+      await formPage.close();
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'measurement history Delete', async () => {
+      const history = await openWeightHistory(d.chart, `${d.label}-history-delete`);
+      const checkbox = history.popup.locator(`input[name="deleteCheckbox"][value="${d.weightId}"]`);
+      h.assert(await checkbox.count() === 1 && history.ids.join() === d.weightId, 'Delete history contains another patient\'s rows');
+      await checkbox.check();
+      await activateOther(d.otherChart);
+      await clickAndAwaitReload(history.popup, history.popup.locator('input[onclick="submit();"]'), {label: 'history Delete'});
+      await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE id=${d.weightId}`, '0', 'The selected reading was not deleted');
+      h.assert(sql.value(`SELECT COUNT(*) FROM measurementsDeleted WHERE originalId=${d.weightId} AND demographicNo=${d.patient}
+        AND dataField=${q(d.ownWeight)}`) === '1', 'Delete did not archive the selected patient\'s reading intact');
+      h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE id=${entered[d.label].bp} AND demographicNo=${d.patient}`) === '1',
+        'Delete removed an unselected reading');
+      const body = norm(await history.popup.locator('body').innerText());
+      h.assert(d.ownName(body) && !d.otherName(body), 'Delete returned to the other patient\'s history');
+      await history.popup.close();
+    });
+  }
+
+  await s.step('missing, malformed and conflicting patient IDs are rejected without reading or changing either chart', async () => {
+    const before = {A: snapshot(A), B: snapshot(B)};
+    const routes = [
+      ['/encounter/displayMeasurements', []],
+      ['/encounter/displayForms', []],
+      ['/encounter/oscarMeasurements/SetupDisplayHistory', [['type', 'WT']]],
+      ['/encounter/GraphMeasurements', [['type', 'WT']]],
+      ['/form/SetupForm', [['formName', 'VTForm'], ['formId', '0']]],
+    ];
+    for (const [route, defaults] of routes) {
+      for (const [label, parameters] of invalidPatientParameters(A, B)) {
+        const query = new URLSearchParams([...defaults, ...parameters]);
+        const response = await context.request.get(h.appUrl(s.config.baseUrl, `${route}?${query}`),
+          {maxRedirects: 0, failOnStatusCode: false});
+        try {
+          h.assert(response.status() === 400, `${route}: ${label} patient request did not return HTTP 400`);
+          const body = await response.text();
+          h.assert(!namesA(body) && !namesB(body), 'A rejected patient request exposed an owned patient name');
+        } finally { await response.dispose(); }
+      }
     }
-    const form = await openFirstForm(chartA, 'a-form-after-reload');
-    const owner = await formOwner(form);
-    if (owner.demographicNo !== String(A)) problems.push(`the form opened from A's window is for ${ownerLabel(owner.demographicNo)}`);
-    if (owner.namesB || !owner.namesA) problems.push('the form is headed with another patient\'s name');
-    await form.close();
-    h.assert(problems.length === 0, `A's Forms module and forms follow another patient: ${problems.join('; ')}`);
+    for (const d of directions) {
+      const otherLabel = d.label === 'A' ? 'B' : 'A';
+      const token = await csrfTokenPresent(d.chart);
+      // The first selection is owned by this chart; a foreign second selection must reject
+      // the entire delete, rather than deleting the first row before noticing the mismatch.
+      const deletion = new URLSearchParams({type: 'BP', demographicNo: d.patient, 'CSRF-TOKEN': token});
+      deletion.append('deleteCheckbox', entered[d.label].bp);
+      deletion.append('deleteCheckbox', entered[otherLabel].bp);
+      const refusedDelete = await context.request.post(h.appUrl(s.config.baseUrl, '/encounter/oscarMeasurements/DeleteData2'), {
+        data: deletion.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token},
+        maxRedirects: 0, failOnStatusCode: false,
+      });
+      try {
+        h.assert(refusedDelete.status() === 400, 'A mixed-patient measurement delete was not rejected atomically');
+      } finally { await refusedDelete.dispose(); }
+      const cases = invalidPatientParameters(d.patient, d.other);
+      cases.push(['foreign form', [['demographic_no', d.patient], ['value(formId)', entered[otherLabel].form]]]);
+      for (const [label, parameters] of cases) {
+        const form = new URLSearchParams(entered[d.label].formData);
+        form.delete('demographicNo'); form.delete('demographic_no');
+        form.set('submit', 'save');
+        if (label === 'foreign form') form.delete('value(formId)');
+        for (const [name, value] of parameters) form.append(name, value);
+        const response = await context.request.post(h.appUrl(s.config.baseUrl, '/form/SubmitForm'), {
+          data: form.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': entered[d.label].token},
+          maxRedirects: 0, failOnStatusCode: false,
+        });
+        try {
+          h.assert(response.status() === 400, `Vascular Tracker ${label} save did not return HTTP 400`);
+          const body = await response.text();
+          h.assert(!namesA(body) && !namesB(body), 'A rejected form save exposed an owned patient name');
+        } finally { await response.dispose(); }
+      }
+      const query = new URLSearchParams({formName: 'VTForm', demographic_no: d.patient, formId: entered[otherLabel].form});
+      const response = await context.request.get(h.appUrl(s.config.baseUrl, `/form/SetupForm?${query}`),
+        {maxRedirects: 0, failOnStatusCode: false});
+      try {
+        h.assert(response.status() === 400, 'Vascular Tracker opened a form belonging to the other patient');
+        const body = await response.text();
+        h.assert(!namesA(body) && !namesB(body), 'A rejected foreign form exposed patient data');
+      } finally { await response.dispose(); }
+    }
+    assertPatientStateUnchanged(before.A, snapshot(A), 'Rejected requests for A');
+    assertPatientStateUnchanged(before.B, snapshot(B), 'Rejected requests for B');
   });
 
-  // ---- Writes from A's window with B open ------------------------------------------------------
-  await s.step('a measurement entered from A\'s window lands on A and leaves B unchanged', async () => {
-    await reloadB();
-    const where = `type='BP' AND comments=${q(`${marker}-bp`)}`;
-    await chartA.locator('#menuTitle3 a').hover();
-    const vitals = chartA.locator('#menu3 a.menuItemleft').filter({ hasText: 'Vitals' });
-    await vitals.waitFor({ state: 'visible', timeout: TIMEOUT });
-    const group = await s.popup(chartA, vitals, 'a-vitals');
-    await group.locator('#row-BP').waitFor({ state: 'visible', timeout: TIMEOUT });
-    const opened = new URL(group.url()).searchParams.get('demographicNo');
-    h.assert(opened === String(A), `A's Vitals entry form opened for ${ownerLabel(opened)}`);
-    const row = group.locator('#row-BP');
-    await row.locator('input[name^="inputValue-"]').fill('128/82');
-    await row.locator('input[name^="date-"]').fill('2026-03-04');
-    await row.locator('input[name^="comments-"]').fill(`${marker}-bp`);
-    const closed = group.waitForEvent('close', { timeout: TIMEOUT });
-    await group.getByRole('button', { name: 'Submit', exact: true }).click();
+  async function reopenVascularTracker(chart, label, expectedId) {
+    const item = chart.locator('#forms a[onclick*="forwardshortcutname"]').filter({hasText: 'Vascular Tracker'}).first();
+    await item.waitFor({state: 'visible', timeout: TIMEOUT});
+    const popup = await s.popup(chart, item, label);
+    const form = popup.locator('form[action$="/form/SubmitForm"]');
+    await form.locator('[name="value(formId)"]').waitFor({state: 'attached'});
+    h.assert(await form.locator('[name="demographic_no"]').inputValue() === A
+      && await form.locator('[name="value(formId)"]').inputValue() === expectedId,
+    'The saved Vascular Tracker link did not reopen A\'s latest form');
+    return {popup, form};
+  }
+
+  async function saveAndExitVascularTracker(popup, form, expectedId) {
+    // Both listeners precede the native submit: the completion document closes its own window.
+    const posted = popup.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/form/SubmitForm'), {timeout: TIMEOUT});
+    const closed = popup.waitForEvent('close', {timeout: TIMEOUT});
+    posted.catch(() => {}); closed.catch(() => {});
+    const dialogs = await h.withExpectedDialogs(popup, async () => {
+      await form.locator('input[type="submit"][onclick*="onSaveExit();"]').first().click()
+        .catch(error => { if (!popup.isClosed()) throw error; });
+    });
+    const response = await posted;
+    await response.finished();
+    h.assert(response.status() === 200, 'Vascular Tracker Save & Exit did not return its completion page');
+    const data = new URLSearchParams(response.request().postData() || '');
+    assertRequestPatient(response.request(), A);
+    h.assert(data.get('submit') === 'exit' && data.get('value(formId)') === expectedId,
+      'Save & Exit did not submit the reopened A form through the native control');
     await closed;
-    await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE ${where}`, '1', 'The measurement was not saved');
-    entered.bp = sql.value(`SELECT id FROM measurements WHERE ${where}`);
-    h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE id=${entered.bp}`) === A,
-      'The measurement entered in A\'s window was saved to another patient');
-    assertBUnchanged('A\'s measurement');
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Save & Exit did not ask for confirmation exactly once');
+  }
+
+  await isolatedWrite(directions[0], 'Vascular Tracker Save & Exit', async () => {
+    const {popup, form} = await reopenVascularTracker(chartA, 'A-vascular-tracker-exit', entered.A.form);
+    const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+    const draft = await editor.inputValue();
+    const previousForm = sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`);
+    const refreshes = [];
+    for (const [id, route] of [['forms', 'displayForms'], ['measurements', 'displayMeasurements']]) {
+      await chartA.locator(`#${id} > *`).first().evaluate(el => { el.setAttribute('data-before-form-exit', '1'); });
+      const refreshed = chartA.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/encounter/${route}`),
+        {timeout: TIMEOUT});
+      refreshed.catch(() => {});
+      refreshes.push([id, refreshed]);
+    }
+    // Form setup must not make the save pass merely by restoring the session's patient to A.
+    await activateOther(chartB);
+    await saveAndExitVascularTracker(popup, form, entered.A.form);
+    h.assert(await editor.inputValue() === `${draft}\nSee Vascular Tracker Template`,
+      'Save & Exit did not append literal completion text to A\'s current note');
+    for (const [id, pending] of refreshes) {
+      const response = await pending;
+      await response.finished();
+      h.assert(response.status() === 200, 'Save & Exit did not refresh an own-chart module');
+      assertRequestPatient(response.request(), A);
+      await chartA.locator(`#${id} [data-before-form-exit]`).waitFor({state: 'detached', timeout: TIMEOUT});
+    }
+    const measurements = `type='WT' AND comments=${q(`${marker}-A-vt`)} AND demographicNo IN (${patients})`;
+    await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE ${measurements}`, '1', 'Save & Exit did not write one owned WT reading');
+    h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE ${measurements}`) === A
+      && sql.value(`SELECT dataField FROM measurements WHERE ${measurements}`) === '62.3',
+    'Save & Exit wrote the WT reading to the wrong patient or changed its value');
+    h.assert((await moduleText(chartA, 'measurements')).includes('62.3'), 'The refreshed Measurements module omitted the saved WT reading');
+    await expectValue(sql, `SELECT COUNT(*) FROM formVTForm WHERE demographic_no=${A}`, '2', 'Save & Exit did not create a second A form revision');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`)) === JSON.stringify(previousForm),
+      'Save & Exit changed the previous saved form');
+    entered.A.form = patientKey(sql.value(`SELECT MAX(ID) FROM formVTForm WHERE demographic_no=${A}`));
   });
 
-  await s.step('a Dx code added from A\'s window lands on A and leaves B unchanged', async () => {
-    await reloadB();
-    const plus = chartA.locator('#Dx a[onclick*="setupDxResearch"]').filter({ hasText: '+' }).first();
-    const registry = await s.popup(chartA, plus, 'a-dx');
-    const form = registry.locator('form[action*="/oscarResearch/oscarDxResearch/dxResearch"]');
-    await form.locator('input[name="demographicNo"]').waitFor({ state: 'attached', timeout: TIMEOUT });
-    h.assert(await form.locator('input[name="demographicNo"]').inputValue() === A, 'A\'s Dx registry opened for another patient');
-    await form.locator('select[name="selectedCodingSystem"]').selectOption('icd9');
-    await form.locator('input[name="xml_research1"]').fill('250');
-    await clickAndAwaitReload(registry, form.locator('input[name="codeAdd"]'), { label: 'Dx Add' });
-    const owned = `dxresearch_code='250' AND coding_system='icd9' AND demographic_no IN (${patients})`;
-    await expectValue(sql, `SELECT COUNT(*) FROM dxresearch WHERE ${owned}`, '1', 'The Dx code was not saved');
-    h.assert(sql.value(`SELECT demographic_no FROM dxresearch WHERE ${owned}`) === A,
-      'The Dx code added in A\'s window was saved to another patient');
-    assertBUnchanged('A\'s Dx code');
-    await registry.close();
-  });
-
-  await s.step('a CPP item added from A\'s window lands on A and leaves B unchanged', async () => {
-    await reloadB();
-    const note = `${marker} risk factor`;
-    await chartA.locator('#rightNavBar a[title="Add Item"][onclick*="Risk Factors"]').first().click();
-    const dialog = chartA.locator('#showEditNote');
-    await dialog.waitFor({ state: 'visible', timeout: TIMEOUT });
-    await chartA.locator('#noteEditTxt').fill(note);
-    const saved = chartA.waitForResponse(r => /method=issueNoteSave/.test(r.url()) && r.request().method() === 'POST', { timeout: TIMEOUT });
-    await dialog.locator('input[type="image"][title="Sign & Save"]').click();
-    h.assert((await saved).status() < 400, 'The CPP item save was refused');
-    await dialog.waitFor({ state: 'hidden', timeout: TIMEOUT });
-    const owned = `note=${q(note)} AND demographic_no IN (${patients})`;
-    await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE ${owned}`, '1', 'The CPP item was not saved');
-    h.assert(sql.value(`SELECT demographic_no FROM casemgmt_note WHERE ${owned}`) === A,
-      'The CPP item added in A\'s window was saved to another patient');
-    assertBUnchanged('A\'s CPP item');
-  });
-
-  await s.step('a prevention added from A\'s window lands on A and leaves B unchanged', async () => {
-    await reloadB();
-    const plus = () => chartA.locator('#preventions a[onclick*="ViewPreventionIndex"]').filter({ hasText: '+' }).first();
-    // Open and close the list first: the Preventions module reloads when its popup closes, as it
-    // does after every prevention a clinician records.
-    await closeAndAwaitModuleReload(chartA, await s.popup(chartA, plus(), 'a-prevention-reload'), 'preventions');
-    const list = await s.popup(chartA, plus(), 'a-prevention');
-    const opened = new URL(list.url()).searchParams.get('demographic_no');
-    h.assert(opened === String(A), `A's Preventions list opened for ${ownerLabel(opened)}`);
-    await list.locator('#immunization').fill('Fluzone');
-    const editor = await s.popup(list,
-      list.locator('#immunization_choices [class*="item"], #immunization_choices div, #immunization_choices li').first(), 'a-prevention-editor');
-    await editor.locator('[name="given"][value="given"]').check();
-    await editor.locator('#prevDate').fill('2026-01-05');
-    await editor.locator('[name="comments"]').fill(`${marker}-prevention`);
-    await editor.locator('input[type="submit"][name="action"]').first().click();
-    const owned = `prevention_type='Inf' AND deleted=0 AND DATE(prevention_date)='2026-01-05' AND demographic_no IN (${patients})`;
-    await expectValue(sql, `SELECT COUNT(*) FROM preventions WHERE ${owned}`, '1', 'The prevention was not saved');
-    h.assert(sql.value(`SELECT demographic_no FROM preventions WHERE ${owned}`) === A,
-      'The prevention added in A\'s window was saved to another patient');
-    assertBUnchanged('A\'s prevention');
-    for (const page of [editor, list]) if (!page.isClosed()) await page.close();
-  });
-
-  await s.step('a history Delete in A\'s window archives A\'s reading and leaves B\'s', async () => {
-    await reloadB();
-    const history = await openWeightHistory(chartA, 'a-history-delete');
-    const box = history.popup.locator(`input[name="deleteCheckbox"][value="${weight.a}"]`);
-    h.assert(await box.count() === 1, `A's history lists the measurement(s) of ${idsLabel(history.ids)}, not A's weight`);
-    await box.check();
-    await clickAndAwaitReload(history.popup, history.popup.locator('input[onclick="submit();"]'), { label: 'history Delete' });
-    await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE id=${weight.a}`, '0', 'The selected reading was not deleted');
-    h.assert(sql.value(`SELECT COUNT(*) FROM measurementsDeleted WHERE originalId=${weight.a} AND demographicNo=${A}
-      AND dataField=${q(A_WEIGHT)}`) === '1', 'The deleted reading was not archived intact for A');
-    h.assert(sql.value(`SELECT dataField FROM measurements WHERE id=${weight.b}`) === B_WEIGHT, 'Delete changed B\'s weight');
-    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE id=${entered.bp} AND demographicNo=${A}`) === '1',
-      'Delete removed a reading of A that was not selected');
-    assertBUnchanged('A\'s history Delete');
-    await history.popup.close();
+  await s.step('A form saved after its opener navigates to B closes without changing B\'s draft or clinical rows', async () => {
+    const {popup, form} = await reopenVascularTracker(chartA, 'A-vascular-tracker-foreign-opener', entered.A.form);
+    await form.locator('[name="value(WTValue)"]').fill('63.4');
+    await form.locator('[name="value(WTComments)"]').fill(`${marker}-A-vt-after-navigation`);
+    const noteId = await chartA.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
+    const lockQuery = `SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${A} AND provider_no=${q(provider)} AND note_id=${Number(noteId)}`;
+    h.assert(sql.value(lockQuery) === '1', 'The departing A chart did not hold its own note lock');
+    const releases = [];
+    const candidates = [];
+    const onRequest = request => { if (isOwnedLockRelease(request, A, noteId, provider)) releases.push(request); };
+    const onFailure = request => {
+      if (releases.includes(request)) candidates.push({request, entry: recorder.requestFailures.at(-1)});
+    };
+    chartA.on('request', onRequest);
+    chartA.on('requestfailed', onFailure);
+    try {
+      // Real navigation preserves the popup's WindowProxy opener while replacing its patient/document.
+      await chartA.goto(chartB.url(), {waitUntil: 'domcontentloaded'});
+      await waitForNavbars(chartA, TIMEOUT);
+      h.assert(new URL(chartA.url()).searchParams.get('demographicNo') === B
+        && await chartA.locator('#caseManagementEntryForm [name="demographicNo"]').inputValue() === B,
+      'The form opener did not actually navigate to B');
+      h.assert(releases.length > 0, 'Navigation did not send A\'s explicit note-lock release');
+      await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
+      consumeDeliveredLockReleases(recorder, candidates);
+    } finally {
+      chartA.off('request', onRequest);
+      chartA.off('requestfailed', onFailure);
+    }
+    const editor = chartA.locator('#caseManagementEntryForm textarea[name="caseNote_note"]');
+    const draft = await editor.inputValue();
+    const before = snapshot(B);
+    const previousForm = sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`);
+    h.assert(await popup.evaluate(() => window.opener.demographicNo) === B, 'The A form lost its actual B opener');
+    await saveAndExitVascularTracker(popup, form, entered.A.form);
+    h.assert(await editor.inputValue() === draft, 'A\'s completion text contaminated B\'s current draft');
+    const measurements = `type='WT' AND comments=${q(`${marker}-A-vt-after-navigation`)} AND demographicNo IN (${patients})`;
+    await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE ${measurements}`, '1', 'The foreign-opener save lost A\'s measurement');
+    h.assert(sql.value(`SELECT demographicNo FROM measurements WHERE ${measurements}`) === A
+      && sql.value(`SELECT dataField FROM measurements WHERE ${measurements}`) === '63.4',
+    'The foreign-opener save wrote A\'s measurement into B');
+    await expectValue(sql, `SELECT COUNT(*) FROM formVTForm WHERE demographic_no=${A}`, '3', 'The foreign-opener save lost A\'s form revision');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM formVTForm WHERE ID=${entered.A.form}`)) === JSON.stringify(previousForm),
+      'The foreign-opener save changed the prior A form revision');
+    assertPatientStateUnchanged(before, snapshot(B), 'A\'s form completion in a B opener');
   });
 }
 
@@ -432,4 +809,5 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('echart-two-patient-isolation', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, patientStateQueries, readPatientState, assertPatientStateUnchanged,
+  invalidPatientParameters, assertRequestPatient, isOwnedLockRelease, consumeDeliveredLockReleases };

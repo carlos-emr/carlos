@@ -245,6 +245,10 @@ public final class FormViewRoutes {
         String pathOnly = queryIndex >= 0 ? trimmed.substring(0, queryIndex) : trimmed;
         String query = queryIndex >= 0 ? trimmed.substring(queryIndex) : "";
 
+        if ("/form/SetupForm.do".equals(pathOnly) || "/form/SetupForm".equals(pathOnly)) {
+            return "/form/SetupForm" + query;
+        }
+
         if ("/form/formXmlUpload.jsp".equals(pathOnly)) {
             return "/form/formXmlUpload" + query;
         }

@@ -51,6 +51,21 @@
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%
+    // This view is populated by SetupForm for one explicitly authorized patient.
+    try {
+        String formPatientNo = EncounterPatientContext.requireDemographicNo(request);
+        if (!formPatientNo.equals(request.getAttribute("formDemographicNo"))
+                || request.getAttribute("formPatient") == null) {
+            response.sendError(400, "Invalid form patient context");
+            return;
+        }
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400, "Invalid form patient context");
+        return;
+    }
+%>
 <html>
 
     <head>
@@ -381,6 +396,21 @@
         function initialize() {
             var e = document.forms[0].elements;
 
+            // Restore this request's values through DOM properties, never executable markup.
+            document.querySelectorAll('#vt-form-values [data-field]').forEach(function (stored) {
+                var name = 'value(' + stored.dataset.field + ')';
+                for (var field of e) {
+                    if (field.name !== name) continue;
+                    if (field.type === 'checkbox') {
+                        field.checked = ['yes', 'on', 'true', '1'].includes(stored.dataset.value);
+                    } else if (field.type === 'radio') {
+                        field.checked = field.value === stored.dataset.value;
+                    } else {
+                        field.value = stored.dataset.value;
+                    }
+                }
+            });
+
             for (i = 0; i < e.length; i++) {
                 switch (e[i].name) {
                     case 'value(WHRValue)':
@@ -700,6 +730,12 @@
     </script>
     <body class="BodyStyle" vlink="#0000FF"
           onload="window.focus();window.resizeTo(680,760); initialize();">
+    <div id="vt-form-values" hidden>
+        <c:forEach var="field" items="${requestScope.formValues}">
+            <span data-field="${carlos:forHtmlAttribute(field.key)}"
+                  data-value="${carlos:forHtmlAttribute(field.value)}"></span>
+        </c:forEach>
+    </div>
     <!--  -->
 
     <form action="${pageContext.request.contextPath}/form/SubmitForm" method="post">
@@ -707,7 +743,8 @@
               href="<%= request.getContextPath() %>/encounter/oscarMeasurements/styles/measurementStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css"/>
         <input type="hidden" name="value(formName)" value="VTForm"/>
-        <input type="hidden" name="value(formId)" id="value(formId)"/>
+        <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(requestScope.formDemographicNo)}"/>
+        <input type="hidden" name="value(formId)" id="value(formId)" value="${carlos:forHtmlAttribute(requestScope.formValues['formId'])}"/>
         <table class="Head" class="hidePrint" width="640px" cellpadding="0"
                cellspacing="0">
             <tr>
@@ -749,12 +786,12 @@
                                             <table width="100%" border="0" cellspacing="0" cellpadding="1">
                                                 <tr>
                                                     <td valign="top" width="22%">
-                                                        <c:if test="${not empty EctSessionBean}">
-                                                            ${EctSessionBean.patientLastName}
-                                                            ${EctSessionBean.patientFirstName}
-                                                            ${EctSessionBean.patientSex}
-                                                            ${EctSessionBean.patientAge}
-                                                        </c:if>
+                                                        <span id="vt-patient-header">
+                                                            ${carlos:forHtml(requestScope.formPatient.lastName)}
+                                                            ${carlos:forHtml(requestScope.formPatient.firstName)}
+                                                            ${carlos:forHtml(requestScope.formPatient.sex)}
+                                                            ${carlos:forHtml(requestScope.formPatient.age)}
+                                                        </span>
 
                                                         <table width="100%" id="showDetailTitle">
                                                             <tr>

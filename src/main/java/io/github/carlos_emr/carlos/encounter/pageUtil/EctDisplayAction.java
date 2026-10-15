@@ -131,7 +131,6 @@ public class EctDisplayAction extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String cmd = getCmd();
         String navName = buildNavName(cmd);
         request.setAttribute("navbarName", navName);
@@ -139,7 +138,13 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = isJsonRequest();
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        bean = prepareEncounterSessionBean(bean);
+        EctSessionBean bean;
+        try {
+            bean = prepareEncounterSessionBean();
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
 
         String params = resolveCommandParams();
         String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest);
@@ -166,26 +171,10 @@ public class EctDisplayAction extends ActionSupport {
                 && ((value.charAt(3) | 0x20) == 'e');
     }
 
-    private EctSessionBean prepareEncounterSessionBean(EctSessionBean bean) {
-        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
-        String demographicNo = resolveDemographicNo(bean, rebuildBean);
+    private EctSessionBean prepareEncounterSessionBean() {
+        String demographicNo = EncounterPatientContext.requireDemographicNo(request);
         ensureChartReadPrivilege(demographicNo);
-        return rebuildBean ? rebuildEncounterSessionBean(demographicNo) : bean;
-    }
-
-    private String resolveDemographicNo(EctSessionBean bean, boolean rebuildBean) {
-        if (!rebuildBean) {
-            return bean.demographicNo;
-        }
-
-        String demographicNo = request.getParameter("demographicNo");
-        if (demographicNo == null || demographicNo.isEmpty()) {
-            throw new SecurityException("Missing required demographicNo");
-        }
-        if (!demographicNo.matches("\\d+")) {
-            throw new SecurityException("Invalid non-numeric demographicNo");
-        }
-        return demographicNo;
+        return rebuildEncounterSessionBean(demographicNo);
     }
 
     private void ensureChartReadPrivilege(String demographicNo) {
@@ -203,7 +192,7 @@ public class EctDisplayAction extends ActionSupport {
         bean.curProviderNo = resolveCurrentProviderNo();
         populateEncounterRequestFields(bean);
         bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-        storeEncounterSessionBean(bean);
+        exposeEncounterRequestBean(bean);
         return bean;
     }
 
@@ -332,14 +321,9 @@ public class EctDisplayAction extends ActionSupport {
         return value;
     }
 
-    private void storeEncounterSessionBean(EctSessionBean bean) {
-        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
-        // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
-        // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
-        // providerNo validated via [a-zA-Z0-9]{1,6} pattern before session fallback; used only as DAO lookup key;
-        // authz enforced at the chart privilege gate before session mutation
-        request.getSession().setAttribute("EctSessionBean", bean);
-        request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+    private void exposeEncounterRequestBean(EctSessionBean bean) {
+        // Navbar requests run concurrently for multiple chart windows. Never publish their
+        // patient or appointment into the login's shared encounter state.
         request.setAttribute("EctSessionBean", bean);
     }
 

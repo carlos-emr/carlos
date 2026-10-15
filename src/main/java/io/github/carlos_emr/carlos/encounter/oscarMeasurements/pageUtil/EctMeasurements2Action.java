@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -103,6 +104,17 @@ public class EctMeasurements2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_measurement)");
+        }
+
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;
         boolean skipCreateNote = (request.getParameter("skipCreateNote") != null)
                 ? Boolean.valueOf(request.getParameter("skipCreateNote"))
@@ -110,7 +122,6 @@ public class EctMeasurements2Action extends ActionSupport {
 
         HttpSession session = request.getSession();
 
-        String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) session.getAttribute("user");
 
         String template = request.getParameter("template");
