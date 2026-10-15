@@ -30,6 +30,9 @@ const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 30000;
+// The relation list is a table nested in a row of the page's layout table, so a relation's text is
+// inside two rows; only the innermost row is the relation's own.
+const RELATION_ROW = 'tr:not(:has(tr))';
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
@@ -104,7 +107,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT CONCAT_WS('|',relation,sub_decision_maker,emergency_contact,notes,deleted) FROM relationships
       WHERE demographic_no=${patient} AND relation_demographic_no=${relative}`, [relation, '1', '1', note, '0'].join('|'),
     'Add Relationship did not save the relation, its flags and its notes');
-    const listed = page.locator('tr').filter({ hasText: relativeName }).filter({ hasText: note });
+    const listed = page.locator(RELATION_ROW).filter({ hasText: relativeName }).filter({ hasText: note });
     h.assert(await listed.count() === 1, 'The relation page does not list the saved relation');
   });
 
@@ -116,14 +119,16 @@ async function workflow(s) {
   });
 
   await s.step('Delete marks the relation deleted and neither page lists it', async () => {
-    const row = page.locator('tr').filter({ hasText: relativeName }).filter({ hasText: note });
-    const confirmed = new Promise(resolve => page.once('dialog', dialog => { resolve(dialog.type()); dialog.accept().catch(() => {}); }));
-    await ui.clickAndAwaitReload(page, row.locator('form[action$="/demographic/DeleteRelation"] a'), { label: 'Delete', timeout: TIMEOUT });
-    h.assert(await confirmed === 'confirm', 'Delete did not ask for confirmation');
+    const row = page.locator(RELATION_ROW).filter({ hasText: relativeName }).filter({ hasText: note });
+    // The page's strict dialog handler dismisses any dialog not declared here, so the confirm is
+    // accepted through withExpectedDialogs.
+    const dialogs = await h.withExpectedDialogs(page, () => ui.clickAndAwaitReload(page,
+      row.locator('form[action$="/demographic/DeleteRelation"] a'), { label: 'Delete', timeout: TIMEOUT }));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation once');
     await h.assertNotErrorPage(page, 'Add Relation after the delete');
     await expectValue(sql, `SELECT deleted FROM relationships WHERE demographic_no=${patient} AND relation_demographic_no=${relative}`, '1',
       'Delete did not mark the relation deleted');
-    h.assert(await page.locator('tr').filter({ hasText: relativeName }).filter({ hasText: note }).count() === 0,
+    h.assert(await page.locator(RELATION_ROW).filter({ hasText: relativeName }).filter({ hasText: note }).count() === 0,
       'The relation page still lists the deleted relation');
     await s.master.reload();
     h.assert(!(await s.master.locator('#otherContacts').innerText()).includes(relativeName),
