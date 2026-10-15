@@ -1,22 +1,19 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
-import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.model.security.Secrole;
-import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -35,8 +32,6 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
     private CaseManagementManager manager;
     private SecurityInfoManager security;
     private GroupNoteDao groups;
-    private RolesManager roles;
-    private SecUserRoleDao heldRoles;
     private LoggedInInfo user;
     private Facility facility;
     private CaseManagementNote selected;
@@ -66,15 +61,6 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, "_casemgmt.notes", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
         groups = createAndRegisterMock(GroupNoteDao.class);
-        heldRoles = createAndRegisterMock(SecUserRoleDao.class);
-        SecUserRole held = new SecUserRole();
-        held.setRoleName("doctor");
-        held.setActive(true);
-        when(heldRoles.getUserRoles("4249")).thenReturn(List.of(held));
-        roles = createAndRegisterMock(RolesManager.class);
-        Secrole doctor = new Secrole();
-        doctor.setRoleName("doctor");
-        when(roles.getRole("1")).thenReturn(doctor);
         selected = note(502, "Shared assessment");
         when(manager.getNote("502")).thenReturn(selected);
         when(manager.getHistory("502")).thenReturn(List.of(selected));
@@ -172,19 +158,17 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
     void shouldRefuseHistory_whenTheRecipientChartIsRestricted() {
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
         refused();
-        verifyNoInteractions(manager, groups, roles);
+        verifyNoInteractions(manager, groups);
     }
 
-    @Test
-    void shouldRefuseHistory_whenOnlyAnInactiveRoleMatchesTheReporter() {
-        SecUserRole inactiveDoctor = new SecUserRole();
-        inactiveDoctor.setRoleName("doctor");
-        inactiveDoctor.setActive(false);
-        SecUserRole activeNurse = new SecUserRole();
-        activeNurse.setRoleName("nurse");
-        activeNurse.setActive(true);
-        when(heldRoles.getUserRoles("4249")).thenReturn(List.of(inactiveDoctor, activeNurse));
+    @ParameterizedTest
+    @ValueSource(strings = {"_demographic", "_casemgmt.notes"})
+    void shouldRefuseBeforeClinicalAccess_whenActiveRolesDoNotGrantRecipientRead(String object) {
+        request.getSession().setAttribute("userrole", "custom_no_notes");
+        // SecurityInfoManager resolves active assignments; its refusal must stop the read.
+        when(security.hasPrivilege(user, object, "r", "101")).thenReturn(false);
         refused();
+        verifyNoInteractions(manager, groups);
     }
 
     @Test
@@ -194,22 +178,29 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(groups);
     }
 
-    @Test
-    void shouldRefuseHistory_whenTheReporterRoleIsNotHeldByTheRecipient() {
-        selected.setReporter_caisi_role("2");
-        Secrole otherRole = new Secrole();
-        otherRole.setRoleName("counsellor");
-        when(roles.getRole("2")).thenReturn(otherRole);
-        refused();
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"2", "2147483000", ""})
+    void shouldReadTheGrantedRevision_whenTheReporterRoleIsDifferentOrUnknown(String reporterRole) {
+        request.getSession().setAttribute("userrole", "custom_reader");
+        selected.setReporter_caisi_role(reporterRole);
+        assertThat(action.notehistory()).isEqualTo("showHistory");
+        @SuppressWarnings("unchecked") List<CaseManagementNote> history = (List<CaseManagementNote>) request.getAttribute("history");
+        assertThat(history).extracting(CaseManagementNote::getId).containsExactly(502L);
+        assertThat(history.getFirst().getReporter_caisi_role()).isEqualTo(reporterRole);
+        assertThat(history.getFirst().getHistory()).isNull();
     }
 
     @Test
-    void shouldRefuseHistory_whenALinkedEarlierRevisionHasAnUnavailableRole() {
-        CaseManagementNote earlier = note(501, "Hidden role");
-        earlier.setReporter_caisi_role("2");
+    void shouldReadExplicitlyLinkedEarlierRevisions_withDifferentReporterRoles() {
+        CaseManagementNote earlier = note(501, "Earlier shared assessment");
+        earlier.setReporter_caisi_role("2147483000");
         when(groups.findLinksByDemographic(101)).thenReturn(List.of(link(501, true), link(502, true)));
         when(manager.getHistory("502")).thenReturn(List.of(earlier, selected));
-        refused();
+        assertThat(action.notehistory()).isEqualTo("showHistory");
+        @SuppressWarnings("unchecked") List<CaseManagementNote> history = (List<CaseManagementNote>) request.getAttribute("history");
+        assertThat(history).extracting(CaseManagementNote::getId).containsExactly(501L, 502L);
+        assertThat(history).allMatch(note -> note.getHistory() == null);
     }
 
     @Test

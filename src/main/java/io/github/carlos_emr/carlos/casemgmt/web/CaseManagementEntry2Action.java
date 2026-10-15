@@ -63,8 +63,6 @@ import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
-import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -2940,8 +2938,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * GroupNoteLink grants access to one saved revision, not its entire UUID chain.
-     * Match addGroupNotes' current-facility and reporter-role contract: the recipient
-     * need not have access to the owner's full chart or its unrelated program notes.
+     * Match the modern chart's facility and active-link contract after authorizing
+     * clinical read on the recipient. Access to the owner's full chart is not required.
      */
     private List<CaseManagementNote> linkedGroupNoteHistory(LoggedInInfo loggedInInfo, int demographicNo,
                                                            Long selectedId, CaseManagementNote selected) {
@@ -2954,9 +2952,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     && link.getNoteId() != null && link.getNoteId() > 0) linkedIds.add(link.getNoteId().longValue());
         }
         if (!linkedIds.contains(selectedId)) return null;
-        var roles = SpringUtils.getBean(SecUserRoleDao.class).getUserRoles(loggedInInfo.getLoggedInProviderNo());
-        if (roles == null) return null;
-        RolesManager roleManager = SpringUtils.getBean(RolesManager.class);
         List<CaseManagementNote> history = StringUtils.isBlank(selected.getUuid())
                 ? List.of(selected) : caseManagementMgr.getHistory(selectedId.toString());
         List<CaseManagementNote> visible = new ArrayList<>();
@@ -2964,12 +2959,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (note == null || !Objects.equals(selected.getDemographic_no(), note.getDemographic_no())
                     || !Objects.equals(selected.getUuid(), note.getUuid())) return null;
             if (note.getId() == null || note.getId() > selectedId || !linkedIds.contains(note.getId())) continue;
-            Secrole role = roleManager.getRole(note.getReporter_caisi_role());
-            if (role == null || StringUtils.isBlank(role.getRoleName())
-                    || roles.stream().noneMatch(held -> held.getActive()
-                    && Objects.equals(held.getRoleName(), role.getRoleName()))) {
-                return null;
-            }
             // Stored cumulative prose may contain unshared revisions. Keep it off the
             // request-owned view model as well as disabling the JSP's legacy expansion.
             CaseManagementNote shared = note.copyForRevision();

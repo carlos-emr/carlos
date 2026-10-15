@@ -9,15 +9,23 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupNoteDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
+import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
+import io.github.carlos_emr.carlos.commn.model.SecObjPrivilegePrimaryKey;
+import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.services.security.RolesManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -36,6 +44,10 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
     private GroupNoteLink link;
     @org.springframework.beans.factory.annotation.Autowired
     private DemographicDao demographics;
+    @org.springframework.beans.factory.annotation.Autowired
+    private SecuserroleDao activeRoleAssignments;
+    @org.springframework.beans.factory.annotation.Autowired
+    private SecObjPrivilegeDao privileges;
 
     @BeforeEach
     void prepareSharedHistory() {
@@ -59,37 +71,34 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
     }
 
     private MockHttpServletRequest history(long id, int expectedStatus) {
+        return history(id, expectedStatus, "999998", null);
+    }
+
+    private MockHttpServletRequest history(long id, int expectedStatus, String providerNo, SecurityInfoManager authority) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("userrole", "custom_reader");
         request.setParameter("demographicNo", "202");
         request.setParameter("noteId", Long.toString(id));
         LoggedInInfo user = mock(LoggedInInfo.class);
-        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        when(user.getLoggedInProviderNo()).thenReturn(providerNo);
         Facility facility = new Facility();
         facility.setEnableGroupNotes(true);
         when(user.getCurrentFacility()).thenReturn(facility);
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         CaseManagementManager manager = mock(CaseManagementManager.class);
-        when(manager.isClientInProgramDomain("999998", "202")).thenReturn(true);
+        when(manager.isClientInProgramDomain(providerNo, "202")).thenReturn(true);
         when(manager.getNote(anyString())).thenAnswer(call -> caseManagementNoteDAO.getNote(Long.parseLong(call.getArgument(0))));
         when(manager.getHistory(anyString())).thenAnswer(call -> caseManagementNoteDAO.getHistory(caseManagementNoteDAO.getNote(Long.parseLong(call.getArgument(0)))));
-        SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("202"))).thenReturn(true);
-        when(security.isAllowedAccessToPatientRecord(user, 202)).thenReturn(true);
-        SecUserRoleDao held = mock(SecUserRoleDao.class);
-        SecUserRole role = new SecUserRole();
-        role.setRoleName("doctor");
-        role.setActive(true);
-        when(held.getUserRoles("999998")).thenReturn(List.of(role));
-        RolesManager roles = mock(RolesManager.class);
-        Secrole reporter = new Secrole();
-        reporter.setRoleName("doctor");
-        when(roles.getRole("1")).thenReturn(reporter);
+        SecurityInfoManager security = authority;
+        if (security == null) {
+            security = mock(SecurityInfoManager.class);
+            when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("202"))).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(user, 202)).thenReturn(true);
+        }
         try (MockedStatic<SpringUtils> beans = mockStatic(SpringUtils.class)) {
             beans.when(() -> SpringUtils.getBean(GroupNoteDao.class)).thenReturn(groups);
-            beans.when(() -> SpringUtils.getBean(SecUserRoleDao.class)).thenReturn(held);
-            beans.when(() -> SpringUtils.getBean(RolesManager.class)).thenReturn(roles);
+            beans.when(() -> SpringUtils.getBean(SecObjPrivilegeDao.class)).thenReturn(privileges);
             CaseManagementEntry2Action action = mock(CaseManagementEntry2Action.class, CALLS_REAL_METHODS);
             action.request = request;
             action.response = response;
@@ -158,6 +167,67 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
                 .setParameter("owner", owner).getSingleResult();
         assertThat(ownerFields).hasSize(7).containsOnlyNulls();
         assertThat(caseManagementNoteDAO.getNote(shared.getId()).getDemographic_no()).isEqualTo(Integer.toString(owner));
+    }
+
+    private void assignRole(String providerNo, String name, int active) {
+        Secuserrole assignment = new Secuserrole();
+        assignment.setProviderNo(providerNo);
+        assignment.setRoleName(name);
+        assignment.setActiveyn(active);
+        assignment.setLastUpdateDate(new java.util.Date());
+        entityManager.persist(assignment);
+    }
+
+    private void grantRead(String role, String object) {
+        SecObjPrivilege grant = new SecObjPrivilege();
+        grant.setId(new SecObjPrivilegePrimaryKey(role, object));
+        grant.setPrivilege("r");
+        grant.setPriority(0);
+        entityManager.merge(grant);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldUseOnlyActiveClinicalReadGrants_whenReadingAnActualLinkedRevision(boolean recipientNotesRead) {
+        String providerNo = "949199";
+        assertThat(activeRoleAssignments.findByProviderNo(providerNo)).isEmpty();
+        assignRole(providerNo, "history_active", 1);
+        assignRole(providerNo, "doctor", 0);
+        grantRead("history_active", "_demographic");
+        grantRead("doctor", "_casemgmt.notes");
+        if (recipientNotesRead) grantRead("history_active", "_casemgmt.notes");
+        entityManager.flush();
+        entityManager.clear();
+        SecurityInfoManagerImpl authority = new SecurityInfoManagerImpl();
+        ReflectionTestUtils.setField(authority, "secUserRoleDao", activeRoleAssignments);
+        LoggedInInfo reader = mock(LoggedInInfo.class);
+        when(reader.getLoggedInProviderNo()).thenReturn(providerNo);
+        assertThat(authority.getRoles(reader)).extracting(Secuserrole::getRoleName).containsExactly("history_active");
+        MockHttpServletRequest request = history(shared.getId(), recipientNotesRead ? 200 : 403, providerNo, authority);
+        if (recipientNotesRead) {
+            @SuppressWarnings("unchecked") List<CaseManagementNote> visible = (List<CaseManagementNote>) request.getAttribute("history");
+            assertThat(visible).extracting(CaseManagementNote::getId).containsExactly(shared.getId());
+            assertThat(visible.getFirst().getHistory()).isNull();
+        } else {
+            assertThat(request.getAttribute("history")).isNull();
+            assertThat(request.getAttribute("demoName")).isNull();
+        }
+        assertThat(caseManagementNoteDAO.getNote(shared.getId()).getDemographic_no()).isEqualTo("1");
+    }
+
+    @Test
+    void shouldReadTheDatabaseLinkedRevision_whenTheReporterRoleIsUnknownAndRecipientReadIsGranted() {
+        CaseManagementNote stored = caseManagementNoteDAO.getNote(shared.getId());
+        stored.setReporter_caisi_role("2147483000");
+        entityManager.flush();
+        entityManager.clear();
+        MockHttpServletRequest request = history(shared.getId(), 200);
+        @SuppressWarnings("unchecked") List<CaseManagementNote> visible = (List<CaseManagementNote>) request.getAttribute("history");
+        assertThat(visible).extracting(CaseManagementNote::getId).containsExactly(shared.getId());
+        assertThat(visible.getFirst().getReporter_caisi_role()).isEqualTo("2147483000");
+        assertThat(visible.getFirst().getRoleName()).isNull();
+        assertThat(visible.getFirst().getHistory()).isNull();
+        assertThat(caseManagementNoteDAO.getNote(shared.getId()).getDemographic_no()).isEqualTo("1");
     }
 
     @Test

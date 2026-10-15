@@ -9826,8 +9826,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Covers restricted recipients, unavailable reporter role, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history text never discloses unshared content.",
-      "fixtures": "Owned recipient and owner patients, exact group-note revisions and links, facility with group notes enabled, and three throwaway logins with copied program membership. The reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins and patients by key and asserts removal; no existing clinic privileges or facility settings are changed."
+      "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Matches the modern chart recipient-read grant, including an authorized reader without the reporter role. Covers restricted recipients, absent active note-read grants despite an inactive doctor assignment, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history never discloses unshared content.",
+      "fixtures": "Owned recipient and separately named owner patients, canonical note revisions and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
     },
     {
       "name": "echart-note-verify-appointment-status",
@@ -9867,12 +9867,8 @@
       "env": [
         "ECHART_VERIFY_PIN"
       ],
-      "notes": "The archive half of Sign & Save on the appointment status, pinned to finding 224: the day sheet control, Sign & Save from the To Do appointment's chart (status 't' becomes 'tS'), then a step that asserts at least one appointmentArchive row exists for the appointment (so a missing row fails there, as failed-elsewhere, and cannot read as known-fail 224), then the pin: that row holds 'tS', the status it was given, so the status it replaced ('t') is in no archive row. Finding 228 (at least three status writers that archive nothing) has its own entry for the Ontario bill save, which is Live (echart-note-verify-appointment-status-billing); the other writers it lists are source only and are not driven here. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive before they change the appointment; CaseManagementManagerImpl.saveCaseManagementNote changes the status first. Runs only the steps this finding needs (the default entry is echart-note-verify-appointment-status). Expected: the pin fails and nothing else.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 224,
-        "step": "the appointment archive row Sign & Save writes holds the status the appointment had before, not the one it was given"
-      }
+      "notes": "Regression for #4585 / finding 224. Native Sign & Save changes the owned To Do appointment from t to tS and appends exactly one archive containing the complete original status and audit/provider/patient fields. Native Verify & Sign then changes that visit to tV and appends exactly one archive containing tS. Existing archive rows and the other appointment remain unchanged; signed clinical notes retain the correct provider and appointment. All steps must pass. The independent future-date warning concern remains in the default echart-note-verify-appointment-status entry; Ontario billing archival has its own entry.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed."
     },
     {
       "name": "echart-note-verify-appointment-status-billing",

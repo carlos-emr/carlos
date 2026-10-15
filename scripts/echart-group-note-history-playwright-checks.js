@@ -76,6 +76,7 @@ async function workflow(s) {
   let reader;
   let denied;
   let roleDenied;
+  let crossRoleReader;
   let chart;
   let readerSession;
   const recorder = h.createRecorder();
@@ -88,13 +89,17 @@ async function workflow(s) {
     sql.execute(`UPDATE Facility SET enableGroupNotes=1 WHERE id=${facility.id} AND name=${q(facility.name)} AND description=${q(marker)}`);
     reader = fixture.addLogin('doctor');
     denied = fixture.addLogin('doctor');
-    roleDenied = fixture.addLogin('nurse');
+    const chartReadRights = {_demographic: 'r', _eChart: 'r', _appointment: 'r'};
+    const noteReadRole = fixture.addRole({...chartReadRights, '_casemgmt.notes': 'r'});
+    const noNoteReadRole = fixture.addRole({...chartReadRights, '_casemgmt.notes': 'o'});
+    crossRoleReader = fixture.addLogin(noteReadRole);
+    roleDenied = fixture.addLogin(noNoteReadRole);
     sql.execute(`INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate)
       VALUES (${q(roleDenied.providerNo)},'doctor','R0000001',0,NOW())`);
     h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleDenied.providerNo)}
-      AND ((role_name='doctor' AND activeyn=0) OR (role_name='nurse' AND activeyn=1))`) === '2',
-      'The denied login must hold an inactive doctor role and an active nurse role');
-    for (const login of [reader, denied, roleDenied]) {
+      AND ((role_name='doctor' AND activeyn=0) OR (role_name=${q(noNoteReadRole)} AND activeyn=1))`) === '2',
+      'The denied login must have no active note-read grant despite its inactive doctor assignment');
+    for (const login of [reader, denied, crossRoleReader, roleDenied]) {
       fixture.joinFacility(login, facility);
       fixture.joinTestLoginPrograms(login);
     }
@@ -105,8 +110,8 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(role), 'The doctor reporter role is missing');
     function seed(text, uuid, history) {
       const id = sql.value(`INSERT INTO casemgmt_note
-        (demographic_no,provider_no,signing_provider_no,note,history,uuid,signed,observation_date,update_date,program_no,reporter_caisi_role,appointmentNo)
-        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},1,NOW(),NOW(),'0',${q(role)},0);
+        (demographic_no,provider_no,signing_provider_no,note,history,uuid,signed,locked,archived,include_issue_innote,position,observation_date,update_date,program_no,reporter_caisi_role,appointmentNo)
+        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},1,0,0,1,0,NOW(),NOW(),'0',${q(role)},0);
         SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), 'The owned note revision was not created');
       return id;
@@ -147,6 +152,7 @@ async function workflow(s) {
   await s.step('native group-note Rev displays the exact shared revision without private siblings or cumulative prose', async () => {
     const before = snapshot();
     const rev = chart.locator(`a[onclick^="return showHistory('${sharedId}'"]`);
+    await rev.waitFor({state: 'visible', timeout: 30000});
     h.assert(await rev.count() === 1, 'The recipient chart does not expose the linked group-note Rev control');
     const popup = await ui.clickOpensPopup(chart, rev, {context: readerSession.context, recorder, label: 'shared-history', timeout: 30000});
     const query = new URL(popup.url()).searchParams;
@@ -164,7 +170,18 @@ async function workflow(s) {
     await refused(readerSession.context, futureId);
     await refused(readerSession.context, '2147483647');
   });
-  await s.step('a restricted recipient and an unavailable reporter role cannot expand linked history', async () => {
+  await s.step('an authorized recipient reader can inspect shared history without holding the reporter role', async () => {
+    const before = snapshot();
+    const session = await loginAs(crossRoleReader);
+    const response = await session.context.request.get(address(sharedId), {failOnStatusCode: false, maxRedirects: 0});
+    h.assert(response.status() === 200, 'The modern chart reader cannot inspect its explicitly shared revision');
+    assertSharedHistoryText(await response.text(), texts);
+    h.assert(snapshot() === before, 'Reading shared history with another role changed a patient record');
+    await refused(session.context, privateId);
+    await refused(session.context, futureId);
+    await session.context.close();
+  });
+  await s.step('a restricted recipient and a login without an active note-read grant cannot expand linked history', async () => {
     for (const login of [denied, roleDenied]) {
       const session = await loginAs(login);
       await refused(session.context, sharedId);
