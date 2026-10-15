@@ -205,13 +205,13 @@ public final class EmailFooterHtml {
      * @param logoContentId the logo's Content-ID when the email carries the logo inline, else null
      * @return a complete HTML document
      */
-    // FindSecBugs POTENTIAL_XML_INJECTION: every value appended is escaped (SafeEncode, messageHtml) or cleaned against the allow-list (clean); the rest are literals.
-    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "appended values are escaped with SafeEncode or cleaned against the footer allow-list; the rest are literals")
     public static String toHtmlDocument(String plainBody, String footerHtml, String logoContentId) {
         return toHtmlDocument(plainBody, "", footerHtml, logoContentId);
     }
 
     /** The optional personal layer is above the mandatory clinic block, whose logo is left of its text. */
+    // FindSecBugs POTENTIAL_XML_INJECTION: every value appended is escaped (SafeEncode, messageHtml) or cleaned against the allow-list (clean); the rest are literals.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "appended values are escaped with SafeEncode or cleaned against the footer allow-list; the rest are literals")
     public static String toHtmlDocument(String plainBody, String personalHtml, String footerHtml, String logoContentId) {
         StringBuilder html = new StringBuilder(
                 "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>"

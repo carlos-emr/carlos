@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
@@ -52,6 +53,8 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
         this.clinic = clinic;
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: the only redirect is to this application's own context path plus the fixed route /email/myEmailFooter?saved=true; no request value is part of the URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is this application's context path plus a fixed route; no request value is part of the URL")
     @Override
     public String execute() throws IOException {
         var request = ServletActionContext.getRequest();

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.email.archive;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
@@ -78,6 +79,8 @@ public final class EmailArchiveRedactor {
         throw new IllegalArgumentException("Unknown email archive format");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the RFC 2183 Content-Disposition token on the archive copy of an email CARLOS built; no non-ASCII character case-folds onto any letter of "attachment", so only the real token matches.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the RFC 2183 Content-Disposition token on CARLOS's own archived email; no non-ASCII character case-folds onto any letter of attachment")
     private static int redactPart(Part part, List<String> values, int depth) throws Exception {
         if (depth > 64) { throw new IllegalArgumentException("Email nesting limit exceeded"); }
         if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) { return 0; }
@@ -113,6 +116,8 @@ public final class EmailArchiveRedactor {
         return text;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the RFC 2183 Content-Disposition token on the archive copy of an email CARLOS built; no non-ASCII character case-folds onto any letter of "attachment", so only the real token matches.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the RFC 2183 Content-Disposition token on CARLOS's own archived email; no non-ASCII character case-folds onto any letter of attachment")
     private static void verifyPart(Part part, List<String> values, int depth) throws Exception {
         if (depth > 64) { throw new IllegalArgumentException("Email nesting limit exceeded"); }
         if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) { return; }

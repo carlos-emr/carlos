@@ -139,7 +139,7 @@ async function assertResendFooters(compose) {
         'Test user already has a personal email footer; use a disposable demo database');
       ownFooter.providerNo = providerNo;
       ownFooter.id = sql(`INSERT INTO property (name,value,provider_no)
-        VALUES ('email_footer','${storedFooter}','${providerNo}'); SELECT LAST_INSERT_ID()`);
+        VALUES ('email_footer','${storedFooter}','${providerNo}'); SELECT LAST_INSERT_ID()`); // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixture SQL for the mariadb client, not HTML; the script tag is the deliberate FAKE footer this check proves never runs
       assert(/^[1-9]\d*$/.test(ownFooter.id), 'Own footer fixture did not return an identifier');
       for (const age of ['NOW()', 'DATE_SUB(NOW(), INTERVAL 1 DAY)']) {
         const id = sql(`INSERT INTO emailLog (fromEmail,toEmail,subject,body,footer,status,timestamp,isEncrypted,

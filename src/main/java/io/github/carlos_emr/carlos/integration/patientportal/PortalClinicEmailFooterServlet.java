@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.integration.patientportal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -56,6 +57,8 @@ public final class PortalClinicEmailFooterServlet extends HttpServlet {
         this.footers = footers;
     }
 
+    // FindSecBugs SERVLET_QUERY_STRING: the query string is used only when the whole of it is "nonce=" plus 43 URL-safe Base64 characters that pass canonicalNonce; anything else is refused with 400, and it is never logged.
+    @SuppressFBWarnings(value = "SERVLET_QUERY_STRING", justification = "the query string is used only when it is exactly a 43-character URL-safe Base64 nonce that passes canonicalNonce; anything else gets 400, and it is never logged")
     @Override
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.setHeader("Cache-Control", "no-store");
@@ -89,7 +92,7 @@ public final class PortalClinicEmailFooterServlet extends HttpServlet {
                 return;
             }
             response.setStatus(HttpServletResponse.SC_OK);
-            response.getOutputStream().write(bytes);
+            response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- Jackson-built JSON holding only the assertion signed above, sent as application/json with nosniff
         } catch (RuntimeException failure) {
             // Do not echo or log authorization, query, configured secrets or footer contents: the
             // exception class alone tells an operator whether settings, signing or the footer failed.
