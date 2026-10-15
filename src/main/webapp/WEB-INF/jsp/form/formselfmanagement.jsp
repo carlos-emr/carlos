@@ -337,7 +337,7 @@
                 document.forms[0].elements[54].value = round_decimals(score / 3, 2);
         }
     </script>
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
     </script>
 
 

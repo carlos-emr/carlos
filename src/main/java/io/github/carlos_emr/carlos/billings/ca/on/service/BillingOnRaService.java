@@ -163,6 +163,14 @@ public class BillingOnRaService {
         String nextline;
 
         while ((nextline = input.readLine()) != null) {
+            // A blank line (a trailing empty line after transfer is common) carries
+            // no record and must not abort the import; a non-blank line too short to
+            // identify is a corrupt file and aborts it (the import rolls back).
+            if (nextline.isBlank()) continue;
+            if (nextline.length() < 3) {
+                throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "RA file contains a record too short to identify; nothing was imported.");
+            }
             header = nextline.substring(0, 1);
 
             if (header.compareTo("H") == 0) {
@@ -292,6 +300,8 @@ public class BillingOnRaService {
 
                     if (amountsubmit.length() == 1) {
                         amountsubmit = "0.0" + amountsubmit;
+                    } else if (amountsubmit.length() == 2) {
+                        amountsubmit = "0." + amountsubmit;
                     } else {
                         amountsubmit = amountsubmit.substring(0, amountsubmit.length() - 2) + "." + amountsubmit.substring(amountsubmit.length() - 2);
                     }
@@ -335,12 +345,14 @@ public class BillingOnRaService {
 
                 if (headerCount.compareTo("7") == 0) {
                     trans_code = nextline.substring(3, 5);
-                    if (trans_code.compareTo("10") == 0) trans_code = "Advance";
+                    // Labels as the MOH technical specification names the HR7
+                    // transaction codes (Accounting Transactions record).
+                    if (trans_code.compareTo("10") == 0) trans_code = "Recovery of Advance";
                     if (trans_code.compareTo("20") == 0) trans_code = "Reduction";
                     if (trans_code.compareTo("30") == 0) trans_code = "Unused";
-                    if (trans_code.compareTo("40") == 0) trans_code = "Advance repayment";
-                    if (trans_code.compareTo("50") == 0) trans_code = "Accounting adjustment";
-                    if (trans_code.compareTo("70") == 0) trans_code = "Attachments";
+                    if (trans_code.compareTo("40") == 0) trans_code = "Payment";
+                    if (trans_code.compareTo("50") == 0) trans_code = "Estimated Payment for Unprocessed Claims";
+                    if (trans_code.compareTo("70") == 0) trans_code = "Unused";
                     cheque_indicator = nextline.substring(5, 6);
                     if (cheque_indicator.compareTo("M") == 0) cheque_indicator = "Manual Cheque issued";
                     if (cheque_indicator.compareTo("C") == 0) cheque_indicator = "Computer Cheque issued";
@@ -611,6 +623,9 @@ public class BillingOnRaService {
                     String demo_name = "";
                     String localServiceDate = "";
                     String demo_hin = r.getHin() != null ? r.getHin() : "";
+                    // New imports retain the trailing version; older rows may contain
+                    // only the 12-character number. Match the patient number in either case.
+                    if (demo_hin.length() > 12) demo_hin = demo_hin.substring(0, 12);
                     demo_hin = demo_hin.trim();
                     String site = "";
                     String famProviderNo = null;

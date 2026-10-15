@@ -279,6 +279,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
@@ -713,22 +714,12 @@
 
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet';
-                form.target = 'addpsetwin';
-                var fields = {demoNo: demoNo, patientSet: patientSet};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                window.open('', 'addpsetwin', 'width=50,height=50');
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the change handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', 'addpsetwin', 'width=50,height=50');
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/demographic/ViewAddDemoToPatientSet',
+                    {demoNo: demoNo, patientSet: patientSet}, {target: 'addpsetwin', popup: popup});
             }
 
             </security:oscarSec>
@@ -867,12 +858,12 @@
 
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
-                if (rosterSelect.getValue() == "RO") {
+                if (rosterSelect.value == "RO") {
                     if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.value))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }
@@ -1108,7 +1099,6 @@
                                     href='<%= request.getContextPath() %>/demographic/DemographicApptHistory?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
                             </td>
                         </tr>
-
                         <%
                             // wLReadonly already computed in preamble
                             WaitingList wL = WaitingList.getInstance();
@@ -1126,6 +1116,24 @@
                     </table>
                     <table border=0 cellspacing=0 width="100%">
                         <%}%>
+                        <%-- Patient SMS history (#3839); the action re-checks _sms and _demographic for this patient.
+                             It sits after the waiting-list row so that link stays under the appointment heading. --%>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_sms" rights="r">
+                            <tr class="Header">
+                                <td style="font-weight: bold"><fmt:message key="sms.history.section"/></td>
+                            </tr>
+                            <tr id="sms_hx">
+                                <td>
+                                    <c:set var="__encSmsHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
+                                    <c:set var="__encSmsHistoryUrl" value="${pageContext.request.contextPath}/sms/ViewSmsHistory?demographic_no=${__encSmsHistoryDemoNo}" />
+                                    <%-- A real link (new tab without JavaScript), opened as a pop-up when JavaScript runs. --%>
+                                    <a href="<carlos:encode value='${__encSmsHistoryUrl}' context='htmlAttribute'/>" target="_blank" rel="noopener"
+                                       onClick="popupPage(600,1500,'<carlos:encode value='${__encSmsHistoryUrl}' context="javaScriptAttribute"/>'); return false;">
+                                        <fmt:message key="sms.history.title"/></a>
+                                </td>
+                            </tr>
+                        </security:oscarSec>
+
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
                             <tr class="Header">
                                 <td style="font-weight: bold"><fmt:message key="admin.admin.billing"/></td>
@@ -1276,7 +1284,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=private')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
                         </special:SpecialPlugin>
@@ -1396,6 +1404,9 @@
                                                             <!--input type="button" name="Button" value="<fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
                                                         </td>
                                                         <td width="40%" align='right' valign="top">
+                                                            <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                                                <a href="<%=request.getContextPath()%>/report/ViewGenerateLetters?demo=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>" target="_blank" rel="noopener"><fmt:message key="report.GenerateLetters.title"/></a>
+                                                            </security:oscarSec>
                                                             <input type="button" size="110" name="Button"
                                                                    value="<fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/>"
                                                                    onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;">

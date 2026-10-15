@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -21,89 +21,163 @@
  */
 package io.github.carlos_emr.carlos.www.admin;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.jsp.PageContext;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.util.Collections;
-
+import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+/**
+ * Verifies the authoritative login-creation boundary, including direct POSTs: password policy and
+ * confirmation are enforced before any credential is hashed or persisted, PINs are hashed only when
+ * one is actually supplied, and malformed lock settings default to disabled.
+ */
 @Tag("unit")
 @Tag("security")
 @DisplayName("SecurityAddSecurityHelper")
+@Isolated("Temporarily configures the clinic password policy")
 class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
 
-    private static final String RAW_PASSWORD = "S3curePassword!";
+    private static final String VALID_PASSWORD = "Valid1!Password";
+    private static final String HASHED_PASSWORD = "encoded-test-password";
     private static final String RAW_PIN = "1234";
-    private static final String HASHED_PASSWORD = "{bcrypt}password";
     private static final String HASHED_PIN = "{bcrypt}pin";
 
-    private AutoCloseable mockitoCloseable;
-    private SecurityAddSecurityHelper helper;
-
-    @Mock private SecurityDao securityDao;
-    @Mock private SecurityManager securityManager;
-    @Mock private PageContext pageContext;
-    @Mock private ServletRequest request;
-    @Mock private HttpSession session;
+    private final SecurityDao records = mock(SecurityDao.class);
+    private final SecurityManager passwords = mock(SecurityManager.class);
+    private final PageContext page = mock(PageContext.class);
+    private final MockHttpServletRequest request = new MockHttpServletRequest();
+    private final Map<String, String> original = new HashMap<>();
 
     @BeforeEach
-    void setUp() {
-        mockitoCloseable = MockitoAnnotations.openMocks(this);
-        registerMock(SecurityDao.class, securityDao);
-        registerMock(SecurityManager.class, securityManager);
-        helper = new SecurityAddSecurityHelper();
+    void configure() {
+        registerMock(SecurityDao.class, records);
+        registerMock(SecurityManager.class, passwords);
+        when(page.getRequest()).thenReturn(request);
+        lenient().when(page.getSession()).thenReturn(request.getSession());
+        lenient().when(passwords.encodePassword(anyString())).thenReturn(HASHED_PASSWORD);
+        lenient().when(passwords.encodePin(RAW_PIN)).thenReturn(HASHED_PIN);
+        request.setParameter("user_name", "fixture4167");
+        request.setParameter("provider_no", "999998");
+        request.setParameter("date_ExpireDate", "2100-01-01");
+        request.setParameter("password", VALID_PASSWORD);
+        request.setParameter("conPassword", VALID_PASSWORD);
+        policy("IGNORE_PASSWORD_REQUIREMENTS", "false");
+        policy("password_min_length", "8");
+        policy("password_min_groups", "3");
+        policy("password_group_lower_chars", "abcdefghijklmnopqrstuvwxyz");
+        policy("password_group_upper_chars", "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        policy("password_group_digits", "0123456789");
+        policy("password_group_special", "!");
     }
 
-    @org.junit.jupiter.api.AfterEach
-    void tearDown() throws Exception {
-        if (mockitoCloseable != null) {
-            mockitoCloseable.close();
-        }
+    private void policy(String name, String value) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (!original.containsKey(name)) original.put(name, properties.getProperty(name));
+        properties.setProperty(name, value);
+    }
+
+    @AfterEach
+    void restorePolicy() {
+        original.forEach((name, value) -> {
+            if (value == null) CarlosProperties.getInstance().remove(name);
+            else CarlosProperties.getInstance().setProperty(name, value);
+        });
+    }
+
+    private void reject() {
+        new SecurityAddSecurityHelper().addProvider(page);
+        verify(records, never()).persist(any(Security.class));
+        verify(passwords, never()).encodePassword(any());
+        verify(passwords, never()).encodePin(any());
+        ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
+        verify(page).setAttribute(eq("message"), message.capture());
+        assertThat(message.getValue()).isNotBlank().isNotEqualTo("admin.securityaddsecurity.msgAdditionSuccess");
+        logActionMock.verifyNoInteractions();
+    }
+
+    private Security addAndCapturePersisted() {
+        new SecurityAddSecurityHelper().addProvider(page);
+        ArgumentCaptor<Security> row = ArgumentCaptor.forClass(Security.class);
+        verify(records).persist(row.capture());
+        verify(page).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+        return row.getValue();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"ab1", "alllowercase", "OnlyLetters"})
+    void shouldRejectWithoutWrites_whenPasswordViolatesPolicy(String password) {
+        if (password == null) request.removeParameter("password");
+        else request.setParameter("password", password);
+        request.setParameter("conPassword", password == null ? "" : password);
+        reject();
+    }
+
+    @Test
+    void shouldRejectWithoutWrites_whenConfirmationDiffers() {
+        request.setParameter("conPassword", "Different1!Password");
+        reject();
+    }
+
+    @Test
+    void shouldRejectWithoutHashingPin_whenPasswordIsRejected() {
+        // A rejected request must not pay for, or leave behind, any credential hash.
+        request.setParameter("pin", RAW_PIN);
+        request.setParameter("conPassword", "Different1!Password");
+        reject();
+    }
+
+    @Test
+    void shouldRequireConfirmation_whenComplexityIsDisabled() {
+        policy("IGNORE_PASSWORD_REQUIREMENTS", "true");
+        request.setParameter("password", "weak");
+        request.setParameter("conPassword", "different");
+        reject();
+    }
+
+    @Test
+    void shouldUseClinicPolicy_whenConfiguredMinimumIsHigher() {
+        policy("password_min_length", "30");
+        reject();
+    }
+
+    @Test
+    void shouldCreateEncodedLogin_whenPasswordAndConfirmationAreValid() {
+        Security persisted = addAndCapturePersisted();
+
+        verify(passwords).encodePassword(VALID_PASSWORD);
+        assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
+        assertThat(persisted.getUserName()).isEqualTo("fixture4167");
     }
 
     @Test
     @DisplayName("should persist hashed PIN and default invalid lock settings when adding provider")
     void shouldPersistHashedPinAndDefaultInvalidLockSettings_whenAddingProvider() {
-        when(pageContext.getRequest()).thenReturn(request);
-        when(pageContext.getSession()).thenReturn(session);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
-        when(request.getParameter("password")).thenReturn(RAW_PASSWORD);
-        when(request.getParameter("pin")).thenReturn(RAW_PIN);
-        when(request.getParameter("provider_no")).thenReturn("999998");
-        when(request.getParameter("user_name")).thenReturn("carlosdoc");
-        when(request.getParameter("b_ExpireSet")).thenReturn("invalid");
-        when(request.getParameter("b_LocalLockSet")).thenReturn("1");
-        when(request.getParameter("b_RemoteLockSet")).thenReturn(null);
-        when(request.getParameter("forcePasswordReset")).thenReturn("1");
-        when(request.getParameter("enableMfa")).thenReturn(null);
-        when(securityManager.encodePassword(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
-        when(securityManager.encodePin(RAW_PIN)).thenReturn(HASHED_PIN);
-        when(securityDao.findByProviderNo("999998")).thenReturn(Collections.emptyList());
-        when(securityDao.findByUserName("carlosdoc")).thenReturn(Collections.emptyList());
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+        request.setParameter("pin", RAW_PIN);
+        request.setParameter("b_ExpireSet", "invalid");
+        request.setParameter("b_LocalLockSet", "1");
+        request.setParameter("forcePasswordReset", "1");
 
-        helper.addProvider(pageContext);
+        Security persisted = addAndCapturePersisted();
 
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
         assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
         assertThat(persisted.getPin()).isEqualTo(HASHED_PIN);
         assertThat(persisted.getBExpireset()).isZero();
@@ -111,24 +185,6 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         assertThat(persisted.getBRemotelockset()).isZero();
         assertThat(persisted.getPasswordUpdateDate()).isNotNull();
         assertThat(persisted.getPinUpdateDate()).isNotNull();
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
-    }
-
-    /** Everything a valid add-provider POST needs except the PIN field. */
-    private void stubAddProviderRequestWithoutPin() {
-        when(pageContext.getRequest()).thenReturn(request);
-        when(pageContext.getSession()).thenReturn(session);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
-        when(request.getParameter("password")).thenReturn(RAW_PASSWORD);
-        when(request.getParameter("provider_no")).thenReturn("999998");
-        when(request.getParameter("user_name")).thenReturn("carlosdoc");
-        when(request.getParameter("b_ExpireSet")).thenReturn("0");
-        when(request.getParameter("b_LocalLockSet")).thenReturn("0");
-        when(request.getParameter("b_RemoteLockSet")).thenReturn("0");
-        when(request.getParameter("forcePasswordReset")).thenReturn(null);
-        when(securityManager.encodePassword(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
-        when(securityDao.findByProviderNo("999998")).thenReturn(Collections.emptyList());
-        when(securityDao.findByUserName("carlosdoc")).thenReturn(Collections.emptyList());
     }
 
     @Test
@@ -138,40 +194,27 @@ class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
         // the parameter is null. Hashing it anyway stamps a pinUpdateDate on an account that has
         // no PIN; the empty-string case below is worse still, because the encoder happily returns
         // a valid bcrypt hash of "" and the row then looks PIN-protected.
-        stubAddProviderRequestWithoutPin();
-        when(request.getParameter("pin")).thenReturn(null);
-        when(request.getParameter("enableMfa")).thenReturn(null);
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+        Security persisted = addAndCapturePersisted();
 
-        helper.addProvider(pageContext);
-
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
         assertThat(persisted.getPin()).isNull();
         assertThat(persisted.getPinUpdateDate()).isNull();
         assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
-        verify(securityManager, never()).encodePin(any());
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+        verify(passwords, never()).encodePin(any());
     }
 
     @Test
     @DisplayName("should persist provider without PIN when MFA disables the PIN controls")
     void shouldPersistProviderWithoutPin_whenMfaDisablesThePinControls() {
         // Selecting MFA disables the PIN inputs, so the value arrives empty rather than absent.
-        stubAddProviderRequestWithoutPin();
-        when(request.getParameter("pin")).thenReturn("");
-        when(request.getParameter("enableMfa")).thenReturn("1");
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
+        request.setParameter("pin", "");
+        request.setParameter("enableMfa", "1");
 
-        helper.addProvider(pageContext);
+        Security persisted = addAndCapturePersisted();
 
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
         assertThat(persisted.getPin()).isNull();
         assertThat(persisted.getPinUpdateDate()).isNull();
         assertThat(persisted.isUsingMfa()).isTrue();
-        verify(securityManager, never()).encodePin(any());
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+        verify(passwords, never()).encodePin(any());
     }
 
     @Test

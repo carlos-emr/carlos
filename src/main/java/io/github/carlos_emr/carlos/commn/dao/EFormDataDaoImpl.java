@@ -31,9 +31,12 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import jakarta.persistence.LockModeType;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -389,6 +392,31 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return (results);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<Integer> findFieldNoteIdsForResident(TreeSet<Integer> fids, Date dateStart, Date dateEnd, String residentId) {
+        if (fids == null || fids.isEmpty() || residentId == null || residentId.isBlank()) {
+            return java.util.Collections.emptyList();
+        }
+        // Keep the database predicates to limit candidate rows, then enforce the
+        // original String.equals semantics independently of the database collation
+        // (which may ignore case, accents or trailing spaces). Only scalar resident
+        // fields are fetched here; another resident's note contents are never loaded.
+        return entityManager.createQuery("select x.id, v.varName, v.varValue from EFormData x "
+                        + "join EFormValue v on v.formDataId=x.id "
+                        + "where x.current=true and x.formId in :fids and x.formDate>=:start and x.formDate<:end "
+                        + "and v.varName='residentId' and v.varValue=:resident", Object[].class)
+                .setParameter("fids", fids)
+                .setParameter("start", dateStart)
+                .setParameter("end", dateEnd)
+                .setParameter("resident", residentId)
+                .getResultList().stream()
+                .filter(row -> "residentId".equals(row[1]) && residentId.equals(row[2]))
+                .map(row -> (Integer) row[0])
+                .distinct()
+                .toList();
+    }
+
     @Override
     public List<EFormData> findByFdids(List<Integer> ids) {
         if (ids.size() == 0)
@@ -606,4 +634,25 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         }
         return null;
     }
+
+    @Override
+    public List<Integer> findFdidsForDemographic(Integer demographicNo, Collection<Integer> fdids) {
+        if (demographicNo == null || fdids == null || fdids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Query query = entityManager.createQuery(
+                "select distinct x.id from EFormData x where x.demographicId = :demographicNo and x.id in (:fdids)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("fdids", fdids);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
+
+    @Override
+    public EFormData lockForAttachmentSync(Integer id) {
+        return entityManager.find(EFormData.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
 }

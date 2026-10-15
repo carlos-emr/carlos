@@ -70,4 +70,23 @@ class PdfCoverPageCreatorUnitTest {
 
         assertThat(result).isNotNull().isNotEmpty();
     }
+    @Test
+    void shouldPreserveUnicodeText_whenPrintingFaxCover() throws Exception {
+        FaxRecipient recipient = new FaxRecipient();
+        recipient.setName("Łukasz Żółć");
+        recipient.setFax("5551234567");
+        FaxAccount account = new FaxAccount();
+        account.setName("Nguyễn");
+        account.setPhone("5551234567");
+        account.setFax("5557654321");
+        account.setSubText("İstanbul");
+        account.setFaxNumberOwner("Nguyễn");
+        account.setLetterheadName("İstanbul");
+        byte[] bytes = new PdfCoverPageCreator("Nguyễn ≥ 5 ≤ 9", 2, recipient, account).createCoverPage();
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("Łukasz Żółć", "Nguyễn", "İstanbul", "≥ 5 ≤ 9");
+        }
+    }
+
 }

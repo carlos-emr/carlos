@@ -760,5 +760,131 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnNonNull_forAnyCodeAndTerminationDate() throws Exception {
             assertThat(dao.findBillingCodesByCodeAndTerminationDate("CDE", new Date())).isNotNull();
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find an underscore private code by its literal value")
+        void shouldFindUnderscoreCode_byLiteralValue() throws Exception {
+            BillingService bs = createBillingService("_OMA_A003", "20260101");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_A003", new Date()))
+                    .containsExactly("_OMA_A003");
+            // A LIKE-style escaped value is not the stored code under an equality match.
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("\\_OMA\\_A003", new Date()))
+                    .isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not treat underscore as a single-character wildcard")
+        void shouldNotMatchOtherCodes_whenCodeContainsUnderscore() throws Exception {
+            BillingService bs = createBillingService("XOMAXA003", "20260101");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_A003", new Date())).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should reject a code used before its first effective date")
+        void shouldReturnEmpty_whenServiceDateIsBeforeEffectiveDate() throws Exception {
+            // _OMA_F09 takes effect 2026-03-01 (the 2026 OMA uninsured fee rows).
+            BillingService bs = createBillingService("_OMA_F09", "20260301");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F09", day("20260201"))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should accept a code used on or after its effective date")
+        void shouldReturnCode_whenServiceDateIsOnOrAfterEffectiveDate() throws Exception {
+            BillingService bs = createBillingService("_OMA_F09", "20260301");
+            bs.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F09", day("20260301")))
+                    .containsExactly("_OMA_F09");
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F09", day("20260415")))
+                    .containsExactly("_OMA_F09");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should still reject a code whose row in effect has terminated")
+        void shouldReturnEmpty_whenRowInEffectHasTerminated() throws Exception {
+            BillingService bs = createBillingService("A007A", "20200101");
+            bs.setTerminationDate(new Date(dfm.parse("20251231").getTime()));
+            dao.persist(bs);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("A007A", day("20250601")))
+                    .containsExactly("A007A");
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("A007A", day("20260201"))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should judge termination on the row in effect, not on any row for the code")
+        void shouldUseRowInEffect_whenCodeHasSeveralRows() throws Exception {
+            // An older row that has terminated must not keep the code valid ...
+            BillingService old = createBillingService("A007A", "20200101");
+            old.setTerminationDate(new Date(dfm.parse("20221231").getTime()));
+            dao.persist(old);
+            // ... and a newer, still-open row is what counts once it is in effect.
+            BillingService current = createBillingService("A007A", "20230101");
+            current.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(current);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("A007A", day("20260201")))
+                    .containsExactly("A007A");
+            // Between the old row's termination and the new row's effective date nothing applies.
+            BillingService gapOld = createBillingService("B007A", "20200101");
+            gapOld.setTerminationDate(new Date(dfm.parse("20221231").getTime()));
+            dao.persist(gapOld);
+            BillingService gapNew = createBillingService("B007A", "20240101");
+            gapNew.setTerminationDate(new Date(dfm.parse("99991231").getTime()));
+            dao.persist(gapNew);
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("B007A", day("20230601"))).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should reject the newest duplicate fee when it has terminated")
+        void shouldRejectNewestDuplicate_whenOlderDuplicateIsActive() throws Exception {
+            BillingService older = createBillingService("_OMA_F10", "20260301");
+            older.setTerminationDate(day("99991231"));
+            dao.persist(older);
+            BillingService newer = createBillingService("_OMA_F10", "20260301");
+            newer.setTerminationDate(day("20260401"));
+            dao.persist(newer);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260315")))
+                    .containsExactly("_OMA_F10");
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260401")))
+                    .isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should accept the newest duplicate fee when the older duplicate has terminated")
+        void shouldAcceptNewestDuplicate_whenOlderDuplicateHasTerminated() throws Exception {
+            BillingService older = createBillingService("_OMA_F10", "20260301");
+            older.setTerminationDate(day("20260401"));
+            dao.persist(older);
+            BillingService newer = createBillingService("_OMA_F10", "20260301");
+            newer.setTerminationDate(day("99991231"));
+            dao.persist(newer);
+
+            assertThat(dao.findBillingCodesByCodeAndTerminationDate("_OMA_F10", day("20260401")))
+                    .containsExactly("_OMA_F10");
+        }
+
+        private Date day(String yyyymmdd) throws Exception {
+            return new Date(dfm.parse(yyyymmdd).getTime());
+        }
     }
 }

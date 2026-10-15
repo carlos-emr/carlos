@@ -48,12 +48,12 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
+import io.github.carlos_emr.carlos.prescript.data.UniqueMedicationList;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 import java.util.Date;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Calendar;
 
 @Service
@@ -127,36 +127,14 @@ public class PrescriptionManagerImpl implements PrescriptionManager {
 
     @Override
     public List<Drug> getUniqueDrugsByPatient(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        List<Drug> results = new ArrayList<Drug>();
-
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             LogAction.addLogSynchronous(loggedInInfo, "PrescriptionManager.getUniquePrescriptionsByPatient",
                     "No Read Access");
-            return results;
+            return new ArrayList<>();
         }
 
-        List<Drug> drugList = drugDao.findByDemographicId(demographicNo);
-        Collections.sort(drugList, new Drug.ComparatorIdDesc());
-
-        for (Drug drug : drugList) {
-
-            boolean isCustomName = true;
-
-            for (Drug p : results) {
-                if (p.getGcnSeqNo() == drug.getGcnSeqNo()) {
-                    if (! "0".equals(p.getGcnSeqNo())) // not custom - safe GCN
-                        isCustomName = false;
-                    else if (p.getCustomName() != null && drug.getCustomName() != null) // custom
-                        isCustomName = !p.getCustomName().equals(drug.getCustomName());
-
-                }
-            }
-
-            if (isCustomName) {
-                logger.info("ADDING PRESCRIPTION " + drug.getId());
-                results.add(drug);
-            }
-        }
+        // The same list the JSP views read (RxPrescriptionData.getUniquePrescriptionsByPatient), #4420.
+        List<Drug> results = UniqueMedicationList.select(drugDao.findByDemographicId(demographicNo));
 
         if (results.size() > 0) {
             String resultIds = Drug.getIdsAsStringList(results);

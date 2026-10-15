@@ -60,6 +60,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 // Hosts reachable enough to browse against. 'carlos' and 'db' are the
 // devcontainer compose service names for the app and the MariaDB container, and
@@ -597,6 +598,7 @@ async function run() {
     const launchOptions = {
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
     };
     if (chromePath) {
       launchOptions.executablePath = chromePath;
@@ -783,21 +785,12 @@ async function run() {
 // A run takes minutes, so Ctrl-C part way through is entirely likely. Without
 // this, Node exits without unwinding the finally block and leaves synthetic 65+
 // patients sitting in the schema -- exactly what the cleanup guarantee exists to
-// prevent. The browser is left to the OS; only the database and the cleartext
-// password file matter here.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`\n${signal} received; removing seeded rows before exiting.`);
-    let interrupted = [];
-    try {
-      interrupted = runCleanupOnce();
-    } catch (error) {
-      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
-    }
-    interrupted.forEach((failure) => console.error(`WARN ${failure}`));
-    process.exit(130);
-  });
-}
+// prevent (issue #3600). runCleanupOnce() is latched, so whichever of the finally
+// block and the handler arrives first does the work. The browser is left to the OS;
+// only the database and the cleartext password file matter here.
+installCleanupSignalHandlers(() => {
+  runCleanupOnce().forEach((failure) => console.error(`WARN ${failure}`));
+});
 
 run().catch((error) => {
   console.error('FAIL CARLOS EMR Flu Billing Report Playwright check');

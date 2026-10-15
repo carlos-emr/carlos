@@ -45,6 +45,8 @@
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/report-print.css">
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
         <!--
@@ -70,19 +72,9 @@
         }
 
         function postTo(action, rano, target) {
-            var form = document.createElement('form');
-            form.method = 'post';
-            form.action = action;
-            if (target) {
-                form.target = target;
-            }
-            var input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'rano';
-            input.value = rano;
-            form.appendChild(input);
-            document.body.appendChild(form);
-            form.submit();
+            // carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+            // inject into a runtime-built form in time (#4130).
+            carlosPostForm(action, {rano: rano}, {target: target});
         }
 
         function checkReconcile(action, rano) {
@@ -98,6 +90,8 @@
 </head>
 
 <body>
+<%-- No static POST form here, so seed the token the postTo() links need. --%>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <h3><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
 
 <%-- Surface RA-import failures so the operator doesn't see a clean page
@@ -111,13 +105,13 @@
     </div>
 </c:if>
 
-<div class="container-fluid card card-body bg-body-tertiary">
-    <button class="btn btn-primary float-end" type='button' name='print' value='Print'
+<div class="container-fluid card card-body bg-body-tertiary report-print-plain">
+    <button class="btn btn-primary float-end d-print-none report-print-hide" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
-    <br/><br/>
+    <span class="report-print-hide"><br/><br/></span>
 
-    <table class="table table-striped table-hover table-sm">
+    <table class="table table-striped table-hover table-sm report-print-table">
         <thead>
         <tr>
             <th>Read Date</th>
@@ -125,7 +119,7 @@
             <th>Payable</th>
             <th>Records/Claims</th>
             <th>Total</th>
-            <th>Action</th>
+            <th class="report-print-hide">Action</th>
             <th>Status</th>
         </tr>
         </thead>
@@ -137,7 +131,7 @@
                 <td><carlos:encode value="${row.payable}" context="html"/></td>
                 <td align="center"><carlos:encode value="${row.claimsCount}" context="html"/>/<carlos:encode value="${row.recordsCount}" context="html"/></td>
                 <td align="right"><carlos:encode value="${row.total}" context="html"/></td>
-                <td align="center">
+                <td align="center" class="report-print-hide">
                     <a href="${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAError?rano=<carlos:encode value='${row.raNo}' context='uriComponent'/>&proNo="
                        target="_blank">Error</a>
                     | <a href="#" onclick="postTo('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRASummary','<carlos:encode value="${row.raNo}" context="javaScript"/>','_blank');return false;">Summary</a>
@@ -146,11 +140,15 @@
                 <td>
                     <c:choose>
                         <c:when test="${row.status == 'N'}">
+                            <span class="report-print-hide">
                             <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle','<carlos:encode value="${row.raNo}" context="javaScript"/>')">Settle</a>
                             <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle35','<carlos:encode value="${row.raNo}" context="javaScript"/>')">S35</a>
+                            </span>
                         </c:when>
                         <c:when test="${row.status == 'S'}">
+                            <span class="report-print-hide">
                             <a href="#" onclick="checkReconcile('${pageContext.request.contextPath}/billing/CA/ON/ViewOnGenRAsettle35','<carlos:encode value="${row.raNo}" context="javaScript"/>')">S35</a>
+                            </span>
                         </c:when>
                         <c:otherwise>
                             Processed

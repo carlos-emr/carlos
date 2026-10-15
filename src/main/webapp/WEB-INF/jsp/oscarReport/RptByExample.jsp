@@ -98,7 +98,7 @@
         // Copies the selected favourite query into the SQL textarea.
         function write2TextArea() {
             const form = document.getElementById('queryForm');
-            const select = form.selectedRecentSearch;
+            const select = document.getElementById('selectedRecentSearch');
             const selectedValue = select.options[select.selectedIndex].value;
             form.sql.value = selectedValue;
         }
@@ -205,8 +205,10 @@
                             <fmt:message key="oscarReport.RptByExample.MsgSelectFromMyFavorites"/>
                         </label>
                         <div class="d-flex gap-2 align-items-center">
+                            <%-- No name: the picker only fills the textarea above. Posting it would
+                                 send the stored SQL a second time, as an argument the action never
+                                 reads and the packaged WAF exclusion (ARGS:sql only) does not cover. --%>
                             <select id="selectedRecentSearch"
-                                    name="selectedRecentSearch"
                                     class="form-select form-select-sm">
                                 <option value="" disabled="disabled" selected="selected">
                                     <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>

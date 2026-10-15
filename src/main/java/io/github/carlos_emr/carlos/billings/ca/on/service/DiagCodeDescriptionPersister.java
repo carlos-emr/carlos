@@ -45,11 +45,40 @@ public class DiagCodeDescriptionPersister {
         this.diagnosticCodeDao = diagnosticCodeDao;
     }
 
+    /**
+     * The diagnostic code an Update button's value names. The search page labels
+     * each button "{@code <localised Update> <code>}", and codes contain no spaces,
+     * so the code is the text after the last space: all of it, whether it has
+     * three characters or four. Taking only the last three characters, as this
+     * once did, turned {@code 2740} into {@code 740} and rewrote the wrong code.
+     * A value with no space (the old {@code update001} form) keeps that legacy
+     * last-three-characters reading.
+     *
+     * @param submitValue the {@code update} request parameter
+     * @return the code, or {@code null} when the value cannot carry one
+     */
+    public static String codeFromSubmitValue(String submitValue) {
+        if (submitValue == null) {
+            return null;
+        }
+        int space = submitValue.lastIndexOf(' ');
+        if (space >= 0) {
+            String code = submitValue.substring(space + 1);
+            return code.isEmpty() ? null : code;
+        }
+        return submitValue.length() < 3 ? null : submitValue.substring(submitValue.length() - 3);
+    }
+
     public boolean updateDescription(String submitValue, String newDescription) {
-        if (submitValue == null || submitValue.length() < 3) {
+        String code = codeFromSubmitValue(submitValue);
+        if (code == null) {
             throw new DiagDescriptionUpdateException("", "missing diagnostic code");
         }
-        String code = submitValue.substring(submitValue.length() - 3);
+        if (newDescription == null) {
+            // No description field reached the server for this code; writing
+            // null would blank the stored text rather than leave it unchanged.
+            throw new DiagDescriptionUpdateException(code, "missing description");
+        }
         try {
             List<DiagnosticCode> matches = diagnosticCodeDao.findByDiagnosticCode(code);
             if (matches == null || matches.isEmpty()) {

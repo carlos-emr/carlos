@@ -148,6 +148,7 @@ import cds.FamilyHistoryDocument.FamilyHistory;
 import cds.ImmunizationsDocument.Immunizations;
 import cds.LaboratoryResultsDocument.LaboratoryResults;
 import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
+import cds.NewCategoryDocument.NewCategory;
 import cds.OmdCdsDocument;
 import cds.PastHealthDocument.PastHealth;
 import cds.PatientRecordDocument.PatientRecord;
@@ -223,6 +224,8 @@ public class DemographicExportAction42Action extends ActionSupport {
     private final transient Hl7TextInfoDao hl7TxtInfoDao;
     private final transient Hl7TextMessageDao hl7TxtMssgDao;
     private final transient DemographicExtDao demographicExtDao;
+    // Note prefix that marks CMS4 (2011-06) dump-site imports; shared by export and header lookups.
+    private static final String IMPORTED_CMS4_PREFIX = "imported.cms4.2011.06";
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -344,7 +347,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
-        String strEditable = oscarProperties.getProperty("ENABLE_EDIT_APPT_STATUS");
+        boolean statusEditable = oscarProperties.isAppointmentStatusEditingEnabled();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
@@ -470,7 +473,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         Demographic demographic = null;
                         try {
                             demographic = d.getDemographic(loggedInInfo, demoNo);
-                        } catch (PatientDirectiveException e) {
+                        } catch (PatientDirectiveException _) {
                             exportError.add("Unable to export patient " + demoNo + " due to Patient Directive");
                             continue;
                         }
@@ -592,18 +595,20 @@ public class DemographicExportAction42Action extends ActionSupport {
                             exportError.add("Error! No Gender for Patient " + demoNo);
                         }
 
-                        String sin = demographic.getSin().replaceAll("\\-", "");
+                        // demographic.sin is nullable (patients created outside the add form have none);
+                        // a NULL here used to abort the whole patient's export with a 500.
+                        String sin = StringUtils.noNull(demographic.getSin()).replaceAll("\\-", "");
                         if (StringUtils.filled(sin) && sin.length() == 9) {
                             demo.setSIN(sin);
                         }
 
 
-                        List<DemographicArchive> DAs = demoArchiveDao.findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
-                        Collections.reverse(DAs);
+                        List<DemographicArchive> archives = demoArchiveDao.findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
+                        Collections.reverse(archives);
 
                         List<Enrolment> enList = new ArrayList<Enrolment>();
                         Enrolment en = null;
-                        for (DemographicArchive da : DAs) {
+                        for (DemographicArchive da : archives) {
 
                             if (!"".equals(da.getRosterStatus())) {
                                 //no previous record
@@ -899,7 +904,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         //find all "header"; cms4 only
                         List<CaseManagementNote> headers = new ArrayList<CaseManagementNote>();
                         for (CaseManagementNote cmn : lcmn) {
-                            if (cmn.getNote() != null && cmn.getNote().startsWith("imported.cms4.2011.06") && cmm.getLinkByNote(cmn.getId()).isEmpty())
+                            if (cmn.getNote() != null && cmn.getNote().startsWith(IMPORTED_CMS4_PREFIX) && cmm.getLinkByNote(cmn.getId()).isEmpty())
                                 headers.add(cmn);
                         }
 
@@ -937,7 +942,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
                             if (!systemIssue && cmm.getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
                                 encounter = cmn.getNote();
-                                if (encounter.startsWith("imported.cms4.2011.06"))
+                                if (encounter.startsWith(IMPORTED_CMS4_PREFIX))
                                     continue; //this is a "header", cms4 only
                             }
 
@@ -1302,7 +1307,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     Date createDate = cmn.getCreate_date();
                                     String uuid;
                                     for (CaseManagementNote header : headers) {
-                                        uuid = header.getNote().substring("imported.cms4.2011.06".length());
+                                        uuid = header.getNote().substring(IMPORTED_CMS4_PREFIX.length());
                                         if (uuid.equals(cmn.getUuid())) {
                                             createDate = header.getCreate_date();
                                         }
@@ -1318,8 +1323,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
                                     }
 
-                                    List<CaseManagementNote> cmn_same = cmm.getNotesByUUID(cmn.getUuid());
-                                    for (CaseManagementNote cm_note : cmn_same) {
+                                    List<CaseManagementNote> sameUuidNotes = cmm.getNotesByUUID(cmn.getUuid());
+                                    for (CaseManagementNote cm_note : sameUuidNotes) {
 
                                         //participating providers
                                         if (StringUtils.filled(cm_note.getProviderNo()) && !Util.isVerified(cm_note)) {
@@ -1992,47 +1997,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             // LABORATORY RESULTS
 
                             //get lab readings from hl7 tables
-                            List<Object[]> infos = hl7TxtInfoDao.findByDemographicId(Integer.valueOf(demoNo));
-                            for (Object[] info : infos) {
-                                Hl7TextInfo hl7TxtInfo = (Hl7TextInfo) info[0];
-                                Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(hl7TxtInfo.getLabNumber());
-                                if (hl7TextMessage == null) continue;
-
-                                String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
-                                if (!StringUtils.filled(hl7Body)) continue;
-
-                                MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
-                                if (h == null) continue;
-
-                                String testNameReportedByLab = null;
-                                String comments = null;
-                                for (int i = 0; i < h.getOBRCount(); i++) {
-                                    for (int j = 0; j < h.getOBXCount(i); j++) {
-                                        String result = h.getOBXResult(i, j);
-                                        comments = null;
-                                        testNameReportedByLab = h.getOBXName(i, j);
-                                        for (int k = 0; k < h.getOBXCommentCount(i, j); k++) {
-                                            comments = Util.addLine(comments, h.getOBXComment(i, j, k));
-                                        }
-
-                                        if (StringUtils.filled(result) || StringUtils.filled(comments)) {
-                                           exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, result, comments, demoNo, i, j);
-                                        }
-                                    }
-
-                                    testNameReportedByLab = null;
-                                    if (h.getOBXCount(i) > 0) {
-                                        for (int k=0; k < h.getOBRCommentCount(i); k++) {
-                                            if (h.getOBXName(i, 0).isEmpty()) { testNameReportedByLab = h.getOBRName(i); }
-                                            comments = h.getOBRComment(i, k);
-                                            if (StringUtils.filled(comments)) {
-                                                comments = comments.replace("<br />", "\\.br\\");
-                                            }
-                                            exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, "-", comments, demoNo, i, 0);
-                                        }
-                                    }
-                                }
-                            }
+                            exportHl7LabResults(patientRec, demoNo);
 
 				/*
 				//get lab readings from measurements table
@@ -2115,7 +2080,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     ApptStatusData asd = new ApptStatusData();
                                     asd.setApptStatus(ap.getStatus());
                                     String msg = null;
-                                    if (strEditable != null && strEditable.equalsIgnoreCase("yes"))
+                                    if (statusEditable)
                                         msg = asd.getTitle();
                                     else
                                         msg = getText(asd.getTitle());
@@ -2152,7 +2117,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 File f;
                                 try {
                                     f = validateExportDocument(edoc);
-                                } catch (SecurityException e) {
+                                } catch (SecurityException _) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
                                     continue;
@@ -2248,7 +2213,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     File hrmFile;
                                     try {
                                         hrmFile = resolveHrmReportFile(reportFile);
-                                    } catch (SecurityException e) {
+                                    } catch (SecurityException _) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;
@@ -2456,6 +2421,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                             List<Measurements> measList = ImportExportMeasurements.getMeasurements(demoNo);
                             CareElements careElm = null;
                             if (measList.size() > 0) careElm = patientRec.addNewCareElements();
+                            // Created on the first NRTF reading; see CdsNeurologicalExam for why NRTF
+                            // needs a patient-level marker next to its 67536-3 screening.
+                            NewCategory nrtfMarkerCategory = null;
                             for (Measurements meas : measList) {
                                 if (meas.getType().equals("HT")) { //Height in cm
                                     cdsDt.Height height = careElm.addNewHeight();
@@ -2503,7 +2471,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
                                     try {
                                         smokp.setPerDay(new BigDecimal(meas.getDataField()));
-                                    } catch (Exception e) {
+                                    } catch (Exception _) {
                                         exportError.add("Error! Smoking Packs data null/invalid (id=" + meas.getId() + ") for Patient " + demoNo);
                                     }
                                     addOneEntry(CAREELEMENTS);
@@ -2616,6 +2584,20 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (Util.yn(meas.getDataField()) == cdsDt.YnIndicatorsimple.N) {
                                         exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
                                     }
+                                    addOneEntry(CAREELEMENTS);
+                                } else if (meas.getType().equals(CdsNeurologicalExam.NRTF)) { // 128 Hz Tuning Fork (Neurological Exam)
+                                    // CDS has one neurological exam code (67536-3) shared with FTLS; the
+                                    // NewCategory marker lets the CARLOS importer restore it as NRTF.
+                                    cdsDt.DiabetesComplicationScreening dcs = careElm.addNewDiabetesComplicationsScreening();
+                                    dcs.setDate(Util.calDate(meas.getDateObserved()));
+                                    if (meas.getDateObserved() == null) {
+                                        exportError.add("Error! No Date for Diabetes Complication Screening on Neurological Exam (Tuning Fork) (id=" + meas.getId() + ") for Patient " + demoNo);
+                                    }
+                                    dcs.setExamCode(cdsDt.DiabetesComplicationScreening.ExamCode.X_67536_3);
+                                    if (Util.yn(StringUtils.noNull(meas.getDataField())) == cdsDt.YnIndicatorsimple.N) {
+                                        exportError.add("Patient " + demoNo + " didn't do Diabetes Complications Screening (Neurological Exam, Tuning Fork) on " + UtilDateUtilities.DateToString(meas.getDateObserved(), "yyyy-MM-dd"));
+                                    }
+                                    nrtfMarkerCategory = CdsNeurologicalExam.addNrtfMarker(patientRec, nrtfMarkerCategory, dcs, meas.getDataField());
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("CGSD")) { //Collaborative Goal Setting
                                     cdsDt.DiabetesSelfManagementCollaborative dsco = careElm.addNewDiabetesSelfManagementCollaborative();
@@ -2746,7 +2728,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
                     try {
                         zipName = validateExportZipName(zipName, exportDirectory);
-                    } catch (FileValidationException e) {
+                    } catch (FileValidationException _) {
                         logger.warn("Rejected invalid demographic export zip filename");
                         exportError.add("Error! Invalid export zip filename.");
                         setExportStatusHeader(response, "error");
@@ -3180,7 +3162,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         for (CaseManagementNoteLink cml : cmll) {
             CaseManagementNote n = cmm.getNote(cml.getNoteId().toString());
-            if (n.getNote() != null && !n.getNote().startsWith("imported.cms4.2011.06")) {//not from dumpsite
+            if (n.getNote() != null && !n.getNote().startsWith(IMPORTED_CMS4_PREFIX)) {//not from dumpsite
                 note = n.getNote();
                 break;
             }
@@ -3536,7 +3518,75 @@ public class DemographicExportAction42Action extends ActionSupport {
 	}
 	*/
 
+    /**
+     * Exports every HL7 lab filed to the patient. Each OBX becomes a {@code LaboratoryResults}
+     * entry, except an embedded document (HL7 value type {@code ED}), which becomes a
+     * {@code Reports} entry; OBR-level comments stay lab results.
+     *
+     * @param patientRec the patient record being built
+     * @param demoNo the patient's demographic number (export-log messages only)
+     */
+    void exportHl7LabResults(PatientRecord patientRec, String demoNo) {
+        List<Object[]> infos = hl7TxtInfoDao.findByDemographicId(Integer.valueOf(demoNo));
+        for (Object[] info : infos) {
+            Hl7TextInfo hl7TxtInfo = (Hl7TextInfo) info[0];
+            Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(hl7TxtInfo.getLabNumber());
+            if (hl7TextMessage == null) continue;
+
+            String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
+            if (!StringUtils.filled(hl7Body)) continue;
+
+            MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
+            if (h == null) continue;
+
+            String testNameReportedByLab = null;
+            String comments = null;
+            for (int i = 0; i < h.getOBRCount(); i++) {
+                for (int j = 0; j < h.getOBXCount(i); j++) {
+                    String result = h.getOBXResult(i, j);
+                    comments = null;
+                    testNameReportedByLab = h.getOBXName(i, j);
+                    for (int k = 0; k < h.getOBXCommentCount(i, j); k++) {
+                        comments = Util.addLine(comments, h.getOBXComment(i, j, k));
+                    }
+
+                    if (h.isOBXEmbeddedDocument(i, j)) {
+                        // An ED segment is a document (usually a base64 PDF), not a result
+                        // value: the CDS schema carries it under Reports. Decided by OBX-2,
+                        // never by whether the text happens to look like base64 (#3946).
+                        // The payload is ED.5 where the parser exposes it: for a standards-compliant
+                        // ED value getOBXResult is the empty source application, not the document.
+                        exportLabDocument(patientRec, buildLabValues(hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, h.getOBXEmbeddedDocumentData(i, j), comments, i, j), demoNo);
+                    } else if (StringUtils.filled(result) || StringUtils.filled(comments)) {
+                        exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, result, comments, demoNo, i, j);
+                    }
+                }
+
+                testNameReportedByLab = null;
+                if (h.getOBXCount(i) > 0) {
+                    for (int k=0; k < h.getOBRCommentCount(i); k++) {
+                        if (h.getOBXName(i, 0).isEmpty()) { testNameReportedByLab = h.getOBRName(i); }
+                        comments = h.getOBRComment(i, k);
+                        if (StringUtils.filled(comments)) {
+                            comments = comments.replace("<br />", "\\.br\\");
+                        }
+                        exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, "-", comments, demoNo, i, 0);
+                    }
+                }
+            }
+        }
+    }
+
     private void exportLabResult(PatientRecord patientRec, Hl7TextMessage hl7TextMessage, Hl7TextInfo hl7TxtInfo, MessageHandler h, String name, String result, String comments, String demoNo, int i, int j) {
+		LaboratoryResults labResults = patientRec.addNewLaboratoryResults();
+		exportLabResult(buildLabValues(hl7TextMessage, hl7TxtInfo, h, name, result, comments, i, j), labResults, demoNo);
+	}
+
+	/**
+	 * Collects the values of one OBX in the shape both lab exporters read: the
+	 * {@code LaboratoryResults} mapping and the embedded-document {@code Reports} mapping.
+	 */
+	private HashMap<String, String> buildLabValues(Hl7TextMessage hl7TextMessage, Hl7TextInfo hl7TxtInfo, MessageHandler h, String name, String result, String comments, int i, int j) {
 		HashMap<String, String> labMeaValues = new HashMap<String, String>();
 		labMeaValues.put("labType", hl7TextMessage.getType());
 		labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
@@ -3553,9 +3603,10 @@ public class DemographicExportAction42Action extends ActionSupport {
 		labMeaValues.put("olis_status", h.getOBXResultStatus(i, j));
 		labMeaValues.put("lab_no", String.valueOf(hl7TxtInfo.getLabNumber()));
 		labMeaValues.put("blocked", h.isTestResultBlocked(i, j) ? "BLOCKED" : "");
+		labMeaValues.put("documentEncoding", h.getOBXDocumentEncoding(i, j));
 		labMeaValues.put("other_id", i+"-"+j);
 		
-		if (StringUtils.filled(result)) {
+		if (h.isOBXEmbeddedDocument(i, j) || StringUtils.filled(result)) {
 			labMeaValues.put("measureData", result);
 			labMeaValues.put("comments", comments);
 		} else {
@@ -3570,12 +3621,88 @@ public class DemographicExportAction42Action extends ActionSupport {
 				labMeaValues.put("maximum", rangeLimits[1]);
 			}
 		}
+		return labMeaValues;
+	}
 
-		LaboratoryResults labResults = patientRec.addNewLaboratoryResults();
-		exportLabResult(labMeaValues, labResults, demoNo);
+	/**
+	 * Exports an OBX that carries an embedded document as a CDS {@code Reports} entry
+	 * (class {@code Lab Report}) instead of a {@code LaboratoryResults} value, keeping the
+	 * lab's reviewer and the physician's annotation that the result mapping would have carried.
+	 *
+	 * <p>Adapted from open-osp/Open-O 4417ba821c (Colcamex Resources Inc.); see
+	 * {@link CdsEmbeddedLabDocument} for the mapping and how it differs from upstream.</p>
+	 */
+	private void exportLabDocument(PatientRecord patientRec, HashMap<String, String> labMea, String demoNo) {
+		Reports report = patientRec.addNewReports();
+		CdsEmbeddedLabDocument.Outcome outcome = CdsEmbeddedLabDocument.writeReport(labMea, report);
+		addOneEntry(cdsDt.ReportFormat.BINARY.equals(outcome.format()) ? REPORTBINARY : REPORTTEXT);
+		String testCode = CdsXmlText.stripInvalidXmlCharacters(labMea.get("identifier"));
+		if (outcome.warning() != null) {
+			exportError.add("Warning! " + outcome.warning() + "; Lab Test " + testCode + " for Patient " + demoNo);
+		}
+
+		String lab_no = labMea.get("lab_no");
+		if (StringUtils.empty(lab_no)) {
+			return;
+		}
+		String annotation = CdsXmlText.stripInvalidXmlCharacters(
+				getNonDumpNote(CaseManagementNoteLink.LABTEST, Long.valueOf(lab_no), StringUtils.noNull(labMea.get("other_id"))));
+		if (StringUtils.filled(annotation)) {
+			// Reports has one Notes element: the lab's comments come first, the physician's
+			// annotation (LaboratoryResults/PhysiciansNotes on the result path) follows.
+			String notes = StringUtils.filled(report.getNotes()) ? report.getNotes() + "\n" + annotation : annotation;
+			if (notes.codePointCount(0, notes.length()) > CdsEmbeddedLabDocument.NOTES_MAX) {
+				exportError.add("Warning! Report notes truncated; Lab Test " + testCode + " for Patient " + demoNo);
+			}
+			report.setNotes(CdsXmlText.truncate(notes, CdsEmbeddedLabDocument.NOTES_MAX));
+		}
+
+		LabReview review = findLabReview(lab_no, CaseManagementNoteLink.LABTEST);
+		if (review != null) {
+			ReportReviewed reportReviewed = report.addNewReportReviewed();
+			Util.writeNameSimple(reportReviewed.addNewName(), review.provider().getFirst_name(), review.provider().getLast_name());
+			String ohipNo = review.provider().getOhip_no();
+			if (StringUtils.filled(ohipNo) && ohipNo.length() <= 6) {
+				reportReviewed.setReviewingOHIPPhysicianId(ohipNo);
+			}
+			reportReviewed.addNewDateTimeReportReviewed().setFullDate(Util.calDate(review.reviewed()));
+		}
+	}
+
+	/** Who acknowledged a lab, and when. */
+	private record LabReview(Date reviewed, ProviderData provider) {
+	}
+
+	/**
+	 * Looks up the provider who acknowledged a lab.
+	 *
+	 * @return the review, or {@code null} when the lab is unclaimed or not yet reviewed
+	 */
+	private LabReview findLabReview(String labNo, Integer labTable) {
+		HashMap<String, Object> labRoutingInfo = new HashMap<String, Object>();
+		if (labTable.equals(CaseManagementNoteLink.LABTEST))
+			labRoutingInfo.putAll(ProviderLabRouting.getInfo(labNo, "HL7"));
+		else
+			labRoutingInfo.putAll(ProviderLabRouting.getInfo(labNo, "CML"));
+
+		// No routing row (a lab filed without one) means no reviewer; the former inline lookup
+		// dereferenced the missing timestamp and aborted the patient's export.
+		Object timestamp = labRoutingInfo.get("timestamp");
+		Date reviewed = timestamp instanceof Date date ? date
+				: timestamp == null ? null : UtilDateUtilities.StringToDate(timestamp.toString(), "yyyy-MM-dd HH:mm:ss");
+		String labProviderNo = (String) labRoutingInfo.get("provider_no");
+
+		// ProviderLabRoutingDao assigns UNCLAIMED_PROVIDER = "0"
+		if (reviewed == null || labProviderNo == null || "0".equals(labProviderNo) || "".equals(labProviderNo)) {
+			return null;
+		}
+		return new LabReview(reviewed, new ProviderData(labProviderNo));
 	}
 
     private void exportLabResult(HashMap<String, String> labMea, LaboratoryResults labResults, String demoNo) {
+        // HL7 values can carry characters XML 1.0 forbids; XMLBeans would write each as '?'.
+        // Filter once here so every field below (and the 120-character limit) sees clean text (#3946).
+        labMea.replaceAll((key, value) -> CdsXmlText.stripInvalidXmlCharacters(value));
 
         //lab test code, test name, test name reported by lab
         if (StringUtils.filled(labMea.get("identifier"))) labResults.setLabTestCode(labMea.get("identifier"));
@@ -3611,8 +3738,11 @@ public class DemographicExportAction42Action extends ActionSupport {
         String measureData = StringUtils.noNull(labMea.get("measureData"));
         if (StringUtils.filled(measureData)) {
             LaboratoryResults.Result result = labResults.addNewResult();
-            if (measureData.length() > 120 && !Base64.isBase64(measureData)) {
-                measureData = measureData.substring(0, 120);
+            // Embedded documents never reach this point (they are exported as Reports), so every
+            // value here is result text and the schema's 120-character limit applies. The former
+            // Base64.isBase64 exemption let long ordinary results through untruncated (#3946).
+            if (measureData.codePointCount(0, measureData.length()) > 120) {
+                measureData = CdsXmlText.truncate(measureData, 120);
                 exportError.add("Error! Result text length > 120 - truncated; Lab Test " + labResults.getLabTestCode() + " for Patient " + demoNo);
             }
             result.setValue(measureData);
@@ -3674,30 +3804,20 @@ public class DemographicExportAction42Action extends ActionSupport {
 
             //lab annotation
             String other_id = StringUtils.noNull(labMea.get("other_id"));
-            String annotation = getNonDumpNote(labTable, Long.valueOf(lab_no), other_id);
+            String annotation = CdsXmlText.stripInvalidXmlCharacters(getNonDumpNote(labTable, Long.valueOf(lab_no), other_id));
             if (StringUtils.filled(annotation)) labResults.setPhysiciansNotes(annotation);
 
 //		  String info = labRoutingInfo.get("comment"); <--for whole report, may refer to >1 lab results
 
 
             //lab reviewer
-            HashMap<String, Object> labRoutingInfo = new HashMap<String, Object>();
-            if (labTable.equals(CaseManagementNoteLink.LABTEST))
-                labRoutingInfo.putAll(ProviderLabRouting.getInfo(lab_no, "HL7"));
-            else
-                labRoutingInfo.putAll(ProviderLabRouting.getInfo(lab_no, "CML"));
-
-            String timestamp = labRoutingInfo.get("timestamp").toString();
-            String lab_provider_no = (String) labRoutingInfo.get("provider_no");
-
-            // ProviderLabRoutingDao assigns UNCLAIMED_PROVIDER = "0"
-            if (UtilDateUtilities.StringToDate(timestamp, "yyyy-MM-dd HH:mm:ss") != null &&
-                    !"0".equals(lab_provider_no) && !"".equals(lab_provider_no)) {
+            LabReview review = findLabReview(lab_no, labTable);
+            if (review != null) {
                 LaboratoryResults.ResultReviewer reviewer = labResults.addNewResultReviewer();
-                reviewer.addNewDateTimeResultReviewed().setFullDateTime(Util.calDate(timestamp));
+                reviewer.addNewDateTimeResultReviewed().setFullDateTime(Util.calDate(review.reviewed(), true));
                 //reviewer name
                 cdsDt.PersonNameSimple reviewerName = reviewer.addNewName();
-                ProviderData pvd = new ProviderData(lab_provider_no);
+                ProviderData pvd = review.provider();
                 Util.writeNameSimple(reviewerName, pvd.getFirst_name(), pvd.getLast_name());
                 if (StringUtils.filled(pvd.getOhip_no()) && pvd.getOhip_no().length() <= 6)
                     reviewer.setOHIPPhysicianId(pvd.getOhip_no());
@@ -4051,7 +4171,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     private int parseTemplate(String templateOption) {
         try {
             return Integer.parseInt(templateOption != null ? templateOption.trim() : "");
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Rejected demographic export: template parameter is not an integer");
             return UNPARSEABLE_TEMPLATE;
         }

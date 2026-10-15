@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -28,6 +29,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("service")
@@ -538,6 +541,76 @@ class SmsSendServiceUnitTest {
 
         assertThat(result.status()).isEqualTo(SmsStatus.DELIVERED);
         assertThat(result.providerMessageId()).isEqualTo("webhook-result");
+    }
+
+    @Test
+    @DisplayName("send refuses without recording anything when SMS is turned off in Administration")
+    void shouldRefuseSend_whenSmsIsTurnedOff() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"),
+                configService
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_TURNED_OFF_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("sendSystemTest sends a synthetic SYSTEM_TEST through STUB only, even while SMS is turned off")
+    void shouldSendSystemTest_throughStubOnly() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(false);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permitted(SmsConsentStatus.SYSTEM_TEST, null, null),
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "VOIPMS"),
+                configService
+        );
+
+        SmsSendResultDto result = service.sendSystemTest("416-555-1212", "999998", 1001);
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENT);
+        assertThat(recorder.transactions()).singleElement().satisfies(transaction -> {
+            assertThat(transaction.getProviderType()).isEqualTo(SmsProviderType.STUB);
+            assertThat(transaction.getMessagePurpose()).isEqualTo(SmsMessagePurpose.SYSTEM_TEST);
+            assertThat(transaction.getDemographicNo()).isNull();
+            assertThat(transaction.getRequestedByHealthcareProviderNo()).isEqualTo("999998");
+        });
+    }
+
+    @Test
+    @DisplayName("sendSystemTest refuses a number that is not a valid phone number")
+    void shouldRejectSystemTest_whenNumberIsInvalid() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.sendSystemTest("not-a-number", "999998", 1001);
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(recorder.transactions()).isEmpty();
     }
 
     private static class RecordingSmsTransactionService implements SmsTransactionService {

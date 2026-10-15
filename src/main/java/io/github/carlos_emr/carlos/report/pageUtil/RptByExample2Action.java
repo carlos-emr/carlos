@@ -180,7 +180,6 @@ public class RptByExample2Action extends ActionSupport {
 
 
     private String sql;
-    private String selectedRecentSearch;
 
     public String getSql() {
         return sql;
@@ -189,14 +188,5 @@ public class RptByExample2Action extends ActionSupport {
     @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
-    }
-
-    public String getSelectedRecentSearch() {
-        return selectedRecentSearch;
-    }
-
-    @StrutsParameter
-    public void setSelectedRecentSearch(String selectedRecentSearch) {
-        this.selectedRecentSearch = selectedRecentSearch;
     }
 }

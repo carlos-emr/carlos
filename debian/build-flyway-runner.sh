@@ -36,13 +36,13 @@ for jar in flyway-core flyway-mysql mysql-connector-j; do
 done
 
 cp="$(find "$work/libs" -name '*.jar' | tr '\n' ':')"
-"$javahome/bin/javac" -nowarn -encoding UTF-8 -source 21 -target 21 \
+"$javahome/bin/javac" -nowarn -encoding UTF-8 --release 25 \
     -cp "$cp" -d "$work/classes" \
     debian/assets/flyway-runner/src/main/java/io/github/carlos_emr/carlos/deb/FlywayRunner.java
 # Test the warning/error boundary against the exact Flyway API in this WAR.
 # Keep test classes out of the installed launcher jar.
 mkdir -p "$work/test-classes"
-"$javahome/bin/javac" -nowarn -encoding UTF-8 -source 21 -target 21 \
+"$javahome/bin/javac" -nowarn -encoding UTF-8 --release 25 \
     -cp "$work/classes:$cp" -d "$work/test-classes" \
     debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java
 "$javahome/bin/java" -cp "$work/test-classes:$work/classes:$cp" \

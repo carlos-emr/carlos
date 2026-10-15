@@ -90,14 +90,15 @@
 <body onload="self.focus();init_page();">
 <%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
      files, a field over struts.multipart.maxStringLength, a parse failure) are
-     produced by the interceptor stack BEFORE this page's action runs, and reach
+     produced as action or field errors by the interceptor stack BEFORE this page's action runs, and reach
      this page through its "input" result. The action never executed, so any
      error channel keyed off an attribute the action sets is empty here -- and
      without this block the rejection renders the ordinary form again with no
      explanation, which is indistinguishable from a page refresh. --%>
-<s:if test="hasActionErrors()">
+<s:if test="hasActionErrors() || hasFieldErrors()">
     <div class="alert alert-danger" role="alert">
-        <s:actionerror/>
+        <s:actionerror escape="true"/>
+        <s:fielderror escape="true"/>
     </div>
 </s:if>
 
