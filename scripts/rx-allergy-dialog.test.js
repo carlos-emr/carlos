@@ -110,6 +110,11 @@ test('a confirmed save posts the form body unchanged and only then opens the all
     assert.equal(body.get('formDemographicNo'), '7');
     assert.equal(body.get('demographicNo'), '7');
     assert.equal(body.get('reactionDescription'), 'hives after first dose');
+    // The allergen's identity too: a class allergen saved without its ATC class could not be checked (#4576).
+    assert.equal(body.get('ID'), '');
+    assert.equal(body.get('type'), '8');
+    assert.equal(body.get('name'), 'PENICILLINS');
+    assert.equal(body.get('atc'), 'J01C');
     assert.equal(body.get('submit'), 'Add Allergy');
     assert.equal(page.submitButton.disabled, true, 'the button stays disabled while the list loads');
     assert.equal(page.statusRegion.textContent, '');
@@ -406,6 +411,12 @@ test('the class shortcuts take their class codes from AllergyAtcClass and post n
             }
         }
     }
+    // The dialogue form carries the class code, inside the form that rx-allergy-dialog.js posts whole.
+    const form = fs.readFileSync(path.join(rx, 'AddReaction2.jsp'), 'utf8');
+    const formStart = form.indexOf('id="RxAddAllergyForm"');
+    const atcInput = form.indexOf('<input type="hidden" name="atc"');
+    assert.ok(formStart > 0 && atcInput > formStart && atcInput < form.indexOf('</form>', formStart),
+        'AddReaction2.jsp does not post the ATC class with the reaction form');
     const java = fs.readFileSync(path.join(__dirname,
         '../src/main/java/io/github/carlos_emr/carlos/prescript/data/AllergyAtcClass.java'), 'utf8');
     assert.match(java, /PENICILLINS\("PENICILLINS", "J01C"/);
