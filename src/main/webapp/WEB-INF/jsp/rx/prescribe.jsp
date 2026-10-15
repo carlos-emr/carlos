@@ -324,10 +324,11 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                                                                                    title="${i18nInstructionExamples}"><b>*</b></a>
             <a href="javascript:void(0);" tabindex="-1" onclick="displayInstructions('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"><img
                     src="<%= request.getContextPath() %>/images/icon_help_sml.gif" border="0" title="${i18nInstructionsFieldRef}" /></a>
-            <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="display:none;background-color:red"></span>&nbsp;<span id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
-                                                                                                    style="display:none;background-color:orange"></span>&nbsp;<span
-                id='minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>' style="display:none;background-color:yellow;"></span>&nbsp;<span id='unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>'
-                                                                                                      style="display:none;background-color:#B1FB17"></span>
+            <%-- Drug-drug interaction markers, filled by rx-interaction-warnings.js from rx/interactionWarnings (#4506). --%>
+            <span id="major_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="major" style="display:none;background-color:#b71c1c;color:#fff;font-weight:bold;padding:0 4px;"></span>&nbsp;<span
+                id="moderate_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="moderate" style="display:none;background-color:#ffb74d;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="minor_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="minor" style="display:none;background-color:#fff176;color:#000;padding:0 4px;"></span>&nbsp;<span
+                id="unknown_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" data-rx-interaction="unknown" style="display:none;background-color:#c5e1a5;color:#000;padding:0 4px;"></span>
         </div>
         <div id="siAutoComplete_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" <%if (isSpecInstPresent) {%> style="overflow:visible;margin-top:1px;margin-bottom:10px"<%} else {%>
              style="overflow:visible;display:none;margin-top:1px;margin-bottom:10px"<%}%> >

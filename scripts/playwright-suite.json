@@ -4942,8 +4942,25 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Fails at its last step on 2026.08: no drug-drug interaction marker is shown for a DrugRef major interaction (the interaction calls are commented out of the Rx page).",
+      "notes": "Its last step failed on 2026.08 until #4506: no drug-drug interaction marker was shown for a DrugRef major interaction because the interaction calls were commented out of the Rx page. The staged cards now ask rx/interactionWarnings; rx-interaction-warnings covers the warning levels, current medications and failures.",
       "fixtures": "Owned patient with owned WT/SCR measurements; the test provider's rxInteractionWarningLevel property is snapshotted and restored."
+    },
+    {
+      "name": "rx-interaction-warnings",
+      "script": "scripts/rx-interaction-warnings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:rxInteractionWarningLevel"
+      ],
+      "fixtures": "Owned patient with one owned current (long-term) theophylline drugs row and a patient-level rxInteractionWarningLevel demographicExt row, removed by patient id; the test provider's rxInteractionWarningLevel property is snapshotted and restored exactly. It changes that provider's warning level while it runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "messenger-attachments",

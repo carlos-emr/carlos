@@ -811,9 +811,16 @@ public class RxDrugRef {
      * may be a Vector of interaction records or a Hashtable keyed by interaction source
      * (e.g., "Holbrook Drug Interactions").
      *
+     * <p>An empty answer means DrugRef compared the drugs and found nothing. An answer that is
+     * neither a list nor a source-keyed struct, or a struct carrying DrugRef's {@code Error} key
+     * (its reply when no interaction source is registered), means nothing was compared and is
+     * thrown rather than returned as an empty list: callers show "no interactions" for an empty
+     * list (issue #4506).</p>
+     *
      * @param drugs Vector of drug identifiers (ATC codes or drug names) to check for interactions
      * @return Vector of interaction result Hashtables; empty Vector if no interactions found
-     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or
+     *                   answers without having checked the drugs
      * @since 2026-02-26
      */
     public Vector getInteractions(Vector drugs) throws Exception {
@@ -826,6 +833,9 @@ public class RxDrugRef {
         if (obj instanceof Vector) {
             vec = (Vector) obj;
         } else if (obj instanceof Hashtable) {
+            if (((Hashtable<?, ?>) obj).containsKey("Error")) {
+                throw new Exception("DrugRef: 'interactions_byATC' is not available");
+            }
             // Some DrugRef implementations return interactions keyed by source name
             Object holbrook = ((Hashtable) obj).get("Holbrook Drug Interactions");
             if (holbrook instanceof Vector) {
@@ -836,6 +846,8 @@ public class RxDrugRef {
             if (logger.isDebugEnabled()) {
                 logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
             }
+        } else {
+            throw new Exception("DrugRef: 'interactions_byATC' returned no result");
         }
         return vec;
     }

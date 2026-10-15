@@ -152,7 +152,7 @@ async function workflow(s) {
     const markers = [card, renalCard].map(id => rx.locator(`#${level}_${id}`));
     const visible = await Promise.all(markers.map(marker => marker.isVisible()));
     h.assert(visible.some(Boolean), `No ${level} interaction marker is shown on either staged card for ciprofloxacin + theophylline `
-      + `(DrugRef significance ${significance}); the Rx page never requests rx/ViewInteractionDisplay or rx/ViewUpdateInteractingDrugs`);
+      + `(DrugRef significance ${significance}); see rx/interactionWarnings and rx-interaction-warnings`);
   });
 }
 

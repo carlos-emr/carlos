@@ -352,6 +352,7 @@
     "test:measurement-customization-routes-playwright": "node scripts/measurement-customization-routes-playwright-checks.js",
     "test:provider-preferences-cpp-dx-playwright": "node scripts/provider-preferences-cpp-dx-playwright-checks.js",
     "test:rx-interactions-renal-luc-playwright": "node scripts/rx-interactions-renal-luc-playwright-checks.js",
+    "test:rx-interaction-warnings-playwright": "node scripts/rx-interaction-warnings-playwright-checks.js",
     "test:messenger-attachments-playwright": "node scripts/messenger-attachments-playwright-checks.js",
     "test:lab-manual-entry-cumulative-playwright": "node scripts/lab-manual-entry-cumulative-playwright-checks.js",
     "test:lab-to-flowsheet-playwright": "node scripts/lab-to-flowsheet-playwright-checks.js",
