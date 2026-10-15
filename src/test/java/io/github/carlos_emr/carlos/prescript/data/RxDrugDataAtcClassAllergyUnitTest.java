@@ -85,7 +85,7 @@ class RxDrugDataAtcClassAllergyUnitTest {
 
     @Test
     @DisplayName("should report a class allergy as checked and clear for a drug outside its class")
-    void shouldReportCheckedAndClear_whenDrugIsOutsideTheClass() throws Exception {
+    void shouldReportUnchecked_whenIngredientsAreUnavailableOutsideTheClass() throws Exception {
         Allergy penicillins = classAllergy("PENICILLINS", "J01C");
         Allergy sulfonamides = classAllergy("SULFONAMIDES", "J01E");
         List<Allergy> missing = new ArrayList<>();
@@ -94,8 +94,7 @@ class RxDrugDataAtcClassAllergyUnitTest {
             assertThat(new RxDrugData().getAllergyWarnings(BIAXIN, new Allergy[]{penicillins, sulfonamides}, missing))
                     .isEmpty();
         }
-        // Compared and not matched: neither a warning nor "Not checked".
-        assertThat(missing).isEmpty();
+        assertThat(missing).usingElementComparator(SAME).containsExactly(penicillins, sulfonamides);
     }
 
     @Test
@@ -222,7 +221,8 @@ class RxDrugDataAtcClassAllergyUnitTest {
         try (MockedConstruction<RxDrugRef> ignored = drugRefAnswers(List.of(), List.of())) {
             assertThat(new RxDrugData().getAllergyWarnings("J01", new Allergy[]{cleared}, stillMissing)).isEmpty();
         }
-        assertThat(stillMissing).isEmpty();
+        assertThat(stillMissing).hasSize(1);
+        assertThat(stillMissing.getFirst()).isSameAs(cleared);
     }
 
     @Test

@@ -821,21 +821,10 @@ public class RxDrugRef {
         Vector params = new Vector();
         params.addElement("interactions_byATC");
         params.addElement(drugs);
-        Vector vec = new Vector();
         Object obj = callWebserviceLite("fetch", params);
-        if (obj instanceof Vector) {
-            vec = (Vector) obj;
-        } else if (obj instanceof Hashtable) {
-            // Some DrugRef implementations return interactions keyed by source name
-            Object holbrook = ((Hashtable) obj).get("Holbrook Drug Interactions");
-            if (holbrook instanceof Vector) {
-                vec = (Vector) holbrook;
-            }
-            // Log only key names — not values, which may contain PHI (medication context).
-            // Avoid calling .getClass() on values that may be null.
-            if (logger.isDebugEnabled()) {
-                logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
-            }
+        Object entries = obj instanceof Hashtable<?, ?> sources ? sources.get("Holbrook Drug Interactions") : obj;
+        if (!(entries instanceof Vector<?> vec)) {
+            throw new IllegalStateException("DrugRef returned an incomplete interaction response");
         }
         return vec;
     }

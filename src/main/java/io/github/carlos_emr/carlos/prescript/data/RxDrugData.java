@@ -896,6 +896,15 @@ public class RxDrugData {
      * @since 2026-02-26
      */
     public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
+        return getAllergyWarnings(atcCode, allergies, missing, null);
+    }
+
+    /**
+     * Also checks the exact DIN's active ingredients for shortcut allergens outside J01C/J01E.
+     * Missing ingredient data leaves an out-of-class shortcut unchecked, rather than falsely clear.
+     * Legacy callers without a DIN retain confirmed warnings but cannot assert an ingredient all-clear.
+     */
+    public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing, String din) throws Exception {
         if (allergies.length == 0) return new Allergy[0];
         Vector<Map<String, String>> allergyData = new Vector<>();
         for (int i = 0; i < allergies.length; i++) {
@@ -926,14 +935,46 @@ public class RxDrugData {
         // Allergy.equals compares ids.
         boolean[] warned = resolveAllergyIndices(warnings, allergies.length);
         boolean[] notChecked = resolveAllergyIndices(unchecked, allergies.length);
-        // ATC class allergens are decided from their class code, which DrugRef ignores: it checks
-        // a class by name, and a class name the DPD extract lacks comes back as missing (#4576).
-        // A drug without a usable code, or one coded above the class, leaves DrugRef's answer as it is.
+        DrugMonograph ingredientSource = null;
+        boolean ingredientsRequested = false;
+        // Prefix matches provide confirmed class warnings. Shortcut products outside those
+        // prefixes also need their exact ingredients; absence from a class is not proof that a
+        // combination product contains none of its members (#4680).
         for (int i = 0; i < allergies.length; i++) {
             String classCode = AllergyAtcClass.classCodeOf(allergies[i]);
-            if (classCode == null || !AllergyAtcClass.decides(classCode, atcCode)) continue;
-            if (AllergyAtcClass.covers(classCode, atcCode)) warned[i] = true;
-            notChecked[i] = false;
+            if (classCode == null) continue;
+            if (AllergyAtcClass.covers(classCode, atcCode)) {
+                warned[i] = true;
+                notChecked[i] = false;
+                continue;
+            }
+            AllergyAtcClass.Shortcut shortcut = AllergyAtcClass.shortcutOf(allergies[i]);
+            if (shortcut == null) {
+                if (AllergyAtcClass.decides(classCode, atcCode)) notChecked[i] = false;
+                continue;
+            }
+            if (warned[i]) continue;
+            if (!ingredientsRequested) {
+                ingredientsRequested = true;
+                if (StringUtils.isNotBlank(din)) {
+                    try {
+                        ingredientSource = getDrugByDIN(din);
+                    } catch (Exception failure) {
+                        // Keep confirmed ATC/DrugRef warnings; only the ingredient comparison failed.
+                        MiscUtils.getLogger().warn("Allergy ingredient lookup failed; failureType={}", failure.getClass().getSimpleName());
+                    }
+                }
+            }
+            // An empty/partial monograph cannot prove the absence of a class ingredient.
+            boolean complete = ingredientSource != null && !ingredientSource.getDrugComponentList().isEmpty()
+                    && ingredientSource.getDrugComponentList().stream().allMatch(component -> component != null
+                    && StringUtils.isNotBlank(component.getName()));
+            notChecked[i] = !complete;
+            if (ingredientSource != null && ingredientSource.getDrugComponentList().stream()
+                    .anyMatch(component -> component != null && shortcut.coversIngredient(component.getName()))) {
+                warned[i] = true;
+                notChecked[i] = false;
+            }
         }
         List<Allergy> found = new ArrayList<>();
         for (int i = 0; i < allergies.length; i++) {
@@ -982,11 +1023,6 @@ public class RxDrugData {
         ArrayList lst = new ArrayList();
         Vector v = new Vector();
         RxDrugRef d = new RxDrugRef();
-        for (int i = 0; i < atcCodes.size(); i++) {
-            String ss = (String) atcCodes.get(i);
-            MiscUtils.getLogger().debug(ss);
-        }
-
         v = d.getInteractions(atcCodes);
         for (int i = 0; i < v.size(); i++) {
             Hashtable h = (Hashtable) v.get(i);
@@ -1000,7 +1036,7 @@ public class RxDrugData {
             inact.significance = (String) h.get("significance");
             inact.comment = (String) h.get("comment");
             lst.add(inact);
-            MiscUtils.getLogger().debug("affectingDrug" + inact.affectingdrug);
+
         }
         MiscUtils.getLogger().debug(lst.size());
         arr = (Interaction[]) lst.toArray(arr);

@@ -242,6 +242,7 @@
         <action name="rx/ViewTopLinks" class="io.github.carlos_emr.carlos.prescript.gate.ViewTopLinks2Action">
             <result name="success">/WEB-INF/jsp/rx/TopLinks.jsp</result>
         </action>
+        <action name="rx/interactionWarnings" class="io.github.carlos_emr.carlos.prescript.gate.RxInteractionWarnings2Action"/>
         <action name="rx/ViewUpdateInteractingDrugs" class="io.github.carlos_emr.carlos.prescript.gate.ViewUpdateInteractingDrugs2Action">
             <result name="success">/WEB-INF/jsp/rx/UpdateInteractingDrugs.jsp</result>
         </action>

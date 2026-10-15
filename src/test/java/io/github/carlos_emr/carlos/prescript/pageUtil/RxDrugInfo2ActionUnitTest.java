@@ -227,13 +227,24 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotSubstituteATextSearch_whenTheExactDinIsUnknown() {
+    void shouldSearchByName_whenTheExactDinIsUnknown() {
         monograph = null;
         request.setParameter("GN", "Synthetic ingredient");
         request.setParameter("DIN", "00123456");
         assertLocalView();
         assertThat(request.getAttribute("drugInfoMonograph")).isNull();
-        verify(drugData.constructed().getFirst(), never()).listDrug2(anyString());
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
+    }
+
+    @Test
+    void shouldSearchByName_whenTheExactProductHasAnEmptyMonograph() {
+        when(monograph.getName()).thenReturn(" ");
+        when(monograph.getProduct()).thenReturn("");
+        request.setParameter("GN", "Synthetic ingredient");
+        request.setParameter("BN", "1234");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoMonograph")).isNull();
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
     }
 
     @ParameterizedTest

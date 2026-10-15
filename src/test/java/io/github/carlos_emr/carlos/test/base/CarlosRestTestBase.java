@@ -277,7 +277,14 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         JAXBElementProvider<Object> jaxbProvider = new JAXBElementProvider<>();
         jaxbProvider.setProduceMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
         jaxbProvider.setConsumeMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
-        return List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider);
+        List<Object> providers = new ArrayList<>(List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider));
+        providers.addAll(additionalProviders());
+        return providers;
+    }
+
+    /** Production providers needed by a particular service, such as its exception mappers. */
+    protected List<Object> additionalProviders() {
+        return List.of();
     }
 
     /**

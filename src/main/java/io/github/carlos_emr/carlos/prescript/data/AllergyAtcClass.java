@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
+import java.util.List;
+import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * ATC class allergens: allergies recorded against a level of the WHO Anatomical Therapeutic
@@ -46,12 +49,12 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
  * classification, though: the DPD files some products that contain a class member under another
  * branch, such as an H. pylori pack containing amoxicillin ({@code A02BD07}), sulfasalazine
  * ({@code A07EC01}) or sulfacetamide eye drops with prednisolone ({@code S01CA02}). For a shortcut
- * allergy DrugRef is therefore also asked about the class under both of its names, the AHFS class
- * the old shortcut used and the ATC class, and a warning from any of the three checks is a
- * warning ({@link #shortcutOf(Allergy)}). When DrugRef resolves neither name, a drug the ATC code
- * places outside the class is reported as checked and clear: on a DPD extract without AHFS that
- * includes the products above. Covering them there would need more class codes per shortcut,
- * which is a clinical decision.</p>
+ * allergy DrugRef is also asked about both class names. For a prescribed product outside the
+ * shortcut's ATC class, its exact DIN's active ingredients provide an additional check that does
+ * not depend on AHFS. This covers combination and topical products without classifying every
+ * product in their broad ATC branches as an allergen (#4680). Missing ingredients leave the
+ * shortcut unchecked. Trimethoprim remains in Sulfa's scope per phc007's clinical guidance.</p>
+
  *
  * <p>Allergies recorded through the old shortcuts keep their stored identity (the clinical
  * record is not rewritten in place), but they are recognised by the exact identity the shortcut
@@ -113,6 +116,36 @@ public final class AllergyAtcClass {
         /** @return the ATC class code the shortcut files the allergy under, for example {@code J01C} */
         public String atcClass() {
             return atcClass;
+        }
+
+        /**
+         * Matches DrugRef active-ingredient names, including their salt forms. These are
+         * reference ingredients, never a free-text allergy or a product-name substring.
+         * Penicillin and antibacterial sulfonamide names follow the 2026 WHO ATC index
+         * (J01CA/CE/CF and J01EB/EC/ED), with catalogue synonyms and the topical/intestinal
+         * ingredients identified on #4680. See docs/rx-allergy-shortcuts.md for sources.
+         * Trimethoprim intentionally remains in Sulfa's scope per phc007 on #4680.
+         */
+        // FindSecBugs IMPROPER_UNICODE: case folding catalogue ingredient names, not an authorization value.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Normalizes DrugRef ingredient names, not authorization values")
+        public boolean coversIngredient(String ingredient) {
+            if (ingredient == null) return false;
+            String name = ingredient.trim().toUpperCase(Locale.ROOT);
+            List<String> members = this == PENICILLINS
+                    ? List.of("AMOXICILLIN", "AMPICILLIN", "ASPOXICILLIN", "AZIDOCILLIN", "AZLOCILLIN",
+                    "BACAMPICILLIN", "BENZATHINE BENZYLPENICILLIN", "BENZATHINE PHENOXYMETHYLPENICILLIN",
+                    "BENZYLPENICILLIN", "CARBENICILLIN", "CARINDACILLIN", "CLOMETOCILLIN", "CLOXACILLIN",
+                    "DICLOXACILLIN", "EPICILLIN", "FLUCLOXACILLIN", "HETACILLIN", "MECILLINAM",
+                    "METAMPICILLIN", "METICILLIN", "METHICILLIN", "MEZLOCILLIN", "NAFCILLIN", "OXACILLIN",
+                    "PENAMECILLIN", "PENICILLIN", "PHENETICILLIN", "PHENOXYMETHYLPENICILLIN", "PIPERACILLIN",
+                    "PIVAMPICILLIN", "PIVMECILLINAM", "PROCAINE BENZYLPENICILLIN", "PROPICILLIN",
+                    "SULBENICILLIN", "TALAMPICILLIN", "TEMOCILLIN", "TICARCILLIN")
+                    : List.of("SULFACETAMIDE", "SULFADIAZINE", "SILVER SULFADIAZINE", "SULFADOXINE",
+                    "SULFADIMETHOXINE", "SULFADIMIDINE", "SULFAFURAZOLE", "SULFAGUANIDINE", "SULFAISODIMIDINE",
+                    "SULFALENE", "SULFAMERAZINE", "SULFAMETHAZINE", "SULFAMETHIZOLE", "SULFAMETHOXAZOLE",
+                    "SULFAMETHOXYPYRIDAZINE", "SULFAMETOMIDINE", "SULFAMOXOLE", "SULFANILAMIDE", "SULFAPYRIDINE",
+                    "SULFASALAZINE", "SULFATHIAZOLE", "SULFATHIOUREA", "SULFISOXAZOLE", "TRIMETHOPRIM");
+            return members.stream().anyMatch(member -> name.equals(member) || name.startsWith(member + " "));
         }
 
         /**

@@ -754,7 +754,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                 }
             });
 
-            checkAllergy('<%=rand%>','<%=rx.getAtcCode()%>');
+            checkAllergy('<%=rand%>','<carlos:encode value="<%=rx.getAtcCode()%>" context="javaScriptBlock"/>','<carlos:encode value="<%=rx.getRegionalIdentifier()%>" context="javaScriptBlock"/>');
             checkIfInactive('<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');
 
             var isDiscontinuedLatest=<%=isDiscontinuedLatest%>;

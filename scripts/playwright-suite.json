@@ -4942,7 +4942,7 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Fails at its last step on 2026.08: no drug-drug interaction marker is shown for a DrugRef major interaction (the interaction calls are commented out of the Rx page).",
+      "notes": "Interaction JSON is refreshed as staged cards change; the DrugRef ciprofloxacin/theophylline pair must show its major marker and honor the provider warning level.",
       "fixtures": "Owned patient with owned WT/SCR measurements; the test provider's rxInteractionWarningLevel property is snapshotted and restored."
     },
     {
@@ -9241,7 +9241,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One owned custom medication seeded by SQL for the owned FAKE- patient; cleanup deletes the drugs row and the discontinue chart notes with their links and asserts nothing remains. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: the stale second Discontinue overwrites archived_reason/archived_date and files a second chart note (RxDeleteRx2Action.java:397-408 only checks the drug belongs to the patient)."
+      "notes": "The first discontinuation wins an atomic active-drug update; the stale second request must receive 409 and preserve the first reason, archive date and single chart note."
     },
     {
       "name": "concurrency-chart-note-takeover",

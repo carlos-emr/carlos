@@ -95,6 +95,33 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     }
 
     @Override
+    protected List<Object> additionalProviders() {
+        return List.of(new AccessDeniedExceptionMapper());
+    }
+
+    @Test
+    void shouldReturn403_whenDrugListReadIsDenied() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), eq(100))).thenReturn(false);
+        try (Response response = request().path("/rx/drugs/all/100").get()) {
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.readEntity(String.class)).isEqualTo("Access denied");
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockRxManager, mockDrugConverter);
+    }
+
+    @Test
+    void shouldReturn403_beforeRecordingAPrescriptionPrint() {
+        var prescription = new io.github.carlos_emr.carlos.commn.model.Prescription();
+        prescription.setDemographicId(100);
+        when(mockPrescriptionManager.getPrescription(any(), eq(7))).thenReturn(prescription);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), eq(100))).thenReturn(false);
+        try (Response response = request().path("/rx/recordPrescriptionPrint/7").post(null)) {
+            assertThat(response.getStatus()).isEqualTo(403);
+        }
+        org.mockito.Mockito.verify(mockPrescriptionManager, org.mockito.Mockito.never()).print(any(), anyInt());
+    }
+
+    @Override
     protected Object getServiceBean() {
         RxWebService service = new RxWebService();
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);

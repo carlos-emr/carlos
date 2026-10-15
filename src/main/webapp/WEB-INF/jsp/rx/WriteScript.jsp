@@ -1476,7 +1476,7 @@
 
                             <!-- peice Went Here --> <%
                                 //RxPatientData.Patient.Allergy[] allerg = (RxPatientData.Patient.Allergy[]) request.getAttribute("ALLERGIES");
-                                Allergy[] allerg = bean.getAllergyWarnings(loggedInInfo, atcCode);
+                                Allergy[] allerg = bean.getAllergyWarnings(loggedInInfo, atcCode, regionalIdentifier);
                                 if (allerg != null && allerg.length > 0) {
                                     for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
                             %>

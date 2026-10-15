@@ -86,7 +86,11 @@ public final class RxDrugInfo2Action extends ActionSupport {
                                 StringUtils.defaultIfBlank(monograph.getName(), monograph.getProduct()));
                     }
                 }
-            } else {
+            }
+            // An old/imported DIN may no longer exist in this DrugRef extract. Keep the
+            // exact lookup first, then offer explicit search results rather than a blank page
+            // or silently substituting another product's monograph (#4554).
+            if (request.getAttribute("drugInfoMonograph") == null && genericName != null) {
                 RxDrugData.DrugSearch search = data.listDrug2(genericName);
                 if (search == null || search.failed) {
                     request.setAttribute("drugInfoUnavailable", true);
