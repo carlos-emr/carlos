@@ -176,6 +176,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
                                 <fmt:message key="inbox.inboxmanager.msgReviewStatus"/>
                             </label>
                             <input type="hidden" name="query.status" id="statusId" value="${carlos:forHtmlAttribute(query.status)}"/>
+                            <%-- The toolbar's Acknowledged-today toggle, kept in the form so the Search button's
+                                 full-page submit keeps it too (otherwise status=A comes back unbounded and pages in
+                                 the whole acknowledged history). Disabled, and so never sent, while the toggle is off;
+                                 syncAcknowledgedTodayField() keeps it in step with ackToggleState. --%>
+                            <input type="hidden" name="query.acknowledgedToday" id="acknowledgedTodayId" value="true"
+                                ${query.acknowledgedToday and query.status eq 'A' ? '' : 'disabled'}/>
                             <div class="form-check">
                                 <input type="radio" class="form-check-input" name="statusReview" id="statusAll" value="All"
                                     ${empty query.status ? 'checked' : ''} onclick="changeValueElementByName('query.status', ''); clearAcknowledgedToggle();">
@@ -540,17 +546,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function fetchInboxhubData() {
-        // Re-serialize the search form so programmatic checkbox/radio changes take effect
-        inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         // The toolbar's Acknowledged toggle lists what was acknowledged TODAY. List mode loads
         // every page of whatever it asks for, so a bare status=A paged in every result the
         // provider had ever acknowledged, with the progress bar measured against the New totals.
         // The server bounds it by acknowledgement time, so a lab acknowledged today still shows
         // however old its result is; older acknowledgements stay reachable from the search panel,
         // which never sends this. Carried in inboxSearchFormData so every later page keeps it.
-        if (ackToggleState) {
-            inboxSearchFormData += "&query.acknowledgedToday=true";
-        }
+        syncAcknowledgedTodayField();
+        // Re-serialize the search form so programmatic checkbox/radio changes take effect
+        inboxSearchFormData = jQuery("#inboxSearchForm").serialize();
         const viewModeBtn = document.getElementById("btnViewMode");
         viewModeBtn.disabled = true;
         resetDataPageCount();
@@ -1410,7 +1414,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     // State variables preserved across inbox refreshes (the toolbar HTML inside
     // #inboxhubMode is replaced on each fetch, so checkbox state must be restored)
     var activeTypeFilter = null;
-    var ackToggleState = false;
+    // Starts from the submitted search, so the Search button keeps the Acknowledged-today toggle.
+    var ackToggleState = ${query.acknowledgedToday and query.status eq 'A' ? 'true' : 'false'};
     var rapidReviewState = false;
 
     /**
@@ -1484,6 +1489,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         ackToggleState = false;
         var ackToggle = document.getElementById('ackToggle');
         if (ackToggle) ackToggle.checked = false;
+        syncAcknowledgedTodayField();
+    }
+
+    /**
+     * Mirrors ackToggleState into the search form's hidden query.acknowledgedToday field, enabled
+     * only while the toggle is on, so both the AJAX requests (which serialize the form) and the
+     * Search button's full-page submit carry the bound exactly when the toggle is on.
+     */
+    function syncAcknowledgedTodayField() {
+        var field = document.getElementById('acknowledgedTodayId');
+        if (field) field.disabled = !ackToggleState;
     }
 
     /**

@@ -44,7 +44,9 @@ public interface InboxResultsDao {
      *
      * <p>The bound is the routing row's own {@code timestamp}, which acknowledging a document
      * stamps; it is independent of the document's observation and content dates. The Inbox Hub
-     * toolbar uses it to list today's acknowledgements without paging in the whole history.
+     * toolbar uses it to list today's acknowledgements without paging in the whole history. As
+     * with {@link Hl7TextInfoDao#findLabAndDocsViaMagic}, a comment saved today on a document
+     * acknowledged earlier restamps the row and lists it too.
      *
      * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
      */

@@ -96,6 +96,12 @@ public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
      * the result itself is. The Inbox Hub toolbar uses it to list today's acknowledgements without
      * paging in the provider's whole acknowledged history.
      *
+     * <p>{@code updateReportStatus} restamps the row on every write, so a comment saved today on a
+     * result acknowledged earlier (or acknowledging it again) also lists it: the bound follows the
+     * acknowledgement time the lab display shows. Other routing updates either move the row out
+     * of the acknowledged status or write its loaded timestamp back on merge, which keeps the
+     * column's {@code ON UPDATE} default from firing.
+     *
      * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
      */
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName,

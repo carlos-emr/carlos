@@ -34,15 +34,18 @@ function extractFunction(name) {
 
 // The request path exactly as the page ships it. The list URL carries a JSP encoder tag,
 // which is not JavaScript; the fixture checks only the request's data, not its address.
-const source = ['toggleAcknowledged', 'fetchInboxhubData', 'fetchInboxhubListData', 'loadMoreListData',
-  'ownsInboxhubPageFetch', 'settleInboxhubPageFetch']
+const source = ['toggleAcknowledged', 'fetchInboxhubData', 'syncAcknowledgedTodayField', 'fetchInboxhubListData',
+  'loadMoreListData', 'ownsInboxhubPageFetch', 'settleInboxhubPageFetch']
   .map(extractFunction).join('\n').replace(/<carlos:encode[^>]*\/>/g, '/carlos');
 
 /** The onclick handler the search panel's review-status radio carries, exactly as rendered. */
 function statusRadioOnclick(id) {
-  const tag = jsp.match(new RegExp('<input[^>]*id="' + id + '"[^>]*>'));
-  assert.ok(tag, 'no #' + id + ' radio in InboxhubForm.jsp');
-  const handler = tag[0].match(/onclick="([^"]*)"/);
+  // Plain string search, not a RegExp built from the id: the tag is the <input ...> around it.
+  const at = jsp.indexOf('id="' + id + '"');
+  const start = jsp.lastIndexOf('<input', at);
+  const end = jsp.indexOf('>', at);
+  assert.ok(at >= 0 && start >= 0 && end > at, 'no #' + id + ' radio in InboxhubForm.jsp');
+  const handler = jsp.slice(start, end + 1).match(/onclick="([^"]*)"/);
   assert.ok(handler, '#' + id + ' has no onclick handler');
   return handler[1];
 }
@@ -56,11 +59,15 @@ function inbox() {
   const requests = [];
   const form = { status: 'N' };
   const radios = { statusNew: { checked: true }, statusAcknowledged: { checked: false },
-    ackToggle: { checked: false } };
+    ackToggle: { checked: false },
+    // The form's hidden query.acknowledgedToday field, rendered disabled for a New search.
+    acknowledgedTodayId: { disabled: true } };
   const viewMode = { value: 'false', disabled: false };
   function jQuery(selector) {
     if (selector === '#inboxSearchForm') {
-      return { serialize: () => 'query.viewMode=false&query.searchProviderNo=999998&query.status=' + form.status };
+      // Like jQuery's serialize, a disabled field is left out.
+      return { serialize: () => 'query.viewMode=false&query.searchProviderNo=999998&query.status=' + form.status
+        + (radios.acknowledgedTodayId.disabled ? '' : '&query.acknowledgedToday=true') };
     }
     return { prop() { return this; }, hide() { return this; } };
   }
@@ -173,4 +180,34 @@ test('a search that never used the toggle is not bounded by it', () => {
   page.context.fetchInboxhubData();
 
   assert.equal(page.params(0).get('query.acknowledgedToday'), null);
+});
+
+test('the Search button keeps the toggle, because the form itself carries it', () => {
+  // The Search button submits the form as a full page, not through fetchInboxhubData. Without the
+  // field the next page would come back with a bare status=A and page in the whole history.
+  const page = inbox();
+
+  page.context.toggleAcknowledged(true);
+  assert.equal(page.radios.acknowledgedTodayId.disabled, false, 'a Search submit now asks for today only');
+
+  page.context.toggleAcknowledged(false);
+  assert.equal(page.radios.acknowledgedTodayId.disabled, true, 'the New list submits no bound');
+
+  page.context.toggleAcknowledged(true);
+  page.clickStatusRadio('statusAcknowledged');
+  assert.equal(page.radios.acknowledgedTodayId.disabled, true,
+    'a status picked in the panel replaces the toggle for the Search button too');
+});
+
+test('the page rendered for a submitted search starts with the toggle it asked for', () => {
+  // The returned page re-ticks the box (restoreToolbarState) and keeps sending the bound only when
+  // the submitted search was the toggle's own: Acknowledged status plus the flag.
+  const field = jsp.slice(jsp.lastIndexOf('<input', jsp.indexOf('id="acknowledgedTodayId"')),
+    jsp.indexOf('/>', jsp.indexOf('id="acknowledgedTodayId"')) + 2);
+  assert.match(field, /name="query\.acknowledgedToday"/);
+  assert.match(field, /value="true"/);
+  assert.ok(field.includes("${query.acknowledgedToday and query.status eq 'A' ? '' : 'disabled'}"),
+    'the field is sent only for the toggle\'s own search');
+  assert.ok(jsp.includes("var ackToggleState = ${query.acknowledgedToday and query.status eq 'A' ? 'true' : 'false'};"),
+    'the toggle state starts from the submitted search');
 });

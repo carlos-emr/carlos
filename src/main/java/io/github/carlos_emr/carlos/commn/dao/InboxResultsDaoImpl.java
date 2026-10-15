@@ -302,7 +302,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " WHERE 	" + " (cd.module_id = :demographicNo "
                         + "	AND cd.document_no = plr.lab_no"
                         + "	AND plr.lab_type = 'DOC'  	"
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo )" : " )")
                         + " ORDER BY id DESC) AS Y"
                         + " UNION"
@@ -310,7 +310,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, patientLabRouting plr2"
                         + " WHERE"
                         + "	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7'"
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 	AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = :demographicNo "
                         + " ORDER BY id DESC) AS Z"
@@ -346,7 +346,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "			WHERE 	 "
                         + " (COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "		AND cd.module_id = d.demographic_no 	AND cd.document_no = plr.lab_no	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + "		) ORDER BY id DESC) AS Y "
                         + " 	UNION "
@@ -358,7 +358,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "		AND	plr.lab_type = 'HL7' AND plr2.lab_type = 'HL7' "
                         + (isAbnormal != null ? " AND plr.lab_no = info.lab_no AND (info.result_status IS NULL OR info.result_status != 'A') "
                         : " ")
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : " ")
                         + " 	AND plr.lab_no = plr2.lab_no AND plr2.demographic_no = d.demographic_no ORDER BY id DESC) AS Z "
                         + " 			ORDER BY id DESC) AS X "
@@ -442,7 +442,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + "	AND doc.document_no = cd.document_no "
                         + isDocAbnormalSql
@@ -471,7 +471,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + "	AND cd.module_id = d.demographic_no "
                         + "	AND cd.document_no = plr.lab_no "
                         + "	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + "	AND doc.document_no = cd.document_no "
                         + isDocAbnormalSql
@@ -497,7 +497,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " WHERE (cd.module_id = d.demographic_no) "
                         + " 	AND cd.document_no = plr.lab_no "
                         + " 	AND plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " 	AND doc.document_no = cd.document_no  "
                         + isDocAbnormalSql
@@ -509,7 +509,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + (dateSearchType.equals("receivedCreated") ? "contentdatetime" : "observationdate") + ", docdesc, updatedatetime "
                         + " FROM ctl_document cd, providerLabRouting plr, document d "
                         + " WHERE plr.lab_type = 'DOC' "
-                        + "	AND plr.status " + routingStatusSql
+                        + " AND plr.status " + routingStatusSql
                         + (searchProvider ? " AND plr.provider_no = :providerNo " : "")
                         + " AND plr.lab_no = cd.document_no " + " AND cd.module_id = -1 "
                         + " AND d.document_no = cd.document_no "

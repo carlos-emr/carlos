@@ -126,6 +126,12 @@ class LabDataControllerUnitTest extends CarlosUnitTestBase {
 
     /** The acknowledgement bound each source received: documents, labs, then HRM reports. */
     private List<Date> boundsPassedToEachSource(LabDataController controller, InboxhubQuery query) {
+        // CommonLabResultData's static fields read these beans. Without them, a JVM where this is
+        // the first test to touch the class fails to initialize it for every later test too.
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        createAndRegisterMock(SecurityInfoManager.class);
         InboxResultsDao documents = mock(InboxResultsDao.class);
         springUtilsMock.when(() -> SpringUtils.getBean("inboxResultsDao")).thenReturn(documents);
         ArgumentCaptor<Date> documentBound = ArgumentCaptor.forClass(Date.class);
