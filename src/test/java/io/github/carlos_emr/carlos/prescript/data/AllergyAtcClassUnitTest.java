@@ -103,6 +103,26 @@ class AllergyAtcClassUnitTest {
     }
 
     @Nested
+    @DisplayName("drug codes")
+    class DrugCodes {
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"J", "J01", "J01C", "J01CA", "J01CA04", " J01CA04 "})
+        @DisplayName("should accept an ATC code cut after any of its five levels")
+        void shouldAcceptDrugCode_atEveryLevel(String code) {
+            assertThat(AllergyAtcClass.isDrugCode(code)).isTrue();
+        }
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"J0", "J01CA0", "J01CA045", "1", "JJ1", "J0AC", "J01C4", "J01CAA4", "j01ca04", "null"})
+        @DisplayName("should refuse a code of the wrong length or shape")
+        void shouldRefuseDrugCode_forWrongLengthOrShape(String code) {
+            assertThat(AllergyAtcClass.isDrugCode(code)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("the class check")
     class Covers {
 

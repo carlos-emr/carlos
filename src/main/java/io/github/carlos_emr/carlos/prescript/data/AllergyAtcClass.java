@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.prescript.data;
 
-import java.util.regex.Pattern;
-
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 /**
@@ -75,16 +73,13 @@ public final class AllergyAtcClass {
     public static final int AHFS_TYPE_CODE = 10;
 
     /**
-     * An ATC code a class allergen may be filed under: levels 3 to 5 (for example {@code J01C},
-     * {@code J01CA}, {@code J01CA04}). Levels 1 and 2 are refused because a code that broad ("J",
-     * "J01": every systemic anti-infective, every antibacterial) would warn on whole branches of
-     * prescribing, which is a data error and not an allergy. Upper case only: the DPD and the
-     * shortcuts write upper case, and the check is a plain prefix comparison.
+     * The length of the shortest ATC code a class allergen may be filed under, a level 3 code such
+     * as {@code J01C}. Levels 4 ({@code J01CA}) and 5 ({@code J01CA04}) are allowed too. Levels 1
+     * and 2 are refused because a code that broad ("J", "J01": every systemic anti-infective,
+     * every antibacterial) would warn on whole branches of prescribing, which is a data error and
+     * not an allergy.
      */
-    private static final Pattern CLASS_CODE = Pattern.compile("[A-Z][0-9]{2}[A-Z](?:[A-Z](?:[0-9]{2})?)?");
-
-    /** Any well-formed ATC code (levels 1 to 5), which is what a prescribed drug carries. */
-    private static final Pattern DRUG_CODE = Pattern.compile("[A-Z](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?");
+    private static final int CLASS_CODE_MIN_LENGTH = 4;
 
     private AllergyAtcClass() {
     }
@@ -181,7 +176,7 @@ public final class AllergyAtcClass {
             return null;
         }
         String code = raw.trim();
-        return CLASS_CODE.matcher(code).matches() ? code : null;
+        return isAtcCode(code, CLASS_CODE_MIN_LENGTH) ? code : null;
     }
 
     /**
@@ -211,7 +206,29 @@ public final class AllergyAtcClass {
      * @return true when the trimmed code is a well-formed ATC code
      */
     public static boolean isDrugCode(String drugAtc) {
-        return drugAtc != null && DRUG_CODE.matcher(drugAtc.trim()).matches();
+        return drugAtc != null && isAtcCode(drugAtc.trim(), 1);
+    }
+
+    /**
+     * Whether {@code code} is a well-formed ATC code of at least {@code minLength} characters. An
+     * ATC code is a letter, two digits, a letter, a letter and two digits, cut after one of its
+     * five levels (length 1, 3, 4, 5 or 7). Upper case only: the DPD and the shortcuts write upper
+     * case, and the class check is a plain prefix comparison. Checked by position rather than with
+     * a regular expression, so its cost is bounded by the code's own few characters.
+     */
+    private static boolean isAtcCode(String code, int minLength) {
+        int length = code.length();
+        if (length < minLength || (length != 1 && length != 3 && length != 4 && length != 5 && length != 7)) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            char c = code.charAt(i);
+            boolean letter = i == 0 || i == 3 || i == 4;
+            if (letter ? (c < 'A' || c > 'Z') : (c < '0' || c > '9')) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
