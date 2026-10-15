@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -135,9 +136,11 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "-1", "undefined", "999999999999999999999"})
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "0", "-1", "undefined", "999999999999999999999"})
     void shouldRefuseHistory_whenNoteIdentifierIsInvalid(String id) {
-        request.setParameter("noteId", id);
+        if (id == null) request.removeParameter("noteId");
+        else request.setParameter("noteId", id);
         assertRefused();
         verifyNoInteractions(manager);
     }

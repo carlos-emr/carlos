@@ -2942,7 +2942,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * clinical read on the recipient. Access to the owner's full chart is not required.
      */
     private List<CaseManagementNote> linkedGroupNoteHistory(LoggedInInfo loggedInInfo, int demographicNo,
-                                                           Long selectedId, CaseManagementNote selected) {
+                                                           long selectedId, CaseManagementNote selected) {
         if (!Objects.equals(selectedId, selected.getId()) || selectedId > Integer.MAX_VALUE
                 || loggedInInfo.getCurrentFacility() == null
                 || !loggedInInfo.getCurrentFacility().isEnableGroupNotes()) return null;
@@ -2953,7 +2953,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         if (!linkedIds.contains(selectedId)) return null;
         List<CaseManagementNote> history = StringUtils.isBlank(selected.getUuid())
-                ? List.of(selected) : caseManagementMgr.getHistory(selectedId.toString());
+                ? List.of(selected) : caseManagementMgr.getHistory(Long.toString(selectedId));
         List<CaseManagementNote> visible = new ArrayList<>();
         for (CaseManagementNote note : history) {
             if (note == null || !Objects.equals(selected.getDemographic_no(), note.getDemographic_no())
@@ -2966,7 +2966,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             shared.setHistory(null);
             visible.add(shared);
         }
-        return visible.stream().anyMatch(note -> selectedId.equals(note.getId())) ? visible : null;
+        return visible.stream().anyMatch(note -> Objects.equals(selectedId, note.getId())) ? visible : null;
     }
 
     /** Refuses history before any clinical text or demographic name is exposed to the view. */
