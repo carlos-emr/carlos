@@ -338,6 +338,26 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     Reason.SENDER_UNAVAILABLE);
         }
 
+        @Test
+        @DisplayName("should say the clinic email footer is missing before the portal prepares a code")
+        void shouldRefuse_whenTheClinicFooterIsMissing() {
+            when(emailManager.clinicFooterMissing()).thenReturn(true);
+
+            assertRefusedBeforePortal(() -> service.invite(user, patient(), staff, emailRequest()),
+                    Reason.CLINIC_FOOTER_MISSING);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a resend for a missing clinic email footer before the portal is asked")
+        void shouldRefuseResend_whenTheClinicFooterIsMissing() {
+            when(emailManager.clinicFooterMissing()).thenReturn(true);
+
+            assertRefusedBeforePortal(() -> service.resend(user, patient(), INVITE, staff, emailRequest()),
+                    Reason.CLINIC_FOOTER_MISSING);
+            verify(emailManager, never()).sendEmailWithResult(any(), any(), any());
+        }
+
         private void assertRefusedBeforePortal(Runnable call, Reason reason) {
             assertThatThrownBy(call::run)
                     .isInstanceOfSatisfying(PortalInviteException.class,
@@ -491,6 +511,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             var archives = mock(io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.class);
             var outbox = mock(io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl.class);
             var clinic = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+            // The footer was there for the pre-check and gone by the send: the send refuses as before.
+            when(clinic.requiredFooterMissing()).thenReturn(false);
             when(clinic.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("", null));
             var realManager = new EmailManager(consent, senders, security, archives);
             injectDependency(realManager, "clinicFooterService", clinic);

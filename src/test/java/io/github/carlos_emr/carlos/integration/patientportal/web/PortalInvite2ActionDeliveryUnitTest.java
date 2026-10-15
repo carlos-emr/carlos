@@ -517,6 +517,18 @@ class PortalInvite2ActionDeliveryUnitTest {
         assertThat(payload().get("reason").asText()).isEqualTo("invite_sender_unavailable");
     }
 
+    @Test
+    @DisplayName("should answer a missing clinic email footer as unavailable, with its own code")
+    void shouldAnswerAMissingClinicFooter_asUnavailable() throws Exception {
+        request.setParameter("method", "create");
+        when(invites.invite(any(), any(), any(), any())).thenThrow(refusal("CLINIC_FOOTER_MISSING"));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(payload().get("reason").asText()).isEqualTo("clinic_footer_missing");
+    }
+
     private void execute() throws Exception {
         assertThat(new PortalInvite2Action(security, portal, resolver, invites, demographics).execute())
                 .isEqualTo(org.apache.struts2.ActionSupport.NONE);

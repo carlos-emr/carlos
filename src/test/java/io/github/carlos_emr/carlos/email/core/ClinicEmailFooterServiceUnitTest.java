@@ -52,6 +52,19 @@ class ClinicEmailFooterServiceUnitTest {
     }
 
     @Test
+    void shouldSayTheFooterIsMissing_onlyWhenNoClinicFooterIsSet() {
+        when(properties.findClinicEmailFooter()).thenReturn(List.of());
+        assertThat(service.requiredFooterMissing()).isTrue();
+
+        UserProperty row = new UserProperty();
+        row.setName("email_footer_clinic_default");
+        row.setValue("FAKE Clinic");
+        when(properties.findClinicEmailFooter()).thenReturn(List.of(row));
+        assertThat(service.requiredFooterMissing()).isFalse();
+        verifyNoInteractions(logos);
+    }
+
+    @Test
     void shouldRefuseBlankSave_withoutChangingConfiguredClinic() {
         assertThatThrownBy(() -> service.save("<b> </b>", ClinicEmailFooterService.fingerprint("Clinic")))
                 .isInstanceOf(IllegalArgumentException.class);

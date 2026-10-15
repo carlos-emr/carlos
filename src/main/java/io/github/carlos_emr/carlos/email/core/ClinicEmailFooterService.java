@@ -44,6 +44,17 @@ public class ClinicEmailFooterService {
         return rows.isEmpty() ? "" : EmailFooterHtml.clean(rows.get(0).getValue());
     }
 
+    /**
+     * Whether email must wait for an administrator to set the clinic footer. Senders that prepare
+     * anything outside CARLOS first (a portal invitation code) ask this before they start, so staff
+     * hear why instead of a generic refusal from the send itself.
+     *
+     * @return {@code true} when no clinic footer is set
+     */
+    public boolean requiredFooterMissing() {
+        return clinicFooter().isEmpty();
+    }
+
     public ClinicEmailFooterSnapshot snapshot() {
         String html = clinicFooter();
         return new ClinicEmailFooterSnapshot(html, html.isEmpty() ? null : logos.inlineLogo());

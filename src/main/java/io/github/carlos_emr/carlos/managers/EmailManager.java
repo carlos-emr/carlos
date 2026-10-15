@@ -248,6 +248,16 @@ public class EmailManager {
         return isBlockedByConsent(consentResult, emailData) ? getConsentBlockMessage(consentResult) : null;
     }
 
+    /**
+     * Whether a send would be refused now because the clinic email footer is not set. Lets a caller
+     * that must prepare something first (a portal invitation code) refuse before it starts.
+     *
+     * @return {@code true} when the clinic footer is required and missing
+     */
+    public boolean clinicFooterMissing() {
+        return clinicFooterService.requiredFooterMissing();
+    }
+
     // FindSecBugs HARD_CODE_PASSWORD: empty values erase request credentials when the send attempt finishes.
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD", justification = "Empty strings clear secrets; they are not authentication credentials")
     private EmailSendResult sendEmailInternal(LoggedInInfo loggedInInfo, EmailData emailData,
