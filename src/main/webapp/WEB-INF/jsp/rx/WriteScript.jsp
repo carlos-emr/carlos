@@ -1599,17 +1599,17 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </c:otherwise>
                                                 </c:choose>
                                                 <td>
-                                                    <button type="button" class="link-button" onclick="submitPending('${carlos:forJavaScriptAttribute(rx.randomId)}', '${carlos:forJavaScriptAttribute(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         <fmt:message key="WriteScript.msgEdit"/>
                                                     </button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="link-button" onclick="submitPending('${carlos:forJavaScriptAttribute(rx.randomId)}', '${carlos:forJavaScriptAttribute(rx.draftRevision)}', 'delete');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'delete');">
                                                         <fmt:message key="WriteScript.msgDelete"/>
                                                     </button>
                                                 </td>
                                                 <td>
-                                                    <button type="button" class="link-button" onclick="submitPending('${carlos:forJavaScriptAttribute(rx.randomId)}', '${carlos:forJavaScriptAttribute(rx.draftRevision)}', 'edit');">
+                                                    <button type="button" class="link-button" onclick="submitPending('${rx.randomId}', '${carlos:forJavaScript(rx.draftRevision)}', 'edit');">
                                                         ${carlos:forHtml(rx.rxDisplay)}
                                                     </button>
                                                 </td>

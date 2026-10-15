@@ -48,12 +48,14 @@ test('legacy editor and stash forms are balanced siblings with distinct action/p
   assert.match(forms.get('RxStashForm'), /name="randomId"/);
   assert.match(forms.get('RxStashForm'), /name="draftRevision"/);
   assert.doesNotMatch(forms.get('RxStashForm'), /name="stashId"/);
-  const links = jsp.match(/href="javascript:submitPending[^"]*"/g);
-  assert.equal(links.length, 3);
-  links.forEach(link => {
-    assert.match(link, /\$\{rx.randomId\}/);
-    assert.match(link, /\$\{carlos:forJavaScript\(rx.draftRevision\)\}/);
-    assert.doesNotMatch(link, /loopStatus.index/);
+  // Pending Edit/Delete act on this page, so they are buttons rather than javascript: links.
+  assert.ok(!jsp.includes('href="javascript:submitPending'));
+  const buttons = jsp.match(/<button type="button" class="link-button" onclick="submitPending[^"]*"/g) || [];
+  assert.equal(buttons.length, 3);
+  buttons.forEach(button => {
+    assert.match(button, /\$\{rx.randomId\}/);
+    assert.match(button, /\$\{carlos:forJavaScript\(rx.draftRevision\)\}/);
+    assert.doesNotMatch(button, /loopStatus.index/);
   });
 });
 
@@ -88,9 +90,16 @@ test('stash edit/delete uses its separate named form and preserves the editor ac
 
 // The encoder's quote/attribute behavior is covered by CarlosEncodeTagUnitTest; guard the
 // actual legacy link against reverting to raw EL or using a JavaScript-only context here.
-test('drug-info link encodes stored generic names and DINs for the surrounding JavaScript attribute', () => {
-  assert.ok(jsp.includes(`href="javascript:ShowDrugInfo('<carlos:encode value='\${rx2.genericName}' context="javaScriptAttribute"/>', '<carlos:encode value='\${rx2.regionalIdentifier}' context="javaScriptAttribute"/>');"`));
-  assert.ok(!jsp.includes(`href="javascript:ShowDrugInfo('\${rx2.genericName}');"`));
+// A javascript: href is percent-decoded before it runs, which undoes any encoding inside it, so
+// the link carries the drug-info URL and its onclick opens the popup.
+test('drug-info link encodes stored generic names and DINs for its URL and its JavaScript attribute', () => {
+  const link = jsp.split('\n').find(line => line.includes('<a href=') && line.includes('/rx/drugInfo?GN='));
+  assert.ok(link, 'drug-info link');
+  assert.ok(link.includes('<a href="${pageContext.request.contextPath}/rx/drugInfo?GN=${carlos:forUriComponent(rx2.genericName)}'));
+  assert.ok(link.includes('&amp;DIN=${carlos:forUriComponent(rx2.regionalIdentifier)}'));
+  assert.ok(link.includes(`onclick="ShowDrugInfo('\${carlos:forJavaScriptAttribute(rx2.genericName)}', '\${carlos:forJavaScriptAttribute(rx2.regionalIdentifier)}'); return false;"`));
+  assert.ok(!jsp.includes('href="javascript:ShowDrugInfo('));
+  assert.ok(!jsp.includes(`ShowDrugInfo('\${rx2.genericName}'`));
 });
 
 test('every persisted editor input is initialized from its model with an encoded value', () => {
