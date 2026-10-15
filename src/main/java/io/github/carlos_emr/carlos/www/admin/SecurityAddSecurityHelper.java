@@ -115,11 +115,11 @@ public class SecurityAddSecurityHelper {
     }
 
     /** The unsaved login row for an already validated request; the password is encoded here. */
-    private Security newLogin(ServletRequest request, String userName, String password) {
+    private Security newLogin(ServletRequest request, String providerNo, String userName, String password) {
         Security s = new Security();
         s.setUserName(userName);
         s.setPassword(securityManager.encodePassword(password));
-        s.setProviderNo(request.getParameter("provider_no"));
+        s.setProviderNo(providerNo);
         s.setPin(request.getParameter("pin"));
         s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
         s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
@@ -151,7 +151,8 @@ public class SecurityAddSecurityHelper {
         String passwordError = validatePassword(password, request.getParameter("conPassword"));
         if (passwordError != null) return passwordError;
 
-        boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
+        String providerNo = request.getParameter("provider_no");
+        boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(providerNo).isEmpty();
         if (isUserRecordAlreadyCreatedForProvider) return "admin.securityaddsecurity.msgLoginAlreadyExistsForProvider";
 
         boolean isUserAlreadyExists = !securityDao.findByUserName(userName).isEmpty();
@@ -160,7 +161,7 @@ public class SecurityAddSecurityHelper {
         // A direct POST can name any provider: accept only one the form's dropdown would have
         // offered this administrator, since the login now carries a role as well.
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(pageContext.getSession());
-        if (!loginCreationService.isEligibleProvider(loggedInInfo, request.getParameter("provider_no"))) {
+        if (!loginCreationService.isEligibleProvider(loggedInInfo, providerNo)) {
             return "admin.securityaddsecurity.msgAdditionFailure";
         }
 
@@ -171,12 +172,12 @@ public class SecurityAddSecurityHelper {
             return "admin.securityaddsecurity.msgRoleInvalid";
         }
 
-        Security s = newLogin(request, userName, password);
+        Security s = newLogin(request, providerNo, userName, password);
 
         try {
             // Writes the login, the role and both audit entries in one transaction.
             loginCreationService.createLoginWithRole(loggedInInfo, s, roleName);
-        } catch (ProviderLoginCreationService.UnknownRoleException roleRemovedMeanwhile) {
+        } catch (ProviderLoginCreationService.UnknownRoleException _) {
             // The role was deleted between the list check and the write; nothing was saved.
             return "admin.securityaddsecurity.msgRoleInvalid";
         }

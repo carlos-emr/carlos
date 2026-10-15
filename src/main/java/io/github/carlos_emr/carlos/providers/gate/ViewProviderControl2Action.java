@@ -74,12 +74,14 @@ public final class ViewProviderControl2Action extends BaseProviderViewGate2Actio
         boolean noRole = securityInfoManager().getRoles(loggedInInfo).isEmpty();
         // Same facts the generic refusal logs (action, path, provider, object), without the query
         // string; the role state tells an administrator which fix the user needs.
-        LOGGER.warn("Authorization refused in action provider/providercontrol ({} {}) provider={}: "
-                        + "missing required sec object (_appointment); {}",
-                LogSafe.sanitize(request.getMethod()),
-                LogSafe.sanitizeUri(request.getRequestURI()),
-                LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()),
-                noRole ? "no active role assigned" : "active roles lack schedule access");
+        if (LOGGER.isWarnEnabled()) {
+            LOGGER.warn("Authorization refused in action provider/providercontrol ({} {}) provider={}: "
+                            + "missing required sec object (_appointment); {}",
+                    LogSafe.sanitize(request.getMethod()),
+                    LogSafe.sanitizeUri(request.getRequestURI()),
+                    LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()),
+                    noRole ? "no active role assigned" : "active roles lack schedule access");
+        }
         request.setAttribute(NO_ROLE_ATTRIBUTE, noRole);
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return NO_SCHEDULE_ACCESS;

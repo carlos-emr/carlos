@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.admin.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -124,12 +123,8 @@ public class ProviderLoginCreationService {
      */
     @Transactional(readOnly = true)
     public List<String> assignableRoleNames(LoggedInInfo loggedInInfo) {
-        List<String> allRoleNames = new ArrayList<>();
-        for (SecRole role : secRoleDao.findAllOrderByRole()) {
-            allRoleNames.add(role.getName());
-        }
         return AssignableRoles.filter(
-                allRoleNames,
+                secRoleDao.findAllOrderByRole().stream().map(SecRole::getName).toList(),
                 hasSiteAccessPrivacy(loggedInInfo),
                 IsPropertiesOn.isMultisitesEnable(),
                 CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", ""));

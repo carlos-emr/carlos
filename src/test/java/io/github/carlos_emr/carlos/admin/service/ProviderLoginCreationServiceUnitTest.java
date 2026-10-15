@@ -198,14 +198,18 @@ class ProviderLoginCreationServiceUnitTest {
             logAction.when(() -> LogAction.addLogStrict(any(), anyString(), anyString(), anyString(), isNull(), isNull()))
                     .thenThrow(new IllegalStateException("audit store unavailable"));
 
-            assertThatThrownBy(() -> service.createLoginWithRole(actor, login("700001"), "doctor"))
+            Security login = login("700001");
+
+            assertThatThrownBy(() -> service.createLoginWithRole(actor, login, "doctor"))
                     .isInstanceOf(IllegalStateException.class);
         }
 
         @Test
         @DisplayName("should refuse to write anything without the acting administrator")
         void shouldRefuseWithoutActor_forAuditTrail() {
-            assertThatThrownBy(() -> service.createLoginWithRole(null, login("700001"), "doctor"))
+            Security login = login("700001");
+
+            assertThatThrownBy(() -> service.createLoginWithRole(null, login, "doctor"))
                     .isInstanceOf(NullPointerException.class);
             verifyNoInteractions(securityDao, secuserroleDao, programProviderDao);
         }
