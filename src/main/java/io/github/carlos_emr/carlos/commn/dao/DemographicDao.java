@@ -364,6 +364,17 @@ public interface DemographicDao {
 
     public void save(Demographic demographic);
 
+    /**
+     * Loads the patient row and locks it for update ({@code SELECT ... FOR UPDATE}) until the
+     * caller's transaction ends, so a read-compare-write of the record cannot interleave with
+     * another save of the same patient. Must be called inside an active transaction.
+     *
+     * @param demographicNo the patient number
+     * @return the locked, managed patient row, or null when it does not exist
+     * @since 2026-10-15
+     */
+    public Demographic findForUpdate(Integer demographicNo);
+
     public String getOrderField(String orderBy, boolean nativeQuery);
 
     public String getOrderField(String orderBy);

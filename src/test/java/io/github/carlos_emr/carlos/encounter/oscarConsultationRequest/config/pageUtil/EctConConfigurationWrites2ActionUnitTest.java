@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
 import io.github.carlos_emr.carlos.managers.ProfessionalSpecialistsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -182,6 +183,58 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getActive()).isEqualTo(ConsultationServiceDao.ACTIVE);
             assertThat(request.getAttribute("SERVADD")).isEqualTo("Cardiology FAKE");
             verify(services, never()).findActive();
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service adds one service when one rendered form is submitted twice (issue #4225)")
+        void shouldAddOneService_whenOneRenderingIsSubmittedTwice() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            String token = FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null);
+            request.setParameter(FormSubmissionGuard.PARAMETER, token);
+            EctConAddService2Action first = new EctConAddService2Action();
+            first.setService("Cardiology FAKE");
+            EctConAddService2Action repeat = new EctConAddService2Action();
+            repeat.setService("Cardiology FAKE");
+
+            assertThat(first.execute()).isEqualTo(ActionSupport.SUCCESS);
+            request.removeAttribute("SERVADD");
+            assertThat(repeat.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            verify(services).persist(any(ConsultationServices.class));
+            assertThat(request.getAttribute("SERVADD")).isEqualTo("Cardiology FAKE");
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service refuses a token this session did not issue and adds nothing")
+        void shouldRefuseWithoutAdding_forATokenThisSessionDidNotIssue() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            request.setParameter(FormSubmissionGuard.PARAMETER, FormSubmissionGuard.issue(
+                    new org.springframework.mock.web.MockHttpSession(), FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null));
+            EctConAddService2Action action = new EctConAddService2Action();
+            action.setService("Cardiology FAKE");
+
+            assertThat(action.execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service refuses GET and HEAD and adds nothing")
+        void shouldRefuseReadMethods_withoutAdding() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            for (String method : List.of("GET", "HEAD")) {
+                request.setMethod(method);
+                EctConAddService2Action action = new EctConAddService2Action();
+                action.setService("Cardiology FAKE");
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(405);
+                assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            }
             verifyNoMoreInteractions(services);
         }
 

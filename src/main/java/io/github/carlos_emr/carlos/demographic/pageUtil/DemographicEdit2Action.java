@@ -321,6 +321,9 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("demoExt", demoExt);
         request.setAttribute("demographicCust", demographicCust);
         request.setAttribute("demographicCustDao", demographicCustDao);
+        // The record version the edit form is rendered from (issue #4225): DemographicUpdate2Action
+        // refuses a save from this form once another save has changed the patient.
+        request.setAttribute("demographicEditVersion", DemographicEditVersion.of(demographic, demoExt, demographicCust));
         request.setAttribute("archives", archives);
         request.setAttribute("extArchives", extArchives);
         request.setAttribute("communityAdmission", communityAdmission);

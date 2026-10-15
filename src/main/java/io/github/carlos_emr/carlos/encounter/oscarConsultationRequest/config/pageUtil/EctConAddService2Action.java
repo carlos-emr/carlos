@@ -39,6 +39,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,6 +47,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Adds a consultation service from Consultation configuration &gt; Add Service.
+ *
+ * <p>POST only: a GET or HEAD never creates a service. One rendered Add Service form adds one
+ * service (issue #4225): the page carries a {@link FormSubmissionGuard} token, so a re-click
+ * during a slow save or a reload of the result page (which is rendered straight from the POST)
+ * answers with the first add's own confirmation instead of adding a second service with the same
+ * name. The confirmation page renders a fresh form, so adding another service still works.</p>
+ */
 public class EctConAddService2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -59,11 +69,38 @@ public class EctConAddService2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-        ConsultationServices cs = new ConsultationServices();
-        cs.setActive(consultationServiceDao.ACTIVE);
-        cs.setServiceDesc(service);
-        consultationServiceDao.persist(cs);
+        // A post without a token keeps the previous behaviour.
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case PROCEED, ABSENT -> { }
+            case ALREADY_SAVED -> {
+                request.setAttribute("SERVADD", service);
+                return SUCCESS;
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
+        }
+
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            ConsultationServices cs = new ConsultationServices();
+            cs.setActive(ConsultationServiceDao.ACTIVE);
+            cs.setServiceDesc(service);
+            // A single insert in the DAO's own transaction: when persist() returns the service is
+            // stored, and when it throws nothing was, so the form stays submittable for a retry.
+            consultationServiceDao.persist(cs);
+            if (claim != null) {
+                claim.saved(String.valueOf(cs.getId()));
+            }
+        }
         request.setAttribute("SERVADD", service);
 
         return SUCCESS;

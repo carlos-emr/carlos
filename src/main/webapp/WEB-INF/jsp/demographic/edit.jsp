@@ -1281,6 +1281,10 @@
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
+                                    <%-- The record version this form was rendered from (issue #4225): a save from a
+                                         form opened before another user's save is refused, not applied over it. --%>
+                                    <input type="hidden" name="demographicVersion"
+                                           value="<carlos:encode value='${demographicEditVersion}' context="htmlAttribute"/>">
                                     <table width="100%" class="demographicDetail">
                                         <%
                                             DemographicMerged dmDAO = new DemographicMerged();

@@ -25,6 +25,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
@@ -706,6 +707,10 @@
 
                 <form method="post" id="adddemographic" name="adddemographic" action="${ctx}/demographic/DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                    <%-- One patient per rendering (issue #4225): a reload of the result page or a repeated
+                         Add Record ends as the first registration did instead of adding the patient twice. --%>
+                    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                           value="<%= SafeEncode.forHtmlAttribute(FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD, null)) %>"/>
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>
