@@ -22,6 +22,7 @@
 'use strict';
 const { execFileSync } = require('child_process');
 const { launch, login, cfg } = require('./lib');
+const { shouldIgnoreHttpsErrors } = require('../../lib/playwright-harness');
 
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'carlos';
@@ -52,7 +53,7 @@ async function main() {
   console.log('STEP 1 redirected-to-inbox: PASS (providerLabRouting DOC provider_no=0 status=N)');
 
   const b = await launch();
-  const ctx = await b.newContext({ ignoreHTTPSErrors: true });
+  const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const p = await login(ctx, c);
     // Land on an app page so a CSRFGuard token is present to scrape.

@@ -90,7 +90,23 @@ value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 # default once (.oauth-access-defaults-migrated), whatever they were set to.
 # Keep in step with OAUTH_ACCESS_DEFAULTS in deb-upgrade-verify.sh.
 OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.access)
-migrated_keys_re="^(health_tracker$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sed 's/\./\\./g'))="
+# The postinst also rewrites the old stock HL7_LAB_MEASUREMENT_FILTER line to
+# the one the package's skeleton carries, once (.lab-measurement-filter-migrated,
+# #4613). The line is long and full of ';' and '%', so the snapshot carries
+# digests instead of the value: of the key's definition lines in the /etc file,
+# and of the skeleton's line (empty when there is no skeleton). A definition is
+# taken in java.util.Properties syntax (indented, or with a whitespace separator),
+# as the postinst counts it, so an override written that way cannot change
+# unseen. Keep in step with LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
+value=$({ grep -E '^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
+emit cfg.labFilter.sha "${value:0:16}"
+value=''
+if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
+    value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1
+    value=${value:0:16}
+fi
+emit cfg.labFilter.skel.sha "$value"
+migrated_keys_re="^(health_tracker|HL7_LAB_MEASUREMENT_FILTER$(printf '|%s' "${OSCAR_DEFAULT_MIGRATIONS[@]}" "${OAUTH_ACCESS_MIGRATIONS[@]}" | sed 's/\./\\./g'))="
 for k in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
     # A key the operator redefined appears more than once; join the lines so
     # the snapshot stays one record per key. Percent-encode '%' and ';' first
@@ -115,7 +131,7 @@ value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/ca
     | grep -vE "$migrated_keys_re" | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

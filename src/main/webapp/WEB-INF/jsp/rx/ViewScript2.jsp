@@ -1425,7 +1425,6 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 <body topmargin="0" leftmargin="0" vlink="#0000FF"
 	onload="addressSelect();showFaxWarning();">
 
-    <!-- HSFO functionality removed -->
     <div id="bodyView">
         <p id="signatureAssociationError" class="alert alert-danger" role="alert" hidden><fmt:message key="ViewScript.js.signatureAssociationFailed"/></p>
 

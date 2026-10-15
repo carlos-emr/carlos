@@ -77,6 +77,7 @@ const path = require('path');
 const { execFileSync } = require('node:child_process');
 const { chromium, request: playwrightRequest } = require('playwright');
 const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
@@ -454,7 +455,7 @@ async function checkDirectProbes() {
     results.loopbackPost = post.status;
     assert([403, 405].includes(post.status), `POST to the read-only bridge answered ${post.status}, expected 403/405`);
   }
-  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: true });
+  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl) });
   try {
     const response = await front.get(`${config.baseUrl.origin}${config.baseUrl.pathname}${SERVLET_PATH}?key=${TODAY_KEY}`, { maxRedirects: 0 });
     results.frontDoorNoGrant = response.status();
@@ -498,7 +499,7 @@ async function main() {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:',
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1200 },
     });
     const landing = await login(context, config, recorder);
