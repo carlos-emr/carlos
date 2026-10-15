@@ -27,6 +27,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.ArrayList;
+import java.util.function.UnaryOperator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -69,6 +70,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class BillingDiskCreationService {
 
     private static final int DISK_NAME_INSERT_RETRIES = 3;
+    /** The OHIP claim file extension is a three-digit sequence number. */
+    private static final int MAX_BATCH_NUM = 999;
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnDiskLoader diskQuery;
@@ -441,7 +444,32 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
+        ret[1] = firstUnusedBatchNum(ret[1], batchNum -> getSoloOhipfilename(ohipNo, curMonthCode, batchNum));
         return ret;
+    }
+
+    /**
+     * The OHIP claim file name (H, month letter, group or provider number,
+     * sequence) restarts at {@code .001} every month and so recurs every
+     * year, but {@code billing_on_diskname.ohipfilename} is unique. The
+     * counter above only knows the latest disk, so once a disk of the same
+     * month letter exists from an earlier year the first disk of the month
+     * proposed a taken name, collided on every retry and stopped generation
+     * ("Unable to allocate unique ... disk name"); the simulation allocates
+     * no disk and kept working. Advance past every number already on record.
+     *
+     * @param candidate sequence number the monthly counter proposed
+     * @param ohipFilenameFor builds the claim file name for a sequence number
+     * @return the first sequence number from {@code candidate} whose name no
+     *         disk holds; above 999 the fixed-width guard rejects the name
+     */
+    private String firstUnusedBatchNum(String candidate, UnaryOperator<String> ohipFilenameFor) {
+        int batchNum = Integer.parseInt(candidate);
+        while (batchNum <= MAX_BATCH_NUM
+                && diskQuery.isOhipFilenameInUse(ohipFilenameFor.apply(String.valueOf(batchNum)))) {
+            batchNum++;
+        }
+        return String.valueOf(batchNum);
     }
 
     private String[] getCurGrpMonthCodeBatchNum(String groupNo) {
@@ -460,6 +488,7 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
+        ret[1] = firstUnusedBatchNum(ret[1], batchNum -> getGrpOhipfilename(groupNo, curMonthCode, batchNum));
         return ret;
     }
 }
