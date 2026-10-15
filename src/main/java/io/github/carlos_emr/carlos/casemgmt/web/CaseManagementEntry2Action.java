@@ -883,6 +883,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementNote note = new CaseManagementNote();
         if (!noteId.equals("0")) {
             note = this.caseManagementMgr.getNote(noteId);
+            if (note == null || !Objects.equals(demographicNo, note.getDemographic_no())) {
+                throw new SecurityException("JSON note save references a note outside this patient chart");
+            }
             if ((archived == null || !archived.equalsIgnoreCase("true")) && (request.getParameter("sign") == null || !request.getParameter("sign").equalsIgnoreCase("true")) && note.getNote().equalsIgnoreCase(strNote))
                 return null;
 
@@ -943,20 +946,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + CachedDateFormats.format(now, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
-
-            if (request.getParameter("signAndExit") != null && request.getParameter("signAndExit").equalsIgnoreCase("true")) {
-                OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-                try {
-                    Appointment appointment = appointmentDao.find(Integer.parseInt(appointmentNo));
-                    if (appointment != null) {
-                        ApptStatusData statusData = new ApptStatusData();
-                        appointment.setStatus(statusData.signStatus());
-                        appointmentDao.merge(appointment);
-                    }
-                } catch (Exception e) {
-                    logger.error("Unable to parse encounter appointment identifier ({})", e.getClass().getSimpleName());
-                }
-            }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
             note.setSigned(false);
             note.setSigning_provider_no("");
@@ -1003,6 +992,23 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (!StaleNoteRevisionException.isConflict(e)) throw e;
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             return null;
+        }
+
+        // The appointment must not be signed when the note revision was rejected.
+        if ("true".equalsIgnoreCase(request.getParameter("sign"))
+                && "true".equalsIgnoreCase(request.getParameter("signAndExit"))) {
+            OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
+            try {
+                Appointment appointment = appointmentDao.find(Integer.parseInt(appointmentNo));
+                if (appointment != null) {
+                    ApptStatusData statusData = new ApptStatusData();
+                    statusData.setApptStatus(appointment.getStatus());
+                    appointment.setStatus(statusData.signStatus());
+                    appointmentDao.merge(appointment);
+                }
+            } catch (Exception e) {
+                logger.error("Unable to update encounter appointment ({})", e.getClass().getSimpleName());
+            }
         }
 
         HashMap<String, Object> hashMap = new HashMap<String, Object>();
@@ -1798,7 +1804,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private boolean containsIssue(List<CaseManagementIssue> issuelist, CaseManagementIssue issue) {
         for (CaseManagementIssue tempIssue : issuelist) {
-            if (tempIssue.getId() != null && tempIssue.getId().equals(issue.getId())) return (true);
+            if (tempIssue == issue || (tempIssue.getId() != null && tempIssue.getId().equals(issue.getId()))) return true;
         }
 
         return (false);
@@ -1811,7 +1817,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
     }
 
-    private String saveCheckedIssues_newCme(HttpServletRequest request, String demo, CaseManagementNote note, List issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
+    private String saveCheckedIssues_newCme(HttpServletRequest request, String demo, CaseManagementNote note, List<CaseManagementIssue> issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
         int demographicNo = Integer.parseInt(demo);
 
         for (int i = 0; i < checkedlist.size(); i++) {
@@ -1829,18 +1835,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (caseManagementIssue == null && isChecked) {
                 Issue issue = issueDao.findIssueByCode(issueDisplay.code);
                 if (issue != null) {
-                    caseManagementIssue = new CaseManagementIssue();
-                    caseManagementIssue.setDemographic_no(demographicNo);
-                    caseManagementIssue.setIssue_id(issue.getId());
-                    caseManagementIssue.setType(issue.getRole());
-                    caseManagementIssue.setUpdate_date(new Date());
-
-                    // Should not save duplicated issue for one demographic
-                    if (caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId())) == null) {
-                        caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    }
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
+                    caseManagementIssue = prepareCheckedIssue(demo, issue, issuelist);
                 }
             }
 
@@ -1866,6 +1861,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
         }
         return ongoing;
+    }
+
+    private CaseManagementIssue prepareCheckedIssue(String demo, Issue issue, List<CaseManagementIssue> pending) {
+        CaseManagementIssue existing = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
+        if (existing != null) return existing;
+        for (CaseManagementIssue prepared : pending) {
+            if (prepared.getIssue_id() == issue.getId()) return prepared;
+        }
+        // Persist with saveCaseManagementNote so a stale revision rolls it back too.
+        CaseManagementIssue prepared = new CaseManagementIssue();
+        prepared.setDemographic_no(Integer.parseInt(demo));
+        prepared.setIssue_id(issue.getId());
+        prepared.setIssue(issue);
+        prepared.setType(issue.getRole());
+        return prepared;
     }
 
     public String save() throws Exception {

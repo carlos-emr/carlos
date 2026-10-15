@@ -24,6 +24,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const {
@@ -47,6 +48,7 @@ async function workflow(s) {
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
   texts[0] += "\n<em>literal & text</em>";
   let storedHistory;
+  let appointmentNo;
 
   s.cleanup(() => {
     removeOwnedPdfDocuments(owned);
@@ -56,6 +58,16 @@ async function workflow(s) {
       DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient}`);
+    if (appointmentNo) {
+      h.assert(/^[1-9]\d*$/.test(appointmentNo)
+        && sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${appointmentNo}
+          AND demographic_no=${patient} AND notes=${h.sqlString(marker)}`) === '1',
+      'Appointment ownership changed before cleanup');
+      sql.execute(`DELETE FROM appointmentArchive WHERE appointment_no=${appointmentNo};
+        DELETE FROM appointment WHERE appointment_no=${appointmentNo} AND demographic_no=${patient} AND notes=${h.sqlString(marker)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${appointmentNo}`) === '0',
+        'The owned appointment was not removed');
+    }
     fs.rmSync(scratch, { recursive: true, force: true });
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned note rows were not removed');
     assertOwnedPdfDocumentsRemoved(owned);
@@ -352,6 +364,34 @@ async function workflow(s) {
     h.assert(JSON.stringify(sql.rows(`SELECT note_id,note FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`))
       === JSON.stringify(before), 'The refused stale save changed a revision');
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+  });
+
+  await s.step('a stale JSON sign-and-exit request leaves its appointment and note revisions unchanged', async () => {
+    // This endpoint also serves API clients; probe its rejection contract using the live session/CSRF token.
+    appointmentNo = sql.value(`INSERT INTO appointment
+      (provider_no,appointment_date,start_time,end_time,name,demographic_no,program_id,notes,
+       reason,location,resources,type,style,billing,status,createdatetime,updatedatetime,creator,remarks,urgency)
+      SELECT ${h.sqlString(provider)},CURDATE(),'11:30:00','11:44:00',CONCAT(last_name,',',first_name),
+        ${patient},0,${h.sqlString(marker)},${h.sqlString(marker)},'','','','','','t',NOW(),NOW(),${h.sqlString(provider)},'',''
+      FROM demographic WHERE demographic_no=${patient}; SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(appointmentNo), 'The owned appointment fixture was not created');
+    const before = sql.rows(`SELECT note_id,note,signed,signing_provider_no,appointmentNo
+      FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`);
+    const token = await ui.csrfTokenPresent(chart);
+    const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
+      form: { method: 'issueNoteSaveJson', demographic_no: patient, noteId, appointment_no: appointmentNo,
+        value: `${marker} rejected JSON signature`, sign: 'true', signAndExit: 'true', 'CSRF-TOKEN': token },
+      headers: { 'CSRF-TOKEN': token }, maxRedirects: 0, failOnStatusCode: false,
+    });
+    try { h.assert(response.status() === 409, `The stale JSON save answered HTTP ${response.status()}`); }
+    finally { await response.dispose(); }
+    h.assert(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointmentNo}`) === 't',
+      'The rejected JSON save changed the appointment status');
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${appointmentNo}`) === '0',
+      'The rejected JSON save archived an appointment change');
+    h.assert(JSON.stringify(sql.rows(`SELECT note_id,note,signed,signing_provider_no,appointmentNo
+      FROM casemgmt_note WHERE demographic_no=${patient} ORDER BY note_id`)) === JSON.stringify(before),
+    'The rejected JSON save changed a note revision');
   });
 
   await s.step('stale Sign & Save presents an encoded recovery copy instead of a blank page', async () => {

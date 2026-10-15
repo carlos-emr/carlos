@@ -17,6 +17,11 @@ const noteControls = `<div class="sig" id="sig0"><div id="noteIssues">
   <label for="issueAutocomplete">Assign Issues</label><input id="issueAutocomplete" class="issueAutocomplete">
   <input id="asgnIssues" type="button" value="Assign" onclick="return assignNoteIssue(event)">
   </div></div>`;
+// Serve the production CPP markup as fixture HTML so its labels still exercise the browser parser.
+const renderIssues = new Function('noteIssues', 'getCPP',
+  block('    function escapeNoteText(', '    function completeChangeToView(') +
+  block('        var noteIssueUl =', '        var noteInfo =') + '; return noteIssueUl;');
+const cppIssues = renderIssues('12;A;Safety & support;13;B;Patient "quoted" issue;14;C;Third issue', () => '');
 const html = `<!doctype html><html><body>
 <form name="caseManagementEntryForm" method="post">
 <input name="method"><input name="note_edit"><input name="noteId"><input name="ajax"><input name="chain">
@@ -31,6 +36,7 @@ const html = `<!doctype html><html><body>
 <input type="button" value="Hide" onclick="return filter(false)"><input type="button" value="Reset" onclick="return filter(true)"></div></form>
 <button type="button" id="unresolvedHeading" onclick="return clearIssueFilter()">Unresolved Issues</button>
 <button type="button" id="resolvedHeading" onclick="return clearIssueFilter()">Resolved Issues</button><div id="notCPP"></div>
+<section id="accessibilityChecks">${cppIssues}</section>
 </body></html>`;
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ['--no-sandbox'] });
@@ -55,8 +61,8 @@ const html = `<!doctype html><html><body>
       var replaceFiltersOnResponse=true;
       var sent=[], assignments=[]; var pickIssueMsg='Pick an issue';
       var $=function(id) { var el=typeof id==='string'?document.getElementById(id):id;
-        if(el) el.update=function(html) {
-          this.innerHTML=html;
+        if(el) el.update=function(text) {
+          this.textContent=text;
           if (window.replaceFiltersOnResponse) {
             var previous=document.forms.caseManagementViewForm;
             var replacement=previous.cloneNode(true);
@@ -68,7 +74,7 @@ const html = `<!doctype html><html><body>
       var Event={stop:function(event) {event.preventDefault();event.stopPropagation();}};
       var Form={serialize:function(form) {return jQuery(form).serialize();}};
       var CarlosAjax={request:function(url, options) {sent.push(options.postBody);
-        options.onSuccess({responseText: '<span>listing refreshed</span>'});}};
+        options.onSuccess({responseText: 'listing refreshed'});}};
       function ajaxUpdateIssues(method, div) {assignments.push({method:method, div:div,
         id:document.forms.caseManagementEntryForm.elements.newIssueId.value});}
       ${block('    var disposeNoteIssueSearch =', '    var ajaxRequest;')}
@@ -101,10 +107,21 @@ const html = `<!doctype html><html><body>
     console.log('PASS real autocomplete, encoded query, literal label, CPP deduplication, form serialization/isolation');
 
     for (const id of ['31', '92']) {
-      await page.evaluate(({noteControls, id}) => {
-        document.querySelector('.sig').outerHTML = noteControls.replace('sig0', `sig${id}`);
+      await page.evaluate(id => {
+        const signature = document.createElement('div');
+        signature.className = 'sig'; signature.id = `sig${id}`;
+        const issues = document.createElement('div'); issues.id = 'noteIssues';
+        const label = document.createElement('label');
+        label.htmlFor = 'issueAutocomplete'; label.textContent = 'Assign Issues';
+        const search = document.createElement('input');
+        search.id = 'issueAutocomplete'; search.className = 'issueAutocomplete';
+        const assign = document.createElement('input');
+        assign.id = 'asgnIssues'; assign.type = 'button'; assign.value = 'Assign';
+        assign.addEventListener('click', event => assignNoteIssue(event));
+        issues.append(label, search, assign); signature.appendChild(issues);
+        document.querySelector('.sig').replaceWith(signature);
         initializeIssueAutocomplete(document);
-      }, {noteControls, id});
+      }, id);
       await pick('#issueAutocomplete');
       await page.locator('#asgnIssues').click();
       assert.equal(await page.evaluate(() => assignments.at(-1).div), `sig${id}`);
@@ -177,7 +194,8 @@ const html = `<!doctype html><html><body>
       const snapshot = () => new URLSearchParams(new FormData(view)).toString();
       window.alert = () => {};
       for (const outcome of ['pending issues', 'issue failure', 'save pending', 'cancel', 'save failure', 'success']) {
-        host.innerHTML = '<textarea id="guardEditor">dirty draft</textarea>';
+        const editor = document.createElement('textarea');
+        editor.id = 'guardEditor'; editor.value = 'dirty draft'; host.replaceChildren(editor);
         caseNote = 'guardEditor'; noteIssuesChanged = true;
         issueUpdatesPending = ['pending issues', 'success'].includes(outcome) ? 1 : 0;
         issueUpdateFailed = outcome === 'issue failure'; noteSwitchSavePending = outcome === 'save pending'; queuedNoteSave = null;
@@ -210,20 +228,13 @@ const html = `<!doctype html><html><body>
     });
     console.log('PASS heading guards preserve filters/draft on pending/cancel/failure and retain non-issue filters after save');
     const markupChecks = {
-      cpp: block("        var noteIssueUl =", '        var noteInfo ='),
       textarea: block('    function createNoteTextarea(', '    function editNote('),
       editInsertion: block('        var input = createNoteTextarea(caseNote', '        if ($F(isFull) == "true") {'),
       newMarkup: block('        ++newNoteCounter;', '        if (changeToView(caseNote, function () { newNote(null); }))'),
       newInsertion: block('            document.getElementById("encMainDiv").insertAdjacentHTML', '            $(safeSigId).addClassName'),
-      escape: block('    function escapeNoteText(', '    function completeChangeToView('),
     };
-    await page.evaluate(({cpp, textarea, editInsertion, newMarkup, newInsertion, escape}) => {
-      const escapeText = new Function(escape + '; return escapeNoteText;')();
-      const section = document.createElement('section');
-      section.id = 'accessibilityChecks';
-      document.body.appendChild(section);
-      const renderIssues = new Function('noteIssues', 'getCPP', 'escapeNoteText', cpp + '; return noteIssueUl;');
-      section.innerHTML = renderIssues('12;A;Safety & support;13;B;Patient "quoted" issue;14;C;Third issue', () => '', escapeText);
+    await page.evaluate(({textarea, editInsertion, newMarkup, newInsertion}) => {
+      const section = document.getElementById('accessibilityChecks');
       const createTextarea = new Function('noteEditorLabel', textarea + '; return createNoteTextarea;')(`Encounter "note's" <literal>`);
       const form = document.createElement('form');
       section.appendChild(form);
@@ -240,7 +251,9 @@ const html = `<!doctype html><html><body>
       }
       const existing = document.createElement('div');
       existing.id = 'n31';
-      existing.innerHTML = '<div class="sig" id="sig31">existing signature</div>';
+      const signature = document.createElement('div');
+      signature.className = 'sig'; signature.id = 'sig31'; signature.textContent = 'existing signature';
+      existing.appendChild(signature);
       form.appendChild(existing);
       const renderEdit = new Function('createNoteTextarea', '$', 'payload', 'caseNote', 'txt', 'nId', 'ctx', editInsertion + '; return input;');
       const editInput = renderEdit(createTextarea, byId, text, 'caseNote_note31', 'n31', '31', '');

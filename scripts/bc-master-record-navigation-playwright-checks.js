@@ -15,6 +15,35 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const VIEWPORTS = [{ width: 1280, height: 720 }, { width: 1600, height: 1000 }];
 const TIMEOUT = 30000;
+const ELIGIBILITY_FRAGMENT = 'Failure-claim &lt;unsafe&gt; &amp; &quot;quoted&quot;<br>'
+  + '<span style="color:red; font-weight:bold; background:url(/eligibility-fragment-probe)"'
+  + ' id="eligibility-injected-id" onmouseover="globalThis.eligibilityInjected=true">ELIG_ON_DOS: no</span><br>'
+  + 'Last line 🩺'
+  + '<script>globalThis.eligibilityInjected=true</script>'
+  + '<img src="/eligibility-fragment-probe" onerror="globalThis.eligibilityInjected=true">'
+  + '<iframe src="/eligibility-fragment-probe"></iframe>'
+  + '<svg onload="globalThis.eligibilityInjected=true"><foreignObject><span>foreign markup</span></foreignObject></svg>'
+  + '<style>body{display:none}</style><a href="javascript:globalThis.eligibilityInjected=true">unsafe link</a>'
+  + '<math><mtext><table><mglyph><style><!--</style><img title="--><img src=/eligibility-fragment-probe onerror=globalThis.eligibilityInjected=true>">';
+const ELIGIBILITY_ERROR = '-Error in teleplan connection : Test &lt;connection&gt; &amp; retry';
+
+async function assertEligibilityFragment(page) {
+  const result = page.locator('#returnTeleplanMsg');
+  await page.waitForFunction(() => document.getElementById('returnTeleplanMsg').textContent.includes('Last line 🩺'));
+  h.assert(await result.textContent() === 'Failure-claim <unsafe> & "quoted"ELIG_ON_DOS: noLast line 🩺',
+    'Eligibility lost or changed the decoded message lines');
+  h.assert(await result.locator('br').count() === 2, 'Eligibility must preserve every line break');
+  h.assert(await result.locator('span').count() === 1, 'Eligibility must preserve the denial highlight');
+  h.assert(await result.locator('span').evaluate(span => span.style.color === 'red'
+    && span.style.fontWeight === 'bold' && span.attributes.length === 1),
+  'Eligibility must rebuild the fixed highlight without response attributes');
+  h.assert(await result.locator('*:not(br):not(span)').count() === 0, 'Eligibility adopted unsupported markup');
+  h.assert(await result.locator('[id], [onmouseover], [src], [href]').count() === 0,
+    'Eligibility copied response attributes');
+  await result.locator('span').hover();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  h.assert(!await page.evaluate(() => globalThis.eligibilityInjected), 'Eligibility executed response markup');
+}
 
 async function assertCenterIsClickable(link) {
   await link.scrollIntoViewIfNeeded();
@@ -29,13 +58,18 @@ async function checkViewport(browser, config, viewport) {
   const context = await h.newContext(browser, config, { viewport });
   const recorder = h.createRecorder();
   let requests = 0;
+  let resourceRequests = 0;
   const pendingResponses = [];
+  await context.route('**/eligibility-fragment-probe**', async route => {
+    resourceRequests += 1;
+    await route.fulfill({ status: 204, body: '' });
+  });
   // Install before login, so even a regression that checks eligibility on hover cannot
   // send a real request. Holding the response proves the menu opens while loading.
   await context.route('**/billing/CA/BC/ManageTeleplan**', async route => {
-    requests += 1;
+    const responseIndex = requests++;
     await new Promise(resolve => { pendingResponses.push(resolve); });
-    await route.fulfill({ contentType: 'text/html', body: '<p id="eligibility-test-result">Eligibility test response</p>' });
+    await route.fulfill({ contentType: 'text/html', body: responseIndex === 0 ? ELIGIBILITY_FRAGMENT : ELIGIBILITY_ERROR });
   });
   try {
     const schedule = await h.login(context, config, recorder);
@@ -95,11 +129,24 @@ async function checkViewport(browser, config, viewport) {
     await dialog.waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(requests === 1, 'Reopening a pending eligibility check must not duplicate the request');
     pendingResponses[0]();
-    await masterPage.locator('#eligibility-test-result').waitFor({ state: 'visible', timeout: TIMEOUT });
+    await assertEligibilityFragment(masterPage);
+    h.assert(resourceRequests === 0, 'Parsing eligibility must not load resources from the response');
     h.assert(!await masterPage.locator('#search_spinner').isVisible(), 'Loading must end after the response');
     await dialog.locator('.ui-dialog-titlebar-close').click();
     await dialog.waitFor({ state: 'hidden', timeout: TIMEOUT });
     h.assert(await trigger.getAttribute('aria-expanded') === 'false', 'Closed eligibility must report collapsed');
+
+    await Promise.all([
+      masterPage.waitForRequest(request => request.url().includes('/billing/CA/BC/ManageTeleplan'), { timeout: TIMEOUT }),
+      trigger.click(),
+    ]);
+    h.assert(requests === 2, 'Explicit reopening after completion must check eligibility again');
+    pendingResponses[1]();
+    await masterPage.waitForFunction(() => document.getElementById('returnTeleplanMsg').textContent
+      === '-Error in teleplan connection : Test <connection> & retry');
+    h.assert(await masterPage.locator('#returnTeleplanMsg *').count() === 0, 'Connection errors must remain plain text');
+    await dialog.locator('.ui-dialog-titlebar-close').click();
+    await dialog.waitFor({ state: 'hidden', timeout: TIMEOUT });
 
     // Prove the dialog has not left an invisible overlay over the navigation.
     await assertCenterIsClickable(chartLink);
@@ -108,7 +155,7 @@ async function checkViewport(browser, config, viewport) {
       context, recorder, label: 'bc-chart', timeout: TIMEOUT,
     });
     await chart.locator('#header #patient-label').waitFor({ state: 'visible', timeout: TIMEOUT });
-    h.assert(requests === 1, 'Navigating away must not trigger eligibility');
+    h.assert(requests === 2, 'Navigating away must not trigger eligibility');
     h.assertStrictPage(recorder);
   } finally {
     pendingResponses.forEach(resolve => resolve());
@@ -127,4 +174,5 @@ async function main() {
   return 'BC navigation centre clicks, eligibility POST parameters and CSRF header verified at 1280x720 and 1600x1000; eligibility response stubbed, no external integration tested';
 }
 if (require.main === module) h.runCheck({ name: 'bc-master-record-navigation', run: main });
-module.exports = { VIEWPORTS, assertCenterIsClickable, checkViewport, main };
+module.exports = { VIEWPORTS, ELIGIBILITY_FRAGMENT, ELIGIBILITY_ERROR, assertEligibilityFragment,
+  assertCenterIsClickable, checkViewport, main };

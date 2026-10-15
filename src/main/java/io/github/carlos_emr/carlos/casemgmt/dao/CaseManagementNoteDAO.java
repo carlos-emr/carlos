@@ -89,6 +89,12 @@ public interface CaseManagementNoteDAO {
      */
     public CaseManagementNote getNote(Long id);
 
+    /**
+     * Loads the current row under a write lock for legacy chain initialization.
+     * Detaches any cached copy first so an edited draft cannot be flushed into the historical row.
+     */
+    CaseManagementNote getNoteForUpdate(Long id);
+
     public List<CaseManagementNote> getNotes(List<Long> ids);
 
     /**

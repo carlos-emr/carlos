@@ -10,6 +10,9 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Date;
@@ -193,5 +196,91 @@ class CaseManagementNoteRevisionUnitTest extends CarlosUnitTestBase {
         when(notes.getMostRecentNoteForUpdate(fresh.getUuid())).thenReturn(null);
         assertThat(manager.saveNoteRevisionSimple(fresh)).isSameAs(fresh);
         verifyNoInteractions(extensions, links);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void shouldInitializeLegacyChain_withoutMergingDraftIntoOriginal(String legacyUuid) {
+        CaseManagementNote submitted = edit();
+        submitted.setUuid(legacyUuid);
+        CaseManagementNote original = submitted.copyForRevision();
+        original.setId(501L);
+        original.setNote("Original assessment");
+        original.setSigned(true);
+        original.setSigning_provider_no("999997");
+        when(notes.getNoteForUpdate(501L)).thenReturn(original);
+
+        CaseManagementNote saved = manager.saveNoteRevisionSimple(submitted);
+
+        assertThat(UUID.fromString(saved.getUuid()).toString()).isEqualTo(saved.getUuid());
+        assertThat(original.getUuid()).isEqualTo(saved.getUuid());
+        assertThat(original.getNote()).isEqualTo("Original assessment");
+        assertThat(original.getHistory()).isEqualTo("Original assessment");
+        assertThat(original.getUpdate_date()).isEqualTo(new Date(2000));
+        assertThat(original.isSigned()).isTrue();
+        assertThat(original.getSigning_provider_no()).isEqualTo("999997");
+        assertThat(saved.getNote()).isEqualTo("Revised assessment");
+        assertThat(submitted.getUuid()).isEqualTo(legacyUuid);
+        verify(notes, never()).saveNote(original);
+        verify(notes, never()).updateNote(any());
+        verify(extensions).getExtByNoteForUpdate(501L);
+        verify(links).getLinkByNoteForUpdate(501L);
+    }
+
+    @Test
+    void shouldReuseAlreadyInitializedChain_whenLegacyClientOmitsUuid() {
+        CaseManagementNote original = edit();
+        CaseManagementNote submitted = original.copyForRevision();
+        submitted.setId(original.getId());
+        submitted.setUuid(null);
+        when(notes.getNoteForUpdate(501L)).thenReturn(original);
+
+        CaseManagementNote saved = manager.saveNoteRevision(null, submitted, "999998", "Doctor", "", "doctor").note();
+
+        assertThat(saved.getUuid()).isEqualTo(original.getUuid());
+        assertThat(submitted.getUuid()).isNull();
+        verify(notes).getMostRecentNoteForUpdate(original.getUuid());
+    }
+
+    @Test
+    void shouldRejectStaleLegacyDraft_whenAnotherWriterAlreadyInitializedAndRevisedIt() {
+        CaseManagementNote original = edit();
+        CaseManagementNote submitted = original.copyForRevision();
+        submitted.setId(501L);
+        submitted.setUuid(null);
+        CaseManagementNote latest = original.copyForRevision();
+        latest.setId(503L);
+        when(notes.getNoteForUpdate(501L)).thenReturn(original);
+        when(notes.getMostRecentNoteForUpdate(original.getUuid())).thenReturn(latest);
+
+        assertThatThrownBy(() -> manager.saveNoteRevisionSimple(submitted)).isInstanceOf(StaleNoteRevisionException.class);
+        assertThat(submitted.getUuid()).isNull();
+        verify(notes, never()).saveNote(any());
+        verifyNoInteractions(extensions, links, hashes);
+    }
+
+    @Test
+    void shouldRejectAnotherPatientsLegacyRow_beforeAssigningItsUuid() {
+        CaseManagementNote submitted = edit();
+        submitted.setUuid(null);
+        CaseManagementNote original = submitted.copyForRevision();
+        original.setId(501L);
+        original.setDemographic_no("102");
+        when(notes.getNoteForUpdate(501L)).thenReturn(original);
+
+        assertThatThrownBy(() -> manager.saveNoteRevisionSimple(submitted)).isInstanceOf(SecurityException.class);
+        assertThat(original.getUuid()).isNull();
+        verify(notes, never()).saveNote(any());
+        verifyNoInteractions(extensions, links, hashes);
+    }
+
+    @Test
+    void shouldRejectMissingLegacyRow_withoutCreatingAnotherNote() {
+        CaseManagementNote submitted = edit();
+        submitted.setUuid(null);
+        assertThatThrownBy(() -> manager.saveNoteRevisionSimple(submitted)).isInstanceOf(StaleNoteRevisionException.class);
+        verify(notes, never()).saveNote(any());
+        verifyNoInteractions(extensions, links, hashes);
     }
 }

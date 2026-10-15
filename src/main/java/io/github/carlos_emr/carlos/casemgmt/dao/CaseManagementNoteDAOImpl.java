@@ -142,6 +142,20 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     }
 
     @Override
+    public CaseManagementNote getNoteForUpdate(Long id) {
+        // A locking query can otherwise return an older or edited first-level-cache instance.
+        // Keep the caller's draft intact, but load the historical values from a current read.
+        CaseManagementNote cached = entityManager().find(CaseManagementNote.class, id);
+        if (cached != null) entityManager().detach(cached);
+        List<CaseManagementNote> notes = entityManager().createQuery(
+                "select n from CaseManagementNote n where n.id = :id", CaseManagementNote.class)
+                .setParameter("id", id)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+        return notes.isEmpty() ? null : notes.getFirst();
+    }
+
+    @Override
     public List<CaseManagementNote> getNotes(List<Long> ids) {
         if (ids.size() == 0)
             return new ArrayList<CaseManagementNote>();

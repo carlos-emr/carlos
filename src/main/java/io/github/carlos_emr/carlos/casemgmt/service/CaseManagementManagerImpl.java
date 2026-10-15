@@ -1750,32 +1750,48 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     @Override
     public CaseManagementNoteSaveResult saveNoteRevision(CaseManagementCPP cpp, CaseManagementNote note,
             String providerNo, String userName, String lastStr, String roleName) {
-        Long previousId = previousRevisionId(note);
-        CaseManagementNote revision = previousId == null ? note : note.copyForRevision();
+        CaseManagementNote previous = previousRevision(note);
+        CaseManagementNote revision = previous == null ? note : note.copyForRevision();
+        if (previous != null) revision.setUuid(previous.getUuid());
         String savedText = persistNote(cpp, revision, userName, lastStr);
         if (revision.getId() == null) {
             throw new IllegalStateException("Note revision was not saved");
         }
-        copyRevisionMetadata(previousId, revision);
+        copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
         return new CaseManagementNoteSaveResult(revision, savedText);
     }
 
     @Override
     public CaseManagementNote saveNoteRevisionSimple(CaseManagementNote note) {
-        Long previousId = previousRevisionId(note);
-        CaseManagementNote revision = previousId == null ? note : note.copyForRevision();
+        CaseManagementNote previous = previousRevision(note);
+        CaseManagementNote revision = previous == null ? note : note.copyForRevision();
+        if (previous != null) revision.setUuid(previous.getUuid());
         caseManagementNoteDAO.saveNote(revision);
         auditSignedNote(revision);
-        copyRevisionMetadata(previousId, revision);
+        copyRevisionMetadata(previous == null ? null : previous.getId(), revision);
         return revision;
     }
 
-    private Long previousRevisionId(CaseManagementNote note) {
-        if (note.getUuid() == null || note.getUuid().isBlank()) {
-            if (note.getId() != null) throw new StaleNoteRevisionException();
-            return null;
+    private CaseManagementNote previousRevision(CaseManagementNote note) {
+        String uuid = note.getUuid();
+        if (uuid == null || uuid.isBlank()) {
+            if (note.getId() == null) return null;
+            CaseManagementNote original = caseManagementNoteDAO.getNoteForUpdate(note.getId());
+            if (original == null) throw new StaleNoteRevisionException();
+            if (!Objects.equals(original.getDemographic_no(), note.getDemographic_no())) {
+                throw new SecurityException("Note belongs to a different demographic");
+            }
+            uuid = original.getUuid();
+            if (uuid == null || uuid.isBlank()) {
+                uuid = UUID.randomUUID().toString();
+                // Only initialize the chain identity on the locked historical row. Do not call
+                // updateNote/saveNote: those also update timestamps or merge submitted edits.
+                original.setUuid(uuid);
+                return original;
+            }
+            // A competing legacy edit may have initialized this row while we waited for its lock.
         }
-        CaseManagementNote latest = caseManagementNoteDAO.getMostRecentNoteForUpdate(note.getUuid());
+        CaseManagementNote latest = caseManagementNoteDAO.getMostRecentNoteForUpdate(uuid);
         if (latest == null) {
             if (note.getId() != null) throw new StaleNoteRevisionException();
             return null;
@@ -1787,7 +1803,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             throw new StaleNoteRevisionException();
         }
         // REST annotation clients send a UUID without an ID; retain their existing links too.
-        return latest.getId();
+        return latest;
     }
 
     private void copyRevisionMetadata(Long previousId, CaseManagementNote revision) {

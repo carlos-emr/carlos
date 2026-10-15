@@ -11,10 +11,10 @@ function chartNavigation(overrides = {}) {
     url: () => 'https://fixture.test/carlos/CaseManagementEntry?method=setUpMainEncounter', ...overrides };
 }
 
-function snapshot(language = 'fr', { empty = false } = {}) {
+function snapshot(language = 'fr', { empty = false, parser = parseInitialHeader } = {}) {
   const document = {
     documentElement: { getAttribute: () => language },
-    getElementById: () => empty ? null : { getAttribute: () => language },
+    getElementById: id => !empty && id === 'header-top-row' ? { getAttribute: () => language } : null,
     querySelectorAll: selector => selector.includes('.label')
       ? [{ parentElement: { id: 'patient-sex' }, textContent: language === 'fr' ? 'Sexe' : 'Sex' }]
       : [{ textContent: language === 'fr' ? 'calculatrices' : 'calculators' }],
@@ -22,8 +22,15 @@ function snapshot(language = 'fr', { empty = false } = {}) {
   class DOMParser {
     parseFromString(html, type) { assert.equal(type, 'text/html'); return document; }
   }
-  return vm.runInNewContext(`(${parseInitialHeader.toString()})('<html>')`, { DOMParser });
+  return vm.runInNewContext(`(${parser.toString()})('<html>')`, { DOMParser });
 }
+
+test('shouldReturnNoHeader_whenParserRequestsTheWrongElementId', () => {
+  function wrongHeaderParser(html) {
+    return new DOMParser().parseFromString(html, 'text/html').getElementById('wrong-header');
+  }
+  assert.equal(snapshot('fr', { parser: wrongHeaderParser }), null);
+});
 
 test('shouldRejectMissingHeader_whenInitialResponseIsNotAChart', () => {
   assert.equal(snapshot('fr', { empty: true }), null);
