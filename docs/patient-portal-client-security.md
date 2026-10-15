@@ -115,7 +115,7 @@ check current state before retrying.
 
 ## Inviting a patient
 
-Staff invite a patient from the **Patient portal** link on the demographic record. The link appears
+Staff invite a patient from the **Patient Portal** link on the demographic record. The link appears
 only when the portal is configured and the user holds `_portal.invite` or `_portal.account` read for
 the patient. Resolving an unfinished delivery needs `_portal.invite` and `_email` write, the same
 email privilege the rest of CARLOS requires to create or close an outbox row. Sending also needs
