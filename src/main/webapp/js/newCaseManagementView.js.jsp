@@ -1367,10 +1367,11 @@ function updateCPPNote() {
                     if (request.responseText.length > 0) {
                         $(div).update(request.responseText);
                     }
-                    if ($("issueChange").value == "true") {
-                        ajaxUpdateIssues("edit", sigId);
-                        $("issueChange").value = false;
-                    }
+                    // A CPP save can create a patient issue even when every checkbox
+                    // stays checked. Refresh the note fields and Unresolved Issues
+                    // after every successful save, independently of issueChange.
+                    ajaxUpdateIssues("edit", sigId);
+                    $("issueChange").value = false;
 
                     if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
                 },
