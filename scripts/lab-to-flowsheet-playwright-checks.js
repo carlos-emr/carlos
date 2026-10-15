@@ -130,7 +130,7 @@ const DIAB_TEMPLATE = 'diab2';
 /** The flowsheet's own A1C target ("Target <= 7.0%") as a number, or null. */
 function targetOf(guideline) {
   // The page encodes the tooltip body twice (SafeEncode.forTooltipText, #4448), so the raw HTML holds `&amp;lt;`.
-  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<'));
+  const match = /Target\s*(?:<=?|<|≤)\s*(\d+(?:\.\d+)?)/.exec(String(guideline || '').replace(/&(?:amp;)?lt;/g, '<'));
   return match ? Number(match[1]) : null;
 }
 
