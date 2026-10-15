@@ -11,7 +11,7 @@
  * nothing.
  * The menu entry exists only with multisites=on (admin.jsp and administration/leftNav.jspf);
  * without it the check SKIPs, as on the Ontario and BC demo installs (multisites=off).
- * Known failure: Save fails on develop (finding 269): the detail form posts site.* fields that
+ * Known failure: Save fails on develop (finding 269, #4700): the detail form posts site.* fields that
  * SitesManage2Action does not bind, the list's name link is a GET with method=update that the
  * GET guard refuses, and the edit form shows no stored values.
  * Fixtures: one owned site named with the run marker, removed in cleanup (with any providersite

@@ -4722,7 +4722,7 @@
         "finding": 269,
         "step": "Add New Site ▸ Save stores the new site and lists it"
       },
-      "notes": "Satellite-sites Admin add, open and edit, and a GET save refusal. Expected to fail at the Save step while finding 269 stands: the detail form's site.* fields do not bind, the list's edit link is a GET with method=update that the GET guard refuses, and the edit form shows no stored values."
+      "notes": "Satellite-sites Admin add, open and edit, and a GET save refusal. Expected to fail at the Save step while finding 269 (#4700) stands: the detail form's site.* fields do not bind, the list's edit link is a GET with method=update that the GET guard refuses, and the edit form shows no stored values."
     },
     {
       "name": "consultation-edit-status",
