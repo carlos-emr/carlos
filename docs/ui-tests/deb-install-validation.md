@@ -3022,3 +3022,11 @@ the #4515 validation above saw fail the same way on unmodified `release/2026.08`
 found no unexplained signature (6 known). Over the whole session the audit's unexplained signatures were
 `DemographicLabelPdf` (the `phi-in-error-pages` probe of `printDemoLabelAction`), a `ClientAbortException` from a provider
 signature image, and two `uk_demo_ext_single_value` violations logged during the deliberate pre-fix run.
+
+After the CodeRabbit review (0f9d1f9f: the Add Service id check and unconfirmed repeat, the Add Demographic post-commit
+error log, and the neutral refusal-page title and conflict wording in all five bundles), the build `.2` install was set
+up fresh again. The head's `DemographicEditVersion`, `DemographicUpdate2Action`, `DemographicAddRecord2Action` and
+`EctConAddService2Action` classes and the five `oscarResources_*.properties` bundles were copied in. All eight #4225
+checks above passed, together with `demographic-add`, `demographic-edit-update`, `gap-records-demographic-add-fields`,
+`consultation-services-admin` and `get-reject-consult-config`. The session's container restarted once during this run;
+the stopped validation container was started again with its copied files intact, and the remaining checks were run then.
