@@ -16,7 +16,7 @@
  *     The first row stays byte-for-byte as it was.
  *   - The chart then shows the edited text once and the revision link reads 2. The history popup
  *     lists both revisions, newest first, for this note and patient only.
- * Known failure (finding 269): on develop, Sign & Save of the edit answers 500, because the edit form
+ * Known failure (finding 272): on develop, Sign & Save of the edit answers 500, because the edit form
  * posts observation_date as a raw timestamp that noteSave cannot parse; the message names the posted
  * value. The history step after it then does not run.
  * Not covered here: Save of an unsigned note, autosave drafts, timers and billing
