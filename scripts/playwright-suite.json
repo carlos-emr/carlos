@@ -3668,7 +3668,11 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Flowsheet ▸ saved reading ▸ Add Measurement Data ▸ Delete (DeleteData2): removes the reading, keeps a measurementsDeleted copy, refuses a GET with 405.",
+      "notes": "Flowsheet ▸ saved reading ▸ Add Measurement Data ▸ Delete (DeleteData2): removes the reading, keeps a measurementsDeleted copy, refuses a GET with 405. The Delete step is pinned to app-findings-log.md finding 273: the page disables every form field for a saved reading, CSRFGuard's token field included, so the Delete POST carries no token and is refused with 403.",
+      "expectedFailure": {
+        "finding": 273,
+        "step": "Delete removes the reading, keeps a deleted copy, and the flowsheet no longer lists it"
+      },
       "fixtures": "Seeds and removes an active diabetes diagnosis and one NRTF reading for its own FAKE patient, and the measurementsDeleted copy the delete writes."
     },
     {
