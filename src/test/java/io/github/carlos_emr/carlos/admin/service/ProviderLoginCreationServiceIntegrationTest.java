@@ -73,6 +73,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
 
     private static final String PROVIDER_NO = "926891";
+    /** The acting administrator: a different provider, so the audit actor is checked, not assumed. */
+    private static final String ADMIN_PROVIDER_NO = "926892";
     private static final String USER_NAME = "fixture2689";
     private static final String ROLE_NAME = "fixture_2689_role";
     private static final int ROLE_NO = 926891;
@@ -115,9 +117,11 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         Provider provider = new Provider(PROVIDER_NO, "Fixture", "doctor", "F", "GP", "RoleOnCreate");
         provider.setStatus("1");
         providerDao.saveProvider(provider);
-        // The audit entries record the acting administrator; any provider row serves here.
+        Provider adminProvider = new Provider(ADMIN_PROVIDER_NO, "Fixture", "admin", "F", "GP", "RoleOnCreateAdmin");
+        adminProvider.setStatus("1");
+        providerDao.saveProvider(adminProvider);
         admin = new LoggedInInfo();
-        admin.setLoggedInProvider(provider);
+        admin.setLoggedInProvider(adminProvider);
         entityManager.createNativeQuery("MERGE INTO secrole (role_no, role_name) KEY(role_no) VALUES (?1, ?2)")
                 .setParameter(1, ROLE_NO)
                 .setParameter(2, ROLE_NAME)
@@ -176,18 +180,21 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         assertThat(membership).isNotNull();
         assertThat(membership.getRoleId()).isEqualTo((long) ROLE_NO);
 
-        // Both audit entries were written in the creating transaction, by the acting admin.
-        assertThat(auditRows("securityRecord", USER_NAME)).isEqualTo(1L);
-        assertThat(auditRows("role", PROVIDER_NO + "|" + ROLE_NAME)).isEqualTo(1L);
+        // Both audit entries were written in the creating transaction and name the acting
+        // administrator, not the provider the login was created for.
+        assertThat(auditRows("securityRecord", USER_NAME, ADMIN_PROVIDER_NO)).isEqualTo(1L);
+        assertThat(auditRows("role", PROVIDER_NO + "|" + ROLE_NAME, ADMIN_PROVIDER_NO)).isEqualTo(1L);
+        assertThat(auditRows("securityRecord", USER_NAME, PROVIDER_NO)).isZero();
+        assertThat(auditRows("role", PROVIDER_NO + "|" + ROLE_NAME, PROVIDER_NO)).isZero();
     }
 
-    private long auditRows(String content, String contentId) {
+    private long auditRows(String content, String contentId, String actorProviderNo) {
         return entityManager.createQuery(
                         "select count(l) from OscarLog l where l.content = :content and l.contentId = :contentId"
-                                + " and l.providerNo = :admin", Long.class)
+                                + " and l.providerNo = :actor", Long.class)
                 .setParameter("content", content)
                 .setParameter("contentId", contentId)
-                .setParameter("admin", PROVIDER_NO)
+                .setParameter("actor", actorProviderNo)
                 .getSingleResult();
     }
 
@@ -230,6 +237,6 @@ class ProviderLoginCreationServiceIntegrationTest extends CarlosTestBase {
         assertThat(securityDao.findByUserName(USER_NAME)).isEmpty();
         assertThat(secuserroleDao.findByProviderNo(PROVIDER_NO)).isEmpty();
         assertThat(programProviderDao.getProgramProvider(PROVIDER_NO, programId)).isNull();
-        assertThat(auditRows("securityRecord", USER_NAME)).isZero();
+        assertThat(auditRows("securityRecord", USER_NAME, ADMIN_PROVIDER_NO)).isZero();
     }
 }
