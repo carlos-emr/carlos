@@ -6,6 +6,10 @@ disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
+The 2026-10-15 focused validation for issue #4699, including blocking-WAF
+positive/negative controls and pending encounter-issue preservation, is recorded
+in [PR #4701 validation](pr4701-validation.md).
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
