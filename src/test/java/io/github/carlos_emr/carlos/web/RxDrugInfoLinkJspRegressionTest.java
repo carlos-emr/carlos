@@ -64,8 +64,8 @@ class RxDrugInfoLinkJspRegressionTest {
 
     @ParameterizedTest(name = "{0}")
     @CsvSource({"StaticScript2.jsp, 1", "ViewScript2.jsp, 1", "WriteScript.jsp, 1", "ChooseDrug.jsp, 3"})
-    @DisplayName("should open drug info from a real URL with each value encoded for where it lands")
-    void shouldOpenDrugInfo_fromEncodedRealUrl(String page, int expectedLinks) throws IOException {
+    @DisplayName("should open drug info from a real URL with each value intact")
+    void shouldOpenDrugInfo_fromRealUrl(String page, int expectedLinks) throws IOException {
         String jsp = Files.readString(RX.resolve(page), StandardCharsets.UTF_8);
 
         assertThat(jsp).doesNotContain("href=\"javascript:ShowDrugInfo");

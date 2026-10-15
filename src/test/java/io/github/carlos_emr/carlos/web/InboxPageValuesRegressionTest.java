@@ -44,10 +44,10 @@ import org.junit.jupiter.api.Test;
  *
  * @since 2026-10-14
  */
-@DisplayName("Inbox result list JSP encoding")
+@DisplayName("Inbox result list values")
 @Tag("unit")
 @Tag("lab")
-class InboxPageJspEncodingRegressionTest {
+class InboxPageValuesRegressionTest {
 
     private static final Path JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarMDS", "Page.jsp");
     private static final Path INDEX_JS = Path.of("src", "main", "webapp", "share", "javascript", "oscarMDSIndex.js");
@@ -61,8 +61,8 @@ class InboxPageJspEncodingRegressionTest {
     }
 
     @Test
-    @DisplayName("should open each report from a real URL with every request value encoded for the URL")
-    void shouldOpenReports_fromEncodedRealUrls() throws IOException {
+    @DisplayName("should open each report from a real URL that carries every request value intact")
+    void shouldOpenReports_fromRealUrls() throws IOException {
         List<String> links = reportLinks(Files.readString(JSP, StandardCharsets.UTF_8));
 
         assertThat(links).hasSize(6);
@@ -92,8 +92,8 @@ class InboxPageJspEncodingRegressionTest {
     }
 
     @Test
-    @DisplayName("should encode the hidden name field, the name comment, sex and date")
-    void shouldEncodeRowValues_forTheirContext() throws IOException {
+    @DisplayName("should show the hidden name field, the name comment, sex and date as stored")
+    void shouldShowRowValues_asStored() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
@@ -105,7 +105,7 @@ class InboxPageJspEncodingRegressionTest {
     }
 
     @Test
-    @DisplayName("should hand the included pages the plain patient name, which they encode where they print it")
+    @DisplayName("should hand the included pages the plain patient name, which they show as stored")
     void shouldPassPlainPatientName_toIncludedPages() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 

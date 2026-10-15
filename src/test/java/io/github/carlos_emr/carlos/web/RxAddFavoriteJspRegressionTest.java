@@ -49,8 +49,8 @@ class RxAddFavoriteJspRegressionTest {
     private static final Path JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "WriteScript.jsp");
 
     @Test
-    @DisplayName("should add a favourite from a button with the drug name encoded for the attribute")
-    void shouldAddFavorite_fromButtonWithAttributeEncodedName() throws IOException {
+    @DisplayName("should add a favourite from a button that passes the drug name intact")
+    void shouldAddFavorite_fromButtonWithIntactName() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
