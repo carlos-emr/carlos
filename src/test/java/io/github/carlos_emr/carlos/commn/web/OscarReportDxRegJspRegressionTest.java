@@ -54,9 +54,9 @@ class OscarReportDxRegJspRegressionTest {
     private static final Path REPORT_JSP = resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF",
             "jsp", "oscarReport", "oscarReportDxReg.jsp"));
 
-    /** The {@code <select name="quickListName">} element, through its closing tag. */
+    /** The contents of the {@code <select>} named {@code quickListName}, through its closing tag. */
     private static final Pattern QUICK_LIST_SELECT = Pattern.compile(
-            "<select name=\"quickListName\"[^>]*>(.*?)</select>", Pattern.DOTALL);
+            "<select\\b[^>]*\\bname=\"quickListName\"[^>]*>(.*?)</select>", Pattern.DOTALL);
 
     @Test
     @DisplayName("should list the report's own quick lists rather than the shared registry handler")

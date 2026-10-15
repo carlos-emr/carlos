@@ -245,19 +245,21 @@ async function workflow(s) {
     assert(await markedOption.count() >= 1, 'Precondition: the patient registry did not mark a default quick list');
     const marked = await markedOption.first().getAttribute('value');
     await again.close();
+    // The registry may mark more than one list; the report's own value is what an Add posts.
+    const preselected = () => report.locator('select[name="quickListName"]').inputValue();
     const added = [];
     for (const code of ['401', '272']) {
       await report.locator('#codingSystem').selectOption('icd9');
       await typeAutocomplete(report, '#codesearch', CODES[code], { option: new RegExp(`^${code}: `) });
-      assert(await report.locator('select[name="quickListName"]').inputValue() === '',
-        `The report preselected a quick list before adding ${code}`);
+      const before = await preselected();
+      assert(before === '', `Before adding ${code} the report preselected quick list "${before}" (registry marked "${marked}")`);
       await submit(report.getByRole('button', { name: 'Add', exact: true }));
       added.push(code);
       const shown = await codeRows().evaluateAll(trs => trs.map(tr => tr.querySelectorAll('td')[1].textContent.trim()));
       assert(JSON.stringify(shown.sort()) === JSON.stringify([...added].sort()),
         `A single-code Add of ${code} added other criteria: ${shown.join(',')}`);
-      assert(await report.locator('select[name="quickListName"]').inputValue() === '',
-        `After adding ${code} the report preselected quick list "${marked}"`);
+      const after = await preselected();
+      assert(after === '', `After adding ${code} the report preselected quick list "${after}" (registry marked "${marked}")`);
     }
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
     assert(await codeRows().count() === 0, 'Clear left single-code criteria behind');
