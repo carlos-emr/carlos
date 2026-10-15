@@ -59,6 +59,10 @@
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css">
         <link rel="stylesheet" type="text/css" media="screen"
               href="form/mhStyles.css">
+        <style>
+            /* Comments comes from a textarea: keep its line breaks on screen and on paper. */
+            .mhOutComments { white-space: pre-wrap; }
+        </style>
 
         <%
             Properties props = new Properties();
@@ -200,7 +204,7 @@
                 </tr>
                 <tr>
                     <td class="mhSelect"><fmt:message key="form.mhoutcomeprint.comments"/><br>
-                        <%= SafeEncode.forHtmlContent(props.getProperty("o_outComments", "")) %>
+                        <span class="mhOutComments"><%= SafeEncode.forHtmlContent(props.getProperty("o_outComments", "")) %></span>
                     </td>
                 </tr>
             </table>
