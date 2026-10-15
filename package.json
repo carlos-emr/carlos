@@ -414,6 +414,7 @@
     "test:get-reject-provider-groups-playwright": "node scripts/get-reject-provider-groups-playwright-checks.js",
     "test:get-reject-rourke-form-playwright": "node scripts/get-reject-rourke-form-playwright-checks.js",
     "test:get-reject-chart-notes-playwright": "node scripts/get-reject-chart-notes-playwright-checks.js",
+    "test:get-reject-note-browser-documents-playwright": "node scripts/get-reject-note-browser-documents-playwright-checks.js",
     "test:get-reject-eform-editor-playwright": "node scripts/get-reject-eform-editor-playwright-checks.js",
     "test:get-reject-contact-directory-playwright": "node scripts/get-reject-contact-directory-playwright-checks.js",
     "test:get-reject-measurement-groups-playwright": "node scripts/get-reject-measurement-groups-playwright-checks.js",

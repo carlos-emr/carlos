@@ -6235,6 +6235,27 @@
       "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
     },
     {
+      "name": "get-reject-note-browser-documents",
+      "script": "scripts/get-reject-note-browser-documents-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient and two owned PDFs (document rows, ctl_document links, files in DOCUMENT_DIR); one is set to deleted by SQL. Cleanup removes the rows, the files and any refiled copy under INCOMINGDOCUMENT_DIR/1/Refile, and asserts it. SKIP when DOCUMENT_DIR or INCOMINGDOCUMENT_DIR is not set.",
+      "notes": "GET and HEAD to casemgmt/NoteBrowserDocumentDelete, NoteBrowserDocumentUndelete, NoteBrowserDocumentRefile and documentManager/DocumentDelete, DocumentUndelete must answer 405 from CARLOS and change nothing."
+    },
+    {
       "name": "get-reject-eform-editor",
       "script": "scripts/get-reject-eform-editor-playwright-checks.js",
       "tiers": [
