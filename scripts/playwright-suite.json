@@ -3430,6 +3430,22 @@
       "notes": "Read-only. Proves Flyway V1.0.29 applied and Administration > Clinic shows the stored (non-placeholder) clinic name."
     },
     {
+      "name": "clinic-address-admin",
+      "script": "scripts/clinic-address-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "clinic"
+      ],
+      "fixtures": "No owned rows: the one clinic row is clinic-wide, so the check snapshots every column first and restores the snapshot in cleanup, verified byte for byte (and that no second clinic row remains). It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "scratchpad-workflow",
       "script": "scripts/scratchpad-workflow-playwright-checks.js",
       "tiers": [

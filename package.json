@@ -258,6 +258,7 @@
     "test:eform-email-two-windows-playwright": "node scripts/eform-email-two-windows-playwright-checks.js",
     "test:ocean-display-settings-playwright": "node scripts/ocean-display-settings-playwright-checks.js",
     "test:hrm-retired-statement-playwright": "node scripts/hrm-retired-statement-playwright-checks.js",
+    "test:clinic-address-admin-playwright": "node scripts/clinic-address-admin-playwright-checks.js",
     "test:clinic-demo-name-playwright": "node scripts/clinic-demo-name-playwright-checks.js",
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
