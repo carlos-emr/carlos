@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.mds.data;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -66,6 +71,20 @@ public class MDSResultsData {
     private EFormDocsDao eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
 
     static Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Months a sibling CML report's service date may lie from the selected report's and still be one of
+     * its versions. Vendors recycle accession numbers, so a matching accession alone does not make two
+     * reports versions of each other.
+     */
+    private static final int CML_VERSION_WINDOW_MONTHS = 4;
+
+    /**
+     * The vendor's {@code YYYYMMDD}. Strict, unlike {@code SimpleDateFormat}: {@code 20260230} is not a
+     * date and trailing text is not ignored, so a damaged value is refused rather than silently placed.
+     */
+    private static final DateTimeFormatter CML_SERVICE_DATE =
+            DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT);
 
     public ArrayList<String> segmentID;
     public ArrayList<String> acknowledgedStatus;
@@ -569,40 +588,66 @@ public class MDSResultsData {
         return "";
     }
 
+    /**
+     * Finds the versions of a CML report.
+     *
+     * @param labId reviewed CML report identifier
+     * @return comma-separated report identifiers in print order, oldest first; labId if the
+     *         version lookup fails
+     * @see #getMatchingCMLLabs(String, boolean)
+     */
     public String getMatchingCMLLabs(String labId) {
         return getMatchingCMLLabs(labId, false);
     }
 
     /**
      * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     *
+     * <p>A CML report's versions are the reports sharing its accession number whose service dates lie
+     * within four months of its own, the window the MDS, PathNet and HL7 chains use. {@code service_date}
+     * is a {@code varchar(10)} holding the vendor's {@code YYYYMMDD}, so the lookup returns it as a
+     * {@code String} and it is parsed here.
+     *
+     * <p>A sibling whose date (or the selected report's date) cannot be read is left out, not assumed
+     * to belong: the chain is acted on, not merely displayed, since acknowledging or forwarding a
+     * report files or routes every version in it, and a recycled accession number would otherwise pull in
+     * an unrelated report nobody has read. The selected report is always part of its own chain.
+     *
      * @param labId selected report identifier
      * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
-     * @return versions in clinical order
+     * @return versions in print order, oldest first
      */
     public String getMatchingCMLLabs(String labId, boolean failOnLookupError) {
         String ret = "";
-        int monthsBetween = 0;
+        int unreadable = 0;
         try {
-            for (Object[] o : labPPIDao.findLabServiceDatesByLabId(ConversionUtils.fromIntString(labId))) {
+            Integer selectedId = ConversionUtils.fromIntString(labId);
+            for (Object[] o : labPPIDao.findLabServiceDatesByLabId(selectedId)) {
                 Integer id = (Integer) o[0];
-                Date serviceDate = (Date) o[1];
-                Date labDate = (Date) o[2];
 
-                Date dateA = serviceDate;
-                Date dateB = labDate;
+                if (!selectedId.equals(id)) {
+                    Date siblingDate = parseCmlServiceDate((String) o[1]);
+                    Date selectedDate = parseCmlServiceDate((String) o[2]);
+                    if (siblingDate == null || selectedDate == null) {
+                        unreadable++;
+                        continue;
+                    }
 
-                if (dateA.before(dateB)) {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                } else {
-                    monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
+                    int monthsBetween;
+                    if (siblingDate.before(selectedDate)) {
+                        monthsBetween = UtilDateUtilities.getNumMonths(siblingDate, selectedDate);
+                    } else {
+                        monthsBetween = UtilDateUtilities.getNumMonths(selectedDate, siblingDate);
+                    }
+                    if (monthsBetween >= CML_VERSION_WINDOW_MONTHS) {
+                        continue;
+                    }
                 }
 
-                if (monthsBetween < 4) {
-                    if (ret.equals(""))
-                        ret = "" + id;
-                    else
-                        ret = ret + "," + id;
-                }
+                if (ret.equals(""))
+                    ret = "" + id;
+                else
+                    ret = ret + "," + id;
             }
 
         } catch (Exception e) {
@@ -610,7 +655,36 @@ public class MDSResultsData {
             logger.error("exception in getMatchingCMLLabs ({})", e.getClass().getSimpleName());
             return labId;
         }
+        if (unreadable > 0) {
+            // A count only: neither a report number nor a date belongs in the log.
+            logger.warn("CML version lookup left out {} report(s) whose service date could not be read", unreadable);
+        }
+        if (ret.equals("")) {
+            // No accession number to match on, or no print header: the report is its own only version. The
+            // report page renders its acknowledgement status from this chain, and an empty one hides it.
+            return labId;
+        }
         return ret;
+    }
+
+    /**
+     * Reads a CML {@code service_date}: the vendor's {@code YYYYMMDD}, or the ISO {@code yyyy-MM-dd}
+     * form a date column or a hand-entered row would carry.
+     *
+     * @param serviceDate the stored value; may be null, blank or damaged
+     * @return the start of that day in the server's time zone, or null when it is not a real date
+     */
+    private static Date parseCmlServiceDate(String serviceDate) {
+        if (serviceDate == null) {
+            return null;
+        }
+        String value = serviceDate.trim();
+        try {
+            LocalDate day = value.indexOf('-') < 0 ? LocalDate.parse(value, CML_SERVICE_DATE) : LocalDate.parse(value);
+            return Date.from(day.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     /**

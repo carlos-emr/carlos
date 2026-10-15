@@ -87,6 +87,9 @@ public class LabPatientPhysicianInfoDaoImpl extends AbstractDaoImpl<LabPatientPh
                 "FROM LabPatientPhysicianInfo lpp, LabPatientPhysicianInfo lpp2, LabReportInformation tr " +
                 "WHERE lpp.accessionNum = lpp2.accessionNum " +
                 "AND lpp2.id = :labId " +
+                // A blank accession number equals every other blank one, so it identifies no order: a report
+                // without one has no other versions, and joining on it would chain unrelated patients' reports.
+                "AND TRIM(lpp2.accessionNum) <> '' " +
                 "AND tr.id = lpp.labReportInfoId " +
                 "ORDER BY tr.printDate, tr.printTime";
         Query query = entityManager.createQuery(sql);
