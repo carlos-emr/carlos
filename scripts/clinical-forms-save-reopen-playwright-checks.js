@@ -90,19 +90,20 @@ const FORMS = [
     // problems: the typo that every page of the form throws (237). opener: the note-lock beacon the chart sends as it is
     // reloaded by an Assessment Save (242), so a different E-Chart problem after that is fixed does not read as pinned.
     known: { problems: /docuemtn is not defined/, opener: /CaseManagementEntry failed \(net::ERR_ABORTED\)/ } },
-  // The shipped registration points at the Struts 1 route SetupForm.do, which the chart opens as a raw URL and the
-  // application answers 404 (finding 103). That row only opens, so its pin is the open step and nothing downstream of
-  // the open can hold it up; the form behind it is VT2.
+  // The shipped registration points at the Struts 1 route SetupForm.do. The chart opened it as a raw URL and the
+  // application answered 404 (finding 103, fixed in #4667: the route now resolves to SetupForm). That row only opens,
+  // so nothing downstream of the open can hold it up; the form behind it is VT2.
   { key: 'VT', title: 'Vascular Tracker', path: '../form/SetupForm.do', query: 'formName=VTForm&',
     table: 'formVTForm', openOnly: true, ready: { button: 'Update VT' } },
   // The same form registered the way the route is mapped (SetupForm without the .do suffix; SetupForm.do is also
   // refused by the action's own check of the registration). It saves through form/SubmitForm, names its inputs
-  // `value(Name)` (the column is Name), and has an Update VT button instead of Save (finding 254).
+  // `value(Name)` (the column is Name), and has an Update VT button instead of Save. Its Save answered 400 (finding
+  // 254) and every load and Update VT threw a TypeError from the missing eye-exam inputs (finding 255); both are fixed
+  // in #4667 and stay covered as regressions.
   { key: 'VT2', title: 'Vascular Tracker (extensionless route)', path: '../form/SetupForm', query: 'formName=VTForm&',
     table: 'formVTForm', idColumn: 'ID', provider: false, confirm: false, prose: 'value(ExerComments)',
     fields: [{ name: 'value(ExerValue)', value: 'Y', stored: 'Y' }], saveButton: 'Update VT', savePath: '/form/SubmitForm',
-    idInUrl: false, ready: { button: 'Update VT' },
-    known: { problems: /Cannot set properties of undefined \(setting '(?:disabled|value)'\)/ } },
+    idInUrl: false, ready: { button: 'Update VT' } },
 ].map(form => {
   if (form.openOnly) return { ...form, claim: form.key.toLowerCase(), concerns: ['open', 'problems'] };
   const concerns = ['open'];
@@ -136,9 +137,6 @@ function validatePin(env = process.env) {
  * scripts/form-claims.test.js proves each pinned literal equals the label the run generates.
  */
 const PINNED = Object.freeze({
-  'vt.open': 'Vascular Tracker: is listed once in the Forms menu and opens for the owned patient',
-  'vt2.problems': 'Vascular Tracker (extensionless route): raised no JavaScript-layer problems',
-  'vt2.save': 'Vascular Tracker (extensionless route): Save stores exactly the typed prose and structured fields for the signed-in provider',
   'mh14.problems': 'Mental Health Form 14: raised no JavaScript-layer problems',
   'mhc.problems': 'Mental Health: raised no JavaScript-layer problems',
   'mhc.opener': 'Mental Health: Saving a page leaves the E-Chart that opened the form alone',

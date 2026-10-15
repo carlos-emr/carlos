@@ -23,6 +23,19 @@ with spans. Existing control names, DOM order, values, IDs and clinical scripts 
 preserved. The Medication Adherence comments field's misspelled keyboard-order
 attribute is corrected, with native Tab navigation covered by the browser check.
 
+The chart's identity banner (`newEncounterHeader.jsp`) also names the patient its own
+chart request carries. It previously read the login-wide `EctSessionBean`, which
+`IncomingEncounter` still rewrites for whichever chart was entered last, so refreshing
+A's chart after entering B showed B's name, date of birth and health number above A's
+notes. Save and Exit's panel refresh asks for the usual six rows (`numToDisplay=6`), and
+`loadDiv()` treats an undeclared `appointmentNo` (the standalone notes view) as no
+appointment instead of throwing.
+
+The Vascular Tracker routing, binding and script repairs also fix findings 103
+(#3358), 254 and 255 (#4612). Their pinned `clinical-forms-save-reopen-vascular-tracker`,
+`-save` and `-script` checks pass live, so the findings are marked fixed and the pins
+are now regressions.
+
 ## Verification
 
 - The original browser check from release commit `3d5f85fbb6` reproduced the
@@ -84,11 +97,38 @@ previously audited WAR, with compiled production classes and changed web resourc
 overlaid and hashed. It is not a claim that a fresh WAR was packaged locally.
 GitHub CI provides the clean build and JSP compilation checks.
 
+A follow-up validation built this branch from source (exploded WAR on Tomcat 11, Ontario
+demo data, JDK 25):
+
+- The extended `echart-two-patient-isolation` check has 24 steps. Its new banner step fails
+  on the previous head ("A's refreshed chart names another patient in its identity banner")
+  and passes with the header fix. `activateOther()` now enters the other chart through
+  `IncomingEncounter`. Navbar requests no longer rewrite the session bean, so reloading a
+  chart URL left the session on the last-entered patient, and the B-direction steps could
+  not detect a regression. The first 23 steps pass in every run, and one complete run passed
+  all 24. In the other runs the final opener-navigation step completed every functional
+  assertion (A's lock released, B's note and rows unchanged, A's measurement and form revision
+  written to A), but its strict recorder kept one aborted note-lock beacon. Under the
+  pass-through route, this sandbox's Chromium sometimes re-issued the beacon as a second request
+  without its Blob body, which the step's exact-request binding does not consume. The
+  unmodified check from `5f736b9a` does the same on this deployment, so it is a property of that
+  browser build rather than of these changes; the reference devcontainer run should confirm it.
+- `EncounterHeaderPatientIsolationUnitTest` (5 cases) fails 3 cases against the previous
+  header. The client tests for the `numToDisplay` refresh and the undeclared appointment
+  global each fail without their fix.
+- Sandbox-only accommodations, not committed: Chromium 141 with Playwright 1.60 text-decodes
+  the `image/png;charset=UTF-8` plot body, so the local copy re-fetched it through the same
+  session; menu hovers were forced; and the `measurementsExt` snapshot query used an
+  equivalent `OR` form for MariaDB 10.11 (the package requires 11.4 or later).
+
 ## Additional faults found
 
 These findings remain outside the patient-isolation and form runtime-error repairs.
 They were found by source review or form-script tests; each has not received a
-separate live reproduction.
+separate live reproduction. Each is tracked in its own issue: items 1, 2 and 6 in
+#4674, item 3 (with the other remaining `EctSessionBean` readers, including the chart
+print's MRP line) in #4673, item 4 in #4676, item 5 in #4675, item 7 in #4677 and
+item 8 in #4678.
 
 1. **Vascular Tracker partial saves:** Save and Exit writes measurements before
    inserting the form, without a common rollback. A later form SQL failure can
@@ -121,8 +161,9 @@ separate live reproduction.
    appends the context again. That entry path can therefore produce
    `/carlos/carlos/billing`. This existing base-URL composition needs separate
    validation for local and external legacy deployments; it was not live-tested here.
-8. **Historical form-row links:** `EctDisplayForm2Action` labels saved rows with
-   their service date but constructs their shortcut URL with `formId=latest`
-   rather than that row's form ID. An older row can therefore reopen the newest
-   record. This source finding needs separate historical-selection coverage; the
-   isolation workflow deliberately verifies the currently advertised latest link.
+8. **Started-form item link:** `EctDisplayForm2Action` shows one started item per
+   form, dated from the most recently *created* row, but links it to `formId=latest`,
+   which resolves by edit time. For a form updated in place, the item can show one
+   row's date and open another. This source finding needs separate selection
+   coverage; the isolation workflow deliberately verifies the currently advertised
+   latest link.

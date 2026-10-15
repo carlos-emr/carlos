@@ -1123,9 +1123,6 @@ async function run(s) {
       await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
       h.assert(JSON.stringify(sql.rows(otherLockQuery)) === JSON.stringify(otherLocks),
         'Releasing A\'s note lock changed B\'s note locks');
-      // The server can apply the release before Chromium reports the departed page's beacon as
-      // aborted. Let every captured release settle, so its requestfailed entry exists to consume.
-      await Promise.all(releases.map(request => request.response().catch(() => null)));
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);
