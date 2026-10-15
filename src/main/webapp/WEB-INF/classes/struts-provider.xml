@@ -157,6 +157,9 @@
         <action name="provider/SaveMyGroup" class="io.github.carlos_emr.carlos.providers.gate.SaveMyGroup2Action">
             <result name="success">/WEB-INF/jsp/provider/providersavemygroup.jsp</result>
         </action>
+        <!-- Preferences > View groups > Delete. POST-only; redirects to the group list and returns
+             the reserved "none" result, so it needs no <result> mapping (#4515). -->
+        <action name="provider/DeleteMyGroupMembers" class="io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action"/>
         <action name="provider/providercontrol" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderControl2Action">
             <result name="success">/WEB-INF/jsp/provider/providercontrol.jsp</result>
         </action>

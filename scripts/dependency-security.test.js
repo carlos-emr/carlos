@@ -37,11 +37,111 @@ test('isolated checks cannot pass before asynchronous assertions finish', () => 
     /async assertion failed/);
 });
 
+/** Reject removed npm identities, following links and inferring names when npm omits them. */
+function assertRemovedPackagesAbsent(packages) {
+  const removed = ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got'];
+  const packageName = (location) => {
+    const seen = new Set();
+    while (true) {
+      assert.ok(!seen.has(location), `Cyclic npm lockfile link target (${location})`);
+      seen.add(location);
+      assert.ok(Object.hasOwn(packages, location), `Missing npm lockfile link target (${location})`);
+      const entry = packages[location];
+      if (!entry.link) {
+        // Local targets can live outside node_modules; preserve any scope in the final path.
+        const name = entry.name ?? location.match(/(?:^|\/)((?:@[^/]+\/)?[^/]+)$/)?.[1];
+        assert.ok(typeof name === 'string' && name.length > 0, `Missing npm package identity (${location})`);
+        return name;
+      }
+      assert.equal(typeof entry.resolved, 'string', `Missing npm lockfile link target (${location})`);
+      location = entry.resolved; // Link targets are relative to the lockfile root.
+    }
+  };
+  for (const location of Object.keys(packages)) {
+    if (!location) continue; // The root project is not an installed dependency.
+    const name = packageName(location);
+    assert.ok(!removed.includes(name), `${name} must remain removed (${location})`);
+  }
+}
+
 test('unpatched sprintf and HTTP caching implementations are absent from the locked tree', () => {
+  assertRemovedPackagesAbsent(require('../package-lock.json').packages);
+});
+
+test('removed implementations are rejected under direct, nested and aliased install names', () => {
+  // npm lockfile v3 alias entries retain name/version even when resolved is omitted.
+  const aliases = {
+    'node_modules/sprintf-alias': {name: 'sprintf-js', version: '1.0.3'},
+    'node_modules/@fixture/policy-alias': {name: 'http-cache-semantics', version: '4.2.0'},
+    'node_modules/consumer/node_modules/request-alias': {name: 'cacheable-request', version: '10.2.14'},
+    'node_modules/consumer/node_modules/@fixture/client-alias': {name: 'got', version: '12.6.1'},
+  };
+  for (const [location, entry] of Object.entries(aliases)) {
+    const expected = {name: 'AssertionError', message: `${entry.name} must remain removed (${location})`};
+    assert.throws(() => assertRemovedPackagesAbsent({[location]: entry}), expected);
+    for (const prefix of ['node_modules/', 'node_modules/consumer/node_modules/']) {
+      const direct = `${prefix}${entry.name}`;
+      assert.throws(() => assertRemovedPackagesAbsent({[direct]: {version: entry.version}}), {
+        name: 'AssertionError', message: `${entry.name} must remain removed (${direct})`,
+      });
+    }
+  }
+});
+
+test('allowed packages and aliases are not confused with removed implementations', () => {
   const {packages} = require('../package-lock.json');
-  for (const name of ['sprintf-js', 'http-cache-semantics', 'cacheable-request', 'got']) {
-    assert.ok(!Object.keys(packages).some((key) => key.endsWith(`/node_modules/${name}`)
-      || key === `node_modules/${name}`), `${name} must remain removed`);
+  assert.doesNotThrow(() => assertRemovedPackagesAbsent({
+    '': {name: 'got', version: '1.0.0'},
+    'node_modules/argparse-upstream': packages['node_modules/argparse-upstream'],
+    'node_modules/gray-matter': packages['node_modules/gray-matter'],
+    'node_modules/@fixture/got': {version: '1.0.0'},
+    'node_modules/consumer/node_modules/got-helper': {version: '1.0.0'},
+    'node_modules/got': {name: '@fixture/allowed-client', version: '1.0.0'},
+    'node_modules/cache-helper': {name: 'http-cache-semantics-helper', version: '1.0.0'},
+    'scripts/npm/local-helper': {name: '@fixture/local-helper', version: '1.0.0'},
+  }));
+});
+
+test('removed implementations are rejected behind local npm links', () => {
+  // npm 10.9.9 Arborist serialization omits name when a local target's folder matches it.
+  for (const [name, version] of Object.entries({
+    'sprintf-js': '1.0.3', 'http-cache-semantics': '4.2.0', 'cacheable-request': '10.2.14', got: '12.6.1',
+  })) {
+    const target = `vendor/${name}`;
+    assert.throws(() => assertRemovedPackagesAbsent({
+      '': {name: 'fixture', version: '1.0.0', dependencies: {'client-alias': `file:${target}`}},
+      'node_modules/client-alias': {resolved: target, link: true},
+      [target]: {version},
+    }), {name: 'AssertionError', message: `${name} must remain removed (node_modules/client-alias)`});
+  }
+});
+
+test('local npm links use allowed target identities instead of removed install names', () => {
+  // Both target shapes were verified with npm 10.9.9's lockfile serializer.
+  assert.doesNotThrow(() => assertRemovedPackagesAbsent({
+    '': {name: 'fixture', version: '1.0.0', dependencies: {
+      got: 'file:vendor/allowed-client', 'sprintf-js': 'file:vendor/@fixture/got',
+    }},
+    'node_modules/got': {resolved: 'vendor/allowed-client', link: true},
+    'vendor/allowed-client': {name: '@fixture/allowed-client', version: '1.0.0'},
+    'node_modules/sprintf-js': {resolved: 'vendor/@fixture/got', link: true},
+    'vendor/@fixture/got': {version: '1.0.0'},
+  }));
+});
+
+test('npm links with missing targets fail closed', () => {
+  for (const entry of [{link: true}, {link: true, resolved: 'vendor/missing'}, {link: true, resolved: 'toString'}]) {
+    assert.throws(() => assertRemovedPackagesAbsent({'node_modules/client-alias': entry}),
+      {name: 'AssertionError', message: /Missing npm lockfile link target/});
+  }
+});
+
+test('npm links with cyclic targets fail closed', () => {
+  for (const target of ['node_modules/client-alias', 'vendor/cycle']) {
+    assert.throws(() => assertRemovedPackagesAbsent({
+      'node_modules/client-alias': {link: true, resolved: target},
+      'vendor/cycle': {link: true, resolved: 'node_modules/client-alias'},
+    }), {name: 'AssertionError', message: /Cyclic npm lockfile link target/});
   }
 });
 

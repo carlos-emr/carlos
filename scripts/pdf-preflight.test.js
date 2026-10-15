@@ -25,7 +25,7 @@ for (const [error, expectedCode, expectedStatus] of [
       chromium: { launch() { assert.fail('Preflight failure must prevent browser launch'); } },
       removeSecretsDir() { cleaned = true; },
       baseUrl: new URL('http://localhost/carlos'), visited: [], findings: [], artifactDir: '/unused',
-      browserErrorClass: e => e.name, fixtureErrorTag: () => '',
+      browserErrorClass: e => e.name, errorSourceLocation: () => '', fixtureErrorTag: () => '',
       buildArtifactPath: () => '/unused/result.json',
       fs: { writeFileSync(_file, body) { summary = JSON.parse(body); } },
       console: { log: value => output.push(value), error: value => output.push(value) },

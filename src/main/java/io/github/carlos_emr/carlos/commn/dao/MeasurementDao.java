@@ -302,7 +302,18 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types);
 
-    public List<Integer> findByCreateDate(Date from, Date to);
+    /**
+     * Finds the distinct demographic ids with a measurement created in the half-open window
+     * {@code [from, toExclusive)}.
+     *
+     * <p>{@code createDate} is a timestamp, so a caller reporting through a whole calendar day passes
+     * midnight of the following day as {@code toExclusive}.</p>
+     *
+     * @param from inclusive lower bound
+     * @param toExclusive exclusive upper bound
+     * @return distinct demographic numbers
+     */
+    public List<Integer> findByCreateDate(Date from, Date toExclusive);
 
     /**
      * Finds all measurements of a specific type for a patient.

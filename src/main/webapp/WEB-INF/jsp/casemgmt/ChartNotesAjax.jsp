@@ -1002,6 +1002,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     //flag for determining if we want to submit case management entry form with enter key pressed in auto completer text box
     var submitIssues = false;
+    noteIssuesChanged = false;
 
 <%
     int MaxLen = 20;
@@ -1018,16 +1019,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 <%
     }
 %>
-    //set default event for assigning issues
-    //we do this here so we can change event listener when changing diagnosis
-    var obj = {};
-    makeIssue = "makeIssue";
-    defaultDiv = "sig<%=savedId%>";
-    changeIssueFunc;  //set in changeDiagnosis function above
-    addIssueFunc = function(event) { updateIssues.call(obj, event, makeIssue, defaultDiv); };
-    if (document.getElementById('asgnIssues')) {
-        document.getElementById('asgnIssues').addEventListener('click', addIssueFunc);
-    }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
              colours: itemColours,

@@ -96,6 +96,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { randomUUID } = require('node:crypto');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const h = require('./lib/playwright-harness');
@@ -279,7 +280,7 @@ async function recordAllergy(page, marker, cancellation) {
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const host = config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     context = await browser.newContext({
-      ignoreHTTPSErrors: loopback.has(host),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1000 },
     });
     context.setDefaultTimeout(30000);
