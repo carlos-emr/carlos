@@ -39,7 +39,7 @@ same patient; navigating that opener to another patient prevents the append.
   SQL failures return a controlled 500 before clinical prefill or forwarding.
 - `npm run test:scripts` includes executable client tests for independent navbar
   request identities, complete patient snapshots, and safe form completion. The
-  focused client suites pass 67 panel/completion/isolation cases, 15 Vascular
+  focused client suites pass 67 panel/completion/isolation cases, 16 Vascular
   Tracker script cases, and 93 link-audit/navbar-readiness cases. The manifest
   suite passes 63 checks. An earlier complete local run passed 3,719 tests with
   five existing TODOs. A later full run exhausted the runtime's disk quota in

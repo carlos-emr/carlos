@@ -18,7 +18,7 @@ const footTypes = ['FTEx', 'FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt', 'FTRe'];
 // script blocks are consumed before opening tags; quoted '>' stays inside its attribute.
 // This is a source-test reader, not a sanitizer or a general JSP/HTML renderer.
 function* fixtureTags(source) {
-  const tokens = /<%[\s\S]*?%>|<!--[\s\S]*?-->|<script\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/script\s*>|<([a-z][\w:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>|(<%|<!--)/gi;
+  const tokens = /<%[\s\S]*?%>|<!--[\s\S]*?-->|<script(?=[\t\n\f\r />])(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/script(?=[\t\n\f\r />])(?:"[^"]*"|'[^']*'|[^'">])*>|<([a-z][\w:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>|(<%|<!--)/gi;
   for (const token of source.matchAll(tokens)) {
     assert(!token[3], 'Unterminated JSP/comment block in fixture');
     if (!token[1]) continue;
@@ -293,6 +293,17 @@ test('fixture scanner rejects unterminated blocks instead of inventing enclosed 
     '<SCRIPT src="fixture.js" data-example="a > b"><input name="fake">']) {
     assert.throws(() => [...fixtureTags(source)], /Unterminated .* block in fixture/);
   }
+});
+
+test('fixture scanner consumes complete script end tags with whitespace and ignored attributes', () => {
+  for (const closing of ['</script\t\n bar>', '</script foo="bar">', '</SCRIPT data-example="a > b">', '</script/>', '</script >']) {
+    const source = `<script>const text = '<input name="fake-script">';
+      </scripture></script-not-real><input name="still-inside-script">${closing}<input name="real">`;
+    assert.deepEqual([...fixtureTags(source)], [{tag: 'input', attrs: {name: 'real'}}], closing);
+  }
+  assert.deepEqual([...fixtureTags('<script-example><input name="real"></script-example>')], [
+    {tag: 'script-example', attrs: {}}, {tag: 'input', attrs: {name: 'real'}},
+  ]);
 });
 
 test('fixture scanner retains quoted delimiters and event attributes after JSP labels', () => {
