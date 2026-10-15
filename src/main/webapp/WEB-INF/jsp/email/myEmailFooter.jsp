@@ -57,9 +57,12 @@
         <input type="hidden" name="personalFooterRevision" value="${carlos:forHtmlAttribute(personalFooterRevision)}"/>
         <div class="d-flex justify-content-between align-items-center mb-2">
             <span id="myFooterLabel"><fmt:message key="email.myFooter.label"/></span>
+            <%-- The window's Save footer sends this form as a save: no second Save button. --%>
             <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal"
                     data-bs-target="#footerEditorModal" data-footer-editor-target="myFooter"
-                    data-footer-editor-preview="myFooterPreview" aria-describedby="myFooterHelp">
+                    data-footer-editor-preview="myFooterPreview" aria-describedby="myFooterHelp"
+                    data-footer-editor-save="myFooterForm" data-footer-editor-save-name="footerAction"
+                    data-footer-editor-save-value="save">
                 <fmt:message key="email.footerEditor.open"/></button>
         </div>
         <input type="hidden" name="myFooter" id="myFooter" value="${carlos:forHtmlAttribute(myFooter)}"/>
@@ -67,7 +70,6 @@
              aria-labelledby="myFooterLabel" data-empty-text="<fmt:message key='email.myFooter.none'/>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("myFooter"))) %></div>
         <p class="form-text" id="myFooterHelp"><fmt:message key="email.myFooter.emptyHelp"/></p>
         <p class="form-text"><fmt:message key="email.compose.footer.help"/></p>
-        <button type="submit" name="footerAction" value="save" class="btn btn-primary"><fmt:message key="email.myFooter.save"/></button>
         <button type="submit" name="footerAction" value="clear" class="btn btn-outline-secondary"><fmt:message key="email.myFooter.clear"/></button>
     </form>
     <h5 class="mt-4"><fmt:message key="email.compose.footer.clinicHeading"/></h5>
@@ -91,7 +93,7 @@
 <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <c:set var="footerEditorPersonalOnly" value="${true}"/>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeMine"/>
-<c:set var="footerEditorApplyKey" value="email.footerEditor.applyMine"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.save"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>
 </html>

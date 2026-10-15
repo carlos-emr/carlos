@@ -107,9 +107,9 @@ class ClinicEmailFooterServiceUnitTest {
     @Test
     void shouldTurnTheFooterOff_withBlankText_leavingTheSavedFooter() {
         var saved = service.save("<b> </b>", ClinicEmailFooterService.fingerprint("FAKE Clinic"),
-                ClinicEmailFooterService.Mode.OFF);
+                ClinicEmailFooterService.Mode.OFF, false);
 
-        assertThat(saved).isEqualTo(new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, true));
+        assertThat(saved).isEqualTo(new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, true, true));
         verify(properties, never()).updateClinicEmailFooter(any(), any());
         verify(properties, never()).findClinicEmailFooterForUpdate();
     }
@@ -119,11 +119,12 @@ class ClinicEmailFooterServiceUnitTest {
         when(properties.findClinicEmailFooterForUpdate()).thenReturn(List.of(row("email_footer_clinic_default", "FAKE newer")));
 
         var saved = service.save("FAKE typed", ClinicEmailFooterService.fingerprint("FAKE older"),
-                ClinicEmailFooterService.Mode.OFF);
+                ClinicEmailFooterService.Mode.OFF, false);
 
         assertThat(saved.footer()).isEqualTo(ClinicEmailFooterService.SaveResult.STALE);
         assertThat(saved.modeChanged()).isFalse();
-        verify(properties, never()).findClinicProperty("email_footer_clinic_mode");
+        assertThat(saved.logoChanged()).isFalse();
+        verify(properties, never()).findClinicProperty(anyString());
     }
 
     @Test

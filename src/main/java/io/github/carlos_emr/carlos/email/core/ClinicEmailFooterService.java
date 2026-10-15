@@ -212,26 +212,31 @@ public class ClinicEmailFooterService {
      *
      * @param footer what happened to the footer text
      * @param modeChanged whether the required/off choice changed
+     * @param logoChanged whether "Add a logo to emails" changed
      */
-    public record Saved(SaveResult footer, boolean modeChanged) {
+    public record Saved(SaveResult footer, boolean modeChanged, boolean logoChanged) {
     }
 
     /**
-     * Saves the footer text and the required/off choice together, in one transaction. A refused or
-     * stale text save changes nothing, the choice included. With {@link Mode#OFF}, blank text is not
-     * a refusal: it leaves the saved footer, which the patient portal's emails still use.
+     * Saves the footer text, the required/off choice and whether emails carry a logo together, in one
+     * transaction: Configure Email's Save footer sends all three. A refused or stale text save changes
+     * nothing, the settings included. With {@link Mode#OFF}, blank text is not a refusal: it leaves the
+     * saved footer, which the patient portal's emails still use.
      *
      * @param html the footer as the page posted it
      * @param shownFingerprint the fingerprint of the footer the page showed
      * @param mode the choice posted with it, or {@code null} to leave it as it is
+     * @param logoShown whether emails carry a logo, or {@code null} to leave it as it is
      * @return what changed; the caller audits each change
      * @throws IllegalArgumentException when the text is refused (blank while required, or too long)
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public Saved save(String html, String shownFingerprint, Mode mode) {
+    public Saved save(String html, String shownFingerprint, Mode mode, Boolean logoShown) {
         SaveResult footer = mode == Mode.OFF && html != null && EmailFooterHtml.clean(html).isEmpty()
                 ? SaveResult.UNCHANGED : save(html, shownFingerprint);
-        return new Saved(footer, footer != SaveResult.STALE && mode != null && saveMode(mode));
+        boolean saving = footer != SaveResult.STALE;
+        return new Saved(footer, saving && mode != null && saveMode(mode),
+                saving && logoShown != null && saveLogoShown(logoShown));
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)

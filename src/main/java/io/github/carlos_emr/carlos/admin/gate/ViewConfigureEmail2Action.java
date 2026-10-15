@@ -101,11 +101,15 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         request.setAttribute("clinicFooterMissing", !footerOff && clinicFooter.isEmpty());
         request.setAttribute("clinicFooterFingerprint",
                 io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
+        boolean logoShown = clinicFooters.logoShown();
+        // What the Edit footer window starts with: the saved settings, unless a refused save kept others.
+        request.setAttribute("clinicFooterModeChosen", footerOff ? "off" : "required");
+        request.setAttribute("clinicLogoShownChosen", logoShown);
         restoreFooterDraft(request);
         EmailFooterLogo logo = logoService.currentLogo();
         // Set: the clinic uploaded its own. Shown: emails carry a logo (its own, else the CARLOS logo).
         request.setAttribute("clinicLogoSet", logo != null);
-        request.setAttribute("clinicLogoShown", clinicFooters.logoShown());
+        request.setAttribute("clinicLogoShown", logoShown);
         if (logo != null) {
             request.setAttribute("clinicLogoWidth", logo.getWidth());
             request.setAttribute("clinicLogoHeight", logo.getHeight());
@@ -114,10 +118,11 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         return SUCCESS;
     }
     /**
-     * Puts back footer text the administrator typed but did not get saved (a logo upload or a refused
-     * save reloaded the page). The editor gets the text, with the fingerprint of the footer it was
-     * typed over, so Save still notices another administrator's change. After such a change, the
-     * editor shows the current footer and the typed text is shown beside it instead.
+     * Puts back footer text the administrator typed but did not get saved (a refused save, or a logo
+     * upload after one, reloaded the page). The editor gets the text, with the fingerprint of the
+     * footer it was typed over, so a save still notices another administrator's change, and the
+     * settings chosen with it. After such a change, the editor shows the current footer and settings,
+     * and the typed text is shown beside them instead.
      */
     private static void restoreFooterDraft(HttpServletRequest request) {
         ClinicFooterDraft draft = ClinicFooterDraft.take(request);
@@ -131,6 +136,12 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         request.setAttribute("clinicFooter", draft.html());
         request.setAttribute("clinicFooterFingerprint", draft.fingerprint());
         request.setAttribute("clinicFooterDraftKept", true);
+        if (draft.mode() != null) {
+            request.setAttribute("clinicFooterModeChosen", draft.mode());
+        }
+        if (draft.logoShown() != null) {
+            request.setAttribute("clinicLogoShownChosen", draft.logoShown());
+        }
     }
 
     private void loadPortalFooterAudit(HttpServletRequest request, LoggedInInfo user) {

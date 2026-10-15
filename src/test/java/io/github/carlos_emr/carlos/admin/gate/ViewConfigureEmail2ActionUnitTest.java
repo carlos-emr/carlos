@@ -159,6 +159,26 @@ class ViewConfigureEmail2ActionUnitTest {
         assertThat(request.getAttribute("clinicFooterOff")).isEqualTo(true);
     }
 
+    @Test
+    @DisplayName("should start the editor window with the saved settings, or those kept with refused text")
+    void shouldStartTheEditorWindow_withSavedOrKeptSettings() throws Exception {
+        allowAdminRead();
+        when(clinicFooters.logoShown()).thenReturn(true);
+
+        action().execute();
+        assertThat(request.getAttribute("clinicFooterModeChosen")).isEqualTo("required");
+        assertThat(request.getAttribute("clinicLogoShownChosen")).isEqualTo(true);
+
+        request.clearAttributes();
+        io.github.carlos_emr.carlos.email.admin.ClinicFooterDraft.keep(request, "<b>FAKE typed</b>",
+                ClinicEmailFooterService.fingerprint("FAKE Clinic"), false, ClinicEmailFooterService.Mode.OFF, false);
+        action().execute();
+        assertThat(request.getAttribute("clinicFooterModeChosen")).isEqualTo("off");
+        assertThat(request.getAttribute("clinicLogoShownChosen")).isEqualTo(false);
+        assertThat(request.getAttribute("clinicFooterOff")).as("the saved state is unchanged").isEqualTo(false);
+        assertThat(request.getAttribute("clinicLogoShown")).isEqualTo(true);
+    }
+
     private void allowAdminRead() {
         when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull(String.class))).thenReturn(true);
     }

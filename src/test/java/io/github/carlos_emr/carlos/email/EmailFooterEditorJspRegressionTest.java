@@ -222,33 +222,100 @@ class EmailFooterEditorJspRegressionTest {
         }
     }
 
+    private static final Path MY_FOOTER = Path.of("src/main/webapp/WEB-INF/jsp/email/myEmailFooter.jsp");
+    private static final Path COMPOSE = Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp");
+
     @Test
-    @DisplayName("should offer Required or Off inside the clinic footer form, and say when it is off")
-    void shouldOfferRequiredOrOff_andSayWhenOff() throws IOException {
-        String configure = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
-        int form = configure.indexOf("id=\"clinicFooterForm\"");
-        int end = configure.indexOf("</form>", form);
+    @DisplayName("should offer Required or Off and the logo switch in the clinic editor window, sent with the clinic form")
+    void shouldOfferClinicSettings_inTheEditorWindow() throws IOException {
+        String modal = Files.readString(MODAL, StandardCharsets.UTF_8);
+        int block = modal.indexOf("<c:if test=\"${footerEditorClinicSettings}\">");
+        int blockEnd = modal.indexOf("</c:if>", modal.indexOf("id=\"logoShown\"", block));
+        assertThat(block).isGreaterThan(0);
         for (var mode : io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.Mode.values()) {
-            int radio = configure.indexOf("value=\"" + mode.value() + "\" ${clinicFooterOff ?", form);
-            assertThat(radio).as(mode.name()).isGreaterThan(form).isLessThan(end);
+            int radio = modal.indexOf("form=\"clinicFooterForm\" value=\"" + mode.value() + "\" ${clinicFooterModeChosen eq 'off' ?", block);
+            assertThat(radio).as(mode.name()).isGreaterThan(block).isLessThan(blockEnd);
         }
+        // The switch posts a hidden "false" first and a checked "true": absent means not posted.
+        int hidden = modal.indexOf("<input type=\"hidden\" name=\"logoShown\" value=\"false\" form=\"clinicFooterForm\"/>", block);
+        int toggle = modal.indexOf("id=\"logoShown\" name=\"logoShown\"", block);
+        assertThat(hidden).isGreaterThan(block).isLessThan(toggle);
+        assertThat(modal.indexOf("form=\"clinicFooterForm\" value=\"true\" ${clinicLogoShownChosen ? 'checked' : ''}/>", toggle))
+                .isGreaterThan(toggle).isLessThan(blockEnd);
+        // The preview asks for the logo only while emails carry one: switched off, it answers 404.
+        assertThat(modal).contains("<c:if test=\"${not footerEditorPersonalOnly and clinicLogoShown}\"><template id=\"footerEditorPreviewLogoTemplate\">");
+
+        String configure = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
         assertThat(configure)
-                .contains("name=\"clinicFooterMode\"")
-                .contains("<c:when test=\"${param.clinicFooterOutcome eq 'modeSaved'}\">")
-                .contains("<fmt:message key=\"admin.configureEmail.footer.offNote\"/>");
-        for (Path page : List.of(Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp"),
-                Path.of("src/main/webapp/WEB-INF/jsp/email/myEmailFooter.jsp"))) {
+                .contains("<c:set var=\"footerEditorClinicSettings\" value=\"${true}\"/>")
+                .contains("<c:when test=\"${param.clinicFooterOutcome eq 'settingsSaved'}\">")
+                .contains("<fmt:message key=\"admin.configureEmail.footer.offNote\"/>")
+                .contains("id=\"clinicFooterModeShown\"")
+                .doesNotContain("name=\"clinicFooterMode\"")
+                .doesNotContain("value=\"switch\"")
+                .doesNotContain("param.logoSwitch");
+        for (Path page : List.of(COMPOSE, MY_FOOTER)) {
             String jsp = Files.readString(page, StandardCharsets.UTF_8);
             int off = jsp.indexOf("<c:when test=\"${clinicFooterOff}\">");
             assertThat(off).as(page.toString()).isGreaterThan(0);
             assertThat(jsp.indexOf("<fmt:message key=\"email.compose.footer.clinicOff\"/>", off)).as(page.toString())
                     .isGreaterThan(off).isLessThan(jsp.indexOf("data-footer-html=\"${carlos:forHtmlAttribute(clinicFooter)}\"", off));
         }
+    }
+
+    @Test
+    @DisplayName("should save from the editor window where a footer is saved as it is edited, with no second Save button")
+    void shouldSaveFromTheEditorWindow_withoutASecondSaveButton() throws IOException {
+        String script = Files.readString(SCRIPT, StandardCharsets.UTF_8);
+        assertThat(script)
+                .contains("var saveForm = opener ? document.getElementById(opener.getAttribute('data-footer-editor-save') || '') : null;")
+                .contains("saveForm.requestSubmit();")
+                .contains("saveForm.submit();");
+
+        String configure = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
+        int clinicForm = configure.indexOf("id=\"clinicFooterForm\"");
+        String clinic = configure.substring(clinicForm, configure.indexOf("</form>", clinicForm));
+        assertThat(clinic)
+                .contains("data-footer-editor-target=\"clinicFooter\"")
+                .contains("data-footer-editor-save=\"clinicFooterForm\"")
+                .doesNotContain("type=\"submit\"");
+        assertThat(configure).contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.save\"/>");
+
+        String mine = Files.readString(MY_FOOTER, StandardCharsets.UTF_8);
+        assertThat(mine)
+                .contains("data-footer-editor-save=\"myFooterForm\" data-footer-editor-save-name=\"footerAction\"")
+                .contains("data-footer-editor-save-value=\"save\"")
+                .contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.save\"/>")
+                .contains("name=\"footerAction\" value=\"clear\"")
+                .doesNotContain("name=\"footerAction\" value=\"save\"");
+
+        // Compose applies the footer to that one email; it saves nothing, so it keeps its own button.
+        String compose = Files.readString(COMPOSE, StandardCharsets.UTF_8);
+        assertThat(compose).doesNotContain("data-footer-editor-save=");
+    }
+
+    @Test
+    @DisplayName("should show the logo emails carry, and point to the switch in Edit footer when it is off")
+    void shouldShowCarriedLogo_andPointToTheSwitch() throws IOException {
+        String jsp = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
+        assertThat(jsp)
+                .contains("<c:when test=\"${not clinicLogoShown}\">")
+                .contains("<fmt:message key=\"admin.configureEmail.logo.hidden\"/>")
+                .contains("<fmt:message key=\"admin.configureEmail.logo.carlosDefault\"/>")
+                .doesNotContain("admin.configureEmail.logo.none");
+    }
+
+    @Test
+    @DisplayName("should translate the footer settings text, and drop the buttons' old text")
+    void shouldTranslateSettingsText_andDropOldButtonText() throws IOException {
         Properties english = bundle("en");
         for (String key : List.of("admin.configureEmail.footer.modeLegend", "admin.configureEmail.footer.modeRequired",
                 "admin.configureEmail.footer.modeOff", "admin.configureEmail.footer.modePortalNote",
-                "admin.configureEmail.footer.modeSaved", "admin.configureEmail.footer.offNote",
-                "admin.configureEmail.footer.policyHelp", "email.compose.footer.clinicOff")) {
+                "admin.configureEmail.footer.settingsSaved", "admin.configureEmail.footer.offNote",
+                "admin.configureEmail.footer.policyHelp", "admin.configureEmail.footer.draftKept",
+                "email.compose.footer.clinicOff", "email.footerEditor.save", "email.myFooter.intro",
+                "admin.configureEmail.logo.carlosDefault", "admin.configureEmail.logo.hidden",
+                "admin.configureEmail.logo.switch", "admin.configureEmail.logo.removed")) {
             for (String locale : LOCALES) {
                 String text = bundle(locale).getProperty(key);
                 assertThat(text).as(locale + " " + key).isNotBlank();
@@ -257,36 +324,12 @@ class EmailFooterEditorJspRegressionTest {
                 }
             }
         }
-    }
-
-    @Test
-    @DisplayName("should show the logo emails carry, with a switch to turn it off inside the logo form")
-    void shouldShowCarriedLogo_andOfferTheSwitch() throws IOException {
-        String jsp = Files.readString(CONFIGURE, StandardCharsets.UTF_8);
-        int form = jsp.indexOf("id=\"clinicLogoForm\"");
-        int end = jsp.indexOf("</form>", form);
-        int toggle = jsp.indexOf("name=\"logoShown\"", form);
-        int save = jsp.indexOf("name=\"logoAction\" value=\"switch\"", form);
-        assertThat(toggle).isGreaterThan(form).isLessThan(end);
-        assertThat(save).isGreaterThan(form).isLessThan(end);
-        assertThat(jsp)
-                .contains("<c:when test=\"${not clinicLogoShown}\">")
-                .contains("<fmt:message key=\"admin.configureEmail.logo.carlosDefault\"/>")
-                .contains("<c:if test=\"${param.logoSwitch eq 'on'}\">")
-                .contains("<c:if test=\"${param.logoSwitch eq 'off'}\">")
-                .doesNotContain("admin.configureEmail.logo.none");
-        Properties english = bundle("en");
-        assertThat(english.getProperty("admin.configureEmail.logo.none")).isNull();
-        for (String key : List.of("admin.configureEmail.logo.carlosDefault", "admin.configureEmail.logo.hidden",
-                "admin.configureEmail.logo.switch", "admin.configureEmail.logo.switchSave",
-                "admin.configureEmail.logo.switchedOn", "admin.configureEmail.logo.switchedOff",
-                "admin.configureEmail.logo.removed")) {
+        for (String gone : List.of("admin.configureEmail.logo.none", "admin.configureEmail.footer.policySave",
+                "email.footerEditor.applyClinic", "email.footerEditor.applyMine", "email.myFooter.save",
+                "admin.configureEmail.logo.switchSave", "admin.configureEmail.logo.switchedOn",
+                "admin.configureEmail.logo.switchedOff", "admin.configureEmail.footer.modeSaved")) {
             for (String locale : LOCALES) {
-                String text = bundle(locale).getProperty(key);
-                assertThat(text).as(locale + " " + key).isNotBlank();
-                if (!"en".equals(locale)) {
-                    assertThat(text).as(locale + " " + key).isNotEqualTo(english.getProperty(key));
-                }
+                assertThat(bundle(locale).getProperty(gone)).as(locale + " " + gone).isNull();
             }
         }
     }

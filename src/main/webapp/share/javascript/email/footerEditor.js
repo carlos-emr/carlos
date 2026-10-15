@@ -208,8 +208,15 @@
         var maxHtmlLength = parseInt(modal.getAttribute('data-max-html-length'), 10) || 10000;
         var target = null;
         var targetPreview = null;
+        var opener = null;
         var savedRange = null;
         var logoLoaded = false;
+        // Configure Email's "Add a logo to emails", in this window: the preview follows it.
+        var logoSwitch = modal.querySelector('#logoShown');
+
+        function logoWanted() {
+            return !logoSwitch || logoSwitch.checked;
+        }
 
         // The clinic logo shows only when one is set: the address answers 404 otherwise. It is
         // fetched when the window first opens, not with every page: the image waits in a
@@ -225,7 +232,6 @@
             previewLogo.loading = 'eager';
             previewLogo.addEventListener('load', function () {
                 logoLoaded = true;
-                show(logoNote, true);
                 refresh();
             });
             previewLogo.addEventListener('error', function () {
@@ -241,9 +247,10 @@
             previewFooter.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
             var text = toText(html);
             previewText.textContent = text;
-            // The logo travels only with a footer, as the server sends it.
+            // The logo travels only with a footer, as the server sends it, and only while it is on.
             if (previewLogo) {
-                show(previewLogo, logoLoaded && html !== '');
+                show(previewLogo, logoLoaded && html !== '' && logoWanted());
+                show(logoNote, logoLoaded && logoWanted());
             }
             count.textContent = text.length;
             var overText = text.length > maxLength;
@@ -351,8 +358,12 @@
             });
         });
 
+        if (logoSwitch) {
+            logoSwitch.addEventListener('change', refresh);
+        }
+
         modal.addEventListener('show.bs.modal', function (event) {
-            var opener = event.relatedTarget;
+            opener = event.relatedTarget || null;
             target = opener ? document.getElementById(opener.getAttribute('data-footer-editor-target')) : null;
             targetPreview = opener ? document.getElementById(opener.getAttribute('data-footer-editor-preview')) : null;
             editor.innerHTML = clean(target ? target.value : ''); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
@@ -371,6 +382,30 @@
             if (target) {
                 target.value = clean(editor.innerHTML);
                 renderPreview(target, targetPreview);
+            }
+            // Where the footer is saved as it is edited, this button saves it: the opener's form goes
+            // at once, with its own fields and token, so the page needs no second Save button.
+            var saveForm = opener ? document.getElementById(opener.getAttribute('data-footer-editor-save') || '') : null;
+            if (saveForm) {
+                var fieldName = opener.getAttribute('data-footer-editor-save-name');
+                if (fieldName) {
+                    var field = saveForm.querySelector('input[type="hidden"][data-footer-editor-save-field]');
+                    if (!field) {
+                        field = document.createElement('input');
+                        field.type = 'hidden';
+                        field.setAttribute('data-footer-editor-save-field', '');
+                        saveForm.appendChild(field);
+                    }
+                    field.name = fieldName;
+                    field.value = opener.getAttribute('data-footer-editor-save-value') || '';
+                }
+                apply.disabled = true;
+                if (typeof saveForm.requestSubmit === 'function') {
+                    saveForm.requestSubmit();
+                } else {
+                    saveForm.submit();
+                }
+                return;
             }
             window.bootstrap.Modal.getOrCreateInstance(modal).hide();
         });

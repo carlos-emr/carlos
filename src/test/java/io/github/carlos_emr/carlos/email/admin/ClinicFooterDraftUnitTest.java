@@ -54,6 +54,16 @@ class ClinicFooterDraftUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the settings chosen with the text, and nothing of them without it")
+    void shouldKeepChosenSettings_onlyWithTheText() {
+        ClinicFooterDraft.keep(request, "FAKE typed", SHOWN, false, ClinicEmailFooterService.Mode.OFF, false);
+        assertThat(ClinicFooterDraft.take(request)).isEqualTo(new ClinicFooterDraft("FAKE typed", SHOWN, false, "off", false));
+
+        ClinicFooterDraft.keep(request, "FAKE saved footer", SHOWN, false, ClinicEmailFooterService.Mode.OFF, false);
+        assertThat(ClinicFooterDraft.take(request)).as("unchanged text keeps nothing").isNull();
+    }
+
+    @Test
     @DisplayName("should keep nothing when the text is what the page showed")
     void shouldKeepNothing_whenTextIsUnchanged() {
         ClinicFooterDraft.keep(request, "FAKE saved footer", SHOWN, false);

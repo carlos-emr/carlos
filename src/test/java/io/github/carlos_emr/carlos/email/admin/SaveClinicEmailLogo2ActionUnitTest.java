@@ -71,8 +71,6 @@ class SaveClinicEmailLogo2ActionUnitTest {
 
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private final EmailFooterLogoService logoService = mock(EmailFooterLogoService.class);
-    private final io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService clinicFooters =
-            mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
     private final LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -365,32 +363,6 @@ class SaveClinicEmailLogo2ActionUnitTest {
         verifyNoInteractions(logoService);
     }
 
-    @Test
-    @DisplayName("should turn the logo on or off, auditing only a real change, and keep unsaved footer text")
-    void shouldSwitchTheLogo_andAuditOnlyARealChange() throws Exception {
-        allowAdminWrite();
-        request.addParameter("logoAction", "switch");
-        request.addParameter(ClinicFooterDraft.HTML_PARAM, "FAKE typed footer");
-        request.addParameter(ClinicFooterDraft.FINGERPRINT_PARAM, SHOWN);
-        when(clinicFooters.saveLogoShown(false)).thenReturn(true);
-
-        action().execute();
-
-        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoSwitch=off");
-        logAction.verify(() -> LogAction.addLog("999998", "update", "emailFooterLogoShown", "false", "127.0.0.1"));
-        assertThat(ClinicFooterDraft.take(request)).isNotNull();
-
-        response = new MockHttpServletResponse();
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
-        request.addParameter("logoShown", "true");
-        action().execute();
-
-        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoSwitch=on");
-        verify(clinicFooters).saveLogoShown(true);
-        logAction.verify(() -> LogAction.addLog(anyString(), eq("update"), eq("emailFooterLogoShown"), anyString(), anyString()));
-        verifyNoInteractions(logoService);
-    }
-
     // Use Struts' real file binding/validation and workflow; only the text provider and
     // servlet multipart parser are fixtures. An error must stop before execute/save/audit.
     private String runUploadInterceptors(MultiPartRequestWrapper multipart) throws Exception {
@@ -424,7 +396,7 @@ class SaveClinicEmailLogo2ActionUnitTest {
     }
 
     private SaveClinicEmailLogo2Action action() {
-        return new SaveClinicEmailLogo2Action(securityInfoManager, logoService, clinicFooters);
+        return new SaveClinicEmailLogo2Action(securityInfoManager, logoService);
     }
 
     private UploadedFile upload(String inputName, byte[] bytes) throws Exception {

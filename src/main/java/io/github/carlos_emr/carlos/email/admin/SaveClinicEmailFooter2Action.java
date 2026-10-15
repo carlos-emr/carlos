@@ -33,8 +33,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Saves the clinic email footer and whether it is required or off (Configure Email). Only
- * administrators may; personal footers never alter it. Each change is audited.
+ * Saves the clinic email footer, whether it is required or off, and whether emails carry a logo:
+ * Configure Email's Edit footer window sends all three with one Save footer. Only administrators may;
+ * personal footers never alter it. Each change is audited.
  */
 public final class SaveClinicEmailFooter2Action extends ActionSupport {
     private final SecurityInfoManager security;
@@ -76,9 +77,12 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
             response.sendError(400);
             return NONE;
         }
+        // The switch posts a hidden "false" and, when on, a checked "true": absent means not posted.
+        String[] shownValues = request.getParameterValues("logoShown");
+        Boolean logoShown = shownValues == null ? null : java.util.Arrays.asList(shownValues).contains("true");
         String outcome;
         try {
-            ClinicEmailFooterService.Saved saved = footers.save(html, shown, mode);
+            ClinicEmailFooterService.Saved saved = footers.save(html, shown, mode, logoShown);
             SaveResult result = saved.footer();
             boolean modeChanged = saved.modeChanged();
             if (result == SaveResult.SAVED) {
@@ -89,8 +93,12 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
                 LogAction.addLog(user.getLoggedInProviderNo(), "update", "emailFooterClinicMode", mode.value(),
                         request.getRemoteAddr());
             }
+            if (saved.logoChanged()) {
+                LogAction.addLog(user.getLoggedInProviderNo(), "update", "emailFooterLogoShown",
+                        String.valueOf(logoShown), request.getRemoteAddr());
+            }
             outcome = result == SaveResult.STALE ? "stale" : result == SaveResult.SAVED ? "saved"
-                    : modeChanged ? "modeSaved" : "unchanged";
+                    : modeChanged || saved.logoChanged() ? "settingsSaved" : "unchanged";
         } catch (IllegalArgumentException e) {
             outcome = "invalid";
         } catch (org.springframework.dao.ConcurrencyFailureException | jakarta.persistence.PersistenceException e) {
@@ -98,7 +106,7 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
         }
         // A refused save must not lose what the administrator typed: the page puts it back.
         if ("invalid".equals(outcome) || "conflict".equals(outcome) || "stale".equals(outcome)) {
-            ClinicFooterDraft.keep(request, html, shown, "stale".equals(outcome));
+            ClinicFooterDraft.keep(request, html, shown, "stale".equals(outcome), mode, logoShown);
         }
         // Fixed application route and fixed outcome constants; request text never reaches this URL.
         response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterOutcome=" + outcome);

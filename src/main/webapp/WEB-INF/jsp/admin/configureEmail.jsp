@@ -100,7 +100,7 @@
                     <c:choose>
                         <c:when test="${param.clinicFooterOutcome eq 'saved'}"><fmt:message key="admin.configureEmail.footer.policySaved"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'unchanged'}"><fmt:message key="admin.configureEmail.footer.policyUnchanged"/></c:when>
-                        <c:when test="${param.clinicFooterOutcome eq 'modeSaved'}"><fmt:message key="admin.configureEmail.footer.modeSaved"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'settingsSaved'}"><fmt:message key="admin.configureEmail.footer.settingsSaved"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'stale'}"><fmt:message key="admin.configureEmail.footer.policyStale"/></c:when>
                         <c:when test="${param.clinicFooterOutcome eq 'conflict'}"><fmt:message key="admin.configureEmail.footer.policyConflict"/></c:when>
                         <c:otherwise><fmt:message key="admin.configureEmail.footer.policyInvalid"/></c:otherwise>
@@ -126,30 +126,18 @@
                 <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap; min-width: 0;"
                      data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
             </div>
+            <p class="small mt-2 mb-0" id="clinicFooterModeShown"><span class="fw-semibold"><fmt:message key="admin.configureEmail.footer.modeLegend"/></span>:
+                <fmt:message key="${clinicFooterOff ? 'admin.configureEmail.footer.modeOff' : 'admin.configureEmail.footer.modeRequired'}"/></p>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
                 <form action="${ctx}/admin/saveClinicEmailFooter" method="post" id="clinicFooterForm" class="mt-3">
                     <input type="hidden" name="clinicFooter" id="clinicFooter" value="${carlos:forHtmlAttribute(clinicFooter)}"/>
                     <input type="hidden" name="clinicFooterFingerprint" value="${carlos:forHtmlAttribute(clinicFooterFingerprint)}"/>
-                    <%-- Required (the default) or off, saved with the text by the same button, so choosing
-                         never reloads the page over unsaved footer text. --%>
-                    <fieldset class="mb-3" id="clinicFooterModeChoice">
-                        <legend class="fs-6 fw-semibold"><fmt:message key="admin.configureEmail.footer.modeLegend"/></legend>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="clinicFooterMode" id="clinicFooterModeRequired"
-                                   value="required" ${clinicFooterOff ? '' : 'checked'}/>
-                            <label class="form-check-label" for="clinicFooterModeRequired"><fmt:message key="admin.configureEmail.footer.modeRequired"/></label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="clinicFooterMode" id="clinicFooterModeOff"
-                                   value="off" ${clinicFooterOff ? 'checked' : ''}/>
-                            <label class="form-check-label" for="clinicFooterModeOff"><fmt:message key="admin.configureEmail.footer.modeOff"/></label>
-                        </div>
-                        <div class="form-text"><fmt:message key="admin.configureEmail.footer.modePortalNote"/></div>
-                    </fieldset>
+                    <%-- The window's Save footer sends this form, with the Required/Off choice and the logo
+                         switch it holds: one save, no second button. --%>
                     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
-                            data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview">
+                            data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview"
+                            data-footer-editor-save="clinicFooterForm">
                         <fmt:message key="email.footerEditor.open"/></button>
-                    <button type="submit" class="btn btn-primary"><fmt:message key="admin.configureEmail.footer.policySave"/></button>
                 </form>
             </security:oscarSec>
         </div>
@@ -166,12 +154,6 @@
             </c:if>
             <c:if test="${param.logoRemoved eq 'true'}">
                 <div class="alert alert-success" role="status" id="clinicLogoRemoved"><fmt:message key="admin.configureEmail.logo.removed"/></div>
-            </c:if>
-            <c:if test="${param.logoSwitch eq 'on'}">
-                <div class="alert alert-success" role="status" id="clinicLogoSwitchedOn"><fmt:message key="admin.configureEmail.logo.switchedOn"/></div>
-            </c:if>
-            <c:if test="${param.logoSwitch eq 'off'}">
-                <div class="alert alert-success" role="status" id="clinicLogoSwitchedOff"><fmt:message key="admin.configureEmail.logo.switchedOff"/></div>
             </c:if>
             <%-- One branch per known reason code; the parameter itself is never shown or used as a key. --%>
             <c:choose>
@@ -231,18 +213,11 @@
                       data-too-big="${carlos:forHtmlAttribute(logoCheckTooBig)}"
                       data-too-large="${carlos:forHtmlAttribute(logoCheckTooLarge)}"
                       data-not-image="${carlos:forHtmlAttribute(logoCheckNotImage)}">
-                    <%-- Footer text typed above but not saved yet travels with the logo, so the page can put
-                         it back after the reload (ClinicFooterDraft). The script fills these on submit. --%>
+                    <%-- Footer text put back after a refused save and not saved yet travels with the logo, so
+                         the page can put it back again after this reload (ClinicFooterDraft). The script fills
+                         these on submit. --%>
                     <input type="hidden" name="clinicFooterDraft" value=""/>
                     <input type="hidden" name="clinicFooterDraftFingerprint" value=""/>
-                    <%-- On (the default): emails carry the clinic's logo, else the CARLOS logo. Off: no logo. --%>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="logoShown" name="logoShown"
-                               value="true" ${clinicLogoShown ? 'checked' : ''}/>
-                        <label class="form-check-label" for="logoShown"><fmt:message key="admin.configureEmail.logo.switch"/></label>
-                    </div>
-                    <button type="submit" name="logoAction" value="switch" class="btn btn-outline-primary btn-sm mt-1 mb-3">
-                        <fmt:message key="admin.configureEmail.logo.switchSave"/></button>
                     <label for="logoFile" class="form-label"><fmt:message key="admin.configureEmail.logo.choose"/></label>
                     <input class="form-control" type="file" id="logoFile" name="logoFile" accept="image/png,image/jpeg"
                            aria-describedby="clinicLogoHelp">
@@ -264,6 +239,7 @@
 <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script src="${ctx}/share/javascript/email/clinicLogoForm.js"></script>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>
-<c:set var="footerEditorApplyKey" value="email.footerEditor.applyClinic"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.save"/>
+<c:set var="footerEditorClinicSettings" value="${true}"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>

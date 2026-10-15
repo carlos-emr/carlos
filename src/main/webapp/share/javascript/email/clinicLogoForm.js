@@ -22,13 +22,13 @@
 
 /*
  * Configure Email > Clinic Email Logo (issue #3981). The logo form reloads the page, and the clinic
- * footer above it is a separate form saved only by its own button. Before the logo form is sent:
+ * footer above it is a separate form, saved from its Edit footer window. Before the logo form is sent:
  *
  * 1. A picture CARLOS would refuse (not PNG or JPEG, over the byte limit, over the pixel limit) is
  *    refused here, with both limits named, so the page does not reload at all. The server still
  *    checks everything; a picture this script cannot read goes to the server, which says why.
- * 2. Footer text edited but not saved yet travels with the form, so the page can put it back after
- *    the reload (ClinicFooterDraft on the server).
+ * 2. Footer text put back after a refused save, and not saved yet, travels with the form, so the
+ *    page can put it back again after this reload (ClinicFooterDraft on the server).
  */
 (function () {
     'use strict';

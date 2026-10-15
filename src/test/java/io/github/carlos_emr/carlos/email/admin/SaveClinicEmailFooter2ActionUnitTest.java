@@ -89,7 +89,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
     @Test
     void shouldReturnLocalizedConflictOutcome_whenDatabaseSnapshotHasChanged() throws Exception {
         prepare(true);
-        when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null))
+        when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null, null))
                 .thenThrow(new jakarta.persistence.OptimisticLockException("Concurrent clinic edit"));
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -102,8 +102,8 @@ class SaveClinicEmailFooter2ActionUnitTest {
     @Test
     void shouldReturnFixedStaleOutcome_forAuthorizedSave() throws Exception {
         prepare(true);
-        when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null))
-                .thenReturn(new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.STALE, false));
+        when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null, null))
+                .thenReturn(new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.STALE, false, false));
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -118,11 +118,11 @@ class SaveClinicEmailFooter2ActionUnitTest {
         prepare(true);
         String shown = ClinicEmailFooterService.fingerprint("Clinic");
         request.setParameter("clinicFooter", "<b>FAKE typed footer</b>");
-        var save = when(footers.save("<b>FAKE typed footer</b>", shown, null));
+        var save = when(footers.save("<b>FAKE typed footer</b>", shown, null, null));
         if (refusal != null) {
             save.thenThrow(refusal);
         } else {
-            save.thenReturn(new ClinicEmailFooterService.Saved(result, false));
+            save.thenReturn(new ClinicEmailFooterService.Saved(result, false, false));
         }
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -174,7 +174,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
         request.setParameter("clinicFooterMode", mode);
         ClinicEmailFooterService.Mode parsed = ClinicEmailFooterService.Mode.parse(mode);
         if (saved != null) {
-            when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), parsed)).thenReturn(saved);
+            when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), parsed, null)).thenReturn(saved);
         }
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
@@ -186,19 +186,19 @@ class SaveClinicEmailFooter2ActionUnitTest {
     @Test
     void shouldSaveAndAuditTheMode_whenOnlyTheModeChanged() throws Exception {
         try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
-            postMode("off", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, true));
+            postMode("off", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, true, false));
 
             audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998", "update",
                     "emailFooterClinicMode", "off", "127.0.0.1"));
             audit.verifyNoMoreInteractions();
         }
-        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=modeSaved");
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=settingsSaved");
     }
 
     @Test
     void shouldAuditTextAndMode_whenBothChanged() throws Exception {
         try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
-            postMode("required", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.SAVED, true));
+            postMode("required", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.SAVED, true, false));
 
             audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998", "update",
                     "emailFooterClinicDefault", "", "127.0.0.1"));
@@ -211,7 +211,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
     @Test
     void shouldAuditNothing_whenNothingChanged() throws Exception {
         try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
-            postMode("required", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, false));
+            postMode("required", new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, false, false));
 
             audit.verifyNoInteractions();
         }
@@ -224,5 +224,72 @@ class SaveClinicEmailFooter2ActionUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(footers);
+    }
+
+    // Ben's demo (15 Oct): Save footer in the window also sends "Add a logo to emails" (a hidden "false",
+    // and "true" when switched on), saved and audited with the rest.
+    private void postLogo(String[] values, Boolean expected, ClinicEmailFooterService.Saved saved) throws Exception {
+        prepare(true);
+        when(user.getLoggedInProviderNo()).thenReturn("999998");
+        if (values != null) {
+            request.setParameter("logoShown", values);
+        }
+        when(footers.save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null, expected)).thenReturn(saved);
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            action.execute();
+        }
+    }
+
+    @Test
+    void shouldReadTheSwitch_asOnOffOrNotSent() throws Exception {
+        var unchanged = new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, false, false);
+        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            postLogo(new String[] {"false", "true"}, true, unchanged);
+            verify(footers).save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null, true);
+        }
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=unchanged");
+    }
+
+    @Test
+    void shouldSaveAndAuditTheLogoSwitch_whenItAloneChanged() throws Exception {
+        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            postLogo(new String[] {"false"}, false,
+                    new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, false, true));
+
+            audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog("999998", "update",
+                    "emailFooterLogoShown", "false", "127.0.0.1"));
+            audit.verifyNoMoreInteractions();
+        }
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=settingsSaved");
+    }
+
+    @Test
+    void shouldLeaveTheSwitch_whenItIsNotSent() throws Exception {
+        try (var audit = mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            postLogo(null, null, new ClinicEmailFooterService.Saved(ClinicEmailFooterService.SaveResult.UNCHANGED, false, false));
+            verify(footers).save("Clinic", ClinicEmailFooterService.fingerprint("Clinic"), null, null);
+        }
+    }
+
+    @Test
+    void shouldKeepTheChosenSettingsWithTheText_whenTheSaveIsRefused() throws Exception {
+        prepare(true);
+        String shown = ClinicEmailFooterService.fingerprint("Clinic");
+        request.setParameter("clinicFooter", "<b>FAKE typed footer</b>");
+        request.setParameter("clinicFooterMode", "off");
+        request.setParameter("logoShown", new String[] {"false"});
+        when(footers.save("<b>FAKE typed footer</b>", shown, ClinicEmailFooterService.Mode.OFF, false))
+                .thenThrow(new IllegalArgumentException("Clinic footer is too long"));
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            action.execute();
+        }
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/admin/ViewConfigureEmail?clinicFooterOutcome=invalid");
+        assertThat(ClinicFooterDraft.take(request))
+                .isEqualTo(new ClinicFooterDraft("<b>FAKE typed footer</b>", shown, false, "off", false));
     }
 }

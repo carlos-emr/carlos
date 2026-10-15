@@ -33,20 +33,23 @@ import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
  * Clinic footer text an administrator typed on Configure Email that was not saved, kept for the
  * page's next view (issue #3981).
  *
- * <p>The footer is edited on the page and saved only by its own Save button. Two things reload the
- * page first: a logo upload, which is a separate form, and a refused footer save. Each keeps the
- * typed text here, in the administrator's own session, and the next Configure Email view puts it
- * back. A kept draft is shown once, is never saved by itself, and carries the fingerprint of the
- * footer the page showed when editing began, so a later Save still notices another administrator's
- * change.</p>
+ * <p>The footer is edited in the Edit footer window and saved by its Save footer. A refused save
+ * reloads the page: it keeps the typed text here, with the settings chosen beside it, in the
+ * administrator's own session, and the next Configure Email view puts them back. The logo form, a
+ * separate form, carries text put back that way and not yet saved again. A kept draft is shown once,
+ * is never saved by itself, and carries the fingerprint of the footer the page showed when editing
+ * began, so a later save still notices another administrator's change.</p>
  *
  * @param html the typed footer, cleaned as a save would clean it
  * @param fingerprint the fingerprint of the footer the page showed when editing began
  * @param stale whether the save was refused because another administrator changed the footer; the
  *     page then shows the current footer in the editor and this text beside it
+ * @param mode the required/off choice sent with it ({@code required} or {@code off}), or {@code null}
+ * @param logoShown the "Add a logo to emails" choice sent with it, or {@code null}
  * @since 2026-10-15
  */
-public record ClinicFooterDraft(String html, String fingerprint, boolean stale) implements Serializable {
+public record ClinicFooterDraft(String html, String fingerprint, boolean stale, String mode, Boolean logoShown)
+        implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -56,6 +59,11 @@ public record ClinicFooterDraft(String html, String fingerprint, boolean stale) 
     public static final String FINGERPRINT_PARAM = "clinicFooterDraftFingerprint";
 
     private static final String SESSION_KEY = ClinicFooterDraft.class.getName();
+
+    /** Typed text without settings: what the logo form carries. */
+    public ClinicFooterDraft(String html, String fingerprint, boolean stale) {
+        this(html, fingerprint, stale, null, null);
+    }
 
     /**
      * Keeps typed footer text for the next view of Configure Email. Nothing is kept when the text is
@@ -68,6 +76,23 @@ public record ClinicFooterDraft(String html, String fingerprint, boolean stale) 
      * @param stale whether the save was refused because the footer changed meanwhile
      */
     public static void keep(HttpServletRequest request, String html, String shownFingerprint, boolean stale) {
+        keep(request, html, shownFingerprint, stale, null, null);
+    }
+
+    /**
+     * Keeps typed footer text, with the settings chosen beside it in the Edit footer window, for the
+     * next view of Configure Email. The settings come back only with the text: nothing is kept when
+     * the text is not kept.
+     *
+     * @param request the request whose session keeps the text
+     * @param html the typed footer as the page sent it
+     * @param shownFingerprint the fingerprint of the footer the page showed
+     * @param stale whether the save was refused because the footer changed meanwhile
+     * @param mode the required/off choice sent with it, or {@code null}
+     * @param logoShown the logo choice sent with it, or {@code null}
+     */
+    public static void keep(HttpServletRequest request, String html, String shownFingerprint, boolean stale,
+            ClinicEmailFooterService.Mode mode, Boolean logoShown) {
         if (html == null || html.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH
                 || shownFingerprint == null || !shownFingerprint.matches("[0-9a-f]{64}")) {
             return;
@@ -77,7 +102,8 @@ public record ClinicFooterDraft(String html, String fingerprint, boolean stale) 
             return;
         }
         // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): the administrator's own cleaned footer text, shown back only to their session
-        request.getSession().setAttribute(SESSION_KEY, new ClinicFooterDraft(cleaned, shownFingerprint, stale));
+        request.getSession().setAttribute(SESSION_KEY,
+                new ClinicFooterDraft(cleaned, shownFingerprint, stale, mode == null ? null : mode.value(), logoShown));
     }
 
     /**
