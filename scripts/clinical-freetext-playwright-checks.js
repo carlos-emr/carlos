@@ -298,7 +298,10 @@ const WORKFLOWS = [
     formName: 'updatedelete',
     action: '/demographic/DemographicUpdate',
     fields: ['alert', 'notes'],
-    overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record' }),
+    // The form names the record version it was rendered from (issue #4225), and the first replay
+    // changes it, so the next replay of the same body would be refused as stale (HTTP 409) before
+    // the WAF question is asked. An empty version is the unversioned save the action still accepts.
+    overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record', demographicVersion: '' }),
     // An update overwrites the record in place, so the captured body, replayed
     // unchanged, puts the Alert and Notes back exactly as the page rendered them.
     restoreAfterReplays: true,

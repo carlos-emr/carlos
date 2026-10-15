@@ -202,7 +202,9 @@ async function workflow(s, { select = validatePin() } = {}) {
       table: 'consultationServices', expected: '0',
       where: (tag) => `serviceDesc=${q(names.probe(tag))}`,
       reset: (tag) => sql.execute(`DELETE FROM consultationServices WHERE serviceDesc=${q(names.probe(tag))}`),
-      overrides: (tag) => ({ service: names.probe(tag) }),
+      // The page's one-time submission token (issue #4225) is spent by the page's own add; the replays
+      // drop it so the control replay is the tokenless request the action still accepts once per send.
+      overrides: (tag) => ({ service: names.probe(tag), carlosFormSubmission: null }),
     },
     delservice: {
       table: 'consultationServices', expected: '1',
