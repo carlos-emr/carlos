@@ -289,7 +289,7 @@
 							<fmt:message key="colcamex.formBPMH.drugs.why.sub"/>
 						</span>
                     </td>
-                    <td class="columnTitle">
+                    <td class="columnTitle" id="drugInstructionsHeader">
                         <fmt:message key="colcamex.formBPMH.drugs.instructions"/><br/>
                         <span class="smallText">
 							<fmt:message key="colcamex.formBPMH.drugs.instructions.sub"/>
@@ -345,7 +345,8 @@
                                         ${carlos:forHtml(drugs.instruction)}
                                     </c:when>
                                     <c:otherwise>
-                                        <textarea name="form.drugs[${status.index}].instruction" rows="2"></textarea>
+                                        <textarea name="form.drugs[${status.index}].instruction" id="drugInstruction${status.index}"
+                                                  aria-labelledby="drugInstructionsHeader" rows="2"></textarea>
                                     </c:otherwise>
                                 </c:choose>
                             </td>
@@ -369,7 +370,7 @@
         <section id="note">
             <table>
                 <tr>
-                    <td>
+                    <td id="bpmhNoteLabel">
                         <fmt:message key="colcamex.formBPMH.notes"/>
                     </td>
                 </tr>
@@ -380,7 +381,8 @@
                                 ${carlos:forHtml(bpmh.note)}&nbsp;
                             </c:when>
                             <c:otherwise>
-                                <textarea name="form.note" id="note" rows="4"></textarea>
+                                <%-- "note" is the section's id. --%>
+                                <textarea name="form.note" id="bpmhNote" aria-labelledby="bpmhNoteLabel" rows="4"></textarea>
                             </c:otherwise>
                         </c:choose>
                     </td>
