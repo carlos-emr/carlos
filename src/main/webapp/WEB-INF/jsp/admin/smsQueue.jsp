@@ -93,7 +93,7 @@
         </c:forEach>
     </form>
     <p class="form-text"><fmt:message key="sms.queue.window.help"/></p>
-    <p class="form-text" id="smsQueuePagingHelp">
+    <p class="form-text">
         <fmt:message key="sms.queue.page.help">
             <fmt:param value="${smsQueue.pageSize}"/>
         </fmt:message>
