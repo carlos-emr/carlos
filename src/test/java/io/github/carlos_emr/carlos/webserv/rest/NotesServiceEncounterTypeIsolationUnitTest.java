@@ -52,6 +52,8 @@ import static org.mockito.Mockito.verify;
  * {@code EctSessionBean}, which names whichever chart was entered last in any window, so another
  * patient's visit type replaced this note's. As before, an entry's type takes precedence over
  * the type the request names.
+ *
+ * @since 2026-10-16
  */
 @Tag("unit")
 @Tag("casemgmt")

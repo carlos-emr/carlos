@@ -53,6 +53,8 @@ import static org.mockito.Mockito.when;
  * (issue #4673). It used to come from the login-wide {@code EctSessionBean}, which names whichever
  * chart was entered last in any window, so printing A's notes after B's chart was opened put B's
  * family doctor on A's printed record.
+ *
+ * @since 2026-10-16
  */
 @Tag("unit")
 @Tag("casemgmt")

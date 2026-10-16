@@ -69,6 +69,8 @@ import static org.mockito.Mockito.when;
  * provider; deleting or restoring a set ({@code deleteSchedule}) posted its patient under a name
  * the redisplayed schedule did not read, so the page fell back to that bean and showed the other
  * patient's schedule. Creating a template recorded the bean's provider as its author.
+ *
+ * @since 2026-10-16
  */
 @Tag("unit")
 @Tag("prevention")

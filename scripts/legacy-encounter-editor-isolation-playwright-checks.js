@@ -27,13 +27,15 @@
  * Steps: each editor shows its own patient; each Save, made after the other editor was opened last,
  * writes a revision of its own patient only and redisplays its own patient; Print prints the window's
  * own revision; an editor whose revision another A editor has superseded is refused with its own text
- * on the concurrency page and writes nothing; Sign & Save signs only A's own appointment. Every step
- * compares the other patient's complete clinical rows before and after.
+ * on the concurrency page and writes nothing; Sign & Save signs only A's own appointment; an editor
+ * keeps its own visit through a Save after A was entered again from another visit, so its Sign signs
+ * that visit. Every step compares the other patient's complete clinical rows before and after.
  *
  * Fixtures: the workflow's FAKE patient (A, first name LegacyAlpha), a second FAKE patient (B,
- * LegacyBravo, last name the run marker), and one owned appointment each. Cleanup removes both
- * patients' eChart revisions, appointments, appointment archive rows, note locks and drafts by key and
- * asserts each is gone, and restores the provider's encounterWindow (editor layout) row exactly.
+ * LegacyBravo, last name the run marker), one owned appointment each and two more of A's. Cleanup
+ * removes both patients' eChart revisions, appointments, appointment archive rows, note locks and
+ * drafts by key and asserts each is gone, and restores the provider's encounterWindow (editor
+ * layout) row exactly.
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
@@ -106,13 +108,14 @@ async function run(s) {
     h.assert(JSON.stringify(sql.rows(layoutQuery)) === JSON.stringify(layoutBefore),
       'The provider\'s legacy encounter layout was not restored');
   });
-  const appointmentOf = {};
-  for (const [label, patient] of [['A', A], ['B', B]]) {
-    appointmentOf[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
-      end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
-      VALUES (${q(provider)}, ${q(OBSERVED)}, '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
-      ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
-  }
+  /** One owned To Do visit of a patient; the cleanup above removes every visit of A and B. */
+  const addVisit = patient => h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+    end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
+    VALUES (${q(provider)}, ${q(OBSERVED)}, '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
+    ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+  const appointmentOf = {A: addVisit(A), B: addVisit(B)};
+  const visitRow = appointment => JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
+    WHERE appointment_no=${patientKey(appointment)}`));
 
   const snapshot = patient => readPatientState(sql, patient);
   const revisionsOf = patient => sql.rows(`SELECT eChartId FROM eChart WHERE demographicNo=${patientKey(patient)}
@@ -142,21 +145,36 @@ async function run(s) {
   function trackEditorModules(page) {
     const pending = new Set();
     let finished = 0;
+    let waiter = null;
     const isModule = request => request.resourceType() === 'xhr'
       && /\/encounter\/display[A-Za-z]+$/.test(new URL(request.url()).pathname);
+    const release = () => {
+      if (waiter && pending.size === 0 && finished >= waiter.expected) waiter.resolve();
+    };
     page.on('framenavigated', frame => { if (frame === page.mainFrame()) finished = 0; });
     page.on('request', request => { if (isModule(request)) pending.add(request); });
-    const settle = request => { if (pending.delete(request)) finished++; };
+    const settle = request => {
+      if (pending.delete(request)) {
+        finished++;
+        release();
+      }
+    };
     page.on('requestfinished', settle);
     page.on('requestfailed', settle);
     return async label => {
       const expected = await page.evaluate(() => (typeof encounterConfig === 'object'
         ? Object.keys(encounterConfig.urls.leftNavbar).length : 0));
       h.assert(expected > 0, `${label} is not the legacy editor: ${h.pathOnly(page.url())} "${norm(await page.title())}"`);
-      const deadline = Date.now() + TIMEOUT;
-      while (pending.size > 0 || finished < expected) {
-        h.assert(Date.now() < deadline, `${label}: the editor's left column never finished loading`);
-        await page.waitForTimeout(100);
+      let timer;
+      try {
+        await new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(`${label}: the editor's left column never finished loading`)), TIMEOUT);
+          waiter = {expected, resolve};
+          release();
+        });
+      } finally {
+        clearTimeout(timer);
+        waiter = null;
       }
     };
   }
@@ -295,15 +313,13 @@ async function run(s) {
     await second.close();
   });
 
-  await s.step('A\'s Sign & Save signs only A\'s own appointment', async () => {
-    const editor = await openEditor(A, appointmentOf.A);
-    await openEditor(B, appointmentOf.B);
-    const before = snapshot(B);
-    const text = `${marker}-A-legacy-signed`;
-    await editor.locator('textarea[name="enTextarea"]').fill(text);
+  /**
+   * Sign & Save: the closing page closes the editor's window and, as a visit changed, refreshes the
+   * day sheet that opened it.
+   */
+  async function signAndSave(editor) {
     const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
     closed.catch(() => {});
-    // The closing page refreshes the day sheet that opened the editor, as A's appointment changed.
     const refreshed = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(),
       timeout: TIMEOUT}).then(() => true, () => false);
     const response = editor.waitForResponse(r => r.request().method() === 'POST'
@@ -313,15 +329,40 @@ async function run(s) {
     await closed;
     h.assert(await refreshed, 'Sign & Save did not refresh the day sheet that opened the editor');
     await schedule.waitForLoadState('load', {timeout: TIMEOUT});
-    h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
-      WHERE appointment_no=${appointmentOf.A}`)) === JSON.stringify([[String(A), 'tS', provider]]),
-    'Sign & Save did not sign A\'s own appointment');
-    h.assert(JSON.stringify(sql.rows(`SELECT status FROM appointment WHERE appointment_no=${appointmentOf.B}`))
-      === JSON.stringify([['t']]), 'Sign & Save changed B\'s appointment');
+  }
+  const signedBy = patient => JSON.stringify([[String(patient), 'tS', provider]]);
+  const untouched = patient => JSON.stringify([[String(patient), 't', provider]]);
+
+  await s.step('A\'s Sign & Save signs only A\'s own appointment', async () => {
+    const editor = await openEditor(A, appointmentOf.A);
+    await openEditor(B, appointmentOf.B);
+    const before = snapshot(B);
+    const text = `${marker}-A-legacy-signed`;
+    await editor.locator('textarea[name="enTextarea"]').fill(text);
+    await signAndSave(editor);
+    h.assert(visitRow(appointmentOf.A) === signedBy(A), 'Sign & Save did not sign A\'s own appointment');
+    h.assert(visitRow(appointmentOf.B) === untouched(B), 'Sign & Save changed B\'s appointment');
     const revision = revisionsOf(A).at(-1);
     h.assert(sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`).startsWith(`${text}\n[`),
       'Sign & Save did not write A\'s signed revision');
     assertPatientStateUnchanged(before, snapshot(B), 'A\'s Sign & Save');
+  });
+
+  await s.step('A\'s editor keeps its own visit through a Save after A was entered again from another visit', async () => {
+    // A's remembered entry is the latest of A's windows; the second names another of A's visits.
+    const own = addVisit(A);
+    const other = addVisit(A);
+    const editor = await openEditor(A, own);
+    await openEditor(A, other);
+    const before = snapshot(B);
+    await editor.locator('textarea[name="enTextarea"]').fill(`${marker}-A-legacy-own-visit`);
+    await press(editor, 'Save', 'A own-visit Save');
+    h.assert(await editor.locator('form[name="encForm"] input[name="appointment_no"]').inputValue() === String(own),
+      'A\'s redisplayed editor names another visit than the one it was opened from');
+    await signAndSave(editor);
+    h.assert(visitRow(own) === signedBy(A), 'Sign & Save after a Save did not sign the editor\'s own visit');
+    h.assert(visitRow(other) === untouched(A), 'Sign & Save after a Save signed A\'s other visit');
+    assertPatientStateUnchanged(before, snapshot(B), 'A\'s own-visit Sign & Save');
   });
 }
 

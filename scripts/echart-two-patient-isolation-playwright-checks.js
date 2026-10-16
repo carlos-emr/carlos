@@ -1271,10 +1271,17 @@ async function run(s) {
       await activateOther(d.otherChart);
       const before = snapshot(d.other);
       const navigation = await read(`/casemgmt/ViewNavigation?demographicNo=${d.patient}`);
+      // Its messenger list used to fail every rendering (a literal items string), cutting the page
+      // off after the first sections while the response still said 200.
+      h.assert(navigation.status === 200 && navigation.body.includes('Clinical Resources'),
+        `${d.label}'s legacy navigation did not render past its messenger list`);
       const owners = [...navigation.body.matchAll(/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=(\d+)/g)]
         .map(match => match[1]);
-      h.assert(navigation.status === 200 && owners.length > 0 && owners.every(owner => owner === d.patient),
+      h.assert(owners.length > 0 && owners.every(owner => owner === d.patient),
         `${d.label}'s legacy navigation links to ${[...new Set(owners)].map(ownerLabel).join(', ') || 'no patient'}`);
+      // Its form links read ${bean.demographicNo}, which used to name no scoped bean.
+      h.assert(!/[?&;](?:demographic_no|demographicNo)=(?!\d)/.test(navigation.body),
+        `${d.label}'s legacy navigation has links that name no patient`);
       const anonymous = await read('/casemgmt/ViewNavigation');
       h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
         'The legacy navigation without a patient linked to one');
