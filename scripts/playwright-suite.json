@@ -4659,6 +4659,21 @@
       "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
+      "name": "messenger-reply-all-forward",
+      "script": "scripts/messenger-reply-all-forward-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Reply All, the Sent box (boxType=1) and Forward of a several-line message; the other messenger checks press Reply and Forward on one-line messages and read only the inbox and archive. SKIP unless messenger contacts 1 and 2 and the test login are active local members. On develop the last step fails: Forward joins the original lines into one (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "One SQL-seeded message from contact 1 to the test login and contact 2, plus the reply the check sends; every message whose subject carries the run marker is removed with its delivery rows."
+    },
+    {
       "name": "prevention-admin",
       "script": "scripts/prevention-admin-playwright-checks.js",
       "tiers": [
