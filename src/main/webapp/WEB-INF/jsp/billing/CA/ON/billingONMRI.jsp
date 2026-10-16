@@ -158,8 +158,8 @@
 <c:if test="${not empty ohipInvalidProviderFields}">
     <div class="alert alert-danger" role="alert" id="ohip-provider-fields-validation">
         <strong>OHIP file not generated.</strong>
-        <p>The OHIP claim file holds each provider's OHIP billing number in exactly six
-            characters and the specialty code in exactly two. The values stored for the
+        <p>The OHIP claim file holds each provider's OHIP billing number as exactly six
+            digits and the specialty code as exactly two. The values stored for the
             providers below do not fit. Correct them in the provider record
             (Administration &gt; Provider) and run the report again.</p>
         <ul>

@@ -162,7 +162,7 @@ class ReportActionDependencyInjectionUnitTest {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
         BillingOnDiskService service = mock(BillingOnDiskService.class);
-        var problems = java.util.List.of("Provider 999998: the specialty code must be exactly 2 characters long.");
+        var problems = java.util.List.of("Provider 999998: the specialty code must be exactly 2 digits.");
         org.mockito.Mockito.doThrow(
                 new io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException(problems))
                 .when(service).generateNewDisk(request);

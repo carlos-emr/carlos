@@ -127,10 +127,27 @@ class BillingOnDiskServiceUnitTest {
         assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
                         rejected -> assertThat(rejected.getProblems()).containsExactly(
-                                "Provider 999998: the OHIP billing number must be exactly 6 characters long."));
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
 
         verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
         verify(diskCreationService, never()).createBatchHeader(any(), anyString(), anyString(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldNotAllocateDisk_whenSelectedProviderOhipNumberIsNotAllDigits() {
+        // Six characters fit the record, but the MOH field is numeric: the batch would be rejected.
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        provider.setOhipNo("12345A");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOfSatisfying(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException.class,
+                        rejected -> assertThat(rejected.getProblems()).containsExactly(
+                                "Provider 999998: the OHIP billing number must be exactly 6 digits."));
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
         org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
     }
 

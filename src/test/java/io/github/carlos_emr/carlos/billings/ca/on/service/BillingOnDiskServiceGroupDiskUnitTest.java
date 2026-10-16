@@ -442,8 +442,8 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
                 .isInstanceOfSatisfying(InvalidOhipProviderFieldsException.class, rejected ->
                         assertThat(rejected.getProblems()).containsExactly(
-                                "Provider 101: the OHIP billing number must be exactly 6 characters long.",
-                                "Provider 102: the specialty code must be exactly 2 characters long."));
+                                "Provider 101: the OHIP billing number must be exactly 6 digits.",
+                                "Provider 102: the specialty code must be exactly 2 digits."));
 
         verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
         verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
@@ -501,7 +501,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOfSatisfying(InvalidOhipProviderFieldsException.class, rejected ->
                         assertThat(rejected.getProblems()).containsExactly(
-                                "Provider 101: the specialty code must be exactly 2 characters long."));
+                                "Provider 101: the specialty code must be exactly 2 digits."));
 
         verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
         org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);

@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * {@link OhipProviderFields}: a provider's stored values must fill their
- * fixed-width fields in the OHIP batch header exactly.
+ * numeric fields in the OHIP batch header exactly.
  */
 @DisplayName("OhipProviderFields")
 @Tag("unit")
@@ -40,7 +40,7 @@ class OhipProviderFieldsUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"012345", "999998"})
-    void shouldAcceptBillingNumber_whenItFillsSixCharacters(String ohipNo) {
+    void shouldAcceptBillingNumber_whenItIsSixDigits(String ohipNo) {
         assertThat(OhipProviderFields.isWellFormedBillingNumber(ohipNo)).isTrue();
     }
 
@@ -51,9 +51,17 @@ class OhipProviderFieldsUnitTest {
         assertThat(OhipProviderFields.isWellFormedBillingNumber(ohipNo)).isFalse();
     }
 
+    // Six characters fit the record, but the MOH field is numeric (format N), so the
+    // batch would be rejected. Full-width digits are not ASCII and would not fit either.
+    @ParameterizedTest
+    @ValueSource(strings = {"12345A", "ABCDEF", " 12345", "12 456", "１２３４５６"})
+    void shouldRejectBillingNumber_whenItHoldsAnythingButDigits(String ohipNo) {
+        assertThat(OhipProviderFields.isWellFormedBillingNumber(ohipNo)).isFalse();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"00", "08"})
-    void shouldAcceptSpecialtyCode_whenItFillsTwoCharacters(String specialtyCode) {
+    void shouldAcceptSpecialtyCode_whenItIsTwoDigits(String specialtyCode) {
         assertThat(OhipProviderFields.isWellFormedSpecialtyCode(specialtyCode)).isTrue();
     }
 
@@ -61,6 +69,12 @@ class OhipProviderFieldsUnitTest {
     @NullAndEmptySource
     @ValueSource(strings = {"8", "008", " 8 "})
     void shouldRejectSpecialtyCode_whenItDoesNotFillTwoCharacters(String specialtyCode) {
+        assertThat(OhipProviderFields.isWellFormedSpecialtyCode(specialtyCode)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {" 8", "8 ", "0A", "GP", "０８"})
+    void shouldRejectSpecialtyCode_whenItHoldsAnythingButDigits(String specialtyCode) {
         assertThat(OhipProviderFields.isWellFormedSpecialtyCode(specialtyCode)).isFalse();
     }
 }

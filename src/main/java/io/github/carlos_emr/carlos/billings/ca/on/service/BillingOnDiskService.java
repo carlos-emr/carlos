@@ -159,22 +159,23 @@ public class BillingOnDiskService {
 
     /**
      * The claim file writer copies the stored OHIP billing number and specialty
-     * code into fixed-width batch-header fields. A value of another length broke
-     * the header after that provider's disk had been allocated, and stopped an All
-     * Providers run part way, while the simulation only showed an error line (and
-     * substituted 00 for the specialty). Every provider of the run is checked
-     * before the first disk instead.
+     * code into numeric, fixed-width batch-header fields. A value of another
+     * length broke the header after that provider's disk had been allocated, and
+     * stopped an All Providers run part way, while the simulation only showed an
+     * error line (and substituted 00 for the specialty). A value of the right
+     * length with a non-digit was written as it was, and MOH rejected the batch.
+     * Every provider of the run is checked before the first disk instead.
      */
     private static void requireProviderFields(List<BillingProviderDto> providers) {
         List<String> problems = new ArrayList<>();
         for (BillingProviderDto member : providers) {
             if (!OhipProviderFields.isWellFormedBillingNumber(member.getOhipNo())) {
                 problems.add("Provider " + member.getProviderNo() + ": the OHIP billing number must be exactly "
-                        + OhipProviderFields.BILLING_NUMBER_LENGTH + " characters long.");
+                        + OhipProviderFields.BILLING_NUMBER_LENGTH + " digits.");
             }
             if (!OhipProviderFields.isWellFormedSpecialtyCode(member.getSpecialtyCode())) {
                 problems.add("Provider " + member.getProviderNo() + ": the specialty code must be exactly "
-                        + OhipProviderFields.SPECIALTY_CODE_LENGTH + " characters long.");
+                        + OhipProviderFields.SPECIALTY_CODE_LENGTH + " digits.");
             }
         }
         if (!problems.isEmpty()) {
