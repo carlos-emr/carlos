@@ -231,7 +231,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 try {
                     LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
-                    String providerId = request.getParameter("providers");
+                    // The uploader sends "Send to provider" as "provider" (documentUploader.jsp); "0" is unassigned.
+                    String providerId = request.getParameter("provider");
                     if (providerId != null) {
                         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                         ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean(ProviderInboxRoutingDao.class);
