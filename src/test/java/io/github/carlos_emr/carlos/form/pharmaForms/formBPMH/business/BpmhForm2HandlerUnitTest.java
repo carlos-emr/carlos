@@ -45,7 +45,7 @@ class BpmhForm2HandlerUnitTest {
         drug.setCustomName("FAKE atorvastatin");
         drug.setSpecial("FAKE atorvastatin 20 mg\nTake 1 tablet daily");
         DrugDao drugDao = mock(DrugDao.class);
-        when(drugDao.findByDemographicId(eq(1001), eq(false))).thenReturn(List.of(drug));
+        when(drugDao.findByDemographicId(1001, false)).thenReturn(List.of(drug));
         DrugReasonDao drugReasonDao = mock(DrugReasonDao.class);
         when(drugReasonDao.getReasonsForDrugID(anyInt(), eq(true))).thenReturn(List.of());
 
@@ -70,7 +70,7 @@ class BpmhForm2HandlerUnitTest {
         drug.setCustomName("FAKE atorvastatin");
         drug.setSpecial("FAKE atorvastatin 20 mg\nTake 1 tablet daily");
         DrugDao drugDao = mock(DrugDao.class);
-        when(drugDao.findByDemographicId(eq(1001), eq(false))).thenReturn(List.of(drug));
+        when(drugDao.findByDemographicId(1001, false)).thenReturn(List.of(drug));
         DrugReasonDao drugReasonDao = mock(DrugReasonDao.class);
         when(drugReasonDao.getReasonsForDrugID(anyInt(), eq(true))).thenReturn(List.of());
         BpmhDrug postedMatch = new BpmhDrug();
