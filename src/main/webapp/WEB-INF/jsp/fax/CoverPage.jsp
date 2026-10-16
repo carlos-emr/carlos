@@ -396,13 +396,14 @@
                     </div>
                 </div>
 
-                <c:if test="${ not empty documents and transactionType eq 'CONSULTATION' }">
+                <c:if test="${ (not empty documents or not empty consultLabsNotIncluded) and transactionType eq 'CONSULTATION' }">
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title"><fmt:message key="coverPage.card.attachments"/></h3>
                         </div>
                         <div class="card-body">
                             <div class="container">
+                                <c:if test="${ not empty documents }">
                                 <div class="row">
                                     <ol class="list-group list-group-numbered col-sm-12">
                                         <c:forEach items="${ documents }" var="document">
@@ -411,6 +412,23 @@
                                         </c:forEach>
                                     </ol>
                                 </div>
+                                </c:if>
+                                <%-- Issue #4693: attached labs the faxed PDF cannot draw (CML, MDS, PathNet, or
+                                     an unconfirmed source). The fax names them on a page after the
+                                     consultation letter; the sender sees them here before sending.
+                                     consultLabsNotIncluded is ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE. --%>
+                                <c:if test="${ not empty consultLabsNotIncluded }">
+                                <div class="row">
+                                    <div id="consultLabsNotIncluded" class="alert alert-warning col-sm-12 mt-3 mb-0" role="alert">
+                                        <p class="mb-1"><fmt:message key="coverPage.msg.labsNotIncluded"/></p>
+                                        <ul class="mb-0">
+                                            <c:forEach items="${ consultLabsNotIncluded }" var="labNotIncluded">
+                                                <li><carlos:encode value="${ labNotIncluded }"/></li>
+                                            </c:forEach>
+                                        </ul>
+                                    </div>
+                                </div>
+                                </c:if>
                             </div>
                         </div>
                     </div>

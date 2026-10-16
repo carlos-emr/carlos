@@ -893,7 +893,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
 
             // call-back document descriptions into documents parameter.
-            documents.addAll(faxCoverDocumentNames(loggedInInfo, requestId, demographicNo));
+            FaxCoverAttachments coverAttachments = faxCoverAttachments(loggedInInfo, requestId, demographicNo,
+                    LocaleUtils.resolveBundleLocale(request));
+            documents.addAll(coverAttachments.documents());
+            // Issue #4693: the attached labs the faxed PDF cannot draw, named apart on the cover page.
+            request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, coverAttachments.labsNotIncluded());
 
 			List<FaxConfig>	accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
 
@@ -929,7 +933,17 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     /**
-     * Names of the consultation's attachments for the fax cover page.
+     * The fax cover page's attachment lists.
+     *
+     * @param documents names of what the faxed packet contains
+     * @param labsNotIncluded names of the attached labs the faxed PDF cannot draw (issue #4693)
+     */
+    record FaxCoverAttachments(List<String> documents, List<String> labsNotIncluded) {
+    }
+
+    /**
+     * Names of the consultation's attachments for the fax cover page: what the faxed packet
+     * contains, and, apart from those, the attached labs it cannot include.
      *
      * <p>Issue #3867: document descriptions, lab disciplines and eForm names are PHI, and the
      * lookups below resolve attachments by consultation id alone. The cover page lists only the
@@ -937,19 +951,27 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * ({@code renderConsultationFormWithAttachments} applies the same filter). HRMs and forms are
      * already looked up per patient.</p>
      *
+     * <p>Issue #4693: the CML, MDS, PathNet and unconfirmed-source labs the packet cannot draw are
+     * named apart, from the same lab listing, so the sender knows before sending that the fax will
+     * name them on a page instead of including them.</p>
+     *
      * @param demographicNo the consultation's verified (stored) patient
+     * @param locale the reader's locale for the lab names
      */
-    List<String> faxCoverDocumentNames(LoggedInInfo loggedInInfo, String requestId, String demographicNo) {
+    FaxCoverAttachments faxCoverAttachments(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
+                                            Locale locale) {
         AttachmentOwnershipService ownership = SpringUtils.getBean(AttachmentOwnershipService.class);
         Integer ownerDemographicNo = Integer.valueOf(demographicNo);
         List<String> documents = new ArrayList<>();
         List<EDoc> attachedDocumentList = ownership.retainOwned(DocumentType.DOC, ownerDemographicNo,
                 EDocUtil.listDocs(loggedInInfo, demographicNo, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData commonLabResultData = new CommonLabResultData();
+        List<LabResultData> listedLabs = commonLabResultData.populateLabResultsData(
+                loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED);
         List<LabResultData> attachedLabList = ownership.retainOwned(DocumentType.LAB, ownerDemographicNo,
-                AttachmentOwnershipService.renderableLabsOnly(
-                        commonLabResultData.populateLabResultsData(loggedInInfo, demographicNo, requestId, CommonLabResultData.ATTACHED)),
-                LabResultData::getSegmentID);
+                AttachmentOwnershipService.renderableLabsOnly(listedLabs), LabResultData::getSegmentID);
+        List<String> labsNotIncluded = ConsultationLabsNotIncluded.describe(
+                AttachmentOwnershipService.labsNotRenderable(listedLabs), locale);
 
         List<EctFormData.PatientForm> attachedFormsList = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicNo));
 
@@ -992,7 +1014,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 documents.add(attachedHRMDocument.get("name") + "");
             }
         }
-        return documents;
+        return new FaxCoverAttachments(documents, labsNotIncluded);
     }
 
     private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
@@ -1127,7 +1149,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
-        json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
+        json.put(ATTR_WARNING_MESSAGE, previewWarning(request));
         json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
         try {
             if (!response.isCommitted()) {
@@ -1151,6 +1173,29 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
             }
         }
+    }
+
+    /**
+     * The Print reply's warning, raised as an alert after the download: the signature warning, if
+     * any, then the attached labs the PDF could not include (issue #4693), which the packet names
+     * on a page after the letter.
+     *
+     * @return the warning, or {@code null} when there is nothing to warn about
+     */
+    private static String previewWarning(HttpServletRequest request) {
+        List<String> warnings = new ArrayList<>();
+        Object signatureWarning = request.getAttribute(ATTR_WARNING_MESSAGE);
+        if (signatureWarning instanceof String text && !text.isBlank()) {
+            warnings.add(text);
+        }
+        if (request.getAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE) instanceof List<?> names && !names.isEmpty()) {
+            List<String> labNames = new ArrayList<>(names.size());
+            for (Object name : names) {
+                labNames.add(String.valueOf(name));
+            }
+            warnings.add(ConsultationLabsNotIncluded.previewWarning(labNames, LocaleUtils.resolveBundleLocale(request)));
+        }
+        return warnings.isEmpty() ? null : String.join("\n\n", warnings);
     }
 
     /**
