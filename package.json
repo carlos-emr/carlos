@@ -597,6 +597,7 @@
     "test:concurrency-allergy-amend-playwright": "node scripts/concurrency-allergy-amend-playwright-checks.js",
     "test:allergy-stale-amend-refused-playwright": "node scripts/allergy-stale-amend-refused-playwright-checks.js",
     "test:concurrency-rx-discontinue-playwright": "node scripts/concurrency-rx-discontinue-playwright-checks.js",
+    "test:rx-rest-stored-patient-playwright": "node scripts/rx-rest-stored-patient-playwright-checks.js",
     "test:concurrency-chart-note-takeover-playwright": "node scripts/concurrency-chart-note-takeover-playwright-checks.js",
     "test:concurrency-chart-note-other-provider-playwright": "node scripts/concurrency-chart-note-other-provider-playwright-checks.js",
     "test:concurrency-security-record-playwright": "node scripts/concurrency-security-record-playwright-checks.js",

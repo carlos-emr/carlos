@@ -9290,6 +9290,24 @@
       "notes": "The first discontinuation wins an atomic active-drug update; the stale second request must receive 409 and preserve the first reason, archive date and single chart note."
     },
     {
+      "name": "rx-rest-stored-patient",
+      "script": "scripts/rx-rest-stored-patient-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [
+        "secObjPrivilege"
+      ],
+      "fixtures": "Two owned synthetic patients, one prescription row holding one drug for the first, a foreign drug row for the second on the same script (removed in its step), and one patient-specific privilege row (role doctor, _rx$<first patient>, r) held only for the re-prescribe step. Cleanup removes all of them and asserts none remain. No page is driven: the logged-in session's request context calls /ws/rs/rx. The privilege row is in the clinic-wide secObjPrivilege table, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Pins #2822 on the session REST surface: the watermark, PDF print and print record answer for the prescription's stored patient only (a forged path patient or a mixed-patient script is 404 with no drug text and no print recorded), and re-prescribing without _rx write access to the drug's patient is a plain-text 403 from AccessDeniedExceptionMapper. A web application context that cannot build that mapper does not start, so this check also proves the /ws/rs provider wiring."
+    },
+    {
       "name": "concurrency-chart-note-takeover",
       "script": "scripts/concurrency-chart-note-takeover-playwright-checks.js",
       "tiers": [
