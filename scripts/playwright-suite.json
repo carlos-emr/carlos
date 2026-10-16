@@ -4704,6 +4704,20 @@
       "fixtures": "Snapshots and restores one clinic-wide appointment_status label/colour/active flag, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Throwaway login with an owned role granting _admin.schedule and a seeded day template; owned template code, far-future holiday and appointment type; all deleted."
     },
     {
+      "name": "schedule-template-day-sheet",
+      "script": "scripts/schedule-template-day-sheet-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login (doctor plus an owned schedule-administrator role) with its own ProviderPreference and two owned day templates, seeded by SQL; two unused template code characters saved through Template Code Setting (the day sheet reads codes from ScheduleTemplateCodeDao's 30-minute cache, which only DAO writes evict); only the throwaway's own schedule is written (today and tomorrow). Cleanup removes the codes, the throwaway's templates, scheduledate, rschedule and ProviderPreference rows and the role, then the throwaway; the removed codes stay in that cache until the next code save or 30 minutes, which no check reads them through."
+    },
+    {
       "name": "demographic-cds-import",
       "script": "scripts/demographic-cds-import-playwright-checks.js",
       "tiers": [
@@ -7056,6 +7070,21 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
+    },
+    {
+      "name": "provider-preference-effects",
+      "script": "scripts/provider-preference-effects-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Expected to FAIL at its last section's first step, '\"1 months\" is stored and the chart shortens the old note to one line, keeping the recent one in full', while the held stale-date finding stands. The eChart loads its notes through CaseManagementView method=viewNotesOpt, which never passes cme_note_date to ChartNotesAjax.jsp, so the chart always applies the one-year default. The schedule navigation steps run before it. Pin expectedFailure once the finding is logged.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with the test provider's program rows, plus an owned FAKE- patient with two signed notes (7 days and 3 months old); the shared test provider's preferences are never touched. Cleanup removes the notes and eChart row, the throwaway's default-program row, then the throwaway with its property rows."
     },
     {
       "name": "gap-provider-schedule-keyboard-shortcuts",
