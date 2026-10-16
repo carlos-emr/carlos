@@ -68,7 +68,7 @@ public class QuickBillingBCFormBean implements Serializable {
      * Guards the bill list. It is private, so no other code can hold it, and an empty array, so it is
      * serializable and a restored form gets its own.
      */
-    private final Object billsLock = new Object[0];
+    private final Serializable billsLock = new Object[0];
 
     /**
      * Returns this session's quick billing form, storing a new empty one (no header, no bills) on
