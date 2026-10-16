@@ -108,6 +108,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 
 @Path("/notes")
@@ -1214,7 +1215,10 @@ public class NotesService extends AbstractServiceImpl {
 
 
         logger.debug("Get Note for editing");
-        EctSessionBean bean = (session != null) ? (EctSessionBean) session.getAttribute("EctSessionBean") : null;
+        // This patient's own chart entry, never the login-wide EctSessionBean: that bean names
+        // whichever chart was entered last in any window (issue #4673).
+        EctSessionBean bean = demographicNo == null || demographicNo <= 0 ? null
+                : EncounterPatientContext.findEncounter(getHttpServletRequest(), String.valueOf(demographicNo));
         String encType = getString(jsonobject, "encType");
 
         logger.debug("Encounter Type : {}", encType);

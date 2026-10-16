@@ -67,7 +67,7 @@
 
         <input type="button" class="btn btn-sm btn-secondary"
                value="<fmt:message key="global.btnPrint"/>"
-               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint');"/>
+               onclick="document.forms['encForm'].btnPressed.value='Save'; popupPage(700, 960, 'print', '${ctx}/encounter/ViewEncounterPrint?demographicNo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(bean.demographicNo))}&amp;echartid=${carlos:forJavaScriptAttribute(carlos:forUriComponent(bean.EChartId))}');"/>
 
         <input type="hidden" name="btnPressed" value="">
 

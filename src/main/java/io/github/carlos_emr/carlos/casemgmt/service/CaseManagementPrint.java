@@ -58,7 +58,6 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -191,7 +190,7 @@ public class CaseManagementPrint {
         request.setAttribute("demoSex", getDemoSex(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoPhn", getDemoPhn(demono));
-        request.setAttribute("mrp", getMRP(request));
+        request.setAttribute("mrp", getMRP(demono));
         String dob = getDemoDOB(demono);
         dob = convertDateFmt(dob, request);
         request.setAttribute("demoDOB", dob);
@@ -684,24 +683,26 @@ public class CaseManagementPrint {
     }
 
     /**
-     * Retrieves the Most Responsible Provider (MRP) name from the encounter session.
+     * Retrieves the printed patient's Most Responsible Provider (MRP) name.
      *
-     * The MRP is the family doctor or primary care provider assigned to the patient.
-     * This method extracts the provider information from the EctSessionBean and formats
-     * the full name (first name + surname).
+     * The MRP is the family doctor or primary care provider assigned to the patient
+     * ({@code demographic.provider_no}), formatted as first name + surname. It is read from the
+     * patient being printed, never from the login-wide {@code EctSessionBean}: that bean names
+     * whichever chart was entered last in any window of the login, so it printed another
+     * patient's family doctor on this patient's record (issue #4673).
      *
-     * @param request HttpServletRequest the servlet request containing the EctSessionBean in session
-     * @return String the MRP's full name (first name + surname), or empty string if no MRP is assigned
+     * @param demoNo String the printed patient's demographic number
+     * @return String the MRP's full name, or empty string if the patient has no MRP or the MRP's
+     *         provider record no longer exists
      */
-    protected String getMRP(HttpServletRequest request) {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session encounter context bean (fields validated on store)
-        if (bean == null) return new String("");
-        if (bean.familyDoctorNo == null) return new String("");
-        if (bean.familyDoctorNo.isEmpty()) return new String("");
+    protected String getMRP(String demoNo) {
+        if (demoNo == null) return "";
+        String providerNo = caseManagementMgr.getDemoProviderNo(demoNo);
+        if (providerNo == null || providerNo.isEmpty()) return "";
 
-        EctProviderData.Provider prov = new EctProviderData().getProvider(bean.familyDoctorNo);
-        String name = prov.getFirstName() + " " + prov.getSurname();
-        return name;
+        EctProviderData.Provider prov = new EctProviderData().getProvider(providerNo);
+        if (prov == null) return "";
+        return prov.getFirstName() + " " + prov.getSurname();
     }
 
     /**

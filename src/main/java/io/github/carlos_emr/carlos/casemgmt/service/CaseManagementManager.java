@@ -263,6 +263,14 @@ public interface CaseManagementManager {
 
     public String getDemoDOB(String demoNo);
 
+    /**
+     * Returns the patient's most responsible provider number ({@code demographic.provider_no}).
+     *
+     * @param demoNo the patient's demographic number
+     * @return the provider number, or an empty string when the patient or the MRP is absent
+     */
+    public String getDemoProviderNo(String demoNo);
+
     public String getCaisiRoleById(String id);
 
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean);

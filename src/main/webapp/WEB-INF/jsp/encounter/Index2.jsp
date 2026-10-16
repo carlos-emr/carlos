@@ -126,18 +126,12 @@
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_ECHART, demographic$, ip, demographic$);
 %>
 
-<%-- IncomingEncounter supplies a request-local bean. Legacy save/view forwards may
-     still carry the session bean, but may only render it for the explicit patient. --%>
+<%-- IncomingEncounter and the legacy save (EctSaveEncounter2Action) each supply this chart's
+     request-owned bean. The login-wide session bean follows whichever chart was entered last in
+     any window, so it is never rendered here (issues #4556, #4673). --%>
 <%
     EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
-    if (bean == null) {
-        EctSessionBean legacyBean = (EctSessionBean) session.getAttribute("EctSessionBean");
-        if (legacyBean != null && legacyBean.demographicNo != null
-                && legacyBean.demographicNo.equals(demographic$)) {
-            bean = legacyBean;
-        }
-    }
-    if (bean == null || !bean.demographicNo.equals(demographic$)) {
+    if (bean == null || !demographic$.equals(bean.demographicNo)) {
         response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
@@ -156,7 +150,6 @@
         EctProgram prgrmMgr = new EctProgram(session);
         session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view" +
         "&demographicNo=" + bean.demographicNo +
         "&providerNo=" + bean.providerNo +
@@ -189,7 +182,6 @@
     <%
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         session.setAttribute("casemgmt_oscar_bean", bean);
-        session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
                 (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
         if (request.getParameter("casetoEncounter") == null) {
@@ -240,6 +232,8 @@
             <div class="col" style="background-color: #CCCCFF;">
                 <form name="encForm" action="SaveEncounter2" method="POST">
                     <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(bean.demographicNo)}">
+                    <%-- The revision this editor shows; the save refuses it once another save has landed. --%>
+                    <input type="hidden" name="eChartId" value="${carlos:forHtmlAttribute(bean.EChartId)}">
                     <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
                            onchange="updateDiv();">
                     <caisi:isModuleLoad moduleName="caisi">

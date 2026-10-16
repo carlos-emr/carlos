@@ -47,6 +47,13 @@
 <%@ page import="java.util.Vector" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -55,31 +62,41 @@
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String province = ((String) oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
-    EctSessionBean bean = null;
-    if ("true".equalsIgnoreCase((String) session.getAttribute("casemgmt_bean_flag"))) {
-        EctSessionBean bean1 = (EctSessionBean) session.getAttribute("EctSessionBean");
-        bean = new EctSessionBean();
-        bean.providerNo = bean1.providerNo;
-        bean.demographicNo = bean1.demographicNo;
-        bean.appointmentNo = bean1.appointmentNo;
-        bean.patientLastName = bean1.patientLastName;
-        bean.patientFirstName = bean1.patientFirstName;
-        bean.curProviderNo = bean1.curProviderNo;
-        bean.appointmentDate = bean1.appointmentDate;
-        bean.status = bean1.status;
-        bean.userName = bean1.userName;
-        bean.yearOfBirth = bean1.yearOfBirth;
-        bean.monthOfBirth = bean1.monthOfBirth;
-        bean.dateOfBirth = bean1.dateOfBirth;
-        bean.measurementGroupNames = (java.util.ArrayList) bean1.measurementGroupNames.clone();
-        session.setAttribute("casemgmt_bean", bean);
-        session.setAttribute("casemgmt_bean_flag", "false");
+    // Every link names the patient this request carries (the layout's demographicNo). The page
+    // used to copy the login-wide EctSessionBean into a session-wide casemgmt_bean, so a
+    // navigation rendered for A after B's chart was entered linked to B (issue #4673).
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        // Nothing to link without this chart's own patient.
+        return;
     }
-//bean=(io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean)session.getAttribute("EctSessionBean");
-//session.setAttribute("casemgmt_bean", bean);
-    bean = (EctSessionBean) session.getAttribute("casemgmt_bean");
-    if (bean == null) bean = new EctSessionBean();
+    // Reading the record checks _demographic read for this patient.
+    DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    Demographic chartPatient = demographicManager.getDemographic(loggedInInfo, chartPatientNo);
+    if (chartPatient == null) {
+        return;
+    }
+    // This chart's own entry (provider, appointment, status), or the logged-in provider's.
+    EctSessionBean bean = EncounterPatientContext.entryOrLoggedIn(request, loggedInInfo, chartPatientNo);
+    bean.patientLastName = chartPatient.getLastName();
+    bean.patientFirstName = chartPatient.getFirstName();
+    // Unrecorded birth-date parts read "0", as the encounter entry stores them for the age below.
+    String[] birth = {chartPatient.getYearOfBirth(), chartPatient.getMonthOfBirth(), chartPatient.getDateOfBirth()};
+    for (int part = 0; part < birth.length; part++) {
+        if (birth[part] == null || birth[part].isEmpty() || "null".equals(birth[part])) birth[part] = "0";
+    }
+    bean.yearOfBirth = birth[0];
+    bean.monthOfBirth = birth[1];
+    bean.dateOfBirth = birth[2];
     if (bean.appointmentNo == null) bean.appointmentNo = "0";
+    if (bean.status == null) bean.status = "";
+    bean.measurementGroupNames = new ArrayList<String>();
+    for (MeasurementGroupStyle groupStyle : SpringUtils.getBean(MeasurementGroupStyleDao.class).findAll()) {
+        bean.measurementGroupNames.add(groupStyle.getGroupName());
+    }
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
     String backurl = bsurl + "/encounter/IncomingEncounter?";
 //get programId
@@ -271,13 +288,13 @@
                         <% if (EctImmImmunizationData.hasImmunizations(bean.demographicNo)) { %>
                         <tr>
                             <td><a style="color:red" href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule?demographic_no=<carlos:encode value='<%= chartPatientNo %>' context="uriComponent"/>');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } else {%>
                         <tr>
                             <td><a href="javascript:void(0)"
-                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule');return false;">Immunizations</a>
+                                   onClick="popupPage('<%=bsurl%>/encounter/immunization/initSchedule?demographic_no=<carlos:encode value='<%= chartPatientNo %>' context="uriComponent"/>');return false;">Immunizations</a>
                             </td>
                         </tr>
                         <% } %>
@@ -339,7 +356,7 @@
                     <td>
 
                         <select name="selectCurrentForms" class="ControlSelect" onChange="javascript:selectBox(this)"
-                                onMouseOver="javascript:window.status='View any of <%=bean.patientLastName+","+bean.patientFirstName%>\'s current forms.';return true;">
+                                onMouseOver="javascript:window.status='View any of <%= SafeEncode.forJavaScriptAttribute(bean.patientLastName + "," + bean.patientFirstName) %>\'s current forms.';return true;">
                             <option value="null" selected>-current forms-</option>
                             <c:forEach var="cf" items="${casemgmt_newFormBeans}">
                                 <c:if test="${cf.formTable ne ''}">
@@ -362,7 +379,7 @@
                 <tr>
                     <td>
                         <select name="selectNewForms" class="ControlSelect" onChange="javascript:selectBox(this)"
-                                onMouseOver="javascript:window.status='View <%=bean.patientLastName+","+bean.patientFirstName%>\'s new forms list.';return true;">
+                                onMouseOver="javascript:window.status='View <%= SafeEncode.forJavaScriptAttribute(bean.patientLastName + "," + bean.patientFirstName) %>\'s new forms list.';return true;">
                             <option value="null" selected>-add new form-</option>
                             <c:forEach var="cf" items="${casemgmt_newFormBeans}">
                                 <c:if test="${cf.hidden}">
@@ -421,7 +438,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">New
+                           onClick="popupPage('<%=bsurl%>/messenger/SendDemoMessage?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(bean.userName)) %>'); return false;">New
                             Messages</a>
                     </td>
                 </tr>
@@ -430,7 +447,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%=bean.userName%>'); return false;">-All
+                           onClick="popupPage('<%=bsurl%>/messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=<%=bean.demographicNo%>&providerNo=<%=bean.providerNo%>&userName=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(bean.userName)) %>'); return false;">-All
                             Messages-</a>
                     </td>
                 </tr>
@@ -579,7 +596,7 @@
                         <td>
                             <select name="selectCurrentForms" class="ControlSelect"
                                     onChange="javascript:selectBox(this)"
-                                    onMouseOver="javascript:window.status='View <%=bean.patientFirstName+" "+bean.patientLastName%>\'s lab results'; return true;">
+                                    onMouseOver="javascript:window.status='View <%= SafeEncode.forJavaScriptAttribute(bean.patientFirstName + " " + bean.patientLastName) %>\'s lab results'; return true;">
                                 <option value="null" selected>-lab results-</option>
                                 <c:forEach var="labrst" items="${casemgmtLabsbeans}">
                                     <c:set var="lablable" value="${labrst.dateTime}${labrst.discipline}" />

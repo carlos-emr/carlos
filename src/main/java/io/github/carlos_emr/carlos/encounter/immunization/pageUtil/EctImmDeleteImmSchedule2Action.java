@@ -45,6 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
 /**
@@ -73,10 +74,6 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        EctImmImmunizationData immData = new EctImmImmunizationData();
-
-        String demographicNo = request.getParameter("demoNo");
-        String providerNo = (String) request.getSession().getAttribute("user");
         String method = request.getParameter("method");
         String id = request.getParameter("tblSet");
         if (!"POST".equals(request.getMethod())) {
@@ -84,6 +81,22 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+        // Schedule.jsp posts the patient it shows as demographic_no. It used to post demoNo, a name
+        // the redisplayed schedule never read, so after a delete or restore the page fell back to
+        // the login-wide EctSessionBean and showed whichever chart was entered last (issue #4673).
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (!"delete".equals(method) && !"restore".equals(method)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
@@ -101,7 +114,7 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
 
 
         try {
-
+            EctImmImmunizationData immData = new EctImmImmunizationData();
             Immunizations current = immData.getCurrentSchedule(demographicNo);
             if (current == null || current.getId() != expectedVersion) {
                 response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");

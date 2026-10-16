@@ -1,9 +1,13 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.Serializable;
+import java.util.Date;
+import java.util.Objects;
 
 /**
  * Resolves the patient carried by an encounter request, independently of other chart windows.
@@ -44,7 +48,7 @@ public final class EncounterPatientContext {
         request.getSession().setAttribute(ENCOUNTER_PREFIX + patient, new SavedEncounter(
                 patient, bean.providerNo, bean.curProviderNo, bean.userName, bean.appointmentNo,
                 bean.appointmentDate, bean.startTime, bean.encType, bean.reason,
-                bean.patientFirstName, bean.patientLastName));
+                bean.patientFirstName, bean.patientLastName, bean.status));
         request.setAttribute("EctSessionBean", bean);
     }
 
@@ -60,6 +64,30 @@ public final class EncounterPatientContext {
         return saved == null ? null : saved.toBean();
     }
 
+    /**
+     * Returns a request-owned copy of this patient's entry metadata or, when this login has not
+     * entered that chart (or has closed it), metadata naming only the logged-in provider and user,
+     * today's date and no appointment. Never another chart window's entry (issue #4673).
+     *
+     * @throws IllegalArgumentException if {@code demographicNo} is not a valid patient ID
+     */
+    public static EctSessionBean entryOrLoggedIn(HttpServletRequest request, LoggedInInfo loggedInInfo,
+                                                 String demographicNo) {
+        EctSessionBean bean = findEncounter(request, demographicNo);
+        if (bean == null) {
+            bean = new EctSessionBean();
+            bean.demographicNo = canonicalPatient(demographicNo);
+            bean.providerNo = loggedInInfo.getLoggedInProviderNo();
+            bean.curProviderNo = bean.providerNo;
+            HttpSession session = request.getSession(false);
+            bean.userName = session == null ? "" : (Objects.toString(session.getAttribute("userfirstname"), "")
+                    + " " + Objects.toString(session.getAttribute("userlastname"), "")).trim();
+        }
+        if (bean.appointmentDate == null) bean.appointmentDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+        if (bean.currentDate == null) bean.currentDate = new Date();
+        return bean;
+    }
+
     /** Releases only the chart being closed, retaining metadata for other open patients. */
     public static void forgetEncounter(HttpServletRequest request, String demographicNo) {
         String patient = canonicalPatient(demographicNo);
@@ -70,7 +98,8 @@ public final class EncounterPatientContext {
     private record SavedEncounter(String demographicNo, String providerNo, String curProviderNo,
                                   String userName, String appointmentNo, String appointmentDate,
                                   String startTime, String encType, String reason,
-                                  String patientFirstName, String patientLastName) implements Serializable {
+                                  String patientFirstName, String patientLastName,
+                                  String status) implements Serializable {
         private EctSessionBean toBean() {
             EctSessionBean bean = new EctSessionBean();
             bean.demographicNo = demographicNo;
@@ -84,6 +113,7 @@ public final class EncounterPatientContext {
             bean.reason = reason;
             bean.patientFirstName = patientFirstName;
             bean.patientLastName = patientLastName;
+            bean.status = status;
             return bean;
         }
     }

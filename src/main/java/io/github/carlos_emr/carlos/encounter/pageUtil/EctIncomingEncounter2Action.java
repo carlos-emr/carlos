@@ -270,7 +270,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // source whitelisted to {"encounter","messenger"}; reason/userName sanitized for control chars and length-capped;
             // eChartId is server-generated from setUpEncounterPage()
             request.getSession().setAttribute("EctSessionBean", bean);
-            request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+            // No login-wide eChartID: the legacy editor posts the revision it was opened from
+            // (Index2.jsp's eChartId field), so another window's entry cannot change it (#4673).
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
@@ -311,7 +312,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         }
 
         EncounterPatientContext.rememberEncounter(request, bean);
-        setEncounterAttributes(request, bean, loggedInInfo);
+        setEncounterAttributes(request, bean, loggedInInfo, request.getParameter("splitchart") != null, false);
         return "success2";
     }
 
@@ -330,8 +331,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     /**
      * Sets request attributes needed by Index2.jsp and its includes.
      * Moves data-fetching logic from JSP scriptlets into the Action layer.
+     *
+     * @param split         render the split-chart continuation of the encounter text
+     * @param savedRevision the bean holds the revision a save just wrote ({@link EctSaveEncounter2Action}):
+     *                      the visit continues, so no new visit header is added to the text
      */
-    private void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo) {
+    static void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo,
+                                       boolean split, boolean savedRevision) {
         CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         // Patient age as integer string
@@ -390,7 +396,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("prescriptions", prescriptions);
 
         // Encounter text and consumption
-        boolean bSplit = request.getParameter("splitchart") != null;
+        boolean bSplit = split;
         int nEctLen = bean.encounter != null ? bean.encounter.length() : 0;
         boolean bTruncate = bSplit && nEctLen > 5120;
         int consumption = (int) ((bTruncate ? 5120 : nEctLen) / (10.24 * 32));
@@ -401,7 +407,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("bSplit", bSplit);
 
         // Build encounter text
-        String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen);
+        String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen, savedRevision);
         request.setAttribute("encounterText", encounterText);
 
         // CarlosProperties labels
@@ -434,8 +440,12 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     /**
      * Assembles the encounter text from the session bean, handling split chart
      * truncation and date stamp insertion.
+     *
+     * @param savedRevision the text is the revision a save just wrote: no visit header is added,
+     *                      and the entry message is already part of the saved text
      */
-    private String buildEncounterText(EctSessionBean bean, boolean bSplit, boolean bTruncate, int nEctLen) {
+    private static String buildEncounterText(EctSessionBean bean, boolean bSplit, boolean bTruncate, int nEctLen,
+                                             boolean savedRevision) {
         StringBuilder sb = new StringBuilder();
         try {
             if (!bSplit) {
@@ -448,6 +458,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 sb.append("\n--------------------------------------------------\n$$SPLIT CHART$$\n");
             }
 
+            if (savedRevision) {
+                return sb.toString();
+            }
             UtilDateUtilities dateConvert = new UtilDateUtilities();
             if (bean.eChartTimeStamp == null) {
                 sb.append("\n[").append(dateConvert.DateToString(bean.currentDate))

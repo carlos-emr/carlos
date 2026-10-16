@@ -209,6 +209,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // GET/HEAD before auth. Registered explicitly (the encounter package is not scanned).
             Arguments.of("io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
                     "_con", "w"),
+            // Legacy encounter editor save (#4673): appends an eChart revision and signs or verifies
+            // the visit; rejects GET/HEAD after the global _demographic write check and before the
+            // patient, revision or appointment is read. Registered explicitly (encounter.pageUtil is
+            // not scanned).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action",
+                    "_demographic", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -633,6 +639,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
         // encounter slice: ERefer2Action queues attachments for Ocean eReferral (issue #3867).
         "io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
+        // encounter slice: EctSaveEncounter2Action writes the legacy editor's eChart revision (#4673).
+        "io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
