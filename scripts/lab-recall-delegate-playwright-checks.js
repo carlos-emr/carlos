@@ -261,7 +261,7 @@ async function workflow(s) {
   });
 
   // Delete runs while the recall tickler is still unsaved: the lab is reopened here, and a lab that has a linked
-  // tickler fails to open (pending finding 280), which would hide what this step asserts.
+  // tickler fails to open (pending finding 280, #4722), which would hide what this step asserts.
   await s.step('Delete in Lab Recall Settings removes every setting and the lab no longer offers Recall', async () => {
     const settings = await openSettings('lab-recall-settings-delete');
     const dialogs = await h.withExpectedDialogs(settings, async () => {
