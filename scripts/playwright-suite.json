@@ -3437,6 +3437,24 @@
       ]
     },
     {
+      "name": "admin-clinic-nbr-codes",
+      "script": "scripts/admin-clinic-nbr-codes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Administration > Manage Clinic NBR Codes (admin/ViewClinicNbrManage, posting to admin/clinicNbrManage): Add New Code stores an active clinic_nbr row and lists it; after the page is opened again, Remove Selected marks exactly that row deleted; a GET with method=add is refused with 405. SKIP when the menu has no entry (shown only with rma_enabled=true).",
+      "fixtures": "The code the run adds carries the run marker. clinic_nbr is snapshotted byte-exact; cleanup deletes the added rows and restores every other row. The codes are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "clinic_nbr"
+      ]
+    },
+    {
       "name": "admin-configure-sms",
       "script": "scripts/admin-configure-sms-playwright-checks.js",
       "tiers": [
