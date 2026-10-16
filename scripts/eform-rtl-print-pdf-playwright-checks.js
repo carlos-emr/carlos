@@ -33,7 +33,7 @@
  *      stays editable (any template other than blank.rtl used to be served with a sandbox CSP).
  *
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
- * the documented stamps.js 404 on stock installs.
+ * the stamps.js 404 of an install whose stamps.js placeholder was removed.
  *
  * The letters are saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker): nothing it
  * asserts depends on a demo patient's records (the Preventions button is checked for either a table or the empty-list message).
@@ -86,7 +86,8 @@ function escapeLikeSaveRTL(s) {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
 }
 
-// stamps.js is never auto-deployed (clinic signature stamps), so a stock install logs a 404 + MIME
+// stamps.js holds clinic signature stamps: CARLOS seeds a comment-only placeholder and never
+// replaces a clinic's own, so only an install whose placeholder was removed logs a 404 + MIME
 // refusal for it on every letter. Documented in docs/ui-tests/deb-install-validation.md.
 function isKnownConsoleIssue(issue) {
   // Chromium's resource-load errors carry the URL in the message location, not in the text.

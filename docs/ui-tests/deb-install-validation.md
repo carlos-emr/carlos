@@ -1614,9 +1614,10 @@ id already has a note link older than the run, and the tickler cleanup never
 deletes those inherited links, #4409); the HRM
 parser logs `FileNotFoundException` for lab files the dump references but does
 not ship (cosmetic); the Rich Text Letter page logs a 404 + MIME-refusal
-console error for `displayImage.do?imagefile=stamps.js` on every stock install
-(by design — `EFormAssetDeployer` never auto-deploys `stamps.js` because it
-holds clinic-specific signature stamps; the editor works without it); and
+console error for `displayImage.do?imagefile=stamps.js` only on an install with
+no `stamps.js` in the eForm images directory (`EFormAssetDeployer` seeds a
+comment-only placeholder once and never overwrites a clinic's own, so this
+means the placeholder was removed; the editor works without it); and
 `consultationRequests.providerNo`/`urgency`/`status` are nullable in the
 SCHEMA but always populated in the dump — regressions on the null path have
 been 500s in the past, so exercise it by nulling a row explicitly
