@@ -66,9 +66,11 @@ import io.github.carlos_emr.carlos.utility.CachedDateFormats;
  * length of the gap and saved as 03:30: the lenient parse this replaces did the same, and refusing
  * it would send the clinician to the unreadable-date page for a time the field accepts. A time in
  * the repeated fall-back hour takes the earlier of its two offsets (daylight time), where the
- * legacy parse took the later one. Either offset is stored in {@code casemgmt_note.observation_date},
- * a {@code DATETIME} the driver writes as wall-clock time in the JVM zone, as the time the clinician
- * entered (01:30); only a comparison with the current time during that hour sees the difference.</p>
+ * legacy parse took the later one. That offset decides only the instant {@code parse} returns:
+ * {@code casemgmt_note.observation_date} is a {@code DATETIME} the driver writes as wall-clock time
+ * in the JVM zone, so it stores the 01:30 the clinician entered and does not record which
+ * occurrence was meant. Only a comparison with the current time during that hour sees the
+ * difference.</p>
  *
  * @since 2026-10-16
  */
