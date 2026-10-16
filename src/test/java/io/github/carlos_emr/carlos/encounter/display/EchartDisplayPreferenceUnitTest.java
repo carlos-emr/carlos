@@ -53,19 +53,20 @@ class EchartDisplayPreferenceUnitTest extends CarlosUnitTestBase {
     class Definitions {
 
         @Test
-        @DisplayName("should list the nine settings in the Preferences page order with OSCAR 19 key names")
+        @DisplayName("should list the settings in the Preferences page order with OSCAR 19 key names, click-to-dial after the cell")
         void shouldListSettings_inPreferencesPageOrder() {
             assertThat(Arrays.stream(EchartDisplayPreference.values()).map(EchartDisplayPreference::propertyName))
                     .containsExactly("echart_show_timer", "echart_show_group_document_by_type", "echart_show_DOB",
-                            "echart_show_cell", "echart_show_HIN", "echart_email_indicator",
+                            "echart_show_cell", "echart_phone_tel_links", "echart_show_HIN", "echart_email_indicator",
                             "echart_show_fam_doc_widget", "echart_show_ref_doc_widget", "echart_show_ocean");
         }
 
         @Test
-        @DisplayName("should default to on except for the Referring Doctor panel and Ocean")
-        void shouldDefaultToOn_exceptReferringDoctorAndOcean() {
+        @DisplayName("should default to on except for click-to-dial phone links, the Referring Doctor panel and Ocean")
+        void shouldDefaultToOn_exceptTelLinksReferringDoctorAndOcean() {
             for (EchartDisplayPreference preference : EchartDisplayPreference.values()) {
-                boolean expected = preference != EchartDisplayPreference.SHOW_REFERRING_DOCTOR
+                boolean expected = preference != EchartDisplayPreference.PHONE_TEL_LINKS
+                        && preference != EchartDisplayPreference.SHOW_REFERRING_DOCTOR
                         && preference != EchartDisplayPreference.SHOW_OCEAN;
                 assertThat(preference.defaultValue()).as(preference.name()).isEqualTo(expected);
             }
@@ -121,6 +122,7 @@ class EchartDisplayPreferenceUnitTest extends CarlosUnitTestBase {
             assertThat(preferences.groupDocumentsByType()).isTrue();
             assertThat(preferences.showDob()).isTrue();
             assertThat(preferences.showCell()).isTrue();
+            assertThat(preferences.phoneTelLinks()).isFalse();
             assertThat(preferences.showHin()).isTrue();
             assertThat(preferences.showEmail()).isTrue();
             assertThat(preferences.showFamilyDoctor()).isTrue();
@@ -136,6 +138,7 @@ class EchartDisplayPreferenceUnitTest extends CarlosUnitTestBase {
             stored.put("echart_show_DOB", "false");
             stored.put("echart_show_ref_doc_widget", "true");
             stored.put("echart_show_ocean", "true");
+            stored.put("echart_phone_tel_links", "true");
             stored.put("ProviderColour", "#123456");
 
             EchartDisplayPreferences preferences = EchartDisplayPreferences.fromStoredValues(stored);
@@ -144,6 +147,7 @@ class EchartDisplayPreferenceUnitTest extends CarlosUnitTestBase {
             assertThat(preferences.showDob()).isFalse();
             assertThat(preferences.showReferringDoctor()).isTrue();
             assertThat(preferences.showOcean()).isTrue();
+            assertThat(preferences.phoneTelLinks()).isTrue();
             assertThat(preferences.showHin()).isTrue();
         }
 

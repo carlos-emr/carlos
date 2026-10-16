@@ -34,7 +34,7 @@ import java.util.List;
  * {@link EchartDisplayPreference}, falling back to its default.
  *
  * <p>Read on every chart render (header, note panel, left navigation, Documents panel), so it reads
- * just the nine settings in one query rather than every property the provider owns.</p>
+ * just the eChart settings in one query rather than every property the provider owns.</p>
  *
  * @since 2026-10-16
  */

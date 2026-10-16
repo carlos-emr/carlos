@@ -126,6 +126,23 @@ class EchartDisplayJspContractUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should make the header phones tel: links only behind the click-to-dial setting")
+    void shouldGateTelLinks_onProviderSetting() throws IOException {
+        String header = source(HEADER_JSP);
+
+        assertThat(header)
+                .contains("<c:set var=\"phoneTelHref\" value=\"${echartHeader.phoneTelLinks ? phone.telHref() : ''}\"/>")
+                .contains("href=\"${carlos:forHtmlAttribute(phoneTelHref)}\"")
+                .contains("<fmt:message key=\"encounter.header.clickToCall\" var=\"clickToCallMsg\"/>")
+                .doesNotContain("href=\"tel:");
+        for (String locale : LOCALES) {
+            assertThat(bundle(locale).getProperty("encounter.header.clickToCall"))
+                    .as("encounter.header.clickToCall in oscarResources_%s", locale)
+                    .isNotBlank();
+        }
+    }
+
+    @Test
     @DisplayName("should show the timer only when the provider's setting allows it")
     void shouldGateTimer_onProviderSetting() throws IOException {
         String notes = source(CHART_NOTES_JSP);

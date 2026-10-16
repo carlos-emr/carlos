@@ -125,6 +125,7 @@ public class EchartHeaderViewModelAssembler {
                 hin.isEmpty() ? "" : StringUtils.trimToEmpty(demographic.getVer()),
                 selectPhones(demographic.getCellPhone(), demographic.getPhone(), demographic.getPhone2(),
                         preferences.showCell()),
+                preferences.phoneTelLinks(),
                 email,
                 !email.isEmpty() && Boolean.TRUE.equals(demographic.getConsentToUseEmailForCare()),
                 StringUtils.trimToEmpty(demographic.getNextAppointment()));

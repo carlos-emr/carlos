@@ -83,6 +83,10 @@ public final class EchartDisplayPreferences {
         return isEnabled(EchartDisplayPreference.SHOW_CELL);
     }
 
+    public boolean phoneTelLinks() {
+        return isEnabled(EchartDisplayPreference.PHONE_TEL_LINKS);
+    }
+
     public boolean showHin() {
         return isEnabled(EchartDisplayPreference.SHOW_HIN);
     }

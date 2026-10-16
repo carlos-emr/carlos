@@ -1099,10 +1099,11 @@
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 6b: ECHART
-     OSCAR 19's eChart Display Settings, made personal: what this provider's
-     eChart header, note panel and left navigation show. Yes/No radios post
-     "true"/"false" under each EchartDisplayPreference property name; the
-     defaults (everything on except Referring Doctor and Ocean) live in that enum.
+     OSCAR 19's eChart Display Settings, made personal, plus CARLOS's click-to-dial
+     phone links: what this provider's eChart header, note panel and left navigation
+     show. Yes/No radios post "true"/"false" under each EchartDisplayPreference
+     property name; the defaults (everything on except click-to-dial, Referring
+     Doctor and Ocean) live in that enum.
      ═══════════════════════════════════════════════════════════════════════ --%>
 <fmt:message key="global.yes" var="echartYesLabel"/>
 <fmt:message key="global.no" var="echartNoLabel"/>
@@ -1135,6 +1136,10 @@
             <div class="pref-row">
                 <div class="pref-label" id="echart_show_cell-label"><fmt:message key="provider.providerpreference.echart.echart_show_cell"/>:</div>
                 <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_cell-label"><%= echartYesNo(EchartDisplayPreference.SHOW_CELL, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_phone_tel_links-label"><fmt:message key="provider.providerpreference.echart.echart_phone_tel_links"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_phone_tel_links-label"><%= echartYesNo(EchartDisplayPreference.PHONE_TEL_LINKS, echartPrefs, echartYes, echartNo) %></div>
             </div>
             <div class="pref-row">
                 <div class="pref-label" id="echart_show_HIN-label"><fmt:message key="provider.providerpreference.echart.echart_show_HIN"/>:</div>

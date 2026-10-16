@@ -13,12 +13,13 @@
  */
 const h = require('./playwright-harness');
 
-/** In the order the Preferences page lists them, with the defaults the alpha tester asked for. */
+/** In the order the Preferences page lists them, with the defaults the alpha tester asked for (click-to-dial: issue #852). */
 const ECHART_DISPLAY_SETTINGS = Object.freeze([
   { name: 'echart_show_timer', defaultValue: true },
   { name: 'echart_show_group_document_by_type', defaultValue: true },
   { name: 'echart_show_DOB', defaultValue: true },
   { name: 'echart_show_cell', defaultValue: true },
+  { name: 'echart_phone_tel_links', defaultValue: false },
   { name: 'echart_show_HIN', defaultValue: true },
   { name: 'echart_email_indicator', defaultValue: true },
   { name: 'echart_show_fam_doc_widget', defaultValue: true },
@@ -33,7 +34,7 @@ const NAME = /^[A-Za-z0-9_]+$/;
  *
  * @param {object} sql   the harness SQL runner
  * @param {string} provider the provider_no whose rows are touched
- * @param {string[]} [names] the settings in scope (default: all nine)
+ * @param {string[]} [names] the settings in scope (default: all of them)
  * @returns {{ snapshot: Array, restore: Function, clear: Function, set: Function, value: Function }}
  */
 function providerEchartDisplayRows(sql, provider, names = ECHART_DISPLAY_SETTINGS.map((setting) => setting.name)) {

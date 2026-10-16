@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -263,6 +264,57 @@ class EchartHeaderViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         EchartHeaderViewModel header = assembler.assemble(VIEWER, demographic, EchartDisplayPreferences.defaults(), Locale.CANADA);
 
         assertThat(header.emailConsented()).isTrue();
+    }
+
+    @Nested
+    @DisplayName("click-to-dial phone links")
+    class TelLinks {
+
+        @Test
+        @DisplayName("should leave phones as copy buttons by default")
+        void shouldKeepCopyButtons_withDefaultSettings() {
+            assertThat(assembler.assemble(VIEWER, patient(), EchartDisplayPreferences.defaults(), Locale.CANADA).phoneTelLinks())
+                    .isFalse();
+        }
+
+        @Test
+        @DisplayName("should make phones tel: links when the provider turns the setting on")
+        void shouldMakeTelLinks_whenSettingOn() {
+            EchartDisplayPreferences preferences = EchartDisplayPreferences.fromStoredValues(Map.of("echart_phone_tel_links", "true"));
+
+            EchartHeaderViewModel header = assembler.assemble(VIEWER, patient(), preferences, Locale.CANADA);
+
+            assertThat(header.phoneTelLinks()).isTrue();
+            assertThat(header.phones()).extracting(Phone::telHref).containsExactly("tel:9055550100");
+        }
+
+        @ParameterizedTest(name = "{0} -> {1}")
+        @CsvSource(delimiter = '|', value = {
+                "905-555-0199          | tel:9055550199",
+                "(905) 555-0199*       | tel:9055550199",
+                "+1 905 555 0199       | tel:+19055550199",
+                "905.555.0199 x123     | tel:9055550199;ext=123",
+                "905-555-0199 ext. 45  | tel:9055550199;ext=45",
+                "905-555-0199 Ext 7*   | tel:9055550199;ext=7",
+                "416-555-0123 #22      | tel:4165550123;ext=22",
+        })
+        @DisplayName("should dial only the digits, keep a leading +, and split off an extension")
+        void shouldBuildDialableUri_fromRecordedNumber(String number, String expected) {
+            assertThat(new Phone(PhoneKind.HOME, number, null, "").telHref()).isEqualTo(expected);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"", "   ", "*", "unknown", "x"})
+        @DisplayName("should give no link when there is nothing to dial")
+        void shouldReturnEmpty_whenNoDigits(String number) {
+            assertThat(new Phone(PhoneKind.CELL, number, null, "").telHref()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should give no link for a missing number")
+        void shouldReturnEmpty_whenNumberNull() {
+            assertThat(new Phone(PhoneKind.WORK, null, null, "").telHref()).isEmpty();
+        }
     }
 
     @Nested

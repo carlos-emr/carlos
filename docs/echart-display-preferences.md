@@ -4,6 +4,7 @@ Each provider chooses what their own eChart shows, in **Preferences > eChart** (
 "Edit your personal setting" icon). The settings and the header bar they drive follow OSCAR 19's
 eChart Display Settings, so a clinic moving from OSCAR 19 sees the same chart. In OSCAR 19 these
 were clinic-wide (Administration > eChart > eChart Display Settings); in CARLOS they are personal.
+CARLOS adds one setting OSCAR 19 did not have: click-to-dial phone links (issue #852).
 
 | Setting | Default | What it changes |
 |---|---|---|
@@ -11,6 +12,7 @@ were clinic-wide (Administration > eChart > eChart Display Settings); in CARLOS 
 | File Documents in Folders by Document Type | Yes | The left-column Documents panel lists one collapsed folder per document type ("consult (2)", "lab (1)", ...) instead of a list by date. Documents without a type go in "Other". |
 | Display Date of Birth (yyyy-mm-dd) | Yes | The header bar shows the date of birth with the age as its tooltip; No shows the age with the date of birth as its tooltip. |
 | Display Cell Phone Number if Available | Yes | The header bar shows the cell number (home number in the tooltip); No, or no cell on file, shows the home number, with the cell (if any) still in its tooltip as OSCAR 19 had it. A number the patient marked preferred (trailing `*`) is always shown instead. |
+| Display Phone Numbers as Click-to-Dial (tel:) Links | No | Each phone number in the header bar is a `tel:` link, so a click dials it through the workstation's softphone or calling app (whatever handles `tel:` links there) instead of copying it. The link dials the digits only, keeps a leading `+`, and passes an extension typed as `x123`, `ext 123` or `#123` as `;ext=123`. The tooltip is unchanged. |
 | Display Health Insurance Number (HIN) | Yes | The HIN and version code in the header bar. |
 | Display Patient Email Address if Available | Yes | The email address in the header bar; a mailto link when the patient consented to email for care. |
 | Display Family Doctor | Yes | A Family Doctor panel at the top of the left column: the patient's "Family Doctor" professional contact (Health Care Team), else the legacy family-doctor field. |
@@ -55,8 +57,8 @@ Preferences > eChart with the defaults:
 ![Preferences eChart section, defaults](images/echart-display-preferences/05-preferences-defaults.png)
 
 The same chart with the defaults, then with every setting flipped (age instead of date of birth, no
-HIN, home phone, no email, no timer, Referring Doctor instead of Family Doctor, documents listed by
-date):
+HIN, home phone as a click-to-dial link, no email, no timer, Referring Doctor instead of Family Doctor,
+documents listed by date):
 
 ![Chart with the defaults](images/echart-display-preferences/08-chart-defaults.png)
 ![Chart with every setting flipped](images/echart-display-preferences/09-chart-all-flipped.png)
@@ -69,7 +71,8 @@ date):
   (`ProviderPropertyAction`); read by `EchartDisplayPreferenceResolver`.
 - Header bar: `casemgmt/newEncounterHeader.jsp`, built from `EchartHeaderViewModelAssembler`, styled in
   `css/encounterStyles.css` (`#header-top-row.echart-header-bar`). Window title:
-  `casemgmt/newEncounterLayout.jsp` (`encounter.Index.windowTitle` + `oscar:nameage`).
+  `casemgmt/newEncounterLayout.jsp` (`encounter.Index.windowTitle` + `oscar:nameage`). Click-to-dial
+  URIs: `EchartHeaderViewModel.Phone#telHref()`.
 - Left-column panels: `encounter/displayFamilyDoctor`, `encounter/displayReferringDoctor`
   (`EctDisplayPatientDoctorAction`); Documents folders: `EctDisplayDocs2Action` +
   `LeftNavBarDisplay.jsp` (`displayFolders`).

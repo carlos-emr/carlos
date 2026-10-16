@@ -3422,13 +3422,14 @@
         "property:echart_show_group_document_by_type",
         "property:echart_show_DOB",
         "property:echart_show_cell",
+        "property:echart_phone_tel_links",
         "property:echart_show_HIN",
         "property:echart_email_indicator",
         "property:echart_show_fam_doc_widget",
         "property:echart_show_ref_doc_widget",
         "property:echart_show_ocean"
       ],
-      "fixtures": "Snapshots the test login's nine eChart display preference rows, clears them to read the defaults, saves the opposite through Preferences > eChart and restores the rows exactly (ids included); gives an owned FAKE-PW patient a HIN, phones, email, Referral Doctor, a Family Doctor contact and two typed documents, removed with it; local disposable database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Snapshots the test login's eChart display preference rows, clears them to read the defaults, saves the opposite through Preferences > eChart and restores the rows exactly (ids included); gives an owned FAKE-PW patient a HIN, phones, email, Referral Doctor, a Family Doctor contact and two typed documents, removed with it; local disposable database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "hrm-retired-statement",

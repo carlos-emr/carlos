@@ -29,11 +29,13 @@ package io.github.carlos_emr.carlos.encounter.display;
  * personal choice: each provider sets them in the "eChart" section of their Preferences, and the
  * value lives in the {@code property} table under {@link #propertyName()} for that provider.
  * The property names deliberately reuse OSCAR 19's key names so a clinic migrating from OSCAR
- * recognizes them; the OLIS link key is out of scope and is not carried over.</p>
+ * recognizes them; the OLIS link key is out of scope and is not carried over. {@link #PHONE_TEL_LINKS}
+ * is CARLOS's own addition (issue #852) and has no OSCAR 19 key.</p>
  *
  * <p>A provider who has never saved the section gets {@link #defaultValue()}: everything on
- * except the Referring Doctor widget and the Ocean toolbar, which a provider has to opt in to.
- * Values are stored as {@code "true"}/{@code "false"}, matching OSCAR 19's radio values.</p>
+ * except click-to-dial phone links, the Referring Doctor widget and the Ocean toolbar, which a
+ * provider has to opt in to. Values are stored as {@code "true"}/{@code "false"}, matching OSCAR 19's
+ * radio values.</p>
  *
  * @since 2026-10-16
  */
@@ -50,6 +52,12 @@ public enum EchartDisplayPreference {
 
     /** Prefer the cell phone number over the home number in the header when one is on file. */
     SHOW_CELL("echart_show_cell", true),
+
+    /**
+     * Render the header's phone numbers as {@code tel:} links, so a click dials through the
+     * workstation's softphone or calling app instead of copying the number. Not in OSCAR 19.
+     */
+    PHONE_TEL_LINKS("echart_phone_tel_links", false),
 
     /** Show the health insurance number in the header. */
     SHOW_HIN("echart_show_HIN", true),

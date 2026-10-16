@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.encounter.display;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * What the eChart header bar ({@code casemgmt/newEncounterHeader.jsp}) shows for one patient and
@@ -50,6 +52,7 @@ import java.util.List;
  * @param hin              health insurance number, {@code ""} when hidden or not on file
  * @param hinVersion       its version code, {@code ""} when none
  * @param phones           the phone numbers to show, in display order; may be empty
+ * @param phoneTelLinks    whether each phone is a {@code tel:} click-to-dial link rather than a copy button
  * @param email            email address, {@code ""} when hidden or not on file
  * @param emailConsented   whether the patient consented to email for care (the address is then a mailto link)
  * @param nextAppointment  the next appointment date, {@code ""} when none is booked
@@ -71,6 +74,7 @@ public record EchartHeaderViewModel(
         String hin,
         String hinVersion,
         List<Phone> phones,
+        boolean phoneTelLinks,
         String email,
         boolean emailConsented,
         String nextAppointment) {
@@ -113,5 +117,36 @@ public record EchartHeaderViewModel(
      * @param alternateNumber that number, {@code ""} when none
      */
     public record Phone(PhoneKind kind, String number, PhoneKind alternateKind, String alternateNumber) {
+
+        /** A trailing extension as people type it: "x123", "ext 123", "ext. 123", "#123". */
+        private static final Pattern EXTENSION = Pattern.compile("(?i)(?:ext\\.?|x|#)\\s*(\\d+)$");
+
+        /**
+         * The {@code tel:} URI that dials {@link #number()}, still to be encoded for its HTML attribute.
+         *
+         * <p>Only digits survive, with a leading {@code +} kept, so spaces, dashes, brackets and the
+         * trailing {@code *} preferred mark drop out. An extension is split off as RFC 3966's
+         * {@code ;ext=} rather than run into the number, which would dial the wrong line.</p>
+         *
+         * @return the URI, or {@code ""} when the number has no digits to dial
+         */
+        public String telHref() {
+            String main = number == null ? "" : number.strip();
+            if (main.endsWith("*")) {
+                main = main.substring(0, main.length() - 1).strip();
+            }
+            String extension = "";
+            Matcher matcher = EXTENSION.matcher(main);
+            if (matcher.find()) {
+                extension = matcher.group(1);
+                main = main.substring(0, matcher.start());
+            }
+            String digits = main.replaceAll("\\D", "");
+            if (digits.isEmpty()) {
+                return "";
+            }
+            return "tel:" + (main.startsWith("+") ? "+" : "") + digits
+                    + (extension.isEmpty() ? "" : ";ext=" + extension);
+        }
     }
 }

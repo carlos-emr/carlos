@@ -37,7 +37,8 @@
   (EchartDisplayPreference) turns the date of birth (age otherwise), cell phone, HIN and email on or off.
   EchartHeaderViewModelAssembler applies those settings and OSCAR 19's phone rules, so this JSP only
   tests values for emptiness and encodes them. Values the viewer may want to paste elsewhere (date of
-  birth or age, HIN, phone, email) are native buttons that copy to the clipboard.
+  birth or age, HIN, phone, email) are native buttons that copy to the clipboard; a provider can
+  instead make the phone numbers tel: click-to-dial links.
   The calculator menu resolves clinical defaults server-side using the originating
   chart's record reference instead of including age or sex in the header URL, and
   there is exactly one entry point to it -- a second link to the same page, differing
@@ -123,6 +124,7 @@
 
 <fmt:message key="global.copiedToClipboard" var="copiedToClipboardMsg"/>
 <fmt:message key="encounter.header.clickToCopy" var="clickToCopyMsg"/>
+<fmt:message key="encounter.header.clickToCall" var="clickToCallMsg"/>
 <fmt:message key="demographic.demographicaddrecordhtm.formPhone" var="homePhoneLabel"/>
 <fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell" var="cellPhoneLabel"/>
 <fmt:message key="demographic.demographicaddrecordhtm.formPhoneWork" var="workPhoneLabel"/>
@@ -198,28 +200,32 @@ function fallbackCopy(text) {
                  test="${not empty echartHeader.hinVersion}">&nbsp;<carlos:encode value="${echartHeader.hinVersion}"/></c:if></button>
       </c:if>
       <%-- One number, or every number the patient marked preferred; the tooltip names the other
-           number when there is one (see EchartHeaderViewModelAssembler#selectPhones). --%>
+           number when there is one (see EchartHeaderViewModelAssembler#selectPhones). With the
+           provider's "click-to-dial" setting on, each number is a tel: link (issue #852) instead of
+           a copy button; the id, icon and tooltip stay the same. --%>
       <c:forEach var="phone" items="${echartHeader.phones}">
+         <c:choose>
+            <c:when test="${phone.kind == 'CELL'}"><c:set var="phoneId" value="patient-cell-phone"/><c:set var="phoneIcon" value="fa-mobile-screen-button"/><c:set var="phoneLabel" value="${cellPhoneLabel}"/></c:when>
+            <c:when test="${phone.kind == 'WORK'}"><c:set var="phoneId" value="patient-work-phone"/><c:set var="phoneIcon" value="fa-briefcase"/><c:set var="phoneLabel" value="${workPhoneLabel}"/></c:when>
+            <c:otherwise><c:set var="phoneId" value="patient-phone"/><c:set var="phoneIcon" value="fa-phone"/><c:set var="phoneLabel" value="${homePhoneLabel}"/></c:otherwise>
+         </c:choose>
+         <c:set var="phoneTelHref" value="${echartHeader.phoneTelLinks ? phone.telHref() : ''}"/>
          <c:choose>
             <c:when test="${phone.alternateKind == 'HOME'}"><c:set var="phoneTitle" value="${homePhoneLabel}: ${phone.alternateNumber}"/></c:when>
             <c:when test="${phone.alternateKind == 'CELL'}"><c:set var="phoneTitle" value="${cellPhoneLabel}: ${phone.alternateNumber}"/></c:when>
+            <c:when test="${not empty phoneTelHref}"><c:set var="phoneTitle" value="${clickToCallMsg}"/></c:when>
             <c:otherwise><c:set var="phoneTitle" value="${clickToCopyMsg}"/></c:otherwise>
          </c:choose>
          <c:choose>
-            <c:when test="${phone.kind == 'CELL'}">
-               <button type="button" id="patient-cell-phone" class="copyable echart-header-item"
-                       title="${carlos:forHtmlAttribute(phoneTitle)}"
-                       onclick="copyToClip('${carlos:forJavaScriptAttribute(phone.number)}',this)"><i class="fa-solid fa-mobile-screen-button" role="img" aria-label="${carlos:forHtmlAttribute(cellPhoneLabel)}"></i>&nbsp;<carlos:encode value="${phone.number}"/></button>
-            </c:when>
-            <c:when test="${phone.kind == 'WORK'}">
-               <button type="button" id="patient-work-phone" class="copyable echart-header-item"
-                       title="${carlos:forHtmlAttribute(phoneTitle)}"
-                       onclick="copyToClip('${carlos:forJavaScriptAttribute(phone.number)}',this)"><i class="fa-solid fa-briefcase" role="img" aria-label="${carlos:forHtmlAttribute(workPhoneLabel)}"></i>&nbsp;<carlos:encode value="${phone.number}"/></button>
+            <c:when test="${not empty phoneTelHref}">
+               <a id="${carlos:forHtmlAttribute(phoneId)}" class="echart-header-item echart-header-tel"
+                  href="${carlos:forHtmlAttribute(phoneTelHref)}"
+                  title="${carlos:forHtmlAttribute(phoneTitle)}"><i class="fa-solid ${carlos:forHtmlAttribute(phoneIcon)}" role="img" aria-label="${carlos:forHtmlAttribute(phoneLabel)}"></i>&nbsp;<carlos:encode value="${phone.number}"/></a>
             </c:when>
             <c:otherwise>
-               <button type="button" id="patient-phone" class="copyable echart-header-item"
+               <button type="button" id="${carlos:forHtmlAttribute(phoneId)}" class="copyable echart-header-item"
                        title="${carlos:forHtmlAttribute(phoneTitle)}"
-                       onclick="copyToClip('${carlos:forJavaScriptAttribute(phone.number)}',this)"><i class="fa-solid fa-phone" role="img" aria-label="${carlos:forHtmlAttribute(homePhoneLabel)}"></i>&nbsp;<carlos:encode value="${phone.number}"/></button>
+                       onclick="copyToClip('${carlos:forJavaScriptAttribute(phone.number)}',this)"><i class="fa-solid ${carlos:forHtmlAttribute(phoneIcon)}" role="img" aria-label="${carlos:forHtmlAttribute(phoneLabel)}"></i>&nbsp;<carlos:encode value="${phone.number}"/></button>
             </c:otherwise>
          </c:choose>
       </c:forEach>

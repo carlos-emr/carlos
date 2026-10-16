@@ -67,7 +67,7 @@ class EchartDisplayPreferenceResolverUnitTest extends CarlosUnitTestBase {
 
     @Test
     @SuppressWarnings("unchecked")
-    @DisplayName("should read only the nine settings, in one query, for the given provider")
+    @DisplayName("should read only the eChart settings, in one query, for the given provider")
     void shouldReadOnlyEchartSettings_inOneQuery() {
         when(userPropertyDao.getProviderPropertiesByNames(eq("999998"), any()))
                 .thenReturn(Map.of("echart_show_HIN", "false"));

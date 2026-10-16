@@ -20,13 +20,14 @@
  * reads the eChart section's defaults, opens the chart and asserts what each default shows, flips
  * every setting with the Yes/No radios and Save All, reads the rows back from the database, and opens
  * the chart again to assert that every surface followed: the header bar (date of birth or age, HIN,
- * cell or home phone, email), the note panel's timer, the Family Doctor and Referring Doctor panels at
- * the top of the left column, the Documents panel's folders, and the Ocean toolbar placeholder. It also
- * proves a GET carrying the settings is refused and changes nothing.
+ * cell or home phone, copy button or tel: click-to-dial link, email), the note panel's timer, the
+ * Family Doctor and Referring Doctor panels at the top of the left column, the Documents panel's
+ * folders, and the Ocean toolbar placeholder. It also proves a GET carrying the settings is refused
+ * and changes nothing.
  *
  * OWNED STATE. The FAKE-PW patient (runWorkflow) gets a HIN, phones, an email, a Referral Doctor, a
  * Family Doctor contact and two documents of different types; all are removed with it. The test
- * login's own nine eChart display rows are snapshotted first and restored exactly (ids included) in
+ * login's own eChart display rows are snapshotted first and restored exactly (ids included) in
  * cleanup, so a run leaves the provider's choices as it found them. Because those rows belong to the
  * shared test login, the check must not run beside another chart check.
  *
@@ -188,6 +189,9 @@ async function workflow(s) {
     h.assert((await page.locator('#patient-cell-phone').getAttribute('title')).includes(PATIENT.home),
       'The cell phone does not offer the home number as its tooltip');
     h.assert(await page.locator('#patient-phone').count() === 0, 'The header shows the home phone although a cell is preferred');
+    h.assert(await page.locator('#patient-cell-phone').evaluate((el) => el.tagName) === 'BUTTON'
+      && await page.locator('#header-top-row a[href^="tel:"]').count() === 0,
+    'The header phone is a tel: link although click-to-dial is off by default');
     h.assert(await text(page, '#patient-email') === PATIENT.email, 'The header does not show the email address');
     h.assert(await page.locator('#header a[href*="ViewCalculators"]').count() === 1, 'The header must offer exactly one calculators link');
     h.assert(await page.locator('#aTimer').count() === 1, 'The note panel has no timer with the timer on');
@@ -246,6 +250,9 @@ async function workflow(s) {
     h.assert((await text(page, '#patient-phone')).includes(PATIENT.home), 'The header does not fall back to the home phone');
     h.assert((await page.locator('#patient-phone').getAttribute('title')).includes(PATIENT.cell), 'The home phone does not offer the cell as its tooltip');
     h.assert(await page.locator('#patient-cell-phone').count() === 0, 'The header still shows the cell phone with it turned off');
+    h.assert(await page.locator('#patient-phone').evaluate((el) => el.tagName) === 'A'
+      && await page.locator('#patient-phone').getAttribute('href') === `tel:${PATIENT.home.replace(/\D/g, '')}`,
+    'The home phone is not a tel: click-to-dial link with click-to-dial turned on');
     h.assert(await page.locator('#patient-email, #patient-email-link').count() === 0, 'The header still shows the email with it turned off');
     h.assert(await page.locator('#aTimer, #toggleTimer').count() === 0, 'The note panel still shows the timer with it turned off');
     h.assert(await page.locator('#fDoc').count() === 0, 'The Family Doctor panel still shows with it turned off');
