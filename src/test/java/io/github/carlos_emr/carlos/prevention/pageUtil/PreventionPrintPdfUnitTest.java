@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.openpdf.text.DocumentException;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -104,26 +103,17 @@ class PreventionPrintPdfUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should print an entry's comments once, whatever prevention_show_comments says")
-    void shouldPrintCommentsOnce_whateverTheSetting() throws Exception {
-        // The loader applies the setting; the PDF draws what the printout holds. It used to print
-        // the comment under a "Comments:" label and again in its own block when the setting was on.
+    @DisplayName("should print a comment once when the printout holds it")
+    void shouldPrintCommentOnce_whenPrintoutHoldsIt() throws Exception {
+        // PreventionPrintLoader applies prevention_show_comments; the PDF draws what the printout
+        // holds. It used to print a comment under a "Comments:" label and again in its own block.
         Printout printout = new Printout(patient, null, false, List.of(new Section("Inf", false, false, List.of(
                 new Entry("2025-10-01", "45 years", "0", null, null, "Tolerated well, no reaction", null, null, null,
                         null, null, "Dr Carlos")))));
-        CarlosProperties properties = CarlosProperties.getInstance();
-        Object previous = properties.setProperty("prevention_show_comments", "true");
-        try {
-            String text = print(printout).replaceAll("\\s+", " ");
 
-            assertThat(text.split("Tolerated well, no reaction", -1)).hasSize(2);
-        } finally {
-            if (previous == null) {
-                properties.remove("prevention_show_comments");
-            } else {
-                properties.setProperty("prevention_show_comments", previous.toString());
-            }
-        }
+        String text = print(printout).replaceAll("\\s+", " ");
+
+        assertThat(text.split("Tolerated well, no reaction", -1)).hasSize(2);
     }
 
     @Test

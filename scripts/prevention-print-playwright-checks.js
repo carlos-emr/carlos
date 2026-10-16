@@ -253,7 +253,7 @@ async function workflow(s) {
     '1', 'The Tdap added through the brand picker was not stored with its lot');
     for (const [key, value] of [['providerName', OUTSIDE_PROVIDER], ['comments', EMOJI_COMMENT]]) {
       await expectValue(sql, `SELECT COUNT(*) FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id
-        WHERE p.demographic_no=${patient} AND p.prevention_type='Tdap' AND x.keyval='${key}' AND x.val=${utf8Literal(value)}`,
+        WHERE p.demographic_no=${patient} AND p.prevention_type='Tdap' AND x.keyval=${h.sqlString(key)} AND x.val=${utf8Literal(value)}`,
       '1', `The Tdap's ${key} was not stored intact`);
     }
     h.assert(await index.locator('input[name="printHP"][value="Tdap"]').count() === 1, 'The refreshed page offers no print box for the new Tdap');

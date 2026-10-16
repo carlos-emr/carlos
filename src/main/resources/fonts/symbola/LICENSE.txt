@@ -1,7 +1,21 @@
-Symbola 2.60
-Copyright (C) 2007-2015 George Douros
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source:
+    http://users.teilar.gr/~g1951d/
+Comment:
+    Upstream has changed the font license since the packaged version was published.
+Upstream-Contact:
+    George Douros <g1951d@teilar.gr>
 
-Fonts are free for any use; they may be opened, edited, modified, regenerated, packaged and
-redistributed.
+Files: *
+Copyright:
+    Copyright (C) 2007-2015 George Douros
+License: Douros-Free-Font
+    Fonts are free for any use; they may be opened, edited,
+    modified, regenerated, packaged and redistributed.
 
-(License text as recorded in the Debian/Ubuntu fonts-symbola 2.60-4 copyright file.)
+Files: debian/*
+Copyright:
+    Copyright (C) 2007-2017 Alex Myczko <tar@debian.org>
+    Copyright (C)      2015 Andrew Shadura <andrewsh@debian.org>
+License: GPL
+    Licensed under the GPL, see `/usr/share/common-licenses/GPL'.
