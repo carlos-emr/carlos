@@ -335,6 +335,7 @@
     "test:demographic-cds-import-playwright": "node scripts/demographic-cds-import-playwright-checks.js",
     "test:admin-sites-clinic-numbers-playwright": "node scripts/admin-sites-clinic-numbers-playwright-checks.js",
     "test:consultation-edit-status-playwright": "node scripts/consultation-edit-status-playwright-checks.js",
+    "test:consultation-chart-import-playwright": "node scripts/consultation-chart-import-playwright-checks.js",
     "test:dashboard-display-playwright": "node scripts/dashboard-display-playwright-checks.js",
     "test:measurement-group-entry-playwright": "node scripts/measurement-group-entry-playwright-checks.js",
     "test:report-by-template-groups-playwright": "node scripts/report-by-template-groups-playwright-checks.js",

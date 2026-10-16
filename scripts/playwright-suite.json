@@ -4687,6 +4687,20 @@
       "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (with one configured the check reports SKIP at that step), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
     },
     {
+      "name": "consultation-chart-import",
+      "script": "scripts/consultation-chart-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with SQL-seeded CPP notes (one per history, a second revision of Medical History, an archived Ongoing Concerns note) and a long-term and a short-term drug; the request form is never submitted. Cleanup deletes the patient's notes, issues, drugs and any referral and asserts none remain."
+    },
+    {
       "name": "dashboard-display",
       "script": "scripts/dashboard-display-playwright-checks.js",
       "tiers": [
