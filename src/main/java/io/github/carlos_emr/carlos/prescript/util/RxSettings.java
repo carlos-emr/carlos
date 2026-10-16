@@ -16,7 +16,8 @@ import io.github.carlos_emr.CarlosProperties;
  *
  * <p>The namespace cleanup a08586ca65 renamed {@code rx.policy} and {@code rx.default_instruction} to
  * {@code prescript.*} along with the packages. Reading only the new names silently ignored every
- * existing setting, so both are read, the new one first.</p>
+ * existing setting, so both are read, the new one first. A blank new name counts as unset, so a template
+ * line such as {@code prescript.policy=} cannot switch off an installation's {@code rx.policy}.</p>
  *
  * @since 2026-10-16
  */
@@ -30,11 +31,12 @@ final class RxSettings {
 
     /**
      * @param name the setting without its prefix, for example {@code policy}
-     * @return the {@code prescript.<name>} value, else the {@code rx.<name>} value, else {@code null}
+     * @return the {@code prescript.<name>} value unless it is blank, else the {@code rx.<name>} value,
+     *         else {@code null}
      */
     static String get(String name) {
         CarlosProperties properties = CarlosProperties.getInstance();
         String value = properties.getProperty(PREFIX + name);
-        return value != null ? value : properties.getProperty(LEGACY_PREFIX + name);
+        return value != null && !value.isBlank() ? value : properties.getProperty(LEGACY_PREFIX + name);
     }
 }

@@ -101,6 +101,15 @@ class RxSettingsUnitTest {
     }
 
     @Test
+    @DisplayName("should still apply rx.policy when prescript.policy is present but blank")
+    void shouldApplyRxPolicy_whenPrescriptPolicyIsBlank() {
+        set("prescript.policy", " ");
+        set("rx.policy", "stjoes");
+
+        assertThat(RxInstructionPolicy.checkInstructions("10 U sc daily")).hasSize(2);
+    }
+
+    @Test
     @DisplayName("should prefill a new prescription's instructions from the OSCAR name rx.default_instruction")
     void shouldPrefillInstructions_whenSetUnderRxName() {
         set("rx.default_instruction", "FAKE 1 tab daily");
@@ -131,5 +140,7 @@ class RxSettingsUnitTest {
         assertThat(RxSettings.get("policy")).isEqualTo("old");
         set("prescript.policy", "new");
         assertThat(RxSettings.get("policy")).isEqualTo("new");
+        set("prescript.policy", "");
+        assertThat(RxSettings.get("policy")).isEqualTo("old");
     }
 }
