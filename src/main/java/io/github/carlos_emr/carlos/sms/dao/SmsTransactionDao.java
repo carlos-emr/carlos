@@ -162,32 +162,39 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
 
     /**
      * The overdue queued rows {@link #countOverdueQueuedOutboundByProvider(Date)} counts, for one SMS provider,
-     * oldest due time first.
+     * oldest due time first, then lowest id first, so that pages do not overlap.
      *
-     * @param limit maximum rows; non-positive values use the default and large values are capped
+     * @param offset rows to skip first; a negative value is taken as 0
+     * @param limit  maximum rows; non-positive values use the default and large values are capped
      */
-    List<SmsQueueRowDto> findOverdueQueuedOutbound(SmsProviderType providerType, Date dueBefore, int limit);
+    List<SmsQueueRowDto> findOverdueQueuedOutbound(SmsProviderType providerType, Date dueBefore, int offset,
+                                                   int limit);
 
     /**
      * The stale {@code SENDING} rows {@link #countStaleSendingOutboundByProvider(Date)} counts, for one SMS
-     * provider, oldest last attempt first.
+     * provider, oldest last attempt first, then lowest id first, so that pages do not overlap.
      *
-     * @param limit maximum rows; non-positive values use the default and large values are capped
+     * @param offset rows to skip first; a negative value is taken as 0
+     * @param limit  maximum rows; non-positive values use the default and large values are capped
      */
-    List<SmsQueueRowDto> findStaleSendingOutbound(SmsProviderType providerType, Date staleBefore, int limit);
+    List<SmsQueueRowDto> findStaleSendingOutbound(SmsProviderType providerType, Date staleBefore, int offset,
+                                                  int limit);
 
     /**
-     * Outbound rows of one SMS provider in any of the given statuses, most recently updated first.
+     * Outbound rows of one SMS provider in any of the given statuses, most recently updated first, then highest
+     * id first, so that pages do not overlap.
      *
      * @param statuses the statuses to include; empty or {@code null} returns nothing
      * @param since    only rows last updated at or after this time are returned; {@code null} returns rows
      *                 of all time
+     * @param offset   rows to skip first; a negative value is taken as 0
      * @param limit    maximum rows; non-positive values use the default and large values are capped
      */
     List<SmsQueueRowDto> findRecentOutboundByStatuses(
             SmsProviderType providerType,
             Collection<SmsStatus> statuses,
             Date since,
+            int offset,
             int limit
     );
 }

@@ -44,6 +44,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -128,7 +129,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
 
         Map<SmsProviderType, Long> counts = smsTransactionDao.countOverdueQueuedOutboundByProvider(FIVE_MINUTES_AGO);
         List<SmsQueueRowDto> rows = smsTransactionDao.findOverdueQueuedOutbound(
-                SmsProviderType.STUB, FIVE_MINUTES_AGO, 10);
+                SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 10);
 
         assertThat(counts).containsEntry(SmsProviderType.STUB, 2L).containsEntry(SmsProviderType.VOIPMS, 1L);
         assertThat(rows).extracting(SmsQueueRowDto::id)
@@ -149,7 +150,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
 
         Map<SmsProviderType, Long> counts = smsTransactionDao.countOverdueQueuedOutboundByProvider(FIVE_MINUTES_AGO);
         List<SmsQueueRowDto> rows = smsTransactionDao.findOverdueQueuedOutbound(
-                SmsProviderType.STUB, FIVE_MINUTES_AGO, 10);
+                SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 10);
         List<Long> claimedByWorker = smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, Date.from(NOW), 10)
                 .stream().map(SmsTransaction::getId).toList();
 
@@ -173,7 +174,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         persistQueued(SmsProviderType.VOIPMS, NOW.minus(Duration.ofHours(3)), null);
         entityManager.flush();
 
-        List<Long> overdue = smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 10)
+        List<Long> overdue = smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 10)
                 .stream().map(SmsQueueRowDto::id).toList();
         List<Long> claimedByWorker = smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, Date.from(NOW), 10)
                 .stream().map(SmsTransaction::getId).toList();
@@ -191,7 +192,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.flush();
 
         List<SmsQueueRowDto> rows = smsTransactionDao.findOverdueQueuedOutbound(
-                SmsProviderType.STUB, FIVE_MINUTES_AGO, 2);
+                SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 2);
 
         assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(oldest.getId(), middle.getId());
         assertThat(rows.get(0)).satisfies(row -> {
@@ -222,7 +223,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.flush();
 
         // The view reads first: the worker's claim changes the rows it takes.
-        List<Long> shown = smsTransactionDao.findStaleSendingOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 10)
+        List<Long> shown = smsTransactionDao.findStaleSendingOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 10)
                 .stream().map(SmsQueueRowDto::id).toList();
         List<Long> claimed = smsTransactionDao.claimStaleOutboundSendingForRecovery(
                         SmsProviderType.STUB, FIVE_MINUTES_AGO, Date.from(NOW), 10)
@@ -248,7 +249,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
 
         Map<SmsProviderType, Long> counts = smsTransactionDao.countStaleSendingOutboundByProvider(FIVE_MINUTES_AGO);
         List<SmsQueueRowDto> rows = smsTransactionDao.findStaleSendingOutbound(
-                SmsProviderType.STUB, FIVE_MINUTES_AGO, 10);
+                SmsProviderType.STUB, FIVE_MINUTES_AGO, 0, 10);
 
         assertThat(counts).containsEntry(SmsProviderType.STUB, 2L).doesNotContainKey(SmsProviderType.VOIPMS);
         assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(oldest.getId(), justOver.getId());
@@ -295,7 +296,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
 
         List<SmsQueueCountDto> counts = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(null);
         List<SmsQueueRowDto> recent =
-                smsTransactionDao.findRecentOutboundByStatuses(SmsProviderType.STUB, BLOCKED, null, 500);
+                smsTransactionDao.findRecentOutboundByStatuses(SmsProviderType.STUB, BLOCKED, null, 0, 500);
 
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_REASON_X")).isEqualTo(3);
         assertThat(count(counts, SmsProviderType.STUB, "QVIEW_REASON_Y")).isEqualTo(1);
@@ -318,11 +319,60 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         entityManager.clear();
 
         List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
-                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 2);
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0, 2);
 
         assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(newest.getId(), second.getId());
         assertThat(rows.get(0).updatedAt()).isEqualTo(Instant.parse("2090-01-01T12:00:00Z"));
         assertThat(rows.get(0).errorCode()).isEqualTo("QVIEW_ERR_ORDER");
+    }
+
+    @Test
+    @DisplayName("should page each list without overlap or gaps when rows tie on time, the id deciding the order")
+    void shouldPageListsWithoutOverlap_whenRowsTieOnTime() {
+        Instant due = NOW.minus(Duration.ofHours(1));
+        List<Long> queued = new ArrayList<>();
+        List<Long> sending = new ArrayList<>();
+        List<Long> failed = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            queued.add(persistQueued(SmsProviderType.STUB, due, null).getId());
+            sending.add(persistSending(SmsProviderType.STUB, due).getId());
+        }
+        List<SmsTransaction> failedRows = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            failedRows.add(persistFailed(SmsProviderType.STUB, "QVIEW_ERR_PAGES"));
+        }
+        entityManager.flush();
+        for (SmsTransaction row : failedRows) {
+            setUpdatedAt(row, Instant.parse("2090-02-01T10:00:00Z"));
+            failed.add(row.getId());
+        }
+        entityManager.clear();
+        queued.sort(null);
+        sending.sort(null);
+        failed.sort(Comparator.reverseOrder());
+
+        List<Long> overduePages = new ArrayList<>();
+        List<Long> stalePages = new ArrayList<>();
+        List<Long> failedPages = new ArrayList<>();
+        for (int offset = 0; offset < 6; offset += 2) {
+            smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, offset, 2)
+                    .forEach(row -> overduePages.add(row.id()));
+            smsTransactionDao.findStaleSendingOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, offset, 2)
+                    .forEach(row -> stalePages.add(row.id()));
+            smsTransactionDao.findRecentOutboundByStatuses(
+                    SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, offset, 2)
+                    .forEach(row -> failedPages.add(row.id()));
+        }
+
+        // Oldest first lists go up by id within a tie; newest first lists go down.
+        assertThat(overduePages).containsExactlyElementsOf(queued);
+        assertThat(stalePages).containsExactlyElementsOf(sending);
+        assertThat(failedPages).containsExactlyElementsOf(failed);
+        // Past the end there is nothing, and a negative offset is the first page.
+        assertThat(smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 5, 2))
+                .isEmpty();
+        assertThat(smsTransactionDao.findStaleSendingOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, -3, 2))
+                .extracting(SmsQueueRowDto::id).containsExactlyElementsOf(sending.subList(0, 2));
     }
 
     @Test
@@ -343,9 +393,9 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
                 Date.from(since));
         List<SmsQueueCountDto> allTime = smsTransactionDao.countFailedOutboundByProviderAndErrorCode(null);
         List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
-                SmsProviderType.STUB, List.of(SmsStatus.FAILED), Date.from(since), 500);
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), Date.from(since), 0, 500);
         List<SmsQueueRowDto> allRows = smsTransactionDao.findRecentOutboundByStatuses(
-                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 500);
+                SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0, 500);
 
         assertThat(count(windowed, SmsProviderType.STUB, "QVIEW_ERR_WINDOW")).isEqualTo(2);
         assertThat(count(allTime, SmsProviderType.STUB, "QVIEW_ERR_WINDOW")).isEqualTo(3);
@@ -370,7 +420,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
                 Date.from(since));
         List<SmsQueueCountDto> allTime = smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(null);
         List<SmsQueueRowDto> rows = smsTransactionDao.findRecentOutboundByStatuses(
-                SmsProviderType.STUB, BLOCKED, Date.from(since), 500);
+                SmsProviderType.STUB, BLOCKED, Date.from(since), 0, 500);
 
         assertThat(count(windowed, SmsProviderType.STUB, "QVIEW_REASON_WINDOW")).isEqualTo(1);
         assertThat(count(allTime, SmsProviderType.STUB, "QVIEW_REASON_WINDOW")).isEqualTo(2);

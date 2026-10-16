@@ -24,6 +24,9 @@ package io.github.carlos_emr.carlos.sms.service;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueList;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueuePages;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.DisplayName;
@@ -60,7 +63,7 @@ class SmsQueueViewAuditRecorderUnitTest {
         when(loggedInInfo.getIp()).thenReturn("203.0.113.7");
 
         new SmsQueueViewAuditRecorder(oscarLogDao)
-                .recordViewed(loggedInInfo, SmsQueueWindow.LAST_7_DAYS, List.of(456, 123, 456));
+                .recordViewed(loggedInInfo, SmsQueueWindow.LAST_7_DAYS, SmsQueuePages.FIRST, List.of(456, 123, 456));
 
         assertThat(persisted(3))
                 .extracting(OscarLog::getProviderNo, OscarLog::getSecurityId, OscarLog::getIp, OscarLog::getAction,
@@ -76,7 +79,7 @@ class SmsQueueViewAuditRecorderUnitTest {
     void shouldRecordPageView_whenNoPatientIsShown() {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
-        new SmsQueueViewAuditRecorder(oscarLogDao).recordViewed(loggedInInfo, SmsQueueWindow.ALL_TIME, List.of());
+        new SmsQueueViewAuditRecorder(oscarLogDao).recordViewed(loggedInInfo, SmsQueueWindow.ALL_TIME, SmsQueuePages.FIRST, List.of());
 
         assertThat(persisted(1)).singleElement().satisfies(log -> {
             assertThat(log.getProviderNo()).isEqualTo("999998");
@@ -86,10 +89,25 @@ class SmsQueueViewAuditRecorderUnitTest {
     }
 
     @Test
+    @DisplayName("should record the pages shown, as page parameters, on the page view and on each patient's row")
+    void shouldRecordPagesShown_onEveryRow() {
+        SmsQueuePages pages = SmsQueuePages.FIRST
+                .with(SmsProviderType.STUB, SmsQueueList.FAILED, 2)
+                .with(SmsProviderType.VOIPMS, SmsQueueList.OVERDUE, 3);
+
+        new SmsQueueViewAuditRecorder(oscarLogDao)
+                .recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, pages, List.of(123));
+
+        assertThat(persisted(2)).extracting(OscarLog::getDemographicId, OscarLog::getData).containsExactly(
+                tuple(null, "window=30d page_VOIPMS_overdue=3 page_STUB_failed=2 patientsShown=1"),
+                tuple(123, "window=30d page_VOIPMS_overdue=3 page_STUB_failed=2"));
+    }
+
+    @Test
     @DisplayName("should keep demographic numbers out of the free text of every row")
     void shouldKeepDemographicNumbersOutOfFreeText() {
         new SmsQueueViewAuditRecorder(oscarLogDao)
-                .recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, List.of(987654));
+                .recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, SmsQueuePages.FIRST, List.of(987654));
 
         assertThat(persisted(2)).allSatisfy(log -> {
             assertThat(log.getData()).doesNotContain("987654");
@@ -103,7 +121,7 @@ class SmsQueueViewAuditRecorderUnitTest {
         doThrow(new IllegalStateException("audit write failed")).when(oscarLogDao).persist(any(OscarLog.class));
         SmsQueueViewAuditRecorder recorder = new SmsQueueViewAuditRecorder(oscarLogDao);
 
-        assertThatThrownBy(() -> recorder.recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, List.of(123)))
+        assertThatThrownBy(() -> recorder.recordViewed(loggedInInfo, SmsQueueWindow.LAST_30_DAYS, SmsQueuePages.FIRST, List.of(123)))
                 .isInstanceOf(IllegalStateException.class);
     }
 

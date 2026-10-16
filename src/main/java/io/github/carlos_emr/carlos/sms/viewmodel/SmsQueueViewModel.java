@@ -33,22 +33,25 @@ import java.util.List;
  * @param generatedAt     when the page was assembled ({@code yyyy-MM-dd HH:mm}, server time)
  * @param overdueMinutes  how long past due a queued message must be to count as overdue
  * @param staleMinutes    how long after its last attempt a {@code SENDING} message counts as stale
- * @param listLimit       the most rows any one list shows
+ * @param pageSize        how many messages one page of a list covers ({@link SmsQueuePages#PAGE_SIZE})
  * @param demographicNumbersShown whether rows carry the patient's demographic number; only for users who
  *                        may also read demographics, since the number links a message to a patient
  * @param window          the {@link SmsQueueWindow#parameterValue()} of the time period the failed and
  *                        blocked sections cover; always one of {@code windowOptions}, never request text
  * @param windowOptions   the parameter values of every time period the page offers, in display order
+ * @param windowFormPages the page parameters the time period form sends along, so that the lists the period
+ *                        does not change stay on their pages; built here, never request text
  * @param scheduler       this server's queue scheduler
  * @param providers       one entry per SMS provider, in {@code SmsProviderType} order
  * @since 2026-09-28
  */
-public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long staleMinutes, int listLimit,
+public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long staleMinutes, int pageSize,
                                 boolean demographicNumbersShown, String window, List<String> windowOptions,
-                                Scheduler scheduler, List<ProviderQueue> providers) {
+                                List<Parameter> windowFormPages, Scheduler scheduler, List<ProviderQueue> providers) {
 
     public SmsQueueViewModel {
         windowOptions = windowOptions == null ? List.of() : List.copyOf(windowOptions);
+        windowFormPages = windowFormPages == null ? List.of() : List.copyOf(windowFormPages);
         providers = providers == null ? List.of() : List.copyOf(providers);
     }
 
@@ -84,20 +87,20 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
      * @param outboundTotal     all outbound messages recorded for this provider
      * @param statusCounts      outbound counts per status, in {@code SmsStatus} order
      * @param overdueCount      queued messages overdue by more than {@link SmsQueueViewModel#overdueMinutes()}
-     * @param overdue           the oldest of those, oldest due first
+     * @param overdue           one page of those, oldest due first
      * @param staleCount        {@code SENDING} messages older than {@link SmsQueueViewModel#staleMinutes()}
-     * @param stale             the oldest of those, oldest last attempt first
+     * @param stale             one page of those, oldest last attempt first
      * @param failedCount       {@code FAILED} messages that last changed within the selected time period
      * @param failedTotal       {@code FAILED} messages of all time
      * @param failedByErrorCode the ones within the time period counted by error code, largest first,
      *                          without the messages of patients this viewer is restricted from
-     * @param recentFailed      the most recently updated of the ones within the time period
+     * @param recentFailed      one page of the ones within the time period, most recently updated first
      * @param blockedCount      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages that last changed
      *                          within the selected time period
      * @param blockedTotal      {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED} messages of all time
      * @param blockedByReason   the ones within the time period counted by consent reason code, largest
      *                          first, without the messages of patients this viewer is restricted from
-     * @param recentBlocked     the most recently updated of the ones within the time period
+     * @param recentBlocked     one page of the ones within the time period, most recently updated first
      */
     public record ProviderQueue(String providerType, long outboundTotal, List<StatusCount> statusCounts,
                                 long overdueCount, RowList overdue,
@@ -127,18 +130,62 @@ public record SmsQueueViewModel(String generatedAt, long overdueMinutes, long st
     }
 
     /**
-     * One message list. Messages of patients this viewer may not open are left out completely, so nothing
-     * about them (id, status, reason, times, phone digits) is here; only how many were left out.
+     * One page of a message list. Messages of patients this viewer may not open are left out completely, so
+     * nothing about them (id, status, reason, times, phone digits) is here; only how many were left out of
+     * this page. A page therefore shows fewer than {@link SmsQueuePages#PAGE_SIZE} rows when some of its
+     * messages were left out, and the pages still cover the list in fixed steps, so that every message is on
+     * exactly one page whoever looks.
      *
-     * @param rows        the messages shown
-     * @param hiddenCount how many messages were left out because the viewer has no access to their patients
+     * @param rows        the messages shown on this page
+     * @param hiddenCount how many of this page's messages were left out because the viewer has no access to
+     *                    their patients
+     * @param paging      where this page is in the list
      */
-    public record RowList(List<Row> rows, int hiddenCount) {
-        public static final RowList EMPTY = new RowList(List.of(), 0);
+    public record RowList(List<Row> rows, int hiddenCount, Paging paging) {
+        public static final RowList EMPTY = new RowList(List.of(), 0, Paging.SINGLE);
 
         public RowList {
             rows = rows == null ? List.of() : List.copyOf(rows);
+            paging = paging == null ? Paging.SINGLE : paging;
         }
+
+        /** A list that fits on one page. */
+        public RowList(List<Row> rows, int hiddenCount) {
+            this(rows, hiddenCount, Paging.SINGLE);
+        }
+    }
+
+    /**
+     * Where a page is in its list. Row numbers count every message in the list's order, hidden ones included,
+     * so they match the list's count.
+     *
+     * @param page          this page's number, from 1
+     * @param pageCount     how many pages the list has; 1 for a list that fits on one page
+     * @param firstRow      the list position of this page's first message, from 1; 0 for an empty list
+     * @param lastRow       the list position of this page's last message
+     * @param rowCount      how many messages the list has
+     * @param previousQuery the query string of the page with this list one page back and everything else as
+     *                      it is, without the leading {@code ?}; empty on the first page
+     * @param nextQuery     the same, one page on; empty on the last page
+     */
+    public record Paging(int page, int pageCount, long firstRow, long lastRow, long rowCount,
+                         String previousQuery, String nextQuery) {
+        /** A list that fits on one page: nothing to page through. */
+        public static final Paging SINGLE = new Paging(1, 1, 0, 0, 0, "", "");
+
+        public Paging {
+            previousQuery = previousQuery == null ? "" : previousQuery;
+            nextQuery = nextQuery == null ? "" : nextQuery;
+        }
+    }
+
+    /**
+     * A request parameter for the page to send, built by {@link SmsQueuePages}.
+     *
+     * @param name  the parameter name
+     * @param value its value
+     */
+    public record Parameter(String name, String value) {
     }
 
     /**

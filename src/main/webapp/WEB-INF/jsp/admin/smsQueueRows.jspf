@@ -20,12 +20,18 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-    smsQueueRows.jspf: one message list on the SMS queue page (statically included by smsQueue.jsp).
+    smsQueueRows.jspf: one page of a message list on the SMS queue page (statically included by
+    smsQueue.jsp).
 
-    Parameters: the including page sets "queueRows" (a list of SmsQueueViewModel.Row),
-    "queueRowsHidden" (how many messages were left out because the viewer has no access to their
-    patients) and "queueRowsTotal" (how many messages the list stands for) in page scope, and relies
-    on the c, fmt and carlos taglibs it declares.
+    Parameters: the including page sets "queueList" (a SmsQueueViewModel.RowList: the page's rows, how
+    many of its messages were left out because the viewer has no access to their patients, and where
+    the page is in the list) and "queueListId" (the id of the list's heading, which names the page links
+    and is where they return to) in page scope. It also relies on the page's "ctx" and on the c, fmt
+    and carlos taglibs it declares.
+
+    Paging: a list longer than one page gets "Rows 21-40 of N" and Previous / Next page links. The links'
+    query strings are built by SmsQueuePages from the time period's own value and the page parameters'
+    names and numbers, never from request text, and are still encoded here.
 
     Security: rows are redacted view-model records: no message text, only the recipient's last four
     digits, and the patient only as a plain demographic number (no link), shown only when
@@ -43,14 +49,39 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<c:if test="${queueRowsTotal > smsQueue.listLimit}">
-    <p class="small text-muted mb-1">
-        <fmt:message key="sms.queue.listCapped">
-            <fmt:param value="${smsQueue.listLimit}"/>
-            <fmt:param value="${queueRowsTotal}"/>
-        </fmt:message>
-    </p>
+<c:set var="queuePaging" value="${queueList.paging}"/>
+<c:if test="${queuePaging.pageCount > 1}">
+    <%-- Named by the list's heading, so each list's page links are told apart. --%>
+    <nav class="d-flex flex-wrap align-items-center gap-2 small mb-1 sms-queue-paging"
+         aria-labelledby="<carlos:encode value='${queueListId}' context='htmlAttribute'/>">
+        <span>
+            <fmt:message key="sms.queue.page.rows">
+                <fmt:param value="${queuePaging.firstRow}"/>
+                <fmt:param value="${queuePaging.lastRow}"/>
+                <fmt:param value="${queuePaging.rowCount}"/>
+            </fmt:message>
+        </span>
+        <c:choose>
+            <c:when test="${not empty queuePaging.previousQuery}">
+                <a class="btn btn-sm btn-outline-secondary" rel="prev"
+                   href="${ctx}/admin/SmsQueue?<carlos:encode value='${queuePaging.previousQuery}' context='htmlAttribute'/>#<carlos:encode value='${queueListId}' context='htmlAttribute'/>"><fmt:message key="sms.queue.page.previous"/></a>
+            </c:when>
+            <c:otherwise>
+                <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true"><fmt:message key="sms.queue.page.previous"/></span>
+            </c:otherwise>
+        </c:choose>
+        <c:choose>
+            <c:when test="${not empty queuePaging.nextQuery}">
+                <a class="btn btn-sm btn-outline-secondary" rel="next"
+                   href="${ctx}/admin/SmsQueue?<carlos:encode value='${queuePaging.nextQuery}' context='htmlAttribute'/>#<carlos:encode value='${queueListId}' context='htmlAttribute'/>"><fmt:message key="sms.queue.page.next"/></a>
+            </c:when>
+            <c:otherwise>
+                <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true"><fmt:message key="sms.queue.page.next"/></span>
+            </c:otherwise>
+        </c:choose>
+    </nav>
 </c:if>
+<c:set var="queueRows" value="${queueList.rows}"/>
 <c:if test="${not empty queueRows}">
 <div class="table-responsive">
     <table class="table table-sm table-striped small align-middle">
@@ -93,10 +124,10 @@
     </table>
 </div>
 </c:if>
-<c:if test="${queueRowsHidden > 0}">
+<c:if test="${queueList.hiddenCount > 0}">
     <p class="small text-muted">
-        <fmt:message key="sms.queue.rowsHidden">
-            <fmt:param value="${queueRowsHidden}"/>
+        <fmt:message key="sms.queue.page.hidden">
+            <fmt:param value="${queueList.hiddenCount}"/>
         </fmt:message>
     </p>
 </c:if>

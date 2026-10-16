@@ -97,10 +97,10 @@ class SmsTransactionDaoImplQueueViewUnitTest {
 
         assertThat(dao.countOverdueQueuedOutboundByProvider(null)).isEmpty();
         assertThat(dao.countStaleSendingOutboundByProvider(null)).isEmpty();
-        assertThat(dao.findOverdueQueuedOutbound(SmsProviderType.STUB, null, 10)).isEmpty();
-        assertThat(dao.findStaleSendingOutbound(null, new Date(), 10)).isEmpty();
-        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(), null, 10)).isEmpty();
-        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, null, null, 10)).isEmpty();
+        assertThat(dao.findOverdueQueuedOutbound(SmsProviderType.STUB, null, 0, 10)).isEmpty();
+        assertThat(dao.findStaleSendingOutbound(null, new Date(), 0, 10)).isEmpty();
+        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(), null, 0, 10)).isEmpty();
+        assertThat(dao.findRecentOutboundByStatuses(SmsProviderType.STUB, null, null, 0, 10)).isEmpty();
         verify(entityManager, never()).createQuery(anyString(), eq(Object[].class));
     }
 
@@ -157,7 +157,7 @@ class SmsTransactionDaoImplQueueViewUnitTest {
 
         dao.countFailedOutboundByProviderAndErrorCode(since);
         dao.countConsentBlockedOutboundByProviderAndReason(since);
-        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 50);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 0, 50);
 
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager, times(3)).createQuery(jpql.capture(), eq(Object[].class));
@@ -180,12 +180,12 @@ class SmsTransactionDaoImplQueueViewUnitTest {
 
         dao.countFailedOutboundByProviderAndErrorCode(null);
         dao.countConsentBlockedOutboundByProviderAndReason(null);
-        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 50);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0, 50);
 
         Date since = Date.from(Instant.parse("2026-08-29T14:00:00Z"));
         dao.countFailedOutboundByProviderAndErrorCode(since);
         dao.countConsentBlockedOutboundByProviderAndReason(since);
-        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 50);
+        dao.findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), since, 0, 50);
 
         ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
         verify(entityManager, times(6)).createQuery(jpql.capture(), eq(Object[].class));
@@ -223,7 +223,7 @@ class SmsTransactionDaoImplQueueViewUnitTest {
                 42L, SmsProviderType.STUB, SmsStatus.SENDING, 123, "+14165551212", 1, "PROVIDER_TIMEOUT", null,
                 Timestamp.from(CREATED), Timestamp.from(UPDATED), null, Timestamp.from(LAST_ATTEMPT)}));
 
-        List<SmsQueueRowDto> rows = newDao().findStaleSendingOutbound(SmsProviderType.STUB, staleBefore, 5_000);
+        List<SmsQueueRowDto> rows = newDao().findStaleSendingOutbound(SmsProviderType.STUB, staleBefore, 0, 5_000);
 
         assertThat(rows).singleElement().satisfies(row -> {
             assertThat(row.id()).isEqualTo(42L);
@@ -243,11 +243,33 @@ class SmsTransactionDaoImplQueueViewUnitTest {
     }
 
     @Test
+    @DisplayName("should skip the offset's rows in every list, ordered last by id, and take a negative offset as 0")
+    void shouldApplyOffset_toEveryList() {
+        Date before = Date.from(Instant.parse("2026-09-28T13:55:00Z"));
+        stubQuery(List.of());
+
+        newDao().findOverdueQueuedOutbound(SmsProviderType.STUB, before, 20, 20);
+        newDao().findStaleSendingOutbound(SmsProviderType.STUB, before, 40, 20);
+        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 60, 20);
+        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, -5, 20);
+
+        verify(query).setFirstResult(20);
+        verify(query).setFirstResult(40);
+        verify(query).setFirstResult(60);
+        verify(query).setFirstResult(0);
+        verify(query, times(4)).setMaxResults(20);
+        // The id is the last sort key of each list, so rows that tie on time keep one order across pages.
+        ArgumentCaptor<String> jpql = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(4)).createQuery(jpql.capture(), eq(Object[].class));
+        assertThat(jpql.getAllValues()).allSatisfy(text -> assertThat(text).containsPattern("t\\.id (ASC|DESC)$"));
+    }
+
+    @Test
     @DisplayName("should list recent rows newest first with the default limit when none is given")
     void shouldUseDefaultLimit_whenListingRecentRows() {
         stubQuery(List.of());
 
-        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0);
+        newDao().findRecentOutboundByStatuses(SmsProviderType.STUB, List.of(SmsStatus.FAILED), null, 0, 0);
 
         verify(query).setParameter("direction", SmsDirection.OUTBOUND);
         verify(query).setParameter("providerType", SmsProviderType.STUB);

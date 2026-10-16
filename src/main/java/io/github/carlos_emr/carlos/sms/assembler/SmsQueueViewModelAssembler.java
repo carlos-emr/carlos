@@ -31,6 +31,8 @@ import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsPatientRestrictionLookup;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueProcessingService;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueList;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueuePages;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueViewModel;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -63,8 +65,8 @@ import java.util.function.IntPredicate;
 /**
  * Assembles {@link SmsQueueViewModel} for Administration &gt; SMS &gt; SMS queue ({@code admin/smsQueue.jsp}).
  * <p>
- * For each SMS provider it reports the outbound counts by status and four problem lists, each capped at
- * {@link #LIST_LIMIT} rows:
+ * For each SMS provider it reports the outbound counts by status and four problem lists ({@link SmsQueueList}),
+ * each shown one page of {@link SmsQueuePages#PAGE_SIZE} rows at a time:
  * <ul>
  *   <li><b>Overdue queued</b>: {@code QUEUED} messages due more than {@link #OVERDUE_QUEUED_AFTER} ago (due
  *       work that is not draining), oldest first.</li>
@@ -79,8 +81,14 @@ import java.util.function.IntPredicate;
  * within it); their all-time totals are given beside them. The overdue and stale sections and the counts by
  * status always cover all time.
  * <p>
- * A message whose patient this viewer is restricted from is left out of the lists completely; each list
- * only says how many were left out. It is left out of the counts by code too, wherever it stands in the
+ * Each list is paged on its own: the page asked for ({@link SmsQueuePages}) is cut back to the list's last
+ * page, and its rows are read with an offset in the list's fixed order, whose last key is the message id, so
+ * that pages never overlap or skip a message. Pages are counted over every message, hidden ones included,
+ * so the row numbers shown match the list's count and each message is on the same page for every viewer.
+ * <p>
+ * A message whose patient this viewer is restricted from is left out of the lists completely; each page
+ * only says how many of its messages were left out, so a page can show fewer rows than
+ * {@link SmsQueuePages#PAGE_SIZE}. It is left out of the counts by code too, wherever it stands in the
  * list's order, so nothing on the page tells a hidden patient's error or reason code. The counts by status
  * and the section totals still include those messages, so the counts by code can add up to less than the
  * section's count.
@@ -107,8 +115,6 @@ import java.util.function.IntPredicate;
 @Service
 public class SmsQueueViewModelAssembler {
     private static final Logger LOGGER = MiscUtils.getLogger();
-    /** The most rows any one list shows. */
-    public static final int LIST_LIMIT = 50;
     private static final int MIN_DIGITS_TO_MASK = 7;
     private static final java.util.regex.Pattern CODE = java.util.regex.Pattern.compile("[A-Za-z0-9_.:-]{1,64}");
     /** The status line that stands for both {@code CONSENT_BLOCKED} and {@code OPTOUT_BLOCKED}. */
@@ -163,14 +169,17 @@ public class SmsQueueViewModelAssembler {
      * the page, and a viewer without {@code _demographic} read must not be given demographic numbers.
      *
      * @param model                       what the page shows
-     * @param displayedDemographicNumbers the patients with at least one message in any of the lists, whether
+     * @param displayedDemographicNumbers the patients with at least one message on the pages shown, whether
      *                                    or not the demographic number column is shown; patients whose
      *                                    messages were hidden are not included
+     * @param pages                       the pages shown: the ones asked for, each cut back to its list's
+     *                                    last page
      */
-    public record Result(SmsQueueViewModel model, Set<Integer> displayedDemographicNumbers) {
+    public record Result(SmsQueueViewModel model, Set<Integer> displayedDemographicNumbers, SmsQueuePages pages) {
         public Result {
             displayedDemographicNumbers = displayedDemographicNumbers == null
                     ? Set.of() : Set.copyOf(displayedDemographicNumbers);
+            pages = pages == null ? SmsQueuePages.FIRST : pages;
         }
 
         @Override
@@ -181,6 +190,7 @@ public class SmsQueueViewModelAssembler {
 
     /**
      * @param window                 the time period for the failed and blocked sections
+     * @param pages                  the page asked for in each list; a page past a list's end shows its last
      * @param showDemographicNumbers whether rows may carry the patient's demographic number; the action passes
      *                               the viewer's {@code _demographic} read right
      * @param mayAccessPatient       asked at most once per patient, with the demographic number, and only
@@ -193,8 +203,10 @@ public class SmsQueueViewModelAssembler {
      *                          then, rather than every patient
      */
     @Transactional(readOnly = true)
-    public Result assemble(SmsQueueWindow window, boolean showDemographicNumbers, IntPredicate mayAccessPatient) {
+    public Result assemble(SmsQueueWindow window, SmsQueuePages pages, boolean showDemographicNumbers,
+                           IntPredicate mayAccessPatient) {
         Objects.requireNonNull(window, "window is required");
+        Objects.requireNonNull(pages, "pages is required");
         Objects.requireNonNull(mayAccessPatient, "mayAccessPatient is required");
         // Only these patients can be restricted. Read first and not caught: if they cannot be read, the page
         // fails before anything is queried.
@@ -224,60 +236,110 @@ public class SmsQueueViewModelAssembler {
                 patients -> smsTransactionDao.findPatientsWithConsentBlockedOutbound(since, patients),
                 restricted -> smsTransactionDao.countConsentBlockedOutboundByProviderAndReason(since, restricted));
 
+        // Every list's length, hidden messages included, to find the page each list is on before any list is
+        // read: a page's links carry every other list's page too.
+        Map<SmsProviderType, Map<SmsQueueList, Long>> listCounts = new EnumMap<>(SmsProviderType.class);
+        SmsQueuePages shown = SmsQueuePages.FIRST;
+        for (SmsProviderType providerType : SmsProviderType.values()) {
+            Map<SmsQueueList, Long> counts = new EnumMap<>(SmsQueueList.class);
+            counts.put(SmsQueueList.OVERDUE, overdueCounts.getOrDefault(providerType, 0L));
+            counts.put(SmsQueueList.STALE, staleCounts.getOrDefault(providerType, 0L));
+            // Within the time period: the by-code counts added up, hidden messages included.
+            counts.put(SmsQueueList.FAILED, sum(failedByErrorCode.getOrDefault(providerType, Map.of())));
+            counts.put(SmsQueueList.BLOCKED, sum(blockedByReason.getOrDefault(providerType, Map.of())));
+            listCounts.put(providerType, counts);
+            for (Map.Entry<SmsQueueList, Long> count : counts.entrySet()) {
+                int page = Math.min(pages.page(providerType, count.getKey()),
+                        SmsQueuePages.lastPage(count.getValue()));
+                shown = shown.with(providerType, count.getKey(), page);
+            }
+        }
+
         List<SmsQueueViewModel.ProviderQueue> providers = new ArrayList<>();
         for (SmsProviderType providerType : SmsProviderType.values()) {
             Map<String, Long> byStatus = statusCountsByProvider.getOrDefault(providerType, Map.of());
-            Map<String, Long> failedCodes = failedByErrorCode.getOrDefault(providerType, Map.of());
-            Map<String, Long> blockedCodes = blockedByReason.getOrDefault(providerType, Map.of());
-            long overdueCount = overdueCounts.getOrDefault(providerType, 0L);
-            long staleCount = staleCounts.getOrDefault(providerType, 0L);
-            // Within the time period: the by-code counts added up, hidden messages included. Of all time:
-            // from the counts by status.
-            long failedCount = sum(failedCodes);
+            Map<SmsQueueList, Long> counts = listCounts.get(providerType);
+            long overdueCount = counts.get(SmsQueueList.OVERDUE);
+            long staleCount = counts.get(SmsQueueList.STALE);
+            long failedCount = counts.get(SmsQueueList.FAILED);
+            long blockedCount = counts.get(SmsQueueList.BLOCKED);
+            // Of all time: from the counts by status.
             long failedTotal = byStatus.getOrDefault(SmsStatus.FAILED.name(), 0L);
-            long blockedCount = sum(blockedCodes);
             long blockedTotal = CONSENT_BLOCKED_STATUSES.stream()
                     .mapToLong(status -> byStatus.getOrDefault(status.name(), 0L))
                     .sum();
+            ListPage overdue = new ListPage(window, shown, providerType, SmsQueueList.OVERDUE, overdueCount);
+            ListPage stale = new ListPage(window, shown, providerType, SmsQueueList.STALE, staleCount);
+            ListPage failed = new ListPage(window, shown, providerType, SmsQueueList.FAILED, failedCount);
+            ListPage blocked = new ListPage(window, shown, providerType, SmsQueueList.BLOCKED, blockedCount);
             // Lists are only queried when their count says there is something to show.
-            SmsQueueViewModel.RowList recentFailed = failedCount == 0 ? SmsQueueViewModel.RowList.EMPTY
-                    : filter.rows(smsTransactionDao.findRecentOutboundByStatuses(
-                            providerType, List.of(SmsStatus.FAILED), since, LIST_LIMIT));
-            SmsQueueViewModel.RowList recentBlocked = blockedCount == 0 ? SmsQueueViewModel.RowList.EMPTY
-                    : filter.rows(smsTransactionDao.findRecentOutboundByStatuses(
-                            providerType, CONSENT_BLOCKED_STATUSES, since, LIST_LIMIT));
             providers.add(new SmsQueueViewModel.ProviderQueue(
                     providerType.name(),
                     sum(byStatus),
                     statusCounts(byStatus),
                     overdueCount,
                     overdueCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
-                            smsTransactionDao.findOverdueQueuedOutbound(providerType, dueBefore, LIST_LIMIT)),
+                            smsTransactionDao.findOverdueQueuedOutbound(
+                                    providerType, dueBefore, overdue.offset(), SmsQueuePages.PAGE_SIZE),
+                            overdue.paging()),
                     staleCount,
                     staleCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
-                            smsTransactionDao.findStaleSendingOutbound(providerType, staleBefore, LIST_LIMIT)),
+                            smsTransactionDao.findStaleSendingOutbound(
+                                    providerType, staleBefore, stale.offset(), SmsQueuePages.PAGE_SIZE),
+                            stale.paging()),
                     failedCount,
                     failedTotal,
                     codeCounts(failedByErrorCodeShown.getOrDefault(providerType, Map.of())),
-                    recentFailed,
+                    failedCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
+                            smsTransactionDao.findRecentOutboundByStatuses(providerType, List.of(SmsStatus.FAILED),
+                                    since, failed.offset(), SmsQueuePages.PAGE_SIZE),
+                            failed.paging()),
                     blockedCount,
                     blockedTotal,
                     codeCounts(blockedByReasonShown.getOrDefault(providerType, Map.of())),
-                    recentBlocked
+                    blockedCount == 0 ? SmsQueueViewModel.RowList.EMPTY : filter.rows(
+                            smsTransactionDao.findRecentOutboundByStatuses(providerType, CONSENT_BLOCKED_STATUSES,
+                                    since, blocked.offset(), SmsQueuePages.PAGE_SIZE),
+                            blocked.paging())
             ));
         }
+
         SmsQueueViewModel model = new SmsQueueViewModel(
                 dateTimeFormatter.format(now),
                 OVERDUE_QUEUED_AFTER.toMinutes(),
                 SmsQueueProcessingService.DEFAULT_STALE_SENDING_TIMEOUT.toMinutes(),
-                LIST_LIMIT,
+                SmsQueuePages.PAGE_SIZE,
                 showDemographicNumbers,
                 window.parameterValue(),
                 SmsQueueWindow.parameterValues(),
+                shown.forOtherWindow().parameters(),
                 schedulerState(),
                 providers
         );
-        return new Result(model, filter.displayed);
+        return new Result(model, filter.displayed, shown);
+    }
+
+    /**
+     * The page one list is on, as the page shows it. Row numbers count every message of the list, hidden ones
+     * included. The page is at most {@link SmsQueuePages#lastPage(long)} of the list, and a page number has at
+     * most seven digits ({@link SmsQueuePages}), so its offset fits in an {@code int}.
+     */
+    private record ListPage(SmsQueueWindow window, SmsQueuePages shown, SmsProviderType providerType,
+                            SmsQueueList list, long rowCount) {
+
+        int offset() {
+            return (shown.page(providerType, list) - 1) * SmsQueuePages.PAGE_SIZE;
+        }
+
+        SmsQueueViewModel.Paging paging() {
+            int page = shown.page(providerType, list);
+            int pageCount = SmsQueuePages.lastPage(rowCount);
+            long firstRow = rowCount == 0 ? 0 : (long) offset() + 1;
+            long lastRow = Math.min((long) page * SmsQueuePages.PAGE_SIZE, rowCount);
+            return new SmsQueueViewModel.Paging(page, pageCount, firstRow, lastRow, rowCount,
+                    page > 1 ? shown.with(providerType, list, page - 1).query(window) : "",
+                    page < pageCount ? shown.with(providerType, list, page + 1).query(window) : "");
+        }
     }
 
     /**
@@ -337,7 +399,7 @@ public class SmsQueueViewModelAssembler {
             return restrictedInSection.isEmpty() ? byCode : byProvider(countWithout.apply(restrictedInSection));
         }
 
-        private SmsQueueViewModel.RowList rows(List<SmsQueueRowDto> rows) {
+        private SmsQueueViewModel.RowList rows(List<SmsQueueRowDto> rows, SmsQueueViewModel.Paging paging) {
             List<SmsQueueViewModel.Row> shown = new ArrayList<>();
             int hidden = 0;
             for (SmsQueueRowDto row : rows) {
@@ -352,7 +414,7 @@ public class SmsQueueViewModelAssembler {
                 }
                 shown.add(toRow(row, showDemographicNumbers));
             }
-            return new SmsQueueViewModel.RowList(shown, hidden);
+            return new SmsQueueViewModel.RowList(shown, hidden, paging);
         }
 
         private boolean mayAccess(Integer demographicNo) {

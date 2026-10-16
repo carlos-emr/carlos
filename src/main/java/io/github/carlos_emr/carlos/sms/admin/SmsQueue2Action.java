@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.admin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.assembler.SmsQueueViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueViewAuditRecorder;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueuePages;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,12 +91,16 @@ public class SmsQueue2Action extends ActionSupport {
                 loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, SecurityInfoManager.READ, null);
         // Only an allowed value comes out of this; the text the browser sent goes no further.
         SmsQueueWindow window = SmsQueueWindow.fromParameter(request.getParameter(WINDOW_PARAMETER));
+        // The same for the page of each list: only the known page parameters are read, and only plain page
+        // numbers come out.
+        SmsQueuePages pages = SmsQueuePages.fromParameters(request::getParameterValues);
         // A patient the viewer is restricted from has their messages left out of the lists and of the
         // counts by code. Not caught: if the assembler cannot tell which patients to check, nothing is shown.
-        SmsQueueViewModelAssembler.Result queue = assembler.assemble(window, showDemographicNumbers,
+        SmsQueueViewModelAssembler.Result queue = assembler.assemble(window, pages, showDemographicNumbers,
                 demographicNo -> mayShowPatient(loggedInInfo, showDemographicNumbers, demographicNo));
         // Recorded before the page is handed over: if the view cannot be audited, nothing is shown.
-        auditRecorder.recordViewed(loggedInInfo, window, queue.displayedDemographicNumbers());
+        // The patients on the pages shown, and those pages.
+        auditRecorder.recordViewed(loggedInInfo, window, queue.pages(), queue.displayedDemographicNumbers());
         request.setAttribute("smsQueue", queue.model());
         return SUCCESS;
     }

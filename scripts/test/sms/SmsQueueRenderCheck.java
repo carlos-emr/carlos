@@ -54,7 +54,7 @@ public final class SmsQueueRenderCheck {
             String base = "http://127.0.0.1:" + tomcat.getConnector().getLocalPort() + "/carlos/admin/SmsQueue";
             try (HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()) {
                 int checks = 0;
-                for (String mode : List.of("empty", "full", "hidden", "withoutDemographics")) {
+                for (String mode : List.of("empty", "full", "hidden", "withoutDemographics", "paged")) {
                     for (String window : List.of("7d", "30d", "90d", "all", "junk")) {
                         String html = get(client, base + "?mode=" + mode + "&window=" + window);
                         String selected = SmsQueueWindow.fromParameter(window).parameterValue();
@@ -66,7 +66,8 @@ public final class SmsQueueRenderCheck {
                             require(!html.contains("***1212"), "empty queue has no rows");
                         } else {
                             require(html.contains("Blocked by consent"), "combined consent status");
-                            require(html.contains("Rows hidden: 2"), "hidden row count");
+                            require(html.contains("Rows hidden on this page: 2"), "hidden row count");
+                            require(html.contains("Each list shows 20 messages a page"), "paging help");
                             require(html.contains("All time: 80"), "all-time failure total");
                             if (mode.equals("hidden")) {
                                 require(!html.contains("***1212") && !html.contains("VISIBLE_CODE"), "hidden-only list");
@@ -76,16 +77,42 @@ public final class SmsQueueRenderCheck {
                                 require(!html.contains("<script>probe</script>"), "no unescaped model text");
                                 require(html.contains("987654") != mode.equals("withoutDemographics"), "demographic column gate");
                             }
+                            requirePaging(html, mode.equals("paged"));
                         }
                         checks++;
                     }
                 }
-                System.out.println("PASS: " + checks + " real JSP renders (empty/full/hidden rows, demographic column, windows, labels, encoding)");
+                System.out.println("PASS: " + checks + " real JSP renders (empty/full/hidden rows, demographic column, paging, windows, labels, encoding)");
             }
         } finally {
             tomcat.stop();
             tomcat.destroy();
         }
+    }
+
+    /** Page links only on lists longer than one page, each keeping the other lists' pages, and named by its list. */
+    private static void requirePaging(String html, boolean paged) {
+        int navs = html.split("sms-queue-paging", -1).length - 1;
+        if (!paged) {
+            require(navs == 0, "no page links on lists that fit on one page");
+            require(!html.contains("name=\"page_"), "no page fields in the time period form");
+            return;
+        }
+        require(navs == 2, "page links on the two long lists only");
+        require(html.contains("Rows 21\u201340 of 45") && html.contains("Rows 41\u201345 of 45"), "row ranges");
+        require(html.contains("id=\"smsQueueList-STUB-failed\"") && html.contains("aria-labelledby=\"smsQueueList-STUB-failed\""),
+                "page links named by their list's heading");
+        require(html.contains("href=\"/carlos/admin/SmsQueue?window=30d&amp;page_STUB_overdue=3#smsQueueList-STUB-failed\""),
+                "previous page of the failed list keeps the overdue page");
+        require(html.contains("href=\"/carlos/admin/SmsQueue?window=30d&amp;page_STUB_overdue=3&amp;page_STUB_failed=3#smsQueueList-STUB-failed\""),
+                "next page of the failed list keeps the overdue page");
+        require(html.contains("href=\"/carlos/admin/SmsQueue?window=30d&amp;page_STUB_overdue=2&amp;page_STUB_failed=2#smsQueueList-STUB-overdue\""),
+                "previous page of the overdue list keeps the failed page");
+        require(html.matches("(?s).*<span class=\"btn btn-sm btn-outline-secondary disabled\" aria-disabled=\"true\">Next page</span>.*"),
+                "no next page past the last page");
+        require(html.matches("(?s).*<input type=\"hidden\" name=\"page_STUB_overdue\"\\s+value=\"3\"/>.*"),
+                "time period form keeps the overdue page");
+        require(!html.contains("name=\"page_STUB_failed\""), "time period form drops the failed page");
     }
 
     private static String get(HttpClient client, String url) throws Exception {
@@ -107,20 +134,29 @@ public final class SmsQueueRenderCheck {
             String mode = request.getParameter("mode");
             boolean empty = "empty".equals(mode);
             boolean hidden = "hidden".equals(mode);
+            boolean paged = "paged".equals(mode);
             boolean showDemographics = !"withoutDemographics".equals(mode);
             Row row = new Row("12345", "STUB", "FAILED", "2026-01-01 10:00", "2026-01-02 10:00",
                     "", "", 1, "<script>probe</script>", "", "987654", "***1212");
             RowList rows = empty ? RowList.EMPTY : new RowList(hidden ? List.of() : List.of(row), 2);
             List<CodeCount> codes = empty || hidden ? List.of() : List.of(new CodeCount("VISIBLE_CODE", 1));
+            // Paged: the overdue list on its last page (3 of 3), the failed list on page 2 of 3.
+            RowList overdue = paged ? new RowList(List.of(row), 2, new Paging(3, 3, 41, 45, 45,
+                    "window=30d&page_STUB_overdue=2&page_STUB_failed=2", "")) : rows;
+            RowList failed = paged ? new RowList(List.of(row), 2, new Paging(2, 3, 21, 40, 45,
+                    "window=30d&page_STUB_overdue=3", "window=30d&page_STUB_overdue=3&page_STUB_failed=3")) : rows;
             ProviderQueue provider = new ProviderQueue("STUB", empty ? 0 : 100,
                     List.of(new StatusCount("FAILED", 80), new StatusCount("BLOCKED_BY_CONSENT", 20)),
-                    empty ? 0 : 3, rows, empty ? 0 : 3, rows,
-                    empty ? 0 : 3, 80, codes, rows, empty ? 0 : 3, 20, codes, rows);
+                    empty ? 0 : paged ? 45 : 3, overdue, empty ? 0 : 3, rows,
+                    empty ? 0 : paged ? 45 : 3, 80, codes, failed, empty ? 0 : 3, 20, codes, rows);
+            List<Parameter> windowFormPages = paged ? List.of(new Parameter("page_STUB_overdue", "3")) : List.of();
             Scheduler scheduler = new Scheduler(!empty, !empty, !empty, false,
                     empty ? "" : "2026-01-02 10:00", empty ? "" : "2026-01-02 10:01", empty ? "" : "COMPLETED", 3);
-            request.setAttribute("smsQueue", new SmsQueueViewModel("2026-01-02 10:02", 5, 5, 50,
+            request.setAttribute("smsQueue", new SmsQueueViewModel("2026-01-02 10:02", 5, 5, 20,
                     showDemographics, SmsQueueWindow.fromParameter(request.getParameter("window")).parameterValue(),
-                    SmsQueueWindow.parameterValues(), scheduler, List.of(provider)));
+                    SmsQueueWindow.parameterValues(), windowFormPages, scheduler, List.of(provider)));
+            // As the app's ResponseDefaultsFilter does: pages are UTF-8 (the row ranges use an en dash).
+            response.setCharacterEncoding("UTF-8");
             request.getRequestDispatcher("/WEB-INF/jsp/admin/smsQueue.jsp").forward(request, response);
         }
     }

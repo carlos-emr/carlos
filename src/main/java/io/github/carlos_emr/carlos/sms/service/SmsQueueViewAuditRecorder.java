@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueuePages;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsQueueWindow;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
@@ -38,10 +39,11 @@ import java.util.TreeSet;
  * for each patient whose messages were shown. The per-patient record carries the patient's demographic
  * number in the log's own patient field, so the usual audit search by patient finds it.
  * <p>
- * A patient counts as shown when any of their messages was in a list, even if this viewer does not see the
+ * A patient counts as shown when any of their messages was on a page shown, even if this viewer does not see the
  * demographic number column: the status, times and last four phone digits were still shown. Patients whose
- * messages were hidden from this viewer are not recorded as shown. The records hold nothing else about the
- * messages.
+ * messages were hidden from this viewer are not recorded as shown, nor are patients on other pages of a list.
+ * The records hold nothing else about the messages: their text gives the time period and the page of each
+ * list not on its first page, as page parameters, so the patients recorded can be matched to the pages shown.
  * <p>
  * All records of one page view are written in one transaction, so either all of them are stored or none.
  *
@@ -61,20 +63,24 @@ public class SmsQueueViewAuditRecorder {
     /**
      * @param loggedInInfo                the viewer
      * @param window                      the time period the page was opened with
-     * @param displayedDemographicNumbers the patients whose messages the page is about to show this viewer;
-     *                                    repeats are recorded once
+     * @param pages                       the page each list was shown on
+     * @param displayedDemographicNumbers the patients whose messages the page is about to show this viewer, on
+     *                                    those pages; repeats are recorded once
      */
     @Transactional
-    public void recordViewed(LoggedInInfo loggedInInfo, SmsQueueWindow window,
+    public void recordViewed(LoggedInInfo loggedInInfo, SmsQueueWindow window, SmsQueuePages pages,
                              Collection<Integer> displayedDemographicNumbers) {
         Objects.requireNonNull(window, "window is required");
+        Objects.requireNonNull(pages, "pages is required");
         Set<Integer> patients = new TreeSet<>();
         for (Integer demographicNo : displayedDemographicNumbers) {
             if (demographicNo != null) {
                 patients.add(demographicNo);
             }
         }
-        String windowData = "window=" + window.parameterValue();
+        // The lists not on their first page, as page parameters: names and numbers built by SmsQueuePages.
+        String pagesData = pages.toString();
+        String windowData = "window=" + window.parameterValue() + (pagesData.isEmpty() ? "" : " " + pagesData);
         // The page view itself, written even when no patient was shown. No demographic number in the text.
         oscarLogDao.persist(newLog(loggedInInfo, null, windowData + " patientsShown=" + patients.size()));
         // One record per patient, so "who saw this patient's messages" can be answered by patient.

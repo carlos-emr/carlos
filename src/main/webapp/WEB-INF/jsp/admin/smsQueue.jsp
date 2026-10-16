@@ -32,11 +32,16 @@
     sets after checking _admin.sms read. The page changes nothing. Its one form is a GET that reloads
     the page with the "window" parameter: the time period for the Failed and Blocked by consent
     sections. The action accepts only the listed values; the page never reads the parameter itself.
+    Each list shows one page of 20 messages; its page is a "page_<provider>_<list>" parameter that its
+    Previous / Next page links set (SmsQueuePages). The links and the form carry every other list's
+    page, so moving through one list leaves the others where they are; choosing another time period
+    takes the Failed and Blocked by consent lists back to their first page.
 
     Security: rows are redacted view-model records, never entities. There is no message text, the
     recipient shows only as its last four digits, and the patient only as a plain demographic number
     (no link; drill-down through the patient SMS history view is a follow-up). Messages of patients
-    the viewer may not open are not in the model at all; each list only says how many were left out.
+    the viewer may not open are not in the model at all; each page only says how many of its messages
+    were left out, so a page can show fewer than 20 rows.
     Every dynamic value is encoded with the carlos encoder, and message keys are built only from enum
     names and the time period values the server lists.
 
@@ -81,8 +86,18 @@
         <div class="col-auto">
             <button type="submit" class="btn btn-sm btn-primary"><fmt:message key="sms.queue.window.apply"/></button>
         </div>
+        <%-- The lists the time period does not change keep their pages; names and numbers come from SmsQueuePages. --%>
+        <c:forEach items="${smsQueue.windowFormPages}" var="pageParameter">
+            <input type="hidden" name="<carlos:encode value='${pageParameter.name}' context='htmlAttribute'/>"
+                   value="<carlos:encode value='${pageParameter.value}' context='htmlAttribute'/>"/>
+        </c:forEach>
     </form>
     <p class="form-text"><fmt:message key="sms.queue.window.help"/></p>
+    <p class="form-text" id="smsQueuePagingHelp">
+        <fmt:message key="sms.queue.page.help">
+            <fmt:param value="${smsQueue.pageSize}"/>
+        </fmt:message>
+    </p>
 
     <h5 class="mt-4"><fmt:message key="sms.queue.scheduler.title"/></h5>
     <div class="alert alert-secondary py-2" id="smsQueueSchedulerPerServer">
@@ -178,7 +193,7 @@
                     </table>
 
                     <%-- Overdue queued: due work that is not draining. --%>
-                    <h6 class="mt-3"><fmt:message key="sms.queue.overdue.title"/>
+                    <h6 class="mt-3" id="smsQueueList-<carlos:encode value='${provider.providerType}' context='htmlAttribute'/>-overdue"><fmt:message key="sms.queue.overdue.title"/>
                         (<carlos:encode value="${provider.overdueCount}"/>)</h6>
                     <p class="form-text">
                         <fmt:message key="sms.queue.overdue.help">
@@ -190,15 +205,14 @@
                             <p class="text-muted"><fmt:message key="sms.queue.overdue.none"/></p>
                         </c:when>
                         <c:otherwise>
-                            <c:set var="queueRows" value="${provider.overdue.rows}"/>
-                            <c:set var="queueRowsHidden" value="${provider.overdue.hiddenCount}"/>
-                            <c:set var="queueRowsTotal" value="${provider.overdueCount}"/>
+                            <c:set var="queueList" value="${provider.overdue}"/>
+                            <c:set var="queueListId" value="smsQueueList-${provider.providerType}-overdue"/>
                             <%@ include file="/WEB-INF/jsp/admin/smsQueueRows.jspf" %>
                         </c:otherwise>
                     </c:choose>
 
                     <%-- Stale sends: handed to the SMS provider, no result recorded, outcome unknown. --%>
-                    <h6 class="mt-3"><fmt:message key="sms.queue.stale.title"/>
+                    <h6 class="mt-3" id="smsQueueList-<carlos:encode value='${provider.providerType}' context='htmlAttribute'/>-stale"><fmt:message key="sms.queue.stale.title"/>
                         (<carlos:encode value="${provider.staleCount}"/>)</h6>
                     <p class="form-text">
                         <fmt:message key="sms.queue.stale.help">
@@ -210,15 +224,14 @@
                             <p class="text-muted"><fmt:message key="sms.queue.stale.none"/></p>
                         </c:when>
                         <c:otherwise>
-                            <c:set var="queueRows" value="${provider.stale.rows}"/>
-                            <c:set var="queueRowsHidden" value="${provider.stale.hiddenCount}"/>
-                            <c:set var="queueRowsTotal" value="${provider.staleCount}"/>
+                            <c:set var="queueList" value="${provider.stale}"/>
+                            <c:set var="queueListId" value="smsQueueList-${provider.providerType}-stale"/>
                             <%@ include file="/WEB-INF/jsp/admin/smsQueueRows.jspf" %>
                         </c:otherwise>
                     </c:choose>
 
                     <%-- Terminal failures within the selected time period, by error code. --%>
-                    <h6 class="mt-3"><fmt:message key="sms.queue.failed.title"/>
+                    <h6 class="mt-3" id="smsQueueList-<carlos:encode value='${provider.providerType}' context='htmlAttribute'/>-failed"><fmt:message key="sms.queue.failed.title"/>
                         (<carlos:encode value="${provider.failedCount}"/>)</h6>
                     <p class="form-text"><fmt:message key="sms.queue.failed.help"/></p>
                     <p class="small mb-1">
@@ -256,15 +269,14 @@
                                 </tbody>
                             </table>
                             </c:if>
-                            <c:set var="queueRows" value="${provider.recentFailed.rows}"/>
-                            <c:set var="queueRowsHidden" value="${provider.recentFailed.hiddenCount}"/>
-                            <c:set var="queueRowsTotal" value="${provider.failedCount}"/>
+                            <c:set var="queueList" value="${provider.recentFailed}"/>
+                            <c:set var="queueListId" value="smsQueueList-${provider.providerType}-failed"/>
                             <%@ include file="/WEB-INF/jsp/admin/smsQueueRows.jspf" %>
                         </c:otherwise>
                     </c:choose>
 
                     <%-- Blocked by consent (no consent or opted out) within the selected time period, by reason code. --%>
-                    <h6 class="mt-3"><fmt:message key="sms.queue.blocked.title"/>
+                    <h6 class="mt-3" id="smsQueueList-<carlos:encode value='${provider.providerType}' context='htmlAttribute'/>-blocked"><fmt:message key="sms.queue.blocked.title"/>
                         (<carlos:encode value="${provider.blockedCount}"/>)</h6>
                     <p class="form-text"><fmt:message key="sms.queue.blocked.help"/></p>
                     <p class="small mb-1">
@@ -302,9 +314,8 @@
                                 </tbody>
                             </table>
                             </c:if>
-                            <c:set var="queueRows" value="${provider.recentBlocked.rows}"/>
-                            <c:set var="queueRowsHidden" value="${provider.recentBlocked.hiddenCount}"/>
-                            <c:set var="queueRowsTotal" value="${provider.blockedCount}"/>
+                            <c:set var="queueList" value="${provider.recentBlocked}"/>
+                            <c:set var="queueListId" value="smsQueueList-${provider.providerType}-blocked"/>
                             <%@ include file="/WEB-INF/jsp/admin/smsQueueRows.jspf" %>
                         </c:otherwise>
                     </c:choose>

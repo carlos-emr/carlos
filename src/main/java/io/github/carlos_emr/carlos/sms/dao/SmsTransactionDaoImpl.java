@@ -393,7 +393,8 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueueRowDto> findOverdueQueuedOutbound(SmsProviderType providerType, Date dueBefore, int limit) {
+    public List<SmsQueueRowDto> findOverdueQueuedOutbound(SmsProviderType providerType, Date dueBefore, int offset,
+                                                          int limit) {
         if (providerType == null || dueBefore == null) {
             return List.of();
         }
@@ -410,13 +411,15 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUS, SmsStatus.QUEUED);
         query.setParameter(PARAM_DUE_BEFORE, dueBefore);
+        query.setFirstResult(Math.max(0, offset));
         query.setMaxResults(safeLimit(limit));
         return query.getResultList().stream().map(SmsTransactionDaoImpl::toQueueRow).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<SmsQueueRowDto> findStaleSendingOutbound(SmsProviderType providerType, Date staleBefore, int limit) {
+    public List<SmsQueueRowDto> findStaleSendingOutbound(SmsProviderType providerType, Date staleBefore, int offset,
+                                                         int limit) {
         if (providerType == null || staleBefore == null) {
             return List.of();
         }
@@ -434,6 +437,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUS, SmsStatus.SENDING);
         query.setParameter(PARAM_STALE_BEFORE, staleBefore);
+        query.setFirstResult(Math.max(0, offset));
         query.setMaxResults(safeLimit(limit));
         return query.getResultList().stream().map(SmsTransactionDaoImpl::toQueueRow).toList();
     }
@@ -444,6 +448,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             SmsProviderType providerType,
             Collection<SmsStatus> statuses,
             Date since,
+            int offset,
             int limit
     ) {
         if (providerType == null || statuses == null || statuses.isEmpty()) {
@@ -454,6 +459,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter(PARAM_STATUSES, List.copyOf(statuses));
         bindSince(query, since);
+        query.setFirstResult(Math.max(0, offset));
         query.setMaxResults(safeLimit(limit));
         return query.getResultList().stream().map(SmsTransactionDaoImpl::toQueueRow).toList();
     }
