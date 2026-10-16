@@ -1317,7 +1317,7 @@ public class RxUtil {
 
     public static void setDefaultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx) {
 
-        String defaultRx = CarlosProperties.getInstance().getProperty("prescript.default_instruction");
+        String defaultRx = RxSettings.get("default_instruction");
         if (defaultRx != null) {
             rx.setSpecial(defaultRx);
         } else {
