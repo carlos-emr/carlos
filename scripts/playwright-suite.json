@@ -7592,6 +7592,21 @@
       "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
     },
     {
+      "name": "cpp-copy-position",
+      "script": "scripts/cpp-copy-position-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient; three Medical History items created through the chart's '+' and the encounter note signed after Copy to Current Note; all notes, issue links, ext rows and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. No clinic-wide state is changed.",
+      "notes": "The CPP item editor's Position list (new items first, move up, move down, Archive closes the gap; casemgmt_note.position and the box order agree) and Copy to Current Note (appends the item to the open note; Sign & Save stores it in today's note, the item unchanged)."
+    },
+    {
       "name": "gap-clinical-chart-print-scope",
       "script": "scripts/gap-clinical-chart-print-scope-playwright-checks.js",
       "tiers": [

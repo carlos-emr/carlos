@@ -485,6 +485,7 @@
     "test:boundary-age-report-playwright": "node scripts/boundary-age-report-playwright-checks.js",
     "test:boundary-age-search-results-playwright": "node scripts/boundary-age-search-results-playwright-checks.js",
     "test:gap-clinical-cpp-boxes-playwright": "node scripts/gap-clinical-cpp-boxes-playwright-checks.js",
+    "test:cpp-copy-position-playwright": "node scripts/cpp-copy-position-playwright-checks.js",
     "test:gap-clinical-chart-print-scope-playwright": "node scripts/gap-clinical-chart-print-scope-playwright-checks.js",
     "test:gap-clinical-chart-notes-pagination-playwright": "node scripts/gap-clinical-chart-notes-pagination-playwright-checks.js",
     "test:echart-notes-pagination-retry-playwright": "node scripts/echart-notes-pagination-retry-playwright-checks.js",
