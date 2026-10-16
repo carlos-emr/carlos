@@ -107,7 +107,7 @@
             String limit = request.getParameter("limit");
             String lastname = request.getParameter("lastname");
         %>
-        <form action="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
+        <form action="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingManageReferralDoc" class="d-flex flex-wrap align-items-center gap-2"
               name="referralDocform" id="referralDocform">
             Last Name: <input type="text" name="lastname" value="<carlos:encode value='<%= StringUtils.noNull(lastname) %>' context="htmlAttribute"/>"/>
             <select name="limit" class="form-select" title="limit results">
@@ -116,7 +116,7 @@
                 <option value="100" <%=selected(limit, "100")%>>100</option>
             </select>
             <input class="btn btn-primary" type="submit" value="Search"/>
-            <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc"
+            <a href="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingAddReferralDoc"
                class="contentLink btn btn-info">Add Doctor</a>
         </form>
 
@@ -150,7 +150,7 @@
             <tr>
                 <!--td><%=billingReferral.getBillingreferralNo()%></td-->
                 <td>
-                    <a href="<%=request.getContextPath() %>/billing/CA/BC/AddReferralDoc?id=<carlos:encode value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' context="uriComponent"/>"
+                    <a href="<%=request.getContextPath() %>/billing/CA/BC/ViewBillingAddReferralDoc?id=<carlos:encode value='<%= String.valueOf(billingReferral.getBillingreferralNo()) %>' context="uriComponent"/>"
                        class="contentLink"><carlos:encode value='<%= StringUtils.noNull(billingReferral.getReferralNo()) %>' context="html"/>
                     </a></td>
                 <td><carlos:encode value='<%= StringUtils.noNull(billingReferral.getLastName()) %>' context="html"/></td>
