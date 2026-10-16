@@ -33,7 +33,12 @@ async function workflow(s) {
   if (!await s.master.locator('#healthCareTeam').count()) {
     throw new h.SkipCheck('Enable DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true for the Health Care Team panel');
   }
-  const masterPath = new URL(s.master.url()).pathname + new URL(s.master.url()).search;
+  // gotoApp prefixes the configured application context (e.g. /carlos) itself, and the captured master record
+  // URL already carries it, so hand over the root-relative remainder.
+  const masterUrl = new URL(s.master.url());
+  const contextPath = s.config.baseUrl.pathname.replace(/\/+$/, '');
+  const masterPath = (contextPath && masterUrl.pathname.startsWith(`${contextPath}/`)
+    ? masterUrl.pathname.slice(contextPath.length) : masterUrl.pathname) + masterUrl.search;
   const detachedPath = `/demographic/ViewDisplayHealthCareTeam?view=detached&demographicNo=${s.patient}`;
 
   for (const language of LANGUAGES) {
