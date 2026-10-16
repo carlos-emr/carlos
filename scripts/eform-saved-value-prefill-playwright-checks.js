@@ -10,7 +10,8 @@
 //      note for the patient and "count" (var$value="<note>") how many copies carry it.
 // Step 2 fails on develop and runs last: EFormUtil.getAttributeMatcher only matches attribute names
 // of [a-zA-Z][a-zA-Z0-9_:-]*, so eform$name and var$value are never read; the lookup falls back to the
-// target eForm itself and the fields stay empty. The lookup is EForm.getAPExtra (module "e") ▸
+// target eForm itself, and the fields silently show the target's own latest note and the count of its
+// own copies. The lookup is EForm.getAPExtra (module "e") ▸
 // apconfig.xml _eform_values_first/_last/_count, whose placeholders parameterizeAllFields binds as JDBC
 // parameters. The eForm render checks cover the oscarDB patient fields and eform-measurement-prefill
 // the m$ fields; none covers e$.
