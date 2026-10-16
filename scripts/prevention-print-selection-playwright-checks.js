@@ -8,15 +8,18 @@
 //      "Immunizations and Screenings", which says the patient has no immunization entries;
 //   3. with both ticked, Print Immunizations Only returns a PDF headed "Immunizations" that carries
 //      the immunization and leaves the screening out;
-//   4. with no box ticked, Print warns that a prevention must be selected and posts nothing.
-// Each PDF is read with pdftotext. prevention-admin covers the plain Enable Print ▸ Print of one
-// immunization; nothing else prints from this page.
+//   4. with no box ticked, Print warns that a prevention must be selected and posts nothing;
+//   5. with no box ticked, Print Immunizations Only does the same. Runs last: printImmOnly()
+//      (index.jsp) calls printFrm.submit() without the onPrint() check that Print goes through.
+// Each PDF is read with pdftotext (SKIP when Poppler is not installed). prevention-admin covers the
+// plain Enable Print ▸ Print of one immunization, rewrite-tag-routes the print form's route, and
+// authz-read-print-export who may reach it; none prints a selection or Immunizations Only.
 // Fixtures: the owned FAKE- patient and two preventions seeded for it, an immunization (Inf) and a
 // screening (Tuberculosis, under "Screenings" in PreventionItems.xml), each on its own date.
 // Cleanup deletes the patient's preventions and their ext rows and asserts none remain.
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
+const { requirePoppler, pdfTextBuffer } = require('./lib/export-content-helpers');
 const { clickDownloadsOrOpens } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 
@@ -25,6 +28,7 @@ const SCREENING = { type: 'Tuberculosis', date: '2026-03-04' };
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
+  requirePoppler('pdftotext');
   s.cleanup(() => {
     sql.execute(`DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id WHERE p.demographic_no=${patient};
       DELETE FROM preventions WHERE demographic_no=${patient}`);
@@ -56,9 +60,7 @@ async function workflow(s) {
   async function printedText(index, button, label) {
     const outcome = await clickDownloadsOrOpens(index, button, { context: s.context, recorder: s.recorder, label, timeout: 20000 });
     assert(outcome.kind === 'download', `${label} did not deliver a file`);
-    const bytes = fs.readFileSync(await outcome.download.path());
-    assert(bytes.subarray(0, 4).toString('latin1') === '%PDF', `${label} did not return PDF bytes`);
-    const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8' });
+    const text = pdfTextBuffer(fs.readFileSync(await outcome.download.path()));
     assert(text.includes(marker), `${label} printed another patient`);
     return text;
   }
@@ -104,6 +106,37 @@ async function workflow(s) {
     // onPrint() returns before submit(), so a post would already be on its way; a short wait lets it reach the log.
     await index.waitForTimeout(500);
     assert(s.recorder.requestLog.filter(entry => entry.method === 'POST').length === posts, 'Print with nothing ticked posted the form');
+  });
+
+  await s.step('Print Immunizations Only with no box ticked warns and posts nothing', async () => {
+    assert(await index.locator('input[name="printHP"]:checked').count() === 0, 'A print box is still ticked');
+    const posted = [];
+    const onRequest = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/prevention/printPrevention')) posted.push(request);
+    };
+    const downloads = [];
+    const onDownload = download => downloads.push(download);
+    index.on('request', onRequest);
+    index.on('download', onDownload);
+    let dialogs;
+    try {
+      dialogs = await withExpectedDialogs(index, () => index.locator('input[name="printImmButton"]').click(), { accept: true });
+      // printImmOnly() submits synchronously, so a post would already be on its way; a short wait lets it land.
+      await index.waitForTimeout(1500);
+    } finally {
+      index.off('request', onRequest);
+      index.off('download', onDownload);
+    }
+    if (posted.length) {
+      const response = await posted[0].response().catch(() => null);
+      const file = downloads[0] ? fs.readFileSync(await downloads[0].path()).toString('latin1') : '';
+      const kind = file.startsWith('%PDF') ? 'a PDF' : /<html/i.test(file) ? 'an HTML page' : `${file.length} bytes`;
+      assert(false, `Print Immunizations Only with nothing ticked posted the form (HTTP ${response ? response.status() : 'none'}, `
+        + `${response ? response.headers()['content-type'] : ''}; ${downloads.length ? `saved ${downloads[0].suggestedFilename()}, which is ${kind}` : 'no download'}; `
+        + `${dialogs.length} dialog(s))`);
+    }
+    assert(dialogs.length === 1 && /check at least one prevention/.test(dialogs[0].text),
+      `Print Immunizations Only with nothing ticked showed ${JSON.stringify(dialogs.map(d => d.text))}`);
     await index.close();
   });
 }

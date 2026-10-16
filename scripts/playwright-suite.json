@@ -4639,7 +4639,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned FAKE- patient with two seeded preventions, an Inf immunization and a Tuberculosis screening, on their own dates; cleanup deletes the patient's preventions and ext rows and asserts none remain. Reads each PDF with pdftotext."
+      "fixtures": "Owned FAKE- patient with two seeded preventions, an Inf immunization and a Tuberculosis screening, on their own dates; cleanup deletes the patient's preventions and ext rows and asserts none remain. Reads each PDF with pdftotext (SKIP without Poppler).",
+      "notes": "Fails at its last step on develop: Print Immunizations Only with no box ticked skips the empty-selection check, posts the form and saves the Preventions page's HTML as Prevention.pdf (pending finding 291). Every earlier step passes."
     },
     {
       "name": "schedule-admin-settings",
