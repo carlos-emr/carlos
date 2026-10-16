@@ -121,7 +121,7 @@ class ClinicalProseWafExclusionRegressionTest {
                 Arguments.of("1115", "/carlos/rx/managePharmacy", "POST", List.of("pharmacyNotes")),
                 Arguments.of("1116", "/carlos/encounter/MeasurementData", "POST", List.of("instruction")),
                 Arguments.of("1117", "/carlos/prevention/AddPrevention", "POST",
-                        List.of("comments", "reason", "reasonOtherText")),
+                        List.of("comments", "reason", "reasonOtherText", "neverReason", "location2", "providerName")),
                 Arguments.of("1118", "/carlos/documentManager/ManageDocument", "POST", List.of("documentDescription")),
                 Arguments.of("1119", "/carlos/documentManager/ViewIncomingDocs", "POST", List.of("documentDescription")),
                 Arguments.of("1120", "/carlos/oscarMDS/UpdateStatus", "POST", List.of("comment")),
