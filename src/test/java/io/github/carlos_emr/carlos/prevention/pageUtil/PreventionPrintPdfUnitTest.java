@@ -127,6 +127,21 @@ class PreventionPrintPdfUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should print Chinese, Japanese, Korean and emoji text read from the chart")
+    void shouldPrintCjkAndEmoji_fromChart() throws Exception {
+        patient.setLastName("FAKE-陈");
+        patient.setFirstName("小明");
+        Printout printout = new Printout(patient, "김민준", false, List.of(new Section("Inf", false, false, List.of(
+                new Entry("2025-10-01", "45 years", "0", null, null, "Tolerated well 👍", "左上腕", null,
+                        "インフルエンザ", null, null, "Dr 王")))));
+
+        String text = print(printout).replaceAll("\\s+", " ");
+
+        assertThat(text).contains("FAKE-陈, 小明", "MRP: 김민준", "Tolerated well 👍", "Location of shot: 左上腕",
+                "Name of Vaccine: インフルエンザ", "Provider: Dr 王");
+    }
+
+    @Test
     @DisplayName("should not print null for a patient without a health card number or version")
     void shouldNotPrintNull_whenHinMissing() throws Exception {
         String text = print(printout(null, "Inf"));
