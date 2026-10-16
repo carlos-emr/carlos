@@ -159,4 +159,12 @@ class BillingOnDiskLoaderUnitTest {
         assertThat(loader.isOhipFilenameInUse("HJ054321.001")).isTrue();
         assertThat(loader.isOhipFilenameInUse("HJ054321.002")).isFalse();
     }
+
+    @Test
+    void shouldReportHtmlFilenameInUse_fromFilenameTable() {
+        when(filenameDao.existsByHtmlFilename("HJ054321_001.html")).thenReturn(true);
+
+        assertThat(loader.isHtmlFilenameInUse("HJ054321_001.html")).isTrue();
+        assertThat(loader.isHtmlFilenameInUse("HJ054321_002.html")).isFalse();
+    }
 }

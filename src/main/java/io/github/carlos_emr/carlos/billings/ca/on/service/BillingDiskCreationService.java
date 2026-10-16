@@ -27,7 +27,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.ArrayList;
-import java.util.function.UnaryOperator;
+import java.util.function.Predicate;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -229,7 +229,7 @@ public class BillingDiskCreationService {
     }
 
     private BillingDiskNameDto newGroupDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
-        String[] temp = getCurGrpMonthCodeBatchNum(groupNo);
+        String[] temp = getCurGrpMonthCodeBatchNum(groupNo, ohipNo);
         BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
@@ -444,7 +444,9 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
-        ret[1] = firstUnusedBatchNum(ret[1], batchNum -> getSoloOhipfilename(ohipNo, curMonthCode, batchNum));
+        ret[1] = firstUnusedBatchNum(ret[1], batchNum ->
+                diskQuery.isOhipFilenameInUse(getSoloOhipfilename(ohipNo, curMonthCode, batchNum))
+                        || anyHtmlFilenameInUse(getSoloHtmlfilename(ohipNo, curMonthCode, batchNum)));
         return ret;
     }
 
@@ -457,22 +459,34 @@ public class BillingDiskCreationService {
      * proposed a taken name, collided on every retry and stopped generation
      * ("Unable to allocate unique ... disk name"); the simulation allocates
      * no disk and kept working. Advance past every number already on record.
+     * The HTML companion names ({@code billing_on_filename.htmlfilename}) are
+     * unique as well and carry the same number, so a number counts as taken
+     * when the claim file name or any of its HTML names is.
      *
      * @param candidate sequence number the monthly counter proposed
-     * @param ohipFilenameFor builds the claim file name for a sequence number
-     * @return the first sequence number from {@code candidate} whose name no
-     *         disk holds; above 999 the fixed-width guard rejects the name
+     * @param namesInUse whether a sequence number's claim file name or any of
+     *                   its HTML companion names is already on record
+     * @return the first sequence number from {@code candidate} whose names are
+     *         all free; above 999 the fixed-width guard rejects the name
      */
-    private String firstUnusedBatchNum(String candidate, UnaryOperator<String> ohipFilenameFor) {
+    private String firstUnusedBatchNum(String candidate, Predicate<String> namesInUse) {
         int batchNum = Integer.parseInt(candidate);
-        while (batchNum <= MAX_BATCH_NUM
-                && diskQuery.isOhipFilenameInUse(ohipFilenameFor.apply(String.valueOf(batchNum)))) {
+        while (batchNum <= MAX_BATCH_NUM && namesInUse.test(String.valueOf(batchNum))) {
             batchNum++;
         }
         return String.valueOf(batchNum);
     }
 
-    private String[] getCurGrpMonthCodeBatchNum(String groupNo) {
+    private boolean anyHtmlFilenameInUse(List<?> htmlFilenames) {
+        for (Object htmlFilename : htmlFilenames) {
+            if (diskQuery.isHtmlFilenameInUse((String) htmlFilename)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String[] getCurGrpMonthCodeBatchNum(String groupNo, List ohipNo) {
         String[] ret = new String[2];
         GregorianCalendar now = new GregorianCalendar();
         // int curYear = now.get(Calendar.YEAR); int curDay =
@@ -488,7 +502,9 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
-        ret[1] = firstUnusedBatchNum(ret[1], batchNum -> getGrpOhipfilename(groupNo, curMonthCode, batchNum));
+        ret[1] = firstUnusedBatchNum(ret[1], batchNum ->
+                diskQuery.isOhipFilenameInUse(getGrpOhipfilename(groupNo, curMonthCode, batchNum))
+                        || anyHtmlFilenameInUse(getGrpHtmlfilename(ohipNo, groupNo, curMonthCode, batchNum)));
         return ret;
     }
 }

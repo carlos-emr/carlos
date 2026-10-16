@@ -300,6 +300,49 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @Test
+    void shouldSkipSequenceNumber_whenOnlyItsHtmlCompanionNameIsTaken() {
+        // billing_on_filename.htmlfilename is unique as well. A number whose claim
+        // file name is free but whose HTML name is taken was proposed again on every
+        // retry and stopped generation; the companion name now counts as in use.
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        stubUniqueFilenames(java.util.Set.of(), java.util.Set.of("H" + monthCode + "054321_001.html"), 54);
+
+        int diskId = service.createNewSoloDiskName("999998", "creator");
+
+        assertThat(diskId).isEqualTo(54);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "054321.002");
+        assertThat(captor.getValue().getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "054321_002.html");
+    }
+
+    @Test
+    void shouldSkipSequenceNumber_whenAnyGroupMembersHtmlNameIsTaken() {
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum("1234"))
+                .thenReturn(new String[]{previousMonthCode(), "2"});
+        stubUniqueFilenames(java.util.Set.of(), java.util.Set.of("H" + monthCode + "1234_054322_001.html"), 55);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998", "999997"), List.of("054321", "054322"), "1234", "creator");
+
+        assertThat(diskId).isEqualTo(55);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        assertThat(captor.getValue().getOhipfilename()).isEqualTo("H" + monthCode + "1234.002");
+        assertThat(captor.getValue().getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + "1234_054321_002.html", "H" + monthCode + "1234_054322_002.html");
+    }
+
+    @Test
     void shouldKeepMonthlySequence_whenNoEarlierDiskHoldsTheName() {
         Properties refreshed = new Properties();
         refreshed.setProperty("999998", "054321");
@@ -318,14 +361,30 @@ class BillingDiskCreationServiceUnitTest {
 
     /** Emulates billing_on_diskname_ohipfilename_uq for the given names already on record. */
     private void stubUniqueOhipFilenames(java.util.Set<String> onRecord, int newDiskId) {
+        stubUniqueFilenames(onRecord, java.util.Set.of(), newDiskId);
+    }
+
+    /**
+     * Emulates both unique indexes a new disk must pass: the claim file name
+     * (billing_on_diskname_ohipfilename_uq) and every HTML companion name
+     * (billing_on_filename_htmlfilename_uq).
+     */
+    private void stubUniqueFilenames(java.util.Set<String> ohipOnRecord, java.util.Set<String> htmlOnRecord,
+                                     int newDiskId) {
         when(diskLoader.isOhipFilenameInUse(org.mockito.ArgumentMatchers.anyString()))
-                .thenAnswer(invocation -> onRecord.contains(invocation.<String>getArgument(0)));
+                .thenAnswer(invocation -> ohipOnRecord.contains(invocation.<String>getArgument(0)));
+        when(diskLoader.isHtmlFilenameInUse(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> htmlOnRecord.contains(invocation.<String>getArgument(0)));
         when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
                 .thenAnswer(invocation -> {
                     BillingDiskNameDto disk = invocation.getArgument(0);
-                    if (onRecord.contains(disk.getOhipfilename())) {
+                    if (ohipOnRecord.contains(disk.getOhipfilename())) {
                         throw new org.springframework.dao.DataIntegrityViolationException(
                                 "billing_on_diskname_ohipfilename_uq");
+                    }
+                    if (disk.getFilenames().stream().anyMatch(row -> htmlOnRecord.contains(row.htmlFilename()))) {
+                        throw new org.springframework.dao.DataIntegrityViolationException(
+                                "billing_on_filename_htmlfilename_uq");
                     }
                     return newDiskId;
                 });

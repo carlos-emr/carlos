@@ -117,6 +117,14 @@ public class BillingOnDiskLoader {
     }
 
     /**
+     * Whether a filename row already holds this HTML companion name; see
+     * {@link BillingONFilenameDao#existsByHtmlFilename(String)}.
+     */
+    public boolean isHtmlFilenameInUse(String htmlFilename) {
+        return filenameDao.existsByHtmlFilename(htmlFilename);
+    }
+
+    /**
 
      * Returns prev disk create date.
 
