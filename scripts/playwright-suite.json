@@ -1117,6 +1117,23 @@
       "fixtures": "Creates, edits and deletes one uniquely named library eForm ('Playwright Admin CRUD <timestamp>'); the delete only sets eform.status to 0, so an inactive row remains (a failing run leaves it active). The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "eform-measurement-prefill",
+      "script": "scripts/eform-measurement-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient with WT measurements seeded by SQL; one marker-named eForm in the clinic's eForm library (status 1) with m$WT and m$HT oscarDB fields. Cleanup deletes the eForm, any data saved from it and the patient's measurements, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "eform-admin-schedule-navigation",
       "script": "scripts/eform-admin-schedule-navigation-playwright-checks.js",
       "tiers": [
