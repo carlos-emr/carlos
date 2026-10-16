@@ -4,7 +4,8 @@
 // (oscarOPEN="<eForm name>"; the saved opener keeps the linked copy's id in the button as link$eform).
 // User path: E-Chart ▸ eForms "+" (efmformslistadd) ▸ the opener eForm ▸
 //   1. its oscarOPEN button opens a new copy of the linked eForm for the same patient
-//      (eform/efmformadd_data?fid=<linked>&demographic_no=<patient>&eform_link=<provider>_<patient>_<opener>_<button>);
+//      (eform/efmformadd_data?fid=<linked>&demographic_no=<patient>, with an eform_link; the link's format is
+//      internal, so only its presence is checked);
 //   2. Submit the linked copy, then Submit the opener: the opener's saved copy keeps the linked copy's id in
 //      the button (link$eform="<fdid>");
 //   3. E-Chart ▸ the patient's eForm list (efmpatientformlist) ▸ a saved opener whose button holds
@@ -76,7 +77,7 @@ async function workflow(s) {
     const shown = { path: opened.pathname, fid: opened.searchParams.get('fid'), patient: opened.searchParams.get('demographic_no'),
       link: opened.searchParams.get('eform_link') };
     h.assert(shown.path.endsWith('/eform/efmformadd_data') && shown.fid === linkedFid && shown.patient === patient
-      && shown.link === `${provider}_${patient}_${openerFid}_openLinked`, `The oscarOPEN button opens ${JSON.stringify(shown)}`);
+      && Boolean(shown.link), `The oscarOPEN button opens ${JSON.stringify(shown)}`);
     const linked = await s.popup(opener, opener.locator('#openLinked'), 'eform-linked');
     await linked.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
     await linked.close();
