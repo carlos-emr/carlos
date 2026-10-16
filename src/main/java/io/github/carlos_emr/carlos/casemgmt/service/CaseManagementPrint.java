@@ -51,7 +51,6 @@
  *
  * @see CaseManagementPrintPdf
  * @see CaseManagementManager
- * @see NoteService
  * @since 2026-01-24
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
@@ -60,21 +59,14 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
-import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay;
-import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
-import io.github.carlos_emr.carlos.managers.ProgramManager2;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -86,7 +78,6 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.nio.file.Files;
 import java.io.FileOutputStream;
@@ -104,13 +95,6 @@ public class CaseManagementPrint {
 
 
     CaseManagementManager caseManagementMgr = SpringUtils.getBean(CaseManagementManager.class);
-
-    private NoteService noteService = SpringUtils.getBean(NoteService.class);
-
-
-    private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-
-    private ProgramManager programMgr = SpringUtils.getBean(ProgramManager.class);
 
     private PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
 
@@ -466,164 +450,6 @@ public class CaseManagementPrint {
         }
         return issueIds;
     }
-
-    /**
-     * Adds the note-list filters this patient's chart last applied (roles, providers, issues) to
-     * {@code criteria}, so the print matches what that chart shows. Only this patient's: the
-     * filters used to be remembered once per login, so a print of one patient left out the notes
-     * another chart window had filtered away (issue #4673).
-     */
-    @SuppressWarnings("unchecked")
-    static void applyThisChartsNoteFilters(HttpSession se, String demoNo, NoteSelectionCriteria criteria) {
-        if (!ChartSessionKeys.isPatientNumber(demoNo)) {
-            return;
-        }
-        Object roles = se.getAttribute(ChartSessionKeys.appliedNoteFilter("roles", demoNo));
-        if (roles != null) {
-            criteria.getRoles().addAll((List<String>) roles);
-        }
-        Object providers = se.getAttribute(ChartSessionKeys.appliedNoteFilter("providers", demoNo));
-        if (providers != null) {
-            criteria.getProviders().addAll((List<String>) providers);
-        }
-        Object issues = se.getAttribute(ChartSessionKeys.appliedNoteFilter("issues", demoNo));
-        if (issues != null) {
-            criteria.getIssues().addAll((List<String>) issues);
-        }
-    }
-
-    /**
-     * Retrieves all note IDs for a patient within a specified date range.
-     *
-     * This method queries the note service with a comprehensive set of filter criteria including
-     * date range boundaries, program context, and the note filters (roles, providers, issues) this
-     * patient's own chart last applied, as CaseManagementView2Action remembers them per patient.
-     * It respects the user's current program assignment.
-     *
-     * The method defaults to the "OSCAR" program if the provider has not been assigned to a specific
-     * program. Only local notes (NoteDisplayLocal) are included in the returned results.
-     *
-     * @param loggedInInfo LoggedInInfo the authenticated session information
-     * @param request HttpServletRequest the servlet request containing session attributes and parameters
-     * @param demoNo String the patient's demographic number as a string
-     * @param startDate Date the start of the date range (inclusive)
-     * @param endDate Date the end of the date range (inclusive)
-     * @return String[] array of note IDs (as strings) matching the criteria
-     */
-    private String[] getAllNoteIdsWithinDateRange(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo, Date startDate, Date endDate) {
-
-        HttpSession se = loggedInInfo.getSession();
-
-        ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-        String programId = null;
-
-        if (pp != null && pp.getProgramId() != null) {
-            programId = "" + pp.getProgramId();
-        } else {
-            programId = String.valueOf(programMgr.getProgramIdByProgramName("OSCAR")); //Default to the oscar program if providers hasn't been assigned to a program
-        }
-
-        NoteSelectionCriteria criteria = new NoteSelectionCriteria();
-        criteria.setStartDate(startDate);
-        criteria.setEndDate(endDate);
-        criteria.setMaxResults(Integer.MAX_VALUE);
-        criteria.setDemographicId(ConversionUtils.fromIntString(demoNo));
-        criteria.setUserRole((String) request.getSession().getAttribute("userrole"));
-        criteria.setUserName((String) request.getSession().getAttribute("user"));
-        if (request.getParameter("note_sort") != null && request.getParameter("note_sort").length() > 0) {
-            criteria.setNoteSort(request.getParameter("note_sort"));
-        }
-        if (programId != null && !programId.trim().isEmpty()) {
-            criteria.setProgramId(programId);
-        }
-
-        applyThisChartsNoteFilters(se, demoNo, criteria);
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));
-        }
-
-        NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
-
-        List<String> buf = new ArrayList<String>();
-        if (result != null && result.getNotes() != null) {
-            for (NoteDisplay nd : result.getNotes()) {
-                if (nd instanceof NoteDisplayLocal) {
-                    buf.add(nd.getNoteId().toString());
-                }
-            }
-        }
-
-        return buf.toArray(new String[0]);
-    }
-
-    /**
-     * Retrieves all note IDs for a patient without date range restrictions.
-     *
-     * This method queries the note service with filter criteria based on program context and
-     * the note filters (roles, providers, issues) this patient's own chart last applied, but
-     * without date range boundaries. It retrieves up to Integer.MAX_VALUE notes and respects the
-     * user's current program assignment.
-     *
-     * If this patient's chart applied no filters (roles, providers, issues), the criteria will have
-     * empty lists, which signals the note service to return all notes without filtering by
-     * those dimensions. The method defaults to the "OSCAR" program if the provider has not
-     * been assigned to a specific program.
-     *
-     * Only local notes (NoteDisplayLocal) are included in the returned results.
-     *
-     * @param loggedInInfo LoggedInInfo the authenticated session information
-     * @param request HttpServletRequest the servlet request containing session attributes and parameters
-     * @param demoNo String the patient's demographic number as a string
-     * @return String[] array of all note IDs (as strings) matching the criteria
-     */
-    private String[] getAllNoteIds(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo) {
-
-        HttpSession se = loggedInInfo.getSession();
-
-        ProgramProvider pp = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
-        String programId = null;
-
-        if (pp != null && pp.getProgramId() != null) {
-            programId = "" + pp.getProgramId();
-        } else {
-            programId = String.valueOf(programMgr.getProgramIdByProgramName("OSCAR")); //Default to the oscar program if providers hasn't been assigned to a program
-        }
-
-        NoteSelectionCriteria criteria = new NoteSelectionCriteria();
-        criteria.setMaxResults(Integer.MAX_VALUE);
-        criteria.setDemographicId(ConversionUtils.fromIntString(demoNo));
-        criteria.setUserRole((String) request.getSession().getAttribute("userrole"));
-        criteria.setUserName((String) request.getSession().getAttribute("user"));
-        if (request.getParameter("note_sort") != null && request.getParameter("note_sort").length() > 0) {
-            criteria.setNoteSort(request.getParameter("note_sort"));
-        }
-        if (programId != null && !programId.trim().isEmpty()) {
-            criteria.setProgramId(programId);
-        }
-
-        // Apply this patient's chart filters if they exist (set by CaseManagementView2Action)
-        // If no filters are present, criteria will have empty lists which means "no filtering" - get all notes
-        applyThisChartsNoteFilters(se, demoNo, criteria);
-
-        if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));
-        }
-
-        NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
-
-        List<String> buf = new ArrayList<String>();
-        if (result != null && result.getNotes() != null) {
-            for (NoteDisplay nd : result.getNotes()) {
-                if (nd instanceof NoteDisplayLocal) {
-                    buf.add(nd.getNoteId().toString());
-                }
-            }
-        }
-
-        return buf.toArray(new String[0]);
-    }
-
 
     /**
      * Retrieves the patient's full name for the specified demographic number.

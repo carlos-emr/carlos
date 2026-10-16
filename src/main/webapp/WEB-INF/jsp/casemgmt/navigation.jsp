@@ -559,13 +559,10 @@
                 <td>Clinical Resources</td>
             </tr>
 
-            <%
-                // This patient's lab results for the lab dropdown below, in page scope. They were
-                // stored in the session under a name the dropdown never read (so it was always
-                // empty), where they outlived the page as the last-rendered chart's labs (#4673).
-                CommonLabResultData comLab = new CommonLabResultData();
-                pageContext.setAttribute("casemgmtLabsbeans", comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", bean.demographicNo, "", "", "", "U"));
-            %>
+            <%-- This page used to load the patient's lab results into the session (as
+                 casemgmt_labsbeans) for the lab dropdown below, which read another name and so
+                 never listed one. The session copy outlived the page as the last-rendered chart's
+                 labs (issue #4673); the unused query is gone and the dropdown stays as it was. --%>
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <tr>
                     <td>
@@ -624,24 +621,6 @@
                                     onChange="javascript:selectBox(this)"
                                     onMouseOver="javascript:window.status='View <%= SafeEncode.forJavaScriptAttribute(bean.patientFirstName + " " + bean.patientLastName) %>\'s lab results'; return true;">
                                 <option value="null" selected>-lab results-</option>
-                                <c:forEach var="labrst" items="${casemgmtLabsbeans}">
-                                    <c:set var="lablable" value="${labrst.dateTime}${labrst.discipline}" />
-                                    <c:set var="mdvalue" value="${bsurl}/oscarMDS/ViewSegmentDisplay?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}&status=${labrst.reportStatus}" />
-                                    <c:set var="cmvalue" value="${bsurl}/lab/CA/ON/ViewCMLDisplay?providerNo=${bean.providerNo}&segmentID=${labrst.segmentID}" />
-                                    <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
-
-                                    <c:choose>
-                                        <c:when test="${labrst.MDS}">
-                                            <option value="${mdvalue}">${lablable}</option>
-                                        </c:when>
-                                        <c:when test="${labrst.CML}">
-                                            <option value="${cmvalue}">${lablable}</option>
-                                        </c:when>
-                                        <c:otherwise>
-                                            <option value="${otvalue}">${lablable}</option>
-                                        </c:otherwise>
-                                    </c:choose>
-                                </c:forEach>
                             </select>
                         </td>
                     </tr>

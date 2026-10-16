@@ -1592,24 +1592,15 @@ public class CaseManagementView2Action extends ActionSupport {
         criteria.setUserRole((String) request.getSession().getAttribute("userrole"));
         criteria.setUserName((String) request.getSession().getAttribute("user"));
 
-        // The editor's handoff and the filters remembered for the chart print are this patient's
-        // own: unkeyed, another chart's note list consumed the handoff and the print of one
-        // patient applied the filters last chosen in any window (issue #4673).
+        // The editor's handoff is this patient's own: unkeyed, another chart's note list consumed
+        // it (issue #4673). The filters applied here used to be copied into login-wide session
+        // attributes too, for chart-print helpers that nothing called; that copy is gone.
         getParamOrSession("note_sort", demoNo)
             .ifPresent(criteria::setNoteSort);
 
-        getParamsOrSession("filter_roles", demoNo).ifPresent(rs -> {
-            criteria.getRoles().addAll(rs);
-            se.setAttribute(ChartSessionKeys.appliedNoteFilter("roles", demoNo), rs);
-        });
-        getParamsOrSession("filter_provider", demoNo).ifPresent(rs -> {
-            criteria.getProviders().addAll(rs);
-            se.setAttribute(ChartSessionKeys.appliedNoteFilter("providers", demoNo), rs);
-        });
-        getParamsOrSession("issues", demoNo).ifPresent(rs -> {
-            criteria.getIssues().addAll(rs);
-            se.setAttribute(ChartSessionKeys.appliedNoteFilter("issues", demoNo), rs);
-        });
+        getParamsOrSession("filter_roles", demoNo).ifPresent(criteria.getRoles()::addAll);
+        getParamsOrSession("filter_provider", demoNo).ifPresent(criteria.getProviders()::addAll);
+        getParamsOrSession("issues", demoNo).ifPresent(criteria.getIssues()::addAll);
 
         // Only set programId if it's valid (not null, not empty, not "0")
         if (programId != null && !programId.trim().isEmpty() && !programId.equals("0")) {

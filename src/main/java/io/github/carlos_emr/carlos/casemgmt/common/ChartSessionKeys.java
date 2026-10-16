@@ -29,8 +29,6 @@ package io.github.carlos_emr.carlos.casemgmt.common;
  * state that outlives a request used to sit in one attribute per login, so a request from one
  * chart read or replaced the state of whichever chart had last written it (issue #4673):</p>
  * <ul>
- *   <li>the note filters the last note list applied, which the chart print applies too: a print
- *       of one patient's notes left out the notes another window had filtered away;</li>
  *   <li>the editor's one-use filter handoff to the next note list: another chart's note list
  *       could consume it;</li>
  *   <li>the text the last save wrote into the legacy eChart record, which the next save removes
@@ -52,9 +50,6 @@ package io.github.carlos_emr.carlos.casemgmt.common;
  */
 public final class ChartSessionKeys {
 
-    /** Prefix of the note filters the last note list applied, read again by the chart print. */
-    static final String APPLIED_NOTE_FILTER = "CaseManagementViewAction_filter_";
-
     private ChartSessionKeys() {
     }
 
@@ -70,19 +65,6 @@ public final class ChartSessionKeys {
      */
     public static String noteFilterHandoff(String name, String demographicNo) {
         return key(name, demographicNo);
-    }
-
-    /**
-     * The attribute holding one note-list filter that the last note list of this patient applied;
-     * the chart print applies the same filters.
-     *
-     * @param dimension {@code roles}, {@code providers} or {@code issues}
-     * @param demographicNo the patient whose chart owns the filter
-     * @return the session attribute name
-     * @throws IllegalArgumentException if {@code demographicNo} is not a patient number
-     */
-    public static String appliedNoteFilter(String dimension, String demographicNo) {
-        return key(APPLIED_NOTE_FILTER + dimension, demographicNo);
     }
 
     /**

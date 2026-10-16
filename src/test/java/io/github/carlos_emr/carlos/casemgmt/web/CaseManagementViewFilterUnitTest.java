@@ -145,20 +145,17 @@ class CaseManagementViewFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRememberAppliedFiltersForThisPatientOnly_whenTheNoteListIsFiltered() {
-        request.getSession().setAttribute(ChartSessionKeys.appliedNoteFilter("issues", "202"), List.of("99"));
+    void shouldKeepNoCopyOfTheAppliedFilters_whenTheNoteListIsFiltered() {
         request.setParameter("filter_roles", "8");
         request.setParameter("filter_provider", "201");
         request.setParameter("issues", "74");
 
         loadNotes();
 
-        assertThat(request.getSession().getAttribute(ChartSessionKeys.appliedNoteFilter("roles", "101"))).isEqualTo(List.of("8"));
-        assertThat(request.getSession().getAttribute(ChartSessionKeys.appliedNoteFilter("providers", "101"))).isEqualTo(List.of("201"));
-        assertThat(request.getSession().getAttribute(ChartSessionKeys.appliedNoteFilter("issues", "101"))).isEqualTo(List.of("74"));
-        // The other chart's remembered filters, which its print applies, are unchanged.
-        assertThat(request.getSession().getAttribute(ChartSessionKeys.appliedNoteFilter("issues", "202"))).isEqualTo(List.of("99"));
-        assertThat(request.getSession().getAttribute("CaseManagementViewAction_filter_issues")).isNull();
+        // The applied filters used to be copied into login-wide session attributes for chart-print
+        // helpers that nothing called (issue #4673); no copy is kept, keyed or not.
+        assertThat(java.util.Collections.list(request.getSession().getAttributeNames()))
+                .noneMatch(name -> name.startsWith("CaseManagementViewAction_filter_"));
     }
 
     @Test

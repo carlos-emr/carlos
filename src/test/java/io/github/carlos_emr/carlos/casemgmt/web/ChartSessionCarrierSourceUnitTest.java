@@ -63,10 +63,18 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
     /**
      * Each pattern is a session read or write of a login-wide name that the fix replaced. A
      * receiver other than {@code request} is a session ({@code session}, {@code se},
-     * {@code request.getSession()}); request attributes live for one request and are allowed.
+     * {@code request.getSession()}, {@code getSession(false)}); request attributes live for one
+     * request and are allowed.
      */
     private static final String SESSION_ACCESS = "(?<!request)\\.(get|set|remove)Attribute\\(\\s*\"";
-    private static final String SESSION_RECEIVER = "\\b(session|se|httpSession|sess|getSession\\(\\))";
+    private static final String SESSION_RECEIVER =
+            "\\b(session|se|httpSession|sess|getSession\\(\\s*(true|false)?\\s*\\))";
+
+    /** Every login-wide name the fix replaced, for the session forms the patterns above do not cover. */
+    private static final String REPLACED_NAMES = "(casemgmt_DemoNo|readonly|lastSavedNoteString|restoring"
+            + "|casemgmt_msgBeans|casemgmt_labsbeans|casemgmt_oscar_bean|demographicNo|demographicId|clientAge"
+            + "|clientGender|demoInfo|patientWaitingList|allDiagnostics|cur_appointment_no|PDFAttachment"
+            + "|billingSessionBean|attachedDemographics|viewMessage[A-Za-z]*|CaseManagementViewAction_filter_\\w*)";
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile(SESSION_ACCESS + "casemgmt_DemoNo\""),
             Pattern.compile("sessionScope\\.readonly"),
@@ -93,7 +101,15 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             // The BC bill being built: one per window under its own key (BcBillStaging), handed to
             // the pages as a request attribute; findAttribute would fall back to the session.
             Pattern.compile(SESSION_ACCESS + "billingSessionBean\""),
-            Pattern.compile("findAttribute\\(\\s*\"billingSessionBean\""));
+            Pattern.compile("findAttribute\\(\\s*\"billingSessionBean\""),
+            // The same names through EL's session scope, JSTL or a page-context session write.
+            Pattern.compile("sessionScope\\." + REPLACED_NAMES + "\\b"),
+            Pattern.compile("sessionScope\\[\\s*['\"]" + REPLACED_NAMES + "['\"]\\s*\\]"),
+            Pattern.compile("<c:set\\b[^>]*\\bscope\\s*=\\s*['\"]session['\"][^>]*\\bvar\\s*=\\s*['\"]"
+                    + REPLACED_NAMES + "['\"]"),
+            Pattern.compile("<c:set\\b[^>]*\\bvar\\s*=\\s*['\"]" + REPLACED_NAMES
+                    + "['\"][^>]*\\bscope\\s*=\\s*['\"]session['\"]"),
+            Pattern.compile("setAttribute\\(\\s*\"" + REPLACED_NAMES + "\"[^;]*SESSION_SCOPE"));
 
     /**
      * The login's Messenger bean no longer carries compose attachments: each compose window stages
@@ -159,13 +175,15 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldListThisPatientsLabsInPageScope_onTheLegacyNavigation() {
-        String jsp = read(ROOT.resolve("src/main/webapp/WEB-INF/jsp/casemgmt/navigation.jsp"));
-        assertThat(jsp).contains("pageContext.setAttribute(\"casemgmtLabsbeans\"")
-                .contains("bean.demographicNo, \"\", \"\", \"\", \"U\")")
-                // LabResultData exposes isMDS()/isCML(): the JavaBeans names are MDS and CML.
-                .contains("${labrst.MDS}").contains("${labrst.CML}")
-                .doesNotContain("${labrst.mds}").doesNotContain("${labrst.cml}");
+    void shouldKeepTheLabDropdownEmpty_onTheLegacyNavigation() {
+        // The page used to put the patient's labs in the session for a dropdown that read another
+        // name and never listed one. The dropdown's loop wrote lab text unencoded into URLs without
+        // the context path, so it stays as the users always saw it: empty, with no lab query.
+        String jsp = withoutComments(read(ROOT.resolve("src/main/webapp/WEB-INF/jsp/casemgmt/navigation.jsp")), false);
+        assertThat(jsp).doesNotContain("populateLabResultsData")
+                .doesNotContain("casemgmtLabsbeans")
+                .doesNotContain("casemgmt_labsbeans")
+                .doesNotContain("${labrst");
     }
 
     private static List<Path> sources() {
@@ -184,13 +202,66 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         return files;
     }
 
-    private static String withoutComments(String code, boolean java) {
+    /**
+     * The source with comments blanked out (newlines kept). JSP comments are removed from every
+     * file; Java comments only from Java files, and only outside string and character literals, so
+     * a {@code "/*"} inside a string cannot hide the code after it. JSPs keep their Java and
+     * JavaScript block comments: telling them apart from template text would need a JSP parser, and
+     * a false match there only means a closer look.
+     */
+    static String withoutComments(String code, boolean java) {
         String stripped = code.replaceAll("(?s)<%--.*?--%>", "");
-        stripped = stripped.replaceAll("(?s)/\\*.*?\\*/", "");
-        if (java) {
-            stripped = stripped.replaceAll("(?m)^\\s*//.*$", "");
+        return java ? withoutJavaComments(stripped) : stripped;
+    }
+
+    private static String withoutJavaComments(String code) {
+        StringBuilder out = new StringBuilder(code.length());
+        int i = 0;
+        while (i < code.length()) {
+            char c = code.charAt(i);
+            char next = i + 1 < code.length() ? code.charAt(i + 1) : '\0';
+            if (c == '/' && next == '/') {
+                while (i < code.length() && code.charAt(i) != '\n') {
+                    i++;
+                }
+            } else if (c == '/' && next == '*') {
+                int close = code.indexOf("*/", i + 2);
+                int stop = close < 0 ? code.length() : close + 2;
+                for (int k = i; k < stop; k++) {
+                    if (code.charAt(k) == '\n') {
+                        out.append('\n');
+                    }
+                }
+                i = stop;
+            } else if (c == '"' && code.startsWith("\"\"\"", i)) {
+                int close = code.indexOf("\"\"\"", i + 3);
+                int stop = close < 0 ? code.length() : close + 3;
+                out.append(code, i, stop);
+                i = stop;
+            } else if (c == '"' || c == '\'') {
+                int k = i + 1;
+                while (k < code.length() && code.charAt(k) != c && code.charAt(k) != '\n') {
+                    k += code.charAt(k) == '\\' ? 2 : 1;
+                }
+                int stop = Math.min(k + 1, code.length());
+                out.append(code, i, stop);
+                i = stop;
+            } else {
+                out.append(c);
+                i++;
+            }
         }
-        return stripped;
+        return out.toString();
+    }
+
+    @Test
+    void shouldKeepCodeAfterACommentMarkerInAString_whenStrippingJavaComments() {
+        String code = "String glob = \"src/*\";\nsession.setAttribute(\"demographicNo\", x); /* c */ // d\n";
+
+        String stripped = withoutComments(code, true);
+
+        assertThat(stripped).contains("session.setAttribute(\"demographicNo\", x);")
+                .doesNotContain("/* c */").doesNotContain("// d");
     }
 
     private static String read(Path path) {

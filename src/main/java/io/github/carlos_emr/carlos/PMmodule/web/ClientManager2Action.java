@@ -351,12 +351,14 @@ public class ClientManager2Action extends ActionSupport {
             return ERROR;
         }
 
-        setEditAttributes(request, id);
-        if (request.getAttribute("client") == null) {
-            // Unknown client: refused as an invalid id is. (The removed session copy below used to
-            // fail here on the null record instead.)
+        // An unknown client is refused as an invalid id is. (The removed session copy below used to
+        // fail on the null record instead.) Checked on the DAO's own answer: after setEditAttributes,
+        // request.getAttribute("client") falls back through Struts to this action's request-bound
+        // client property when the record is missing.
+        if (clientManager.getClientByDemographicNo(id) == null) {
             return ERROR;
         }
+        setEditAttributes(request, id);
 
         LogAction.log("read", "pmm client record", id, request);
 

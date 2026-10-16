@@ -47,7 +47,6 @@ class ChartSessionKeysUnitTest {
 
     private static final List<Function<String, String>> KEYS = List.of(
             patient -> ChartSessionKeys.noteFilterHandoff("issues", patient),
-            patient -> ChartSessionKeys.appliedNoteFilter("issues", patient),
             ChartSessionKeys::lastSavedNoteText,
             ChartSessionKeys::draftRestoring,
             ChartSessionKeys::currentAppointment);
@@ -70,12 +69,10 @@ class ChartSessionKeysUnitTest {
     }
 
     @Test
-    void shouldKeepFiltersAndHandoffsApart_forTheSamePatient() {
+    void shouldKeepEachHandoffApart_forTheSamePatient() {
         assertThat(ChartSessionKeys.noteFilterHandoff("issues", "101"))
-                .isNotEqualTo(ChartSessionKeys.appliedNoteFilter("issues", "101"))
-                .isNotEqualTo(ChartSessionKeys.noteFilterHandoff("note_sort", "101"));
-        assertThat(ChartSessionKeys.appliedNoteFilter("roles", "101"))
-                .isNotEqualTo(ChartSessionKeys.appliedNoteFilter("providers", "101"));
+                .isNotEqualTo(ChartSessionKeys.noteFilterHandoff("note_sort", "101"))
+                .isNotEqualTo(ChartSessionKeys.draftRestoring("101"));
     }
 
     @ParameterizedTest
