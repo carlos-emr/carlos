@@ -13,7 +13,7 @@ const labels = Object.fromEntries(fs.readFileSync(path.join(root, 'src/main/reso
   .split('\n').filter(line => line.startsWith('portal.booking.')).map(line => {
     const split = line.indexOf('='); return [line.slice(0, split), line.slice(split + 1)];
   }));
-const escape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
+const escape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'); // nosemgrep: javascript.audit.detect-replaceall-sanitization.detect-replaceall-sanitization -- Test-only: escapes this repo's own English label file into a synthetic fixture page; no user input reaches it.
 function markup(appointment, readOnly = false, lateCsrf = false, rejectCsrf = false) {
   let html = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/portalBookingPrompt.jsp'), 'utf8');
   html = html.slice(html.indexOf('<section'), html.indexOf('</section>') + 10);
@@ -95,6 +95,9 @@ async function main() {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
+  // Every navigation goes through here: the origin is this script's own loopback fixture server and
+  // each route is a fixed literal, so no user-controlled value can reach goto.
+  const visit = (target, route) => target.goto(url + route); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- loopback fixture origin plus fixed literal routes
   const browser = await chromium.launch({ headless: true, ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -112,7 +115,7 @@ async function main() {
   const waitReady = () => openDialog().then(() => send.waitFor({ state: 'visible' }))
     .then(() => page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled));
   try {
-    await page.goto(url + '/master'); await waitReady();
+    await visit(page, '/master'); await waitReady();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed'));
     assert.equal(notifications, 1); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
@@ -229,18 +232,18 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, stranded);
     console.log('PASS a stored entry from an interrupted page is kept when its retry is refused');
-    await page.goto(url + '/master-late-csrf'); await openDialog();
+    await visit(page, '/master-late-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
     console.log('PASS waits for the page CSRF bootstrap on first load');
-    await page.goto(url + '/master-reject-csrf'); await openDialog();
+    await visit(page, '/master-reject-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     console.log('PASS a failed CSRF bootstrap falls back to a token already on the page');
     const plain = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const plainPage = await plain.newPage(); plainPage.on('pageerror', error => errors.push(error.message));
     await plainPage.addInitScript(() => { delete Crypto.prototype.randomUUID; });
-    await plainPage.goto(url + '/master');
+    await visit(plainPage, '/master');
     await plainPage.locator('[data-role="open"]').click();
     await plainPage.locator('[data-role="send"]').waitFor({ state: 'visible' });
     await plainPage.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled);
@@ -253,7 +256,7 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Unread'));
     assert.equal(await send.count(), 0); assert.equal(await page.locator('[data-role="prompts"] button').count(), 0); readOnly = false;
     console.log('PASS read-only fixture shows history with no mutations');
-    await page.goto(url + '/appointment'); await waitReady();
+    await visit(page, '/appointment'); await waitReady();
     let before = calls.filter(call => call.method === 'create').length;
     await page.evaluate(() => { document.getElementById('demographic_no').value = '456'; });
     await send.click(); assert.match(await status.innerText(), /Save and reopen/);
