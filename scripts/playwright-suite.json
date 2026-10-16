@@ -7491,6 +7491,20 @@
       "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {
+      "name": "rx-partial-dates",
+      "script": "scripts/rx-partial-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; a marker-named custom drug prescribed through the UI (no DrugRef data). Cleanup removes the patient's drugs and their partial_date rows, prescriptions, drugReason and DigitalSignature rows."
+    },
+    {
       "name": "boundary-date-billing-claims",
       "script": "scripts/boundary-date-billing-claims-playwright-checks.js",
       "tiers": [
