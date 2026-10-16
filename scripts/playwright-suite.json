@@ -4859,6 +4859,24 @@
       "fixtures": "A patient-bound and a patient-independent marker template, the patient eForm saved through the UI and two seeded independent instances; those fdids, their eform_values rows and the templates are removed."
     },
     {
+      "name": "eform-open-linked",
+      "script": "scripts/eform-open-linked-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), copies of them saved through the UI, and one saved copy of each seeded by SQL (eform_data). Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails on develop. Step 1: the oscarOPEN button opens the internal /WEB-INF/jsp/eform/efmformadd_data.jsp path, a 404 (pending finding 297, #4773; release fix #4779). Step 2: the linked copy's save refuses the button's eform_link, which carries the opener's eForm id, so the opener never stores link$eform (pending finding 298, #4773; release fix #4779). Step 3: a saved opener's button never reads link$eform back (pending finding 296, #4764, fixed on release by #4770), and it also opens the internal path (297). All three parts run and print their outcome before the steps report them."
+    },
+    {
       "name": "patient-photo-upload",
       "script": "scripts/patient-photo-upload-playwright-checks.js",
       "tiers": [
