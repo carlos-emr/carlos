@@ -2722,6 +2722,21 @@
       "fixtures": "Uses the disposable test provider; snapshots and restores printer, document-description and text-signature preferences."
     },
     {
+      "name": "document-description-templates",
+      "script": "scripts/document-description-templates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
+    },
+    {
       "name": "surface-audit:referrals-surface",
       "script": "scripts/surface-audit-playwright-checks.js",
       "envSet": {
