@@ -282,6 +282,90 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
                 "N", false, 0, 100, true, null, true, true, null, null)).isEmpty();
     }
 
+    /**
+     * The Inbox Hub's Acknowledged toggle lists what was acknowledged today, so the list is
+     * bounded by WHEN the routing row was acknowledged. Bounding it by the lab's own date hid a
+     * lab acknowledged today whose result was older (#2515); no bound at all listed every lab the
+     * provider had ever acknowledged, a page at a time, until the clinician pressed Stop. The
+     * toggle combines with the patient, unmatched and name filters, so every query shape takes it.
+     */
+    @Nested
+    @DisplayName("Acknowledged-since bound used by the Inbox Hub toolbar")
+    @Tag("filter")
+    class AcknowledgedSinceBound {
+
+        private static final String PROVIDER = "778801";
+        private final Date startOfToday = Timestamp.valueOf("2026-10-15 00:00:00");
+
+        private int routeAcknowledgedLab(int labNo, String acknowledgedAt, Integer demographicNo) {
+            Hl7TextInfo info = createHl7TextInfo("ACK-SINCE-" + labNo, "Acksince", "Fixture", "");
+            info.setLabNumber(labNo);
+            // Old results both: only the acknowledgement time tells the two labs apart.
+            info.setObrDate("2024-01-05 10:00:00");
+            hibernateTemplate.flush();
+            ProviderLabRoutingModel routing = new ProviderLabRoutingModel();
+            routing.setLabNo(labNo);
+            routing.setLabType("HL7");
+            routing.setProviderNo(PROVIDER);
+            routing.setStatus("A");
+            routing.setTimestamp(Timestamp.valueOf(acknowledgedAt));
+            entityManager.persist(routing);
+            if (demographicNo != null) {
+                entityManager.persist(new PatientLabRouting(labNo, "HL7", demographicNo));
+            }
+            entityManager.flush();
+            return labNo;
+        }
+
+        private Integer createPatient() {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Acksince");
+            demo.setLastName("Patient");
+            demo.setSex("F");
+            demo.setProviderNo(PROVIDER);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(new Date());
+            demo.setDateJoined(new Date());
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        /**
+         * Shapes: the provider's whole list; one patient; a name search answered by the labs' own
+         * names (unlinked labs) or by the linked patient's name (only the demographic subqueries
+         * can answer that); unmatched labs. The bound is inclusive: a lab acknowledged exactly at
+         * the start of the day is listed, one acknowledged a second earlier is not.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "patient,true", "patient,false",
+                "nameSearch,true", "nameSearch,false", "patientNameSearch,true", "patientNameSearch,false",
+                "unmatched,true", "unmatched,false"})
+        @DisplayName("should list only labs acknowledged since the bound, whatever their result date")
+        void shouldListOnlyLabsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            Integer patient = "patient".equals(shape) || "patientNameSearch".equals(shape) ? createPatient() : null;
+            int acknowledgedThisMorning = routeAcknowledgedLab(9836001, "2026-10-15 09:12:00", patient);
+            int acknowledgedAtMidnight = routeAcknowledgedLab(9836002, "2026-10-15 00:00:00", patient);
+            int acknowledgedLastNight = routeAcknowledgedLab(9836003, "2026-10-14 23:59:59", patient);
+            int acknowledgedLastYear = routeAcknowledgedLab(9836004, "2025-01-10 16:40:00", patient);
+            String demographicNo = "patient".equals(shape) ? String.valueOf(patient) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Fixture" : "patientNameSearch".equals(shape) ? "Patient" : "";
+            boolean nameSearch = !lastName.isEmpty();
+
+            List<Object[]> unbounded = hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, demographicNo, "", lastName, "",
+                    "A", false, 0, 100, mixLabsAndDocs, null, true, nameSearch, null, null, null);
+            List<Object[]> bounded = hl7TextInfoDao.findLabAndDocsViaMagic(PROVIDER, demographicNo, "", lastName, "",
+                    "A", false, 0, 100, mixLabsAndDocs, null, true, nameSearch, null, null, startOfToday);
+
+            assertThat(unbounded).as("every lab is acknowledged, so an unbounded search lists them all")
+                    .extracting(row -> ((Number) row[1]).intValue())
+                    .containsExactlyInAnyOrder(acknowledgedThisMorning, acknowledgedAtMidnight,
+                            acknowledgedLastNight, acknowledgedLastYear);
+            assertThat(bounded).extracting(row -> ((Number) row[1]).intValue())
+                    .containsExactlyInAnyOrder(acknowledgedThisMorning, acknowledgedAtMidnight);
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"serviceObservation,true", "serviceObservation,false", "receivedCreated,true", "receivedCreated,false"})
     void shouldIncludeWholeEndDay_whenInboxHasObservationAndReceivedTimestamps(String mode, boolean mixed) {

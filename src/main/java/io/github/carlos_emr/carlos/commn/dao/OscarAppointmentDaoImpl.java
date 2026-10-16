@@ -48,6 +48,7 @@ import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
@@ -96,7 +97,14 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 Appointment.class);
         query.setParameter(1, appointmentNo);
         List<Appointment> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Appointment appointment = rows.get(0);
+        // A native lock query may resolve to an entity already in the persistence context.
+        // Use a locking refresh so MariaDB REPEATABLE READ also returns the current row.
+        entityManager.refresh(appointment, LockModeType.PESSIMISTIC_WRITE);
+        return appointment;
     }
 
     @Override

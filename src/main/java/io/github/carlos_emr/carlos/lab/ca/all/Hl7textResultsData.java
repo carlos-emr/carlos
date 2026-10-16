@@ -262,15 +262,32 @@ public class Hl7textResultsData {
                  * Trim and remove HTML
                  */
                 String trimmed = StringUtils.trimToEmpty(result);
-                trimmed = trimmed.replaceAll("\\<br\\s?/?\\>", "");
+                // Trim again once the markers are gone: a result such as "<br /> -5.2" (handlers turn \.br\ into
+                // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
+                // result such as "<br />negative", not at all.
+                trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
                 Matcher matcher = pattern.matcher(trimmed.toLowerCase());
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {
+                    // The match, not the whole result, is the value filed: the filter both selects and extracts.
+                    String value = matcher.group();
+                    // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
+                    // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
+                    // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
+                    // a value is left out of measurements rather than filed as something the lab did not send (#4613).
+                    // Counted in code points: the utf8mb4 column counts characters, not UTF-16 units.
+                    int characters = value.codePointCount(0, value.length());
+                    if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+                        logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a"
+                                + " measurement holds; not filed as a measurement (lab {}, OBX {}-{})",
+                                characters, LogSafe.sanitize(lab_no), i, j);
+                        continue;
+                    }
                     m.setType(measType);
                     m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
-                    m.setDataField(matcher.group());
+                    m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
                     try {
                         m.setCreateDate(simpleDateFormat.parse(dateEntered));
@@ -798,6 +815,16 @@ public class Hl7textResultsData {
     }
 
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public static List<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         if (providerNo == null) {
             providerNo = "";
@@ -822,7 +849,7 @@ public class Hl7textResultsData {
         // note to self: lab reports not found in the providerLabRouting table will not show up - need to ensure every lab is entered in providerLabRouting, with '0'
         // for the providers number if unable to find correct providers
 
-        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate)) {
+        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, acknowledgedSince)) {
 
             String label = String.valueOf(i[0]);
             String lab_no = String.valueOf(i[1]);

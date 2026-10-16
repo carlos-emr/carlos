@@ -50,6 +50,8 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -60,7 +62,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -94,8 +96,20 @@ public final class FrmSetupForm2Action extends ActionSupport {
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager().hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        final String demo;
+        final String formId;
+        try {
+            demo = EncounterPatientContext.requireDemographicNo(request);
+            formId = requireFormId(request);
+        } catch (IllegalArgumentException invalidContext) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        }
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "w", demo)) {
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_form", "r", demo)) {
+            throw new SecurityException("missing required sec object (_form)");
         }
 
         /**
@@ -107,20 +121,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
          **/
         //System.gc();
         MiscUtils.getLogger().debug("SetupFormAction is called");
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        EctEChartBean chartBean = new EctEChartBean();
-        String contextPath = request.getContextPath();
-        String formId = request.getParameter("formId");
-        this.setValue("formId", formId == null ? "0" : formId);
-        String demo = request.getParameter("demographic_no");
-        if (demo == null || bean != null) {
-            demo = bean.getDemographicNo();
-        }
-
-        if (demo != null) {
-            chartBean.setEChartBean(demo);
-        }
-
+        this.setValue("formId", formId);
         String formName = request.getParameter("formName");
         
         // Validate formName before using it as a file stem, redirect target, or table suffix.
@@ -129,6 +130,27 @@ public final class FrmSetupForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
         }
+
+        // An existing record must belong to the explicit patient before any clinical prefill.
+        Properties currentRec;
+        try {
+            currentRec = loadFormRecord(formName, formId, demo);
+        } catch (IllegalArgumentException foreignRecord) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        } catch (SQLException lookupFailure) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to read form record");
+            return NONE;
+        }
+        Demographic patient = new DemographicData().getDemographic(loggedInInfo, demo);
+        if (patient == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form patient or record");
+            return NONE;
+        }
+        request.setAttribute("formPatient", patient);
+        request.setAttribute("formDemographicNo", demo);
+        EctEChartBean chartBean = new EctEChartBean();
+        chartBean.setEChartBean(demo);
         
         String today = UtilDateUtilities.DateToString(new Date(), _dateFormat);
         String visitCod = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
@@ -136,13 +158,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
         List drugLists = getDrugList(loggedInInfo, demo);
         List allergyList = getDrugAllegyList(loggedInInfo, demo);
 
-        Properties currentRec = getFormRecord(formName, formId, demo);
-
         request.setAttribute("today", today);
         //specifically for VT Form
         request.setAttribute("drugs", drugLists);
         request.setAttribute("allergies", allergyList);
-        request.setAttribute("ongoingConcerns", chartBean.ongoingConcerns.equalsIgnoreCase("") ? "None" : chartBean.ongoingConcerns);
+        request.setAttribute("ongoingConcerns", chartBean.ongoingConcerns == null || chartBean.ongoingConcerns.isEmpty() ? "None" : chartBean.ongoingConcerns);
         if (currentRec != null) {
             this.setValue("visitCod", currentRec.getProperty("visitCod", ""));
             this.setValue("diagnosisVT", currentRec.getProperty("Diagnosis", ""));
@@ -186,9 +206,11 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     request.setAttribute(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
                 } else {
                     // Set default values for new form entries
+                    String initialDate = "VTForm".equals(formName)
+                            && ("iEx".equals(mt.getType()) || "WHR".equals(mt.getType())) ? "" : today;
                     this.setValue(mt.getType() + "Value", "");
-                    this.setValue(mt.getType() + "Date", today);
-                    request.setAttribute(mt.getType() + "Date", today);
+                    this.setValue(mt.getType() + "Date", initialDate);
+                    request.setAttribute(mt.getType() + "Date", initialDate);
                     request.setAttribute(mt.getType() + "Comments", "");
                 }
 
@@ -207,8 +229,9 @@ public final class FrmSetupForm2Action extends ActionSupport {
             MiscUtils.getLogger().debug("This file must be placed at www/form");
             MiscUtils.getLogger().error("Error", e);
         }
-        // formName already validated above, safe to use in redirect URL
-        response.sendRedirect(contextPath + "/form/form" + formName);
+        // Keep patient identity and clinical prefill in this request, never in the shared session.
+        request.setAttribute("formValues", values);
+        request.getRequestDispatcher("/WEB-INF/jsp/form/form" + formName + ".jsp").forward(request, response);
         return NONE;
     }
 
@@ -266,42 +289,43 @@ public final class FrmSetupForm2Action extends ActionSupport {
         }
     }
 
-    private Properties getFormRecord(String formName, String formId, String demographicNo) {
+    /** Both legacy form-ID spellings must identify the same record, or a new form (0). */
+    static String requireFormId(HttpServletRequest request) {
+        String formId = null;
+        for (String name : new String[]{"formId", "value(formId)"}) {
+            String[] submitted = request.getParameterValues(name);
+            if (submitted == null) continue;
+            for (String value : submitted) {
+                if (value == null || !value.matches("[0-9]{1,10}")) {
+                    throw new IllegalArgumentException("Invalid form record");
+                }
+                String candidate = Integer.toString(Integer.parseInt(value));
+                if (formId != null && !formId.equals(candidate)) {
+                    throw new IllegalArgumentException("Conflicting form records");
+                }
+                formId = candidate;
+            }
+        }
+        return formId == null ? "0" : formId;
+    }
+
+    /** Called only after the form suffix is checked against the registered SetupForm table. */
+    static Properties loadFormRecord(String trustedFormName, String formId, String demographicNo) throws SQLException {
+        if ("0".equals(formId)) return null;
         Properties props = new Properties();
-        try {
-
-            if (formId != null) {
-                if (Integer.parseInt(formId) > 0) {
-                    String trustedFormName = validateSetupFormName(formName);
-                    if (trustedFormName == null) {
-                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord");
-                        return null;
-                    }
-                    
-                    // Using parameterized values for formId and demographicNo
-                    // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request -- table suffix is allowlisted by validateSetupFormName(); values remain JDBC-bound.
-                    String sql = setupFormRecordSql(trustedFormName);
-                    try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                            LegacyJdbcQuery.trustedSelectSql(sql),
-                            Integer.parseInt(formId),
-                            Integer.parseInt(demographicNo))) {
-
-                        if (rs.next()) {
-                            ResultSetMetaData md = rs.getMetaData();
-                            for (int i = 1; i <= md.getColumnCount(); i++) {
-                                String name = md.getColumnName(i);
-                                String value = Misc.getString(rs, i);
-                                if (value != null) props.setProperty(name, value);
-                            }
-                        }
-                    }
-                } else return null;
-            } else return null;
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Non-numeric formId or demographicNo in getFormRecord");
-            return null;
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+        String sql = setupFormRecordSql(trustedFormName);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                LegacyJdbcQuery.trustedSelectSql(sql), Integer.parseInt(formId), Integer.parseInt(demographicNo))) {
+            if (!rs.next()) throw new IllegalArgumentException("Invalid form patient or record");
+            ResultSetMetaData md = rs.getMetaData();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                String column = md.getColumnName(i);
+                // VT's uneditable history must retain SQL NULL and raw whitespace on save.
+                boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(
+                        "iExValue", "iExDate", "iExComments", "WHRValue", "WHRDate", "WHRComments").contains(column);
+                String value = retainedVtField ? rs.getString(i) : Misc.getString(rs, i);
+                if (value != null) props.setProperty(column, value);
+            }
         }
         return props;
     }
@@ -375,6 +399,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         while (index >= 0) {
             boolean hasRoutePrefix = index == 0 || formValue.charAt(index - 1) == '/';
             int next = index + "SetupForm".length();
+            if (formValue.startsWith(".do", next)) next += 3;
             boolean hasRouteSuffix = next == formValue.length()
                     || formValue.charAt(next) == '?'
                     || formValue.charAt(next) == '&'
@@ -387,7 +412,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         return false;
     }
 
-    private String setupFormRecordSql(String trustedFormName) {
+    private static String setupFormRecordSql(String trustedFormName) {
         // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
         // validateSetupFormName(), which enforces a bare suffix and confirms the
         // corresponding form table is registered for SetupForm; values stay bound.

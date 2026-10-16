@@ -196,7 +196,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
+            // The lab displays print each linked tickler's assignee after this call returns; fetch it here
+            // (single-valued, so no duplicate rows) instead of leaving a lazy proxy the JSP cannot load.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, demoNo);
             results.addAll(query.getResultList());
@@ -229,7 +232,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
+            // Same reason as findByTicklerNosDemo: the lab display (labDisplayAjax.jsp) prints the assignee.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, assignedTo);
             query.setParameter(3, demoNo);

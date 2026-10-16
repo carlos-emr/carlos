@@ -45,6 +45,7 @@ import java.util.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -118,12 +119,19 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
+        final String patient;
+        try {
+            patient = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", patient)) {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
 
-        Integer demographicNo = Integer.valueOf(request.getParameter("demographic_no"));
+        Integer demographicNo = Integer.valueOf(patient);
         String typeIdName = request.getParameter("type");
         String typeIdName2 = request.getParameter("type2");
 

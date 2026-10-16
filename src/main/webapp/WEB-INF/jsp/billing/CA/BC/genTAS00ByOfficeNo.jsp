@@ -156,13 +156,15 @@
               for (TeleplanS00 result:results) {   
                   counter ++;
                  account = result.getOfficeNo();
+                 // Only a numeric office number links to its claim.
+                 boolean officeNoLinked = result.getOfficeNo() != null && result.getOfficeNo().matches("\\d+");
                    
           %>
         <tr>
-            <td width="5%" height="16"><a
+            <td width="5%" height="16"><% if (officeNoLinked) { %><a
                     <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
-            </a>&nbsp;
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><% } %><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
+            <% if (officeNoLinked) { %></a><% } %>&nbsp;
             </td>
             <td width="5%" height="16"><%=result.getPractitionerNo()%>&nbsp;
             </td>

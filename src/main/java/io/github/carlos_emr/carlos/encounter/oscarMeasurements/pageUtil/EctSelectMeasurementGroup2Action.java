@@ -57,6 +57,9 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctSelectMeasurementGroup2Action extends ActionSupport {
+    /** The forward value (and Struts result) that deletes the selected group. */
+    private static final String DELETE = "delete";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -76,10 +79,18 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 
+        // forward=type|style|dsHTML only open an editor; forward=delete removes the whole group,
+        // so that one must come from the form's POST, never a link or image tag (issue #3335).
+        if (DELETE.equals(forward) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         HttpSession session = request.getSession();
 
         // Delete requires admin privilege check BEFORE any session mutation
-        if (forward.compareTo("delete") == 0) {
+        if (DELETE.equals(forward)) {
             if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)
                     && !securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
                 throw new SecurityException("missing required sec object (_admin.measurements)");
@@ -87,14 +98,14 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin privilege verified above
             session.setAttribute("groupName", groupName);
             deleteGroup(groupName);
-            return "delete";
+            return DELETE;
         }
 
         // For non-delete paths, store validated groupName for navigation
         // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100
         session.setAttribute("groupName", groupName);
 
-        if (forward.compareTo("style") == 0) {
+        if ("style".equals(forward)) {
             //get the current style
             EctValidation ectValidation = new EctValidation();
             EctStyleSheetBeanHandler sshd = new EctStyleSheetBeanHandler();
@@ -105,7 +116,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
             request.setAttribute("groupName", groupName);
             return "style";
         }
-        if (forward.compareTo("dsHTML") == 0) {
+        if ("dsHTML".equals(forward)) {
 
             String state = "addDSHTML";
             String groupId = null;

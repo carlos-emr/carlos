@@ -27,14 +27,19 @@ import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.service.MyGroupMembershipService;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
 import io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action;
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService;
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -217,6 +222,28 @@ class MutatorActionGetRejectionContractUnitTest {
             // non-POST before the privilege check and before any DAO lookup.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
                     "_measurement", "d"),
+            // Customize Measurements writes (issue #3335). Every one is the target of a POST form
+            // and 405s any other method before its privilege check and before any DAO use; the
+            // pages that show those forms are separate GET routes (Setup*, View*). The two LOINC
+            // mapping actions render their own page on GET, so they are CONDITIONAL_MUTATORS.
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDefineNewMeasurementGroup2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementGroup2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctEditMeasurementStyle2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasuringInstruction2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementTypes2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementStyleSheet2Action",
+                    "_admin.measurements", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action",
+                    "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
             // --- report ---
@@ -278,6 +305,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
             Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                     "_lab", "w"),
+            // --- providers ---
+            // Preferences > View groups > Delete (#4515): removes the ticked group memberships.
+            // The providers package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+            Arguments.of("io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action",
+                    "_admin", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
@@ -354,6 +386,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
+        // Covered by Pregnancy2ActionUnitTest for both GET and HEAD.
+        "io.github.carlos_emr.carlos.commn.web.Pregnancy2Action",
         // Inbox queue admin (#4428): the view methods permit GET; method=addNewQueue inserts a queue
         // and its security object and must be a POST with _edoc write. Covered by
         // DmsInboxManage2ActionUnitTest (shouldReturn405_whenAddNewQueueIsNotPost).
@@ -371,6 +406,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
         // Covered by LabDisplaySettings2ActionUnitTest.
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
+        // Schedule groups (#4515): GET opens Add a Group; the group list's Delete (submit present)
+        // removes memberships and must be a POST. Covered by AdminGroupActionsTest.
+        "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
@@ -467,7 +505,16 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
-        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action"
+        "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // Customize Measurements ▸ Edit Measurement Group: forward=type|style|dsHTML only open an
+        // editor; forward=delete removes the group and is POST-only (issue #3335). Covered by
+        // EctSelectMeasurementGroup2ActionUnitTest.
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSelectMeasurementGroup2Action",
+        // Customize Measurements ▸ Add / Remove-Remap Measurement Mapping: a GET without write
+        // parameters renders the page (and its Search); identifier+loinc_code (a mapping) or id
+        // (a removal/remap) is POST-only (issue #3335). Covered by EctMeasurementMapWrite2ActionsUnitTest.
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementMap2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctRemoveMeasurementMap2Action"
     );
 
     /**
@@ -516,6 +563,9 @@ class MutatorActionGetRejectionContractUnitTest {
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
+        // Measurements (issue #3335): every *2Action in the slice was audited; the writes are
+        // registered above and the Setup*/display actions are read-only.
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.",
         "io.github.carlos_emr.carlos.documentManager.",
         "io.github.carlos_emr.carlos.hospitalReportManager.",
         "io.github.carlos_emr.carlos.messenger.",
@@ -536,6 +586,7 @@ class MutatorActionGetRejectionContractUnitTest {
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
+        "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
@@ -557,9 +608,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
-        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
-        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",
-        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
+        // (EctMeasurements2Action, HealthTrackerUpdate2Action and EctDeleteData2Action are covered by
+        // the encounter.oscarMeasurements. entry in IN_SCOPE_PACKAGE_PREFIXES.)
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
@@ -575,6 +625,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
+        // providers slice: DeleteMyGroupMembers2Action deletes group memberships and is POST-only
+        // (unconditional mutator, #4515).
+        "io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action",
         // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
@@ -792,6 +845,16 @@ class MutatorActionGetRejectionContractUnitTest {
         if (actionClass.equals(RestoreEForm2Action.class)) {
             return new RestoreEForm2Action(mock(SecurityInfoManager.class));
         }
+        if (actionClass.equals(EctDefineNewMeasurementGroup2Action.class)) {
+            return new EctDefineNewMeasurementGroup2Action(mock(SecurityInfoManager.class),
+                    (MeasurementGroupCreationService) autoMocks.computeIfAbsent(
+                            MeasurementGroupCreationService.class, Mockito::mock));
+        }
+        if (actionClass.equals(EctAddMeasurementGroup2Action.class)) {
+            return new EctAddMeasurementGroup2Action(mock(SecurityInfoManager.class),
+                    (MeasurementGroupCreationService) autoMocks.computeIfAbsent(
+                            MeasurementGroupCreationService.class, Mockito::mock));
+        }
         if (actionClass.equals(ERefer2Action.class)) {
             return new ERefer2Action(mock(SecurityInfoManager.class),
                     (DocumentAttachmentManager) autoMocks.computeIfAbsent(DocumentAttachmentManager.class, Mockito::mock),
@@ -813,6 +876,11 @@ class MutatorActionGetRejectionContractUnitTest {
             ProviderLinkingRulesService rules = (ProviderLinkingRulesService)
                     autoMocks.computeIfAbsent(ProviderLinkingRulesService.class, Mockito::mock);
             return new SaveProviderLinkingRules2Action(mock(SecurityInfoManager.class), rules);
+        }
+        if (actionClass.equals(DeleteMyGroupMembers2Action.class)) {
+            MyGroupMembershipService memberships = (MyGroupMembershipService)
+                    autoMocks.computeIfAbsent(MyGroupMembershipService.class, Mockito::mock);
+            return new DeleteMyGroupMembers2Action(mock(SecurityInfoManager.class), memberships);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

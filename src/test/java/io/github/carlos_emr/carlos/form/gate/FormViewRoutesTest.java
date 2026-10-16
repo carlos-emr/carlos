@@ -24,6 +24,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FormViewRoutesTest {
 
     @Test
+    void shouldResolveRegisteredLegacySetupFormWithoutChangingItsPatientQuery() {
+        assertThat(FormViewRoutes.resolveActionPath("../form/SetupForm.do?formName=VTForm&demographic_no="))
+                .isEqualTo("/form/SetupForm?formName=VTForm&demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("/form/SetupForm?formName=VTForm&demographic_no=101"))
+                .isEqualTo("/form/SetupForm?formName=VTForm&demographic_no=101");
+        assertThat(FormViewRoutes.resolveActionPath("/form/ArbitraryAction.do?demographic_no=101")).isNull();
+    }
+
+    @Test
     void shouldResolveActionRoutes_forEncounterFormDbValues() {
         // Regression: these strings are stored in the encounterForm.form_value column
         // (seeded in the Flyway baseline, database/mysql/migration/**).

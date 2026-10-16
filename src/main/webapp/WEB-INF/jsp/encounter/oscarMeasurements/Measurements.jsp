@@ -318,7 +318,7 @@
                                                             </td>
                                                             <td>
                                                                 <c:set var="attributeName" value="mInstrcs${ctr.index}" />
-                                                                <c:forEach var="mInstrc" items="${sessionScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
+                                                                <c:forEach var="mInstrc" items="${requestScope[attributeName].measuringInstructionList}" varStatus="instructionStatus">
                                                                     <input type="radio" name="inputMInstrc-${ctr.index}" id="inputMInstrc-${ctr.index}-${instructionStatus.index}" value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" checked />
                                                                     <label for="inputMInstrc-${ctr.index}-${instructionStatus.index}">${carlos:forHtmlContent(mInstrc.measuringInstrc)}</label><br>
                                                                 </c:forEach>
@@ -364,7 +364,7 @@
                                                                 <td>&nbsp;${carlos:forHtmlContent(measurementType.lastComments)}</td>
                                                                 <td>
                                                                     <i class="fa-solid fa-clock fa-lg" title="<fmt:message key='encounter.Index.oldMeasurements'/>"
-                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}'); return false;">
+                                                                       onclick="popupPage(300,800,'encounter/oscarMeasurements/SetupDisplayHistory?type=${carlos:forJavaScriptAttribute(carlos:forUriComponent(measurementType.type))}&amp;demographicNo=${carlos:forJavaScriptAttribute(demo)}'); return false;">
                                                                     </i>
                                                                 </td>
                                                             </tr>

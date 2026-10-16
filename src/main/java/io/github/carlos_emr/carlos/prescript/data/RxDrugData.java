@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Vector;
 
 public class RxDrugData {
@@ -875,12 +876,22 @@ public class RxDrugData {
      * triggered by the specified drug. Optionally collects allergies that could not be
      * matched by the service into the {@code missing} list.
      *
+     * <p>ATC class allergens ({@link AllergyAtcClass}, the Penicillin and Sulfa shortcuts) are also
+     * decided here, from their class code: a drug whose ATC code is under the class is a warning,
+     * and a code that places it outside the class means the allergy was checked and did not match,
+     * so it is not reported as missing. DrugRef cannot be relied on alone, because it resolves a
+     * class by its name, which a DPD extract may not carry. A warning DrugRef returns is kept, and
+     * for a shortcut allergy DrugRef is asked under both of the class's names (AHFS, as the old
+     * shortcut recorded it, and ATC), so a product the DPD files outside the ATC class but under
+     * the AHFS one still warns.</p>
+     *
      * @param atcCode  String the ATC code of the drug to check for allergy warnings
      * @param allergies Allergy[] array of patient allergies to check against; must not be null
+     *                 or contain null
      * @param missing  List&lt;Allergy&gt; optional list to collect allergies that could not be
      *                 matched by the DrugRef service; pass null to discard missing results
-     * @return Allergy[] array of allergies that triggered warnings for the specified drug;
-     *         empty array if no warnings are found
+     * @return Allergy[] array of allergies that triggered warnings for the specified drug, in
+     *         the order of {@code allergies}; empty array if no warnings are found
      * @throws Exception if the drug reference service call fails
      * @since 2026-02-26
      */
@@ -888,14 +899,22 @@ public class RxDrugData {
         if (allergies.length == 0) return new Allergy[0];
         Vector<Map<String, String>> allergyData = new Vector<>();
         for (int i = 0; i < allergies.length; i++) {
-            Allergy allergy = allergies[i];
-            Map<String, String> item = new Hashtable<>();
-            item.put("id", String.valueOf(i));
-            item.put("description", allergy.getDescription() == null ? "" : allergy.getDescription());
-            item.put("type", String.valueOf(allergy.getTypeCode()));
-            item.put("ATC", allergy.getAtc() == null ? "" : allergy.getAtc());
-            if (allergy.getRegionalIdentifier() != null) item.put("uuid", allergy.getRegionalIdentifier());
-            allergyData.add(item);
+            // Callers pass the patient's allergy list; a null entry is a caller bug, refused here
+            // before DrugRef is asked rather than surfacing later as an unexplained NPE.
+            Allergy allergy = Objects.requireNonNull(allergies[i], "allergies must not contain null");
+            AllergyAtcClass.Shortcut shortcut = AllergyAtcClass.shortcutOf(allergy);
+            if (shortcut != null) {
+                // A shortcut allergy is asked under both names DrugRef may hold the class under, as
+                // the AHFS class the old shortcut recorded and as the ATC class (#4576). The AHFS
+                // class also covers products the DPD files outside the ATC class, such as an
+                // H. pylori pack containing amoxicillin. Both entries carry this allergy's index.
+                allergyData.add(allergyItem(i, shortcut.allergen(), String.valueOf(AllergyAtcClass.AHFS_TYPE_CODE), shortcut.atcClass(), null));
+                allergyData.add(allergyItem(i, shortcut.allergen(), String.valueOf(AllergyAtcClass.TYPE_CODE), shortcut.atcClass(), null));
+                continue;
+            }
+            allergyData.add(allergyItem(i, allergy.getDescription() == null ? "" : allergy.getDescription(),
+                    String.valueOf(allergy.getTypeCode()), allergy.getAtc() == null ? "" : allergy.getAtc(),
+                    allergy.getRegionalIdentifier()));
         }
         List<?> response = new RxDrugRef().getAlergyWarnings(atcCode, allergyData);
         if (response == null || response.isEmpty() || !(response.getFirst() instanceof Map<?, ?> result)
@@ -903,23 +922,49 @@ public class RxDrugData {
                 || !(result.get("missing") instanceof List<?> unchecked)) {
             throw new IllegalStateException("DrugRef returned an incomplete allergy-check response");
         }
-        List<Allergy> found = resolveAllergyIndices(warnings, allergies);
-        List<Allergy> unresolved = resolveAllergyIndices(unchecked, allergies);
-        if (missing != null) missing.addAll(unresolved);
+        // Flags by position, not lists of allergies: an unsaved Allergy has no id, and
+        // Allergy.equals compares ids.
+        boolean[] warned = resolveAllergyIndices(warnings, allergies.length);
+        boolean[] notChecked = resolveAllergyIndices(unchecked, allergies.length);
+        // ATC class allergens are decided from their class code, which DrugRef ignores: it checks
+        // a class by name, and a class name the DPD extract lacks comes back as missing (#4576).
+        // A drug without a usable code, or one coded above the class, leaves DrugRef's answer as it is.
+        for (int i = 0; i < allergies.length; i++) {
+            String classCode = AllergyAtcClass.classCodeOf(allergies[i]);
+            if (classCode == null || !AllergyAtcClass.decides(classCode, atcCode)) continue;
+            if (AllergyAtcClass.covers(classCode, atcCode)) warned[i] = true;
+            notChecked[i] = false;
+        }
+        List<Allergy> found = new ArrayList<>();
+        for (int i = 0; i < allergies.length; i++) {
+            if (warned[i]) found.add(allergies[i]);
+            else if (notChecked[i] && missing != null) missing.add(allergies[i]);
+        }
         return found.toArray(new Allergy[0]);
     }
 
-    private static List<Allergy> resolveAllergyIndices(List<?> indices, Allergy[] allergies) {
-        List<Allergy> result = new ArrayList<>();
+    /** One allergy as DrugRef's get_allergy_warnings takes it; {@code index} is its position in the caller's array. */
+    private static Map<String, String> allergyItem(int index, String description, String type, String atc, String regionalIdentifier) {
+        Map<String, String> item = new Hashtable<>();
+        item.put("id", String.valueOf(index));
+        item.put("description", description);
+        item.put("type", type);
+        item.put("ATC", atc);
+        if (regionalIdentifier != null) item.put("uuid", regionalIdentifier);
+        return item;
+    }
+
+    private static boolean[] resolveAllergyIndices(List<?> indices, int allergyCount) {
+        boolean[] result = new boolean[allergyCount];
         for (Object value : indices) {
             if (!(value instanceof String text)) {
                 throw new IllegalStateException("DrugRef returned a non-string allergy index");
             }
             int index = Integer.parseInt(text);
-            if (index < 0 || index >= allergies.length) {
+            if (index < 0 || index >= allergyCount) {
                 throw new IllegalStateException("DrugRef returned an out-of-range allergy index");
             }
-            if (!result.contains(allergies[index])) result.add(allergies[index]);
+            result[index] = true;
         }
         return result;
     }
