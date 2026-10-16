@@ -53,6 +53,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Only gates that mutate admin-level state ({@code _admin w}) or require
  * demographic writes ({@code _demographic w}) deviate.
  *
+ * <p>Two narrow hooks exist for gates whose refusal or request shape needs more than the shared
+ * check: {@link #renderPrivilegeDenied} may replace the generic refusal page with a more specific
+ * one (it can never turn a refusal into the view), and {@link #checkRequest} adds per-request
+ * checks after the gate privilege passed.
+ *
  * @since 2026-04-13
  */
 public abstract class BaseProviderViewGate2Action extends ActionSupport {
@@ -82,6 +87,41 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
      */
     protected boolean requirePost() {
         return false;
+    }
+
+    /** The privilege service, for subclasses whose request checks need more than the gate object. */
+    protected final SecurityInfoManager securityInfoManager() {
+        return securityInfoManager;
+    }
+
+    /**
+     * Renders the refusal for a caller who lacks the gate privilege.
+     *
+     * <p>The default throws the canonical {@link SecurityException}, which the provider package
+     * maps to the generic 403 security-error page. A subclass may instead set a 403 status and
+     * return a result naming a more specific refusal page. Returning {@link #SUCCESS} is treated
+     * as a refusal too: the gated view is never rendered for a caller without the privilege.</p>
+     *
+     * @return the result to render; never the gated view
+     */
+    protected String renderPrivilegeDenied(HttpServletRequest request, HttpServletResponse response,
+                                           LoggedInInfo loggedInInfo) {
+        throw new SecurityException("missing required sec object (" + getSecurityObject() + ")");
+    }
+
+    /**
+     * Request-specific checks that run after the gate privilege passed.
+     *
+     * <p>Return {@code null} to render the view. To stop, write the response (for example
+     * {@code sendError}) and return {@link #NONE}, or throw {@link SecurityException} for a
+     * missing request-specific privilege.</p>
+     *
+     * @return {@code null} to continue, or the result to return instead of the view
+     * @throws IOException when writing an error response fails
+     */
+    protected String checkRequest(HttpServletRequest request, HttpServletResponse response,
+                                  LoggedInInfo loggedInInfo) throws IOException {
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -125,10 +165,15 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(
                 loggedInInfo, getSecurityObject(), getAccessRight(), null)) {
-            throw new SecurityException(
-                    "missing required sec object (" + getSecurityObject() + ")");
+            String refusal = renderPrivilegeDenied(request, response, loggedInInfo);
+            if (refusal == null || SUCCESS.equals(refusal)) {
+                throw new SecurityException(
+                        "missing required sec object (" + getSecurityObject() + ")");
+            }
+            return refusal;
         }
 
-        return SUCCESS;
+        String stop = checkRequest(request, response, loggedInInfo);
+        return stop != null ? stop : SUCCESS;
     }
 }

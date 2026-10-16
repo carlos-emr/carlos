@@ -225,6 +225,26 @@ class TestGenerator(unittest.TestCase):
             ov)
         self.assertEqual(derived, {"kept": "b", "pfx.k": "b"})
 
+    def test_exempt_keys_are_not_listed_as_divergent_carlos_defaults(self):
+        ov = types.SimpleNamespace(
+            KEYS={"kept": {"d": "carry"}, "exempt": {"d": "carry"}},
+            PREFIX_RULES=[],
+            DIVERGENCE_REPORT_EXEMPT={"exempt": "why"})
+        derived = self.gen.divergent_carlos_defaults(
+            {"kept": "a", "exempt": "a"}, {"kept": "b", "exempt": "b"}, ov)
+        self.assertEqual(derived, {"kept": "b"})
+
+    def test_every_exempt_key_is_a_divergent_carry_key(self):
+        # an exemption that no longer suppresses anything is stale curation
+        carlos = self.gen.parse_properties(self.gen.CARLOS_PROPERTIES)
+        ov = self.gen.load_module(GEN.parent / "overrides_props.py")
+        from carlos_ctl import o19map_props
+        for key in ov.DIVERGENCE_REPORT_EXEMPT:
+            self.assertEqual(self.gen.overlay_disposition(key, ov), "carry", key)
+            self.assertNotEqual(o19map_props.O19_DEFAULTS[key],
+                                carlos[key], key)
+            self.assertNotIn(key, o19map_props.CARLOS_DEFAULTS, key)
+
     def test_bundle_renames_are_verified_against_the_carlos_bundle(self):
         # a target that does not exist would carry a token resolving to ""
         # into every signed note, so it must not be emitted at all

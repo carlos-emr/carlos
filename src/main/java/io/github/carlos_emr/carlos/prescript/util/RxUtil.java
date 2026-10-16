@@ -36,7 +36,6 @@ import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -1663,17 +1662,6 @@ public class RxUtil {
         return retStr;
 
     }
-
-    public static String findInterDrugStr(final UserPropertyDAO propDAO, String provider, final RxSessionBean bean) {
-        // External drug interaction service (MyDrugRef) has been removed
-        // Local MediSpan drug interactions are handled by DrugrefUtil instead
-        logger.debug("External drug interaction checking disabled - using local MediSpan via DrugrefUtil");
-        return "";
-    }
-
-
-    // External drug interaction service removed - local MediSpan used via DrugrefUtil
-
 
     // MyDrugRef callWebserviceLite method removed - no longer needed
 

@@ -127,6 +127,24 @@ test('DM and PVD native handlers enable only the applicable eye and foot groups'
   assert.equal(disabled(eyeTypes), true);
 });
 
+for (const [diabetes, pvd] of [[false, false], [false, true], [true, false], [true, true]]) {
+  test(`saved DM=${diabetes} and PVD=${pvd} restore the applicable controls before another save`, () => {
+    const p = page({DMValue: diabetes ? 'yes' : 'no', PVDValue: pvd ? 'yes' : 'no',
+      iDiaValue: 'yes', FTNeValue: 'no'});
+    for (const type of eyeTypes) {
+      assert(p.fields(`value(${type}Value)`).every(field => field.disabled === !diabetes));
+    }
+    for (const type of footTypes) {
+      assert(p.fields(`value(${type}Value)`).every(field => field.disabled === !(diabetes || pvd)));
+    }
+    assert.equal(p.context.document.getElementById('examinationEye').style.display, diabetes ? 'block' : 'none');
+    assert.equal(p.context.document.getElementById('examinationFoot').style.display, diabetes || pvd ? 'block' : 'none');
+    p.context.onSave();
+    assert.equal(p.submitted().get('value(iDiaValue)'), diabetes ? 'yes' : null);
+    assert.equal(p.submitted().get('value(FTNeValue)'), diabetes || pvd ? 'no' : null);
+  });
+}
+
 test('DpSc and FTEx No controls share their Yes group and clear without touching adjacent fields', () => {
   const p = page({DMValue: 'yes'});
   for (const [type, index] of [['DpSc', 'DpScId'], ['FTEx', 'FTExId']]) {

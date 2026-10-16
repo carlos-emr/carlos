@@ -155,8 +155,7 @@
                                 <% if (demographicNo == null) { %>
                                 <input type="button" class="smallButton"
                                        <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
-                                       value="<fmt:message key="oscar                                       
-MDS.index.btnSearch"/>"
+                                       value="<fmt:message key="oscarMDS.index.btnSearch"/>"
                                        onClick="window.location='${pageContext.servletContext.contextPath}/oscarMDS/ViewSearch?providerNo=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>'"/>
                                 <% } %>
                                 <input type="button" class="smallButton"
