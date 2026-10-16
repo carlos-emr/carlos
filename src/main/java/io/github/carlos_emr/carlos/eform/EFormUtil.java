@@ -1484,11 +1484,12 @@ public class EFormUtil {
 
     /**
      * The optional value right after an attribute name: group 1 is the value with its quotes. It is
-     * applied with {@code lookingAt} at the end of each name. Because a name never ends at whitespace or
-     * {@code =}, trying the value only after the whole name finds exactly what one combined
-     * {@code name(value)?} pattern found; it is kept separate so each pattern stays simple.
+     * applied with {@code lookingAt} to a region that starts at the end of each name, and the {@code ^}
+     * says so: it is only ever tried there, never at every position of the tag. Because a name never
+     * ends at whitespace or {@code =}, trying the value only after the whole name finds exactly what one
+     * combined {@code name(value)?} pattern found; it is kept separate so each pattern stays simple.
      */
-    static final Pattern ATTRIBUTE_VALUE_PATTERN = Pattern.compile("\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)");
+    static final Pattern ATTRIBUTE_VALUE_PATTERN = Pattern.compile("^\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)");
 
     /**
      * One attribute found in a tag.
