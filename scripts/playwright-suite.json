@@ -4673,7 +4673,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Preventions Print posts to a /WEB-INF/ URL (404).",
+      "notes": "Its last step prints one seeded prevention; prevention-print covers the print form in depth.",
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -7168,6 +7168,21 @@
       "env": [],
       "fixtures": "Owns the synthetic patient; deletes its preventions (+ext) and any chart notes the popups left and asserts none remain.",
       "notes": "Issue #4410 item 2: the prevention form carries a one-time submission token; a double click stores one prevention, a later intentional add of the same immunization is stored, a replay of the saved form stores nothing and answers the close page, and a token used for another record is refused with 409."
+    },
+    {
+      "name": "prevention-print",
+      "script": "scripts/prevention-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic patient with four seeded preventions (+ext) and one Tdap added through the brand picker; deletes its preventions (+ext) and any chart notes the popups left and asserts none remain.",
+      "notes": "Alpha report that Enable Print did not work and that the same happened when adding vaccines. Print posts only the ticked type names (no comments, which the packaged WAF refused on this route) and the PDF is read from the chart; Print Immunizations Only and an empty selection are checked; a forged or unprintable request never prints request text or saves HTML as Prevention.pdf; Enter in the vaccine box opens the top suggestion instead of submitting the print form; a vaccine added from the picker refreshes the page and prints with its brand and lot."
     },
     {
       "name": "double-submit-demographic-add",
