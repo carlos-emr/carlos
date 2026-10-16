@@ -64,6 +64,15 @@ class FormViewRoutesUnitTest {
     }
 
     @Test
+    void shouldResolveBcSeededBpmhLink_toExtensionlessRoute() {
+        // The BC seed's encounterForm row for BPMH (#4732).
+        assertThat(FormViewRoutes.resolveActionPath("../formBPMH.do?demographic_no="))
+                .isEqualTo("/formBPMH?demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("/formBPMH.do"))
+                .isEqualTo("/formBPMH");
+    }
+
+    @Test
     void shouldReturnNull_forRemovedEcaresRoute() {
         // eCARES was removed; legacy form links must no longer resolve to the
         // deleted Struts route.

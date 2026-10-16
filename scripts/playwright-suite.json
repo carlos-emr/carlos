@@ -5209,6 +5209,24 @@
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "bpmh-form",
+      "script": "scripts/bpmh-form-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Owned FAKE-PW patient with one active allergy and one drug with an ICD-9 reason; the BPMH Forms-menu registration is the BC seed's row (../formBPMH.do?demographic_no=) given a display order for the run, restored if it existed and deleted if inserted. Cleanup deletes the patient's formBPMH rows, drug reason, drug and allergy and asserts them gone. The registration is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Regression for #4731 (formBPMH answered 500: fetch() used an unset handler) and #4732 (the BC seed's .do link was not routed): Forms > BPMH opens the form with the patient's allergy, drug and provider; Save stores the note and the drug's instruction and shows the saved form; the saved entry reopens it; Print answers a PDF."
+    },
+    {
       "name": "clinical-forms-save-reopen-vascular-tracker",
       "script": "scripts/clinical-forms-save-reopen-playwright-checks.js",
       "envSet": {

@@ -461,6 +461,11 @@ public class BpmhForm2Handler {
             if ((drugList != null) && (drugList.size() > 0)) {
 
                 bpmhDrugBeans = getBpmhFormBean().getDrugs();
+                // A new form posts no drug rows; start the list the current medications are merged into (#4731).
+                if (bpmhDrugBeans == null) {
+                    bpmhDrugBeans = new ArrayList<>();
+                    getBpmhFormBean().setDrugs(bpmhDrugBeans);
+                }
                 drugFetch = new RxDrugData();
 
                 for (BpmhDrug bpmhDrugItem : bpmhDrugBeans) {
@@ -501,6 +506,9 @@ public class BpmhForm2Handler {
                     } catch (Exception e) {
                         logger.fatal("Failed to copy bean properties", e);
                     }
+                    // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
+                    // to match each typed instruction to its drug (#4731).
+                    bpmhDrug.setId(drugId);
 
                     // drug reason needs to be hacked together from different
                     // sources.
