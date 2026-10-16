@@ -35,7 +35,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +48,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -135,7 +138,8 @@ class ActionUtilsOutboxTimestampUnitTest {
         Date before = new Date();
 
         try (LogCapture log = LogCapture.forLogger(ActionUtils.class)) {
-            ActionUtils.stageGeneratedClaimFiles();
+            // Files from before this open may be missing, so the tab is told.
+            assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
 
             assertThat(log.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR));
             assertThat(log.events()).anyMatch(event -> event.getLevel() == Level.WARN);
@@ -143,6 +147,7 @@ class ActionUtilsOutboxTimestampUnitTest {
 
         assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
         assertThat(ActionUtils.getOutboxTimestamp()).isAfterOrEqualTo(before);
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
     }
 
     @Test
@@ -167,13 +172,13 @@ class ActionUtilsOutboxTimestampUnitTest {
         Path generated = Files.write(download.resolve("HJ123456.001"), claim);
         Files.setLastModifiedTime(generated, FileTime.from(now.minus(5, ChronoUnit.MINUTES)));
 
-        ActionUtils.stageGeneratedClaimFiles();
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
 
         assertThat(outbox.resolve("HJ123456.001")).hasBinaryContent(claim);
 
         // Submitted and moved out of the outbox: the next open must not stage it again.
         Files.delete(outbox.resolve("HJ123456.001"));
-        ActionUtils.stageGeneratedClaimFiles();
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
 
         assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
     }
@@ -195,7 +200,7 @@ class ActionUtilsOutboxTimestampUnitTest {
                             any(File.class), anyBoolean()))
                     .thenThrow(new IOException("No space left on device"));
 
-            ActionUtils.stageGeneratedClaimFiles();
+            assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
         }
 
         assertThat(outbox.resolve("HJ123456.001")).exists();
@@ -204,7 +209,7 @@ class ActionUtilsOutboxTimestampUnitTest {
 
         // The first file was sent and moved out of the outbox before the next open.
         Files.delete(outbox.resolve("HJ123456.001"));
-        ActionUtils.stageGeneratedClaimFiles();
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
 
         assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
         assertThat(outbox.resolve("HJ123456.002")).exists();
@@ -218,10 +223,10 @@ class ActionUtilsOutboxTimestampUnitTest {
         claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
         CarlosProperties.getInstance().put("HOME_DIR", tempDir.resolve("not-there") + "/");
 
-        ActionUtils.stageGeneratedClaimFiles();
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
 
         CarlosProperties.getInstance().put("HOME_DIR", download + "/");
-        ActionUtils.stageGeneratedClaimFiles();
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
 
         assertThat(outbox.resolve("HJ123456.001")).exists();
     }
@@ -239,6 +244,71 @@ class ActionUtilsOutboxTimestampUnitTest {
 
         assertThat(outbox.resolve("HJ123456.001")).exists();
         assertThat(ActionUtils.isOHIPFile("x")).isFalse();
+    }
+
+    @Test
+    void shouldHoldTheWindowAtTheFailedFile_whenItVanishesBeforeItIsCopied() throws Exception {
+        // A failed generation deletes its own claim file. Its time, read again after the
+        // failed copy, was then 0: the record went back to 1970 and the next open copied
+        // every claim file ever written, sent ones too.
+        Instant minute = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MINUTES);
+        ActionUtils.setOutboxTimestamp(Date.from(minute.minus(30, ChronoUnit.MINUTES)));
+        claimFile("HI123456.001", minute.minus(40, ChronoUnit.DAYS));
+        Path vanishing = claimFile("HJ123456.001", minute.plusSeconds(10));
+
+        try (MockedStatic<FileUtils> files = mockStatic(FileUtils.class, CALLS_REAL_METHODS)) {
+            files.when(() -> FileUtils.copyFileToDirectory(
+                            argThat((File file) -> file != null && "HJ123456.001".equals(file.getName())),
+                            any(File.class), anyBoolean()))
+                    .thenAnswer(copy -> {
+                        Files.delete(vanishing);
+                        throw new FileNotFoundException("HJ123456.001 (No such file or directory)");
+                    });
+
+            assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
+        }
+
+        assertThat(ActionUtils.getOutboxTimestamp()).isEqualTo(Date.from(minute.plusSeconds(10).minusMillis(1)));
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isTrue();
+        assertThat(outbox.resolve("HI123456.001")).doesNotExist();
+    }
+
+    @Test
+    void shouldCopyNothing_whenTheLastOpenCannotBeRecorded() throws Exception {
+        // Copying without moving the record would copy the same files on every open,
+        // including ones sent in between.
+        Instant now = Instant.now();
+        ActionUtils.setOutboxTimestamp(Date.from(now.minus(30, ChronoUnit.MINUTES)));
+        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
+        File record = outbox.resolve(".timestamp").toFile();
+        assertThat(record.setWritable(false, false)).isTrue();
+        try {
+            assumeFalse(Files.isWritable(record.toPath()), "the test user bypasses file permissions");
+
+            assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
+
+            assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
+        } finally {
+            record.setWritable(true, true);
+        }
+    }
+
+    @Test
+    void shouldReportAnIncompleteOpen_whenTheLastOpenCannotBeRead() throws Exception {
+        // The window then starts now, so files generated since the real last open may
+        // never be copied; the tab must say so rather than look complete.
+        Files.createDirectory(outbox.resolve(".timestamp"));
+
+        assertThat(ActionUtils.stageGeneratedClaimFiles()).isFalse();
+    }
+
+    @Test
+    void shouldStageOneOpenAtATime_whenTwoUsersOpenTheUploadTabTogether() throws Exception {
+        // Two opens reading the same last open each copy the same files, deleting the
+        // other's copy first, and the later record wins; one open's failed copy is lost.
+        // Static mocks are per thread, so the guard is pinned rather than raced.
+        assertThat(Modifier.isSynchronized(
+                ActionUtils.class.getMethod("stageGeneratedClaimFiles").getModifiers())).isTrue();
     }
 
     private Path claimFile(String name, Instant modified) throws IOException {
