@@ -28,15 +28,27 @@ function loadStampFunctions() {
   const end = source.indexOf('\t// Flag read by efmshowform_data');
   assert.ok(start >= 0 && end > start, 'The signature stamp block was not found in editControl2.js');
 
+  const probeRequests = [];
   const context = {
     cfg_isrc: IMAGE_SRC,
     ImgArray: [],
     inputs: {},
     cacheData: {},
     console: { log() {} },
-    // The per-provider existence probe. Never resolves on its own here; tests that care about the
-    // "no signature on file" branch set carlosProviderStampProbe directly, which is what the real
-    // onerror handler does.
+    // The per-provider existence probe. A request never answers on its own here: tests that drive
+    // it call respond() or fail() on the recorded request, the way the browser calls onload or
+    // onerror. Tests that only need the "no signature on file" branch set carlosProviderStampProbe
+    // directly, which is what a 204 answer does.
+    probeRequests,
+    XMLHttpRequest: function XMLHttpRequest() {
+      const request = { method: '', url: '', sent: false };
+      probeRequests.push(request);
+      this.status = 0;
+      this.open = (method, url) => { request.method = method; request.url = url; };
+      this.send = () => { request.sent = true; };
+      request.respond = (status) => { this.status = status; if (this.onload) { this.onload(); } };
+      request.fail = () => { if (this.onerror) { this.onerror(); } };
+    },
     Image: function Image() { this.src = ''; },
   };
   context.document = {
@@ -177,15 +189,63 @@ test('the signer role drives both the stamp and the salutation name', () => {
   assert.equal(ctx.stampProviderNumber(), '');
 });
 
-test('the existence probe asks for the file the stamp will use', () => {
+test('the existence probe asks the signature endpoint instead of loading the image', () => {
+  // Loading consult_sig_<n>.png to learn whether it exists answered 404 on every letter opened for
+  // a signer with no signature on file: a failed request and a console error on each open. The
+  // provider signature endpoint reads the same eForm image directory and answers 204 for that.
   const ctx = loadStampFunctions();
-  const requested = [];
-  ctx.Image = function Image() {
-    Object.defineProperty(this, 'src', { set: (value) => requested.push(value) });
-  };
+  const images = [];
+  ctx.Image = function Image() { images.push(this); };
   ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
   ctx.probeProviderStamp();
-  assert.deepEqual(requested, [`${IMAGE_SRC}consult_sig_999998.png`]);
+  ctx.probeProviderStamp();
+  assert.deepEqual(ctx.probeRequests.map((request) => [request.method, request.url, request.sent]),
+    [['GET', '../provider/providerSignatureImage?providerNo=999998', true]],
+    'one request per signer, to the endpoint');
+  assert.equal(images.length, 0, 'the probe must not load the signature image itself');
+});
+
+test('a signer with no signature on file gets the clinic stamp outright', () => {
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+  ctx.probeProviderStamp();
+  ctx.probeRequests[0].respond(204);
+  assert.equal(ctx.pickStamp(), stamp('stamp.png'));
+});
+
+test('a signature on file keeps the signer\'s own stamp', () => {
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+  ctx.probeProviderStamp();
+  ctx.probeRequests[0].respond(200);
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+});
+
+test('a refused or failed probe leaves the choice to the stamp image itself', () => {
+  // Only "none on file" is an answer about the file. A refusal, a server error or a lost
+  // connection is not, so the signer's own stamp is still tried, and bindStampFallbacks() handles
+  // it if it does not load.
+  for (const answer of [(request) => request.respond(403), (request) => request.respond(500),
+    (request) => request.fail()]) {
+    const ctx = loadStampFunctions();
+    ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+    ctx.probeProviderStamp();
+    answer(ctx.probeRequests[0]);
+    assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
+  }
+});
+
+test('an answer about a signer the letter no longer uses is ignored', () => {
+  // On a form_html without the hidden identity inputs the signer only becomes known with the
+  // APCache lookup, which probes again; a late answer about the first signer must not decide the
+  // second signer's stamp.
+  const ctx = loadStampFunctions();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
+  ctx.probeProviderStamp();
+  ctx.inputs = { user_ohip_no: '54321', user_id: '123456' };
+  ctx.probeProviderStamp();
+  ctx.probeRequests[0].respond(204);
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_123456.png'));
 });
 
 test('the stamp URL falls back to the extensionless route when cfg_isrc is unset', () => {

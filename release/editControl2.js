@@ -1706,6 +1706,13 @@ function submitFaxButton() {
 	 * Records whether the per-provider signature file actually exists, so a provider who has not
 	 * uploaded one still gets the clinic's stamps.js / stamp.png fallback instead of a broken image.
 	 *
+	 * The answer comes from /provider/providerSignatureImage, which reads the same eForm image
+	 * directory and answers 204 when the provider has no signature on file. Loading
+	 * consult_sig_<provider_no>.png itself to find out answered 404 on every letter opened for such
+	 * a signer: a failed request and a console error on each open. Only a 204 marks the file
+	 * missing. A refusal or a failed request says nothing about the file, so the per-provider stamp
+	 * is still tried and bindStampFallbacks() handles it if it does not load.
+	 *
 	 * The probe is fired once from Start(), well before the Stamp button can be clicked. If it has
 	 * not answered yet the per-provider file is used anyway — that is the intended stamp, and the
 	 * legacy fallback is the exception.
@@ -1716,13 +1723,19 @@ function submitFaxButton() {
 		var file = providerStampFile();
 		if (file === "" || file === carlosProviderStampProbe.file) { return; }
 		carlosProviderStampProbe = { file: file, missing: false };
-		var probe = new Image();
-		probe.onerror = function() {
+		var probe = new XMLHttpRequest();
+		// providerStampFile() only names a file for an all-digit provider number, so this is the
+		// same validated number.
+		probe.open("GET", "../provider/providerSignatureImage?providerNo="
+			+ encodeURIComponent(stampProviderNumber()), true);
+		probe.onload = function() {
 			// Only trust the result if it is still about the file we asked for.
-			if (carlosProviderStampProbe.file === file) { carlosProviderStampProbe.missing = true; }
-			console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+			if (probe.status === 204 && carlosProviderStampProbe.file === file) {
+				carlosProviderStampProbe.missing = true;
+				console.log("editControl: no stored signature for " + file + "; falling back to stamps.js");
+			}
 		};
-		probe.src = stampImageSrc(file);
+		probe.send();
 	}
 
 	function legacyStampFile() {
