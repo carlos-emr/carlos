@@ -1289,7 +1289,7 @@
         "eform"
       ],
       "fixtures": "Owned FAKE- patient; a marker-named eForm in the clinic's eForm library (status 1) whose template writes two preventions and an encounter note, submitted once through E-Chart > eForms > Add. The other provider named in the template is the lowest-numbered active provider that is not the login. Cleanup deletes the eForm, its saved copy, and the owned patient's preventions and encounter notes with their links, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails on develop at the <provider> step: a prevention template's <provider> tag is ignored and the prevention is recorded under the login, pending finding 331 (#4802; release fix #4803). The <providers> step before it passes; the $te{eform.provider} step after it does not run (the first step logs the note, which reads provider=[] there)."
+      "notes": "Fails on develop at the <provider> step: a prevention template's <provider> tag is ignored and the prevention is recorded under the login, pending finding 331 (#4802; release fix #4803). The <providers> step before it passes; the $te{eform.provider} step after it does not run (the first step logs the note, which reads provider=[] there). The check turns green when #4803 reaches develop in the forward merge; drop this note then."
     },
     {
       "name": "eform-rtl-attachment-pdf",
