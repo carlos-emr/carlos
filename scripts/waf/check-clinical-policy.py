@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575.
+"""Real nginx/ModSecurity/CRS regression checks for issues #4571--4575 and the
+add-prevention free text of PR #4742.
 
 Run from any directory (Python >= 3.10, Node for the shared prose corpus):
   python3 scripts/waf/check-clinical-policy.py
@@ -71,6 +72,7 @@ ENCOUNTER = "/carlos/encounter/IncomingEncounter"
 VITALS = "/carlos/encounter/Measurements"
 FORWARD = "/carlos/casemgmt/ViewForward"
 ENTRY = "/carlos/CaseManagementEntry"
+PREVENTION = "/carlos/prevention/AddPrevention"
 RFI = "http://10.0.0.5/pacs/study"
 TRAVERSAL = "../../private/record"
 XSS = "<script>alert(1)</script>"
@@ -266,6 +268,19 @@ def build_cases(phrases, corpus):
         cases.append(Case(f"{name}-sql-leak", 4574, method, route, expect="outbound", signatures=("951230",), response="sql"))
         # Each Java signature scores 3; together they cross the unchanged 4.
         cases.append(Case(f"{name}-java-leak", 4574, method, route, expect="outbound", signatures=("952100", "952110"), response="java"))
+    # Exclusion 1117: every free-text box the add-prevention and Rh-injection pages post. The
+    # vaccine's lot and the XSS family stay inspected, as does the same text on another route
+    # or method.
+    for field in ("comments", "reason", "reasonOtherText", "neverReason", "location2", "providerName"):
+        cases.append(request_case(f"prevention-{field}-baseline", 4742, PREVENTION, field, "Routine follow up."))
+        for variant, value in variants:
+            cases.append(request_case(f"prevention-{field}-{variant}", 4742, PREVENTION, field, value))
+    cases.append(request_case("prevention-route-Evil", 4742, PREVENTION + "Evil", "neverReason", RFI, **inbound))
+    cases.append(request_case("prevention-wrong-GET", 4742, PREVENTION, "neverReason", RFI, "GET", **inbound))
+    cases.append(request_case("prevention-nonprose-lot", 4742, PREVENTION, "lot", RFI, **inbound))
+    cases.append(request_case("prevention-xss-still-inspected", 4742, PREVENTION, "providerName", XSS,
+                              expect="inbound", signatures=("941100", "941110")))
+
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
     return cases

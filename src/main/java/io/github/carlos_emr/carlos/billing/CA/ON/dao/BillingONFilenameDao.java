@@ -43,6 +43,21 @@ public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
         super(BillingONFilename.class);
     }
 
+    /**
+     * Whether any filename row already holds this HTML companion name. The name
+     * is unique in {@code billing_on_filename}, like the claim file name, so disk
+     * allocation skips a sequence number whose HTML name is taken.
+     *
+     * @param htmlFilename the complete HTML name, for example {@code HJ123456_001.html}
+     * @return {@code true} when a {@code billing_on_filename} row uses the name
+     */
+    public boolean existsByHtmlFilename(String htmlFilename) {
+        Query query = entityManager.createQuery(
+                "SELECT COUNT(f) FROM BillingONFilename f WHERE f.htmlFilename = ?1");
+        query.setParameter(1, htmlFilename);
+        return ((Number) query.getSingleResult()).longValue() > 0;
+    }
+
     public List<BillingONFilename> findByDiskIdAndStatus(Integer diskId, String status) {
         String q = "SELECT b FROM BillingONFilename b WHERE b.diskId = ?1  AND b.status = ?2 ORDER BY b.id DESC";
         Query query = entityManager.createQuery(q);

@@ -65,6 +65,20 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should report an HTML filename in use only when a row holds that exact name")
+    void shouldReportHtmlFilenameInUse_whenARowHoldsTheExactName() throws Exception {
+        BillingONFilename lastYear = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(lastYear);
+        lastYear.setHtmlFilename("HJ054321_001.html");
+        dao.persist(lastYear);
+
+        assertThat(dao.existsByHtmlFilename("HJ054321_001.html")).isTrue();
+        assertThat(dao.existsByHtmlFilename("HJ054321_002.html")).isFalse();
+        assertThat(dao.existsByHtmlFilename("HJ054321_00")).isFalse();
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should find all filenames by disk ID")
     void shouldFindByDiskId_whenMatchingRecordsExist() throws Exception {
         BillingONFilename f1 = new BillingONFilename();

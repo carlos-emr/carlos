@@ -434,6 +434,46 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    /**
+     * Issue #4693: the lab the PDF cannot draw is still attached. The legacy print names it on a
+     * page right after the consultation letter instead of leaving it out without a word.
+     */
+    @Test
+    @DisplayName("should print the HL7 lab and name the MDS lab on a page after the consultation letter")
+    @SuppressWarnings("unchecked")
+    void shouldNameMdsLabAfterConsultationLetter_whenConsultHasHl7AndMdsLabs() throws Exception {
+        commonLabResultDataConstruction.close();
+        LabResultData hl7Lab = new LabResultData(LabResultData.HL7TEXT);
+        hl7Lab.setSegmentID("30");
+        LabResultData mdsLab = new LabResultData(LabResultData.MDS);
+        mdsLab.setSegmentID("20");
+        mdsLab.discipline = "Hem/Chem/Other";
+        mdsLab.dateTime = "2024-03-05 10:22:00";
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (labData, context) ->
+                when(labData.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+             MockedConstruction<LabPDFCreator> labPdfConstruction = mockConstruction(LabPDFCreator.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            ArgumentCaptor<List<Object>> packet = ArgumentCaptor.forClass(List.class);
+            concatPdfMock.verify(() -> ConcatPDF.concat(packet.capture(), any(java.io.OutputStream.class)));
+            // The consultation letter, the page naming the MDS lab, then the HL7 lab.
+            assertThat(packet.getValue()).hasSize(3);
+            byte[] notice = ((InputStream) packet.getValue().get(1)).readAllBytes();
+            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(notice)) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(document))
+                        .contains("MDS lab result: Hem/Chem/Other, 2024-03-05 10:22:00");
+            }
+            assertThat(labPdfConstruction.constructed()).hasSize(1);
+            assertThat(request.getAttribute("segmentID")).isEqualTo("30");
+        }
+    }
+
     @Test
     @DisplayName("should take the patient from the stored consultation when the demographicNo parameter names another patient")
     void shouldUseStoredConsultationPatient_whenDemographicParameterDiffers() throws Exception {

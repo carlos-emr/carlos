@@ -132,6 +132,31 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldPreserveTheFirstDiscontinuation_whenAStaleRequestRetries() {
+        Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        int id = drug.getId();
+        entityManager.clear();
+        assertThat(drugDao.archiveIfActive(id, DEMO_NO, "doseChange", today)).isEqualTo(1);
+        assertThat(drugDao.archiveIfActive(id, DEMO_NO, "allergy", tomorrow)).isZero();
+        entityManager.clear();
+        Drug stored = drugDao.find(id);
+        assertThat(stored.isArchived()).isTrue();
+        assertThat(stored.getArchivedReason()).isEqualTo("doseChange");
+        assertThat(stored.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(stored.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
+    }
+
+    @Test
+    void shouldRefuseToArchive_whenTheDrugBelongsToAnotherPatient() {
+        Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
+        int id = drug.getId();
+        entityManager.clear();
+        assertThat(drugDao.archiveIfActive(id, DEMO_NO_2, "allergy", today)).isZero();
+        entityManager.clear();
+        assertThat(drugDao.find(id).isArchived()).isFalse();
+    }
+
+    @Test
     @DisplayName("should require both prescription and drug ownership when loading a patient's script")
     void shouldScopeScriptLookup_toPersistedPatientOwnership() {
         Prescription script = new Prescription();

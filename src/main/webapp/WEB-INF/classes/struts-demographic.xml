@@ -116,6 +116,7 @@
             <result name="success">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
             <result name="duplicate">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
             <result name="validationError">/WEB-INF/jsp/demographic/demographicupdatearecord.jsp</result>
+            <result name="conflict">/WEB-INF/jsp/demographic/demographicUpdateConflict.jsp</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>
@@ -126,6 +127,7 @@
             <result name="success">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
             <result name="duplicate">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
             <result name="validationError">/WEB-INF/jsp/demographic/demographicaddarecord.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>
             </result>

@@ -55,6 +55,21 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
         return result;
     }
 
+    /**
+     * Whether any disk already holds this OHIP claim file name. The MOH name
+     * recurs every year while {@code ohipfilename} is unique, so disk
+     * allocation asks before reusing a sequence number.
+     *
+     * @param ohipFilename the complete claim file name, for example {@code HJ123456.001}
+     * @return {@code true} when a {@code billing_on_diskname} row uses the name
+     */
+    public boolean existsByOhipFilename(String ohipFilename) {
+        Query query = entityManager.createQuery(
+                "SELECT COUNT(b) FROM BillingONDiskName b WHERE b.ohipFilename = ?1");
+        query.setParameter(1, ohipFilename);
+        return ((Number) query.getSingleResult()).longValue() > 0;
+    }
+
     public BillingONDiskName findByGroupNo(String groupNo) {
         String q = "SELECT b FROM BillingONDiskName b WHERE b.groupNo=?1 order by b.createDateTime DESC";
         Query query = entityManager.createQuery(q);

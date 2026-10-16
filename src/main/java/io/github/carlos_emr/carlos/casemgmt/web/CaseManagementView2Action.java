@@ -916,10 +916,20 @@ public class CaseManagementView2Action extends ActionSupport {
 
         for (SecUserRole roleTmp : roles) {
             logger.debug("Provider Roles : {}", LogSafe.sanitize(roleTmp.getRoleName()));
-            if (roleTmp.getRoleName().equals(role)) return (true);
+            if (roleTmp.getActive() && roleTmp.getRoleName().equals(role)) return (true);
         }
 
         return (false);
+    }
+
+    /** Resolves a numeric owner link without hydrating a demographic or logging malformed data. */
+    private static String groupNoteOwnerLocation(String owner) {
+        try {
+            int patient = Integer.parseInt(owner);
+            return patient > 0 ? Integer.toString(patient) : null;
+        } catch (NumberFormatException invalid) {
+            return null;
+        }
     }
 
     private void addGroupNotes(LoggedInInfo loggedInInfo, ArrayList<NoteDisplay> notesToDisplay, int demographicNo, ArrayList<String> issueCodesToDisplay) {
@@ -939,14 +949,18 @@ public class CaseManagementView2Action extends ActionSupport {
                 // filter on role based access
                 String roleName = this.roleMgr.getRole(note.getReporter_caisi_role()).getRoleName();
                 if (hasRole(roles, roleName)) {
-                    String originaldemo = note.getDemographic_no();
+                    String originaldemo = groupNoteOwnerLocation(note.getDemographic_no());
+                    if (originaldemo == null) continue;
 
-                    note.setDemographic_no(String.valueOf(demographicNo));
-                    NoteDisplayLocal disp = new NoteDisplayLocal(loggedInInfo, note);
+                    // Group display uses the recipient context without changing the managed note.
+                    CaseManagementNote displayNote = note.copyForRevision();
+                    displayNote.setId(note.getId());
+                    displayNote.setDemographic_no(String.valueOf(demographicNo));
+                    NoteDisplayLocal disp = new NoteDisplayLocal(loggedInInfo, displayNote);
                     disp.setReadOnly(true);
                     disp.setGroupNote(true);
-                    Demographic origDemographic = demographicDao.getDemographic(originaldemo);
-                    disp.setLocation(String.valueOf(origDemographic.getDemographicNo()));
+                    // The owner ID is already known; hydration can normalize legacy nullable fields.
+                    disp.setLocation(originaldemo);
                     notesToDisplay.add(disp);
                 }
             } catch (Exception e) {

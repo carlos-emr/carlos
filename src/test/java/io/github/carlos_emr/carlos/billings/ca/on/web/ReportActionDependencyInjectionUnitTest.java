@@ -158,6 +158,24 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldReturnProviderFieldGuidanceWithoutAudit_whenProviderFieldsAreMalformed() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        var problems = java.util.List.of("Provider 999998: the specialty code must be exactly 2 digits.");
+        org.mockito.Mockito.doThrow(
+                new io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException(problems))
+                .when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("ohipInvalidProviderFields")).isEqualTo(problems);
+        assertThat(request.getAttribute("ohipGenerationError")).isNull();
+        // Refused before anything was written, like an invalid group number: nothing to audit.
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
     void shouldReturnGenerationGuidance_whenSelectedProviderIsNotBillable() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);

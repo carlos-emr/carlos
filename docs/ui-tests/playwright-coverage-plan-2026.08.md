@@ -166,6 +166,7 @@ complement the UI workflows.
 | `anonymous-access-refused` | §2.2 | Everything a clinician reaches from the Administration panel and the Master Record, re-requested from a **session-less** context. Routes catalogued from the UI, not listed |
 | `episode-lifecycle` | §2.5 | Description validation; create/edit/complete/reactivate/archive with persisted history and chart refresh |
 | `diagnosis-flowsheet` | §2.5 | Code search/add; diagnosis-triggered diabetes flowsheet and A1C entry; resolve and cancelled/accepted archive |
+| `flowsheet-measurement-delete` | §2.5 | Deleting a saved reading from the Diabetes Flowsheet (issue #4715): the read-only window would submit its CSRF token, the reading and the patient; Delete removes the reading, archives a copy, closes the window and refreshes the flowsheet; the same Delete without a token is still refused |
 | `prevention-lifecycle` | §3.4 | Vaccine picker; refused/completed/ineligible status, comments and dates; reopen and archive |
 | `echart-prevention-row-links` | §3.4 | Each eChart Preventions row opens its own prevention (issue #3975): add route preset to the row, the disambiguation route exactly when CVCMapping has several vaccines, the newest record by id once one exists; saving closes the popup **without reloading the eChart** (unsaved note text survives) and refreshes only the box. Fails against the pre-#3975 `close.jsp` |
 | `allergy-custom-lifecycle` | §3.2 | Non-drug custom allergy; confirmation cancellation; amendment retaining history; cancelled/accepted archive |

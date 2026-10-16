@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
 import io.github.carlos_emr.carlos.managers.ProfessionalSpecialistsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,6 +62,10 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -109,6 +114,14 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             EctConEditDepartments2Action.class);
 
     private final Map<Class<?>, Object> previousSecurity = new HashMap<>();
+
+    /** A transaction manager that begins and ends nothing, for actions that open a transaction. */
+    static final class NoOpTransactionManager extends AbstractPlatformTransactionManager {
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { }
+        @Override protected void doRollback(DefaultTransactionStatus status) { }
+    }
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockHttpServletRequest request;
@@ -118,6 +131,8 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         security = createAndRegisterMock(SecurityInfoManager.class);
+        // Add Service commits its insert in a transaction its submission guard observes (issue #4225).
+        registerMock(PlatformTransactionManager.class, new NoOpTransactionManager());
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_con"), anyString(), ArgumentMatchers.<String>isNull()))
                 .thenReturn(true);
 
@@ -182,6 +197,91 @@ class EctConConfigurationWrites2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getActive()).isEqualTo(ConsultationServiceDao.ACTIVE);
             assertThat(request.getAttribute("SERVADD")).isEqualTo("Cardiology FAKE");
             verify(services, never()).findActive();
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service adds one service when one rendered form is submitted twice (issue #4225)")
+        void shouldAddOneService_whenOneRenderingIsSubmittedTwice() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            org.mockito.Mockito.doAnswer(inv -> {
+                inv.<ConsultationServices>getArgument(0).setServiceId(61);
+                return null;
+            }).when(services).persist(any(ConsultationServices.class));
+            ConsultationServices stored = new ConsultationServices();
+            stored.setServiceDesc("Cardiology FAKE");
+            when(services.find(Integer.valueOf(61))).thenReturn(stored);
+            String token = FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null);
+            request.setParameter(FormSubmissionGuard.PARAMETER, token);
+            EctConAddService2Action first = new EctConAddService2Action();
+            first.setService("Cardiology FAKE");
+            EctConAddService2Action repeat = new EctConAddService2Action();
+            // The repeat carries an edited name; the confirmation still names what was saved.
+            repeat.setService("Cardiology EDITED");
+
+            assertThat(first.execute()).isEqualTo(ActionSupport.SUCCESS);
+            request.removeAttribute("SERVADD");
+            assertThat(repeat.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+            verify(services).persist(any(ConsultationServices.class));
+            verify(services).find(Integer.valueOf(61));
+            assertThat(request.getAttribute("SERVADD")).isEqualTo("Cardiology FAKE");
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("A repeat of an add that recorded no id is refused as unconfirmed, not confirmed with its own entry")
+        void shouldRefuseRepeatAsUnconfirmed_whenTheFirstAddRecordedNoId() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            String token = FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null);
+            request.setParameter(FormSubmissionGuard.PARAMETER, token);
+            EctConAddService2Action first = new EctConAddService2Action();
+            first.setService("Cardiology FAKE");
+            EctConAddService2Action repeat = new EctConAddService2Action();
+            repeat.setService("Cardiology EDITED");
+
+            assertThat(first.execute()).isEqualTo(ActionSupport.SUCCESS);
+            request.removeAttribute("SERVADD");
+            assertThat(repeat.execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(request.getAttribute("formSubmissionMessageKey"))
+                    .isEqualTo("global.formSubmission.unconfirmed");
+            assertThat(request.getAttribute("SERVADD")).isNull();
+            verify(services).persist(any(ConsultationServices.class));
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service refuses a token this session did not issue and adds nothing")
+        void shouldRefuseWithoutAdding_forATokenThisSessionDidNotIssue() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            request.setParameter(FormSubmissionGuard.PARAMETER, FormSubmissionGuard.issue(
+                    new org.springframework.mock.web.MockHttpSession(), FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null));
+            EctConAddService2Action action = new EctConAddService2Action();
+            action.setService("Cardiology FAKE");
+
+            assertThat(action.execute()).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+
+            assertThat(response.getStatus()).isEqualTo(409);
+            verifyNoMoreInteractions(services);
+        }
+
+        @Test
+        @DisplayName("Add Service refuses GET and HEAD and adds nothing")
+        void shouldRefuseReadMethods_withoutAdding() throws Exception {
+            ConsultationServiceDao services = createAndRegisterMock(ConsultationServiceDao.class);
+            for (String method : List.of("GET", "HEAD")) {
+                request.setMethod(method);
+                EctConAddService2Action action = new EctConAddService2Action();
+                action.setService("Cardiology FAKE");
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(405);
+                assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            }
             verifyNoMoreInteractions(services);
         }
 

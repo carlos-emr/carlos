@@ -1,0 +1,139 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * The BC bill form and the private-bill receipt, as pages: what they must render for a bill to be
+ * entered and an invoice to be updated (issues #4716 and #4717). The browser checks
+ * {@code billing-bc-bill-create-save} and {@code billing-bc-private-bill-receipt} drive the same
+ * paths live.
+ */
+@Tag("unit")
+@Tag("billing")
+@DisplayName("BC bill form and receipt JSP regressions")
+class BillingBcFormJspRegressionTest {
+
+    private static final Path BILLING_BC_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingBC.jsp");
+    private static final Path BILL_RECEIPT_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp");
+
+    private static String read(Path path) throws IOException {
+        return Files.readString(path, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Issue #4716: nothing stores {@code BillingCreateBillingForm} in the session any more, and the
+     * Payment Method list read it unguarded, so every open of the bill form answered HTTP 500. The
+     * page builds the form when the session has none, before any use of it.
+     */
+    @Test
+    @DisplayName("should build the bill form when the session has none, before its first use")
+    void shouldBuildForm_whenSessionHasNone() throws IOException {
+        String page = read(BILLING_BC_JSP);
+
+        assertThat(page).containsSubsequence(
+                "BillingCreateBillingForm thisForm = (BillingCreateBillingForm) request.getSession().getAttribute(\"BillingCreateBillingForm\");",
+                "if (thisForm == null) {",
+                "thisForm = new BillingCreateBillingForm();",
+                "thisForm.setXml_provider(",
+                "\"Pri\".equalsIgnoreCase(thisForm.getXml_billtype())");
+        assertThat(page).doesNotContain("if (thisForm != null) {");
+    }
+
+    /**
+     * The page's scripts address the form as {@code document.BillingCreateBillingForm} and
+     * {@code #bcBillingForm} (validation, autocomplete), the names Struts 1's form tag used to give it.
+     */
+    @Test
+    @DisplayName("should give the bill form the name and id its scripts use")
+    void shouldNameForm_asItsScriptsAddressIt() throws IOException {
+        String page = read(BILLING_BC_JSP);
+
+        assertThat(page).contains("document.BillingCreateBillingForm.xml_billtype")
+                .contains("jQuery(\"#bcBillingForm\").validate(")
+                .contains("<form name=\"BillingCreateBillingForm\" id=\"bcBillingForm\"")
+                .doesNotContain("style=\"bcBillingForm\"");
+    }
+
+    /**
+     * The bill type is posted (it had lost its name to a leftover Struts 1 {@code property}
+     * attribute) and shows the type the page worked out for this bill.
+     */
+    @Test
+    @DisplayName("should post the bill type and preselect the computed one")
+    void shouldPostBillType_andPreselectComputedType() throws IOException {
+        String page = read(BILLING_BC_JSP);
+
+        assertThat(Pattern.compile("<select[^>]*\\bid=\"xml_billtype\"[^>]*\\bname=\"xml_billtype\"", Pattern.DOTALL)
+                .matcher(page).find()).as("the bill type select has a name").isTrue();
+        assertThat(page).doesNotContain("property=\"xml_billtype\"")
+                .contains("<option value=\"Pri\" <%= \"Pri\".equals(formBillType) ? \"selected\" : \"\" %>>Private</option>");
+    }
+
+    /**
+     * The service date is read-only and required by the page's validation; it must show the date
+     * the page computed (the appointment's, or the service date), as the bound form did.
+     */
+    @Test
+    @DisplayName("should show the computed service date and billing provider")
+    void shouldShowComputedDefaults_inTheFields() throws IOException {
+        String page = read(BILLING_BC_JSP);
+
+        assertThat(page).contains("id=\"xml_appointment_date\" value=\"<carlos:encode value='<%= thisForm.getXml_appointment_date() %>' context=\"htmlAttribute\"/>\"")
+                .contains("billphysician[j].getProviderNo().equals(thisForm.getXml_provider()) ? \"selected\" : \"\"");
+    }
+
+    /**
+     * library/bootstrap-datetimepicker.min.js was removed with the Bootstrap 5 migration (#635) and
+     * nothing on the page calls it; once the form rendered again, its include answered 404.
+     */
+    @Test
+    @DisplayName("should load no script that the WAR does not ship")
+    void shouldNotLoadRemovedDatetimepicker_onBillForm() throws IOException {
+        assertThat(read(BILLING_BC_JSP)).doesNotContain("bootstrap-datetimepicker");
+    }
+
+    /**
+     * Issue #4717: the receipt's Update Invoice posted an empty bill number, so the update failed
+     * with HTTP 500. The hidden field carries the receipt's own bill number.
+     */
+    @Test
+    @DisplayName("should post the receipt's bill number with Update Invoice")
+    void shouldPostBillNumber_withUpdateInvoice() throws IOException {
+        String page = read(BILL_RECEIPT_JSP);
+
+        assertThat(page).containsSubsequence(
+                "<form action=\"${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling\" method=\"post\">",
+                "<input type=\"hidden\" name=\"billingNo\" id=\"billingNo\" value=\"${carlos:forHtmlAttribute(billingViewBean.billingNo)}\"/>");
+    }
+}

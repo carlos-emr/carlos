@@ -289,6 +289,12 @@ public interface DocumentAttachmentManager {
      * supporting documentation. This consolidated PDF is suitable for specialist referrals,
      * e-referral system transmission, or archival purposes.</p>
      *
+     * <p>The PDF can draw HL7 lab reports only. Attached CML, MDS and PathNet (BCP) labs, and lab
+     * attachments with no confirmed source, are named instead on a page right after the
+     * consultation letter (issue #4693). The same names, in the reader's language, are set as the
+     * request attribute {@code ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE} (an empty list when
+     * every attached lab is drawn) for the caller's warning or confirmation page.</p>
+     *
      * @param request HttpServletRequest the HTTP request containing consultation parameters
      * @param response HttpServletResponse the HTTP response for potential streaming operations
      * @return Path the file system path to the rendered PDF document containing the consultation form and attachments

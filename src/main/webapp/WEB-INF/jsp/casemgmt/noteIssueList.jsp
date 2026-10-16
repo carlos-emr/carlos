@@ -32,6 +32,9 @@
     AJAX issue-list fragment for the active note, including encounter type and clinical flags.
     Uses demographicNo and newNoteIdx request parameters and caseManagementEntryForm
     (request model or patient-specific session fallback). Refresh must finish before saving.
+    The encounter date (observation_date) is rendered by NoteObservationDate in its fixed English
+    form, never by fmt:formatDate: that formats in the browser's language and, for a language with
+    no date format, prints the raw java.sql.Timestamp, which the save could not read (issue #4711).
     @since 2026-09-27 (soft-wrap and save-order documentation)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -40,6 +43,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteObservationDate" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
@@ -70,6 +74,8 @@
         request.setAttribute("caseManagementEntryForm", frm);
     }
     request.setAttribute("encSelect", encSelect);
+    String observationDateText = NoteObservationDate.format(
+            frm == null || frm.getCaseNote() == null ? null : frm.getCaseNote().getObservation_date());
 %>
 <c:choose>
     <c:when test="${empty caseManagementEntryForm.caseNote.id}">
@@ -100,7 +106,7 @@
         <c:when test="${not empty ajaxsave}">
             <fmt:message key="encounter.encounterDate.title"/>&nbsp;
             <span id="obs${caseManagementEntryForm.caseNote.id}">
-                <fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>
+                <carlos:encode value="<%= observationDateText %>"/>
             </span>&nbsp;
             <fmt:message key="encounter.noteRev.title"/>
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
@@ -112,7 +118,7 @@
             <img src="${ctx}/images/cal.gif" id="observationDate_cal" alt="calendar">&nbsp;
             <input type="text" id="observationDate" name="observation_date" ondblclick="this.value='';"
                    style="border: none; width: 140px;" readonly
-                   value="<fmt:formatDate value="${caseManagementEntryForm.caseNote.observation_date}" pattern="dd-MMM-yyyy HH:mm"/>">
+                   value="<carlos:encode value="<%= observationDateText %>" context="htmlAttribute"/>">
             rev
             <a href="#" onclick="return showHistory('${caseManagementEntryForm.caseNote.id}', event);">
                 ${caseManagementEntryForm.caseNote.revision}
@@ -291,7 +297,7 @@
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -373,7 +379,7 @@
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
                 ${carlos:forHtml(issueCheckList.issueDisplay.description)}

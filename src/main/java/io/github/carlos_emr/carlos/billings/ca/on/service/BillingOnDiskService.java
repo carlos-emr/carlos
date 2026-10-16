@@ -32,9 +32,11 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
+import io.github.carlos_emr.carlos.billings.ca.on.support.OhipProviderFields;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -129,8 +131,14 @@ public class BillingOnDiskService {
             if (!invalidProviders.isEmpty()) {
                 throw new InvalidBillingGroupException(invalidProviders);
             }
+            List<BillingProviderDto> soloProviders = groupReport ? List.of() : prep.getCurSoloProvider();
+            List<BillingProviderDto> runProviders = new ArrayList<>(soloProviders);
+            groupProviders.stream()
+                    .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
+                    .forEach(runProviders::add);
+            requireProviderFields(runProviders);
             if (!groupReport) {
-                writeSoloDisks(prep, prep.getCurSoloProvider(), loggedInInfo, request,
+                writeSoloDisks(prep, soloProviders, loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
             writeGroupDisks(prep, groupProviders, loggedInInfo, request,
@@ -142,9 +150,36 @@ public class BillingOnDiskService {
                 throw new BillingValidationException("Selected provider is not billable (inactive or without an OHIP number).");
             }
             if (isSoloGroupNo(soloProvider.getBillingGroupNo())) {
+                requireProviderFields(List.of(soloProvider));
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
+        }
+    }
+
+    /**
+     * The claim file writer copies the stored OHIP billing number and specialty
+     * code into numeric, fixed-width batch-header fields. A value of another
+     * length broke the header after that provider's disk had been allocated, and
+     * stopped an All Providers run part way, while the simulation only showed an
+     * error line (and substituted 00 for the specialty). A value of the right
+     * length with a non-digit was written as it was, and MOH rejected the batch.
+     * Every provider of the run is checked before the first disk instead.
+     */
+    private static void requireProviderFields(List<BillingProviderDto> providers) {
+        List<String> problems = new ArrayList<>();
+        for (BillingProviderDto member : providers) {
+            if (!OhipProviderFields.isWellFormedBillingNumber(member.getOhipNo())) {
+                problems.add("Provider " + member.getProviderNo() + ": the OHIP billing number must be exactly "
+                        + OhipProviderFields.BILLING_NUMBER_LENGTH + " digits.");
+            }
+            if (!OhipProviderFields.isWellFormedSpecialtyCode(member.getSpecialtyCode())) {
+                problems.add("Provider " + member.getProviderNo() + ": the specialty code must be exactly "
+                        + OhipProviderFields.SPECIALTY_CODE_LENGTH + " digits.");
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new InvalidOhipProviderFieldsException(problems);
         }
     }
 
