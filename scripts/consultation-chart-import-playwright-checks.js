@@ -8,14 +8,16 @@
 //   2. Concurrent Problems ▸ Import ▸ Medical History brings an edited note's latest text only, and
 //      Ongoing Concerns leaves out an archived note;
 //   3. Current Medications ▸ Import ▸ Long Term Medications lists the long-term drug and not the
-//      short-term one.
+//      short-term one;
+//   4. Allergies ▸ Import Allergies fills in the patient's allergy and its reaction (the import
+//      capitalises each word, like the medication imports, so text is compared case-insensitively).
 // Each import is a POST to oscarConsultationRequest/consultationClinicalData. The form is never
 // submitted, so the check also asserts that no referral was saved.
 // consultation-edit-status covers Current Medications ▸ Import ▸ Active Medications; no check uses the
 // chart-history items or Long Term Medications.
 // Fixtures: the owned FAKE- patient; one CPP note per history (seeded by SQL like
 // gap-clinical-chart-print-scope), a second revision of the Medical History note and an archived
-// Ongoing Concerns note; a long-term and a short-term current drug. Cleanup deletes the patient's
+// Ongoing Concerns note; a long-term and a short-term current drug; one allergy. Cleanup deletes the patient's
 // notes, issues, drugs and any referral, and asserts none remain. If the install auto-imports
 // histories into a new request (CONSULTATION_AUTO_INCLUDE_*), the check clears the box first.
 const h = require('./lib/playwright-harness');
@@ -37,11 +39,13 @@ async function workflow(s) {
       DELETE FROM casemgmt_cpp WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient};
       DELETE FROM drugs WHERE demographic_no=${patient};
+      DELETE FROM allergies WHERE demographic_no=${patient};
       DELETE x FROM consultationRequestExt x JOIN consultationRequests r ON r.requestId=x.requestId WHERE r.demographicNo=${patient};
       DELETE FROM consultationRequests WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient})`) === '0', 'Owned import fixtures were not removed');
   });
 
@@ -82,6 +86,9 @@ async function workflow(s) {
       position,dispenseInternal,create_date,lastUpdateDate) VALUES(${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),
       CURDATE(),${q(marker)},${q(marker)},${q(special)},${flag},0,0,NOW(),NOW())`, flag ? 'long-term drug' : 'short-term drug');
   }
+  const allergen = `${marker} FAKE ALLERGEN`;
+  sql.execute(`INSERT INTO allergies (demographic_no,entry_date,DESCRIPTION,TYPECODE,reaction,archived,position,lastUpdateDate,providerNo)
+    VALUES (${patient},CURDATE(),${q(allergen)},0,'FAKE rash',0,0,NOW(),${q(provider)})`);
 
   const chart = await s.chart();
   const form = await s.popup(chart, chart.locator('a[onclick*="ViewConsultationFormRequest?de="]').first(), 'consult-form');
@@ -136,6 +143,22 @@ async function workflow(s) {
     h.assert(!imported.includes(shortTerm.toLowerCase()), 'Long Term Medications imported the short-term drug');
     h.assert(sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient}`) === '0',
       'Importing into the form saved a referral');
+  });
+
+  await s.step('Import Allergies fills in the patient\'s allergy', async () => {
+    const box = form.locator('#allergies');
+    await box.fill('');
+    const [response] = await Promise.all([
+      form.waitForResponse(r => r.request().method() === 'POST'
+        && h.pathOnly(r.url()).endsWith('/oscarConsultationRequest/consultationClinicalData')
+        && new URLSearchParams(r.request().postData() || '').get('method') === 'fetchAllergies'),
+      form.locator('#fetchAllergies_allergies').click(),
+    ]);
+    const body = await response.text();
+    await form.waitForFunction(() => document.getElementById('allergies').value.trim() !== '', null, { timeout: 5000 }).catch(() => {});
+    const imported = (await box.inputValue()).toLowerCase();
+    h.assert(response.status() === 200 && imported.includes(allergen.toLowerCase()) && imported.includes('fake rash'),
+      `Import Allergies left the box ${JSON.stringify(await box.inputValue())} (HTTP ${response.status()}, ${body.length}-byte answer)`);
     await form.close();
   });
 }
