@@ -372,8 +372,6 @@
             src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/bootstrap-datetimepicker.min.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/calendar/calendar.js"></script>
     <script type="text/javascript"

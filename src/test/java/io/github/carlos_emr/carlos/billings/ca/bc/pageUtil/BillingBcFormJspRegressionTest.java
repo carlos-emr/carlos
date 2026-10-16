@@ -114,6 +114,16 @@ class BillingBcFormJspRegressionTest {
     }
 
     /**
+     * library/bootstrap-datetimepicker.min.js was removed with the Bootstrap 5 migration (#635) and
+     * nothing on the page calls it; once the form rendered again, its include answered 404.
+     */
+    @Test
+    @DisplayName("should load no script that the WAR does not ship")
+    void shouldNotLoadRemovedDatetimepicker_onBillForm() throws IOException {
+        assertThat(read(BILLING_BC_JSP)).doesNotContain("bootstrap-datetimepicker");
+    }
+
+    /**
      * Issue #4717: the receipt's Update Invoice posted an empty bill number, so the update failed
      * with HTTP 500. The hidden field carries the receipt's own bill number.
      */
