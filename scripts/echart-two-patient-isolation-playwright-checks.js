@@ -37,12 +37,15 @@
  * patient's rows. CPP signature hashes and VT forms are included in owned fixture cleanup.
  */
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const print = require('./lib/gap-clinical-print');
+const { squash } = require('./lib/export-content-helpers');
 
 const TIMEOUT = 20000;
 const A_WEIGHT = '61.2';
@@ -76,7 +79,10 @@ function patientStateQueries(patient) {
     demographicExtensions: `SELECT * FROM demographicExt WHERE demographic_no=${id} ORDER BY id`,
     measurements: `SELECT * FROM measurements WHERE demographicNo=${id} ORDER BY id`,
     deletedMeasurements: `SELECT * FROM measurementsDeleted WHERE demographicNo=${id} ORDER BY id`,
-    measurementExtensions: `SELECT * FROM measurementsExt WHERE measurement_id IN (${measurements}) ORDER BY id`,
+    // The id set is a derived table so it is materialized once: MariaDB 11.8 runs a bare IN (... UNION ...)
+    // as a dependent subquery for every extension row, which takes minutes on the demonstration dataset.
+    measurementExtensions: `SELECT * FROM measurementsExt WHERE measurement_id IN
+      (SELECT id FROM (${measurements}) owned) ORDER BY id`,
     diagnoses: `SELECT * FROM dxresearch WHERE demographic_no=${id} ORDER BY dxresearch_no`,
     notes: `SELECT * FROM casemgmt_note WHERE demographic_no=${id} ORDER BY note_id`,
     noteExtensions: `SELECT * FROM casemgmt_note_ext WHERE note_id IN (${notes}) ORDER BY id`,
@@ -91,6 +97,9 @@ function patientStateQueries(patient) {
     preventionExtensions: `SELECT * FROM preventionsExt WHERE prevention_id IN
       (SELECT id FROM preventions WHERE demographic_no=${id}) ORDER BY id`,
     forms: `SELECT * FROM formVTForm WHERE demographic_no=${id} ORDER BY ID`,
+    appointments: `SELECT * FROM appointment WHERE demographic_no=${id} ORDER BY appointment_no`,
+    archivedAppointments: `SELECT * FROM appointmentArchive WHERE demographic_no=${id} ORDER BY id`,
+    immunizationSchedules: `SELECT * FROM immunizations WHERE demographic_no=${id} ORDER BY ID`,
   };
 }
 
@@ -358,10 +367,18 @@ async function run(s) {
   // ---- Fixtures --------------------------------------------------------------------------------
   prepareVascularTrackerFixture(s);
   // Two first names no page text or script contains, so a page that prints one names its patient.
-  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)}, provider_no=${q(provider)}
+    WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  // B's most responsible provider is another named provider, so a chart print says whose MRP it names.
+  const mrpB = sql.value(`SELECT provider_no FROM provider WHERE provider_no<>${q(provider)} AND status='1'
+    AND provider_type='doctor' AND provider_no REGEXP '^[1-9][0-9]{0,5}$'
+    AND TRIM(first_name)<>'' AND TRIM(last_name)<>'' AND CONCAT(TRIM(first_name),' ',TRIM(last_name))<>
+      (SELECT CONCAT(TRIM(first_name),' ',TRIM(last_name)) FROM provider WHERE provider_no=${q(provider)})
+    ORDER BY provider_no LIMIT 1`);
+  h.assert(/^[1-9]\d{0,5}$/.test(mrpB), 'A second named doctor is required as patient B\'s MRP');
   const B = sql.value(`INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
     date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
-    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR', NOW());
+    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(mrpB)}, 'ON', 'ON', 'NR', NOW());
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(B), 'Patient B fixture was not created');
   const patients = `${A},${B}`;
@@ -404,7 +421,10 @@ async function run(s) {
       DELETE FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements});
       DELETE FROM measurements WHERE demographicNo IN (${patients});
       DELETE FROM measurementsDeleted WHERE demographicNo IN (${patients});
-      DELETE FROM formVTForm WHERE demographic_no IN (${patients})`);
+      DELETE FROM formVTForm WHERE demographic_no IN (${patients});
+      DELETE FROM appointmentArchive WHERE demographic_no IN (${patients});
+      DELETE FROM appointment WHERE demographic_no IN (${patients});
+      DELETE FROM immunizations WHERE demographic_no IN (${patients})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM casemgmt_cpp WHERE demographic_no IN (${patients}))
@@ -420,6 +440,9 @@ async function run(s) {
       + (SELECT COUNT(*) FROM preventionsExt WHERE prevention_id IN (${ownedPreventions}))
       + (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ownedMeasurements}))
       + (SELECT COUNT(*) FROM formVTForm WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM immunizations WHERE demographic_no IN (${patients}))
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo IN (${patients}))
       + (SELECT COUNT(*) FROM measurementsDeleted WHERE demographicNo IN (${patients}))`) === '0',
     'Owned chart rows were not removed');
@@ -985,6 +1008,270 @@ async function run(s) {
     assertPatientStateUnchanged(before.A, snapshot(A), 'Rejected requests for A');
     assertPatientStateUnchanged(before.B, snapshot(B), 'Rejected requests for B');
   });
+
+  // ---- Issue #4673: the other readers of the login-wide encounter bean. The chart print's MRP
+  // line, the legacy encounter save and its prints, the legacy immunization schedule and the legacy
+  // case-management navigation each used to read the bean IncomingEncounter rewrites for whichever
+  // chart was entered last. Every request below names only its own patient and is sent right after
+  // the other chart was entered. (The notes service's new-note visit type is unit-tested only: its
+  // REST endpoint answers 500 for every new note on this build, before the visit type is used.)
+  // As the print names a provider (EctProviderData): "Dr. " before a first name that lacks it.
+  const providerName = no => norm(sql.value(`SELECT CONCAT(IF(INSTR(BINARY first_name, 'Dr.')>0, '', 'Dr. '),
+    first_name, ' ', last_name) FROM provider WHERE provider_no=${q(no)}`));
+  const mrp = {A: providerName(provider), B: providerName(mrpB)};
+  h.assert(mrp.A && mrp.B && squash(mrp.A) !== squash(mrp.B), 'The two patients\' MRP names must differ');
+  const otherLabelOf = d => (d.label === 'A' ? 'B' : 'A');
+  const read = async route => {
+    const response = await context.request.get(h.appUrl(s.config.baseUrl, route), {maxRedirects: 0, failOnStatusCode: false});
+    try {
+      return {status: response.status(), body: norm(await response.text())};
+    } finally { await response.dispose(); }
+  };
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'chart print', async () => {
+      const scratch = print.scratchDir();
+      try {
+        await print.openPrintDialog(d.chart);
+        await d.chart.locator('#printopAll').check();
+        await print.setFlags(d.chart, []);
+        await activateOther(d.otherChart);
+        const {text} = await print.pressPrint(d.chart, scratch);
+        // The header is two columns (patient, clinic), so text extraction may continue the MRP line.
+        // The other patient's MRP may still appear elsewhere, as the signer of this patient's notes.
+        const compact = squash(text);
+        const at = compact.indexOf('MRP:');
+        h.assert(at >= 0 && compact.startsWith(squash(mrp[d.label]), at + 'MRP:'.length),
+          `${d.label}'s chart print does not name ${d.label}'s own MRP${compact.startsWith(squash(mrp[otherLabelOf(d)]),
+            at + 'MRP:'.length) ? ' (it names the other patient\'s)' : ''}`);
+      } finally {
+        fs.rmSync(scratch, {recursive: true, force: true});
+      }
+    });
+  }
+
+  // The legacy encounter editor (Index2.jsp) renders only with the CAISI module; its save action is
+  // reachable in every configuration, so it is driven here with the editor's own form fields.
+  const appointmentOf = {A: undefined, B: undefined};
+  for (const [label, patient] of [['A', A], ['B', B]]) {
+    appointmentOf[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+      end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
+      VALUES (${q(provider)}, ${q(OBSERVED)}, '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
+      ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+  }
+  // A legacy save stores the editor's row sizes for its provider; restore the provider's exact row.
+  const layoutQuery = `SELECT provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize FROM encounterWindow
+    WHERE provider_no=${q(provider)}`;
+  const layoutBefore = sql.rows(layoutQuery);
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM encounterWindow WHERE provider_no=${q(provider)}`
+      + layoutBefore.map(row => `; INSERT INTO encounterWindow (provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize)
+        VALUES (${q(row[0])},${row.slice(1).map(Number).join(',')})`).join(''));
+    h.assert(JSON.stringify(sql.rows(layoutQuery)) === JSON.stringify(layoutBefore),
+      'The provider\'s legacy encounter layout was not restored');
+  });
+  const revisionsOf = patient => sql.rows(`SELECT eChartId FROM eChart WHERE demographicNo=${patientKey(patient)}
+    ORDER BY eChartId`).map(row => row[0]);
+  const legacy = {A: {}, B: {}};
+  const legacyForm = (d, text, overrides = []) => {
+    const form = new URLSearchParams([['demographicNo', d.patient], ['btnPressed', 'Save'], ['enTextarea', text],
+      ['shTextarea', `${marker}-${d.label}-history`], ['fhTextarea', ''], ['mhTextarea', ''], ['ocTextarea', ''],
+      ['reTextarea', ''], ['subject', ''], ['appointment_no', '']]);
+    for (const [name, value] of overrides) {
+      if (value === undefined) form.delete(name); else form.set(name, value);
+    }
+    return form;
+  };
+  async function postLegacySave(token, form) {
+    form.set('CSRF-TOKEN', token);
+    return context.request.post(h.appUrl(s.config.baseUrl, '/encounter/SaveEncounter2'), {
+      data: form.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token},
+      maxRedirects: 0, failOnStatusCode: false,
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy encounter save', async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const base = revisionsOf(d.patient).at(-1) || '';
+      const text = `${marker}-${d.label}-legacy-encounter`;
+      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', base]]));
+      try {
+        h.assert(response.status() === 302, `The legacy save answered HTTP ${response.status()}`);
+        const location = new URL(response.headers().location, h.appUrl(s.config.baseUrl, '/'));
+        h.assert(location.pathname.endsWith('/casemgmt/ViewForward') && location.searchParams.get('demographicNo') === d.patient,
+          'The saved legacy editor reopened another patient\'s chart');
+      } finally { await response.dispose(); }
+      const saved = revisionsOf(d.patient).at(-1);
+      h.assert(saved && saved !== base && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`) === text
+        && sql.value(`SELECT providerNo FROM eChart WHERE eChartId=${saved}`) === provider,
+      'The legacy save did not write a revision of its own patient');
+      legacy[d.label] = {base, revision: saved};
+    });
+  }
+
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy Sign, Save and Exit of its own appointment', async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const appointment = appointmentOf[d.label];
+      const text = `${marker}-${d.label}-signed-encounter`;
+      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', legacy[d.label].revision],
+        ['appointment_no', appointment], ['btnPressed', 'Sign,Save and Exit']]));
+      try {
+        h.assert(response.status() === 200, `The legacy sign answered HTTP ${response.status()}`);
+        h.assert((await response.text()).includes('opener.refresh()'),
+          'The legacy sign did not refresh the schedule that opened the chart');
+      } finally { await response.dispose(); }
+      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
+        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 'tS', provider]]),
+      'The legacy sign did not sign the chart\'s own appointment');
+      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status FROM appointmentArchive
+        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 't']]),
+      'The legacy sign did not archive the appointment\'s previous status');
+      const saved = revisionsOf(d.patient).at(-1);
+      h.assert(saved !== legacy[d.label].revision
+        && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`).startsWith(`${text}\n[`),
+      'The legacy sign did not write its own patient\'s signed revision');
+      legacy[d.label].revision = saved;
+    });
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy encounter save refuses ${d.label}'s stale, foreign or ambiguous identities without writing`, async () => {
+      const token = await csrfTokenPresent(d.chart);
+      const other = otherLabelOf(d);
+      await activateOther(d.otherChart);
+      const before = {own: snapshot(d.patient), other: snapshot(d.other)};
+      const text = `${marker}-${d.label}-refused-encounter`;
+      const conflicts = [
+        ['a stale revision', [['eChartId', legacy[d.label].base]]],
+        ['no revision field', [['eChartId', undefined]]],
+        ['another patient\'s appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', appointmentOf[other]],
+          ['btnPressed', 'Sign,Save and Exit']]],
+      ];
+      for (const [label, overrides] of conflicts) {
+        const response = await postLegacySave(token, legacyForm(d, text, overrides));
+        try {
+          h.assert(response.status() === 409, `A legacy save with ${label} answered HTTP ${response.status()}`);
+          const body = norm(await response.text());
+          h.assert(body.includes(text) && !body.includes(`${marker}-${other}-`) && !namesA(body) && !namesB(body),
+            `The refused legacy save with ${label} did not return only its own unsaved text`);
+        } finally { await response.dispose(); }
+      }
+      const rejected = [
+        ['another patient\'s revision', [['eChartId', legacy[other].revision]]],
+        ['a malformed revision', [['eChartId', 'latest']]],
+        ['a malformed appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', '7e2']]],
+      ];
+      for (const [label, parameters] of invalidPatientParameters(d.patient, d.other)) {
+        const overrides = [['demographicNo', undefined], ['eChartId', legacy[d.label].revision]];
+        rejected.push([`a ${label} patient`, overrides, parameters]);
+      }
+      for (const [label, overrides, extra = []] of rejected) {
+        const form = legacyForm(d, text, overrides);
+        for (const [name, value] of extra) form.append(name, value);
+        const response = await postLegacySave(token, form);
+        try {
+          h.assert(response.status() === 400, `A legacy save with ${label} answered HTTP ${response.status()}`);
+          const body = await response.text();
+          h.assert(!namesA(body) && !namesB(body), 'A rejected legacy save exposed an owned patient name');
+        } finally { await response.dispose(); }
+      }
+      const query = new URLSearchParams(legacyForm(d, text, [['eChartId', legacy[d.label].revision]]));
+      const get = await context.request.get(h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`),
+        {maxRedirects: 0, failOnStatusCode: false});
+      try {
+        h.assert(get.status() === 405, `A legacy save by GET answered HTTP ${get.status()}`);
+      } finally { await get.dispose(); }
+      assertPatientStateUnchanged(before.own, snapshot(d.patient), `${d.label}'s refused legacy saves (own rows)`);
+      assertPatientStateUnchanged(before.other, snapshot(d.other), `${d.label}'s refused legacy saves`);
+    });
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy encounter prints for ${d.label} print only ${d.label}'s revisions`, async () => {
+      const other = otherLabelOf(d);
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const own = text => d.ownName(text) && !d.otherName(text) && text.includes(`${marker}-${d.label}-signed-encounter`)
+        && !text.includes(`${marker}-${other}-`);
+      const editor = await read(`/encounter/ViewEncounterPrint?demographicNo=${d.patient}&echartid=${legacy[d.label].revision}`);
+      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s legacy editor print is not ${d.label}'s chart alone`);
+      const history = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=${d.patient}`);
+      h.assert(history.status === 200 && own(history.body), `${d.label}'s chart history print is not ${d.label}'s revision alone`);
+      const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
+      h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
+        && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);
+      for (const route of [`/encounter/ViewEncounterPrint?echartid=${legacy[d.label].revision}`,
+        `/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=0`]) {
+        const refused = await read(route);
+        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
+          `A legacy print without a valid patient answered HTTP ${refused.status}`);
+      }
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy prints`);
+    });
+  }
+
+  const [template] = sql.rows(`SELECT setId,setName FROM config_Immunization WHERE archived=0 ORDER BY setId LIMIT 1`);
+  h.assert(template && /^[1-9]\d*$/.test(template[0]), 'An immunization schedule template is required');
+  for (const d of directions) {
+    await isolatedWrite(d, 'legacy immunization schedule template and delete', async () => {
+      const page = await context.newPage();
+      const schedule = `SELECT ID,provider_no,immunizations FROM immunizations WHERE demographic_no=${d.patient} ORDER BY ID`;
+      h.assert(sql.rows(schedule).length === 0, `${d.label} already has an immunization schedule`);
+      await h.gotoApp(page, s.config.baseUrl, `/encounter/immunization/initSchedule?demographic_no=${d.patient}`);
+      const chooser = page.locator('form[action$="/encounter/immunization/saveConfig"]');
+      await chooser.waitFor({state: 'visible', timeout: TIMEOUT});
+      const chooserText = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(chooserText) && !d.otherName(chooserText)
+        && await chooser.locator('input[name="demographic_no"]').inputValue() === d.patient,
+      `${d.label}'s schedule template chooser is for another patient`);
+      await chooser.locator(`input[type="checkbox"][value="${template[0]}"]`).check();
+      await activateOther(d.otherChart);
+      await clickAndAwaitReload(page, chooser.locator('input[type="submit"]'), {label: `${d.label} add immunization template`});
+      const scheduleText = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(scheduleText) && !d.otherName(scheduleText) && squash(scheduleText).includes(squash(template[1])),
+        `The schedule redisplayed after ${d.label}'s template was added is not ${d.label}'s`);
+      const added = sql.rows(schedule);
+      h.assert(added.length === 1 && added[0][1] === provider && added[0][2].includes(`name="${template[1].replace(/&/g, '&amp;')}"`),
+        `${d.label}'s template was not added to ${d.label}'s schedule by the logged-in provider`);
+      await activateOther(d.otherChart);
+      const deletion = page.locator('a[onclick*="submitScheduleMutation(\'delete\', 0)"]');
+      h.assert(await deletion.count() === 1, `${d.label}'s schedule does not offer exactly one set to delete`);
+      const dialogs = await h.withExpectedDialogs(page, () => clickAndAwaitReload(page, deletion,
+        {label: `${d.label} delete immunization set`}));
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting the set did not ask for confirmation once');
+      const afterDelete = norm(await page.locator('body').innerText());
+      h.assert(d.ownName(afterDelete) && !d.otherName(afterDelete),
+        `The schedule redisplayed after ${d.label}'s set was deleted is another patient's`);
+      const versions = sql.rows(schedule);
+      h.assert(versions.length === 2 && versions[1][1] === provider && versions[1][2].includes('status="deleted"'),
+        `Deleting ${d.label}'s set did not write a new version of ${d.label}'s schedule`);
+      await page.close();
+      for (const route of ['/encounter/immunization/ViewSchedule', '/encounter/immunization/ViewScheduleConfig',
+        `/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`]) {
+        const refused = await read(route);
+        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
+          `An immunization schedule page without one valid patient answered HTTP ${refused.status}`);
+      }
+    });
+  }
+
+  for (const d of directions) {
+    await s.step(`the legacy case-management navigation for ${d.label} links only to ${d.label}`, async () => {
+      await activateOther(d.otherChart);
+      const before = snapshot(d.other);
+      const navigation = await read(`/casemgmt/ViewNavigation?demographicNo=${d.patient}`);
+      const owners = [...navigation.body.matchAll(/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=(\d+)/g)]
+        .map(match => match[1]);
+      h.assert(navigation.status === 200 && owners.length > 0 && owners.every(owner => owner === d.patient),
+        `${d.label}'s legacy navigation links to ${[...new Set(owners)].map(ownerLabel).join(', ') || 'no patient'}`);
+      const anonymous = await read('/casemgmt/ViewNavigation');
+      h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
+        'The legacy navigation without a patient linked to one');
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy navigation`);
+    });
+  }
 
   async function reopenVascularTracker(chart, label, expectedId) {
     const item = chart.locator('#forms a[onclick*="forwardshortcutname"]').filter({hasText: 'Vascular Tracker'}).first();

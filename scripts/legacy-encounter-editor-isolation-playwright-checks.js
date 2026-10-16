@@ -1,0 +1,329 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/*
+ * The legacy encounter editor saves, signs and prints only the patient its own window was
+ * opened for (issue #4673).
+ *
+ * The legacy editor (encounter/Index2.jsp) renders only with the CAISI module (caisi=on in
+ * carlos.properties) and only for an IncomingEncounter request carrying casetoEncounter. Nothing in
+ * the application links there; once open, the editor re-renders itself after each save through its
+ * own casetoEncounter field. Its save (EctSaveEncounter2Action, /encounter/SaveEncounter2) used to
+ * take the patient, the entry metadata and the revision the editor was opened from out of the
+ * login-wide EctSessionBean and the session's eChartID, which IncomingEncounter rewrites for
+ * whichever chart was entered last in any window. With A's and B's editors open in one login,
+ * saving A's editor appended A's text to B's chart and signed B's appointment, and Print printed B.
+ * The save action itself is reachable in every configuration; echart-two-patient-isolation drives
+ * it directly. This check drives the editor a clinician actually sees.
+ *
+ * OPERATOR PREREQUISITE: caisi=on in /etc/carlos-emr/carlos.properties, then `carlos-ctl restart`
+ * (restore the property and restart afterwards). Without it the editor does not render and the
+ * check reports SKIP. The CAISI module changes clinic-wide behaviour, so this is a manual check.
+ *
+ * User path: two windows of one login, each opened from the day sheet with
+ * IncomingEncounter?demographicNo=...&providerNo=...&casetoEncounter=true; A's window also names A's
+ * appointment, as an appointment's encounter link does. Sign & Save closes its window and refreshes
+ * the day sheet that opened it.
+ *
+ * Steps: each editor shows its own patient; each Save, made after the other editor was opened last,
+ * writes a revision of its own patient only and redisplays its own patient; Print prints the window's
+ * own revision; an editor whose revision another A editor has superseded is refused with its own text
+ * on the concurrency page and writes nothing; Sign & Save signs only A's own appointment. Every step
+ * compares the other patient's complete clinical rows before and after.
+ *
+ * Fixtures: the workflow's FAKE patient (A, first name LegacyAlpha), a second FAKE patient (B,
+ * LegacyBravo, last name the run marker), and one owned appointment each. Cleanup removes both
+ * patients' eChart revisions, appointments, appointment archive rows, note locks and drafts by key and
+ * asserts each is gone, and restores the provider's encounterWindow (editor layout) row exactly.
+ */
+const h = require('./lib/playwright-harness');
+const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { runWorkflow } = require('./lib/workflow-session');
+const { readPatientState, assertPatientStateUnchanged } = require('./echart-two-patient-isolation-playwright-checks');
+
+const TIMEOUT = 20000;
+const OBSERVED = '2026-02-03';
+const A_FIRST_NAME = 'LegacyAlpha';
+const B_FIRST_NAME = 'LegacyBravo';
+const namesA = text => text.includes(A_FIRST_NAME);
+const namesB = text => text.includes(B_FIRST_NAME);
+const norm = text => text.replace(/\s+/g, ' ').trim();
+
+function patientKey(value) {
+  h.assert(/^[1-9]\d*$/.test(String(value)), 'An owned patient key is invalid');
+  return String(value);
+}
+
+async function run(s) {
+  const { sql, patient: A, provider, marker, context, recorder, schedule } = s;
+  const q = h.sqlString;
+  const base = s.config.baseUrl;
+
+  // ---- Fixtures --------------------------------------------------------------------------------
+  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  const B = h.insertId(sql, `INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
+    date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
+    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR', NOW())`,
+  'patient B');
+  const patients = `${A},${B}`;
+  // Registered first, so it runs last: after every child row below is gone. The harness removes A.
+  s.cleanup(() => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${B} AND last_name=${q(marker)}`) === '1',
+      'Patient B fixture ownership changed');
+    sql.execute(['demographicExt', 'demographicArchive']
+      .map(table => `DELETE FROM ${table} WHERE demographic_no=${B}`).join(';'));
+    sql.execute(`DELETE FROM demographic WHERE demographic_no=${B} AND last_name=${q(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${B}`) === '0', 'Patient B was not removed');
+  });
+  s.cleanup(() => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${B}
+      AND last_name=${q(marker)}`) === '1', 'Patient B ownership changed before child cleanup');
+    const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${patients})`;
+    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note WHERE demographic_no IN (${patients});
+      DELETE FROM casemgmt_note_lock WHERE demographic_no IN (${patients});
+      DELETE FROM casemgmt_tmpsave WHERE demographic_no IN (${patients});
+      DELETE FROM eChart WHERE demographicNo IN (${patients});
+      DELETE FROM appointmentArchive WHERE demographic_no IN (${patients});
+      DELETE FROM appointment WHERE demographic_no IN (${patients})`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM eChart WHERE demographicNo IN (${patients}))
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${patients}))
+      + (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${patients}))`) === '0',
+    'Owned legacy encounter rows were not removed');
+  });
+  // A legacy save stores the editor's row sizes for its provider; restore the provider's exact row.
+  const layoutQuery = `SELECT provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize FROM encounterWindow
+    WHERE provider_no=${q(provider)}`;
+  const layoutBefore = sql.rows(layoutQuery);
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM encounterWindow WHERE provider_no=${q(provider)}`
+      + layoutBefore.map(row => `; INSERT INTO encounterWindow (provider_no,rowOneSize,rowTwoSize,presBoxSize,rowThreeSize)
+        VALUES (${q(row[0])},${row.slice(1).map(Number).join(',')})`).join(''));
+    h.assert(JSON.stringify(sql.rows(layoutQuery)) === JSON.stringify(layoutBefore),
+      'The provider\'s legacy encounter layout was not restored');
+  });
+  const appointmentOf = {};
+  for (const [label, patient] of [['A', A], ['B', B]]) {
+    appointmentOf[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+      end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
+      VALUES (${q(provider)}, ${q(OBSERVED)}, '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
+      ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+  }
+
+  const snapshot = patient => readPatientState(sql, patient);
+  const revisionsOf = patient => sql.rows(`SELECT eChartId FROM eChart WHERE demographicNo=${patientKey(patient)}
+    ORDER BY eChartId`).map(row => row[0]);
+  const entryQuery = (patient, appointment) => new URLSearchParams({
+    demographicNo: patient, providerNo: provider, curProviderNo: provider, casetoEncounter: 'true', status: 't',
+    appointmentDate: OBSERVED, ...(appointment ? {appointmentNo: appointment} : {}),
+  });
+
+  // The editor renders only in CAISI mode; elsewhere Index2.jsp forwards to the case-management chart.
+  const probe = await context.request.get(h.appUrl(base, `/encounter/IncomingEncounter?${entryQuery(A)}`),
+    {maxRedirects: 0, failOnStatusCode: false});
+  let editorRenders;
+  try {
+    editorRenders = probe.status() === 200 && /<form name="encForm"/.test(await probe.text());
+  } finally { await probe.dispose(); }
+  if (!editorRenders) {
+    throw new h.SkipCheck('the legacy encounter editor renders only with caisi=on in carlos.properties '
+      + '(then carlos-ctl restart); this deployment forwards it to the case-management chart');
+  }
+
+  /**
+   * The editor's left column loads its modules (preventions, ticklers, ...) by XHR after the page
+   * loads, and a Save that navigates first aborts them. Track one page's module loads so that every
+   * step acts on an editor that has finished loading, as the clinician's does.
+   */
+  function trackEditorModules(page) {
+    const pending = new Set();
+    let finished = 0;
+    const isModule = request => request.resourceType() === 'xhr'
+      && /\/encounter\/display[A-Za-z]+$/.test(new URL(request.url()).pathname);
+    page.on('framenavigated', frame => { if (frame === page.mainFrame()) finished = 0; });
+    page.on('request', request => { if (isModule(request)) pending.add(request); });
+    const settle = request => { if (pending.delete(request)) finished++; };
+    page.on('requestfinished', settle);
+    page.on('requestfailed', settle);
+    return async label => {
+      const expected = await page.evaluate(() => (typeof encounterConfig === 'object'
+        ? Object.keys(encounterConfig.urls.leftNavbar).length : 0));
+      h.assert(expected > 0, `${label} is not the legacy editor: ${h.pathOnly(page.url())} "${norm(await page.title())}"`);
+      const deadline = Date.now() + TIMEOUT;
+      while (pending.size > 0 || finished < expected) {
+        h.assert(Date.now() < deadline, `${label}: the editor's left column never finished loading`);
+        await page.waitForTimeout(100);
+      }
+    };
+  }
+  const modulesLoaded = new WeakMap();
+  const editorLoaded = (page, label) => modulesLoaded.get(page)(label);
+
+  /**
+   * Open a patient's legacy editor in a window of its own, opened from the day sheet as the day
+   * sheet opens a chart entry: Sign & Save closes that window and refreshes its opener.
+   */
+  async function openEditor(patient, appointment) {
+    const url = h.appUrl(base, `/encounter/IncomingEncounter?${entryQuery(patient, appointment)}`);
+    // Tracked from the context's page event, which fires before the window's first request.
+    const opened = context.waitForEvent('page', {timeout: TIMEOUT}).then(page => {
+      modulesLoaded.set(page, trackEditorModules(page));
+      return page;
+    });
+    await schedule.evaluate(target => { window.open(target, '_blank', 'width=1000,height=800'); }, url);
+    const page = await opened;
+    await page.locator('form[name="encForm"] textarea[name="enTextarea"]').waitFor({state: 'visible', timeout: TIMEOUT});
+    await editorLoaded(page, 'An opened editor');
+    return page;
+  }
+  async function editorOwner(page) {
+    const text = norm(await page.locator('body').innerText());
+    // Read only when present, so an editor that does not carry its revision fails the step's own
+    // assertion instead of a locator timeout.
+    const revision = page.locator('form[name="encForm"] input[name="eChartId"]');
+    return {
+      patient: await page.locator('form[name="encForm"] input[name="demographicNo"]').inputValue(),
+      revision: await revision.count() === 1 ? await revision.inputValue() : null,
+      namesA: namesA(text), namesB: namesB(text),
+    };
+  }
+  const assertOwnEditor = (owner, patient, label) => {
+    h.assert(owner.patient === String(patient)
+      && (String(patient) === String(A) ? owner.namesA && !owner.namesB : owner.namesB && !owner.namesA),
+    `${label} is not headed with its own patient alone`);
+  };
+  /** Click one of the editor's submit buttons and wait for the save's response document. */
+  async function press(page, button, label, {redisplaysEditor = true} = {}) {
+    await clickAndAwaitReload(page, page.locator(`form[name="encForm"] input[type="button"][value="${button}"]`), {label});
+    if (redisplaysEditor) await editorLoaded(page, `${label}'s redisplayed editor`);
+  }
+
+  // ---- Steps -----------------------------------------------------------------------------------
+  let editorA;
+  let editorB;
+  await s.step('A\'s and B\'s legacy editors, opened in two windows of one login, each show their own patient', async () => {
+    editorA = await openEditor(A, appointmentOf.A);
+    assertOwnEditor(await editorOwner(editorA), A, 'A\'s editor');
+    editorB = await openEditor(B);
+    assertOwnEditor(await editorOwner(editorB), B, 'B\'s editor');
+    assertOwnEditor(await editorOwner(editorA), A, 'A\'s editor, after B\'s was opened');
+  });
+
+  const directions = [
+    {label: 'A', patient: A, other: B, editor: () => editorA},
+    {label: 'B', patient: B, other: A, editor: () => editorB},
+  ];
+  const saved = {};
+  for (const d of directions) {
+    await s.step(`${d.label}'s Save, after the other editor was opened last, writes only ${d.label}'s revision`, async () => {
+      // Entering the other chart afresh makes it the login's most recently opened chart.
+      await openEditor(d.other);
+      const before = snapshot(d.other);
+      const editor = d.editor();
+      const text = `${marker}-${d.label}-legacy-editor`;
+      const base = (await editorOwner(editor)).revision;
+      await editor.locator('textarea[name="enTextarea"]').fill(text);
+      await press(editor, 'Save', `${d.label} legacy Save`, {redisplaysEditor: false});
+      // The rows first, so that a Save which wrote the other chart says so rather than only failing
+      // to redisplay.
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy Save`);
+      const revision = revisionsOf(d.patient).at(-1);
+      h.assert(revision && revision !== base
+        && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`) === text
+        && sql.value(`SELECT providerNo FROM eChart WHERE eChartId=${revision}`) === provider,
+      `${d.label}'s Save did not write a revision of ${d.label}`);
+      await editorLoaded(editor, `${d.label}'s editor after its Save`);
+      const owner = await editorOwner(editor);
+      assertOwnEditor(owner, d.patient, `${d.label}'s editor after its Save`);
+      h.assert(owner.revision === revision
+        && norm(await editor.locator('textarea[name="enTextarea"]').inputValue()) === text,
+      `${d.label}'s redisplayed editor does not show the revision it saved`);
+      saved[d.label] = {revision, text};
+    });
+  }
+
+  await s.step('A\'s Print prints A\'s own revision after B\'s editor was opened last', async () => {
+    await openEditor(B);
+    const popup = await s.popup(editorA, editorA.locator('input[type="button"][value="Print"]'), 'A legacy print');
+    await popup.locator('pre[name="enTextarea"]').waitFor({state: 'attached', timeout: TIMEOUT});
+    h.assert(new URL(popup.url()).searchParams.get('demographicNo') === String(A)
+      && new URL(popup.url()).searchParams.get('echartid') === saved.A.revision, 'Print opened another chart or revision');
+    const text = norm(await popup.locator('body').innerText());
+    h.assert(namesA(text) && !namesB(text) && text.includes(saved.A.text) && !text.includes(saved.B.text),
+      'A\'s Print did not print A\'s revision alone');
+    await popup.close();
+  });
+
+  await s.step('an A editor whose revision was superseded keeps its own text on the concurrency page and writes nothing', async () => {
+    const second = await openEditor(A);
+    h.assert((await editorOwner(second)).revision === saved.A.revision, 'A\'s second editor did not open A\'s latest revision');
+    const newer = `${marker}-A-legacy-newer`;
+    await second.locator('textarea[name="enTextarea"]').fill(newer);
+    await press(second, 'Save', 'A second legacy Save');
+    const latest = revisionsOf(A).at(-1);
+    h.assert(sql.value(`SELECT encounter FROM eChart WHERE eChartId=${latest}`) === newer, 'A\'s second editor did not save');
+    await openEditor(B);
+    const before = {A: snapshot(A), B: snapshot(B)};
+    const stale = `${marker}-A-legacy-stale`;
+    await editorA.locator('textarea[name="enTextarea"]').fill(stale);
+    const mark = recorder.badResponses.length;
+    const consoleMark = recorder.consoleIssues.length;
+    await press(editorA, 'Save', 'A stale legacy Save', {redisplaysEditor: false});
+    const refused = recorder.badResponses.slice(mark);
+    h.assert(refused.length === 1 && refused[0].status === 409 && new URL(refused[0].url).pathname.endsWith('/encounter/SaveEncounter2'),
+      'The stale Save was not refused as a conflict');
+    // The refusal is this step's expected outcome, not a page failure: excuse its response and
+    // Chromium's console line for that same document load, and nothing else.
+    recorder.badResponses.splice(mark, 1);
+    for (let i = recorder.consoleIssues.length - 1; i >= consoleMark; i--) {
+      const entry = recorder.consoleIssues[i];
+      if (entry.type === 'error' && /status of 409\b/.test(entry.text) && entry.location && entry.location.url
+          && new URL(entry.location.url).pathname.endsWith('/encounter/SaveEncounter2')) {
+        recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    const recovered = await editorA.locator('textarea[name="encounterTextarea"]').inputValue();
+    const page = norm(await editorA.locator('body').innerText());
+    h.assert(norm(recovered) === stale && !namesA(page) && !namesB(page),
+      'The concurrency page did not keep the refused editor\'s own text alone');
+    assertPatientStateUnchanged(before.A, snapshot(A), 'A\'s stale Save (A\'s rows)');
+    assertPatientStateUnchanged(before.B, snapshot(B), 'A\'s stale Save');
+    await second.close();
+  });
+
+  await s.step('A\'s Sign & Save signs only A\'s own appointment', async () => {
+    const editor = await openEditor(A, appointmentOf.A);
+    await openEditor(B, appointmentOf.B);
+    const before = snapshot(B);
+    const text = `${marker}-A-legacy-signed`;
+    await editor.locator('textarea[name="enTextarea"]').fill(text);
+    const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
+    closed.catch(() => {});
+    // The closing page refreshes the day sheet that opened the editor, as A's appointment changed.
+    const refreshed = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(),
+      timeout: TIMEOUT}).then(() => true, () => false);
+    const response = editor.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
+    await editor.locator('form[name="encForm"] input[type="button"][value="Sign & Save"]').click();
+    h.assert((await response).status() === 200, 'Sign & Save did not answer its closing page');
+    await closed;
+    h.assert(await refreshed, 'Sign & Save did not refresh the day sheet that opened the editor');
+    await schedule.waitForLoadState('load', {timeout: TIMEOUT});
+    h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
+      WHERE appointment_no=${appointmentOf.A}`)) === JSON.stringify([[String(A), 'tS', provider]]),
+    'Sign & Save did not sign A\'s own appointment');
+    h.assert(JSON.stringify(sql.rows(`SELECT status FROM appointment WHERE appointment_no=${appointmentOf.B}`))
+      === JSON.stringify([['t']]), 'Sign & Save changed B\'s appointment');
+    const revision = revisionsOf(A).at(-1);
+    h.assert(sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`).startsWith(`${text}\n[`),
+      'Sign & Save did not write A\'s signed revision');
+    assertPatientStateUnchanged(before, snapshot(B), 'A\'s Sign & Save');
+  });
+}
+
+if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, { openPatient: true, openMaster: false });
+module.exports = { run };
