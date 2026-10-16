@@ -109,7 +109,7 @@
 
 <%
     // bodyTextAsHTML: the message body content retrieved from session for display.
-    String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
+    String bodyTextAsHTML = (String) request.getAttribute("viewMessageMessage");
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
     }
@@ -442,8 +442,8 @@ function fmtOscarMsg() {
 							</td>
 						</tr>
 						<%-- Display file and PDF attachments if present in session --%>
-						<%  String attach = (String) session.getAttribute("viewMessageAttach");
-                                    String id = (String) session.getAttribute("viewMessageId");
+						<%  String attach = (String) request.getAttribute("viewMessageAttach");
+                                    String id = (String) request.getAttribute("viewMessageId");
                                     if ( attach != null && attach.equals("1") ){
                                     %>
 						<tr class="DoNotPrint">
@@ -456,7 +456,7 @@ function fmtOscarMsg() {
                                     }
                                 %>
 						<%
-                                    String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
+                                    String pdfAttach = (String) request.getAttribute("viewMessagePDFAttach");
                                     if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
 						<tr class="DoNotPrint">
@@ -579,7 +579,7 @@ function fmtOscarMsg() {
 
                                             <%
                                                 // Null-safe session attribute retrieval for use in the link button onclick
-                                                String viewMsgId = session.getAttribute("viewMessageId") != null ? (String) session.getAttribute("viewMessageId") : "";
+                                                String viewMsgId = request.getAttribute("viewMessageId") != null ? (String) request.getAttribute("viewMessageId") : "";
                                                 String viewProvNo = session.getAttribute("providerNo") != null ? (String) session.getAttribute("providerNo") : "";
 
                                                 // Demographic search and link section: looks up a patient by
@@ -649,7 +649,7 @@ function fmtOscarMsg() {
 								<td class="DoNotPrint">
 								<button type="button" class="btn btn-secondary"
 									name="writeEncounter"
-                                    onclick="popup( '<%=demoKeyJs%>','<carlos:encode value='<%= (String)session.getAttribute("viewMessageId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScriptAttribute"/>','writeToEncounter')" >
+                                    onclick="popup( '<%=demoKeyJs%>','<carlos:encode value='<%= (String)request.getAttribute("viewMessageId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= (String)session.getAttribute("providerNo") %>' context="javaScriptAttribute"/>','writeToEncounter')" >
                                     <i class="fa-solid fa-pen-to-square"></i>
                                     <fmt:message key="messenger.ViewMessage.writeToE"/>
 								</button>

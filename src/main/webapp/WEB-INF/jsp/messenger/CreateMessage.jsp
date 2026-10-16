@@ -72,9 +72,16 @@
     - ReText: Quoted text for replies
 
     Session Attributes:
-    - msgSessionBean: Message composition session data
+    - msgSessionBean: the sender's name (attachments are no longer kept on it)
     - userrole: Current user role
     - user: Current username
+
+    Attachments (issue #4673):
+    - Each render carries its own random attachmentKey in the form, in the attachment chooser
+      it opens and in its Clear link; the chooser stages chart PDFs under that key with the
+      patient they were rendered for (MsgAttachmentStaging), and the send takes exactly that
+      entry. A failed send hands the key back as a request attribute so the page keeps its
+      attachments. Another compose window, for the same or another patient, never sees them.
 
     @since 2002-11-08
 --%>
@@ -93,6 +100,8 @@
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
@@ -159,6 +168,16 @@
 
     // Retrieve the message session bean for maintaining state
     MsgSessionBean bean = (MsgSessionBean) pageContext.findAttribute("bean");
+
+    // This compose window's own key: its form, its attachment chooser and its Clear link carry it,
+    // and the send takes exactly the attachments staged under it (issue #4673). A send that failed
+    // hands its key back so the attachments stay with this window; every other render starts a
+    // new message with a new key.
+    String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+    if (!MsgAttachmentStaging.isKey(attachmentKey)) {
+        attachmentKey = MsgAttachmentStaging.newKey();
+    }
+    MsgAttachmentStaging.Staged stagedAttachments = MsgAttachmentStaging.peek(session, attachmentKey);
 
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
@@ -379,7 +398,8 @@ function validateFields() {
 	    var vheight = 700;
 	    var vwidth = 900;
 	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
-	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' +demographic;
+	    var page = '<%= request.getContextPath() %>/messenger/attachmentFrameset?demographic_no=' + encodeURIComponent(demographic)
+	        + '&attachmentKey=<%= SafeEncode.forJavaScript(SafeEncode.forUriComponent(attachmentKey)) %>';
 
 	    if ( demographic == "" || !demographic || demographic == "null") {
 	        showAlert(msgSelectDemographic, 'warning');
@@ -467,7 +487,7 @@ function validateFields() {
 						    <a class="btn btn-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
-                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage<%=scheduleNavFirstQuerySuffix%>">
+                            <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(attachmentKey)) %><%=scheduleNavQuerySuffix%>">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
                             <% if (showMessengerExitButton) { %>
@@ -487,6 +507,7 @@ function validateFields() {
                     <% if (showScheduleNav) { %>
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>
+                    <input type="hidden" name="attachmentKey" value="<%= SafeEncode.forHtmlAttribute(attachmentKey) %>">
 				<table class="card card-body bg-body-tertiary" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -590,17 +611,11 @@ function validateFields() {
 									</td>
 								</tr>
 							</table>
-					<%
-                       String att = bean.getAttachment();
-                       String pdfAtt = bean.getPDFAttachment();
-                       if (att != null || pdfAtt != null){
-                    %>
+					<%-- Only what this window attached (its key), never another compose window's. --%>
+					<% if (stagedAttachments != null && !stagedAttachments.isEmpty()) { %>
 							<br>
 							<fmt:message key="messenger.CreateMessage.msgAttachments" />
-							<%
-							bean.setSubject(null);
-							bean.setMessage(null);
-						}%>
+					<% } %>
 					<%-- Client-side indicator shown when attachment popup closes (onAttachmentAdded callback).
 					     Separate from the server-side block above so it can appear even when
 					     the page is not reloaded (avoids losing demographic_no). --%>

@@ -252,22 +252,25 @@ public class MsgViewMessage2Action extends ActionSupport {
                 ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId)
                 : new HashMap<>();
 
-        // Store all message data in session for display.
-        // All values below are either validated (parseInt/whitelist) or sourced from
-        // the database via authenticated DAO lookup. Output encoding is in ViewMessage.jsp.
-        request.getSession().setAttribute("attachedDemographics", attachedDemographics); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The message shown, for ViewMessage.jsp, which this request forwards to. Request
+        // attributes: in the session, a second window opening another message at the same time
+        // could replace them between this action and the page, which then showed that message
+        // (with its linked patients) under this one's id (issue #4673). All values below are
+        // either validated (parseInt/whitelist) or sourced from the database via authenticated
+        // DAO lookup. Output encoding is in ViewMessage.jsp.
+        request.setAttribute("attachedDemographics", attachedDemographics);
+        request.setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody());
+        request.setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject());
+        request.setAttribute("viewMessageSentby", msgDisplayMessage.getSentby());
+        request.setAttribute("viewMessageSentto", msgDisplayMessage.getSentto());
+        request.setAttribute("viewMessageTime", msgDisplayMessage.getThetime());
+        request.setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
+        request.setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
+        request.setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
         String canonicalMessageNo = String.valueOf(parsedMessageNo);
-        request.getSession().setAttribute("viewMessageId", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessageNo", canonicalMessageNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("viewMessagePosition", messagePosition); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.setAttribute("viewMessageId", canonicalMessageNo);
+        request.setAttribute("viewMessageNo", canonicalMessageNo);
+        request.setAttribute("viewMessagePosition", messagePosition);
         request.getSession().setAttribute("from", from); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- whitelisted to "encounter"|"messenger"
         request.getSession().setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authenticated provider number from LoggedInInfo session
 

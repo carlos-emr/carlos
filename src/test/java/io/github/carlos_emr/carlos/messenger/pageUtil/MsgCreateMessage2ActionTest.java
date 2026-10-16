@@ -32,6 +32,8 @@ import org.junit.jupiter.api.*;
 import org.mockito.*;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -40,8 +42,10 @@ import static org.mockito.Mockito.*;
 /**
  * Integration tests for {@link MsgCreateMessage2Action}.
  *
- * <p>Validates security enforcement, session validation, and the fix for
- * ConversionUtils dead null checks (Issue #1).</p>
+ * <p>Validates security enforcement, session validation, the fix for
+ * ConversionUtils dead null checks (Issue #1), and that a message carries only the
+ * attachments of the compose window it was written in, refusing chart PDFs rendered for
+ * another patient (issue #4673).</p>
  *
  * @since 2026-02-20
  */
@@ -190,6 +194,127 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         } catch (Exception e) {
             // JDBC not available in test — acceptable as we verified the guard
             assertThat(e).isNotInstanceOf(SecurityException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("attachments of the compose window")
+    class ComposeWindowAttachments {
+
+        private static final String RECIPIENT = "FAKE-recipient";
+        private final AtomicReference<String> sentItems = new AtomicReference<>();
+        private final AtomicReference<String> sentPdfs = new AtomicReference<>();
+        private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
+        private boolean noRecipients;
+        private String thisWindow;
+        private String otherWindow;
+
+        @BeforeEach
+        void setUpCompose() {
+            allowPrivilege("_msg", "w");
+            MsgSessionBean bean = new MsgSessionBean();
+            bean.setProviderNo(TEST_PROVIDER);
+            bean.setUserName("Test Provider");
+            setSessionAttribute("msgSessionBean", bean);
+            thisWindow = MsgAttachmentStaging.newKey();
+            otherWindow = MsgAttachmentStaging.newKey();
+            // Two compose windows: this one for patient 101, the other for patient 202.
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, "<PDF>FAKE patient 101 chart</PDF>");
+            MsgAttachmentStaging.stagePdfs(getMockSession(), otherWindow, 202, "<PDF>FAKE patient 202 chart</PDF>");
+            action.setProvider(new String[]{RECIPIENT});
+            action.setSubject("FAKE subject");
+            action.setMessage("FAKE body");
+        }
+
+        private String send() throws Exception {
+            try (MockedConstruction<MsgMessageData> ignored = mockConstruction(MsgMessageData.class, (data, context) -> {
+                when(data.getDups4(any())).thenAnswer(invocation -> invocation.getArgument(0));
+                when(data.getProviderStructure(any(), any())).thenReturn(
+                        noRecipients ? new ArrayList<>() : new ArrayList<>(List.of(new MsgProviderData())));
+                when(data.createSentToString(any())).thenReturn(RECIPIENT);
+                when(data.sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                        .thenAnswer(invocation -> {
+                            sends.incrementAndGet();
+                            sentItems.set(invocation.getArgument(6));
+                            sentPdfs.set(invocation.getArgument(7));
+                            return "77";
+                        });
+            })) {
+                return executeAction(action);
+            }
+        }
+
+        @Test
+        @DisplayName("should send this window's chart PDFs only, and only once")
+        void shouldSendOnlyThisWindowsAttachments_whenAnotherWindowHasAttachments() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentPdfs.get()).isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 202 chart</PDF>");
+            verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+        }
+
+        @Test
+        @DisplayName("should send no attachments when the form names no compose window")
+        void shouldSendNoAttachments_whenComposeKeyMissing() throws Exception {
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentPdfs.get()).isNull();
+            assertThat(sentItems.get()).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs on a message linked to another patient and keep everything")
+        void shouldRefuseChartPdfs_whenMessageLinkedToAnotherPatient() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("202");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("different patient");
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("202");
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs on a message whose patient link was cleared")
+        void shouldRefuseChartPdfs_whenPatientLinkCleared() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should put the attachments back when there is no valid recipient")
+        void shouldKeepAttachments_whenNoValidRecipients() throws Exception {
+            noRecipients = true;
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
         }
     }
 }

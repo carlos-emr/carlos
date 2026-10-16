@@ -44,9 +44,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * transfer flow. Replaces the scriptlet previously in AdjustAttachments.jsp.
  * <p>
  * Parses {@code item*} checkbox parameters, decodes the {@code xmlDoc}
- * Base64-encoded XML, filters the attachment list to the user's selection,
- * writes the result onto {@link MsgSessionBean}, and redirects to the
- * demographic search page where the user picks recipients.
+ * Base64-encoded XML, checks that the selection parses, and redirects to the
+ * demographic search page.
+ * <p>
+ * It used to put the selected items on the login-wide {@link MsgSessionBean}
+ * for a chart import that no longer exists ({@code ImportDemographic2Action}),
+ * so the only effect was that the next message sent from any compose window,
+ * for any patient, carried them (issue #4673). Nothing is kept now.
  * <p>
  * POST-only: the action mutates session state, so GET requests are rejected
  * with 405 to prevent CSRF via link/redirect.
@@ -60,10 +64,8 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
-     * writes the resulting attachment XML onto the messenger session bean,
-     * and redirects to the demographic-search gate so the user picks
-     * recipients.
+     * Parses checkbox selections and the Base64-encoded {@code xmlDoc} and
+     * redirects to the demographic-search gate; a malformed document is a 400.
      *
      * @return {@link #NONE} — the action always redirects or sends an HTTP status code
      * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
@@ -128,11 +130,6 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             }
         }
 
-        // Normalize the id parameter to digits-only or null; rejects any
-        // non-numeric input before it is persisted on the session bean.
-        String idRaw = request.getParameter("id");
-        String messageId = isDigits(idRaw) ? idRaw : null;
-
         // Decode + parse inside a single try so malformed Base64 or malformed
         // XML returns a clean 400 instead of falling through to a 500 via
         // parseXML()-returns-null -> getDocumentElement() NPE.
@@ -155,9 +152,6 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;
         }
-
-        bean.setAttachment(sXML);
-        bean.setMessageId(messageId);
 
         // DemographicLinkMsg forwards to the relocated msgSearchDemo view;
         // the previous redirect to Transfer/DemographicSearch.jsp 404s because

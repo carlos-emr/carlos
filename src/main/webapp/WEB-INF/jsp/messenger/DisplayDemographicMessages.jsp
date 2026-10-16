@@ -131,12 +131,10 @@
 </c:if>
 <%
     MsgSessionBean bean = (MsgSessionBean) pageContext.findAttribute("bean");
-    String demographic_no = "";
-    if (request.getParameter("demographic_no") != null) {
-        demographic_no = request.getParameter("demographic_no");
-    } else {
-        demographic_no = bean.getDemographic_no();
-    }
+    // The patient this list is for comes from the request only; every link here names it. It used
+    // to fall back to the patient stored on the login-wide message bean, i.e. the patient whose
+    // list created that bean, whichever window asked (issue #4673).
+    String demographic_no = request.getParameter("demographic_no") == null ? "" : request.getParameter("demographic_no");
 
     String demographic_name = "";
     if (demographic_no != null) {
@@ -160,7 +158,6 @@
     }
 
     DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
-    bean.nullAttachment();
 %>
 <jsp:setProperty name="DisplayMessagesBeanId" property="*"/>
 

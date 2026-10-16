@@ -127,4 +127,30 @@ class MsgViewMessage2ActionUnitTest extends CarlosUnitTestBase {
         verify(messengerDemographicManager, never()).getAttachedDemographicNameMap(any(), anyInt());
         verify(messengerDemographicManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
     }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should hand the shown message to the page in the request, not the login's session")
+    void shouldPublishShownMessageInRequest_whenViewingMessage() throws Exception {
+        request.setMethod("GET");
+        request.addParameter("messageID", "100");
+        io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage shown =
+                new io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage();
+        shown.setMessageId("100");
+        shown.setThesubject("FAKE subject about patient 42");
+        shown.setMessageBody("FAKE body");
+        when(messagingManager.getInboxMessage(any(), eq(100))).thenReturn(shown);
+        when(messengerDemographicManager.getAttachedDemographicNameMap(any(), eq(100)))
+                .thenReturn(java.util.Map.of(42, "FAKE-Doe, Pat"));
+
+        assertThat(new MsgViewMessage2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        // Issue #4673: in the session, a second window opening another message at the same time
+        // could replace these between the action and the page it forwards to.
+        assertThat(request.getAttribute("viewMessageSubject")).isEqualTo("FAKE subject about patient 42");
+        assertThat(request.getAttribute("viewMessageMessage")).isEqualTo("FAKE body");
+        assertThat(request.getAttribute("viewMessageNo")).isEqualTo("100");
+        assertThat(request.getAttribute("attachedDemographics")).isEqualTo(java.util.Map.of(42, "FAKE-Doe, Pat"));
+        assertThat(java.util.Collections.list(request.getSession().getAttributeNames()))
+                .noneMatch(name -> name.startsWith("viewMessage") || name.equals("attachedDemographics"));
+    }
 }

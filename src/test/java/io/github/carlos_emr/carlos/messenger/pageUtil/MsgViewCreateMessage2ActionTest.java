@@ -87,5 +87,30 @@ class MsgViewCreateMessage2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // A plain visit starts a new message: the compose page makes its own key.
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should hand the compose page the key the transferred items were staged under")
+    void shouldHandOverComposeKey_whenRedirectedFromTransfer() throws Exception {
+        allowPrivilege("_msg", "r");
+        String key = MsgAttachmentStaging.newKey();
+        getMockRequest().setParameter(MsgAttachmentStaging.KEY_PARAMETER, key);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(key);
+    }
+
+    @Test
+    @DisplayName("should ignore a malformed compose key")
+    void shouldIgnoreComposeKey_whenMalformed() throws Exception {
+        allowPrivilege("_msg", "r");
+        getMockRequest().setParameter(MsgAttachmentStaging.KEY_PARAMETER, "<script>");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isNull();
     }
 }

@@ -46,8 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and the patient number and data that the Disease Registry, the waiting list, the Rx allergy page
  * and the PMM client view copied into the session under generic names, and the appointment last
  * opened from the day sheet, which tied one patient's Health Tracker save and multisite tickler and
- * prescription defaults to another patient's visit. The scan covers all main Java and JSP sources,
- * with comments removed, so a reintroduction anywhere fails here.
+ * prescription defaults to another patient's visit, and the Messenger's message, PDF list and
+ * compose attachments, which a second Messenger window replaced or sent. The scan covers all main
+ * Java and JSP sources, with comments removed, so a reintroduction anywhere fails here.
  *
  * @since 2026-10-16
  */
@@ -82,7 +83,21 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
                     + "clientAge|clientGender|demoInfo|patientWaitingList|allDiagnostics)\""),
             // The day sheet's last-opened appointment, for any patient. It is now filed per patient
             // (ChartSessionKeys.currentAppointment) and read back only for that patient.
-            Pattern.compile(SESSION_ACCESS + "cur_appointment_no\""));
+            Pattern.compile(SESSION_ACCESS + "cur_appointment_no\""),
+            // The Messenger viewer's message and PDF list: request attributes, and the PDF
+            // download names its message.
+            Pattern.compile(SESSION_ACCESS + "PDFAttachment\""),
+            Pattern.compile(SESSION_RECEIVER + "\\.setAttribute\\(\\s*\"(viewMessage[A-Za-z]*|attachedDemographics)\""),
+            Pattern.compile("scope=\"session\"[^>]*var=\"bean\"|var=\"bean\"[^>]*scope=\"session\""));
+
+    /**
+     * The login's Messenger bean no longer carries compose attachments: each compose window stages
+     * its own (MsgAttachmentStaging). In the Messenger sources the session bean is always named
+     * {@code bean}; the attachment builder in MsgAttachPDF2Action is a scratch instance.
+     */
+    private static final Pattern MESSENGER_BEAN_ATTACHMENT = Pattern.compile(
+            "\\bbean\\.(nullAttachment|nullPDFAttachment|getAttachment|getPDFAttachment|setAttachment"
+                    + "|setPDFAttachment|setAppendPDFAttachment)\\(");
 
     @Test
     void shouldFindNoLoginWideChartState_inAnyMainSource() {
@@ -93,6 +108,21 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
                 if (pattern.matcher(code).find()) {
                     offenders.add(ROOT.relativize(source) + " matches " + pattern.pattern());
                 }
+            }
+        }
+        assertThat(offenders).isEmpty();
+    }
+
+    @Test
+    void shouldKeepComposeAttachmentsOffTheLoginsMessengerBean_inMessengerSources() {
+        List<String> offenders = new ArrayList<>();
+        for (Path source : sources()) {
+            String path = source.toString().replace('\\', '/');
+            if (!path.contains("/messenger/")) {
+                continue;
+            }
+            if (MESSENGER_BEAN_ATTACHMENT.matcher(withoutComments(read(source), path.endsWith(".java"))).find()) {
+                offenders.add(ROOT.relativize(source).toString());
             }
         }
         assertThat(offenders).isEmpty();

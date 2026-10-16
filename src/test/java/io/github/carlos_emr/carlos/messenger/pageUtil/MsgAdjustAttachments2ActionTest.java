@@ -122,8 +122,8 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should mutate session bean and redirect to DemographicLinkMsg on valid POST")
-    void shouldMutateBean_andRedirectToDemographicLinkMsg_whenPostIsValid() throws Exception {
+    @DisplayName("should redirect to DemographicLinkMsg and keep the selection for no compose window")
+    void shouldKeepSelectionForNoComposeWindow_whenPostIsValid() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
@@ -140,27 +140,13 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
                 .endsWith("/demographic/DemographicLinkMsg");
-        assertThat(bean.getAttachment()).isNotNull();
-        assertThat(bean.getMessageId()).isEqualTo("42");
-    }
-
-    @Test
-    @DisplayName("should set bean messageId to null when id param is not digits")
-    void shouldNullifyMessageId_whenIdIsNonNumeric() throws Exception {
-        allowPrivilege("_msg", "w");
-        getMockRequest().setMethod("POST");
-        MsgSessionBean bean = new MsgSessionBean();
-        bean.setProviderNo(TEST_PROVIDER);
-        getMockSession().setAttribute("msgSessionBean", bean);
-
-        addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
-        addRequestParameter("id", "42; DROP TABLE demographic");
-
-        executeAction(action);
-
-        // MsgSessionBean.getMessageId() normalizes null to an empty string; assert
-        // the non-numeric input did not survive intact onto the bean.
+        // Issue #4673: the selection used to go on the login-wide bean for a chart import that no
+        // longer exists, so the next message sent from any compose window, for any patient,
+        // carried it.
+        assertThat(bean.getAttachment()).isNull();
         assertThat(bean.getMessageId()).isEmpty();
+        assertThat(getMockSession().getAttributeNames().asIterator())
+                .toIterable().noneMatch(name -> name.startsWith(MsgAttachmentStaging.class.getName()));
     }
 
     @Test
@@ -185,7 +171,7 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should silently ignore non-digit item* parameter suffix")
-    void shouldIgnoreNonNumericItemSuffix() throws Exception {
+    void shouldIgnoreNonNumericItemSuffix_forItemParameters() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
@@ -202,9 +188,7 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
                 .endsWith("/demographic/DemographicLinkMsg");
-        // The item remained because its itemId matches "1"; the parser never
-        // saw "foo" as a valid selection.
-        assertThat(bean.getAttachment()).contains("itemId=\"1\"");
+        assertThat(bean.getAttachment()).isNull();
     }
 
     private static final String SAMPLE_XML =
