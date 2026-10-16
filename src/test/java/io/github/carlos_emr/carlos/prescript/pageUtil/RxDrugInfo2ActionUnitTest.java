@@ -304,6 +304,8 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("GN", "Synthetic ingredient 20mg tablet");
         assertLocalView();
         assertThat(request.getAttribute("drugInfoUnavailable")).isEqualTo(Boolean.TRUE);
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient 20mg tablet");
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
     }
 
     private static RxDrugData.MinDrug match(String name) {
