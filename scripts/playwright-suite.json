@@ -4595,6 +4595,23 @@
       "fixtures": "Owns a patient, two PDFs (rows and files) and the refiled copy, all removed. Snapshots and restores the test provider's edoc_browser_in_document_report preference, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "document-edit-replace-file",
+      "script": "scripts/document-edit-replace-file-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Chooses a new file in a stored document's Edit popup (shown with ALLOW_UPDATE_DOCUMENT_CONTENT=true, the shipped default; SKIP otherwise). document-refile-combine edits the metadata with the File field blank. On develop the last step fails: the document keeps the old page count (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
+    },
+    {
       "name": "report-daysheet-labs",
       "script": "scripts/report-daysheet-labs-playwright-checks.js",
       "tiers": [
