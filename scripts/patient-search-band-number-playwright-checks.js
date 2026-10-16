@@ -40,7 +40,6 @@ async function workflow(s) {
   });
   const carry = (demographicNo, when) => sql.execute(`INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden)
     VALUES (${demographicNo},${h.sqlString(provider)},'statusNum',${h.sqlString(number)},${when},'0')`);
-  carry(patient, 'NOW() - INTERVAL 1 DAY');
 
   const { page } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#search a').first(),
     { context: s.context, recorder: s.recorder, label: 'patient-search', timeout: TIMEOUT });
@@ -49,6 +48,8 @@ async function workflow(s) {
   if (await form().locator('select[name="search_mode"] option[value="search_band_number"]').count() === 0) {
     throw new h.SkipCheck('The search page offers no Band Number mode (FIRST_NATIONS_MODULE is not true)');
   }
+  // Stored only once the mode is offered, so a SKIP writes nothing.
+  carry(patient, 'NOW() - INTERVAL 1 DAY');
   const search = async value => {
     const keyword = form().locator('input[name="keyword"]').first();
     if (!await keyword.isVisible().catch(() => false)) {
