@@ -28,6 +28,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -74,6 +76,7 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
     private MessageTblDao messageTblDao;
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private final List<String> streamed = new ArrayList<>();
 
     @BeforeEach
@@ -84,7 +87,7 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_msg"), eq("r"), isNull())).thenReturn(true);
 
         request = new MockHttpServletRequest("POST", "/carlos/messenger/ViewPDFFile");
-        MockHttpServletResponse response = new MockHttpServletResponse();
+        response = new MockHttpServletResponse();
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -111,27 +114,52 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
         // old code read that list from the session.
         request.getSession().setAttribute("PDFAttachment", pdfList("FAKEPATIENTBFIRST"));
 
-        download("100", "1");
+        String result = download("100", "1");
 
         assertThat(streamed).containsExactly("FAKEPATIENTASECOND");
+        // The action streamed the bytes itself: no result page may follow them.
+        assertThat(result).isEqualTo(ActionSupport.NONE);
     }
 
     @Test
     void shouldStreamNothing_whenNoMessageIsNamed() throws Exception {
         request.getSession().setAttribute("PDFAttachment", pdfList("FAKEPATIENTBFIRST"));
 
-        download(null, "0");
+        String result = download(null, "0");
 
         assertThat(streamed).isEmpty();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
     }
 
     @Test
     void shouldStreamNothing_whenTheMessageHasNoPdfs() throws Exception {
         when(messageTblDao.find(200)).thenReturn(new MessageTbl());
 
-        download("200", "0");
+        String result = download("200", "0");
 
         assertThat(streamed).isEmpty();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void shouldAnswerNotFound_whenTheIndexIsBeyondTheMessagesPdfs() throws Exception {
+        String result = download("100", "2");
+
+        assertThat(streamed).isEmpty();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void shouldAnswerBadRequest_whenTheIndexIsNotANumber() throws Exception {
+        String result = download("100", "first");
+
+        assertThat(streamed).isEmpty();
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(messageTblDao);
     }
 
     @Test
@@ -144,11 +172,11 @@ class MsgViewPDF2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(streamed).isEmpty();
     }
 
-    private void download(String messageId, String fileId) throws Exception {
+    private String download(String messageId, String fileId) throws Exception {
         MsgViewPDF2Action action = new MsgViewPDF2Action();
         action.setAttId(messageId);
         action.setFile_id(fileId);
-        action.execute();
+        return action.execute();
     }
 
     private static MessageTbl message(String... contents) {

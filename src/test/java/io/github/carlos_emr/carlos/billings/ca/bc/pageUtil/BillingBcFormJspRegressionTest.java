@@ -143,20 +143,23 @@ class BillingBcFormJspRegressionTest {
     /**
      * Issue #4673: the receipt shown after Update Invoice read the invoice the session held, which
      * was the one viewed last in any window, not the one just updated. The update now redirects to
-     * the view of the invoice it updated, and both pages read only the invoice their own request
-     * loaded.
+     * the view of the receipt it came from, every bill of it (a private bill is one row per service
+     * line), and both pages read only the invoice their own request loaded.
      */
     @Test
-    @DisplayName("should show the updated invoice's own receipt after Update Invoice")
+    @DisplayName("should show the updated invoice's own whole receipt after Update Invoice")
     void shouldRedirectToUpdatedInvoice_afterUpdateInvoice() throws IOException {
         String xml = read(STRUTS_BILLING_XML);
         Matcher mapping = Pattern.compile(
                 "<action name=\"billing/CA/BC/UpdateBilling\"[^>]*>(.*?)</action>", Pattern.DOTALL).matcher(xml);
         assertThat(mapping.find()).isTrue();
 
-        assertThat(mapping.group(1).replaceAll("(?s)<!--.*?-->", "")).contains(
-                "<result name=\"success\" type=\"redirect\">"
-                        + "/billing/CA/BC/billingView?billing_no=${billingNo}&amp;receipt=yes</result>");
+        assertThat(mapping.group(1).replaceAll("(?s)<!--.*?-->", ""))
+                .contains("<result name=\"success\" type=\"redirect\">${receiptView}</result>");
+        assertThat(read(BILL_RECEIPT_JSP)).containsSubsequence(
+                "<form action=\"${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling\" method=\"post\">",
+                "<c:forEach var=\"receiptBillingNo\" items=\"${requestScope.receiptBillingNos}\">",
+                "<input type=\"hidden\" name=\"receiptBillingNo\" value=\"${carlos:forHtmlAttribute(receiptBillingNo)}\"/>");
         for (Path page : new Path[]{BILL_RECEIPT_JSP, BILLING_VIEW_JSP}) {
             assertThat(read(page)).as(page.toString())
                     .contains("(BillingViewBean) request.getAttribute(\"billingViewBean\")")

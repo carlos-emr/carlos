@@ -448,6 +448,20 @@ class EctSaveEncounterPatientIsolationUnitTest {
         assertThat(latest.reason).isEmpty();
     }
 
+    /**
+     * Sign, Save and Bill hands the bill form the save's own appointment, or "0" for none: the
+     * form's physician and form switches send it back to the bill setup, which takes digits only,
+     * so a missing appointment would have refused the switch with 400.
+     */
+    @Test
+    @DisplayName("should hand the bill form the save's appointment, or 0 for none")
+    void shouldHandTheBillDigits_whenTheSaveHasNoAppointment() {
+        assertThat(EctSaveEncounter2Action.billAppointmentNo(
+                new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null))).isEqualTo("0");
+        assertThat(EctSaveEncounter2Action.billAppointmentNo(
+                new Result(Outcome.SAVED, savedRevision(A, 5003), true, 777, null))).isEqualTo("777");
+    }
+
     private String execute() throws Exception {
         try (var servlet = mockStatic(ServletActionContext.class);
              var _ = mockStatic(LogAction.class)) {

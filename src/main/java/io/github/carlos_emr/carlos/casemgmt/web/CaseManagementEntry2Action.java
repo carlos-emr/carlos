@@ -3145,6 +3145,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         EncounterPatientContext.forgetEncounter(request, demoNo);
+        // The text this chart's last save wrote into the legacy eChart record, and a pending draft
+        // restore: kept per patient (issue #4673), so they go with the chart instead of staying in
+        // the session for every patient charted in this login. Opening the editor again starts
+        // without them, as it always did.
+        request.getSession().removeAttribute(ChartSessionKeys.lastSavedNoteText(demoNo));
+        request.getSession().removeAttribute(ChartSessionKeys.draftRestoring(demoNo));
 
         return null;
     }

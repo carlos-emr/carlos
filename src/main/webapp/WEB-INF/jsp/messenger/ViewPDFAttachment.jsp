@@ -63,8 +63,8 @@
  * 3. Submits selected file ID to ViewPDFFile action for download
  *
  * Form Integration:
- * - Posts to ViewPDFFile action with file_id and attId (the message) parameters
- * - Passes attachment data as hidden form field (unused by the action)
+ * - Posts to ViewPDFFile action with file_id and attId (the message) parameters; the
+ *   download reads the PDFs from that message, so the page never carries them
  *
  * @since 2003
  */
@@ -194,7 +194,6 @@
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
                         <input type="hidden" name="attId" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
 
         </form>
     </div>

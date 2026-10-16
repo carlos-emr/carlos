@@ -96,11 +96,12 @@
             <result name="privateCodeError">/WEB-INF/jsp/billing/CA/BC/billingAddPrivateCode.jsp</result>
         </action>
 
-        <!-- After an update, show the receipt of the invoice just updated, loaded again by the view
-             action (issue #4673: rendering the receipt here read the invoice viewed last in any
-             window). billingNo is checked as digits before SUCCESS. -->
+        <!-- After an update, show the receipt the update came from again, with every bill it
+             combines, loaded by the view action (issue #4673: rendering the receipt here read the
+             invoice viewed last in any window). receiptView is built from bill numbers checked as
+             digits before SUCCESS. -->
         <action name="billing/CA/BC/UpdateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action">
-            <result name="success" type="redirect">/billing/CA/BC/billingView?billing_no=${billingNo}&amp;receipt=yes</result>
+            <result name="success" type="redirect">${receiptView}</result>
             <result name="successAndClose">/WEB-INF/jsp/billing/CA/BC/billingSaved.jsp</result>
         </action>
 

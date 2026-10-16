@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -137,10 +138,42 @@ class BillingView2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private String view(String billingNo) throws Exception {
+    /**
+     * A private bill is saved one row per service line and its receipt names them all. The page
+     * gets every one of them, so "Update Invoice" can show the whole receipt again.
+     */
+    @Test
+    void shouldHandThePageEveryBillOfTheReceipt_whenItCombinesSeveralBills() throws Exception {
+        try (MockedConstruction<BillingViewBean> beans = mockConstruction(BillingViewBean.class,
+                     (bean, context) -> {
+                         when(bean.getBillingNo()).thenReturn("101");
+                         when(bean.getPatientNo()).thenReturn("1101");
+                         when(bean.getBillRecipient(anyString())).thenReturn(List.of());
+                     });
+             MockedConstruction<BillingBillingManager> managers = mockConstruction(BillingBillingManager.class,
+                     (manager, context) -> {
+                         when(manager.getBillView(anyString())).thenReturn(new ArrayList<>());
+                         when(manager.getGrandTotal(any())).thenReturn("0.00");
+                     });
+             MockedConstruction<DemographicData> demographics = mockConstruction(DemographicData.class,
+                     (data, context) -> when(data.getDemographic(any(), anyString()))
+                             .thenAnswer(call -> patient(call.getArgument(1))))) {
+
+            String result = view("101", "102");
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute(BillingView2Action.RECEIPT_BILLING_NOS)).isEqualTo(List.of("101", "102"));
+            verify(managers.constructed().get(0)).getBillView("101");
+            verify(managers.constructed().get(0)).getBillView("102");
+        }
+    }
+
+    private String view(String... billingNos) throws Exception {
         request = new MockHttpServletRequest();
         request.setSession(session);
-        request.addParameter("billing_no", billingNo);
+        for (String billingNo : billingNos) {
+            request.addParameter("billing_no", billingNo);
+        }
         response = new MockHttpServletResponse();
         return new BillingView2Action().execute();
     }

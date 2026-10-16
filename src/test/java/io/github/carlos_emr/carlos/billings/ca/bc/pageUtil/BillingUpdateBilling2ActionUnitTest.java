@@ -177,6 +177,60 @@ class BillingUpdateBilling2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(line.getPayeeNo()).isEqualTo("999998");
     }
 
+    /**
+     * Issue #4673: the receipt shown after Update Invoice is the view of the receipt the update
+     * came from. A private bill is saved one row per service line and its receipt combines them,
+     * so the view names every one of them, the updated bill first.
+     */
+    @Test
+    void shouldShowTheWholeReceiptAgain_whenItCombinesSeveralBills() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        registerBillingDaos(mock(BillingmasterDAO.class));
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("101");
+        action.setReceiptBillingNo(new String[]{"101", "102"});
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getReceiptView())
+                .isEqualTo("/billing/CA/BC/billingView?billing_no=101&billing_no=102&receipt=yes");
+    }
+
+    @Test
+    void shouldShowTheUpdatedBillAlone_whenTheReceiptNamesNoOtherBill() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        registerBillingDaos(mock(BillingmasterDAO.class));
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("123");
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getReceiptView()).isEqualTo("/billing/CA/BC/billingView?billing_no=123&receipt=yes");
+    }
+
+    /** The receipt's bill numbers end up in the redirect: anything else is refused before any write. */
+    @Test
+    void shouldRefuseBeforeAnyWrite_whenAReceiptBillIsNotABillNumber() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        BillingmasterDAO billingmasterDao = mock(BillingmasterDAO.class);
+        registerBillingDaos(billingmasterDao);
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("101");
+        action.setReceiptBillingNo(new String[]{"101", "102&receipt=no"});
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getReceiptView()).isNull();
+        verifyNoInteractions(billingmasterDao);
+    }
+
     /** The DAOs the update reaches through MSPReconcile, BillingViewBean and BillingNote. */
     private void registerBillingDaos(BillingmasterDAO billingmasterDao) {
         registerMock(BillingmasterDAO.class, billingmasterDao);

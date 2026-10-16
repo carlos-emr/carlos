@@ -387,6 +387,19 @@ public class EctSaveEncounter2Action extends ActionSupport {
         entry.reason = postedSubject;
     }
 
+    /**
+     * The appointment the bill this save hands over is for: the save's own appointment, or
+     * {@code "0"} for none. The bill form sends it back as {@code appointment_no} when the physician
+     * or the form is changed, and the bill setup accepts digits only; {@code "0"} is what the day
+     * sheet sends for a visit without an appointment, and saving the bill reads it as none.
+     *
+     * @param saved the accepted save
+     * @return the appointment number, digits only
+     */
+    static String billAppointmentNo(Result saved) {
+        return saved.appointmentNo() == null ? "0" : saved.appointmentNo().toString();
+    }
+
     private static String bill(HttpServletRequest request, LoggedInInfo loggedInInfo, EctSessionBean entry,
                                String demographicNo, Result saved) {
         // The patient's own name, loaded for this chart rather than taken from another window.
@@ -403,7 +416,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
         bean.setBillForm(formBill);
         bean.setPatientNo(demographicNo);
         // Only an existing appointment of this patient; the persister refused any other.
-        bean.setApptNo(saved.appointmentNo() == null ? null : saved.appointmentNo().toString());
+        bean.setApptNo(billAppointmentNo(saved));
         bean.setApptDate(entry.appointmentDate);
         // CWE-501: validate status against appointment status pattern before session storage
         String statusParam = request.getParameter("status");

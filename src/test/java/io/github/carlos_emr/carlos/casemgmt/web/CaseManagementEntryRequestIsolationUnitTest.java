@@ -264,10 +264,20 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         Object formB = new Object();
         session.setAttribute("caseManagementEntryForm101", formA);
         session.setAttribute("caseManagementEntryForm202", formB);
+        for (String patient : new String[]{"101", "202"}) {
+            session.setAttribute(ChartSessionKeys.lastSavedNoteText(patient), patient + "'s last eChart text");
+            session.setAttribute(ChartSessionKeys.draftRestoring(patient), "true");
+        }
         MockHttpServletRequest request = request("101");
         assertThat(action(request).cleanup()).isNull();
         assertThat(session.getAttribute("caseManagementEntryForm101")).isNull();
         assertThat(session.getAttribute("caseManagementEntryForm202")).isSameAs(formB);
+        // The closing chart's saved-note text and restore signal leave the session with it; the
+        // other open chart keeps its own.
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isNull();
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isNull();
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("202"))).isEqualTo("202's last eChart text");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("202"))).isEqualTo("true");
         assertThat(EncounterPatientContext.findEncounter(request, "101")).isNull();
         EctSessionBean remaining = EncounterPatientContext.findEncounter(request, "202");
         assertThat(remaining.patientFirstName).isEqualTo("Bob");

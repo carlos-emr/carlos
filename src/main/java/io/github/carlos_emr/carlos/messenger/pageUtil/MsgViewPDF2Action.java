@@ -125,11 +125,11 @@ public class MsgViewPDF2Action extends ActionSupport {
      * file_id parameter indicates which PDF to extract from the XML (0-based index).
      * Without a message nothing is streamed.</p>
      * 
-     * <p>Error handling is minimal - exceptions are logged but the method
-     * returns SUCCESS regardless to prevent error pages from displaying.
-     * This could result in blank responses if the PDF cannot be retrieved.</p>
+     * <p>The action owns its response: it streams the PDF, or answers 400 for a malformed index
+     * and 404 when the message has no such PDF, and always returns {@code NONE}, so no page is
+     * ever rendered after the PDF bytes.</p>
      * 
-     * @return SUCCESS constant regardless of whether PDF was successfully displayed
+     * @return {@link #NONE}, after the response has been written
      * @throws IOException if there's an error writing to response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions for messaging
@@ -140,34 +140,41 @@ public class MsgViewPDF2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
+        // The PDFs of the message this download was chosen from, never another window's.
+        int fileId;
         try {
-            // The PDFs of the message this download was chosen from, never another window's.
-            String pdfAttachment = null;
-            int messageId = ConversionUtils.fromIntString(attId);
-            if (messageId > 0) {
-                MessageTbl message = SpringUtils.getBean(MessageTblDao.class).find(messageId);
-                if (message != null && message.getPdfAttachment() != null) {
-                    pdfAttachment = new String(message.getPdfAttachment());
+            fileId = Integer.parseInt(String.valueOf(this.getFile_id()).trim());
+        } catch (NumberFormatException malformed) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String pdfFile = null;
+        int messageId = ConversionUtils.fromIntString(attId);
+        if (messageId > 0 && fileId >= 0) {
+            MessageTbl message = SpringUtils.getBean(MessageTblDao.class).find(messageId);
+            if (message != null && message.getPdfAttachment() != null) {
+                // Every CONTENT tag of the message's PDF list, in order; file_id is an index.
+                Vector<?> contents;
+                try {
+                    contents = Doc2PDF.getXMLTagValue(new String(message.getPdfAttachment()), "CONTENT");
+                } catch (Exception unreadable) {
+                    // No content in the log: the list is a patient's chart.
+                    MiscUtils.getLogger().error("A message's PDF attachment list could not be read");
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    return NONE;
+                }
+                if (fileId < contents.size()) {
+                    pdfFile = (String) contents.elementAt(fileId);
                 }
             }
-            String id = this.getFile_id();
-            int fileID = Integer.parseInt(id);
-
-            if (pdfAttachment != null && pdfAttachment.length() != 0) {
-                // Extract all CONTENT tags from XML
-                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttachment, "CONTENT");
-                // Get the specific PDF by index
-                String pdfFile = (String) attVector.elementAt(fileID);
-                // Stream PDF to browser
-                Doc2PDF.PrintPDFFromBin(response, pdfFile);
-            }
-        } catch (Exception e) {
-            // Log error but return SUCCESS to avoid error page
-            MiscUtils.getLogger().error("Error", e);
-            return SUCCESS;
         }
-
-        return SUCCESS;
+        if (pdfFile == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        // Writes the PDF, or its own error status when the stored document cannot be decoded.
+        Doc2PDF.PrintPDFFromBin(response, pdfFile);
+        return NONE;
     }
     /**
      * Attachment parameter, currently not used in implementation.
