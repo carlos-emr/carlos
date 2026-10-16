@@ -21,8 +21,9 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
-// Every column the buttoncancel branch must leave alone.
-const KEPT = ['appointment_date', 'start_time', 'end_time', 'name', 'demographic_no', 'reason', 'notes', 'location', 'type', 'urgency'];
+// Every column the full-update branch rewrites from the form, which the buttoncancel branch must leave alone.
+const KEPT = ['appointment_date', 'start_time', 'end_time', 'name', 'demographic_no', 'reason', 'notes', 'location', 'resources',
+  'type', 'style', 'billing', 'remarks', 'urgency'];
 
 async function workflow(s) {
   const { sql, config, recorder, marker, patient } = s;
@@ -32,12 +33,16 @@ async function workflow(s) {
   const today = new Date();
   const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const name = `${marker},Workflow`;
+  // Non-empty values for every kept column, so "unchanged" cannot hold by accident; style and billing are VARCHAR(10).
+  const marked = h.sqlString(marker);
+  const short = h.sqlString(`p${marker.slice(-8)}`);
   const seeded = {};
   for (const [label, start, status] of [['noShow', '09:00:00', 't'], ['cancel', '10:00:00', 't'], ['billed', '11:00:00', 'B']]) {
     seeded[label] = sql.value(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,demographic_no,reason,notes,
-        location,type,urgency,status,createdatetime,updatedatetime,creator,lastupdateuser)
+        location,resources,type,style,billing,remarks,urgency,status,createdatetime,updatedatetime,creator,lastupdateuser)
       VALUES (${owner},${h.sqlString(dateKey)},${h.sqlString(start)},${h.sqlString(start.replace(':00:00', ':14:00'))},${h.sqlString(name)},${patient},
-        ${h.sqlString(`${marker} ${label}`)},${h.sqlString(`${marker} notes`)},'','','',${h.sqlString(status)},NOW(),NOW(),${h.sqlString(s.provider)},${h.sqlString(s.provider)});
+        ${h.sqlString(`${marker} ${label}`)},${h.sqlString(`${marker} notes`)},${marked},${marked},${marked},${short},${short},${marked},${marked},
+        ${h.sqlString(status)},NOW(),NOW(),${h.sqlString(s.provider)},${h.sqlString(s.provider)});
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(seeded[label]), `The ${label} appointment was not seeded`);
   }
