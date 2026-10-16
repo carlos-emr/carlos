@@ -4659,6 +4659,20 @@
       "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
+      "name": "messenger-reply-conversation",
+      "script": "scripts/messenger-reply-conversation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Three throwaway logins (lib/throwaway-login-fixture.js) enrolled as local messenger contacts (groupMembers_tbl group 0), an owned FAKE- patient, and one message from the first to the other two delivered by SQL and linked to the patient. Cleanup removes every message whose subject carries the run marker with its delivery and patient-link rows, the contact rows, then the throwaways."
+    },
+    {
       "name": "prevention-admin",
       "script": "scripts/prevention-admin-playwright-checks.js",
       "tiers": [
