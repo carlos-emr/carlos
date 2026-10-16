@@ -671,8 +671,11 @@ public final class LegacyJdbcQuery {
 
     /**
      * Masks quoted sections while preserving input length for keyword checks.
-     * Backslash-containing string literals are rejected by the control-token scanner before this
-     * method is called because their boundaries depend on MySQL's {@code NO_BACKSLASH_ESCAPES} mode.
+     * The control-token scanner rejects, before this method is called, every string literal whose
+     * end depends on MySQL's {@code NO_BACKSLASH_ESCAPES} mode: an odd run of backslashes directly
+     * before the closing quote. Any other backslash (one inside the literal, such as {@code '\n'},
+     * or an even run before the quote) leaves the closing quote where both modes put it, so this
+     * method treats backslashes as ordinary characters and masks the same span either way.
      * This intentionally differs from the Query-by-Example validator's scanner, which must match
      * JSqlParser's configured parsing. The two scanners must not be merged.
      */

@@ -663,6 +663,7 @@ async function workflow(s) {
       .some((image) => (image.getAttribute('src') || '').includes(`digitalSignatureId=${id}`)
         && image.complete && image.naturalWidth > 0), signatureId, { timeout: TIMEOUT });
     const drawn = (await letterImages(saved)).find((image) => image.src.includes(`digitalSignatureId=${signatureId}`));
+    h.assert(drawn, 'The drawn signature image is not in the letter');
     h.assert(drawn.width === PAD_WIDTH && drawn.height === PAD_HEIGHT,
       `The signature in the letter is ${drawn.width}x${drawn.height}, not the pad's ${PAD_WIDTH}x${PAD_HEIGHT} drawing`);
     await h.screenshot(saved, config.screenshotDir, 'rtl-side-panel-signed');
