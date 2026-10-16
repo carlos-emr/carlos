@@ -94,7 +94,7 @@ class EchartDisplayJspContractUnitTest {
         assertThat(page)
                 .contains("id=\"secEchart\"")
                 .contains("<fmt:message key=\"provider.providerpreference.section.echart\"/>")
-                .contains("EchartDisplayPreferences.fromStoredValues(props)")
+                .contains("EchartDisplayPreferences echartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class).resolve(providerNo);")
                 .contains("\"-true\\\" name=\\\"\" + name + \"\\\" value=\\\"true\\\"\"")
                 .contains("\"-false\\\" name=\\\"\" + name + \"\\\" value=\\\"false\\\"\"")
                 .contains("SafeEncode.forHtmlContent(yes)")

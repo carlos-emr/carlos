@@ -87,7 +87,7 @@ class EchartPatientDoctorResolverUnitTest {
             Demographic demographic = patient(DemographicXml.familyDoctor("123456", "FAKE-Ref, FAKE-Rita", null));
 
             assertThat(resolver.referringDoctorName(loggedInInfo, demographic)).isEqualTo("FAKE-Ref, FAKE-Rita");
-            verify(demographicManager, never()).getDemographicContacts(any(), any(), any());
+            verify(demographicManager, never()).getDemographicContacts(any(), any());
         }
 
         @Test
@@ -140,14 +140,37 @@ class EchartPatientDoctorResolverUnitTest {
         }
 
         @Test
-        @DisplayName("should skip inactive contacts, other roles, and contacts whose row is gone")
-        void shouldSkipInactiveOtherRoleAndMissingContacts() {
-            contacts(contact("Family Doctor", DemographicContact.TYPE_CONTACT, "9", false),
+        @DisplayName("should skip personal contacts, other roles, and contacts whose row is gone")
+        void shouldSkipPersonalOtherRoleAndMissingContacts() {
+            DemographicContact personal = contact("Family Doctor", DemographicContact.TYPE_CONTACT, "9", true);
+            personal.setCategory(DemographicContact.CATEGORY_PERSONAL);
+            Contact named = new Contact();
+            named.setLastName("FAKE-Personal");
+            named.setFirstName("FAKE-Pat");
+            when(contactDao.find(Integer.valueOf(9))).thenReturn(named);
+            contacts(personal,
                     contact("Specialist", DemographicContact.TYPE_CONTACT, "9", true),
                     contact("Family Doctor", DemographicContact.TYPE_PROFESSIONALSPECIALIST, "not-a-number", true),
                     contact("Family Doctor", DemographicContact.TYPE_PROFESSIONALSPECIALIST, "8", true));
 
             assertThat(resolver.familyDoctorName(loggedInInfo, patient(""))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should read only the manager's active contacts and never unbox a legacy NULL active flag")
+        void shouldNotUnboxNullActiveFlag_forLegacyContact() throws Exception {
+            Provider provider = new Provider();
+            provider.setLastName("FAKE-Fam");
+            provider.setFirstName("FAKE-Fiona");
+            when(providerDao.getProvider("101")).thenReturn(provider);
+            DemographicContact legacy = contact("Family Doctor", DemographicContact.TYPE_PROVIDER, "101", true);
+            java.lang.reflect.Field active = DemographicContact.class.getDeclaredField("active");
+            active.setAccessible(true);
+            active.set(legacy, null);
+            contacts(legacy);
+
+            assertThat(resolver.familyDoctorName(loggedInInfo, patient(""))).isEqualTo(provider.getFormattedName());
+            verify(demographicManager, never()).getDemographicContacts(any(), any(), any());
         }
 
         @Test
@@ -161,10 +184,11 @@ class EchartPatientDoctorResolverUnitTest {
     }
 
     private void contacts(DemographicContact... contacts) {
-        when(demographicManager.getDemographicContacts(loggedInInfo, DEMOGRAPHIC_NO, DemographicContact.CATEGORY_PROFESSIONAL))
+        when(demographicManager.getDemographicContacts(loggedInInfo, Integer.valueOf(DEMOGRAPHIC_NO)))
                 .thenReturn(List.of(contacts));
     }
 
+    /** The manager's active-contacts query has already dropped inactive rows; {@code active} is kept for realism. */
     private static DemographicContact contact(String role, int type, String contactId, boolean active) {
         DemographicContact contact = new DemographicContact();
         contact.setRole(role);

@@ -238,6 +238,22 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("should keep an oldest duplicate whose value is NULL")
+        void shouldKeepOldestDuplicate_whenItsValueIsNull() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dupNull");
+            createProperty(providerNo, name, null);
+            createProperty(providerNo, name, "true");
+            userPropertyDAO.flush();
+
+            Map<String, String> result = userPropertyDAO.getProviderPropertiesByNames(providerNo, List.of(name));
+
+            assertThat(result).containsOnlyKeys(name);
+            assertThat(result.get(name)).isNull();
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should return an empty map for no names or no provider without querying")
         void shouldReturnEmptyMap_forNoNamesOrNoProvider() {
             assertThat(userPropertyDAO.getProviderPropertiesByNames(uniqueProviderNo(), List.of())).isEmpty();

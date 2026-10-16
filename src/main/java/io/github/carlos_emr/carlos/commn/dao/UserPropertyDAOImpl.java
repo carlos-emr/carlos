@@ -213,8 +213,11 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         @SuppressWarnings("unchecked")
         List<UserProperty> list = query.getResultList();
         for (UserProperty p : list) {
-            // Ordered by id: a duplicated name resolves to its oldest row, deterministically.
-            map.putIfAbsent(p.getName(), p.getValue());
+            // Ordered by id: a duplicated name resolves to its oldest row, deterministically, even
+            // when that row's value is NULL (putIfAbsent would let a later row replace a null).
+            if (!map.containsKey(p.getName())) {
+                map.put(p.getName(), p.getValue());
+            }
         }
         return map;
     }

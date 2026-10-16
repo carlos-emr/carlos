@@ -52,8 +52,9 @@ import java.util.Set;
  *       element of {@code demographic.family_doctor}.</li>
  * </ul>
  *
- * <p>Contacts are read through {@link DemographicManager}, which writes the usual per-contact
- * access log. Callers must already be authorized to view the patient's chart.</p>
+ * <p>Contacts are read through {@link DemographicManager} (active, non-deleted rows; the manager
+ * checks {@code _demographic} read and writes the usual per-contact access log). Callers must
+ * already be authorized to view the patient's chart.</p>
  *
  * @since 2026-10-16
  */
@@ -114,13 +115,16 @@ public class EchartPatientDoctorResolver {
         if (demographic.getDemographicNo() == null) {
             return "";
         }
+        // Active, non-deleted contacts only, filtered in the query: legacy rows may carry a NULL
+        // active flag, which DemographicContact#isActive() cannot unbox.
         List<DemographicContact> contacts = demographicManager.getDemographicContacts(loggedInInfo,
-                demographic.getDemographicNo(), DemographicContact.CATEGORY_PROFESSIONAL);
+                demographic.getDemographicNo());
         if (contacts == null) {
             return "";
         }
         for (DemographicContact contact : contacts) {
-            if (contact.isActive() && roles.contains(StringUtils.trimToEmpty(contact.getRole()))) {
+            if (DemographicContact.CATEGORY_PROFESSIONAL.equals(contact.getCategory())
+                    && roles.contains(StringUtils.trimToEmpty(contact.getRole()))) {
                 String name = nameOf(contact);
                 if (!name.isEmpty()) {
                     return name;

@@ -71,6 +71,7 @@
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
@@ -138,8 +139,10 @@
     // ── Bulk-load all UserProperty values into a map for efficient access ──
     Map<String, String> props = propertyDao.getProviderPropertiesAsMap(providerNo);
 
-    // eChart display settings (section "eChart"): stored value or the setting's default.
-    EchartDisplayPreferences echartPrefs = EchartDisplayPreferences.fromStoredValues(props);
+    // eChart display settings (section "eChart"): stored value or the setting's default, read through
+    // the same resolver the chart uses so a provider with duplicate legacy rows sees what the chart
+    // applies (the bulk map above keeps an arbitrary duplicate).
+    EchartDisplayPreferences echartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class).resolve(providerNo);
 
     // Prescription preferences
     String rxPageSize = props.getOrDefault(UserProperty.RX_PAGE_SIZE, "");
