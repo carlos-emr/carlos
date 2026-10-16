@@ -1750,6 +1750,27 @@
       ]
     },
     {
+      "name": "lab-recall-delegate",
+      "script": "scripts/lab-recall-delegate-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:lab_recall_delegate",
+        "property:labRecallMsgSubject",
+        "property:lab_recall_tickler_assignee",
+        "property:lab_recall_tickler_priority"
+      ],
+      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSRECALL) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the tickler saved from Recall carries the run marker. The test provider's recall settings (property lab_recall_delegate, labRecallMsgSubject, lab_recall_tickler_assignee, lab_recall_tickler_priority and lab_recall_msg_subject) are snapshotted and cleared first, then restored and verified in cleanup; the lab rows and the tickler with its ticklerdocs rows are deleted by id and asserted gone. While it runs every lab the test provider opens shows Recall, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Preferences > Lab Recall Settings saves, reopens, refuses an inactive delegate and deletes; Inbox > lab > Recall opens a message to the delegate and a tickler form for the delegate at the saved priority, and the saved tickler is linked to the lab. The last step (the recall message's Subject is the saved subject) fails until pending finding 278 is fixed. The banner text after Submit and Delete is pending finding 279, and the lab display once a tickler is linked to the lab is pending finding 280; neither is asserted (Delete and its lab reopen run before the tickler is saved)."
+    },
+    {
       "name": "rx-stash-patient-isolation",
       "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
       "tiers": [
