@@ -332,6 +332,21 @@
       ]
     },
     {
+      "name": "appointment-cancel-no-show",
+      "script": "scripts/appointment-cancel-no-show-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Presses the edit popup's No show and Cancel Appt buttons (the buttoncancel branch of appointment/UpdateRecord), including the billed-appointment confirmation.",
+      "fixtures": "Throwaway login plus an owned FAKE- patient and three SQL-seeded appointments for today; appointment and archive rows deleted in cleanup."
+    },
+    {
       "name": "appointment-status-editing",
       "script": "scripts/appointment-status-editing-playwright-checks.js",
       "tiers": [
