@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.commn.model.FormBPMH;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler;
@@ -33,7 +34,9 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
@@ -80,6 +83,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
         when(handler.getBpmhFormBean()).thenReturn(filled);
 
         action = new BpmhFormRetrieve2Action() {
@@ -178,5 +182,48 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(editable.getDrugs().get(0).getId()).isEqualTo("55");
         assertThat(editable.getDrugs().get(0).getInstruction()).isEqualTo("continue");
         assertThat(editable.getDrugs().get(0).getWhat()).isNotEqualTo("posted what");
+    }
+
+    @Test
+    void shouldRefuseOpeningNewForm_whenPatientIsRestrictedForUser() {
+        when(request.getParameter("demographic_no")).thenReturn("1001");
+        when(request.getParameter("formId")).thenReturn("0");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(1001))).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_demographic)");
+
+        verify(handler, never()).populateFormBean();
+        verify(request, never()).setAttribute(eq("bpmh"), any());
+    }
+
+    @Test
+    void shouldCheckSavedFormsOwnPatient_notTheRequestedOne() {
+        // The handler adopts the saved form's patient, so a request naming a patient the user may read
+        // cannot open another patient's saved form.
+        FormBPMH saved = new FormBPMH();
+        saved.setDemographicNo(2002);
+        when(handler.getFormHistory()).thenReturn(saved);
+        when(request.getParameter("demographic_no")).thenReturn("1001");
+        when(request.getParameter("formId")).thenReturn("7");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(2002))).thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(handler, never()).populateFormBean();
+    }
+
+    @Test
+    void shouldRefuseSaving_whenPatientIsRestrictedForUser() throws Exception {
+        when(request.getParameter("method")).thenReturn("save");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(1001))).thenReturn(false);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        action.setForm(posted);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
+
+        verify(handler, never()).saveFormHistory();
     }
 }

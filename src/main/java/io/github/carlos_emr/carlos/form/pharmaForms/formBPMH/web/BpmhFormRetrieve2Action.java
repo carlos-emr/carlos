@@ -54,6 +54,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.model.FormBPMH;
 
 public class BpmhFormRetrieve2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
@@ -74,10 +75,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
         String method = request.getParameter("method");
         if ("save".equals(method)) {
-            return save();
+            return save(loggedInInfo);
         } else if ("print".equals(method)) {
             try {
-                return print();
+                return print(loggedInInfo);
             } catch (Exception ex) {
                 // No fallback to the page: print() may already have reset the response.
                 logger.error("BPMH print failed", ex);
@@ -91,10 +92,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
                 return NONE;
             }
         }
-        return fetch();
+        return fetch(loggedInInfo);
     }
 
-    public String fetch() {
+    public String fetch(LoggedInInfo loggedInInfo) {
         // Built here as save() and print() build theirs: the field was never set for fetch(), so
         // opening any BPMH form, new or saved, threw NullPointerException (#4731). Opening takes no
         // posted fields: everything shown comes from the patient's record or the saved form.
@@ -108,6 +109,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.setDemographicNo(demographicNo);
         }
 
+        requirePatientRead(loggedInInfo, demographicNo);
         bpmhFormHandler.populateFormBean();
         if (formHistoryNumber == null || formHistoryNumber <= 0) {
             // A new form is id 0: the page offers Save only for formId 0, and print() parses the posted id.
@@ -153,13 +155,32 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return new BpmhForm2Handler(bean);
     }
 
-    public String save() {
+    /**
+     * Patient-scoped read check on the patient whose data the handler is about to load. The general
+     * {@code _demographic} gate in {@link #execute()} passes no patient, so it cannot see a
+     * patient-specific restriction ({@code _demographic$<demographicNo>}). A saved form carries its own
+     * patient, which wins over the requested one when the handler loads it, so that is the patient
+     * checked here.
+     */
+    private void requirePatientRead(LoggedInInfo loggedInInfo, Integer requestedDemographicNo) {
+        FormBPMH saved = bpmhFormHandler.getFormHistory();
+        int patient = saved != null ? saved.getDemographicNo() : requestedDemographicNo;
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", patient)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's own context path plus a literal
+    // and two integer ids; no request string reaches it.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only integer ids are interpolated")
+    public String save(LoggedInInfo loggedInInfo) {
         
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = null;
 
         bpmhFormHandler = newHandler(editableFields(form));
         bpmhFormHandler.setDemographicNo(demographicNo);
+        requirePatientRead(loggedInInfo, demographicNo);
         bpmhFormHandler.populateFormBean();
         // The handler saves its own copy of the bean, so the dates are set on that copy.
         Date now = new Date();
@@ -187,7 +208,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String print() throws IOException {
+    public String print(LoggedInInfo loggedInInfo) throws IOException {
 
         OutputStream output = null;
         byte[] pdfContent = null;
@@ -203,6 +224,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.setDemographicNo(demographicNo);
         }
 
+        requirePatientRead(loggedInInfo, demographicNo);
         bpmhFormHandler.populateFormBean();
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
@@ -211,16 +233,22 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
             pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
 
+            // writeDataToPDF logs and swallows its own failures, so a name alone does not prove a PDF exists.
+            // Read it before the form is saved: a failed print must not leave a saved form behind.
+            File generatedPdf = PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath()));
+            if (pdfController.getFileName() == null || !generatedPdf.isFile()) {
+                throw new IOException("BPMH PDF was not generated");
+            }
+            try (FileInputStream pdfInput = new FileInputStream(generatedPdf)) {
+                pdfContent = pdfInput.readAllBytes();
+            }
+
             Date now = new Date();
             bpmhFormHandler.getBpmhFormBean().setEditDate(now);
 
             if (formId == 0) {
                 bpmhFormHandler.getBpmhFormBean().setFormDate(now);
                 bpmhFormHandler.saveFormHistory();
-            }
-
-            try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
-                pdfContent = pdfInput.readAllBytes();
             }
         } finally {
             // The PDF is stamped to a file only to be streamed; a copy of the patient's medications left in
