@@ -75,6 +75,8 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -101,6 +103,7 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
 
     private final MockHttpSession session = new MockHttpSession();
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response = new MockHttpServletResponse();
     private ProviderDataDao providerDao;
     private BillingmasterDAO billingmasterDao;
     private final List<ProviderData> activeProviders = new ArrayList<>();
@@ -142,7 +145,7 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         session.setAttribute("user", PROVIDER_NO);
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenAnswer(invocation -> response);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mock(LoggedInInfo.class));
@@ -174,12 +177,27 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
 
     /** One request of the page, on the shared session, through the quick billing action. */
     private String openOrPost(String name, String value) throws Exception {
-        request = new MockHttpServletRequest("POST", "/quickBillingBC");
+        return send("POST", name, value);
+    }
+
+    private String send(String method, String name, String value) throws Exception {
+        request = new MockHttpServletRequest(method, "/quickBillingBC");
         request.setSession(session);
+        response = new MockHttpServletResponse();
         if (name != null) {
             request.setParameter(name, value);
         }
         return new QuickBillingBC2Action().execute();
+    }
+
+    private Object save() throws Exception {
+        // Kept local: a save started from inside another save replaces the shared request field.
+        MockHttpServletRequest saveRequest = new MockHttpServletRequest("POST", "/saveQuickBillingBC");
+        saveRequest.setSession(session);
+        request = saveRequest;
+        response = new MockHttpServletResponse();
+        assertThat(new QuickBillingBCSave2Action().execute()).isEqualTo("saved");
+        return saveRequest.getAttribute("saved");
     }
 
     private String add(String demographicNo, String providerNo) throws Exception {
@@ -291,6 +309,60 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
             found.add(matcher.group(1));
         }
         return found;
+    }
+
+    @Test
+    @DisplayName("should save each bill once when a second Submit arrives while the first is saving")
+    void shouldSaveEachBillOnce_whenSecondSubmitArrivesMidSave() throws Exception {
+        openOrPost(null, null);
+        add("1", PROVIDER_NO);
+        // A double click: the second save request reaches the server while the first is still writing.
+        Object[] secondSaved = new Object[1];
+        boolean[] secondSent = new boolean[1];
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 502);
+            if (!secondSent[0]) {
+                secondSent[0] = true;
+                secondSaved[0] = save();
+            }
+            return null;
+        }).when(billingmasterDao).save(any(Billing.class));
+
+        assertThat(save()).isEqualTo(1);
+
+        assertThat(secondSaved[0]).isEqualTo(0);
+        verify(billingmasterDao, times(1)).save(any(Billing.class));
+        verify(billingmasterDao, times(1)).save(any(Billingmaster.class));
+    }
+
+    @Test
+    @DisplayName("should answer 405 and leave the form unchanged when add or remove is not a POST")
+    void shouldRefuseAddAndRemove_whenNotPost() throws Exception {
+        openOrPost(null, null);
+        add("1", PROVIDER_NO);
+        String addData = "{\"visitLocation\":\"B\",\"visitDate\":\"17-10-2026\",\"provider\":\"" + PROVIDER_NO
+                + "\",\"ptNumber\":\"2\",\"billingCode\":\"00100\",\"dxCode1\":\"780\",\"halfBilling\":\"1\"}";
+
+        for (String method : List.of("GET", "HEAD")) {
+            assertThat(send(method, "data", addData)).as(method + " add").isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).as(method + " add").isEqualTo(405);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(send(method, "remove", "0")).as(method + " remove").isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).as(method + " remove").isEqualTo(405);
+        }
+
+        QuickBillingBCFormBean form = form();
+        assertThat(form.getBillingData()).extracting("patientNo").containsExactly("1");
+        assertThat(form.getServiceDate()).isEqualTo("16-10-2026");
+        assertThat(form.getVisitLocation()).isEqualTo("A");
+    }
+
+    @Test
+    @DisplayName("should still open the page with a plain GET")
+    void shouldOpenPage_whenPlainGet() throws Exception {
+        assertThat(send("GET", null, null)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(form()).isNotNull();
     }
 
     @Test

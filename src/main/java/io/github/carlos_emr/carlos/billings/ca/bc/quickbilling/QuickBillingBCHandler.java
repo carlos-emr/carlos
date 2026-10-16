@@ -372,7 +372,10 @@ public class QuickBillingBCHandler {
         // notes which are internal - NOT seen by recipient.
         bean.setMessageNotes(INTERNAL_COMMENT);
 
-        return (this.quickBillingBCFormBean.getBillingData()).add(bean);
+        // The bill list is changed only under the form's lock (see QuickBillingBCFormBean#takeBillingData).
+        synchronized (this.quickBillingBCFormBean) {
+            return this.quickBillingBCFormBean.getBillingData().add(bean);
+        }
     }
 
     private String convertDDMMYYYY(String dt) {
@@ -416,7 +419,9 @@ public class QuickBillingBCHandler {
     public boolean saveBills() {
 
         String dataCenterId = oscarProperties.getProperty("dataCenterId");
-        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
+        // Take the bills out of the session form first: a second Submit of the same page (a double
+        // click) then finds none and saves nothing, and the list being saved cannot change mid-save.
+        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.takeBillingData();
         ListIterator<BillingSessionBean> it = billingSessionBeans.listIterator();
         int invoiceCount = billingSessionBeans.size();
 
@@ -474,19 +479,21 @@ public class QuickBillingBCHandler {
      */
     public boolean removeBill(String bill) {
 
-        ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
         int index;
         try {
             index = Integer.parseInt(bill);
         } catch (NumberFormatException e) {
             return false;
         }
-        // A page rendered before the last removal (a second click on Remove) can name a row that is gone.
-        if (index < 0 || index >= billingSessionBeans.size()) {
-            return false;
+        synchronized (quickBillingBCFormBean) {
+            ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
+            // A page rendered before the last removal (a second click on Remove) can name a row that is gone.
+            if (index < 0 || index >= billingSessionBeans.size()) {
+                return false;
+            }
+            billingSessionBeans.remove(index);
+            return true;
         }
-        billingSessionBeans.remove(index);
-        return true;
     }
 
     /**

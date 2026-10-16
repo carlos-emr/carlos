@@ -89,6 +89,14 @@ public class QuickBillingBC2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // Add (data) and remove change the bill list; they accept only POST, as the page sends them.
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST is accepted.
+        boolean changesBills = request.getParameter("data") != null || request.getParameter("remove") != null;
+        if (changesBills && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         // The header and the bills added so far must survive between requests: the page adds or
         // removes one bill per request and the save action reads them all.
         QuickBillingBCFormBean quickBillingBCFormBean = QuickBillingBCFormBean.fromSession(request.getSession());

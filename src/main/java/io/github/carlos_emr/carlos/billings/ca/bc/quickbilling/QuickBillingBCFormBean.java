@@ -57,6 +57,9 @@ public class QuickBillingBCFormBean {
      */
     public static final String SESSION_ATTRIBUTE = "quickBillingBC";
 
+    /** Guards the get-or-create in {@link #fromSession(HttpSession)}, so two first requests share one form. */
+    private static final Object SESSION_LOCK = new Object();
+
     /**
      * Returns this session's quick billing form, storing a new empty one (no header, no bills) on
      * first use.
@@ -66,13 +69,29 @@ public class QuickBillingBCFormBean {
      * @since 2026-10-16
      */
     public static QuickBillingBCFormBean fromSession(HttpSession session) {
-        if (session.getAttribute(SESSION_ATTRIBUTE) instanceof QuickBillingBCFormBean form) {
+        synchronized (SESSION_LOCK) {
+            if (session.getAttribute(SESSION_ATTRIBUTE) instanceof QuickBillingBCFormBean form) {
+                return form;
+            }
+            QuickBillingBCFormBean form = new QuickBillingBCFormBean();
+            form.setBillingData(new ArrayList<BillingSessionBean>());
+            session.setAttribute(SESSION_ATTRIBUTE, form);
             return form;
         }
-        QuickBillingBCFormBean form = new QuickBillingBCFormBean();
-        form.setBillingData(new ArrayList<BillingSessionBean>());
-        session.setAttribute(SESSION_ATTRIBUTE, form);
-        return form;
+    }
+
+    /**
+     * Takes the bills added so far and leaves an empty list in their place, in one step, so a second
+     * Submit of the same page (a double click) finds nothing left to save. The bill list is changed
+     * only while holding this form's lock.
+     *
+     * @return the bills to save, never {@code null}
+     * @since 2026-10-16
+     */
+    public synchronized ArrayList<BillingSessionBean> takeBillingData() {
+        ArrayList<BillingSessionBean> taken = billingData == null ? new ArrayList<BillingSessionBean>() : billingData;
+        billingData = new ArrayList<BillingSessionBean>();
+        return taken;
     }
 
     /**
@@ -192,11 +211,11 @@ public class QuickBillingBCFormBean {
     }
 
 
-    public ArrayList<BillingSessionBean> getBillingData() {
+    public synchronized ArrayList<BillingSessionBean> getBillingData() {
         return billingData;
     }
 
-    public void setBillingData(ArrayList<BillingSessionBean> billingData) {
+    public synchronized void setBillingData(ArrayList<BillingSessionBean> billingData) {
 
         this.billingData = billingData;
     }
