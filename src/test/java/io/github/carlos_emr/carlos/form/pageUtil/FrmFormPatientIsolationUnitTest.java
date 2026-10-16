@@ -165,6 +165,12 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(((Map<?, ?>) request.getAttribute("formValues")).get("visitCod")).isNotNull();
             Map<?, ?> values = (Map<?, ?>) request.getAttribute("formValues");
             assertThat(values.get("formId")).isEqualTo(formId);
+            // No measurement history must render as an empty cell, never JSP's literal "null"
+            // (#4612). This is checked on both fresh setup and an existing form's redisplay.
+            for (String type : List.of("WT", "iEx", "WHR")) {
+                assertThat(request.getAttribute(type + "LastData")).isEqualTo("");
+                assertThat(request.getAttribute(type + "LDDate")).isEqualTo("");
+            }
             if ("88".equals(formId)) {
                 assertThat(values.get("WTValue")).isEqualTo("72.5");
                 assertThat(values.get("WTComments")).isEqualTo("Owned <script> text");

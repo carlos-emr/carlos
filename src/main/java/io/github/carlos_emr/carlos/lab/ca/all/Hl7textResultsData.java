@@ -815,6 +815,16 @@ public class Hl7textResultsData {
     }
 
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public static List<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         if (providerNo == null) {
             providerNo = "";
@@ -839,7 +849,7 @@ public class Hl7textResultsData {
         // note to self: lab reports not found in the providerLabRouting table will not show up - need to ensure every lab is entered in providerLabRouting, with '0'
         // for the providers number if unable to find correct providers
 
-        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate)) {
+        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, acknowledgedSince)) {
 
             String label = String.valueOf(i[0]);
             String lab_no = String.valueOf(i[1]);

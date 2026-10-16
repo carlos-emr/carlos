@@ -41,6 +41,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockedConstruction;
@@ -223,13 +225,21 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
                 ROLE_NAME, privilegeStub.properties(), privilegeStub.roles()));
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"record", "_pregnancy", "_newCasemgmt.pregnancy"})
     @DisplayName("should skip pregnancy panel population when privilege is denied")
-    void shouldSkipPanelPopulation_whenPregnancyPrivilegeDenied() {
-        PrivilegeStub privilegeStub = stubPrivilege("_newCasemgmt.pregnancy", false);
+    void shouldSkipPanelPopulation_whenPregnancyPrivilegeDenied(String denied) {
+        request.setParameter("demographicNo", "123");
+        when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(!denied.equals("record"));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_pregnancy", "r", 123))
+                .thenReturn(!denied.equals("_pregnancy"));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.pregnancy", "r", 123))
+                .thenReturn(!denied.equals("_newCasemgmt.pregnancy"));
         NavBarDisplayDAO dao = new NavBarDisplayDAO();
+        EctSessionBean staleSession = encounterSession();
+        staleSession.demographicNo = "999";
 
-        boolean result = new EctDisplayPregnancy2Action().getInfo(encounterSession(), request, dao);
+        boolean result = new EctDisplayPregnancy2Action().getInfo(staleSession, request, dao);
 
         assertThat(result).isTrue();
         assertThat(dao.getLeftHeading()).isEmpty();
@@ -239,9 +249,26 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         assertThat(dao.numItems()).isZero();
         assertThat(dao.numPopUpMenuItems()).isZero();
         verifyNoInteractions(episodeDao);
-        rolePrivilegeMock.verify(() -> OscarRoleObjectPrivilege.getPrivilegeProp(privilegeStub.objectName()));
-        rolePrivilegeMock.verify(() -> OscarRoleObjectPrivilege.checkPrivilege(
-                ROLE_NAME, privilegeStub.properties(), privilegeStub.roles()));
+        verify(securityInfoManager).isAllowedAccessToPatientRecord(loggedInInfo, 123);
+        if (!denied.equals("record")) {
+            verify(securityInfoManager).hasPrivilege(loggedInInfo, denied, "r", 123);
+        }
+        rolePrivilegeMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldRefusePregnancyPanel_whenTheRequestOmitsPatientIdentity() {
+        NavBarDisplayDAO dao = new NavBarDisplayDAO();
+        EctDisplayPregnancy2Action action = new EctDisplayPregnancy2Action();
+        EctSessionBean session = encounterSession();
+
+        assertThatThrownBy(() -> action.getInfo(session, request, dao))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Missing required demographicNo");
+        assertThat(dao.numItems()).isZero();
+        assertThat(dao.numPopUpMenuItems()).isZero();
+        verifyNoInteractions(securityInfoManager, episodeDao);
+        rolePrivilegeMock.verifyNoInteractions();
     }
 
     private PrivilegeStub stubPrivilege(String objectName, boolean allowed) {

@@ -494,9 +494,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -1319,7 +1320,8 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
+   - Spring integration tests: Extend `CarlosTestBase` (Spring context + H2 database).
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.

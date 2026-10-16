@@ -6,6 +6,10 @@ disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
+The 2026-10-15 focused validation for issue #4699, including blocking-WAF
+positive/negative controls and pending encounter-issue preservation, is recorded
+in [PR #4701 validation](pr4701-validation.md).
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
@@ -2958,3 +2962,33 @@ On the rebuilt packages the same allergy, CSRF, CDS and export checks passed aga
 server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
 while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
 reach the allergy code.
+
+### Billing History Unbill decides from the stored status (2026-10-15, issue #4538)
+
+The #4538 fix branch, cut from `release/2026.08` at `378db4ed`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built from the commit `debian/drugref.pin` names
+(`1941e14`). carlos-ctl was built from the pin's fallback commit (`9ad4938`) and stamped 1.1.2, because the release asset was not
+available on the host. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported all checks passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`,
+`BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`).
+
+| Run | `billing-on-correction-delete` |
+|---|---|
+| fixed packages | PASS, 7 of 7 steps, including the forged-`billCode` step |
+| pre-fix `BillingDeleteNoAppt2Action` and `billingONHistory.jsp` swapped into the installed webapp | FAIL at that step: "Unbilling the billed bill with billCode=O was not refused with the cannot-delete page" |
+
+The step posts `billCode` O, W, D, empty and absent for an owned bill in status B and one in status S, and asserts the
+cannot-delete page, an unchanged header and items, and no `billing_on_proc` row. The last step also asserts that the real Unbill
+click posts `billing_no` and no `billCode`.
+
+On the fixed packages these also passed: `billing-on-invoice-third-party`, `billing-on-submit`, `billing-on-third-party`,
+`billing-on-payment-status`, `csrf-runtime-forms`, `csrf-runtime-form-day-sheet-unbill`, `gap-billing-correction-admin-actions` and
+`xss-poison-billing`. `authz-write-role-matrix-billing` was `known-fail` (finding 199). `double-submit-billing-on` ("second click
+500 ms later while the response is slow" saved two bills) and `audit-log-billing-on` (no audit row for the OHIP save or for opening
+Billing History) failed, and they fail identically with the four changed classes and the JSP swapped back to their
+`release/2026.08` versions, so neither depends on this change. The log PHI scan found no match. The server-log audit's
+unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `ApplicationDispatcher.invoke` SEVERE events and a
+`BillingONSave` `SecurityException`) match the time and actions of the `authz-write-role-matrix-billing` run.
+
+The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.

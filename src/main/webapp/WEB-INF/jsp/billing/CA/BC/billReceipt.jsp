@@ -285,7 +285,7 @@
     <body bgcolor="#FFFFFF" text="#000000" rightmargin="0" leftmargin="0" topmargin="10" marginwidth="0"
           marginheight="0">
     <form action="${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling" method="post">
-        <input type="hidden" name="billingNo" id="billingNo"/>
+        <input type="hidden" name="billingNo" id="billingNo" value="${carlos:forHtmlAttribute(billingViewBean.billingNo)}"/>
         <table width="650" border="0" align="center" style="border:black solid 1px ">
             <tr>
                 <td>

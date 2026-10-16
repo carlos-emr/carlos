@@ -104,7 +104,7 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `my-groups` | §2.3 | all | PASS |
 | `schedule-admin-settings` | §2.3 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: the schedule date popup preselects the wrong template and Template Code Setting edit truncates apostrophes. |
 | `schedule-views` | §2.3 | all | PASS |
-| `waiting-list` | §2.3 | all | FAIL on confirmed defects. Fails at its first step on 2026.08 until the Master Record stops rendering the waiting list read-only when DEMOGRAPHIC_WAITING_LIST=true (edit.jsp wLReadonly). |
+| `waiting-list` | §2.3 | all | PASS once #4229 is fixed: the Master Record takes waiting-list availability from `WaitingListAvailabilityService` (feature on, current list in the login's group) instead of the inverted `wLReadonly` switch, and Report ▸ Waiting List is the entry the check uses to create its list. |
 | `admin-update-demographic-provider` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200). |
 | `demographic-cds-import` | §2.4 | all | FAIL on confirmed defects. Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils). |
 | `demographic-merge` | §2.4 | all | PASS |

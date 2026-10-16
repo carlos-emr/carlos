@@ -274,6 +274,11 @@ public class BillingCreateBilling2Action extends ActionSupport {
                 "from billing_msp_servicecode_times bt";
 
         List<String[]> results = SqlUtils.getQueryResultsList(qry);
+        // SqlUtils answers null when the query has no rows, and a Flyway-built BC install ships this
+        // table empty: no service code then needs a time (issue #4716).
+        if (results == null) {
+            return;
+        }
 
         for (int i = 0; i < billItems.size(); i++) {
             BillingItem item = billItems.get(i);
@@ -450,6 +455,10 @@ public class BillingCreateBilling2Action extends ActionSupport {
         String cdmRulesQry =
                 "SELECT serviceCode,conditionCode FROM billing_service_code_conditions";
         List<String[]> cdmRules = SqlUtils.getQueryResultsList(cdmRulesQry);
+        // Null when billing_service_code_conditions has no rows: there is no condition to check.
+        if (cdmRules == null) {
+            return;
+        }
         List<String[]> cdmSvcCodes = vldt.getCDMCodes();
         for (String[] item : cdmSvcCodes) {
             if (patientDX.contains(item[0])) {
@@ -493,6 +502,10 @@ public class BillingCreateBilling2Action extends ActionSupport {
         String conditionCodeQuery = "select conditionCode from billing_service_code_conditions where serviceCode = '" +
                 code + "'";
         List<String[]> conditions = SqlUtils.getQueryResultsList(conditionCodeQuery);
+        // Null when the code has no conditions: nothing was last billed against them.
+        if (conditions == null) {
+            return;
+        }
 
         for (Iterator<String[]> iter = conditions.iterator(); iter.hasNext(); ) {
             String[] row = iter.next();

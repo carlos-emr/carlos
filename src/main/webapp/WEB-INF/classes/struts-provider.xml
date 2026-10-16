@@ -162,6 +162,9 @@
         <action name="provider/DeleteMyGroupMembers" class="io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action"/>
         <action name="provider/providercontrol" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderControl2Action">
             <result name="success">/WEB-INF/jsp/provider/providercontrol.jsp</result>
+            <!-- 403 refusal for an account without schedule access, e.g. a login with no role
+                 (#2689); renders instead of the generic security error. -->
+            <result name="noScheduleAccess">/WEB-INF/jsp/provider/noScheduleAccess.jsp</result>
         </action>
         <action name="provider/ViewChangePassword" class="io.github.carlos_emr.carlos.providers.gate.ViewChangePassword2Action">
             <result name="success">/WEB-INF/jsp/provider/changePassword.jsp</result>
