@@ -8064,6 +8064,21 @@
       "notes": "PASS expected; fails at the step naming the viewer, save, copy or source-integrity assertion that breaks."
     },
     {
+      "name": "health-care-team-heading",
+      "script": "scripts/health-care-team-heading-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient only; the check is read-only and writes no contact rows. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
+      "notes": "Verifies the Health Care Team heading is translated (English and French) in the master record's embedded panel and in the detached view (issue #4684)."
+    },
+    {
       "name": "gap-records-health-care-team-panel",
       "script": "scripts/gap-records-health-care-team-panel-playwright-checks.js",
       "tiers": [

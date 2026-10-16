@@ -264,6 +264,7 @@
     "test:clinic-demo-name-playwright": "node scripts/clinic-demo-name-playwright-checks.js",
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",
+    "test:health-care-team-heading-playwright": "node scripts/health-care-team-heading-playwright-checks.js",
     "test:hrm-window-browser": "node scripts/hrm-window-playwright-checks.js",
     "test:lab-upload-rollback-playwright": "node scripts/lab-upload-rollback-playwright-checks.js",
     "test:lab-upload-signed-feed-playwright": "node scripts/lab-upload-signed-feed-playwright-checks.js",
