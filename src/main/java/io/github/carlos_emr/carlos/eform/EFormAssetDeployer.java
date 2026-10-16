@@ -89,10 +89,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * startup, so that directory must stay writable. Earlier versions skipped <em>every</em> existing
  * file, which meant a corrected asset could never reach an install that already had one.</p>
  *
- * <h3>Intentional Exclusion</h3>
- * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
- * contains clinic-specific doctor signature image mappings that administrators
- * create themselves through the eForm admin UI.</p>
+ * <h3>stamps.js</h3>
+ * <p>{@code stamps.js} holds clinic-specific doctor signature image mappings that administrators
+ * write themselves and upload through the eForm admin UI. The shipped file is only an empty,
+ * seeded placeholder, so the Rich Text Letter's {@code <script>} for it stops loading a 404 on
+ * installs that have none; an uploaded copy replaces it and is never touched again.</p>
  *
  * <h3>JSoup Interaction Warning</h3>
  * <p>If the eForm images directory does not exist or the assets are not deployed,
@@ -147,7 +148,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         "clinic_letter.rtl",
         "consultation_letter.rtl",
         "patient_letter.rtl",
-        "editor_help.html"
+        "editor_help.html",
+        "stamps.js"
     };
 
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
@@ -165,7 +167,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * touched again, because a clinic is expected to customize it. That covers {@code blank.rtl}
      * (the default letter template), {@code editor_help.html}, and the generated lab
      * decision-support stubs, whose entire purpose is to be replaced by a clinic's real script.
-     * {@code stamps.js} is not deployed at all and is unaffected.</p>
+     * {@code stamps.js} is seeded the same way: the shipped file is an empty placeholder (the Rich
+     * Text Letter loads it on every open, and a missing one was a 404 refused as script), and a
+     * clinic that lists its own signature images in it keeps that copy.</p>
      *
      * <p>Why this split rather than a blanket never-clobber rule: the deployer previously skipped
      * every existing file, so a corrected {@code editControl2.js} could never reach an install that

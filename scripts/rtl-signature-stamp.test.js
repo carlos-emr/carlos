@@ -52,19 +52,15 @@ function loadStampFunctions() {
   return context;
 }
 
-// A per-provider stamp also carries the fallback marker bindStampFallbacks() consumes; a stamp
-// that has ALREADY fallen back carries none, because there is nothing left to fall back to.
-// A per-provider stamp carries a VALUELESS marker that bindStampFallbacks() consumes; the fallback
-// filename rides module state, never the markup (it would otherwise be DOM text flowing into an
-// image URL). A stamp that has ALREADY fallen back carries no marker at all.
-const stamp = (file, marked) => marked
-  ? `<img src="${IMAGE_SRC}${file}" data-carlos-stamp="1" width="200" height="100" />`
-  : `<img src="${IMAGE_SRC}${file}" width="200" height="100" />`;
+// Every freshly picked stamp carries a VALUELESS marker that bindStampFallbacks() consumes, so a
+// stamp that cannot load is handled whichever file it is. The fallback filename rides module state,
+// never the markup (it would otherwise be DOM text flowing into an image URL).
+const stamp = (file) => `<img src="${IMAGE_SRC}${file}" data-carlos-stamp="1" width="200" height="100" />`;
 
 test('a billing practitioner signs a letter with their own signature', () => {
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '54321', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', true));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
 });
 
 test('a non-billing account signs with the patient MRP signature', () => {
@@ -73,13 +69,13 @@ test('a non-billing account signs with the patient MRP signature', () => {
   // under one of those logins is written under the MRP's direction.
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '42', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png', true));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png'));
 });
 
 test('the billing threshold is exclusive', () => {
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '1000', user_id: '999998', doctor_provider_no: '111111' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png', true));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_111111.png'));
 });
 
 test('the AP cache supplies the identity when the form carries no hidden inputs', () => {
@@ -90,7 +86,7 @@ test('the AP cache supplies the identity when the form carries no hidden inputs'
   ctx.cacheData = {
     current_user_ohip_no: '54321', current_user_id: '999998', doctor_provider_no: '111111',
   };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', true));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
 });
 
 test('a provider with no signature on file falls back to the clinic stamps.js entry', () => {
@@ -121,7 +117,7 @@ test('a padded provider number resolves the same as the server would', () => {
   // file the server is perfectly willing to serve.
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: ' 54321 ', user_id: ' 999998 ' };
-  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png', true));
+  assert.equal(ctx.pickStamp(), stamp('consult_sig_999998.png'));
 });
 
 test('a provider number that is not digits never reaches the image URL', () => {
@@ -152,15 +148,16 @@ test('the stamp carries a fallback marker so a missing signature still degrades'
   assert.equal(ctx.carlosPendingStampFallback, 'amy_sig.png');
 });
 
-test('a stamp that already fell back carries no fallback marker', () => {
-  // Nothing to retry, and the marker must not reach the stored letter.
+test('a stamp that already fell back is still marked but has nothing further to try', () => {
+  // The marker lets bindStampFallbacks() remove a clinic stamp that does not exist either, instead
+  // of leaving a broken image in the letter; with no pending filename it never retries.
   const ctx = loadStampFunctions();
   ctx.inputs = { user_ohip_no: '54321', user_id: '999998' };
   ctx.carlosProviderStampProbe = { file: 'consult_sig_999998.png', missing: true };
+  ctx.carlosPendingStampFallback = 'stale.png';
   const html = ctx.pickStamp();
-  assert.match(html, /stamp\.png/);
-  assert.ok(!html.includes('data-carlos-stamp'),
-    'a fallback stamp must not advertise another fallback');
+  assert.equal(html, stamp('stamp.png'));
+  assert.equal(ctx.carlosPendingStampFallback, '');
 });
 
 test('the signer role drives both the stamp and the salutation name', () => {
@@ -239,4 +236,132 @@ test('the letterhead, stamp and closing-salutation lookups only request configur
       assert.ok(configured.has(key), `${name} requests AP key "${key}", which apconfig.xml does not define`);
     }
   }
+});
+
+// ---------------------------------------------------------------------------------------------
+// bindStampFallbacks(): what happens when an inserted stamp image does not load.
+//
+// A clinic that has not uploaded a signature for the signer, and has no stamps.js entry or shared
+// stamp.png, used to get a broken-image box (two 404s) in the letter every time Stamp or Closing
+// Salutation was pressed. The stamp is now swapped once for the clinic fallback and, if that does
+// not load either, taken out of the letter with a notice saying where a signature can be added.
+// ---------------------------------------------------------------------------------------------
+
+function loadStampBinding() {
+  const ctx = loadStampFunctions();
+  const source = fs.readFileSync(EDIT_CONTROL_2_JS, 'utf8');
+  const start = source.indexOf('function stampImagesIn(');
+  const end = source.indexOf('function block(blockElements)');
+  assert.ok(start >= 0 && end > start, 'bindStampFallbacks() was not found in editControl2.js');
+  ctx.notices = [];
+  ctx.showLetterStatus = (id, message, failed) => ctx.notices.push({ id, message, failed });
+  vm.runInContext(source.slice(start, end), ctx);
+  return ctx;
+}
+
+function fakeStampImage(file) {
+  const listeners = {};
+  const parent = {
+    children: [],
+    removeChild(child) { this.children = this.children.filter((node) => node !== child); child.parentNode = null; },
+  };
+  const image = {
+    attributes: { 'data-carlos-stamp': '1' },
+    complete: false,
+    naturalWidth: 0,
+    srcHistory: [`${IMAGE_SRC}${file}`],
+    get src() { return this.srcHistory[this.srcHistory.length - 1]; },
+    set src(value) { this.srcHistory.push(value); },
+    removeAttribute(name) { delete this.attributes[name]; },
+    addEventListener(type, listener) { (listeners[type] = listeners[type] || []).push(listener); },
+    removeEventListener(type, listener) {
+      listeners[type] = (listeners[type] || []).filter((candidate) => candidate !== listener);
+    },
+    fire(type) { (listeners[type] || []).slice().forEach((listener) => listener.call(image, { type })); },
+    parentNode: parent,
+  };
+  parent.children.push(image);
+  return image;
+}
+
+test('a provider stamp that does not load is swapped for the clinic stamp', () => {
+  const ctx = loadStampBinding();
+  ctx.carlosPendingStampFallback = 'amy_sig.png';
+  const image = fakeStampImage('consult_sig_999998.png');
+
+  ctx.bindStampFallbacks([image]);
+  image.fire('error');
+
+  assert.equal(image.src, `${IMAGE_SRC}amy_sig.png`);
+  assert.ok(image.parentNode, 'the swapped stamp stays in the letter');
+  assert.equal(image.attributes['data-carlos-stamp'], undefined, 'the marker never reaches the stored letter');
+  assert.equal(ctx.carlosPendingStampFallback, '', 'the fallback is consumed by this insertion');
+});
+
+test('a stamp that cannot load at all is taken out of the letter and the reason shown', () => {
+  const ctx = loadStampBinding();
+  ctx.carlosPendingStampFallback = 'stamp.png';
+  const image = fakeStampImage('consult_sig_999998.png');
+  const parent = image.parentNode;
+
+  ctx.bindStampFallbacks([image]);
+  image.fire('error');
+  image.fire('error');
+
+  assert.deepEqual(image.srcHistory, [`${IMAGE_SRC}consult_sig_999998.png`, `${IMAGE_SRC}stamp.png`]);
+  assert.equal(parent.children.length, 0, 'no broken image is left in the letter');
+  assert.equal(ctx.notices.length, 1);
+  assert.equal(ctx.notices[0].id, 'rtl-stamp-status');
+  assert.equal(ctx.notices[0].failed, true);
+  assert.match(ctx.notices[0].message, /Preferences > Signature Stamp/);
+});
+
+test('a stamp with nothing left to fall back to is removed on its first failure', () => {
+  const ctx = loadStampBinding();
+  ctx.carlosPendingStampFallback = '';
+  const image = fakeStampImage('stamp.png');
+  const parent = image.parentNode;
+
+  ctx.bindStampFallbacks([image]);
+  image.fire('error');
+
+  assert.equal(image.srcHistory.length, 1, 'nothing is retried');
+  assert.equal(parent.children.length, 0);
+  assert.equal(ctx.notices.length, 1);
+});
+
+test('a stamp that already failed from the cache is handled at once', () => {
+  const ctx = loadStampBinding();
+  ctx.carlosPendingStampFallback = 'amy_sig.png';
+  const image = fakeStampImage('consult_sig_999998.png');
+  image.complete = true;
+
+  ctx.bindStampFallbacks([image]);
+
+  assert.equal(image.src, `${IMAGE_SRC}amy_sig.png`);
+});
+
+test('a stamp that loads clears an earlier missing-stamp notice', () => {
+  const ctx = loadStampBinding();
+  const image = fakeStampImage('consult_sig_999998.png');
+
+  ctx.bindStampFallbacks([image]);
+  image.fire('load');
+
+  assert.deepEqual(ctx.notices, [{ id: 'rtl-stamp-status', message: '', failed: false }]);
+  assert.ok(image.parentNode);
+});
+
+test('an untrusted fallback filename is never put in an image URL', () => {
+  // The pending filename comes from ImgArray (stamps.js) or the stamp.png default; anything that is
+  // not a plain basename is ignored and the stamp is removed instead of being pointed at it.
+  const ctx = loadStampBinding();
+  ctx.carlosPendingStampFallback = '../../etc/passwd';
+  const image = fakeStampImage('consult_sig_999998.png');
+
+  ctx.bindStampFallbacks([image]);
+  image.fire('error');
+
+  assert.equal(image.srcHistory.length, 1);
+  assert.equal(image.parentNode, null);
 });
