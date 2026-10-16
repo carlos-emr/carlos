@@ -138,8 +138,18 @@ async function workflow(s) {
     const html = await response.text();
     await response.dispose();
     h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
-    h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
-    h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+    // Read the answer with the browser's own parser (inert: no script runs and nothing loads), so only a
+    // product link inside the results list counts, as in the search step above.
+    const shown = await infoPage.evaluate(answer => {
+      const page = new DOMParser().parseFromString(answer, 'text/html');
+      return {
+        monograph: page.querySelector('#drug-reference-details') !== null,
+        results: [...page.querySelectorAll('#drug-info-matches a[href*="/rx/drugInfo"][href*="BN="]')]
+          .filter(link => link.textContent.trim()).length,
+      };
+    }, html);
+    h.assert(!shown.monograph, 'An unknown DIN showed a product monograph');
+    h.assert(shown.results > 0, 'An unknown DIN did not offer name-search results');
   });
 }
 
