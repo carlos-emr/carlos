@@ -65,6 +65,12 @@ public class QuickBillingBCFormBean implements Serializable {
     private static final Object SESSION_LOCK = new Object();
 
     /**
+     * Guards the bill list. It is private, so no other code can hold it, and an empty array, so it is
+     * serializable and a restored form gets its own.
+     */
+    private final Object billsLock = new Object[0];
+
+    /**
      * Returns this session's quick billing form, storing a new empty one (no header, no bills) on
      * first use.
      *
@@ -86,16 +92,51 @@ public class QuickBillingBCFormBean implements Serializable {
 
     /**
      * Takes the bills added so far and leaves an empty list in their place, in one step, so a second
-     * Submit of the same page (a double click) finds nothing left to save. The bill list is changed
-     * only while holding this form's lock.
+     * Submit of the same page (a double click) finds nothing left to save.
      *
      * @return the bills to save, never {@code null}
      * @since 2026-10-16
      */
-    public synchronized ArrayList<BillingSessionBean> takeBillingData() {
-        ArrayList<BillingSessionBean> taken = billingData == null ? new ArrayList<BillingSessionBean>() : billingData;
-        billingData = new ArrayList<BillingSessionBean>();
-        return taken;
+    public ArrayList<BillingSessionBean> takeBillingData() {
+        synchronized (billsLock) {
+            ArrayList<BillingSessionBean> taken = billingData == null ? new ArrayList<BillingSessionBean>() : billingData;
+            billingData = new ArrayList<BillingSessionBean>();
+            return taken;
+        }
+    }
+
+    /**
+     * Adds one bill to the list.
+     *
+     * @param bill the bill to add
+     * @return {@code true}, as {@link java.util.List#add(Object)}
+     * @since 2026-10-16
+     */
+    public boolean addBill(BillingSessionBean bill) {
+        synchronized (billsLock) {
+            if (billingData == null) {
+                billingData = new ArrayList<BillingSessionBean>();
+            }
+            return billingData.add(bill);
+        }
+    }
+
+    /**
+     * Removes the bill at a row of the list.
+     *
+     * @param index the row the page showed
+     * @return {@code true} when the row was removed; {@code false}, with nothing removed, when it is not a
+     *         current row (for example a second click on Remove for the last row)
+     * @since 2026-10-16
+     */
+    public boolean removeBill(int index) {
+        synchronized (billsLock) {
+            if (billingData == null || index < 0 || index >= billingData.size()) {
+                return false;
+            }
+            billingData.remove(index);
+            return true;
+        }
     }
 
     /**
@@ -216,13 +257,16 @@ public class QuickBillingBCFormBean implements Serializable {
     }
 
 
-    public synchronized ArrayList<BillingSessionBean> getBillingData() {
-        return billingData;
+    public ArrayList<BillingSessionBean> getBillingData() {
+        synchronized (billsLock) {
+            return billingData;
+        }
     }
 
-    public synchronized void setBillingData(ArrayList<BillingSessionBean> billingData) {
-
-        this.billingData = billingData;
+    public void setBillingData(ArrayList<BillingSessionBean> billingData) {
+        synchronized (billsLock) {
+            this.billingData = billingData;
+        }
     }
 
     @Override

@@ -372,10 +372,7 @@ public class QuickBillingBCHandler {
         // notes which are internal - NOT seen by recipient.
         bean.setMessageNotes(INTERNAL_COMMENT);
 
-        // The bill list is changed only under the form's lock (see QuickBillingBCFormBean#takeBillingData).
-        synchronized (this.quickBillingBCFormBean) {
-            return this.quickBillingBCFormBean.getBillingData().add(bean);
-        }
+        return this.quickBillingBCFormBean.addBill(bean);
     }
 
     private String convertDDMMYYYY(String dt) {
@@ -485,15 +482,7 @@ public class QuickBillingBCHandler {
         } catch (NumberFormatException e) {
             return false;
         }
-        synchronized (quickBillingBCFormBean) {
-            ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
-            // A page rendered before the last removal (a second click on Remove) can name a row that is gone.
-            if (index < 0 || index >= billingSessionBeans.size()) {
-                return false;
-            }
-            billingSessionBeans.remove(index);
-            return true;
-        }
+        return quickBillingBCFormBean.removeBill(index);
     }
 
     /**

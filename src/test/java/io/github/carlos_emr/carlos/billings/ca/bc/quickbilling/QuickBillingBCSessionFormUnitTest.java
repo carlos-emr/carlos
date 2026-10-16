@@ -389,6 +389,9 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         assertThat(restored.getBillingProviderNo()).isEqualTo(PROVIDER_NO);
         assertThat(restored.getBillingData()).extracting("patientNo").containsExactly("1");
         assertThat(restored.getBillingData().get(0).getBillItem()).extracting("serviceCode").containsExactly("00100");
+        // The restored form brings its own lock, so its bill list still changes normally.
+        assertThat(restored.removeBill(0)).isTrue();
+        assertThat(restored.getBillingData()).isEmpty();
     }
 
     @Test
