@@ -81,15 +81,15 @@ async function workflow(s) {
         'allergy description', 'drug custom name', 'ongoing concerns', 'smoking comment', 'foot exam comment')],
     });
   });
+  await step('the page printed none of the stored markup as elements', async () => {
+    h.assert(await page.locator('[data-xp]').count() === 0, 'Stored markup became an element on the Vascular Tracker form');
+    f.assertNone('Vascular Tracker form');
+  });
   await step('the foot-exam and smoking comment boxes hold exactly the stored text', async () => {
     h.assert(await page.locator('textarea[name="FTComments"]').inputValue() === stored.foot,
       'The foot-exam comment box does not hold the stored comment exactly (template whitespace or encoding changed it)');
     h.assert(await page.locator('input[name="SmkComments"]').inputValue() === stored.smoking,
       'The smoking comment box does not hold the stored comment exactly');
-  });
-  await step('the page printed none of the stored markup as elements', async () => {
-    h.assert(await page.locator('[data-xp]').count() === 0, 'Stored markup became an element on the Vascular Tracker form');
-    f.assertNone('Vascular Tracker form');
   });
   await page.close().catch(() => {});
 }
