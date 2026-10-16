@@ -9,8 +9,9 @@
 //      prevention keeps its year-only date.
 // Step 2 fails on develop and runs last: the edit form's Date is an <input type="date">
 // (AddPreventionData.jsp), which cannot hold "2019", so the box opens empty and, being required,
-// refuses the save until a full date is typed. prevention-lifecycle covers editing preventions with
-// full dates; no check edits a partial-dated one.
+// refuses the save until a full date is typed. The server side is fine: echart-prevention-row-links
+// posts the edit form's fields with prevDate=2026-09 directly and asserts the replacement keeps
+// YYYY-MM; this check covers the form path. prevention-lifecycle covers edits with full dates.
 // Fixtures: the owned FAKE- patient and two Inf preventions seeded by SQL with their partial_date
 // rows. Cleanup deletes the patient's preventions, their ext rows and their partial_date rows, and
 // asserts none remain.
