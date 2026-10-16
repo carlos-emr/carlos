@@ -8375,7 +8375,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host.",
-      "notes": "Fails at its last step on 2026.08: rx/drugInfo answers with a redirect to http://resource.oscarmcmaster.org/... (RxDrugInfo2Action; same defect as L82/L184)."
+      "notes": "Covers #4554 in its last step: Info for a DIN this DrugRef does not know lists name-search results, searching the name part of the saved description (the words before its strength) when the whole description finds nothing. The earlier off-host redirect from rx/drugInfo (RxDrugInfo2Action; same defect as L82/L184) is fixed."
     },
     {
       "name": "gap-encounter-rx-quantity-price",
