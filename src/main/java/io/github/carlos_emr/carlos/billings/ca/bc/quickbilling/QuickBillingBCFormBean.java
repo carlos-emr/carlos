@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,9 +46,12 @@ import jakarta.servlet.http.HttpSession;
  * bills added so far. It lives in the HTTP session under {@link #SESSION_ATTRIBUTE} from the page's
  * first open until the bills are saved, because the page adds and removes one bill per request.
  * Struts 1 kept it in session scope ({@code scope="session"}); the Struts 2 actions use
- * {@link #fromSession(HttpSession)} to do the same.
+ * {@link #fromSession(HttpSession)} to do the same. It is serializable, as the Struts 1 form was, so a
+ * session the container saves and restores (a restart or redeploy) keeps the bills added so far.
  */
-public class QuickBillingBCFormBean {
+public class QuickBillingBCFormBean implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     /**
      * Session attribute that holds the form. {@code quickBillingBC.jsp} reads it as
@@ -104,8 +108,9 @@ public class QuickBillingBCFormBean {
     private String billingProviderNo;
     private String serviceDate;
     private String visitLocation;
-    private List<BillingVisit> billingVisitTypes;
-    private List<ProviderData> providerList;
+    // The page's choice lists are rebuilt on every open, so they are not kept when a session is restored.
+    private transient List<BillingVisit> billingVisitTypes;
+    private transient List<ProviderData> providerList;
     private Boolean isHeaderSet;
     private String creator;
     private String halfBilling;

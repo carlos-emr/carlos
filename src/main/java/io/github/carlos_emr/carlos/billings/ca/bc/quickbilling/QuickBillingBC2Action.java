@@ -78,6 +78,9 @@ public class QuickBillingBC2Action extends ActionSupport {
     }
 
     
+    /** Request parameter that removes the bill at the given row. */
+    private static final String REMOVE_PARAM = "remove";
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
@@ -91,7 +94,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         }
         // Add (data) and remove change the bill list; they accept only POST, as the page sends them.
         // HTTP method names are case-sensitive (RFC 9110), so only an exact POST is accepted.
-        boolean changesBills = request.getParameter("data") != null || request.getParameter("remove") != null;
+        boolean changesBills = request.getParameter("data") != null || request.getParameter(REMOVE_PARAM) != null;
         if (changesBills && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -121,9 +124,9 @@ public class QuickBillingBC2Action extends ActionSupport {
             return SUCCESS;
 
             // if request is to remove an entry.
-        } else if (request.getParameter("remove") != null) {
+        } else if (request.getParameter(REMOVE_PARAM) != null) {
 
-            if (quickBillingHandler.removeBill(request.getParameter("remove"))) {
+            if (quickBillingHandler.removeBill(request.getParameter(REMOVE_PARAM))) {
 
                 return SUCCESS;
 

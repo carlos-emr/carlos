@@ -21,7 +21,11 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -363,6 +367,28 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         assertThat(send("GET", null, null)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(form()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should keep the header and bills when the session is saved and restored")
+    void shouldKeepHeaderAndBills_acrossSessionRestore() throws Exception {
+        openOrPost(null, null);
+        add("1", PROVIDER_NO);
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(form());
+        }
+        QuickBillingBCFormBean restored;
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored = (QuickBillingBCFormBean) in.readObject();
+        }
+
+        assertThat(restored.getIsHeaderSet()).isTrue();
+        assertThat(restored.getServiceDate()).isEqualTo("16-10-2026");
+        assertThat(restored.getBillingProviderNo()).isEqualTo(PROVIDER_NO);
+        assertThat(restored.getBillingData()).extracting("patientNo").containsExactly("1");
+        assertThat(restored.getBillingData().get(0).getBillItem()).extracting("serviceCode").containsExactly("00100");
     }
 
     @Test
