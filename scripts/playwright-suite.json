@@ -4719,6 +4719,21 @@
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "consultation-appointment-time",
+      "script": "scripts/consultation-appointment-time-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; a marker-named consultation service and specialist and one referral seeded by SQL. Cleanup removes the referral with its history, extension and stamped-signature rows, the service, the specialist and their link. Needs Poppler pdftotext.",
+      "notes": "Fails on develop at the two Print steps: Print prints the appointment minute without its leading zero (15:05 as 3:5 PM, a typed 16:05 as 4:5 PM), pending finding 323. The 12 AM / 12 PM save-and-reopen steps pass."
+    },
+    {
       "name": "consultation-edit-status",
       "script": "scripts/consultation-edit-status-playwright-checks.js",
       "tiers": [
