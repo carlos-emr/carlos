@@ -395,6 +395,10 @@ public class NotesService extends AbstractServiceImpl {
         if (logger.isDebugEnabled()) {
             logger.debug("saveNote noteId={}", note != null ? note.getNoteId() : null);
         }
+        // A request without a note body has nothing to save, as a note without text below.
+        if (note == null) {
+            return null;
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo(); //LoggedInInfo.loggedInInfo.get();
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         Provider provider = loggedInInfo.getLoggedInProvider();

@@ -54,11 +54,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link NotesService} privilege enforcement.
+ * Unit tests for {@link NotesService} privilege enforcement and request handling.
  *
  * <p>Verifies that {@code getGroupNoteExt} enforces the {@code _eChart} security
  * object before returning clinical note extension data (treatment, problem
- * description, exposure details, etc.). See #2798.</p>
+ * description, exposure details, etc.). See #2798. A save request that carries no
+ * note saves nothing.</p>
  *
  * @see NotesService
  */
@@ -133,5 +134,15 @@ class NotesServiceUnitTest extends CarlosUnitTestBase {
             .hasMessage("missing required sec object (_eChart)");
 
         verify(mockCaseManagementMgr, never()).getExtByNote(anyLong());
+    }
+
+    @Test
+    @DisplayName("should save nothing when the save request carries no note")
+    @Tag("create")
+    void shouldSaveNothing_whenSaveRequestCarriesNoNote() throws Exception {
+        // A body-less POST /notes/{demographicNo}/save used to dereference the missing note.
+        assertThat(service.saveNote(5, null)).isNull();
+
+        verify(mockCaseManagementMgr, never()).getCPP(anyString());
     }
 }
