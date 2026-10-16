@@ -2525,23 +2525,22 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
         note.setReporter_program_team(team);
 
-        /* save all issue changes for demographic */
-        saveAndUpdateCaseIssues(issuelist);
-        if (inCaisi)
-            cpp.setOngoingConcerns(ongoing); // << Check on this one???
-
         OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
         String roleName = getRoleName(note.getProviderNo(), note.getProgram_no());
 
-        Appointment appointment = null;
-
-        try {
-            appointment = appointmentDao.find(note.getAppointmentNo());
-        } catch (Exception e) {
-            logger.debug("Appointment number error", e);
+        // Keep the version being archived stable through the note and appointment commit.
+        // A lookup/lock failure must roll back, rather than masquerading as no appointment.
+        Appointment appointment = note.getAppointmentNo() > 0
+                ? appointmentDao.findForUpdate(note.getAppointmentNo()) : null;
+        if (appointment != null
+                && !Objects.equals(note.getDemographic_no(), String.valueOf(appointment.getDemographicNo()))) {
+            throw new SecurityException("Appointment does not belong to this note's patient");
         }
-        logger.debug("note.getAppointmentNo() " + note.getAppointmentNo() + " --- " + appointment);
+        /* save all issue changes for demographic after appointment ownership is checked */
+        saveAndUpdateCaseIssues(issuelist);
+        if (inCaisi) cpp.setOngoingConcerns(ongoing);
+        String appointmentStatus = null;
 
         if (verify) {
             try {
@@ -2552,7 +2551,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                     // only update appt if there is one
                     if (appointment != null) {
-                        appointment.setStatus(updateApptStatus(appointment.getStatus(), "verify"));
+                        appointmentStatus = updateApptStatus(appointment.getStatus(), "verify");
                     }
                 } else {
                     logger.warn("Provider number is null for verification");
@@ -2571,7 +2570,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
                     // only update appt if there is one
                     if (appointment != null) {
-                        appointment.setStatus(updateApptStatus(appointment.getStatus(), "sign"));
+                        appointmentStatus = updateApptStatus(appointment.getStatus(), "sign");
                     }
                 } else {
                     logger.warn("Provider number is null for signing");
@@ -2580,12 +2579,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                 logger.error("Error while getting signature for signing: " + e.getMessage());
                 // Handle exception: either log it, return a default message, or rethrow as needed
             }
-        }
-
-        if (appointment != null) {
-            appointmentArchiveDao.archiveAppointment(appointment);
-            appointment.setLastUpdateUser(note.getProviderNo());
-            appointmentDao.merge(appointment);
         }
 
         // PLACEHOLDER FOR DX CHECK
@@ -2633,6 +2626,15 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         /* save note including add signature */
         note = saveNoteRevision(cpp, note, note.getProviderNo(), userName, lastSavedNoteString, roleName).note();
+
+        // A rejected revision must leave even the managed appointment unchanged. Archive
+        // the old values only after the note succeeds, before changing status or audit data.
+        if (appointment != null) {
+            appointmentArchiveDao.archiveAppointment(appointment);
+            if (appointmentStatus != null) appointment.setStatus(appointmentStatus);
+            appointment.setLastUpdateUser(note.getProviderNo());
+            appointmentDao.merge(appointment);
+        }
 
         try {
             this.deleteTmpSave(note.getProviderNo(), note.getDemographic_no(), note.getProgram_no());

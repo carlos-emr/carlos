@@ -1022,6 +1022,63 @@ OAUTH_ACCESS_DEFAULTS
             fi
         fi
 
+        # One-time migration (2026.08): the stock Help link, resource_base_url,
+        # pointed at http://oscarmanual.org/14/, a path that now returns 404, so
+        # the Help link on the schedule page and the provider menu opened a "not
+        # found" page. The stock default is now the CARLOS wiki. install_once
+        # copied the old line into this /etc override, which wins over the
+        # corrected WAR default, so an upgraded install keeps the dead link until
+        # the line is rewritten. Same discipline as the lab-filter block above:
+        # under the provisioning lock, ONLY the exact old stock line, ONLY when
+        # the key is defined once (a second definition is the operator's
+        # override, and a URL the operator chose is never touched), ONLY once
+        # (the sentinel is written on fresh installs too, so a value set later is
+        # never rewritten). Not gated on $2, for the purge-then-reinstall reason
+        # given in the OSCAR block. The new line is the skeleton's, so the /etc
+        # copy and the WAR default cannot disagree. The line is matched and
+        # replaced as a FIXED string (grep -F, awk ENVIRON), and the rewrite goes
+        # through a temporary file renamed over the original with its owner and
+        # mode, as sed -i does. scripts/deb-upgrade-verify.sh holds the
+        # old/new pair (HELP_URL_OLD / HELP_URL_NEW);
+        # debian/assets/tests/test_help_url_migration.py holds it to this block
+        # and to the shipped carlos.properties.
+        HELP_URL_SENTINEL="${STATE}/.help-url-default-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${HELP_URL_SENTINEL}" ]; then
+            HELP_URL_OLD='resource_base_url=http://oscarmanual.org/14/'
+            HELP_URL_NEW=""
+            if [ "$(grep -c '^resource_base_url=' "${SHARE}/skel/carlos.properties" 2>/dev/null || true)" = 1 ]; then
+                HELP_URL_NEW="$(grep '^resource_base_url=' "${SHARE}/skel/carlos.properties")"
+            fi
+            HELP_URL_KEY_RE='^[[:space:]]*resource_base_url([[:space:]=:]|$)'
+            if [ -z "${HELP_URL_NEW}" ] || [ "${HELP_URL_NEW}" = "resource_base_url=" ] \
+                || [ "${HELP_URL_NEW}" = "${HELP_URL_OLD}" ]; then
+                # A skeleton without exactly one definition, with an empty one, or
+                # still carrying the dead URL is a broken build: rewrite nothing
+                # and write no sentinel, so a fixed package retries.
+                echo "carlos-emr: WARNING: ${SHARE}/skel/carlos.properties does not define one live resource_base_url; ${PROPERTIES} left as it is" >&2
+            else
+                if [ -f "${PROPERTIES}" ] \
+                    && [ "$(grep -cE "${HELP_URL_KEY_RE}" "${PROPERTIES}" || true)" = 1 ] \
+                    && grep -qxF -e "${HELP_URL_OLD}" "${PROPERTIES}"; then
+                    help_url_tmp="$(mktemp "${PROPERTIES}.XXXXXX")"
+                    if HELP_URL_OLD="${HELP_URL_OLD}" HELP_URL_NEW="${HELP_URL_NEW}" \
+                            awk '$0 == ENVIRON["HELP_URL_OLD"] { print ENVIRON["HELP_URL_NEW"]; next } { print }' \
+                            "${PROPERTIES}" > "${help_url_tmp}" \
+                        && chown --reference="${PROPERTIES}" "${help_url_tmp}" \
+                        && chmod --reference="${PROPERTIES}" "${help_url_tmp}" \
+                        && mv -f "${help_url_tmp}" "${PROPERTIES}"; then
+                        echo "carlos-emr: ${HELP_URL_OLD} -> ${HELP_URL_NEW} (the old stock Help link returns 404; edit ${PROPERTIES} to change it back)"
+                    else
+                        rm -f "${help_url_tmp}"
+                        echo "carlos-emr: ERROR: could not rewrite resource_base_url in ${PROPERTIES}" >&2
+                        exit 1
+                    fi
+                fi
+                mkdir -p "${STATE}"
+                : > "${HELP_URL_SENTINEL}"
+            fi
+        fi
+
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then
             CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"

@@ -71,7 +71,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -167,10 +166,9 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
+    // DemographicEdit2Action decides this through WaitingListAvailabilityService: the
+    // link shows while the feature is on and any current list exists (issue #4229).
+    boolean waitingListLinkVisible = Boolean.TRUE.equals(request.getAttribute("waitingListLinkVisible"));
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -1070,12 +1068,7 @@
                         </tr>
 
                         <%
-                            // wLReadonly already computed in preamble
-                            WaitingList wL = WaitingList.getInstance();
-                            if (!wL.getFound()) {
-                                wLReadonly = "readonly";
-                            }
-                            if (wLReadonly.equals("")) {
+                            if (waitingListLinkVisible) {
                         %>
                         <tr>
                             <td><a

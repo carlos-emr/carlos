@@ -117,6 +117,14 @@ function validatePin(value = PIN) {
   if (!['', 'archive', 'billing'].includes(value)) throw new Error(`ECHART_VERIFY_PIN must be unset, archive or billing, not ${value}`);
 }
 
+function assertArchivedOriginal(before, after, original, archived) {
+  h.assert(after.length === before.length + 1
+    && JSON.stringify(after.slice(0, -1)) === JSON.stringify(before),
+  'Signing changed historical archives or did not append exactly one');
+  h.assert(JSON.stringify(archived) === JSON.stringify(original),
+    'The new archive differs from the appointment status/audit fields that were replaced');
+}
+
 /** English bundle text for a key, read from the source tree (the same file the application's tests use). */
 function bundleMessage(key) {
   const bundle = path.join(__dirname, '..', 'src', 'main', 'resources', 'oscarResources_en.properties');
@@ -154,12 +162,14 @@ async function workflow(s) {
   const signedLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigned');
   const byLabel = bundleMessage('encounter.class.EctSaveEncounterAction.msgSigBy');
   // Only the full flow judges these texts; the archive variant does not read them.
-  const verifiedLabel = full ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
+  const verifiedLabel = full || PIN === 'archive' ? bundleMessage('encounter.class.EctSaveEncounterAction.msgVerAndSig') : null;
   const pastDateMessage = full ? bundleMessage('encounter.pastObservationDateError.msg') : null;
   const futureDateMessage = full ? bundleMessage('encounter.futureDate.Msg') : null;
 
   // ---- Fixtures --------------------------------------------------------------------------------
   const appointments = {};
+  let beforeSignArchives;
+  let beforeSignAppointment;
   s.cleanup(() => {
     // The patient is owned by this run, so everything below is the run's, deleted by the patient key.
     const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
@@ -232,6 +242,7 @@ async function workflow(s) {
   const statusOf = id => sql.value(`SELECT status FROM appointment WHERE appointment_no=${id}`);
   /** The status each appointmentArchive row of an appointment holds, oldest first. */
   const archivedStatuses = id => sql.rows(`SELECT status FROM appointmentArchive WHERE appointment_no=${id} ORDER BY id`).map(([status]) => status);
+  const archiveFields = 'status,lastupdateuser,updatedatetime,provider_no,demographic_no';
   /** One digest of every column a note could change on the patient's appointments, plus their archive rows. */
   const appointmentsFingerprint = () => sql.value(`SELECT CONCAT(
     (SELECT COALESCE(MD5(GROUP_CONCAT(CONCAT_WS('|', appointment_no, status, provider_no, appointment_date, start_time,
@@ -436,6 +447,10 @@ async function workflow(s) {
     const chart = await openAppointmentChart(appointments.todo);
     const text = `${marker} signed from the to-do visit`;
     const before = appointmentsFingerprint();
+    if (PIN === 'archive') {
+      beforeSignArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      [beforeSignAppointment] = sql.rows(`SELECT ${archiveFields} FROM appointment WHERE appointment_no=${appointments.todo}`);
+    }
     await noteField(chart).fill(text);
     await pressAndExit(chart, SIGN_SAVE, schedule);
     const note = await waitForNote(text, 'Sign & Save did not write the note');
@@ -450,16 +465,39 @@ async function workflow(s) {
   });
 
   if (PIN === 'archive') {
-    // Pinned to finding 224. AppointmentUpdateRecord2Action and AppointmentStatusTransitionService archive the
-    // appointment BEFORE changing it, so the archive row is the version being replaced; the chart's Sign path
-    // (CaseManagementManagerImpl.saveCaseManagementNote) sets the new status first and archives afterwards.
+    // Both chart signing routes must archive the old status after saving the note.
     await s.step('Sign & Save from the To Do appointment writes an appointmentArchive row for it', async () => {
       await expectValue(sql, `SELECT IF(COUNT(*) >= 1, 'yes', 'no') FROM appointmentArchive WHERE appointment_no=${appointments.todo}`, 'yes',
         'Sign & Save did not write an appointmentArchive row for the appointment (the pin below judges what that row holds)');
     });
     await s.step(STEP.archive, async () => {
-      const rows = archivedStatuses(appointments.todo);
-      h.assert(rows.includes('t'), `The appointment archive holds [${rows.join(', ')}] for an appointment that was t and became tS: the status it replaced is in no archive row`);
+      const archives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [last] = sql.rows(`SELECT ${archiveFields} FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id DESC LIMIT 1`);
+      assertArchivedOriginal(beforeSignArchives, archives, beforeSignAppointment, last);
+      h.assert(last[0] === 't', 'The signing archive did not retain the old To Do status');
+    });
+    await s.step('Verify & Sign archives the signed status before changing the same appointment to verified', async () => {
+      const chart = await openAppointmentChart(appointments.todo);
+      const text = `${marker} archive verified from the to-do visit`;
+      const oldArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [oldAppointment] = sql.rows(`SELECT ${archiveFields} FROM appointment WHERE appointment_no=${appointments.todo}`);
+      const otherAppointment = sql.rows(`SELECT * FROM appointment WHERE appointment_no=${appointments.here}`);
+      const otherArchives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.here} ORDER BY id`);
+      await noteField(chart).fill(text);
+      await pressAndExit(chart, VERIFY_SIGN, schedule);
+      const note = await waitForNote(text, 'Verify & Sign did not write the owned note');
+      h.assert(note.signed === '1' && note.signer === provider && note.appointment === appointments.todo,
+        'Verify & Sign wrote another patient/provider/appointment note');
+      h.assert(signatureShape(verifiedLabel).test(signatureLine(note.body)), 'The verified note lost its verification signature');
+      await expectValue(sql, `SELECT status FROM appointment WHERE appointment_no=${appointments.todo}`, 'tV',
+        'Verify & Sign did not transition the owned appointment');
+      const archives = sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id`);
+      const [last] = sql.rows(`SELECT ${archiveFields} FROM appointmentArchive WHERE appointment_no=${appointments.todo} ORDER BY id DESC LIMIT 1`);
+      assertArchivedOriginal(oldArchives, archives, oldAppointment, last);
+      h.assert(archivedStatuses(appointments.todo).at(-1) === 'tS', 'The verification archive did not retain the old signed status');
+      h.assert(JSON.stringify(sql.rows(`SELECT * FROM appointment WHERE appointment_no=${appointments.here}`)) === JSON.stringify(otherAppointment)
+        && JSON.stringify(sql.rows(`SELECT * FROM appointmentArchive WHERE appointment_no=${appointments.here} ORDER BY id`)) === JSON.stringify(otherArchives),
+      'Verifying one appointment changed another appointment or its archives');
     });
     return;
   }
@@ -670,5 +708,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = { workflow, STEP, validatePin };
+module.exports = { workflow, STEP, validatePin, assertArchivedOriginal };
 if (require.main === module) runWorkflow('echart-note-verify-appointment-status', workflow, { openPatient: true });

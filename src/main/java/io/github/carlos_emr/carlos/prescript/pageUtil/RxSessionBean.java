@@ -55,7 +55,6 @@ public class RxSessionBean implements java.io.Serializable {
     private Hashtable allergyWarnings = new Hashtable();
     private Hashtable missingAllergyWarnings = new Hashtable();
     private Hashtable workingAllergyWarnings = new Hashtable();
-    private String interactingDrugList = ""; //contains hash tables, each hashtable has the a
     private CopyOnWriteArrayList reRxDrugIdList = new CopyOnWriteArrayList<>();
     private HashMap randomIdDrugIdPair = new HashMap();
     private List<HashMap<String, String>> listMedHistory = new ArrayList();
@@ -104,14 +103,6 @@ public class RxSessionBean implements java.io.Serializable {
      */
     public synchronized void clearReRxDrugIdList() {
         reRxDrugIdList = new CopyOnWriteArrayList<>();
-    }
-
-    public String getInteractingDrugList() {
-        return interactingDrugList;
-    }
-
-    public void setInteractingDrugList(String s) {
-        interactingDrugList = s;
     }
 
     public String getProviderNo() {
@@ -581,7 +572,6 @@ public class RxSessionBean implements java.io.Serializable {
                 .append("allergyWarnings", allergyWarnings)
                 .append("missingAllergyWarnings", missingAllergyWarnings)
                 .append("workingAllergyWarnings", workingAllergyWarnings)
-                .append("interactingDrugList", interactingDrugList)
                 .append("reRxDrugIdList", reRxDrugIdList)
                 .append("randomIdDrugIdPair", randomIdDrugIdPair)
                 .append("listMedHistory", listMedHistory)

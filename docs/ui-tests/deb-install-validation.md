@@ -6,6 +6,10 @@ disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
+The 2026-10-15 focused validation for issue #4699, including blocking-WAF
+positive/negative controls and pending encounter-issue preservation, is recorded
+in [PR #4701 validation](pr4701-validation.md).
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
@@ -2918,3 +2922,73 @@ The other checks that touch group routes also ran on the fixed packages:
 The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
 save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
 the same way, and the same `echart` script fails there at the same step, so this change did not cause it.
+
+### Allergy class shortcuts validation (2026-10-15, issue #4576)
+
+`release/2026.08` at `378db4ed` plus the #4576 fix branch was packaged unstamped as `2026.09.0~snapshot26`.
+`dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder. DrugRef was built from a checkout of the commit
+`debian/drugref.pin` names (`1941e14`, passed as `DRUGREF_SRC`). carlos-ctl was built from its `1.1.2` tag, with a `1.1.2`
+changelog stanza stamped in the throwaway worktree the way its release workflow stamps it, because the tag's own stanza
+reads `1.1.2~dev1`. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). The same proxy workaround as the MDS validation above applied, and the
+validation image was built with `DOCKER_BUILDKIT=0`, because BuildKit's metadata lookup of `ubuntu:26.04` hit Docker Hub's
+rate limit.
+
+The packaged DrugRef holds 44452 and 44159, the ids the shortcuts used to post, as a multivitamin brand (category 12) and a
+fluoxetine product (category 11). It still carries AHFS (PENICILLINS `08:12.16`, SULFONAMIDES `08:12.20` and `52:04.08`).
+It has no ATC class named PENICILLINS, and its ATC class named SULFONAMIDES is `G01AE`.
+
+| Run | Result |
+|---|---|
+| fixed packages | `allergy-class-shortcut-alert` (new) passes all 7 steps: Amoxil (J01CA04) and Septra (J01EE01) as the issue asks, HP-PAC (A02BD07) and BLEPHAMIDE (S01CA02) through DrugRef's AHFS class, and Biaxin (J01FA09) clear. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
+| pre-fix `RxDrugData` classes swapped into the installed webapp | `allergy-class-shortcut-alert` fails at the Amoxil step: only the old shortcut's row warns, matched by DrugRef's AHFS name |
+| pre-fix `RxDrugData`, `RxAddAllergy2Action`, `RxAddReaction2Action` and the three allergy pages swapped in | `allergy-class-shortcut-alert` fails at its first step; `allergy-add-penicillin-shortcut-id` fails on the type code |
+| the fix's first version of `RxDrugData` (ATC prefix only for a new shortcut allergy) swapped in | `allergy-class-shortcut-alert` fails at the HP-PAC step: only the old shortcut's row warns |
+
+The first three rows ran on packages of the fix's first commit. Review then found that a new shortcut allergy was decided by
+its ATC prefix alone, and the fix now also asks DrugRef about it under both class names. The last row and the first row's 7
+steps ran on packages rebuilt from that commit and reinstalled over the first ones (`apt-get install --reinstall`;
+`carlos-ctl check` clean). On this extract the products the AHFS classes reach outside J01C and J01E are A02BD07, A07EC01,
+D10AB52, G01AE10, J01RA02 and S01CA02.
+
+With the fixed files restored, the following also passed: `allergy-save-retry`, `allergy-rx-alert`, `allergy-custom-lifecycle`,
+`allergy-injected-form-csrf` (its Sulfa step now expects the ATC class row, and the NKDA entry is still archived),
+`allergy-stale-amend-refused`, `concurrency-allergy-amend`, `double-submit-chart-adds`, `drug-search`, `csrf-runtime-forms`,
+`demographic-cds-import`, `cds-export-lab-documents` and `export-content-chart-print-sections`.
+The smoke tier passed 12/12, and `scripts/deb-server-log-audit.sh` found no unexplained signature (8 known, all provoked on
+purpose by the checks that ran; no `RxAddAllergy2Action` or allergy-check error).
+
+On the rebuilt packages the same allergy, CSRF, CDS and export checks passed again, with the smoke tier at 12/12 and the
+server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
+while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
+reach the allergy code.
+
+### Billing History Unbill decides from the stored status (2026-10-15, issue #4538)
+
+The #4538 fix branch, cut from `release/2026.08` at `378db4ed`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built from the commit `debian/drugref.pin` names
+(`1941e14`). carlos-ctl was built from the pin's fallback commit (`9ad4938`) and stamped 1.1.2, because the release asset was not
+available on the host. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported all checks passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`,
+`BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`).
+
+| Run | `billing-on-correction-delete` |
+|---|---|
+| fixed packages | PASS, 7 of 7 steps, including the forged-`billCode` step |
+| pre-fix `BillingDeleteNoAppt2Action` and `billingONHistory.jsp` swapped into the installed webapp | FAIL at that step: "Unbilling the billed bill with billCode=O was not refused with the cannot-delete page" |
+
+The step posts `billCode` O, W, D, empty and absent for an owned bill in status B and one in status S, and asserts the
+cannot-delete page, an unchanged header and items, and no `billing_on_proc` row. The last step also asserts that the real Unbill
+click posts `billing_no` and no `billCode`.
+
+On the fixed packages these also passed: `billing-on-invoice-third-party`, `billing-on-submit`, `billing-on-third-party`,
+`billing-on-payment-status`, `csrf-runtime-forms`, `csrf-runtime-form-day-sheet-unbill`, `gap-billing-correction-admin-actions` and
+`xss-poison-billing`. `authz-write-role-matrix-billing` was `known-fail` (finding 199). `double-submit-billing-on` ("second click
+500 ms later while the response is slow" saved two bills) and `audit-log-billing-on` (no audit row for the OHIP save or for opening
+Billing History) failed, and they fail identically with the four changed classes and the JSP swapped back to their
+`release/2026.08` versions, so neither depends on this change. The log PHI scan found no match. The server-log audit's
+unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `ApplicationDispatcher.invoke` SEVERE events and a
+`BillingONSave` `SecurityException`) match the time and actions of the `authz-write-role-matrix-billing` run.
+
+The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.

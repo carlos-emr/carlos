@@ -232,6 +232,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
         <script type="text/javascript" src="${ctx}/share/javascript/rx-patient-context.js" data-demographic-no="<%= rxSessionBean.getDemographicNo() %>"></script>
         <script src="${ctx}/share/javascript/allergy-alerts.js"></script>
+        <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
 
@@ -867,7 +868,7 @@ function renderRxStage() {
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" style="display:none"></div>
+                                                    <div id="interactingDrugErrorMsg" role="status" style="display:none;color:#856404;font-weight:bold;"></div>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -1529,8 +1530,6 @@ function renderRxStage() {
           requestHeaders: { 'Accept': 'application/json' },
           evalScripts:true,
 					insertion: 'bottom', onSuccess: function (data) {
-                // updateCurrentInteractions();
-
 						// detect postback or page load.
 						if (data.responseText) {
 							renderRxStage();
@@ -1635,7 +1634,6 @@ function renderRxStage() {
                   document.getElementById(del).style.textDecoration='line-through';
                   document.getElementById(discont).style.textDecoration='line-through';
                   document.getElementById(prescrip).style.textDecoration='line-through';
-		  // updateCurrentInteractions();
 							location.reload();
 
 						}
@@ -1745,6 +1743,8 @@ function renderRxStage() {
                   document.getElementById('del_'+json.id).style.textDecoration='line-through';
                   document.getElementById('discont_'+json.id).textContent = json.reason;
                   document.getElementById('prescrip_'+json.id).style.textDecoration='line-through';
+                  // The discontinued drug no longer counts as a current medication.
+                  updateCurrentInteractions();
                     }, onFailure: function (transport) {
                         if (transport && transport.responseJSON
                                 && transport.responseJSON.error === 'INCOMPLETE_RX_DISCONTINUE') {
@@ -1922,6 +1922,23 @@ function popForm2(scriptId, saveAndPrint){
     }
 
     refreshDrugProfile();
+
+    // Drug-drug interaction markers on the staged cards (#4506). Every way a card is staged or
+    // removed changes #rxText, so one observer re-checks after each of them; the check runs
+    // against the cards the server holds for this patient and their current medications.
+    var rxInteractionCheck = RxInteractionWarnings.create({
+        document: document,
+        url: ctx + '/rx/interactionWarnings?demographicNo=<%=demoNo%>',
+        fetch: window.fetch.bind(window),
+        setTimeout: window.setTimeout.bind(window),
+        clearTimeout: window.clearTimeout.bind(window)
+    });
+
+    function updateCurrentInteractions() {
+        rxInteractionCheck.schedule();
+    }
+
+    RxInteractionWarnings.watch(document.getElementById('rxText'), updateCurrentInteractions, window.MutationObserver);
 
 
 			function searchResultsHandler(type, args) {
@@ -2303,9 +2320,7 @@ function represcribe(element, toArchive){
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=represcribe2&rand="+Math.floor(Math.random()*10001);
         CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,evalScripts:true,
-            insertion: 'bottom',onSuccess:function(transport){
-                // updateCurrentInteractions();
-            }});
+            insertion: 'bottom'});
 
    }
 }

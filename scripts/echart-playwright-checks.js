@@ -36,15 +36,17 @@
  *      History plus icon are visible;
  *   2. the older-notes poll arms, pages both older batches in with the reader's note
  *      held in place, stops, and clears the loading throbber;
- *   3. a Social History item whose text the CRS scores saves (ARGS:value), the encounter
+ *   3. an issue assigned through the encounter's Assign control is selected but unsaved;
+ *   4. a Social History item whose text the CRS scores saves (ARGS:value), the encounter
  *      note carrying the same prose autosaves (ARGS:note) and the Unresolved Issues
  *      refresh that re-serializes the whole note form (ARGS:caseNote_note) answers 200,
- *      and the saved item shows in the Social History list and in the database;
- *   4. the encounter-note draft the autosave stored is discarded by the page's own
+ *      the pending assignment stays selected, and the saved CPP item shows in the
+ *      Social History list and in the database;
+ *   5. the encounter-note draft the autosave stored is discarded by the page's own
  *      cancel path and leaves no casemgmt_tmpsave row;
- *   5. the saved item archives from its editor (the cut icon), leaves the list, and is
- *      stored archived;
- *   6. (EXPECT_FRONT_DOOR=true) at least one response carried the nginx Server header.
+ *   6. the saved item archives from its editor (the cut icon), leaves the list, and its
+ *      current revision is stored archived;
+ *   7. (EXPECT_FRONT_DOOR=true) at least one response carried the nginx Server header.
  *
  * Defaults are for the local devcontainer; the database is reached with MYSQL_*:
  *   node scripts/echart-playwright-checks.js
@@ -64,6 +66,7 @@
  * Expected: PASS (no known defect).
  */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 
@@ -446,6 +449,25 @@ async function workflow(s) {
       + `${JSON.stringify(notesLoadRequests)})`);
   });
 
+  let pendingIssueId;
+  await s.step('an issue assigned to the encounter remains pending before the CPP save', async () => {
+    const picked = await ui.typeAutocomplete(echart, '#issueAutocomplete', 'Safety', {
+      option: 'Safety', hidden: '#newIssueId', timeout: 15000,
+    });
+    const [assigned] = await Promise.all([
+      echart.waitForResponse(response => isCaseManagementEntryPost(response, 'makeIssue')),
+      echart.locator('#asgnIssues').click(),
+    ]);
+    assert(assigned.ok(), `Assign Issue failed with HTTP ${assigned.status()}`);
+    await echart.waitForFunction(() => issueUpdatesPending === 0);
+    pendingIssueId = sql.value(`SELECT id FROM casemgmt_issue WHERE demographic_no=${patient} AND issue_id=${Number(picked)}`);
+    assert(/^[1-9]\d*$/.test(pendingIssueId), 'The assigned encounter issue was not created');
+    assert(await echart.locator(`#noteIssues input[data-issue-id="${pendingIssueId}"]`).isChecked(),
+      'The encounter issue was not selected before the CPP save');
+    await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_issue_notes WHERE id=${pendingIssueId}`, '0',
+      'The encounter assignment must still be unsaved for this regression check');
+  });
+
   let originalEncounterNote = null;
   await s.step('a Social History item and an encounter-note draft carrying WAF-scored text save and refresh', async () => {
     await echart.locator("#divR1I1 a[title='Add Item']").first().click();
@@ -483,6 +505,9 @@ async function workflow(s) {
     const refreshResponse = await unresolvedIssuesResponse;
     assert(refreshResponse.ok(),
       `Unresolved Issues refresh failed with HTTP ${refreshResponse.status()}: ${h.pathOnly(refreshResponse.url())}`);
+    await echart.waitForFunction(() => issueUpdatesPending === 0);
+    assert(await echart.locator(`#noteIssues input[data-issue-id="${pendingIssueId}"]`).isChecked(),
+      'The CPP save discarded the encounter note\'s pending issue assignment');
     await echart.locator('#divR1I1').filter({ hasText: cppNoteToken }).waitFor({ state: 'visible', timeout: 15000 });
 
     const draftSave = await autosaveResponse;
@@ -512,9 +537,14 @@ async function workflow(s) {
   await s.step('the saved Social History item archives from its editor and leaves the list', async () => {
     const archived = await archiveCppNote(echart, cppNoteToken);
     assert(archived, 'saved Social History item was not available to archive');
+    await echart.waitForFunction(() => issueUpdatesPending === 0);
+    // CPP edits now retain immutable revisions. The original unarchived row is
+    // history; only the latest row of its UUID chain represents current state.
     await expectValue(sql, `SELECT CONCAT(COUNT(*), '/', COALESCE(SUM(archived = 1), 0)) FROM casemgmt_note
-      WHERE demographic_no=${patient} AND LOCATE(${q(cppNoteToken)}, note) > 0`, '1/1',
-    'Archiving the Social History item did not leave exactly one archived row for the owned patient');
+      WHERE demographic_no=${patient} AND LOCATE(${q(cppNoteToken)}, note) > 0
+        AND NOT EXISTS (SELECT 1 FROM casemgmt_note newer
+          WHERE newer.uuid=casemgmt_note.uuid AND newer.note_id>casemgmt_note.note_id)`, '1/1',
+    'Archiving the Social History item did not leave exactly one archived current revision for the owned patient');
   });
 
   await s.step('the run went through the packaged front door when one is expected', async () => {
