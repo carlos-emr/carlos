@@ -85,6 +85,7 @@
     String fid = request.getParameter("fid");
     String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? ((String) request.getAttribute("fdid")) : request.getParameter("fdid");
     String messageOnFailure = "No eform or appointment is available";
+    String signedInProvider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
     EForm eForm = null;
     if (fid == null) {  // form exists in patient
         String appointmentNo = request.getParameter("appointment");
@@ -93,7 +94,7 @@
 
         eForm = new EForm(fdid);
         eForm.setContextPath(request.getContextPath());
-        eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setOscarOPEN(request.getContextPath() + "/eform/efmshowform_data", session, signedInProvider);
         eForm.setImagePath(request.getContextPath());
 
         if (fdid != null) {
@@ -113,7 +114,7 @@
     } else {  //if form is viewed from admin screen
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
-        eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setOscarOPEN(request.getContextPath() + "/eform/efmshowform_data", session, signedInProvider);
         eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
