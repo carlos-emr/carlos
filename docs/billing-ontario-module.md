@@ -51,7 +51,10 @@ claims for Ontario-resident patients. It implements:
   a number counts as taken when the claim file name or any of its HTML names
   is. The MOH specification leaves the sequence number to the provider and
   only requires it to be unique within a submission (Interface to Health Care
-  Systems Technical Specifications, §4.2).
+  Systems Technical Specifications, §4.2). A skipped number never comes back,
+  so the 999 numbers of a month letter are shared by every year of a provider's
+  or group's history; when none is left, generation stops with a message that
+  names the file name.
   Generation also writes into `HOME_DIR`, which the simulation never
   touches. `Startup` creates that folder only when it derives the value from
   `BASE_DOCUMENT_DIR`; a deployment that sets `HOME_DIR` itself must create

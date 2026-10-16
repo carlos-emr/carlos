@@ -444,7 +444,7 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
-        ret[1] = firstUnusedBatchNum(ret[1], batchNum ->
+        ret[1] = firstUnusedBatchNum("H" + curMonthCode + ohipNo, ret[1], batchNum ->
                 diskQuery.isOhipFilenameInUse(getSoloOhipfilename(ohipNo, curMonthCode, batchNum))
                         || anyHtmlFilenameInUse(getSoloHtmlfilename(ohipNo, curMonthCode, batchNum)));
         return ret;
@@ -463,16 +463,26 @@ public class BillingDiskCreationService {
      * unique as well and carry the same number, so a number counts as taken
      * when the claim file name or any of its HTML names is.
      *
+     * <p>A skipped number never comes back, so the 999 numbers of a month letter
+     * are shared by every year of its history; when none is left the run stops
+     * with a message that names the file name, not the fixed-width guard's.</p>
+     *
+     * @param namePrefix the claim file name before the sequence number, for the message
      * @param candidate sequence number the monthly counter proposed
      * @param namesInUse whether a sequence number's claim file name or any of
      *                   its HTML companion names is already on record
      * @return the first sequence number from {@code candidate} whose names are
-     *         all free; above 999 the fixed-width guard rejects the name
+     *         all free
+     * @throws BillingValidationException when every number up to 999 is taken
      */
-    private String firstUnusedBatchNum(String candidate, Predicate<String> namesInUse) {
+    private String firstUnusedBatchNum(String namePrefix, String candidate, Predicate<String> namesInUse) {
         int batchNum = Integer.parseInt(candidate);
         while (batchNum <= MAX_BATCH_NUM && namesInUse.test(String.valueOf(batchNum))) {
             batchNum++;
+        }
+        if (batchNum > MAX_BATCH_NUM) {
+            throw new BillingValidationException("All 999 OHIP claim file names " + namePrefix
+                    + ".001 to .999 are already on record, so no new claim file can be named in this month.");
         }
         return String.valueOf(batchNum);
     }
@@ -502,7 +512,7 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
-        ret[1] = firstUnusedBatchNum(ret[1], batchNum ->
+        ret[1] = firstUnusedBatchNum("H" + curMonthCode + groupNo, ret[1], batchNum ->
                 diskQuery.isOhipFilenameInUse(getGrpOhipfilename(groupNo, curMonthCode, batchNum))
                         || anyHtmlFilenameInUse(getGrpHtmlfilename(ohipNo, groupNo, curMonthCode, batchNum)));
         return ret;

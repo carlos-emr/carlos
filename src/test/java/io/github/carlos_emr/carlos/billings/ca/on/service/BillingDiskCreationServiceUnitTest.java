@@ -359,6 +359,27 @@ class BillingDiskCreationServiceUnitTest {
         verify(diskLoader).isOhipFilenameInUse("H" + monthCode + "054321.001");
     }
 
+    @Test
+    void shouldNameTheExhaustedFileName_whenEveryMonthlySequenceNumberIsTaken() {
+        // A skipped number never comes back, so a month letter's 999 numbers are shared by
+        // every year of its history. Running out stopped generation with the internal
+        // "fixed-width value [1000] does not fit width=3".
+        Properties refreshed = new Properties();
+        refreshed.setProperty("999998", "054321");
+        when(lookupService.getPropProviderOHIP()).thenReturn(refreshed);
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestSoloMonthCodeBatchNum("054321"))
+                .thenReturn(new String[]{previousMonthCode(), "4"});
+        when(diskLoader.isOhipFilenameInUse(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createNewSoloDiskName("999998", "creator"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessage("All 999 OHIP claim file names H" + monthCode + "054321.001 to .999 are already on"
+                        + " record, so no new claim file can be named in this month.");
+        verify(claimPersister, org.mockito.Mockito.never())
+                .addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class));
+    }
+
     /** Emulates billing_on_diskname_ohipfilename_uq for the given names already on record. */
     private void stubUniqueOhipFilenames(java.util.Set<String> onRecord, int newDiskId) {
         stubUniqueFilenames(onRecord, java.util.Set.of(), newDiskId);
