@@ -3416,6 +3416,27 @@
       "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
     },
     {
+      "name": "admin-login-agreement-upload",
+      "script": "scripts/admin-login-agreement-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Administration > Upload Agreement (admin/uploadEntryText): the upload stores the validity as a new aua_valid_duration property and writes the text to DOCUMENT_DIR/OSCARloginText.txt; the page shows the saved validity again; a GET carrying the fields is refused with 405. SKIP without DOCUMENT_DIR, or when the menu has no entry (shown only with LOGINTEST=yes).",
+      "fixtures": "No rows created by the check itself; the aua_* property rows are snapshotted and restored and the text file is put back as it was (or removed). The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:aua_valid_duration",
+        "file:OSCARloginText.txt"
+      ]
+    },
+    {
       "name": "admin-configure-sms",
       "script": "scripts/admin-configure-sms-playwright-checks.js",
       "tiers": [

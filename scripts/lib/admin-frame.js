@@ -38,13 +38,20 @@ async function frameAt(admin, route, { query = '', timeout = TIMEOUT } = {}) {
 }
 
 /**
- * Schedule ▸ Administration ▸ the left-nav link for `route` ▸ its page in the frame.
+ * Schedule ▸ Administration ▸ the left-nav link for `route` ▸ its page in the frame. With
+ * `skipReason`, a menu that has no entry for `route` ends the check as SKIP with that reason.
  * @returns {Promise<{admin: import('playwright').Page, frame: import('playwright').Frame}>}
  */
-async function openAdminPage(s, route, { label = route, timeout = TIMEOUT } = {}) {
+async function openAdminPage(s, route, { label = route, timeout = TIMEOUT, skipReason = '' } = {}) {
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
     { context: s.context, recorder: s.recorder, label: `admin-${label}`, timeout });
   const link = admin.locator(`a.xlink[rel$="/${route}"]`).first();
+  if (skipReason) {
+    // Some entries are shown only with a property or a module on; the left nav is rendered whole,
+    // so once any entry is there, a missing one is missing by configuration.
+    await admin.locator('a.xlink').first().waitFor({ state: 'attached', timeout });
+    if (await link.count() === 0) throw new h.SkipCheck(skipReason);
+  }
   await link.waitFor({ state: 'attached', timeout });
   await revealAuditLink(admin, link, timeout);
   await link.click();
