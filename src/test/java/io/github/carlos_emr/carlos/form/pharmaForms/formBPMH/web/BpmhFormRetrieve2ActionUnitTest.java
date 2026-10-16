@@ -188,7 +188,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRefuseOpeningNewForm_whenPatientIsRestrictedForUser() {
         when(request.getParameter("demographic_no")).thenReturn("1001");
         when(request.getParameter("formId")).thenReturn("0");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(1001))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 1001)).thenReturn(false);
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
@@ -207,7 +207,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         when(handler.getFormHistory()).thenReturn(saved);
         when(request.getParameter("demographic_no")).thenReturn("1001");
         when(request.getParameter("formId")).thenReturn("7");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(2002))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 2002)).thenReturn(false);
 
         assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class);
 
@@ -215,9 +215,9 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRefuseSaving_whenPatientIsRestrictedForUser() throws Exception {
+    void shouldRefuseSaving_whenPatientIsRestrictedForUser() {
         when(request.getParameter("method")).thenReturn("save");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq(1001))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 1001)).thenReturn(false);
         BpmhForm2Bean posted = new BpmhForm2Bean();
         posted.setDemographicNo("1001");
         action.setForm(posted);
