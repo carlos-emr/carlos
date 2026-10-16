@@ -236,5 +236,16 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
                     .doesNotContain("bean.eChartId");
             assertThat(source("includes/encounter-row-three.jspf")).doesNotContain("bean.eChartId");
         }
+
+        @Test
+        @DisplayName("should post the legacy editor to its save route whatever the page's base address")
+        void shouldPostEditorToSaveRoute_despiteBaseHref() throws IOException {
+            // encounter-head.jspf sets <base href> to the context root, so the relative action
+            // "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) and no editor save reached it.
+            assertThat(source("includes/encounter-head.jspf")).contains("<base href=");
+            assertThat(source("Index2.jsp"))
+                    .contains("<form name=\"encForm\" action=\"${pageContext.request.contextPath}/encounter/SaveEncounter2\" method=\"POST\">")
+                    .doesNotContain("action=\"SaveEncounter2\"");
+        }
     }
 }

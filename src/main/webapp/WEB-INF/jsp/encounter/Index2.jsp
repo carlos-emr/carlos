@@ -230,7 +230,9 @@
 
             <%-- Right content: encounter form --%>
             <div class="col" style="background-color: #CCCCFF;">
-                <form name="encForm" action="SaveEncounter2" method="POST">
+                <%-- An absolute route: encounter-head.jspf sets <base href> to the context root, so the
+                     relative "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) (issue #4673). --%>
+                <form name="encForm" action="${pageContext.request.contextPath}/encounter/SaveEncounter2" method="POST">
                     <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(bean.demographicNo)}">
                     <%-- The revision this editor shows; the save refuses it once another save has landed. --%>
                     <input type="hidden" name="eChartId" value="${carlos:forHtmlAttribute(bean.EChartId)}">
