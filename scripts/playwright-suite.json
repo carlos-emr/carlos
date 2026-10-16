@@ -2204,6 +2204,21 @@
       ]
     },
     {
+      "name": "patient-search-band-number",
+      "script": "scripts/patient-search-band-number-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The Band Number search mode, shown only with FIRST_NATIONS_MODULE=true (SKIP otherwise); patient-search-modes leaves it out. On develop the last step fails: with two records carrying the same number only one is listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "The owned FAKE- patient and a second FAKE- record, each with a statusNum demographicExt row derived from the run marker; removed in cleanup."
+    },
+    {
       "name": "eform-restore-fid-validation",
       "script": "scripts/eform-restore-fid-validation-playwright-checks.js",
       "tiers": [
