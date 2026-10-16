@@ -88,13 +88,61 @@ class ActionUtilsOutboxTimestampUnitTest {
 
     @Test
     void shouldReadBackTheLastOpen_fromTheFileItWasWrittenTo() throws Exception {
-        Date lastOpen = new SimpleDateFormat("yyyy-MM-dd HH:mm").parse("2026-10-15 09:41");
+        Date lastOpen = Date.from(Instant.parse("2026-10-15T13:41:27.315Z"));
 
         ActionUtils.setOutboxTimestamp(lastOpen);
 
         assertThat(ActionUtils.getOutboxTimestamp()).isEqualTo(lastOpen);
-        assertThat(outbox.resolve(".timestamp")).hasContent("15-10-2026 09:41");
+        assertThat(outbox.resolve(".timestamp")).hasContent("2026-10-15T13:41:27.315Z");
         assertThat(tempDir.resolve("onEDTDocs/outbox.timestamp")).doesNotExist();
+    }
+
+    @Test
+    void shouldNotStageASentClaimFileAgain_whenItWasWrittenEarlierInTheMinuteOfTheLastOpen() throws Exception {
+        // The open used to be kept to the minute, so the next window began at the top of
+        // that minute and copied a file written earlier in it, already staged and sent,
+        // back into the outbox, however long after the next open came.
+        Instant minute = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MINUTES);
+        claimFile("HJ123456.001", minute.plusSeconds(30));
+        ActionUtils.setOutboxTimestamp(Date.from(minute.plusSeconds(40)));
+
+        ActionUtils.stageGeneratedClaimFiles();
+
+        assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
+    }
+
+    @Test
+    void shouldStageAClaimFile_whenItWasWrittenInTheMillisecondTheWindowEnds() throws Exception {
+        // The next window starts just after this one ends, so the end itself belongs here.
+        Instant end = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MILLIS);
+        claimFile("HJ123456.001", end);
+
+        Date stagedTo = ActionUtils.moveOhipToOutBox(Date.from(end.minus(10, ChronoUnit.MINUTES)), Date.from(end));
+
+        assertThat(outbox.resolve("HJ123456.001")).exists();
+        assertThat(stagedTo).isEqualTo(Date.from(end));
+    }
+
+    @Test
+    void shouldStartTheWindowNow_whenTheLastOpenWasRecordedToTheMinuteByAnEarlierRelease() throws Exception {
+        // The open used to be kept as dd-MM-yyyy HH:mm, and an OSCAR import restores the
+        // outbox as it was, so such a value may be months old. Staging from it would copy
+        // every claim file written since, sent ones too.
+        Instant now = Instant.now();
+        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
+        Files.writeString(outbox.resolve(".timestamp"),
+                new SimpleDateFormat("dd-MM-yyyy HH:mm").format(Date.from(now.minus(30, ChronoUnit.MINUTES))));
+        Date before = new Date();
+
+        try (LogCapture log = LogCapture.forLogger(ActionUtils.class)) {
+            ActionUtils.stageGeneratedClaimFiles();
+
+            assertThat(log.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR));
+            assertThat(log.events()).anyMatch(event -> event.getLevel() == Level.WARN);
+        }
+
+        assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
+        assertThat(ActionUtils.getOutboxTimestamp()).isAfterOrEqualTo(before);
     }
 
     @Test
@@ -133,12 +181,13 @@ class ActionUtilsOutboxTimestampUnitTest {
     @Test
     void shouldRetryAClaimFileThatFailedToCopy_withoutCopyingEarlierOnesAgain() throws Exception {
         // Recording the open after a failed copy left that file out of every later
-        // window. The open is now recorded only up to the first file that failed.
-        Instant now = Instant.now();
-        ActionUtils.setOutboxTimestamp(Date.from(now.minus(30, ChronoUnit.MINUTES)));
-        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
-        claimFile("HJ123456.002", now.minus(10, ChronoUnit.MINUTES));
-        claimFile("HJ123456.003", now.minus(5, ChronoUnit.MINUTES));
+        // window. The open is now recorded only up to the first file that failed. The
+        // three share a minute, so that record must keep its seconds too.
+        Instant minute = Instant.now().minus(1, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MINUTES);
+        ActionUtils.setOutboxTimestamp(Date.from(minute.minus(30, ChronoUnit.MINUTES)));
+        claimFile("HJ123456.001", minute.plusSeconds(10));
+        claimFile("HJ123456.002", minute.plusSeconds(20));
+        claimFile("HJ123456.003", minute.plusSeconds(30));
 
         try (MockedStatic<FileUtils> files = mockStatic(FileUtils.class, CALLS_REAL_METHODS)) {
             files.when(() -> FileUtils.copyFileToDirectory(

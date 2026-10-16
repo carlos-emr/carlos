@@ -42,7 +42,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.math.BigInteger;
-import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
 
@@ -362,47 +361,16 @@ public class Action2Utils {
     }
 
     /**
-     * The time of the last Upload-tab open: generated OHIP claim files written to HOME_DIR
-     * after it are copied into the outbox on the next open. With no recorded open (a first
-     * open, or an empty file) the window starts now, so earlier claim files are never staged
-     * all at once.
+     * The time of the last Upload-tab open. Both classes read and write the same file, so
+     * this delegates to {@link ActionUtils#getOutboxTimestamp()}, which owns its format.
      */
     public static Date getOutboxTimestamp() {
-        Date startDate = new Date();
-        try {
-            File dateFile = outboxTimestampFile();
-            if (!dateFile.exists()) dateFile.createNewFile();
-            try (BufferedReader br = new BufferedReader(new FileReader(dateFile))) {
-                String temp = br.readLine();
-                if (temp != null && !temp.isBlank()) {
-                    startDate = new SimpleDateFormat("dd-MM-yyyy HH:mm").parse(temp.trim());
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
-        }
-        return startDate;
+        return ActionUtils.getOutboxTimestamp();
     }
 
+    /** Records the last Upload-tab open; see {@link ActionUtils#setOutboxTimestamp(Date)}. */
     public static void setOutboxTimestamp(Date endDate) {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(outboxTimestampFile()))) {
-            bw.write(new SimpleDateFormat("dd-MM-yyyy HH:mm").format(endDate));
-        } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
-        }
-    }
-
-    /**
-     * {@code <ONEDT_OUTBOX>/.timestamp}, for both the read and the write. The writer used
-     * validateGeneratedSiblingPath, which appends to the directory's own name, so it wrote
-     * {@code <parent>/outbox.timestamp} while the reader opened this file: the window was
-     * always empty and no generated claim file was ever staged (#4577).
-     */
-    private static File outboxTimestampFile() {
-        File dateDir = PathValidationUtils.resolveConfiguredDirectory(
-                CarlosProperties.getInstance().getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
-        if (!dateDir.exists()) dateDir.mkdirs();
-        return PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
+        ActionUtils.setOutboxTimestamp(endDate);
     }
 
 

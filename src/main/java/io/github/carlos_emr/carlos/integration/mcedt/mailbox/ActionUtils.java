@@ -40,7 +40,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -304,7 +305,9 @@ public class ActionUtils {
 
     /**
      * Copies the claim files in HOME_DIR modified inside the window into ONEDT_OUTBOX, oldest
-     * first, stopping at the first one that cannot be copied.
+     * first, stopping at the first one that cannot be copied. The window excludes its start
+     * and includes its end, so the next window, which starts where this one is staged to,
+     * neither repeats nor skips a file.
      *
      * @return how far the window is staged: {@code endDate} when every claim file in it was
      *         copied, just before the first one that was not, or {@code startDate} when the
@@ -337,7 +340,8 @@ public class ActionUtils {
             }
         });
         for (File file : toOutbox) {
-            if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) {
+            Date modified = new Date(file.lastModified());
+            if (modified.after(startDate) && !modified.after(endDate)) {
                 try {
                     copyFileToDirectory(file, outbox, false, true);
                 } catch (Exception e) {
@@ -398,6 +402,13 @@ public class ActionUtils {
      * after it are copied into the outbox on the next open. With no recorded open (a first
      * open, or an empty file) the window starts now, so earlier claim files are never staged
      * all at once.
+     *
+     * <p>The open is kept as an ISO-8601 instant to the millisecond. It used to be kept to
+     * the minute ({@code dd-MM-yyyy HH:mm}), so the next window began at the top of that
+     * minute and copied a file written earlier in it, already staged and possibly sent, into
+     * the outbox again. A value in that form (from an earlier build, or from OSCAR, whose
+     * document tree an import restores as it was) counts as no recorded open: it may be
+     * months old, and staging from it would copy every claim file written since.</p>
      */
     public static Date getOutboxTimestamp() {
         Date startDate = new Date();
@@ -407,18 +418,23 @@ public class ActionUtils {
             try (BufferedReader br = new BufferedReader(new FileReader(dateFile))) {
                 String temp = br.readLine();
                 if (temp != null && !temp.isBlank()) {
-                    startDate = new SimpleDateFormat("dd-MM-yyyy HH:mm").parse(temp.trim());
+                    startDate = Date.from(Instant.parse(temp.trim()));
                 }
             }
+        } catch (DateTimeParseException e) {
+            logger.warn("The last MCEDT Upload-tab open is not recorded in the current format; claim files"
+                    + " generated before this open are not copied to the outbox. Add any still to be sent"
+                    + " from the Upload tab.");
         } catch (Exception e) {
             logger.error("Unable to open outbox timestamp file", e);
         }
         return startDate;
     }
 
+    /** Records the last Upload-tab open; see {@link #getOutboxTimestamp()} for the format. */
     public static void setOutboxTimestamp(Date endDate) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(outboxTimestampFile()))) {
-            bw.write(new SimpleDateFormat("dd-MM-yyyy HH:mm").format(endDate));
+            bw.write(endDate.toInstant().toString());
         } catch (Exception e) {
             logger.error("Unable to open outbox timestamp file", e);
         }

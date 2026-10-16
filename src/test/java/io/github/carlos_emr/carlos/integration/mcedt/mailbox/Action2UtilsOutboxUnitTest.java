@@ -102,7 +102,7 @@ class Action2UtilsOutboxUnitTest {
         // #4577: the writer appended ".timestamp" to the directory's name (<parent>/outbox.timestamp)
         // while the reader opened <outbox>/.timestamp, so the copy window was always empty.
         Path outbox = Files.createDirectories(tempDir.resolve("outbox"));
-        java.util.Date lastOpen = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").parse("2026-10-15 09:41");
+        java.util.Date lastOpen = java.util.Date.from(java.time.Instant.parse("2026-10-15T13:41:27.315Z"));
         try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
             CarlosProperties properties = mock(CarlosProperties.class);
             propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
@@ -112,7 +112,7 @@ class Action2UtilsOutboxUnitTest {
 
             assertThat(Action2Utils.getOutboxTimestamp()).isEqualTo(lastOpen);
         }
-        assertThat(outbox.resolve(".timestamp")).hasContent("15-10-2026 09:41");
+        assertThat(outbox.resolve(".timestamp")).hasContent("2026-10-15T13:41:27.315Z");
         assertThat(tempDir.resolve("outbox.timestamp")).doesNotExist();
     }
 }
