@@ -3028,7 +3028,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (pending finding 294). Every earlier step passes."
+      "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (#4756, pending finding 294; fixed on release/2026.08 by fix/allergy-reactivate-after-stale-guard). Every earlier step passes."
     },
     {
       "name": "allergy-injected-form-csrf",
