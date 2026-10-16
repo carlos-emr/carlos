@@ -120,7 +120,7 @@ async function workflow(s) {
     outcomes.push({ label, error });
     console.log(`  ${error ? 'BAD' : 'OK '} consultation-appointment-time: ${label}${error ? ` -> ${error.message}` : ''}`);
   };
-  await s.step('a saved 15:05 is shown again as 15:05 when the referral is reopened', async () => {
+  await s.step('15:05 is saved as 15:05', async () => {
     await saveTime('15:05', '1505');
     h.assert(saved() === `${apptDate} 15:05:00`, `Update with 15:05 saved ${saved()}`);
   });
