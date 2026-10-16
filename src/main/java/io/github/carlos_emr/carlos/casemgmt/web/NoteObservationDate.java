@@ -59,6 +59,19 @@ import io.github.carlos_emr.carlos.utility.CachedDateFormats;
  * of the clinical record, and the legacy lenient {@code SimpleDateFormat} parse silently turned
  * {@code 32-Oct} into 1 November.</p>
  *
+ * <p><b>Clock changes.</b> The field is a wall-clock time in the server's time zone (the JVM
+ * default; {@code CARLOS_TZ} on a packaged install). Where that zone observes daylight saving time,
+ * one hour a year is skipped and one is repeated, and neither is refused (issue #4777). A time in
+ * the skipped hour, such as 02:30 on the spring-forward night in Ontario, is moved forward by the
+ * length of the gap and saved as 03:30: the lenient parse this replaces did the same, and refusing
+ * it would send the clinician to the unreadable-date page for a time the field accepts. A time in
+ * the repeated fall-back hour takes the earlier of its two offsets (daylight time), where the
+ * legacy parse took the later one. That offset decides only the instant {@code parse} returns:
+ * {@code casemgmt_note.observation_date} is a {@code DATETIME} the driver writes as wall-clock time
+ * in the JVM zone, so it stores the 01:30 the clinician entered and does not record which
+ * occurrence was meant. Only a comparison with the current time during that hour sees the
+ * difference.</p>
+ *
  * @since 2026-10-16
  */
 public final class NoteObservationDate {
@@ -89,10 +102,19 @@ public final class NoteObservationDate {
      * @param text the posted field value; blank means the clinician left no date
      * @param interfaceLocale the language the chart was rendered in (its calendar's language), whose
      *                        month names are accepted besides English; {@code null} for English only
-     * @return the date in the server's time zone, or {@code null} when {@code text} is blank
+     * @return the date in the server's time zone (a skipped or repeated clock-change hour is
+     *         resolved as the class documentation describes), or {@code null} when {@code text} is blank
      * @throws ParseException when the text is not a complete, real encounter date in that form
      */
     public static Date parse(String text, Locale interfaceLocale) throws ParseException {
+        return parse(text, interfaceLocale, ZoneId.systemDefault());
+    }
+
+    /**
+     * {@link #parse(String, Locale)} in a given time zone, so tests can pin the clock-change rules
+     * without changing the JVM default zone.
+     */
+    static Date parse(String text, Locale interfaceLocale, ZoneId zone) throws ParseException {
         if (text == null || text.isBlank()) return null;
         Matcher matcher = TEXT.matcher(text.strip());
         if (!matcher.matches()) throw new ParseException("Unrecognised encounter date", 0);
@@ -102,7 +124,9 @@ public final class NoteObservationDate {
             LocalDateTime local = LocalDateTime.of(Integer.parseInt(matcher.group(3)), month,
                     Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(4)),
                     Integer.parseInt(matcher.group(5)));
-            return Date.from(local.atZone(ZoneId.systemDefault()).toInstant());
+            // atZone moves a skipped-hour time forward by the gap and gives a repeated-hour time
+            // its earlier offset; both are kept on purpose (see the class documentation, #4777).
+            return Date.from(local.atZone(zone).toInstant());
         } catch (DateTimeException impossible) {
             // 31-Feb, 24:00, 10:60 and the like: refuse rather than roll over.
             throw new ParseException("Impossible encounter date", 0);
