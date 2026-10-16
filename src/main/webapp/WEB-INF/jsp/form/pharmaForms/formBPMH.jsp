@@ -300,7 +300,7 @@
                 <c:if test="${not empty bpmh.drugs}">
                     <c:forEach var="drugs" items="${bpmh.drugs}" varStatus="status">
                         <tr>
-                            <td>
+                            <td id="drugWhat${status.index}">
                                 <input type="hidden" name="form.drugs[${status.index}].id" value="${carlos:forHtmlAttribute(drugs.id)}"/>
                                 <!-- WHAT -->
                                 ${carlos:forHtml(drugs.what)}
@@ -346,7 +346,7 @@
                                     </c:when>
                                     <c:otherwise>
                                         <textarea name="form.drugs[${status.index}].instruction" id="drugInstruction${status.index}"
-                                                  aria-labelledby="drugInstructionsHeader" rows="2"></textarea>
+                                                  aria-labelledby="drugInstructionsHeader drugWhat${status.index}" rows="2"></textarea>
                                     </c:otherwise>
                                 </c:choose>
                             </td>
