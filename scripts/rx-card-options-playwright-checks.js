@@ -11,16 +11,20 @@
  *      Substitution not allowed, Last Refill Date, Written Date, Protocol Reference, Pick Up Date and
  *      Time, Comment, eTreatment type and Rx status ▸ Save Only: the drugs row stores each value;
  *   2. Rx again ▸ tick the drug's ReRx box ▸ Stage Medication: the restaged card shows the saved
- *      options; its remove link unstages it and nothing is saved. (Re-prescribing does not carry the
- *      Comment or Non-Authoritative over: RxPrescriptionData.newPrescription copies neither. Whether
- *      it should is a product question, so the check asserts neither way;)
+ *      options, including the last refill and pick-up date and time, and a Written Date reset to
+ *      the new script's start date (by design: RxPrescriptionData.newPrescription sets both to
+ *      today); its remove link unstages it and nothing is saved. (Re-prescribing does not carry the
+ *      Comment or Non-Authoritative over: the same method copies neither. Whether it should is a
+ *      product question, so the check asserts neither way;)
  *   3. a second custom drug with a 12:30 pick-up time ▸ Save Only: the time is stored as 12:30. The
  *      field asks for 24-hour HH:MM (checkDate.js isValidTime), but RxWriteScript2Action parses it
  *      with "hh:mm", which reads 12 as midnight. This step runs last so the earlier ones are proven
  *      first.
  * Other checks cover the neighbours: instructions parsing and Save Only (rx-edit-discontinue), the
  * card's Add to Favorites (gap-encounter-rx-add-favourite), the quantity price (gap-encounter-rx-
- * quantity-price) and re-prescribing (rx-stash-patient-isolation). None sets the "more" options.
+ * quantity-price), re-prescribing (rx-stash-patient-isolation, rx-fax-reprint-represcribe), removing
+ * a card (rx-stash-deletion), and the long term, compliance, outside prescriber and no-substitution
+ * values a favourite carries (rx-favorites-choose-drug). None sets the card's "more" options.
  *
  * Fixtures: the owned synthetic patient and marker-named custom drugs. Cleanup removes every drugs,
  * prescription, partial_date, drugReason and DigitalSignature row of the patient and asserts none
@@ -176,6 +180,9 @@ async function workflow(s) {
       pastMed: await rx.locator(`#pastMedY_${card}`).isChecked(),
       compliance: await rx.locator(`#patientComplianceN_${card}`).isChecked(),
       nosubs: await rx.locator(`#nosubs_${card}`).isChecked(),
+      lastRefill: await rx.locator(`#lastRefillDate_${card}`).inputValue(),
+      pickupDate: await rx.locator(`#pickupDate_${card}`).inputValue(),
+      pickupTime: await rx.locator(`#pickupTime_${card}`).inputValue(),
       protocol: await rx.locator(`#protocol_${card}`).inputValue(),
       eTreatment: await rx.locator(`select[name="eTreatmentType_${card}"]`).inputValue(),
       rxStatus: await rx.locator(`select[name="rxStatus_${card}"]`).inputValue(),
@@ -184,10 +191,15 @@ async function workflow(s) {
       longTerm: true, refillDuration: options.refillDuration, refillQuantity: options.refillQuantity,
       dispenseInterval: options.dispenseInterval, outside: true, outsideName: options.outsideName,
       outsideOhip: options.outsideOhip, pastMed: true, compliance: true, nosubs: true,
+      lastRefill: options.lastRefill, pickupDate: options.pickupDate, pickupTime: options.pickupTime,
       protocol: options.protocol, eTreatment: options.eTreatment, rxStatus: options.rxStatus,
     };
     const wrong = Object.keys(expected).filter(key => shown[key] !== expected[key]);
     h.assert(wrong.length === 0, `The restaged card shows ${wrong.map(key => `${key}=${shown[key]} (saved ${expected[key]})`).join(', ')}`);
+    const written = await rx.locator(`#writtenDate_${card}`).inputValue();
+    const started = await rx.locator(`#rxDate_${card}`).inputValue();
+    h.assert(/^\d{4}-\d{2}-\d{2}$/.test(written) && written === started && written !== options.written,
+      `The restaged card's Written Date is ${written}, not the new script's start date ${started}`);
     const [removed] = await Promise.all([
       rx.waitForResponse(r => isPost('/rx/rxStashDelete')(r)
         && new URLSearchParams(r.request().postData() || '').get('parameterValue') === 'deletePrescribe'),
