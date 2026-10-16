@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.encounter.display;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -51,7 +52,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("EchartDisplayPreferenceResolver")
-class EchartDisplayPreferenceResolverUnitTest {
+class EchartDisplayPreferenceResolverUnitTest extends CarlosUnitTestBase {
 
     private UserPropertyDAO userPropertyDao;
     private SystemPreferencesDao systemPreferencesDao;

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.display;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -44,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("eChart display preferences")
-class EchartDisplayPreferenceUnitTest {
+class EchartDisplayPreferenceUnitTest extends CarlosUnitTestBase {
 
     @Nested
     @DisplayName("definitions")

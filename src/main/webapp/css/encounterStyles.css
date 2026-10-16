@@ -167,8 +167,8 @@ body.encounter-layout div#header {
 
 /* OSCAR 19's eChart bar, at the sizes OSCAR 19's encounterStyles.css and casemgmt.css gave it:
    the MRP in the table font (11pt, normal weight), the patient's details bold at 80% of that
-   (span.Header), "Next Appt" a bold 11px link, and links #0088CC without underline (white on a
-   dark provider colour; see EchartHeaderViewModelAssembler). */
+   (span.Header), "Next Appt" a bold 11px link, and links in OSCAR's #0088CC without underline,
+   darkened per provider colour to 4.5:1 (white on a dark one; see EchartHeaderViewModelAssembler). */
 #header-top-row.echart-header-bar {
     display: flex;
     width: 100%;

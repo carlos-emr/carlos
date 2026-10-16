@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.display;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -45,7 +46,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("EchartDisplayPreferencePersister")
-class EchartDisplayPreferencePersisterUnitTest {
+class EchartDisplayPreferencePersisterUnitTest extends CarlosUnitTestBase {
 
     private static final String PROVIDER_NO = "999998";
 

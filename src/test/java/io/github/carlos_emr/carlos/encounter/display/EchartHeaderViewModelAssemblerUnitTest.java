@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModel.Phone;
 import io.github.carlos_emr.carlos.encounter.display.EchartHeaderViewModel.PhoneKind;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,7 +54,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("EchartHeaderViewModelAssembler")
-class EchartHeaderViewModelAssemblerUnitTest {
+class EchartHeaderViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     private static final String VIEWER = "999998";
     private static final String MRP = "100";
@@ -188,7 +189,7 @@ class EchartHeaderViewModelAssemblerUnitTest {
     class Colours {
 
         @Test
-        @DisplayName("should use the viewer's provider colour with readable black text and OSCAR 19's blue links")
+        @DisplayName("should use the viewer's provider colour with readable black text and OSCAR 19's blue, darkened, for links")
         void shouldUseViewerColour_withReadableText() {
             when(userPropertyDao.getProviderPropertiesByNames(eq(VIEWER), any())).thenReturn(Map.of("ProviderColour", "#FFCC99"));
 
@@ -196,7 +197,28 @@ class EchartHeaderViewModelAssemblerUnitTest {
 
             assertThat(header.headerBackground()).isEqualTo("#FFCC99");
             assertThat(header.headerText()).isEqualTo("#000000");
-            assertThat(header.headerLink()).isEqualTo("#0088CC");
+            assertThat(header.headerLink()).isEqualTo("#006192");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"#CCCCFF", "#FFCC99", "#FFFFFF", "#FFFF99", "#99CCFF", "#CCCCCC", "#A0A0A0", "#80C080"})
+        @DisplayName("should keep links at 4.5:1 or better on every light provider colour, in OSCAR 19's blue hue")
+        void shouldKeepLinksReadable_onLightProviderColours(String background) {
+            String link = EchartHeaderViewModelAssembler.readableLinkColour(background);
+
+            assertThat(contrast(link, background)).as("%s on %s", link, background).isGreaterThanOrEqualTo(4.5);
+            assertThat(link).as("still OSCAR's blue: no red, green about two thirds of blue").startsWith("#00");
+            int green = Integer.parseInt(link.substring(3, 5), 16);
+            int blue = Integer.parseInt(link.substring(5, 7), 16);
+            assertThat(green * 3).isBetween(blue * 2 - 3, blue * 2 + 3);
+        }
+
+        @Test
+        @DisplayName("should darken OSCAR 19's blue no further than the default colour needs")
+        void shouldDarkenOscarBlueMinimally_forDefaultColour() {
+            assertThat(contrast(EchartHeaderViewModelAssembler.OSCAR_LINK, "#CCCCFF")).isLessThan(4.5);
+            assertThat(EchartHeaderViewModelAssembler.readableLinkColour("#CCCCFF")).isEqualTo("#005F8E");
+            assertThat(contrast("#006090", "#CCCCFF")).as("one step lighter fails").isLessThan(4.5);
         }
 
         @Test
@@ -315,5 +337,22 @@ class EchartHeaderViewModelAssemblerUnitTest {
         mrp.setLastName("FAKE-Smith");
         demographic.setMrp(mrp);
         return demographic;
+    }
+
+    /** WCAG 2.1 contrast ratio, computed here independently of the assembler. */
+    private static double contrast(String first, String second) {
+        double a = luminance(first);
+        double b = luminance(second);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+
+    private static double luminance(String hex) {
+        double[] weights = {0.2126, 0.7152, 0.0722};
+        double total = 0;
+        for (int i = 0; i < 3; i++) {
+            double value = Integer.parseInt(hex.substring(1 + 2 * i, 3 + 2 * i), 16) / 255.0;
+            total += weights[i] * (value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4));
+        }
+        return total;
     }
 }

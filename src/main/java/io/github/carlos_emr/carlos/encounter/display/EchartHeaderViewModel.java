@@ -35,7 +35,8 @@ import java.util.List;
  *
  * @param headerBackground the viewer's provider colour ({@code #RRGGBB}), the bar's background
  * @param headerText       black or white, whichever reads on {@code headerBackground}
- * @param headerLink       link colour: OSCAR 19's {@code #0088CC}, or white on a dark provider colour
+ * @param headerLink       link colour: OSCAR 19's {@code #0088CC} darkened to 4.5:1 on the provider
+ *                         colour, or white on a dark one
  * @param mrpName          the most responsible provider's name, {@code ""} when none is assigned
  * @param mrpUnderline     the MRP's provider colour ({@code #RRGGBB}), underlining the MRP name
  * @param patientName      "LAST, FIRST (alias)"

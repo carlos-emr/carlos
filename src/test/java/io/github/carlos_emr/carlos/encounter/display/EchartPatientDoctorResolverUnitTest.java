@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -56,7 +57,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("EchartPatientDoctorResolver")
-class EchartPatientDoctorResolverUnitTest {
+class EchartPatientDoctorResolverUnitTest extends CarlosUnitTestBase {
 
     private static final int DEMOGRAPHIC_NO = 42;
 

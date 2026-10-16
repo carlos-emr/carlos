@@ -51,6 +51,13 @@ const PATIENT = Object.freeze({
 });
 const DOCUMENT_TYPES = ['consult', 'lab'];
 
+/** Whole years since an ISO yyyy-mm-dd date of birth, as the chart computes the age today. */
+function ageInYears(isoDate, today = new Date()) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const birthdayPassed = today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+  return today.getFullYear() - year - (birthdayPassed ? 0 : 1);
+}
+
 /** The Save All page posts and closes itself; Chromium reports its CSRFGuard script as aborted. */
 async function saveAndClose(recorder, page) {
   const closed = page.waitForEvent('close', { timeout: TIMEOUT });
@@ -168,7 +175,8 @@ async function workflow(s) {
     h.assert((await text(page, '#patient-full-name')).includes(s.marker), 'The header does not name the patient');
     // OSCAR 19's window title: "E - LAST, FIRST SEX AGE", the line above the bar in the popup.
     const title = await page.title();
-    h.assert(title.startsWith('E - ') && title.includes(s.marker) && /\bF\b/.test(title) && /\d/.test(title),
+    // The marker is random hex and may hold digits, so pin the age itself, right after the sex.
+    h.assert(title.startsWith('E - ') && title.includes(s.marker) && new RegExp(`\\bF ${ageInYears(PATIENT.dob)}\\b`).test(title),
       `The chart window title does not carry the patient's name, sex and age as OSCAR 19's did: ${JSON.stringify(title.replace(s.marker, '<patient>'))}`);
     h.assert(await page.locator('#header-top-row a[href*="ViewAbout"], #header-top-row a[href*="ViewLicense"]').count() === 0,
       'The header bar still carries About/License links');

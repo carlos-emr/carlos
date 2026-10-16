@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.display;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("encounter")
 @DisplayName("eChart display settings JSP wiring")
-class EchartDisplayJspContractUnitTest {
+class EchartDisplayJspContractUnitTest extends CarlosUnitTestBase {
 
     private static final Path WEBAPP = Path.of("src", "main", "webapp");
     private static final Path PREFERENCES_JSP = WEBAPP.resolve("WEB-INF/jsp/provider/providerpreference.jsp");

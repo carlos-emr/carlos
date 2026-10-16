@@ -158,7 +158,7 @@ function fallbackCopy(text) {
 </script>
 <%-- OSCAR 19's eChart bar (casemgmt/newEncounterHeader.jsp + encounterStyles.css), as its users see it:
      "MRP  DOCTOR NAME" in the table font, then the patient's details in bold at 80% of that size, and
-     links in #0088CC. The colours come from EchartHeaderViewModelAssembler,
+     links in OSCAR's blue, darkened to 4.5:1 contrast. The colours come from EchartHeaderViewModelAssembler,
      which only ever returns validated #RRGGBB values (a provider colour that is anything else falls
      back to OSCAR's default). --%>
 <div id="header-top-row" lang="${carlos:forHtmlAttribute(negotiatedLanguageTag)}" class="echart-header-bar"

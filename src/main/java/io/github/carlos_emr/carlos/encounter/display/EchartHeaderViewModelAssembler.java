@@ -72,8 +72,13 @@ public class EchartHeaderViewModelAssembler {
     private static final String PREFERRED_MARK = "*";
     private static final String DARK_TEXT = "#000000";
     private static final String LIGHT_TEXT = "#FFFFFF";
-    /** OSCAR 19's eChart link colour (encounterStyles.css), readable on its light provider colours. */
+    /**
+     * OSCAR 19's eChart link colour (encounterStyles.css). On its own it reaches under 4:1 even on
+     * white, so {@link #readableLinkColour} darkens it per provider colour.
+     */
     static final String OSCAR_LINK = "#0088CC";
+    /** WCAG 2.1 AA contrast for normal-size text; the bar's details are about 12px bold. */
+    static final double MIN_LINK_CONTRAST = 4.5;
 
     private final UserPropertyDAO userPropertyDao;
 
@@ -106,7 +111,7 @@ public class EchartHeaderViewModelAssembler {
         return new EchartHeaderViewModel(
                 background,
                 text,
-                LIGHT_TEXT.equals(text) ? LIGHT_TEXT : OSCAR_LINK,
+                LIGHT_TEXT.equals(text) ? LIGHT_TEXT : readableLinkColour(background),
                 mrpName,
                 mrpUnderline,
                 StringUtils.trimToEmpty(demographic.getFormattedName()),
@@ -195,5 +200,45 @@ public class EchartHeaderViewModelAssembler {
         int blue = Integer.parseInt(hex.substring(4, 6), 16);
         int brightness = (red * 299 + green * 587 + blue * 114) / 1000;
         return brightness >= 128 ? DARK_TEXT : LIGHT_TEXT;
+    }
+
+    /**
+     * Link colour for a bar that takes black text: OSCAR 19's blue, darkened (same hue) only as far as
+     * this background needs for {@value #MIN_LINK_CONTRAST}:1, so links keep OSCAR's look and stay
+     * readable on every provider colour. Falls back to black, the most a light background allows.
+     */
+    static String readableLinkColour(String background) {
+        double backgroundLuminance = relativeLuminance(normalizeColour(background));
+        int[] oscar = rgb(OSCAR_LINK);
+        for (int percent = 100; percent > 0; percent--) {
+            String candidate = String.format(Locale.ROOT, "#%02X%02X%02X", oscar[0] * percent / 100,
+                    oscar[1] * percent / 100, oscar[2] * percent / 100);
+            if (contrast(relativeLuminance(candidate), backgroundLuminance) >= MIN_LINK_CONTRAST) {
+                return candidate;
+            }
+        }
+        return DARK_TEXT;
+    }
+
+    /** WCAG 2.1 contrast ratio between two relative luminances. */
+    private static double contrast(double first, double second) {
+        return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+    }
+
+    /** WCAG 2.1 relative luminance of a {@code #RRGGBB} colour. */
+    private static double relativeLuminance(String hexColour) {
+        int[] channels = rgb(hexColour);
+        return 0.2126 * linear(channels[0]) + 0.7152 * linear(channels[1]) + 0.0722 * linear(channels[2]);
+    }
+
+    private static double linear(int channel) {
+        double value = channel / 255.0;
+        return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    }
+
+    private static int[] rgb(String hexColour) {
+        String hex = hexColour.substring(1);
+        return new int[] {Integer.parseInt(hex.substring(0, 2), 16), Integer.parseInt(hex.substring(2, 4), 16),
+                Integer.parseInt(hex.substring(4, 6), 16)};
     }
 }
