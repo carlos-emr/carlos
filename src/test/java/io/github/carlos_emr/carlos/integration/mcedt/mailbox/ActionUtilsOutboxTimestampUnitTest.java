@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,11 +46,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * The window the MCEDT Upload tab copies generated OHIP claim files in by: from the
  * last open, recorded in {@code <ONEDT_OUTBOX>/.timestamp}, to this one (#4577). The
- * open itself is {@code Upload2Action.execute}: read the timestamp, copy, write it.
+ * open itself is {@link ActionUtils#stageGeneratedClaimFiles()}, which
+ * {@code Upload2Action.execute} calls.
  */
 @DisplayName("ActionUtils outbox staging window")
 @Tag("unit")
@@ -109,23 +119,83 @@ class ActionUtilsOutboxTimestampUnitTest {
         Path generated = Files.write(download.resolve("HJ123456.001"), claim);
         Files.setLastModifiedTime(generated, FileTime.from(now.minus(5, ChronoUnit.MINUTES)));
 
-        openUploadTab();
+        ActionUtils.stageGeneratedClaimFiles();
 
         assertThat(outbox.resolve("HJ123456.001")).hasBinaryContent(claim);
 
         // Submitted and moved out of the outbox: the next open must not stage it again.
         Files.delete(outbox.resolve("HJ123456.001"));
-        openUploadTab();
+        ActionUtils.stageGeneratedClaimFiles();
 
         assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
     }
 
-    /** The three calls {@code Upload2Action.execute} makes when the Upload tab opens. */
-    private static void openUploadTab() {
-        Date start = ActionUtils.getOutboxTimestamp();
-        Date end = new Date();
-        ActionUtils.moveOhipToOutBox(start, end);
-        ActionUtils.setOutboxTimestamp(end);
+    @Test
+    void shouldRetryAClaimFileThatFailedToCopy_withoutCopyingEarlierOnesAgain() throws Exception {
+        // Recording the open after a failed copy left that file out of every later
+        // window. The open is now recorded only up to the first file that failed.
+        Instant now = Instant.now();
+        ActionUtils.setOutboxTimestamp(Date.from(now.minus(30, ChronoUnit.MINUTES)));
+        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
+        claimFile("HJ123456.002", now.minus(10, ChronoUnit.MINUTES));
+        claimFile("HJ123456.003", now.minus(5, ChronoUnit.MINUTES));
+
+        try (MockedStatic<FileUtils> files = mockStatic(FileUtils.class, CALLS_REAL_METHODS)) {
+            files.when(() -> FileUtils.copyFileToDirectory(
+                            argThat((File file) -> file != null && "HJ123456.002".equals(file.getName())),
+                            any(File.class), anyBoolean()))
+                    .thenThrow(new IOException("No space left on device"));
+
+            ActionUtils.stageGeneratedClaimFiles();
+        }
+
+        assertThat(outbox.resolve("HJ123456.001")).exists();
+        assertThat(outbox.resolve("HJ123456.002")).doesNotExist();
+        assertThat(outbox.resolve("HJ123456.003")).doesNotExist();
+
+        // The first file was sent and moved out of the outbox before the next open.
+        Files.delete(outbox.resolve("HJ123456.001"));
+        ActionUtils.stageGeneratedClaimFiles();
+
+        assertThat(outbox.resolve("HJ123456.001")).doesNotExist();
+        assertThat(outbox.resolve("HJ123456.002")).exists();
+        assertThat(outbox.resolve("HJ123456.003")).exists();
+    }
+
+    @Test
+    void shouldKeepTheWindowOpen_whenTheClaimFolderCannotBeListed() throws Exception {
+        Instant now = Instant.now();
+        ActionUtils.setOutboxTimestamp(Date.from(now.minus(30, ChronoUnit.MINUTES)));
+        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
+        CarlosProperties.getInstance().put("HOME_DIR", tempDir.resolve("not-there") + "/");
+
+        ActionUtils.stageGeneratedClaimFiles();
+
+        CarlosProperties.getInstance().put("HOME_DIR", download + "/");
+        ActionUtils.stageGeneratedClaimFiles();
+
+        assertThat(outbox.resolve("HJ123456.001")).exists();
+    }
+
+    @Test
+    void shouldStageClaimFiles_whenTheFolderAlsoHoldsAOneLetterFile() throws Exception {
+        // isOHIPFile read two characters of every name, so one stray "x" aborted the
+        // whole listing; with the window now held on a failed listing it would never move.
+        Instant now = Instant.now();
+        ActionUtils.setOutboxTimestamp(Date.from(now.minus(30, ChronoUnit.MINUTES)));
+        Files.writeString(download.resolve("x"), "stray");
+        claimFile("HJ123456.001", now.minus(20, ChronoUnit.MINUTES));
+
+        ActionUtils.stageGeneratedClaimFiles();
+
+        assertThat(outbox.resolve("HJ123456.001")).exists();
+        assertThat(ActionUtils.isOHIPFile("x")).isFalse();
+    }
+
+    private Path claimFile(String name, Instant modified) throws IOException {
+        Path file = Files.writeString(download.resolve(name), "HEBV03 " + name + "\r", StandardCharsets.US_ASCII);
+        Files.setLastModifiedTime(file, FileTime.from(modified));
+        return file;
     }
 
     private static void restore(String key, Object value) {

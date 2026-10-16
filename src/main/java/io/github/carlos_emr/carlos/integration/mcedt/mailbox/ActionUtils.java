@@ -266,6 +266,10 @@ public class ActionUtils {
     }
 
     public static boolean isOHIPFile(String filename) {
+        // A stray name shorter than the H<month> prefix used to throw here and abort staging.
+        if (filename == null || filename.length() < 2) {
+            return false;
+        }
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = filename.substring(0, 2);
         if (suffix.length() == 3 && suffix.matches("\\d+") && prefix.matches("H[A-L]")) {
@@ -287,34 +291,62 @@ public class ActionUtils {
         return suffix.equalsIgnoreCase("txt") && prefix.equals("OBEC");
     }
 
-    public static void moveOhipToOutBox(Date startDate, Date endDate) {
+    /**
+     * What opening the Upload tab does: copies the claim files Generate OHIP File wrote to
+     * HOME_DIR since the last open into ONEDT_OUTBOX, then records how far that got as the
+     * last open. The record never moves past a claim file that could not be copied (a full
+     * disk, a permission problem), so the next open retries it; the files copied before it
+     * are not copied again, since they may have been sent in the meantime.
+     */
+    public static void stageGeneratedClaimFiles() {
+        setOutboxTimestamp(moveOhipToOutBox(getOutboxTimestamp(), new Date()));
+    }
+
+    /**
+     * Copies the claim files in HOME_DIR modified inside the window into ONEDT_OUTBOX, oldest
+     * first, stopping at the first one that cannot be copied.
+     *
+     * @return how far the window is staged: {@code endDate} when every claim file in it was
+     *         copied, just before the first one that was not, or {@code startDate} when the
+     *         folders cannot be read
+     */
+    public static Date moveOhipToOutBox(Date startDate, Date endDate) {
+        File outbox;
+        File[] toOutbox;
         try {
             CarlosProperties props = CarlosProperties.getInstance();
             File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("HOME_DIR", ""), "HOME_DIR");
-            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
             FileFilter fileFilter = new FileFilter() {
                 public boolean accept(File file) {
                     return (file.isFile() && !file.isHidden() && ActionUtils.isOHIPFile(file.getName()));
                 }
             };
-            File[] toOutbox = generatedFiles.listFiles(fileFilter);
-            if (toOutbox != null) {
-                Arrays.sort(toOutbox, new Comparator<File>() {
-                    public int compare(File f1, File f2) {
-                        return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
-                    }
-                });
-                for (File file : toOutbox) {
-                    if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate))
-                        copyFileToDirectory(file, outbox, false, true);
-                }
-            }
-//			for (File file : toOutbox) {
-//				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
-//			}
+            toOutbox = generatedFiles.listFiles(fileFilter);
         } catch (Exception e) {
             logger.error("Unable to copy OHIP files to outbox", e);
+            return startDate;
         }
+        if (toOutbox == null) {
+            // Unreadable or missing: nothing is known to be staged, so the window stays open.
+            return startDate;
+        }
+        Arrays.sort(toOutbox, new Comparator<File>() {
+            public int compare(File f1, File f2) {
+                return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
+            }
+        });
+        for (File file : toOutbox) {
+            if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) {
+                try {
+                    copyFileToDirectory(file, outbox, false, true);
+                } catch (Exception e) {
+                    logger.error("Unable to copy OHIP files to outbox", e);
+                    return new Date(file.lastModified() - 1);
+                }
+            }
+        }
+        return endDate;
     }
 
     /*
