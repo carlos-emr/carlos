@@ -257,6 +257,19 @@ class ReportReassign2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("a favourites save that fails still answers the routed labs as a success")
+        void shouldAnswerSuccess_whenOnlyFavoritesSaveFails() throws Exception {
+            when(favorites.findFavorites(SENDER)).thenThrow(new IllegalStateException("favourites table unavailable"));
+            post("{\"files\":[\"42:HL7\"]}", "{\"providers\":[\"100001\"]}", "{\"favorites\":[\"100001\"]}");
+
+            action().execute();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(json().path("success").asBoolean()).isTrue();
+            assertThat(json().path("files").get(0).asText()).isEqualTo("42:HL7");
+        }
+
+        @Test
         @DisplayName("a routing failure is not reported as success")
         void shouldAnswerFailure_whenRoutingFails() throws Exception {
             routing.when(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), any(String[].class))).thenReturn(false);
@@ -422,6 +435,31 @@ class ReportReassign2ActionUnitTest extends CarlosUnitTestBase {
             verify(favorites).persist(added.capture());
             assertThat(added.getValue().getProvider_no()).isEqualTo(SENDER);
             assertThat(added.getValue().getRoute_to_provider_no()).isEqualTo("100003");
+        }
+
+        @Test
+        @DisplayName("a favourites save that fails does not report the forward that happened as failed")
+        void shouldStillRedirect_whenFavoritesSaveFailsAfterRouting() throws Exception {
+            when(favorites.findFavorites(SENDER)).thenThrow(new IllegalStateException("favourites table unavailable"));
+            post("{\"files\":[\"12:CML\"]}", "{\"providers\":[\"100001\"]}", "{\"favorites\":[\"100002\"]}");
+
+            action().execute();
+
+            routing.verify(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), any(String[].class)));
+            assertThat(response.getRedirectedUrl())
+                    .isEqualTo(CONTEXT + "/lab/CA/ON/ViewCMLDisplay?segmentID=12&providerNo=" + SENDER);
+        }
+
+        @Test
+        @DisplayName("a forward whose routing fails leaves the stored favourites alone")
+        void shouldNotTouchFavorites_whenRoutingFails() throws Exception {
+            routing.when(() -> CommonLabResultData.updateLabRouting(any(ArrayList.class), any(String[].class))).thenReturn(false);
+            post("{\"files\":[\"12:CML\"]}", "{\"providers\":[\"100001\"]}", "{\"favorites\":[]}");
+
+            action().execute();
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            verifyNoInteractions(favorites);
         }
 
         @Test

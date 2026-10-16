@@ -3101,3 +3101,13 @@ list shows labs filed under demographic 0 (an uploaded lab unlinked from its pat
 On the head these passed as well: `inbox-file-forward` (10 of 10, including the GET/HEAD replay refusal and unchanged
 favourites), `detached-delete-forward-favourites`, `document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope`
 and `gap-records-autocomplete-labels`, and the smoke tier, 12 of 12.
+
+The packages were then rebuilt from the pushed branch head (`ee56cc84`) and installed fresh again (`carlos-ctl check`: all checks
+passed), with no files copied in; the installed picker, list and bundle files matched the branch by checksum. On that install
+`legacy-lab-display`, `legacy-lab-display-mds`, `lab-forward-picker`, `inbox-file-forward`, `detached-delete-forward-favourites`,
+`document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope` and `gap-records-autocomplete-labels` passed,
+`legacy-lab-display-pathnet` SKIPped, and the smoke tier passed 12 of 12. The server-log audit's one unexplained signature was
+`MDSResultsData.java:610`, the CML version-chain `ClassCastException` (finding 197, #4568) the CML pages raise on every open; no
+`ReportReassign2Action` entry appeared. After review, the action saves the favourites only once routing has succeeded, outside the
+routing error path, and both legacy checks and `lab-forward-picker` seed a forwarding favourite before taking their baseline.
+With that class copied in, the three checks, `inbox-file-forward` and `detached-delete-forward-favourites` passed again.

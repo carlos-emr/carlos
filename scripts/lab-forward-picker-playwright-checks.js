@@ -44,9 +44,10 @@
  * under demographic 0 by SQL (where an unlinked lab lives); a throwaway provider login that is the recipient.
  * Cleanup removes exactly those rows by key (removeLab proves the CML header still carries the run's marker
  * first; the HL7 lab is found by its accession, with its upload checksum row and the archived upload file under
- * LAB_UPLOAD_DOCUMENT_STORE) and asserts them gone. The test login's forwarding favourites
- * are snapshotted, asserted unchanged, and restored if anything rewrote them, so this must not run
- * concurrently with another check that creates favourites (live wrapper: EXCLUSIVE=1).
+ * LAB_UPLOAD_DOCUMENT_STORE) and asserts them gone. The test login's forwarding favourites are snapshotted,
+ * one favourite to the recipient is seeded so that "favourites unchanged" is asserted against a list that is
+ * never empty, and cleanup restores the snapshot, so this must not run concurrently with another check that
+ * creates favourites (live wrapper: EXCLUSIVE=1).
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -91,19 +92,23 @@ async function workflow(s) {
     FROM providerLabRouting WHERE lab_type=${q(lab.labType)} AND lab_no=${lab.id} AND provider_no=${q(who)} ORDER BY id`));
   const favourites = () => JSON.stringify(sql.rows(`SELECT id, route_to_provider_no FROM providerLabRoutingFavorites
     WHERE provider_no=${q(provider)} ORDER BY id`));
-  const favouritesBefore = favourites();
+  // favouritesOriginal is what cleanup restores. favouritesBaseline is the state after the seed step adds a
+  // fixture favourite, so "favourites unchanged" is asserted against a list that is never empty: a Forward
+  // that wiped the sender's favourites (the pre-#4558 action did, for any post without selectedFavorites)
+  // cannot pass by finding an empty list empty.
+  const favouritesOriginal = favourites();
+  let favouritesBaseline = null;
 
   // Cleanup runs last-registered first; everything is registered before its first write.
   s.cleanup(() => recipient.cleanup());
   s.cleanup(() => {
-    if (favourites() === favouritesBefore) return;
+    if (favourites() === favouritesOriginal) return;
     sql.execute(`DELETE FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}`);
-    for (const [id, to] of JSON.parse(favouritesBefore)) {
+    for (const [id, to] of JSON.parse(favouritesOriginal)) {
       h.assert(/^[1-9]\d*$/.test(id) && /^[A-Za-z0-9]{1,6}$/.test(to), 'A snapshotted favourite has an unexpected shape');
       sql.execute(`INSERT INTO providerLabRoutingFavorites (id,provider_no,route_to_provider_no) VALUES (${id},${q(provider)},${q(to)})`);
     }
-    h.assert(favourites() === favouritesBefore, 'The test login\'s forwarding favourites were not restored');
-    console.log('  note: the test login\'s forwarding favourites were rewritten; they were restored as found');
+    h.assert(favourites() === favouritesOriginal, 'The test login\'s forwarding favourites were not restored');
   });
   s.cleanup(() => removeLab({ sql, lab, patient, provider }));
 
@@ -157,6 +162,10 @@ async function workflow(s) {
 
   await s.step(STEP.seed, async () => {
     recipient.create();
+    sql.execute(`INSERT INTO providerLabRoutingFavorites (provider_no,route_to_provider_no) VALUES (${q(provider)},${q(recipient.providerNo)})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}
+      AND route_to_provider_no=${q(recipient.providerNo)}`) === '1', 'The fixture forwarding favourite was not seeded');
+    favouritesBaseline = favourites();
     lab.seed();
     sql.execute(`INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created) VALUES(${patient},${lab.id},${q(lab.labType)},NOW());
       INSERT INTO providerLabRouting(provider_no,lab_no,lab_type,status) VALUES(${q(provider)},${lab.id},${q(lab.labType)},'N')`);
@@ -241,7 +250,7 @@ async function workflow(s) {
         `The pre-fix reassignForm post was answered HTTP ${response.status()}${response.headers().location ? ` -> ${response.headers().location}` : ''}, not 400`);
       h.assert(routing(recipient.providerNo) === '[]', 'The refused post gave the recipient a routing row');
       h.assert(routing(provider) === senderBefore, 'The refused post changed the sender\'s routing row');
-      h.assert(favourites() === favouritesBefore, 'The refused post changed the sender\'s forwarding favourites');
+      h.assert(favourites() === favouritesBaseline, 'The refused post changed the sender\'s forwarding favourites');
     });
   } finally {
     await labPage.close().catch(() => {});
@@ -333,7 +342,7 @@ async function workflow(s) {
         AND lab_no=${listLab.labNo} AND provider_no=${q(recipient.providerNo)}`, 'N',
       'Forward from the patient lab list did not give the recipient one New routing row');
       h.assert(hl7(provider) === senderBefore, 'Forward from the patient lab list changed the sender\'s routing row');
-      h.assert(favourites() === favouritesBefore, 'Forward from the patient lab list changed the sender\'s forwarding favourites');
+      h.assert(favourites() === favouritesBaseline, 'Forward from the patient lab list changed the sender\'s forwarding favourites');
     } finally {
       await list.close().catch(() => {});
     }

@@ -131,9 +131,8 @@ public class ReportReassign2Action extends ActionSupport {
         }
     }
 
-    // FindSecBugs XSS_SERVLET: the only body written is Jackson-serialized JSON of validated ids, not HTML.
     // FindSecBugs UNVALIDATED_REDIRECT: the redirect path comes from a fixed route table; every appended value is URI-component encoded.
-    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "the only body written is Jackson-serialized JSON of validated ids, not HTML. UNVALIDATED_REDIRECT: the redirect path comes from a fixed route table and every appended value is URI-component encoded")
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "the redirect path comes from a fixed route table and every appended value is URI-component encoded")
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -167,15 +166,21 @@ public class ReportReassign2Action extends ActionSupport {
         boolean success;
         try {
             success = CommonLabResultData.updateLabRouting(labs, providers);
-            if (newFavorites != null) {
-                syncFavorites(providerNo, newFavorites);
-            }
         } catch (RuntimeException e) {
             logger.error("exception in ReportReassign2Action", e);
             return refuse(ajax, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
         if (!success) {
             return refuse(ajax, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        // Routing has committed by now. The favourites are the sender's own preference, saved on their
+        // own: a failure to save them must not report a forward that happened as one that did not.
+        if (newFavorites != null) {
+            try {
+                syncFavorites(providerNo, newFavorites);
+            } catch (RuntimeException e) {
+                logger.error("Lab forwarded, but the forwarding favourites were not saved", e);
+            }
         }
 
         if (ajax) {
@@ -331,6 +336,8 @@ public class ReportReassign2Action extends ActionSupport {
         return NONE;
     }
 
+    // FindSecBugs XSS_SERVLET: the body is Jackson-serialized JSON (a boolean and validated "<id>:<TYPE>" strings), sent as application/json, never HTML.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "the body is Jackson-serialized JSON of a boolean and validated <id>:<TYPE> strings, sent as application/json, never HTML")
     private void writeJson(int status, boolean success, ArrayNode files) {
         ObjectNode result = objectMapper.createObjectNode();
         result.put("success", success);

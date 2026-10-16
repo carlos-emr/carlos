@@ -81,8 +81,9 @@
  * and a throwaway provider login that is the Forward recipient. Cleanup removes exactly those rows by key,
  * after proving the lab header still carries this run's marker, and asserts them gone: the lab tables,
  * patientLabRouting, providerLabRouting, providerLabRoutingLock and the audit rows the pages wrote for the
- * owned lab numbers. The test login's forwarding favourites are snapshotted and restored if a Forward
- * rewrote them.
+ * owned lab numbers. The test login's forwarding favourites are snapshotted, one favourite to the recipient
+ * is seeded so that "favourites unchanged" is asserted against a list that is never empty, and cleanup
+ * restores the snapshot.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -361,19 +362,23 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   // Forward rewrites the sender's forwarding favourites from what the page posts; put them back as found.
   const favourites = () => JSON.stringify(sql.rows(`SELECT id, route_to_provider_no FROM providerLabRoutingFavorites
     WHERE provider_no=${q(provider)} ORDER BY id`));
-  const favouritesBefore = favourites();
+  // favouritesOriginal is what cleanup restores. favouritesBaseline is the state after the seed step adds a
+  // fixture favourite, so "favourites unchanged" is asserted against a list that is never empty: a Forward
+  // that wiped the sender's favourites (the pre-#4558 action did, for any post without selectedFavorites)
+  // cannot pass by finding an empty list empty.
+  const favouritesOriginal = favourites();
+  let favouritesBaseline = null;
 
   // Cleanup runs last-registered first. Everything is registered before its first write.
   s.cleanup(() => recipient.cleanup());
   s.cleanup(() => {
-    if (favourites() === favouritesBefore) return;
+    if (favourites() === favouritesOriginal) return;
     sql.execute(`DELETE FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}`);
-    for (const [id, to] of JSON.parse(favouritesBefore)) {
+    for (const [id, to] of JSON.parse(favouritesOriginal)) {
       h.assert(/^[1-9]\d*$/.test(id) && /^[A-Za-z0-9]{1,6}$/.test(to), 'A snapshotted favourite has an unexpected shape');
       sql.execute(`INSERT INTO providerLabRoutingFavorites (id,provider_no,route_to_provider_no) VALUES (${id},${q(provider)},${q(to)})`);
     }
-    h.assert(favourites() === favouritesBefore, 'The test login\'s forwarding favourites were not restored');
-    console.log('  note: a Forward rewrote the test login\'s forwarding favourites; they were restored as found');
+    h.assert(favourites() === favouritesOriginal, 'The test login\'s forwarding favourites were not restored');
   });
   s.cleanup(() => {
     const failures = [];
@@ -466,6 +471,10 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   // ---- Fixtures ---------------------------------------------------------------------------------------------
   await s.step(STEP.seed, async () => {
     recipient.create();
+    sql.execute(`INSERT INTO providerLabRoutingFavorites (provider_no,route_to_provider_no) VALUES (${q(provider)},${q(recipient.providerNo)})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRoutingFavorites WHERE provider_no=${q(provider)}
+      AND route_to_provider_no=${q(recipient.providerNo)}`) === '1', 'The fixture forwarding favourite was not seeded');
+    favouritesBaseline = favourites();
     for (const lab of labs) {
       lab.seed();
       sql.execute(`INSERT INTO patientLabRouting(demographic_no,lab_no,lab_type,created) VALUES(${patient},${lab.id},${q(lab.labType)},NOW());
@@ -599,8 +608,10 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
           `The ${lab.title} Forward request does not name exactly this lab as "<id>:<type>" in flaggedLabs`);
         h.assert(JSON.stringify(parsed('selectedProviders', 'providers')) === JSON.stringify([recipient.providerNo]),
           `The ${lab.title} Forward request does not name exactly the recipient in selectedProviders`);
-        h.assert(Array.isArray(parsed('selectedFavorites', 'favorites')),
-          `The ${lab.title} Forward request carries no favourites list, so it cannot keep the sender's favourites as shown`);
+        const postedFavourites = parsed('selectedFavorites', 'favorites');
+        h.assert(Array.isArray(postedFavourites) && postedFavourites.includes(recipient.providerNo),
+          `The ${lab.title} Forward request does not carry the Favorites list as shown (the seeded favourite is missing), `
+          + 'so it cannot keep the sender\'s favourites');
 
         // The page post returns to the lab page's own display for the same lab, not "<route>&providerNo=...".
         const displayRoute = lab.displayPath.split('?')[0];
@@ -625,7 +636,7 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
         h.assert(statusOf(lab, recipient.providerNo) === 'N', 'The recipient\'s routing row is not New');
         h.assert(mine(lab) === beforeMine, 'Forwarding changed the sender\'s own routing row');
         h.assert(others(lab) === beforeOthers, 'Forwarding changed another provider\'s routing row');
-        h.assert(favourites() === favouritesBefore, 'Forwarding changed the sender\'s forwarding favourites, which the picker showed unchanged');
+        h.assert(favourites() === favouritesBaseline, 'Forwarding changed the sender\'s forwarding favourites, which the picker showed unchanged');
       } finally {
         if (picker) await picker.close().catch(() => {});
         await labPage.close().catch(() => {});
