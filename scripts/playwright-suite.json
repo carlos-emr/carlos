@@ -3016,6 +3016,21 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "allergy-partial-start-date",
+      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its last step on develop: a Start Date typed as 2019-05 is posted as 2019-05-01 because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 293). Every earlier step passes."
+    },
+    {
       "name": "allergy-injected-form-csrf",
       "script": "scripts/allergy-injected-form-csrf-playwright-checks.js",
       "tiers": [
