@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.immunization.pageUtil;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Immunization schedule pages patient isolation")
 @Tag("unit")
 @Tag("prevention")
-class ImmunizationScheduleViewPatientIsolationUnitTest {
+class ImmunizationScheduleViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     private static final Path PAGES = Path.of(System.getProperty("basedir", ""))
             .toAbsolutePath().resolve("src/main/webapp/WEB-INF/jsp/encounter/immunization");
@@ -81,9 +82,14 @@ class ImmunizationScheduleViewPatientIsolationUnitTest {
 
         assertThat(source)
                 .contains("demoNo = EncounterPatientContext.requireDemographicNo(request);")
-                .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST");
-        // The patient is resolved before its record or schedule is read.
+                .contains("response.sendError(HttpServletResponse.SC_BAD_REQUEST")
+                .contains("isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))")
+                .contains("response.sendRedirect(request.getContextPath() + \"/securityError?type=_demographic\");");
+        // The patient is resolved, and access to its record checked, before the record or the
+        // schedule is read: the pages apply the record check their own write actions apply.
         assertThat(source.indexOf("EncounterPatientContext.requireDemographicNo(request)"))
+                .isLessThan(source.indexOf("isAllowedAccessToPatientRecord("));
+        assertThat(source.indexOf("isAllowedAccessToPatientRecord("))
                 .isLessThan(source.indexOf("getDemographic("));
     }
 
@@ -106,20 +112,21 @@ class ImmunizationScheduleViewPatientIsolationUnitTest {
     void shouldHeadDoseWindow_withTheSchedulesPatient() throws IOException {
         assertThat(source("Schedule.jsp"))
                 .contains("+ \"&demographic_no=<%= SafeEncode.forJavaScriptBlock(SafeEncode.forUriComponent(demoNo)) %>\"");
-        String edit = source("ScheduleEdit.jsp");
-        assertThat(edit)
-                .contains("headerPatientNo = EncounterPatientContext.requireDemographicNo(request);")
-                .contains("headerPatient = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), headerPatientNo);")
-                .contains("<carlos:encode value='<%= headerPatient.getLastName() %>' context=\"html\"/>");
         // A template preview (ImmunizationSetDisplay.jsp) names no patient and shows none.
-        assertThat(edit).contains("if (request.getParameter(\"demographic_no\") != null || request.getParameter(\"demographicNo\") != null) {");
+        assertThat(source("ScheduleEdit.jsp"))
+                .contains("if (request.getParameter(\"demographic_no\") != null || request.getParameter(\"demographicNo\") != null) {")
+                .contains("headerPatientNo = EncounterPatientContext.requireDemographicNo(request);")
+                .contains("isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(headerPatientNo))")
+                .contains("headerPatient = new DemographicData().getDemographic(loggedInInfo, headerPatientNo);")
+                .contains("<carlos:encode value='<%= headerPatient.getLastName() %>' context=\"html\"/>");
     }
 
     @Test
     @DisplayName("should default the provider who gave a dose to the logged-in provider")
     void shouldDefaultGivenByProvider_toLoggedInProvider() throws IOException {
         assertThat(source("ScheduleEdit.jsp"))
-                .contains("String loggedInProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();")
+                .contains("LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);")
+                .contains("String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();")
                 .contains("frm.provider.value = \"<carlos:encode value='<%= loggedInProviderNo %>' context=\"javaScriptBlock\"/>\";");
     }
 }

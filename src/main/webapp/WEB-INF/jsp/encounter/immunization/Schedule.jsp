@@ -45,6 +45,8 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -67,8 +69,15 @@
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
         return;
     }
+    // The record itself, as the schedule's own save, template, delete and restore check it: a
+    // patient this user is excluded from is neither shown nor offered for change.
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!SpringUtils.getBean(SecurityInfoManager.class).isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+        return;
+    }
     // Reading the record checks _demographic read for this patient.
-    Demographic demographic = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
+    Demographic demographic = new DemographicData().getDemographic(loggedInInfo, demoNo);
     if (demographic == null) {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
         return;

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -48,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Legacy case-management navigation patient isolation")
 @Tag("unit")
 @Tag("casemgmt")
-class LegacyNavigationPatientIsolationUnitTest {
+class LegacyNavigationPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     private static final Path WEBAPP = Path.of(System.getProperty("basedir", ""))
             .toAbsolutePath().resolve("src/main/webapp/WEB-INF/jsp");

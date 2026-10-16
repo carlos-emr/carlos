@@ -324,8 +324,9 @@ class EChartRevisionPersisterIntegrationTest extends CarlosTestBase {
         EChartRevisionPersister broken = new EChartRevisionPersister(transactionManager, entityManagerFactory,
                 charts, appointments, failing);
         List<String> aBefore = state(a);
+        EChart lost = revision("Lost");
 
-        assertThatThrownBy(() -> broken.save(a, aBase, aVisit, AppointmentChange.SIGN, revision("Lost"), PROVIDER))
+        assertThatThrownBy(() -> broken.save(a, aBase, aVisit, AppointmentChange.SIGN, lost, PROVIDER))
                 .isInstanceOf(IllegalStateException.class);
 
         assertThat(state(a)).isEqualTo(aBefore);

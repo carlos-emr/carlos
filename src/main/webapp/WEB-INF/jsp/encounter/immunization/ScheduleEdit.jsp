@@ -47,6 +47,8 @@
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -68,7 +70,8 @@
         // The dose's "given by" default is the logged-in provider. It was the provider of the
         // login-wide EctSessionBean, named by whichever chart was entered last in any window, and
         // the page failed before any chart was entered (issue #4673).
-        String loggedInProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
         // The header names the patient whose schedule opened this window (Schedule.jsp passes it);
         // a template preview (ImmunizationSetDisplay.jsp) names no patient and shows none.
         Demographic headerPatient = null;
@@ -80,8 +83,13 @@
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
                 return;
             }
+            // The record itself, as the schedule that opened this window checks it.
+            if (!SpringUtils.getBean(SecurityInfoManager.class).isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(headerPatientNo))) {
+                response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+                return;
+            }
             // Reading the record checks _demographic read for this patient.
-            headerPatient = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), headerPatientNo);
+            headerPatient = new DemographicData().getDemographic(loggedInInfo, headerPatientNo);
             if (headerPatient == null) {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;

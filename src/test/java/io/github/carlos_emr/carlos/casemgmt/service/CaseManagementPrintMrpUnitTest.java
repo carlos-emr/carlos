@@ -131,7 +131,7 @@ class CaseManagementPrintMrpUnitTest extends CarlosUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         try (var configuration = mockStatic(CarlosProperties.class);
-             var directory = mockConstruction(EctProviderData.class, (data, context) ->
+             var _ = mockConstruction(EctProviderData.class, (data, context) ->
                      when(data.getProvider(anyString())).thenAnswer(call -> providers.get(call.getArgument(0, String.class))));
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
              var _ = mockStatic(ConcatPDF.class)) {

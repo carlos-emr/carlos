@@ -121,20 +121,12 @@ public class EChartRevisionPersister {
     public Result save(int patient, Integer baseRevision, Integer appointmentNo, AppointmentChange change,
                        EChart revision, String provider) {
         return new TransactionTemplate(transactions).execute(status -> {
-            EntityManager em = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagers);
-            if (em == null) throw new IllegalStateException("Encounter save transaction has no entity manager");
-            if (em.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no = :patient FOR UPDATE")
-                    .setParameter("patient", patient).getResultList().isEmpty()) {
+            if (!lockPatient(patient)) {
                 return refused(status, Outcome.PATIENT_NOT_FOUND);
             }
-            if (baseRevision != null) {
-                EChart base = charts.find(baseRevision);
-                if (base == null || base.getDemographicNo() != patient) {
-                    return refused(status, Outcome.FOREIGN_REVISION);
-                }
-            }
-            if (!Objects.equals(charts.getMaxIdForDemographic(patient), baseRevision)) {
-                return refused(status, Outcome.STALE_REVISION);
+            Outcome refusal = revisionRefusal(patient, baseRevision);
+            if (refusal != null) {
+                return refused(status, refusal);
             }
             Appointment appointment = appointmentNo == null ? null : appointments.findForUpdate(appointmentNo);
             if (appointment != null && appointment.getDemographicNo() != patient) {
@@ -144,22 +136,52 @@ public class EChartRevisionPersister {
             revision.setDemographicNo(patient);
             charts.persist(revision);
 
-            // The next status is derived from the current one; a visit without one is left as it
-            // is (deriving from "" throws, from null writes ""), as the editor did before #4673.
-            boolean marked = appointment != null && change != AppointmentChange.NONE
-                    && appointment.getStatus() != null && !appointment.getStatus().isBlank();
+            boolean marked = change != AppointmentChange.NONE && hasStatus(appointment);
             if (marked) {
-                ApptStatusData statuses = new ApptStatusData();
-                statuses.setApptStatus(appointment.getStatus());
-                String next = change == AppointmentChange.SIGN ? statuses.signStatus() : statuses.verifyStatus();
-                archives.archiveAppointment(appointment);
-                appointment.setStatus(next);
-                appointment.setLastUpdateUser(provider);
-                appointments.merge(appointment);
+                mark(appointment, change, provider);
             }
             return new Result(Outcome.SAVED, revision, marked, appointment == null ? null : appointment.getId(),
                     appointment == null ? null : appointment.getAppointmentDate());
         });
+    }
+
+    /** Locks the patient's row for this transaction; false when the patient no longer exists. */
+    private boolean lockPatient(int patient) {
+        EntityManager em = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagers);
+        if (em == null) throw new IllegalStateException("Encounter save transaction has no entity manager");
+        return !em.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no = :patient FOR UPDATE")
+                .setParameter("patient", patient).getResultList().isEmpty();
+    }
+
+    /** Why the editor's base revision cannot be appended to, or null when it is the patient's newest. */
+    private Outcome revisionRefusal(int patient, Integer baseRevision) {
+        if (baseRevision != null) {
+            EChart base = charts.find(baseRevision);
+            if (base == null || base.getDemographicNo() != patient) {
+                return Outcome.FOREIGN_REVISION;
+            }
+        }
+        return Objects.equals(charts.getMaxIdForDemographic(patient), baseRevision) ? null : Outcome.STALE_REVISION;
+    }
+
+    /**
+     * Whether the visit can be marked: the next status is derived from the current one, and a visit
+     * without one is left as it is (deriving from "" throws, from null writes ""), as the editor did
+     * before #4673.
+     */
+    private static boolean hasStatus(Appointment appointment) {
+        return appointment != null && appointment.getStatus() != null && !appointment.getStatus().isBlank();
+    }
+
+    /** Archives the appointment's current values, then signs or verifies it from its current status. */
+    private void mark(Appointment appointment, AppointmentChange change, String provider) {
+        ApptStatusData statuses = new ApptStatusData();
+        statuses.setApptStatus(appointment.getStatus());
+        String next = change == AppointmentChange.SIGN ? statuses.signStatus() : statuses.verifyStatus();
+        archives.archiveAppointment(appointment);
+        appointment.setStatus(next);
+        appointment.setLastUpdateUser(provider);
+        appointments.merge(appointment);
     }
 
     private static Result refused(TransactionStatus status, Outcome outcome) {

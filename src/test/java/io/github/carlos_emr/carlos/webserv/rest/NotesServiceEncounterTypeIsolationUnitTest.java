@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
@@ -58,7 +59,7 @@ import static org.mockito.Mockito.verify;
 @Tag("unit")
 @Tag("casemgmt")
 @DisplayName("NotesService new-note encounter type patient isolation")
-class NotesServiceEncounterTypeIsolationUnitTest {
+class NotesServiceEncounterTypeIsolationUnitTest extends CarlosUnitTestBase {
     private static final int PATIENT = 900001;
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -97,13 +98,13 @@ class NotesServiceEncounterTypeIsolationUnitTest {
 
     @Test
     @DisplayName("should not take another chart's encounter type when this patient's chart was not entered")
-    void shouldLeaveTypeBlank_whenOnlyAnotherChartWasEntered() throws Exception {
+    void shouldLeaveTypeBlank_whenOnlyAnotherChartWasEntered() {
         assertThat(newNoteEncounterType(null)).isEmpty();
     }
 
     @Test
     @DisplayName("should default to this patient's own entry type when the request names none")
-    void shouldUsePatientsOwnEntryType_whenRequestNamesNone() throws Exception {
+    void shouldUsePatientsOwnEntryType_whenRequestNamesNone() {
         rememberEntry(String.valueOf(PATIENT), "face to face encounter with client");
 
         assertThat(newNoteEncounterType(null)).isEqualTo("face to face encounter with client");
@@ -111,13 +112,13 @@ class NotesServiceEncounterTypeIsolationUnitTest {
 
     @Test
     @DisplayName("should keep the requested type when only another chart was entered")
-    void shouldKeepRequestedType_whenOnlyAnotherChartWasEntered() throws Exception {
+    void shouldKeepRequestedType_whenOnlyAnotherChartWasEntered() {
         assertThat(newNoteEncounterType("email encounter with client")).isEqualTo("email encounter with client");
     }
 
     @Test
     @DisplayName("should apply this patient's own entry type over the requested type, as before")
-    void shouldApplyOwnEntryType_overRequestedType() throws Exception {
+    void shouldApplyOwnEntryType_overRequestedType() {
         rememberEntry(String.valueOf(PATIENT), "face to face encounter with client");
 
         assertThat(newNoteEncounterType("email encounter with client")).isEqualTo("face to face encounter with client");
@@ -133,7 +134,7 @@ class NotesServiceEncounterTypeIsolationUnitTest {
         request.removeAttribute("EctSessionBean");
     }
 
-    private String newNoteEncounterType(String requestedType) throws Exception {
+    private String newNoteEncounterType(String requestedType) {
         ObjectNode body = JSON.createObjectNode().put("note_edit", "new");
         if (requestedType != null) body.put("encType", requestedType);
         try (var displays = mockConstruction(NoteDisplayLocal.class)) {

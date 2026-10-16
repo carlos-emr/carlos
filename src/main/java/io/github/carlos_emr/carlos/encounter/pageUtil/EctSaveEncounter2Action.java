@@ -110,13 +110,14 @@ public class EctSaveEncounter2Action extends ActionSupport {
     private static final String EXIT = "Exit";
     private static final Set<String> BUTTONS = Set.of(SAVE, AUTO_SAVE, SIGN_SAVE_EXIT, SIGN_SAVE_BILL, VERIFY_SIGN,
             SPLIT_CHART, EXIT);
-    private static final Pattern IDENTIFIER = Pattern.compile("[0-9]{1,9}");
+    private static final Pattern IDENTIFIER = Pattern.compile("\\d{1,9}");
 
     static Logger log = MiscUtils.getLogger();
 
-    private final SecurityInfoManager securityInfoManager;
-    private final EChartRevisionPersister revisions;
-    private final EncounterWindowDao encounterWindowDao;
+    // Struts actions are Serializable; these collaborators are per-request Spring lookups, not state.
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient EChartRevisionPersister revisions;
+    private final transient EncounterWindowDao encounterWindowDao;
 
     public EctSaveEncounter2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
@@ -198,7 +199,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
         try {
             baseRevision = optionalIdentifier(revisionField);
             appointmentNo = optionalIdentifier(request.getParameter("appointment_no"));
-        } catch (IllegalArgumentException invalid) {
+        } catch (IllegalArgumentException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter revision or appointment");
             return NONE;
         }
@@ -216,7 +217,9 @@ public class EctSaveEncounter2Action extends ActionSupport {
             saved = revisions.save(Integer.parseInt(demographicNo), baseRevision, appointmentNo,
                     appointmentChange(button), revision, entry.providerNo);
             switch (saved.outcome()) {
-                case SAVED -> { }
+                case SAVED -> {
+                    // The revision is written; the button's result below shows or closes it.
+                }
                 case PATIENT_NOT_FOUND -> {
                     response.sendError(HttpServletResponse.SC_NOT_FOUND, "Patient not found");
                     return NONE;
@@ -302,7 +305,9 @@ public class EctSaveEncounter2Action extends ActionSupport {
                 case VERIFY_SIGN -> encounter = signed(encounter, labels,
                         "encounter.class.EctSaveEncounterAction.msgVerAndSig", now, entry.userName, request);
                 case SPLIT_CHART -> subject = labels.getString("encounter.class.EctSaveEncounterAction.msgSplitChart");
-                default -> { }
+                default -> {
+                    // Save, AutoSave: the text is stored as typed, without a signature line.
+                }
             }
         } catch (MissingResourceException missing) {
             log.error("Encounter signature labels are missing; saving without the signature line", missing);
@@ -407,8 +412,10 @@ public class EctSaveEncounter2Action extends ActionSupport {
         }
         bean.setApptStatus(statusParam);
         request.setAttribute("encounter", "true");
-        // nosemgrep: tainted-session-from-http-request -- patientNo/apptNo validated as this chart's own (numeric, ownership checked
-        // under lock); provider/name from this patient's own entry and record; billRegion/billForm from server config; status validated [a-zA-Z]{1,2}
+        // Every bean field is validated before it reaches the session: the patient and appointment
+        // are numeric and were checked as this chart's own under the patient lock, the provider and
+        // name come from this patient's entry and record, the region and form from server
+        // configuration, and the status matched the two-letter pattern above.
         request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (patient and appointment ownership checked, status [a-zA-Z]{1,2})
         return "bill";
     }

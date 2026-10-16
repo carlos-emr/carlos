@@ -28,6 +28,17 @@
 
 --%>
 
+<%--
+    Left column of the legacy case-management chart (encounterLayout.jsp) and the
+    casemgmt/ViewNavigation fragment: links to the patient's master record, billing,
+    prescriptions, consultations, immunizations, forms, messages, ticklers and labs. Parameter:
+    demographicNo (required; demographic_no is accepted as an alias) names the patient every link
+    is built for. It used to copy the login-wide EctSessionBean into a session-wide casemgmt_bean,
+    so a navigation rendered for one patient after another chart was entered linked to the other
+    patient. Requires the authenticated session and _demographic read for the patient; a request
+    without a valid patient renders nothing.
+    @since 2026-10-16 (request-owned patient, issue #4673)
+--%>
 
 <%-- Updated by Eugene Petruhin on 11 dec 2008 while fixing #2356548 & #2393547 --%>
 

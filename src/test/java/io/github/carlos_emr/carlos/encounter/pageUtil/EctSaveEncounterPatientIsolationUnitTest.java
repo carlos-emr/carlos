@@ -155,7 +155,9 @@ class EctSaveEncounterPatientIsolationUnitTest {
                 request.setParameter("demographic_no", B);
             }
             case "conflicting repeats" -> request.setParameter("demographicNo", A, B);
-            default -> { }
+            default -> {
+                // "missing": the request names no patient at all.
+            }
         }
 
         assertThat(execute()).isEqualTo(ActionSupport.NONE);

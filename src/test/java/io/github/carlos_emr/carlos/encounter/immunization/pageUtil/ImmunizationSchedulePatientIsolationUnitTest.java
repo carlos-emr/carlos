@@ -143,7 +143,9 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
                 request.setParameter("demographicNo", B);
             }
             case "legacy demoNo only" -> request.setParameter("demoNo", A);
-            default -> { }
+            default -> {
+                // "missing": the request names no patient at all.
+            }
         }
 
         try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
@@ -202,7 +204,9 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
         switch (variant) {
             case "conflicting" -> request.setParameter("demographic_no", A, B);
             case "legacy demoNo only" -> request.setParameter("demoNo", A);
-            default -> { }
+            default -> {
+                // "missing": the request names no patient at all.
+            }
         }
 
         try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
