@@ -114,24 +114,23 @@ async function workflow(s) {
     await form.locator('#xml_billtype').selectOption('MSP');
   });
 
-  await s.step('the diagnosis search finds the owned code by its description and fills the bare code', async () => {
-    const input = form.locator('#jsonDxSearchInput-1');
-    await input.fill(`${marker} diag`);
-    await form.locator('.jsonDxSearchButton[value="jsonDxSearchInput-1"]').click();
-    const item = form.locator('ul.ui-autocomplete li').filter({ hasText: `${codes.dx}:` });
-    await item.first().waitFor({ state: 'visible', timeout: TIMEOUT });
-    h.assert(await item.count() === 1, 'The diagnosis search did not list the owned code exactly once');
-    await item.first().click();
-    h.assert(await input.inputValue() === codes.dx, `The diagnosis search filled "${await input.inputValue()}", not ${codes.dx}`);
-  });
-
+  // Fee code first, then the diagnosis, as the form is used: picking a fee code writes that code's
+  // associated diagnoses into Dx 1-3 (billingCodeNewSearch.jsp CodeAttach), blanks when it has none.
   await s.step('the fee-code search finds the owned code by its description and fills it in', async () => {
     const input = form.locator('form[action$="/billing/CA/BC/CreateBilling"] input[name="xml_other1"]');
     await input.fill(`${marker} fee`);
-    const search = await s.popup(form, form.locator(`button[onclick="OtherScriptAttach('xml_other1')"]`), 'bc-fee-code-search');
-    // One match: the popup fills the form and closes itself. Several: pick ours and Confirm.
-    await Promise.race([search.waitForEvent('close', { timeout: TIMEOUT }), search.waitForLoadState('load', { timeout: TIMEOUT })]);
-    if (!search.isClosed()) {
+    // One match: the popup fills the form and closes itself, at times before the popup helper has
+    // finished waiting on it. Several: pick ours and Confirm.
+    let search = null;
+    try {
+      search = await s.popup(form, form.locator(`button[onclick="OtherScriptAttach('xml_other1')"]`), 'bc-fee-code-search');
+    } catch (error) {
+      if (!/closed/i.test(String(error && error.message))) throw error;
+    }
+    if (search && !search.isClosed()) {
+      await Promise.race([search.waitForEvent('close', { timeout: TIMEOUT }), search.waitForLoadState('load', { timeout: TIMEOUT })]);
+    }
+    if (search && !search.isClosed()) {
       const pick = search.locator(`input[name="code_${codes.fee}"]`);
       if (await pick.count() === 1) {
         await pick.check();
@@ -145,11 +144,25 @@ async function workflow(s) {
     await form.locator('#xml_other1_unit').fill('1');
   });
 
+  await s.step('the diagnosis search finds the owned code by its description and fills the bare code', async () => {
+    const input = form.locator('#jsonDxSearchInput-1');
+    await input.fill(`${marker} diag`);
+    // Typing starts the autocomplete's own lookup; let it answer before the search button starts
+    // another, which would abort it (a cancelled request the strict page check would report).
+    await form.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+    await form.locator('.jsonDxSearchButton[value="jsonDxSearchInput-1"]').click();
+    const item = form.locator('ul.ui-autocomplete li').filter({ hasText: `${codes.dx}:` });
+    await item.first().waitFor({ state: 'visible', timeout: TIMEOUT });
+    h.assert(await item.count() === 1, 'The diagnosis search did not list the owned code exactly once');
+    await item.first().click();
+    h.assert(await input.inputValue() === codes.dx, `The diagnosis search filled "${await input.inputValue()}", not ${codes.dx}`);
+  });
+
   await s.step('Continue shows the review with the owned fee code and its fee', async () => {
     const posted = form.waitForRequest(request => request.method() === 'POST'
-      && new URL(request.url()).pathname.endsWith('/billing/CA/BC/CreateBilling'), { timeout: TIMEOUT });
+      && new URL(request.url()).pathname.endsWith('/billing/CA/BC/CreateBilling'), { timeout: TIMEOUT }).catch(() => null);
     await ui.clickAndAwaitReload(form, form.locator('input[type="submit"][value="Continue"]'), { label: 'Continue', timeout: TIMEOUT });
-    await posted;
+    h.assert(await posted, 'Continue did not post the bill (the form may have reported a validation error)');
     await h.assertNotErrorPage(form, 'BC bill review');
     h.assert(await form.locator('form[action$="/billing/CA/BC/SaveBilling"]').count() === 1,
       'Continue did not reach the review (the form may have reported a validation error)');
@@ -171,10 +184,11 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM billing WHERE demographic_no=${patient}`, '1', 'Save Bill did not write exactly one bill');
     const header = sql.value(`SELECT CONCAT_WS('|',billingtype,status,provider_no) FROM billing WHERE demographic_no=${patient}`);
     h.assert(header === `MSP|O|${physician.providerNo}`, `The bill header is ${header}, not MSP|O|${physician.providerNo}`);
-    const line = sql.value(`SELECT CONCAT_WS('|',billing_code,billing_unit,CAST(bill_amount AS DECIMAL(9,2)),dx_code1,phn,practitioner_no,
+    // billing_unit is text; the save writes "1.0", so it is compared as a number.
+    const line = sql.value(`SELECT CONCAT_WS('|',billing_code,CAST(billing_unit AS DECIMAL(5,1)),CAST(bill_amount AS DECIMAL(9,2)),dx_code1,phn,practitioner_no,
         service_date,billingstatus) FROM billingmaster WHERE demographic_no=${patient}`);
     const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y%m%d')");
-    const expected = [codes.fee, '1', FEE, codes.dx, phn, physician.ohipNo, today, 'O'].join('|');
+    const expected = [codes.fee, '1.0', FEE, codes.dx, phn, physician.ohipNo, today, 'O'].join('|');
     h.assert(line === expected, `The billingmaster line is ${line}, not ${expected}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM billing WHERE demographic_no=${patient} AND demographic_name LIKE ${q(`${marker}%`)}`) === '1',
       'The bill is not named for the owned patient');
