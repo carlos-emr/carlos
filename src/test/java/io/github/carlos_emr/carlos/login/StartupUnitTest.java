@@ -375,8 +375,13 @@ class StartupUnitTest extends CarlosUnitTestBase {
         String originalUserHome = System.getProperty("user.home");
 
         ServletContextEvent event = newStartupEvent(tempDir);
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
-        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+        // An empty database: the #3939 encrypted-data check finds nothing, so generation is attempted.
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase();
+             MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            database.applyTo(props);
             System.setProperty("user.home", tempDir.toString());
             // A blank key forces Startup into the generate-and-persist branch.
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
@@ -389,9 +394,13 @@ class StartupUnitTest extends CarlosUnitTestBase {
             // reachable only as the cause of the propagated RuntimeException.
             assertThatThrownBy(() -> new Startup().contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(IllegalStateException.class);
+                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .cause()
+                    .hasMessage("Unable to generate and persist a new encryption key at startup");
         } finally {
             restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
             restoreProperty(props, originalProp);
             keySpecField.set(null, originalKeySpec);
         }
@@ -410,8 +419,12 @@ class StartupUnitTest extends CarlosUnitTestBase {
         String originalUserHome = System.getProperty("user.home");
 
         ServletContextEvent event = newStartupEvent(tempDir);
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
 
-        try {
+        // An empty database is a fresh install for the #3939 encrypted-data check.
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase()) {
+            database.applyTo(props);
             System.setProperty("user.home", tempDir.toString());
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
             keySpecField.set(null, null);
@@ -428,6 +441,8 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
             restoreProperty(props, originalProp);
             keySpecField.set(null, originalKeySpec);
         }

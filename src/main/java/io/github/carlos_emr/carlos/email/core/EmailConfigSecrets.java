@@ -63,6 +63,17 @@ public final class EmailConfigSecrets {
     }
 
     /**
+     * The {@code configDetails} JSON field names that hold credentials. The startup key check
+     * counts ciphertext in exactly these fields (#3939), so a secret field added here is checked
+     * there too.
+     *
+     * @return the field names; the list cannot be changed
+     */
+    public static List<String> secretFieldNames() {
+        return SECRET_FIELDS;
+    }
+
+    /**
      * Returns the given {@code configDetails} JSON with every known secret field encrypted at rest.
      *
      * <p>The operation is idempotent: fields that already carry the {@code {ENC}} marker are left

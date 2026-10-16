@@ -67,6 +67,15 @@
                 level="info" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
+        <!-- The startup encryption-key check (#3939) names, at INFO, the tables this schema lacks.
+             It runs only when encryption.util.secret.key is missing, and that one line is what
+             tells a db_name pointing at the wrong, empty schema apart from a fresh install, so it
+             must be visible at default verbosity. Scoped to that class; it logs table and column
+             names only, never values. additivity="false" so the line is not printed twice. -->
+        <Logger name="io.github.carlos_emr.carlos.login.EncryptedDataCountLoader"
+                level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
         <!-- Hibernate's deprecation channel. HHH90000033 (the deprecated @Temporal annotation)
              alone is one WARN line per mapped date column, roughly 850 lines at every start, for
              a migration that is tracked as a whole rather than actionable line by line. Holding
