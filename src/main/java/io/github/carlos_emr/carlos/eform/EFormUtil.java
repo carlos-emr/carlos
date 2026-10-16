@@ -1474,16 +1474,25 @@ public class EFormUtil {
         return thisStr;
     }
 
+    /**
+     * One HTML attribute in an eForm tag: group 1 is the name, group 3 the value with its quotes.
+     *
+     * <p>Names may contain {@code $} because eForm markup uses it for its own attributes
+     * ({@code eform$name}, {@code var$value}, {@code ref$<field>} and {@code link$eform}); without it
+     * those attributes are never found, and their halves are read as ordinary attributes. The name
+     * class must stay disjoint from whitespace and {@code =}, so the end of a name is never ambiguous
+     * and matching stays linear (this pattern replaced a ReDoS-prone one).
+     */
+    static final Pattern ATTRIBUTE_PATTERN =
+            Pattern.compile("([a-zA-Z][a-zA-Z0-9_:$-]*)(\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+))?", Pattern.CASE_INSENSITIVE);
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static Matcher getAttributeMatcher(String key, String htmlTag, boolean startsWith) {
         Matcher m_return = null;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return m_return;
 
-        // Fixed ReDoS vulnerability by removing word boundaries and simplifying the regex
-        // This pattern matches HTML attributes in a safer way without polynomial complexity
-        Pattern p = Pattern.compile("([a-zA-Z][a-zA-Z0-9_:-]*)(\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+))?", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(htmlTag);
+        Matcher m = ATTRIBUTE_PATTERN.matcher(htmlTag);
 
         while (m.find()) {
             // Group 1 contains the attribute name
