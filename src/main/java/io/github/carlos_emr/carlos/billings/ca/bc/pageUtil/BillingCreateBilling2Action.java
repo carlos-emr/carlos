@@ -104,7 +104,14 @@ public class BillingCreateBilling2Action extends ActionSupport {
         String other_service2_unit = this.getXml_other2_unit();
         String other_service3_unit = this.getXml_other3_unit();
 
-        BillingSessionBean bean = (BillingSessionBean) request.getSession().getAttribute("billingSessionBean");
+        // The bill this window's form belongs to, named by its key (issue #4673). It used to be the
+        // login-wide session bill, i.e. whichever bill another window opened last.
+        BillingSessionBean bean = BcBillStaging.resume(request);
+        if (bean == null) {
+            log.warn("BC billing review refused: the form names no open bill");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         Demographic demo = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
         this.patientDX = vldt.getPatientDxCodes(demo.getDemographicNo().toString());
         ArrayList<BillingItem> billItem = bmanager.getDups2(service, other_service1,
@@ -177,6 +184,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
 
         }
+        // Store the updated bill again under its key (a mutated session value is not seen by a
+        // container that persists or replicates sessions).
+        BcBillStaging.save(request, bean);
         log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
@@ -191,20 +201,20 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
         }
@@ -227,7 +237,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     if (errs != null && errs.size() > 0) {
                         request.setAttribute("WCBcode", sc);
                         request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                        response.sendRedirect(billingRedirect());
                         return NONE;
                     }
                 } else {
@@ -237,7 +247,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
                 request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
         }
@@ -261,6 +271,14 @@ public class BillingCreateBilling2Action extends ActionSupport {
 ////      }
 ////    }
         return SUCCESS;
+    }
+
+    /**
+     * The bill form of this window's own bill: back to it after a validation failure.
+     */
+    private String billingRedirect() {
+        return request.getContextPath() + BILLING_REDIRECT + "?" + BcBillStaging.KEY_PARAMETER + "="
+                + request.getAttribute(BcBillStaging.KEY_ATTRIBUTE);
     }
 
     /**

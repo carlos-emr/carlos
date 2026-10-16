@@ -45,10 +45,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * BC-only billing setup chained behind {@link
  * io.github.carlos_emr.carlos.billings.ca.pageUtil.Billing2Action} on the
- * {@code "BC"} result. Populates {@link BillingSessionBean} on the session,
- * runs the BC decision-support {@link BillingGuidelines}, and forwards to
- * {@code billingBC.jsp}. Lives in the BC subpackage on purpose — every
+ * {@code "BC"} result. Opens a new bill ({@link BillingSessionBean}) for the
+ * requested patient and appointment, or resumes the bill the request names by
+ * its key, runs the BC decision-support {@link BillingGuidelines}, and forwards
+ * to {@code billingBC.jsp}. Lives in the BC subpackage on purpose — every
  * symbol it touches is BC-specific.
+ *
+ * <p>Each bill is staged under its own key ({@link BcBillStaging}). It used to be
+ * the single session attribute {@code billingSessionBean}, so a bill opened in a
+ * second window replaced the first window's, and a request that opened no bill
+ * showed whichever bill was opened last (issue #4673).</p>
  *
  * <p>Lifted out of the former {@code ca.bc.pageUtil.Billing2Action}, which
  * conflated cross-province routing with BC bean fill. The cross-province
@@ -127,7 +133,8 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 bean.setApptDate((String) request.getAttribute("serviceDate"));
             }
 
-            request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep, java.lang.security.audit.tainted-session-from-http-request
+            // This window's own bill; its pages carry the key through review and save.
+            BcBillStaging.open(request, bean);
 
             try {
                 _log.debug("Start of billing rules");
@@ -145,6 +152,12 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 MiscUtils.getLogger().error("BC billing-guideline rules failed for demoNo {}: setup will continue without consequences",
                         LogSafe.sanitize(demoNo), e);
             }
+        } else if (BcBillStaging.resume(request) == null) {
+            // No new bill and no open bill named by this request (a validation return, Go Back, or
+            // the encounter's save-and-bill forward name theirs). Never another window's bill.
+            _log.warn("BC billing setup refused: the request names no open bill");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
         return SUCCESS;
     }

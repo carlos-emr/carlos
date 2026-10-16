@@ -46,8 +46,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and the patient number and data that the Disease Registry, the waiting list, the Rx allergy page
  * and the PMM client view copied into the session under generic names, and the appointment last
  * opened from the day sheet, which tied one patient's Health Tracker save and multisite tickler and
- * prescription defaults to another patient's visit, and the Messenger's message, PDF list and
- * compose attachments, which a second Messenger window replaced or sent. The scan covers all main
+ * prescription defaults to another patient's visit, the Messenger's message, PDF list and
+ * compose attachments, which a second Messenger window replaced or sent, and the BC bill being
+ * built, which a second billing window replaced so the first billed the other patient. The scan covers all main
  * Java and JSP sources, with comments removed, so a reintroduction anywhere fails here.
  *
  * @since 2026-10-16
@@ -88,7 +89,11 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             // download names its message.
             Pattern.compile(SESSION_ACCESS + "PDFAttachment\""),
             Pattern.compile(SESSION_RECEIVER + "\\.setAttribute\\(\\s*\"(viewMessage[A-Za-z]*|attachedDemographics)\""),
-            Pattern.compile("scope=\"session\"[^>]*var=\"bean\"|var=\"bean\"[^>]*scope=\"session\""));
+            Pattern.compile("scope=\"session\"[^>]*var=\"bean\"|var=\"bean\"[^>]*scope=\"session\""),
+            // The BC bill being built: one per window under its own key (BcBillStaging), handed to
+            // the pages as a request attribute; findAttribute would fall back to the session.
+            Pattern.compile(SESSION_ACCESS + "billingSessionBean\""),
+            Pattern.compile("findAttribute\\(\\s*\"billingSessionBean\""));
 
     /**
      * The login's Messenger bean no longer carries compose attachments: each compose window stages

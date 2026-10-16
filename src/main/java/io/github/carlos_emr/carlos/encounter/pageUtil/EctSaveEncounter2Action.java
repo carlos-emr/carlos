@@ -43,6 +43,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillStaging;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EChartRevisionPersister.AppointmentChange;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EChartRevisionPersister.Result;
@@ -415,8 +416,10 @@ public class EctSaveEncounter2Action extends ActionSupport {
         // Every bean field is validated before it reaches the session: the patient and appointment
         // are numeric and were checked as this chart's own under the patient lock, the provider and
         // name come from this patient's entry and record, the region and form from server
-        // configuration, and the status matched the two-letter pattern above.
-        request.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (patient and appointment ownership checked, status [a-zA-Z]{1,2})
+        // configuration, and the status matched the two-letter pattern above. The bill is staged
+        // under its own key, which the forward to /billing carries in this request, so another
+        // window's bill is never shown or saved in its place (issue #4673).
+        BcBillStaging.open(request, bean);
         return "bill";
     }
 }

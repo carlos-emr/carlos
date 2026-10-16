@@ -119,8 +119,9 @@
     BillingPreferencesDAO billingPreferencesDAO = SpringUtils.getBean(BillingPreferencesDAO.class);
 %>
 <%
-    // current data is held in the session.
-    BillingSessionBean bean = (BillingSessionBean) pageContext.findAttribute("billingSessionBean");
+    // This window's bill, handed over by the action that opened or resumed it (BcBillStaging). It
+    // used to be the login-wide session bill: whichever bill another window opened last (#4673).
+    BillingSessionBean bean = (BillingSessionBean) request.getAttribute("billingSessionBean");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Demographic demo = demographicManager.getDemographic(loggedInInfo, bean.getPatientNo());
 
@@ -1347,6 +1348,8 @@
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
             <input type="hidden" name="fromBilling" value="">
+            <%-- This window's own bill (BcBillStaging); review and save read exactly this bill (issue #4673). --%>
+            <input type="hidden" name="billKey" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("billKey")) %>">
 
             <%
                 // set up this form

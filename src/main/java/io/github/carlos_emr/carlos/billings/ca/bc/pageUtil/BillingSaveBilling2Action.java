@@ -216,6 +216,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
 
         if ("Another Bill".equals(submit)) {
+            // The same bill stays open for the next one; store its updated state again.
+            BcBillStaging.save(request, bean);
             return "anotherBill";
         } else if ("Save & Print Receipt".equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
@@ -241,17 +243,13 @@ public class BillingSaveBilling2Action extends ActionSupport {
     }
 
     /**
-     * Reads the staged BC billing session bean without assuming the session is still valid.
+     * The bill this window's review form belongs to, named by its key ({@link BcBillStaging}),
+     * without assuming the session is still valid. It used to be the login-wide session bill, so a
+     * save in one window billed the patient and appointment of whichever bill another window had
+     * opened last (issue #4673). The bill is also handed to the "Another Bill" page.
      */
     private BillingSessionBean billingSessionBean(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return null;
-        }
-        Object billingSessionAttr = session.getAttribute("billingSessionBean");
-        return billingSessionAttr instanceof BillingSessionBean
-                ? (BillingSessionBean) billingSessionAttr
-                : null;
+        return BcBillStaging.resume(request);
     }
 
     /**
