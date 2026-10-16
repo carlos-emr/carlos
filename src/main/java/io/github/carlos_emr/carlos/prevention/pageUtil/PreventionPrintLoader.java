@@ -31,6 +31,7 @@ import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -127,7 +128,7 @@ public class PreventionPrintLoader {
     private final Supplier<? extends List<? extends Map<String, String>>> preventionTypes;
     private final BiFunction<LoggedInInfo, String, PreventionPageData> pageDataFactory;
     private final Function<String, Map<String, String>> extensionReader;
-    private final Function<String, String> providerNames;
+    private final UnaryOperator<String> providerNames;
     private final BooleanSupplier mrpModel;
 
     /** Reads the live configuration, chart and provider records. */
@@ -145,7 +146,7 @@ public class PreventionPrintLoader {
     PreventionPrintLoader(Supplier<? extends List<? extends Map<String, String>>> preventionTypes,
                           BiFunction<LoggedInInfo, String, PreventionPageData> pageDataFactory,
                           Function<String, Map<String, String>> extensionReader,
-                          Function<String, String> providerNames,
+                          UnaryOperator<String> providerNames,
                           BooleanSupplier mrpModel) {
         this.preventionTypes = preventionTypes;
         this.pageDataFactory = pageDataFactory;
@@ -185,24 +186,17 @@ public class PreventionPrintLoader {
         List<Section> screenings = new ArrayList<>();
         for (Map<String, String> type : preventionTypes.get()) {
             String name = type.get("name");
+            boolean screening = SCREENINGS_HEADING.equals(type.get("headingName"));
             // The configuration can list a name twice (a CVC picklist entry and the XML item); a
             // type prints once.
-            if (name == null || !selected.contains(name) || !printed.add(name)) {
-                continue;
+            boolean wanted = name != null && selected.contains(name) && !(screening && immunizationsOnly);
+            if (wanted && printed.add(name)) {
+                List<Entry> entries = pageData.getPreventionData(name).stream().map(this::entry).toList();
+                if (!entries.isEmpty()) {
+                    (screening ? screenings : immunizations)
+                            .add(new Section(name, screening, "history".equals(type.get("layout")), entries));
+                }
             }
-            boolean screening = SCREENINGS_HEADING.equals(type.get("headingName"));
-            if (screening && immunizationsOnly) {
-                continue;
-            }
-            List<Entry> entries = new ArrayList<>();
-            for (Map<String, Object> row : pageData.getPreventionData(name)) {
-                entries.add(entry(row));
-            }
-            if (entries.isEmpty()) {
-                continue;
-            }
-            Section section = new Section(name, screening, "history".equals(type.get("layout")), entries);
-            (screening ? screenings : immunizations).add(section);
         }
         immunizations.addAll(screenings);
         return new Printout(patient, mrpName(patient), immunizationsOnly, immunizations);

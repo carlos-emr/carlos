@@ -82,9 +82,9 @@ public class PreventionPrint2Action extends ActionSupport {
     private static final Pattern DEMOGRAPHIC_NO = Pattern.compile("[1-9]\\d{0,9}");
     private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.ISO_8859_1);
 
-    private final SecurityInfoManager securityInfoManager;
-    private final PreventionPrintLoader printLoader;
-    private final Supplier<PreventionPrintPdf> pdfFactory;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient PreventionPrintLoader printLoader;
+    private final transient Supplier<PreventionPrintPdf> pdfFactory;
 
     public PreventionPrint2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class), new PreventionPrintLoader(), PreventionPrintPdf::new);
@@ -105,6 +105,7 @@ public class PreventionPrint2Action extends ActionSupport {
      * @throws IOException if the response cannot be written
      * @throws SecurityException if the logged-in user lacks {@code _prevention} read privilege
      */
+    @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -124,7 +125,8 @@ public class PreventionPrint2Action extends ActionSupport {
         PreventionPrintLoader.Printout printout;
         try {
             printout = printLoader.load(loggedInInfo, demographicNo, request.getParameterValues("printHP"), immunizationsOnly);
-        } catch (IllegalArgumentException unknownPatient) {
+        } catch (IllegalArgumentException _) {
+            // No patient has that number (or it is not a number).
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Patient not found");
             return NONE;
         }

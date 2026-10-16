@@ -173,9 +173,11 @@ class PreventionPrintPdfUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse to draw an empty printout")
     void shouldThrow_whenNothingToPrint() {
-        assertThatThrownBy(() -> new PreventionPrintPdf().printPdf(
-                new Printout(patient, null, false, List.of()), new ByteArrayOutputStream()))
-                .isInstanceOf(DocumentException.class);
+        PreventionPrintPdf pdf = new PreventionPrintPdf();
+        Printout empty = new Printout(patient, null, false, List.of());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        assertThatThrownBy(() -> pdf.printPdf(empty, out)).isInstanceOf(DocumentException.class);
     }
 
     private Printout printout(String mrpName, String type) {

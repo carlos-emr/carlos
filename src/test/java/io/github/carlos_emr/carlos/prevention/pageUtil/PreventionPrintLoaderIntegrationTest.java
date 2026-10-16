@@ -130,15 +130,15 @@ class PreventionPrintLoaderIntegrationTest extends CarlosTestBase {
     void tearDown() {
         try {
             new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-                for (Prevention record : preventionDao.findByDemographicId(PATIENT)) {
+                for (Prevention stored : preventionDao.findByDemographicId(PATIENT)) {
                     em.createQuery("delete from PreventionExt e where e.preventionId = :id")
-                            .setParameter("id", record.getId()).executeUpdate();
+                            .setParameter("id", stored.getId()).executeUpdate();
                     em.createQuery("delete from PartialDate p where p.tableName = :tableName and p.tableId = :id")
                             .setParameter("tableName", io.github.carlos_emr.carlos.commn.model.PartialDate.PREVENTION)
-                            .setParameter("id", record.getId()).executeUpdate();
+                            .setParameter("id", stored.getId()).executeUpdate();
                     em.clear();
                     em.createQuery("delete from Prevention p where p.id = :id")
-                            .setParameter("id", record.getId()).executeUpdate();
+                            .setParameter("id", stored.getId()).executeUpdate();
                 }
             });
         } finally {
@@ -148,7 +148,7 @@ class PreventionPrintLoaderIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should print stored immunizations with their extensions and leave deleted records out")
-    void shouldLoadStoredRecords_withExtensions() throws Exception {
+    void shouldLoadStoredRecords_withExtensions() {
         insert("Inf", "2025-10-01", "0", ext("comments", COMMENT, "lot", "L-INT-1", "name", "FLUZONE High-Dose",
                 "manufacture", "Sanofi Pasteur", "location", "left deltoid", "dose", "0.5 mL"));
         insert("PAP", "2024-05-05", "0", ext("result", "other", "reason", "repeat in 6 months"));

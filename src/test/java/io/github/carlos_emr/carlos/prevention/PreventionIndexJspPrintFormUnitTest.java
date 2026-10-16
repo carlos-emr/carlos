@@ -80,6 +80,9 @@ class PreventionIndexJspPrintFormUnitTest {
     @Test
     @DisplayName("should refuse implicit submission so Enter in a vaccine box cannot print")
     void shouldRefuseImplicitSubmission_ofPrintForm() {
+        // Each search box is labelled, so its Enter handling is reachable by assistive technology too.
+        assertThat(jsp).contains("<label for=\"lotNumberToAdd2\" class=\"visually-hidden\">",
+                "<label for=\"immunization\" class=\"visually-hidden\">");
         assertThat(jsp).contains("<form name=\"printFrm\" method=\"post\" onsubmit=\"return false;\"");
         assertThat(jsp.split("if \\(e\\.key === 'Enter'\\) \\{", -1)).hasSize(3);
         // An IME's Enter confirms composition and must not pick a suggestion either.
@@ -103,8 +106,8 @@ class PreventionIndexJspPrintFormUnitTest {
     @DisplayName("should show the print error banner whether or not there are recommendations")
     void shouldShowPrintError_outsideRecommendations() {
         int banner = jsp.indexOf("<% if (printError) { %>");
-        assertThat(banner).isPositive();
-        assertThat(banner).isLessThan(jsp.indexOf("if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems)"));
+        assertThat(banner).isPositive()
+                .isLessThan(jsp.indexOf("if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems)"));
         assertThat(jsp).containsOnlyOnce("An error occurred while trying to print");
     }
 }

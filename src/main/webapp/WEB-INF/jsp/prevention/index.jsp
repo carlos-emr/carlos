@@ -866,10 +866,12 @@
 
                     <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
                                 <%-- No name: the box is inside the print form and must not be posted with it. --%>
+                                <label for="lotNumberToAdd2" class="visually-hidden">Add a vaccine by brand, generic or lot number</label>
                                 <input type="text" id="lotNumberToAdd2" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
                     <% } else {%>
+                                <label for="immunization" class="visually-hidden">Pick a vaccine by brand or generic name</label>
                                 <input type="text" id="immunization" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
                                 <div id="immunization_choices" class="autocomplete"></div>
