@@ -30,7 +30,12 @@ public class SmsQueueProcessingService {
     private static final Logger LOGGER = MiscUtils.getLogger();
     // Per-run cap for worker calls without an explicit limit; tune with SMS provider throughput and queue volume.
     private static final int DEFAULT_BATCH_SIZE = 60;
-    private static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
+    /**
+     * How long a row may stay {@code SENDING} after its last attempt started before stale recovery reconciles
+     * it with the SMS provider. Public so the Administration &gt; SMS queue view reports stale sends by the
+     * same threshold the worker acts on.
+     */
+    public static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
     private static final String QUEUE_PROVIDER_EXCEPTION_CODE = "QUEUE_PROVIDER_EXCEPTION";
     private static final String QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_CODE =
             "QUEUE_STALE_STATUS_LOOKUP_EXCEPTION";
