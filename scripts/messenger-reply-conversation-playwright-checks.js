@@ -1,30 +1,31 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
- * messenger-reply-conversation — a message answered with Reply and with Reply All, between three
- * providers. messenger covers composing and sending, messenger-demographic-link opens the Reply and
- * Forward drafts and clears them; no check sent a reply, so who a reply reaches was never asserted.
+ * messenger-reply-conversation — a message answered with Reply. messenger covers composing and
+ * sending, messenger-demographic-link opens the Reply and Forward drafts and clears them, and
+ * messenger-reply-all-forward (#4753) is the Reply All coverage (recipients, Sent box, Forward). No
+ * check sent a plain Reply, so who it reaches, whether the patient link survives it, and whose copy
+ * reading marks read were never asserted.
  *
- * User path, as three THROWAWAY logins (lib/throwaway-login-fixture.js) A, B and C:
- *   B: Schedule ▸ Msg ▸ the message from A ▸ Reply (messenger/HandleMessages) ▸ type ▸ Send Message
- *      (messenger/CreateMessage);
- *   C: Schedule ▸ Msg ▸ the same message ▸ Reply All ▸ type ▸ Send Message;
- *   A: Schedule ▸ Msg ▸ the two replies.
+ * User path, as THROWAWAY logins (lib/throwaway-login-fixture.js) A and B; C is a third throwaway that
+ * only receives:
+ *   B: Schedule ▸ Msg ▸ the message from A (also sent to C) ▸ Reply (messenger/HandleMessages) ▸ type ▸
+ *      Send Message (messenger/CreateMessage);
+ *   A: Schedule ▸ Msg ▸ B's reply.
  *
  * What the code means to do (MsgHandleMessages2Action with MessagingManagerImpl): Reply addresses the
- * original sender only (getReplyToSender: sentbyNo at sentByLocation). Reply All addresses the sender
- * plus every local delivery of the message except the replier's own (getAllMessageReplyRecipients =
- * sender + getAllLocalReplyRecipients, which skips the logged-in provider). CreateMessage.jsp ticks
- * those recipients among the Local Members, the subject gains "Re:", the original is quoted with ">"
- * lines, and the original's linked patient (msgDemoMap) rides along as demographic_no, which
- * MsgCreateMessage2Action links to the reply. Sending writes one messagelisttbl row per ticked
- * recipient (status new) and none for the sender.
+ * original sender only (getReplyToSender: sentbyNo at sentByLocation), so CreateMessage.jsp ticks that
+ * one Local Member even when another recipient of the original is listed too; the subject gains "Re:",
+ * the original is quoted with ">" lines, and the original's linked patient (msgDemoMap) rides along as
+ * demographic_no, which MsgCreateMessage2Action links to the reply. Sending writes one messagelisttbl
+ * row per ticked recipient (status new) and none for the sender. Reading marks the reader's own
+ * delivery row read.
  *
- * Asserted: B's Reply ticks exactly A; sent, it is one Re: message from B, quoting the original and
- * carrying B's new line, delivered new to A alone and linked to the owned patient. C's Reply All ticks
- * exactly A and B; sent, A and B each get one new delivery and C none, linked to the patient. A's
- * inbox lists both replies; opening B's reply shows the quoted original and marks only A's copy of it
- * read. Opening the original marked each reader's own copy read.
+ * Asserted: opening the original marks B's copy read and leaves C's new. B's Reply ticks exactly A,
+ * although C is a listed contact and a recipient of the original, and carries Re:, the quoted original
+ * and the linked patient. Sent, it is one Re: message from B, quoting the original and carrying B's new
+ * line, delivered new to A alone and linked to the owned patient. A's inbox lists the reply; opening it
+ * shows the quoted original and marks A's copy read, while C's copy of the original stays new.
  *
  * Fixtures: three throwaway logins, each enrolled as a local messenger contact the way Group Admin's
  * add writes it (groupMembers_tbl: group 0, facility 0, the current location); one message from A to B
@@ -48,7 +49,7 @@ async function workflow(s) {
   const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
   h.assert(/^\d+$/.test(location), 'No current messenger location is configured');
 
-  // ---- three throwaway providers; A carries the run marker, B and C markers of their own ----
+  // ---- three throwaway providers; A carries the run marker, B and C markers of their own. C only receives ----
   const people = {};
   for (const [key, ownMarker] of [['A', marker], ['B', `FAKE-PW${randomBytes(8).toString('hex')}`],
     ['C', `FAKE-PW${randomBytes(8).toString('hex')}`]]) {
@@ -172,36 +173,15 @@ async function workflow(s) {
     h.assert(JSON.stringify(linkedPatients(replyB)) === JSON.stringify([String(patient)]), 'The reply is not linked to the original\'s patient');
   });
 
-  // ---- C: Reply All ----
-  const inboxC = await signIn(C, 'provider-c');
-  let replyC;
-  await s.step('C\'s Reply All ticks the sender and the other recipient, never C itself', async () => {
-    await openMessage(inboxC, original);
-    expectDeliveries(original, [[B, 'read'], [C, 'read']], 'Opening the message did not mark C\'s copy read');
-    await clickAndLoad(inboxC, inboxC.locator('button[name="replyAll"]'), '/messenger/HandleMessages');
-    const d = await draft(inboxC);
-    const want = [A.no, B.no].sort();
-    h.assert(JSON.stringify(d.recipients) === JSON.stringify(want), `Reply All ticked ${JSON.stringify(d.recipients)}, not ${JSON.stringify(want)}`);
-    h.assert(d.subject === `Re:${subject}` && d.demographic === String(patient), 'Reply All lost the Re: subject or the linked patient');
-  });
-
-  await s.step('C sends to all: the sender and B each get one new delivery, C none, linked to the patient', async () => {
-    replyC = await sendReply(inboxC, C, `${marker} reply all from C`);
-    expectDeliveries(replyC, [[A, 'new'], [B, 'new']], 'Reply All was not delivered to exactly the sender and the other recipient');
-    h.assert(JSON.stringify(linkedPatients(replyC)) === JSON.stringify([String(patient)]), 'The Reply All message is not linked to the original\'s patient');
-  });
-
-  // ---- A reads the replies ----
-  await s.step('A\'s inbox lists both replies; opening B\'s shows the quoted original and marks only A\'s copy read', async () => {
+  // ---- A reads the reply ----
+  await s.step('A\'s inbox lists the reply; opening it shows the quoted original and marks only A\'s copy read', async () => {
     const inboxA = await signIn(A, 'provider-a');
-    for (const id of [replyB, replyC]) {
-      await inboxA.locator(`input[name="messageNo"][value="${id}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
-    }
+    await inboxA.locator(`input[name="messageNo"][value="${replyB}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
     await openMessage(inboxA, replyB);
     h.assert((await inboxA.locator('#msgSubject').innerText()).includes(`Re:${subject}`), 'B\'s reply opened under another subject');
     h.assert((await inboxA.locator('body').innerText()).includes(body), 'B\'s reply does not show the quoted original');
-    expectDeliveries(replyB, [[A, 'read']], 'Opening B\'s reply did not mark A\'s copy read');
-    expectDeliveries(replyC, [[A, 'new'], [B, 'new']], 'Opening B\'s reply changed the Reply All deliveries');
+    expectDeliveries(replyB, [[A, 'read']], 'Opening the reply did not mark A\'s copy read');
+    expectDeliveries(original, [[B, 'read'], [C, 'new']], 'Reading and replying changed C\'s copy of the original');
   });
 }
 
