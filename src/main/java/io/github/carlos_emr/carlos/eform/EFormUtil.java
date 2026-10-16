@@ -1541,16 +1541,19 @@ public class EFormUtil {
         return null;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static AttributeMatch findAttribute(String key, String htmlTag, boolean startsWith) {
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
 
-        String wanted = key.trim().toLowerCase();
+        String wanted = lowerCase(key.trim());
         return firstAttribute(htmlTag, attribute -> {
-            String keypart = attribute.name().toLowerCase();
+            String keypart = lowerCase(attribute.name());
             return keypart.equals(wanted) || (startsWith && keypart.startsWith(wanted));
         });
+    }
+
+    /** Attribute names are ASCII, so lower-casing them must not depend on the server's locale. */
+    private static String lowerCase(String attributeName) {
+        return attributeName.toLowerCase(Locale.ROOT);
     }
 
     private static String putTemplateValues(ArrayList<String> paramNames, ArrayList<String> paramValues, String template) {
