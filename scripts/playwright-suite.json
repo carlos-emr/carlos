@@ -3695,6 +3695,21 @@
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the consultation request it creates, the extension, archive and document rows and the provider signature saving it stores against the patient, the chart's note lock and the patient are removed by the patient's key and asserted gone. It no longer files its request for demo patient 2. No clinic-wide state is changed."
     },
     {
+      "name": "consultation-labs-not-included",
+      "script": "scripts/consultation-labs-not-included-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4693: a referral with an HL7 and an MDS lab attached. Print, the legacy printPdf2 route and Update And Print Preview put a page naming the MDS lab between the letter and the HL7 lab; the preview alert, the confirmation page and the fax cover page name it too. The MDS lab is named with its discipline and date when MDS_LABS=yes, and as details unavailable otherwise.",
+      "fixtures": "Owned FAKE-PW patient (runWorkflow), FAKE service, specialist and referral; a copy of one demo HL7 lab routed to the patient (no inbox routing); an MDS lab (mdsMSH, mdsZRG, routing) for the patient; the consultdocs rows; the archive/ext rows and stamp DigitalSignature that Update writes. Cleanup removes them by the run's patient, accession and reason and asserts them gone. The fax step cancels on the cover page, so nothing is queued and no fax_config state is needed. Needs pdftotext and a demo HL7 lab to copy (SKIP otherwise)."
+    },
+    {
       "name": "cpp-note-extension-archive",
       "script": "scripts/cpp-note-extension-archive-playwright-checks.js",
       "tiers": [
@@ -8062,6 +8077,21 @@
       ],
       "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN the inbox name search needs, L207), one owned two-page PDF with document, ctl_document and providerLabRouting rows; the annotated copy and its file are removed in cleanup and checked gone.",
       "notes": "PASS expected; fails at the step naming the viewer, save, copy or source-integrity assertion that breaks."
+    },
+    {
+      "name": "health-care-team-heading",
+      "script": "scripts/health-care-team-heading-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient only; the check is read-only and writes no contact rows. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
+      "notes": "Verifies the Health Care Team heading is translated (English and French) in the master record's embedded panel and in the detached view (issue #4684)."
     },
     {
       "name": "gap-records-health-care-team-panel",
