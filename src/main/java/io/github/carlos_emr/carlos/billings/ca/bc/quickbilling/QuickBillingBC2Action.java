@@ -89,7 +89,10 @@ public class QuickBillingBC2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
-        quickBillingHandler = new QuickBillingBCHandler();
+        // The header and the bills added so far must survive between requests: the page adds or
+        // removes one bill per request and the save action reads them all.
+        QuickBillingBCFormBean quickBillingBCFormBean = QuickBillingBCFormBean.fromSession(request.getSession());
+        quickBillingHandler = new QuickBillingBCHandler(quickBillingBCFormBean);
 
         if (request.getParameter("data") != null) {
 
@@ -98,10 +101,10 @@ public class QuickBillingBC2Action extends ActionSupport {
 
             // check if the main header items are set.
             // if not then set them otherwise go on to get the other input.
-            if (!this.getHeaderSet()) {
+            if (!Boolean.TRUE.equals(quickBillingBCFormBean.getIsHeaderSet())) {
 
                 quickBillingHandler.setHeader(billingEntry);
-                this.setHeaderSet(true);
+                quickBillingBCFormBean.setIsHeaderSet(true);
             }
 
             // add data to the quick billing session form bean
@@ -128,8 +131,8 @@ public class QuickBillingBC2Action extends ActionSupport {
             List<ProviderData> activeProviders = quickBillingHandler.getProviderDao().findAll(false);
 
             quickBillingHandler.reset();
-            this.setProviderList(activeProviders);
-            this.setBillingVisitTypes(billingVisit);
+            quickBillingBCFormBean.setProviderList(activeProviders);
+            quickBillingBCFormBean.setBillingVisitTypes(billingVisit);
         }
 
         return SUCCESS;

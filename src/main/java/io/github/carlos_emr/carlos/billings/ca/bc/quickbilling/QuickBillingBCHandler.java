@@ -205,16 +205,17 @@ public class QuickBillingBCHandler {
 
     /**
      * Set the header data for this group of billings.
-     * Header consists of a providers, service location, and service date and
+     * Header consists of a provider, service location, and service date and
      * is the header for a group of individual patients with the header data
-     * in commons.
+     * in common.
      *
      */
     public void setHeader(ObjectNode billingEntry) {
 
         String visitLocation = billingEntry.get("visitLocation").asText();
         String visitDate = billingEntry.get("visitDate").asText();
-        String providerNo = billingEntry.get("providers").asText();
+        // The page's select is named "provider" (quickBillingBC.jsp); a 2025 bulk rename changed only this key.
+        String providerNo = billingEntry.get("provider").asText();
         String creator = billingEntry.get("creator").asText();
 
         // if any of the variables are empty
@@ -467,12 +468,24 @@ public class QuickBillingBCHandler {
 
     /**
      * remove selected bill from the bill arraylist stored in the quickBillingBCFormBean
-     * @param bill
+     * @param bill the row index the page sent
+     * @return {@code true} when the row was removed; {@code false}, with nothing removed, when
+     *         {@code bill} is not the index of a current row
      */
     public boolean removeBill(String bill) {
 
         ArrayList<BillingSessionBean> billingSessionBeans = quickBillingBCFormBean.getBillingData();
-        billingSessionBeans.remove(Integer.parseInt(bill));
+        int index;
+        try {
+            index = Integer.parseInt(bill);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        // A page rendered before the last removal (a second click on Remove) can name a row that is gone.
+        if (index < 0 || index >= billingSessionBeans.size()) {
+            return false;
+        }
+        billingSessionBeans.remove(index);
         return true;
     }
 

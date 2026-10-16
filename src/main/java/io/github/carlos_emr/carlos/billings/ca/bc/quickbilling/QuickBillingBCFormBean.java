@@ -37,8 +37,43 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.servlet.http.HttpSession;
 
+
+/**
+ * The BC quick billing form: the header (billing physician, service location, service date) and the
+ * bills added so far. It lives in the HTTP session under {@link #SESSION_ATTRIBUTE} from the page's
+ * first open until the bills are saved, because the page adds and removes one bill per request.
+ * Struts 1 kept it in session scope ({@code scope="session"}); the Struts 2 actions use
+ * {@link #fromSession(HttpSession)} to do the same.
+ */
 public class QuickBillingBCFormBean {
+
+    /**
+     * Session attribute that holds the form. {@code quickBillingBC.jsp} reads it as
+     * {@code quickBillingBC}.
+     *
+     * @since 2026-10-16
+     */
+    public static final String SESSION_ATTRIBUTE = "quickBillingBC";
+
+    /**
+     * Returns this session's quick billing form, storing a new empty one (no header, no bills) on
+     * first use.
+     *
+     * @param session the signed-in user's session
+     * @return the session's form, never {@code null}
+     * @since 2026-10-16
+     */
+    public static QuickBillingBCFormBean fromSession(HttpSession session) {
+        if (session.getAttribute(SESSION_ATTRIBUTE) instanceof QuickBillingBCFormBean form) {
+            return form;
+        }
+        QuickBillingBCFormBean form = new QuickBillingBCFormBean();
+        form.setBillingData(new ArrayList<BillingSessionBean>());
+        session.setAttribute(SESSION_ATTRIBUTE, form);
+        return form;
+    }
 
     /**
      * @author Dennis Warren

@@ -80,7 +80,9 @@ public class QuickBillingBCSave2Action extends ActionSupport {
         }
 
 
-        QuickBillingBCHandler quickBillingHandler = new QuickBillingBCHandler();
+        // Saves the bills the quick billing page collected in this session's form.
+        QuickBillingBCHandler quickBillingHandler =
+                new QuickBillingBCHandler(QuickBillingBCFormBean.fromSession(request.getSession()));
 
         if (quickBillingHandler.saveBills()) {
 
