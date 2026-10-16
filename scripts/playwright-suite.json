@@ -6729,6 +6729,21 @@
       "fixtures": "Owns an eForm template, report tool and its generated ERT_ table; scoped cleanup verifies removal and deletes the owned template."
     },
     {
+      "name": "eform-report-tool-populate",
+      "script": "scripts/eform-report-tool-populate-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "EForm Report Tool (Populate) and (Mark Latest), which detached-delete-eform-report-tool does not press. On develop the last step fails: Populate copies deleted eForm instances (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owned eForm template, the owned FAKE- patient and four SQL-seeded instances with values (one deleted); the report tool and its ERT_FAKEPW table are created through the UI. All removed in cleanup."
+    },
+    {
       "name": "popup-opener-master-record",
       "script": "scripts/popup-opener-master-record-playwright-checks.js",
       "tiers": [

@@ -432,6 +432,7 @@
     "test:detached-delete-hrm-playwright": "node scripts/detached-delete-hrm-playwright-checks.js",
     "test:detached-delete-forward-favourites-playwright": "node scripts/detached-delete-forward-favourites-playwright-checks.js",
     "test:detached-delete-eform-report-tool-playwright": "node scripts/detached-delete-eform-report-tool-playwright-checks.js",
+    "test:eform-report-tool-populate-playwright": "node scripts/eform-report-tool-populate-playwright-checks.js",
     "test:popup-opener-master-record-playwright": "node scripts/popup-opener-master-record-playwright-checks.js",
     "test:popup-opener-response-policy-playwright": "node scripts/popup-opener-response-policy-playwright-checks.js",
     "test:popup-opener-colour-picker-playwright": "node scripts/popup-opener-colour-picker-playwright-checks.js",
