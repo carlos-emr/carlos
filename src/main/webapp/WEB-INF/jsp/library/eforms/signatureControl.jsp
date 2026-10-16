@@ -27,16 +27,51 @@
     var signaturePadIFrameStart = "Signature:<br/><iframe style=\"width:500px; height:132px;\"id=\"signatureFrame\" src=\"";
     var signaturePadIFrameEnd = "\" ></iframe>";
     var signatureControl = {
+        /*
+         * The patient a drawing is stored against. SaveSignatureUpload persists a DigitalSignature
+         * row for this number, which is a foreign key to demographic: an empty value is stored as -1
+         * and the save fails with HTTP 500. The stored image is also rendered back only to users who
+         * may read this patient's eForms. efmformadd_data and efmshowform_data emit the hidden
+         * #demographicNo on every eForm; the page URL covers a host page that predates it.
+         */
+        patientNumber: function (candidate) {
+            var hidden = document.getElementById("demographicNo");
+            var values = [candidate, hidden ? hidden.value : "",
+                new URLSearchParams(window.location.search).get("demographic_no")];
+            for (var i = 0; i < values.length; i++) {
+                var value = values[i] == null ? "" : String(values[i]).trim();
+                if (/^[1-9][0-9]*$/.test(value)) {
+                    return value;
+                }
+            }
+            return "";
+        },
+        /*
+         * Completes a tabletSignature URL: fills an empty "demographicNo=" (the shape callers pass,
+         * with the number given separately) and names the eForm module. Without a module
+         * imageRenderingServlet cannot decide who may view the stored signature and refuses it.
+         */
+        padUrl: function (url, patientNumber) {
+            var padUrl = String(url).replace(/([?&]demographicNo=)(?=&|$)/, "$1" + encodeURIComponent(patientNumber));
+            if (!/[?&]demographicNo=/.test(padUrl)) {
+                padUrl += (padUrl.indexOf("?") < 0 ? "?" : "&") + "demographicNo=" + encodeURIComponent(patientNumber);
+            }
+            if (!/[?&]ModuleType=/.test(padUrl)) {
+                padUrl += "&ModuleType=E_FORM";
+            }
+            return padUrl;
+        },
         initialize: function (options) {
             var element = this;
             // Generating an eform configuration.
             if (typeof options == "undefined" || options == null || options.eform) {
-                options = typeof options == "undefined" ? {} : options;
-                element.sigHTML = "<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
+                options = options == null ? {} : options;
+                element.demographicNo = element.patientNumber(options.demographicNo);
+                element.sigHTML = element.padUrl("<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=",
+                    element.demographicNo);
                 element.signatureDisplay = "#signatureDisplay";
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"
-                element.demographicNo = 0; //TODO: Keep on trucking
                 element.imgAttributes = "";
 
                 var placeholder = jQuery(element.signatureInput);
@@ -98,10 +133,10 @@
                     alert("Error, missing demographic number.");
                     return;
                 }
-                element.sigHTML = options.sigHTML;
+                element.demographicNo = element.patientNumber(options.demographicNo);
+                element.sigHTML = element.padUrl(options.sigHTML, element.demographicNo);
                 element.signatureDisplay = options.signatureDisplay;
                 element.signatureInput = options.signatureInput;
-                element.demographicNo = options.demographicNo;
                 element.isSignatureDirty = false;
                 element.isSignatureSaved = false;
                 element.refreshImage = options.refreshImage == null
@@ -123,6 +158,12 @@
                     }
                 }
                 : options.signatureHandler;
+            // Without a patient (a patient-independent eForm) a drawing can never be stored, so offer
+            // no pad that would only answer every save with an error.
+            if (!/[?&]demographicNo=[1-9][0-9]*(&|$)/.test(element.sigHTML)) {
+                jQuery(element.signatureInput).text("Signature capture is only available on a form that belongs to a patient.");
+                return element;
+            }
             if ($(element.signatureInput)) {
                 $(element.signatureInput).html(signaturePadIFrameStart + element.sigHTML + signaturePadIFrameEnd);
             }
