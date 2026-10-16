@@ -30,7 +30,38 @@ claims for Ontario-resident patients. It implements:
   one-to-three-digit value, blank means `0000`) so the batch header, the disk
   file name and the batch counter share one four-character key. A value that
   still is not well formed is reported per provider by Generate OHIP File
-  before any disk is written (issue #4277).
+  before any disk is written (issue #4277). The provider's OHIP billing number
+  and specialty code (also free text, the specialty read as `00` when blank)
+  must fill their numeric six- and two-digit batch-header fields (MOH format
+  N; `support/OhipProviderFields`). A run that includes a provider whose
+  stored value has another length, or a character that is not an ASCII digit,
+  is refused the same way, naming the provider and the field. Before that
+  check, the wrong-length header stopped the run on that provider after its
+  disk was allocated, a non-digit was written into a file MOH rejects, and
+  the simulation only showed an error line.
+  The claim file name (`H`, month letter, group or OHIP number, `.NNN`)
+  restarts at `.001` each month and so recurs every year, while
+  `billing_on_diskname.ohipfilename` is unique. Disk allocation therefore
+  takes the first sequence number that no existing disk holds: once an
+  earlier year has a disk for the same month letter, the month's first new
+  disk continues after that year's numbers instead of colliding, which used
+  to stop generation with "Unable to allocate unique … disk name" while the
+  simulation (which allocates no disk) still worked. The HTML companion names
+  (`billing_on_filename.htmlfilename`, also unique) carry the same number, so
+  a number counts as taken when the claim file name or any of its HTML names
+  is. The MOH specification leaves the sequence number to the provider and
+  only requires it to be unique within a submission (Interface to Health Care
+  Systems Technical Specifications, §4.2). A skipped number never comes back,
+  so the 999 numbers of a month letter are shared by every year of a provider's
+  or group's history; when none is left, generation stops with a message that
+  names the file name.
+  Generation also writes into `HOME_DIR`, which the simulation never
+  touches. `Startup` creates that folder only when it derives the value from
+  `BASE_DOCUMENT_DIR`; a deployment that sets `HOME_DIR` itself must create
+  the folder (the Debian package ships it in its document skeleton). A
+  missing, non-folder or read-only `HOME_DIR` is reported before anything
+  runs as "The OHIP output folder (HOME_DIR) is missing or CARLOS cannot
+  write to it" (`BillingOutputLock`), not as a lock failure.
   **Provider eligibility is by design, not a fault:** generation only ever
   considers *billable* providers (`ProviderDao.getBillableProviders`:
   `status = '1'` and a non-empty `ohipNo`), both for "all providers" and

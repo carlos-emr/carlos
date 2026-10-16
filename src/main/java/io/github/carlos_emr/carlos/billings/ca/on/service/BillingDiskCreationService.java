@@ -27,6 +27,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.ArrayList;
+import java.util.function.Predicate;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -69,6 +70,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class BillingDiskCreationService {
 
     private static final int DISK_NAME_INSERT_RETRIES = 3;
+    /** The OHIP claim file extension is a three-digit sequence number. */
+    private static final int MAX_BATCH_NUM = 999;
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnDiskLoader diskQuery;
@@ -226,7 +229,7 @@ public class BillingDiskCreationService {
     }
 
     private BillingDiskNameDto newGroupDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
-        String[] temp = getCurGrpMonthCodeBatchNum(groupNo);
+        String[] temp = getCurGrpMonthCodeBatchNum(groupNo, ohipNo);
         BillingDiskNameDto diskName = new BillingDiskNameDto();
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
@@ -441,10 +444,59 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
+        ret[1] = firstUnusedBatchNum("H" + curMonthCode + ohipNo, ret[1], batchNum ->
+                diskQuery.isOhipFilenameInUse(getSoloOhipfilename(ohipNo, curMonthCode, batchNum))
+                        || anyHtmlFilenameInUse(getSoloHtmlfilename(ohipNo, curMonthCode, batchNum)));
         return ret;
     }
 
-    private String[] getCurGrpMonthCodeBatchNum(String groupNo) {
+    /**
+     * The OHIP claim file name (H, month letter, group or provider number,
+     * sequence) restarts at {@code .001} every month and so recurs every
+     * year, but {@code billing_on_diskname.ohipfilename} is unique. The
+     * counter above only knows the latest disk, so once a disk of the same
+     * month letter exists from an earlier year the first disk of the month
+     * proposed a taken name, collided on every retry and stopped generation
+     * ("Unable to allocate unique ... disk name"); the simulation allocates
+     * no disk and kept working. Advance past every number already on record.
+     * The HTML companion names ({@code billing_on_filename.htmlfilename}) are
+     * unique as well and carry the same number, so a number counts as taken
+     * when the claim file name or any of its HTML names is.
+     *
+     * <p>A skipped number never comes back, so the 999 numbers of a month letter
+     * are shared by every year of its history; when none is left the run stops
+     * with a message that names the file name, not the fixed-width guard's.</p>
+     *
+     * @param namePrefix the claim file name before the sequence number, for the message
+     * @param candidate sequence number the monthly counter proposed
+     * @param namesInUse whether a sequence number's claim file name or any of
+     *                   its HTML companion names is already on record
+     * @return the first sequence number from {@code candidate} whose names are
+     *         all free
+     * @throws BillingValidationException when every number up to 999 is taken
+     */
+    private String firstUnusedBatchNum(String namePrefix, String candidate, Predicate<String> namesInUse) {
+        int batchNum = Integer.parseInt(candidate);
+        while (batchNum <= MAX_BATCH_NUM && namesInUse.test(String.valueOf(batchNum))) {
+            batchNum++;
+        }
+        if (batchNum > MAX_BATCH_NUM) {
+            throw new BillingValidationException("All 999 OHIP claim file names " + namePrefix
+                    + ".001 to .999 are already on record, so no new claim file can be named in this month.");
+        }
+        return String.valueOf(batchNum);
+    }
+
+    private boolean anyHtmlFilenameInUse(List<?> htmlFilenames) {
+        for (Object htmlFilename : htmlFilenames) {
+            if (diskQuery.isHtmlFilenameInUse((String) htmlFilename)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String[] getCurGrpMonthCodeBatchNum(String groupNo, List ohipNo) {
         String[] ret = new String[2];
         GregorianCalendar now = new GregorianCalendar();
         // int curYear = now.get(Calendar.YEAR); int curDay =
@@ -460,6 +512,9 @@ public class BillingDiskCreationService {
             ret[0] = curMonthCode;
             ret[1] = "1";
         }
+        ret[1] = firstUnusedBatchNum("H" + curMonthCode + groupNo, ret[1], batchNum ->
+                diskQuery.isOhipFilenameInUse(getGrpOhipfilename(groupNo, curMonthCode, batchNum))
+                        || anyHtmlFilenameInUse(getGrpHtmlfilename(ohipNo, groupNo, curMonthCode, batchNum)));
         return ret;
     }
 }

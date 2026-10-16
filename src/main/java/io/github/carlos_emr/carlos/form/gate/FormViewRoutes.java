@@ -258,7 +258,8 @@ public final class FormViewRoutes {
         if ("/form/forwardname.jsp".equals(pathOnly)) {
             return "/form/forwardname" + query;
         }
-        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly)) {
+        // The BC seed registers BPMH as "../formBPMH.do?demographic_no="; actions are extensionless now (#4732).
+        if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly) || "/formBPMH.do".equals(pathOnly)) {
             return "/formBPMH" + query;
         }
         if (!pathOnly.startsWith(PUBLIC_FORM_PREFIX)) {

@@ -34,10 +34,11 @@
  *                versions to the patient and not the recycled report. This is the strict form of the chain
  *                (MrpRoutingService), which threw for every CML report before the fix: the match answered HTTP 500.
  *                The popup also writes two ERROR entries to the server log for a CML report (it asks the HL7 factory
- *                for the lab, finding 269); scripts/lib/server-log-baseline.tsv explains them for the log audit.
+ *                for the lab, finding 276); scripts/lib/server-log-baseline.tsv explains them for the log audit.
  *
- * NOT ASSERTED, on purpose: Forward. The CML picker cannot complete a Forward (finding 184, pinned by
- * legacy-lab-display), and the chain is the same one Acknowledge resolves.
+ * NOT ASSERTED, on purpose: Forward. legacy-lab-display and lab-forward-picker drive it (finding 184, fixed:
+ * #4558), but each seeds a single report, so no browser check yet shows Forward routing a whole version
+ * chain; it resolves the same chain Acknowledge does.
  *
  * HOW THE LAB IS OPENED. As in legacy-lab-display: the lists that link CML labs show them only when CML_LABS is
  * "yes" (off in the package), so the check opens the owned patient's lab list, adds the row link that list

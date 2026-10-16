@@ -3136,6 +3136,21 @@
       "notes": "Fresh sessions compare the original chart HTTP response parsed without executing scripts against the loaded header and a reload: browser-native French, English, French, unsupported German fallback, and German followed by French. Checks labels, locale diagnostics, calculator uniqueness and template-search translations; no second GET is used to capture the initial header."
     },
     {
+      "name": "echart-note-signed-edit",
+      "script": "scripts/echart-note-signed-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient (lib/workflow-session.js); its notes and their issue/ext/link rows, note locks, drafts and eChart rows are removed and asserted gone. No clinic-wide state is changed.",
+      "notes": "Issue #4711: Edit ▸ Sign & Save of a signed note answered HTTP 500 when the browser language had no date format (the Edit field held java.sql.Timestamp.toString()) or had other month names (German). Four edit rounds -- the runner's language, de-DE, zz and fr-CA with a date written by the French calendar -- each assert the Edit field shows the stored date as dd-MMM-yyyy HH:mm in English, Sign & Save stores one new signed revision with the same uuid and the encounter date kept (or the picked one), and every earlier revision is unchanged. Last, an unreadable date (the raw timestamp) is refused with 400, its reason and the unsaved text, and nothing is stored."
+    },
+    {
       "name": "echart-note-editor",
       "script": "scripts/echart-note-editor-playwright-checks.js",
       "tiers": [
@@ -3693,6 +3708,21 @@
       ],
       "notes": "Print preview preserves unsaved consultation text, including Vietnamese, Polish and Turkish names and mathematical comparisons (#4173), without changing the stored referral.",
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the consultation request it creates, the extension, archive and document rows and the provider signature saving it stores against the patient, the chart's note lock and the patient are removed by the patient's key and asserted gone. It no longer files its request for demo patient 2. No clinic-wide state is changed."
+    },
+    {
+      "name": "consultation-labs-not-included",
+      "script": "scripts/consultation-labs-not-included-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4693: a referral with an HL7 and an MDS lab attached. Print, the legacy printPdf2 route and Update And Print Preview put a page naming the MDS lab between the letter and the HL7 lab; the preview alert, the confirmation page and the fax cover page name it too. The MDS lab is named with its discipline and date when MDS_LABS=yes, and as details unavailable otherwise.",
+      "fixtures": "Owned FAKE-PW patient (runWorkflow), FAKE service, specialist and referral; a copy of one demo HL7 lab routed to the patient (no inbox routing); an MDS lab (mdsMSH, mdsZRG, routing) for the patient; the consultdocs rows; the archive/ext rows and stamp DigitalSignature that Update writes. Cleanup removes them by the run's patient, accession and reason and asserts them gone. The fax step cancels on the cover page, so nothing is queued and no fax_config state is needed. Needs pdftotext and a demo HL7 lab to copy (SKIP otherwise)."
     },
     {
       "name": "cpp-note-extension-archive",
@@ -4673,7 +4703,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Preventions Print posts to a /WEB-INF/ URL (404).",
+      "notes": "Its last step prints one seeded prevention; prevention-print covers the print form in depth.",
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -5284,6 +5314,24 @@
       ],
       "notes": "Records each form independently and asserts, per form, open, validate (Discharge Summary and Mental Health Form 1: invalid dates and cancelled confirmations write nothing), save, redisplay, reopen, print, Save's confirmation, resave and script-error concerns. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without writes. Mental Health Form 14, Form 42, Annual V2 for a female and for a male patient (the wrapper picks its template by sex; each is reopened while its record is the table's latest) and the three-page Mental Health referral / assessment / outcome chain (three Saves of one record, each keeping the earlier pages) are driven the same way. Each known defect has its own entry; CLINICAL_FORMS_ONLY and CLINICAL_FORMS_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: clinical-forms-save-reopen (everything not below), -vascular-tracker (103), -vascular-tracker-save (254), -vascular-tracker-script (255), -form14-42 (239), -mental-health-script (237), -mental-health-chart-reload (242), -mental-health-reopen (236), -mental-health-print (238).",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "bpmh-form",
+      "script": "scripts/bpmh-form-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Owned FAKE-PW patient with one active allergy and one drug with an ICD-9 reason; the BPMH Forms-menu registration is the BC seed's row (../formBPMH.do?demographic_no=) given a display order for the run, restored if it existed and deleted if inserted. Cleanup deletes the patient's formBPMH rows, drug reason, drug and allergy and asserts them gone. The registration is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Regression for #4731 (formBPMH answered 500: fetch() used an unset handler) and #4732 (the BC seed's .do link was not routed): Forms > BPMH opens the form with the patient's allergy, drug and provider; Save stores the note and the drug's instruction and shows the saved form; the saved entry reopens it; Print answers a PDF and leaves no stamped copy in DOCUMENT_DIR (checked when DOCUMENT_DIR is set); GET and HEAD carrying the save are refused."
     },
     {
       "name": "clinical-forms-save-reopen-vascular-tracker",
@@ -7170,6 +7218,21 @@
       "notes": "Issue #4410 item 2: the prevention form carries a one-time submission token; a double click stores one prevention, a later intentional add of the same immunization is stored, a replay of the saved form stores nothing and answers the close page, and a token used for another record is refused with 409."
     },
     {
+      "name": "prevention-print",
+      "script": "scripts/prevention-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic patient with four seeded preventions (+ext) and one Tdap added through the brand picker; deletes its preventions (+ext) and any chart notes the popups left and asserts none remain.",
+      "notes": "Alpha report that Enable Print did not work and that the same happened when adding vaccines. Print posts only the ticked type names (no comments, which the packaged WAF refused on this route) and the PDF is read from the chart; Print Immunizations Only and an empty selection are checked; a forged or unprintable request never prints request text or saves HTML as Prevention.pdf; Enter in the vaccine box opens the top suggestion instead of submitting the print form; a vaccine added from the picker refreshes the page and prints with its brand and lot."
+    },
+    {
       "name": "double-submit-demographic-add",
       "script": "scripts/double-submit-demographic-add-playwright-checks.js",
       "tiers": [
@@ -8029,6 +8092,21 @@
       ],
       "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN the inbox name search needs, L207), one owned two-page PDF with document, ctl_document and providerLabRouting rows; the annotated copy and its file are removed in cleanup and checked gone.",
       "notes": "PASS expected; fails at the step naming the viewer, save, copy or source-integrity assertion that breaks."
+    },
+    {
+      "name": "health-care-team-heading",
+      "script": "scripts/health-care-team-heading-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient only; the check is read-only and writes no contact rows. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
+      "notes": "Verifies the Health Care Team heading is translated (English and French) in the master record's embedded panel and in the detached view (issue #4684)."
     },
     {
       "name": "gap-records-health-care-team-panel",
@@ -9431,6 +9509,26 @@
       }
     },
     {
+      "name": "vt-form-xss",
+      "script": "scripts/vt-form-xss-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, Ongoing Concerns and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
+      "notes": "Issue #4681: the VT form printed stored measurement values, comments, drug and allergy text and Ongoing Concerns raw. Opens /form/SetupForm?formName=VTForm for the saved record (the VT registration is hidden by default, so there is no chart link to click), reveals the medication/allergy detail, and requires every seeded value the form shows to appear as literal text with no [data-xp] element, script error or broken inline handler. The foot-exam and smoking comment boxes must hold exactly the stored text (no template indentation). scripts/vt-form.test.js guards the source."
+    },
+    {
       "name": "xss-poison-schedule",
       "script": "scripts/xss-poison-schedule-playwright-checks.js",
       "tiers": [
@@ -10161,12 +10259,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "The old CML lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward picker (the lab page opens the picker, which offers the throwaway recipient and puts it in the Forward List) and Forward (a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Fails on 2026.08 at \"CML forward routes the lab to the chosen provider\": CML display and acknowledge pass, then the provider picker has no control that sends the chosen provider back to the lab page (finding 184: SelectProvider.jsp has no Submit, the picker looks its opener's form up under another name, and the form posts plain id lists where ReportReassign reads JSON). Run on Ontario only.",
-      "expectedFailure": {
-        "finding": 184,
-        "step": "CML forward routes the lab to the chosen provider"
-      },
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one CML lab seeded by SQL under a random 10-digit number verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+      "notes": "The old CML lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward picker (the lab page opens the picker, which offers the throwaway recipient and puts it in the Forward List) and Forward (a control that sends it and closes the picker, a posted Forward request carrying the JSON contract ReportReassign reads, the lab page back on its own display for the lab, then the recipient's routing row, status N, with the sender's row, every other provider's and the sender's forwarding favourites unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Passes every step since #4558 fixed finding 184 (before it, the provider picker had no control that sent the chosen provider back to the lab page, the picker looked its opener's form up under another name, the form posted plain id lists where ReportReassign reads JSON, and a page post was redirected to a path that is not a route). Run on Ontario only.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one CML lab seeded by SQL under a random 10-digit number verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted, one favourite to the recipient is seeded so that 'favourites unchanged' is asserted against a list that is never empty, and cleanup restores the snapshot, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
       "name": "legacy-lab-display-mds",
@@ -10183,12 +10277,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "The old MDS lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Fails on 2026.08 at \"MDS forward routes the lab to the chosen provider\": display, acknowledge and the picker pass, then the provider picker has no control that sends the chosen provider back to the lab page (finding 184, as for CML). The display step seeds two results in one report and a note: every mds row of a report shares its segmentID, and before #4567 the page threw on every lab (finding 194) and its result query would have shown the first result once per row; the second row and the note guard that. The display step also fails if the page says part of the report could not be loaded (#mdsLoadFailed). Run on Ontario only.",
-      "expectedFailure": {
-        "finding": 184,
-        "step": "MDS forward routes the lab to the chosen provider"
-      },
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one MDS lab seeded by SQL under a random 10-digit number verified unoccupied (mdsMSH / mdsPID / mdsPV1 / mdsZFR / mdsZLB / mdsZRG / mdsZMN / mdsOBR / mdsOBX / mdsNTE, two results and one note, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+      "notes": "The old MDS lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it and closes the picker, a posted Forward request carrying the JSON contract ReportReassign reads, the lab page back on its own display for the lab, then the recipient's routing row, status N, with the sender's row, every other provider's and the sender's forwarding favourites unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Passes every step since #4558 fixed finding 184 (as for CML). The display step seeds two results in one report and a note: every mds row of a report shares its segmentID, and before #4567 the page threw on every lab (finding 194) and its result query would have shown the first result once per row; the second row and the note guard that. The display step also fails if the page says part of the report could not be loaded (#mdsLoadFailed). Run on Ontario only.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one MDS lab seeded by SQL under a random 10-digit number verified unoccupied (mdsMSH / mdsPID / mdsPV1 / mdsZFR / mdsZLB / mdsZRG / mdsZMN / mdsOBR / mdsOBX / mdsNTE, two results and one note, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted, one favourite to the recipient is seeded so that 'favourites unchanged' is asserted against a list that is never empty, and cleanup restores the snapshot, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
       "name": "legacy-lab-display-pathnet",
@@ -10213,6 +10303,23 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one PathNet lab seeded by SQL under a random 10-digit number verified unoccupied (hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
+      "name": "lab-forward-picker",
+      "script": "scripts/lab-forward-picker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "The lab Forward provider picker (oscarMDS/ViewSelectProvider) and what it refuses (issue #4558, finding 184). Steps: seed (one CML lab seeded by SQL for an owned FAKE patient, routed to the test provider as New, and a throwaway recipient login); the picker opened as a page has a visible Forward button (#submitButton) while the same page requested the way the Inbox's Forward dialog requests it (jQuery POST with forwardList and isListView) has the search, the Forward List and Favorites but no Forward button of its own; Forward from that picker, which has no lab page behind it, raises exactly the 'no longer open' alert, stays open and sends no Forward request; the CML lab page's Forward opens the picker, and Forward with an empty Forward List raises exactly the 'choose at least one provider' alert, marks the list, stays open and makes the lab page post nothing; the lab page's own reassignForm posted as it was before the fix (bare id lists, with the page's CSRF token) is answered 400 and writes nothing (no routing row for the recipient; the sender's routing row and forwarding favourites unchanged). Before #4558 that post was answered 302 to '<route>&providerNo=...', which is not a route, and deleted every one of the sender's forwarding favourites. Last, Forward from the patient lab list without a demographicNo (lab/ViewDemographicLab, the only mode with Forward, which lists labs filed under demographic 0): the owned HL7 lab's checkbox carries data-lab-type HL7, the picker posts oscarMDS/ReportReassign (not AJAX) with exactly '<id>:HL7' and the recipient, the list lands back on itself, and the recipient holds a New routing row with the sender's row and forwarding favourites unchanged. The lab-page Forward is driven by legacy-lab-display and legacy-lab-display-mds. Run on Ontario only.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the would-be recipient (lib/throwaway-login-fixture.js), one CML lab seeded by SQL by legacy-lab-display's describeLab under a random 10-digit number verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows), and one synthetic HL7 lab uploaded through Inbox > HL7 Lab Upload with a unique accession, matched to the owned patient and then filed under demographic 0 by SQL (where an unlinked lab lives). Cleanup removes exactly those rows by key (the CML lab after proving its header still carries the run's marker, with the providerLabRoutingLock row and the audit rows the page wrote for its number; the HL7 lab found by its accession, with its routing, measurement and upload checksum rows and, when LAB_UPLOAD_DOCUMENT_STORE is set, its archived upload file) and asserts them gone. The test login's forwarding favourites are snapshotted, one favourite to the recipient is seeded so that 'favourites unchanged' is asserted against a list that is never empty, and cleanup restores the snapshot, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward, legacy-lab-display or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+    },
+    {
       "name": "cml-version-chain",
       "script": "scripts/cml-version-chain-playwright-checks.js",
       "tiers": [
@@ -10224,7 +10331,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "The versions of a CML report, the old lab type an OSCAR 19 import carries (issue #4568, finding 197). Two orders are seeded by SQL for an owned FAKE patient: one accession number with a preliminary and a final CML report routed to the test provider as New plus a report that recycled the accession number two years earlier, and a second accession seeded UNMATCHED (two versions and a recycled report). The reports are opened as popups from the patient lab list, as legacy-lab-display does (the lists that link CML labs show them only when CML_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (the final report's Version row is exactly v1 and v2, v1 a link carrying the chain \"multiID=<v1>,<v2>\" and v2 plain text, nothing on the page names the recycled report, and the page shows the final report's result and not the preliminary one's); Older (the v1 link opens the preliminary report, which shows its own result and links back to v2); Acknowledge (a real comment prompt, the popup closes, the list reloads, the final report's routing row is A with the comment, the preliminary report's is F, the recycled report's row is untouched, and the final report opened again shows the preliminary version as Filed but not acknowledged); Match (the matching popup opened from the unmatched second version finds the owned patient, choosing it makes oscarMDS/PatientMatch answer 200, and patientLabRouting then links both versions to the patient and not the recycled report; the older version's page shows the patient). Forward is not asserted: the CML picker cannot complete a Forward (finding 184, pinned by legacy-lab-display). Before the fix, MDSResultsData.getMatchingCMLLabs cast the service_date varchar to Date and threw a ClassCastException on every CML view and acknowledgement, falling back to a chain of one report, so this check fails at the Display step; its strict form, which PatientMatch uses, always threw, so choosing a patient for any CML report answered HTTP 500. Run on Ontario only.",
+      "notes": "The versions of a CML report, the old lab type an OSCAR 19 import carries (issue #4568, finding 197). Two orders are seeded by SQL for an owned FAKE patient: one accession number with a preliminary and a final CML report routed to the test provider as New plus a report that recycled the accession number two years earlier, and a second accession seeded UNMATCHED (two versions and a recycled report). The reports are opened as popups from the patient lab list, as legacy-lab-display does (the lists that link CML labs show them only when CML_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (the final report's Version row is exactly v1 and v2, v1 a link carrying the chain \"multiID=<v1>,<v2>\" and v2 plain text, nothing on the page names the recycled report, and the page shows the final report's result and not the preliminary one's); Older (the v1 link opens the preliminary report, which shows its own result and links back to v2); Acknowledge (a real comment prompt, the popup closes, the list reloads, the final report's routing row is A with the comment, the preliminary report's is F, the recycled report's row is untouched, and the final report opened again shows the preliminary version as Filed but not acknowledged); Match (the matching popup opened from the unmatched second version finds the owned patient, choosing it makes oscarMDS/PatientMatch answer 200, and patientLabRouting then links both versions to the patient and not the recycled report; the older version's page shows the patient). Forward is not asserted: legacy-lab-display and lab-forward-picker drive it (finding 184, fixed: #4558) but each seeds a single report, so no browser check yet shows Forward routing a whole version chain. Before the fix, MDSResultsData.getMatchingCMLLabs cast the service_date varchar to Date and threw a ClassCastException on every CML view and acknowledgement, falling back to a chain of one report, so this check fails at the Display step; its strict form, which PatientMatch uses, always threw, so choosing a patient for any CML report answered HTTP 500. Run on Ontario only.",
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened) and six CML reports seeded by SQL under random 10-digit numbers verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows for the three that are matched). Cleanup removes exactly those rows by key after proving each report's header still carries the run's marker, together with the patientLabRouting and providerLabRouting rows the match and the MRP routing wrote, the providerLabRoutingLock rows, and the audit rows the pages and the match wrote for the owned report numbers, and asserts them gone. No forwarding favourites, no other provider's routing and no clinic-wide state is changed."
     },
     {

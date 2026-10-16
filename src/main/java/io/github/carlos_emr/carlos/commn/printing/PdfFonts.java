@@ -3,8 +3,11 @@ package io.github.carlos_emr.carlos.commn.printing;
 
 import java.awt.Color;
 import java.io.IOException;
+import java.util.Objects;
+import org.openpdf.text.Chunk;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.Font;
+import org.openpdf.text.Phrase;
 import org.openpdf.text.pdf.BaseFont;
 
 /**
@@ -13,9 +16,17 @@ import org.openpdf.text.pdf.BaseFont;
  * monospace and emphasis choices. Explicit custom fonts and symbol fonts retain
  * their caller-specified encoding. Font-loading errors propagate; falling back to
  * a Latin-only font would silently remove characters from the clinical record.
+ *
+ * <p>DejaVu has no Chinese, Japanese or Korean characters and few emoji. Text added through
+ * {@link #addText(Phrase, String, Font)} switches, character by character, to bundled fallback
+ * faces for those (WenQuanYi Micro Hei, then Symbola; see their NOTICE files under
+ * {@code fonts/}), and marks a character no face can draw with U+FFFD rather than dropping it.
  */
 public final class PdfFonts {
     private static final String DIRECTORY = "net/sf/jasperreports/fonts/dejavu/";
+    /** Tried in order for a character the requested face cannot draw. */
+    private static final String[] FALLBACK_FACES = {"fonts/wqy/wqy-microhei.ttc,0", "fonts/symbola/Symbola_hint.ttf"};
+    private static final int REPLACEMENT_CHARACTER = 0xFFFD;
 
     private PdfFonts() { }
 
@@ -67,6 +78,106 @@ public final class PdfFonts {
         } catch (IOException | DocumentException error) {
             throw new IllegalStateException("Clinical PDF font could not be loaded", error);
         }
+    }
+
+    /**
+     * Appends text to a phrase in the given font, drawing each character the font lacks in the
+     * first bundled fallback face that has it, at the same size, emphasis and color.
+     *
+     * <p>Use it for values read from the record (names, comments, vaccine and lot names), which
+     * can be in any script. A character that no face can draw is printed as U+FFFD, so the
+     * reader sees that something is missing; an invisible format character with no glyph (a
+     * zero-width joiner, a variation selector, a tag character) is left out.
+     *
+     * @param phrase the phrase to append to
+     * @param text the text, or {@code null} to append nothing
+     * @param font the font for the characters it can draw, normally from {@link #getFont}
+     * @throws IllegalStateException if a fallback face cannot be loaded
+     */
+    public static void addText(Phrase phrase, String text, Font font) {
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        if (font.getBaseFont() == null) {
+            phrase.add(new Chunk(text, font));
+            return;
+        }
+        Runs runs = new Runs(phrase, font);
+        text.codePoints().forEach(runs::add);
+        runs.flush();
+    }
+
+    /** Groups consecutive characters drawn by the same face into one chunk. */
+    private static final class Runs {
+        private final Phrase phrase;
+        private final Font font;
+        private final StringBuilder run = new StringBuilder();
+        private Font[] fallbacks;
+        private Font runFont;
+
+        Runs(Phrase phrase, Font font) {
+            this.phrase = phrase;
+            this.font = font;
+        }
+
+        void add(int codePoint) {
+            int drawn = codePoint;
+            Font face = faceFor(codePoint);
+            if (face == null) {
+                if (isInvisible(codePoint)) {
+                    return;
+                }
+                drawn = REPLACEMENT_CHARACTER;
+                face = Objects.requireNonNullElse(faceFor(drawn), font);
+            }
+            if (face != runFont) {
+                flush();
+                runFont = face;
+            }
+            run.appendCodePoint(drawn);
+        }
+
+        void flush() {
+            if (!run.isEmpty()) {
+                phrase.add(new Chunk(run.toString(), runFont));
+                run.setLength(0);
+            }
+        }
+
+        private Font faceFor(int codePoint) {
+            if (codePoint == '\n' || codePoint == '\r' || codePoint == '\t' || font.getBaseFont().charExists(codePoint)) {
+                return font;
+            }
+            if (fallbacks == null) {
+                fallbacks = fallbacks(font);
+            }
+            for (Font fallback : fallbacks) {
+                if (fallback.getBaseFont().charExists(codePoint)) {
+                    return fallback;
+                }
+            }
+            return null;
+        }
+    }
+
+    private static Font[] fallbacks(Font font) {
+        Font[] faces = new Font[FALLBACK_FACES.length];
+        for (int i = 0; i < faces.length; i++) {
+            try {
+                // BaseFont caches each face, so a long printout reads the file once.
+                faces[i] = new Font(BaseFont.createFont(FALLBACK_FACES[i], BaseFont.IDENTITY_H, BaseFont.EMBEDDED),
+                        font.getSize(), font.getStyle(), font.getColor());
+            } catch (IOException | DocumentException error) {
+                throw new IllegalStateException("Clinical PDF fallback font could not be loaded", error);
+            }
+        }
+        return faces;
+    }
+
+    private static boolean isInvisible(int codePoint) {
+        return Character.getType(codePoint) == Character.FORMAT
+                || (codePoint >= 0xFE00 && codePoint <= 0xFE0F)
+                || (codePoint >= 0xE0100 && codePoint <= 0xE01EF);
     }
 
     /**

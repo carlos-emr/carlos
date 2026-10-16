@@ -3065,6 +3065,53 @@ unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `Ap
 
 The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.
 
+### Lab Forward from the lab pages and the patient lab list (2026-10-16, issue #4558)
+
+The #4558 fix branch, cut from `release/2026.08` at `3c52e90e`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS
+WAR was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin`
+names (`1941e14`); carlos-ctl was 1.1.2 from its release (checksum verified by `debian/fetch-carlos-ctl.sh`). The packages were
+installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported all checks
+passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`, `BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`). The proxy
+broke apt's pipelined downloads at the same file on every attempt, so `BASE_IMAGE` named an `ubuntu:26.04` derivative whose only
+change is `Acquire::Retries "20"`, `Acquire::Queue-Mode "access"` and pipelining off, as in the #4567 run above. Later edits to
+the branch (the action's test constructor, the picker's message wording, its form lookup) were copied into the installed webapp
+with `carlos-ctl restart`, and every file was compared by checksum with the branch.
+
+| Run | `legacy-lab-display` (CML) | `legacy-lab-display-mds` | `lab-forward-picker` (new) |
+|---|---|---|---|
+| packages as built | PASS, 5 of 5 | PASS, 5 of 5 | (not yet written) |
+| branch head copied in | PASS, 5 of 5 | PASS, 5 of 5 | PASS, 6 of 6 |
+| pre-fix `ReportReassign2Action` and JSPs copied in | FAIL at "CML forward routes the lab to the chosen provider": the picker has no control that sends the chosen provider back | not run | FAIL at its first browser step: no Forward button |
+| new JSPs, pre-fix action | FAIL at the same step: "sent to `/carlos/lab/CA/ON/Forward&providerNo=999998&searchProviderNo=&status=&segmentID=<id>%3ACML`" | not run | FAIL at the bare-id step: answered 302 to that path, not 400 |
+| head, pre-fix `DemographicLab.jsp` only | not run | not run | FAIL at the patient lab list step: the checkbox carries no lab type |
+
+Both legacy checks run with their finding-184 `expectedFailure` removed. Their Forward step now also asserts the posted
+contract (`flaggedLabs` `{"files":["<id>:<TYPE>"]}`, exactly the recipient, a favourites list), that the lab page's redirect
+lands on its own display for the same lab (keyed on the redirected navigation, not the URL, which is already the display's
+before the post), and that the sender's forwarding favourites are unchanged. `legacy-lab-display-pathnet` SKIPs on Ontario.
+
+`lab-forward-picker` holds what a successful Forward cannot show: the picker as a popup has Forward and the same page as the
+Inbox dialog requests it does not; Forward with no lab page behind the picker, or with an empty Forward List, raises its alert,
+stays open and sends nothing; the lab page's own `reassignForm` posted as it was before the fix is answered 400 and writes
+nothing; and Forward from the patient lab list without a `demographicNo` routes a ticked HL7 lab and returns to the list. That
+list shows labs filed under demographic 0 (an uploaded lab unlinked from its patient; an unmatched upload gets no
+`patientLabRouting` row and is not listed), so the check uploads a synthetic lab matched to the owned patient and files it there.
+
+On the head these passed as well: `inbox-file-forward` (10 of 10, including the GET/HEAD replay refusal and unchanged
+favourites), `detached-delete-forward-favourites`, `document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope`
+and `gap-records-autocomplete-labels`, and the smoke tier, 12 of 12.
+
+The packages were then rebuilt from the pushed branch head (`ee56cc84`) and installed fresh again (`carlos-ctl check`: all checks
+passed), with no files copied in; the installed picker, list and bundle files matched the branch by checksum. On that install
+`legacy-lab-display`, `legacy-lab-display-mds`, `lab-forward-picker`, `inbox-file-forward`, `detached-delete-forward-favourites`,
+`document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope` and `gap-records-autocomplete-labels` passed,
+`legacy-lab-display-pathnet` SKIPped, and the smoke tier passed 12 of 12. The server-log audit's one unexplained signature was
+`MDSResultsData.java:610`, the CML version-chain `ClassCastException` (finding 197, #4568) the CML pages raise on every open; no
+`ReportReassign2Action` entry appeared. After review, the action saves the favourites only once routing has succeeded, outside the
+routing error path, and both legacy checks and `lab-forward-picker` seed a forwarding favourite before taking their baseline.
+With that class copied in, the three checks, `inbox-file-forward` and `detached-delete-forward-favourites` passed again.
+
 ### CML report-version chain validation (2026-10-15, issue #4568)
 
 `release/2026.08` at `244556ad` plus the #4568 branch at `9d1cd46f` was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
@@ -3087,11 +3134,11 @@ CML pages through the front door.
 | the same, seed and match steps only (a scratch wrapper that is not in the repository) | choosing the patient makes `oscarMDS/PatientMatch` answer HTTP 500, expected 200; the journal shows `IllegalStateException: Lab version lookup failed` caused by `ClassCastException: class java.lang.String cannot be cast to class java.util.Date`, the strict lookup that `PatientMatch` uses |
 | fixed classes restored and the service restarted | all five steps pass again |
 
-On the fixed install `legacy-lab-display` and `legacy-lab-display-mds` were unchanged: `known-fail` at Forward on finding 184.
+On the fixed install, built before #4558 landed, `legacy-lab-display` and `legacy-lab-display-mds` were unchanged: `known-fail` at Forward on finding 184 (fixed since, by #4558).
 `legacy-lab-display-pathnet` SKIPs on Ontario. The residue audit reported no residue. Until the classes were swapped the journal
 held no `getMatchingCMLLabs` error, and the server-log audit's only signatures were the two that the matching popup writes for a
 CML report (`Factory.getHandler` finding no HL7 text message under the lab's number, then the empty-message fallback), which is
-finding 269; both are now in `scripts/lib/server-log-baseline.tsv` with that citation, and the audit passes.
+finding 276; both are now in `scripts/lib/server-log-baseline.tsv` with that citation, and the audit passes.
 
 The smoke tier passed 11 of 12. `echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save
 and refresh" (`page.waitForResponse` timed out waiting for the `encounter/displayIssues?cmd=unresolvedIssues` refresh), twice in a

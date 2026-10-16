@@ -731,17 +731,21 @@
                                                 <td>
                                                     <%
                                                         if (securityManager.hasDeleteAccess("_allergies", roleName$)) {
-                                                            if (intArchived == 0) {
                                                     %>
+                                                    <%-- Inactivate for an active row, Reactivate (action=activate) for an inactive
+                                                         one. Reactivate must not be the amendment dialogue: an amendment of an
+                                                         archived allergy is refused as stale (#4410). --%>
                                                     <a href="#" class="deleteAllergyLink"
                                                        id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>&action=<%=actionPath %>">
                                                         <%=labelAction%>
-                                                    </a> |
-                                                    <% } %>
+                                                    </a>
+                                                    <% if (intArchived == 0) { %>
+                                                    |
                                                     <a href="#" class="modifyAllergyLink"
                                                        id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<carlos:encode value='<%= allergy.getDescription() %>' context="htmlAttribute"/>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
-                                                        <%=intArchived == 0 ? "Modify" : labelAction%>
+                                                        Modify
                                                     </a>
+                                                    <% } %>
                                                     <% } %>
                                                 </td>
                                             </tr>

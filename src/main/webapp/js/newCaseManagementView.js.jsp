@@ -2649,7 +2649,10 @@ function updateCPPNote() {
             }
         }
 
-        return -1;
+        // The Edit fragment renders the encounter date with English months whatever the interface
+        // language (NoteObservationDate, issue #4711); only the localized calendar writes the
+        // month[] labels' language. Both have to be read.
+        return ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(mnth);
     }
 
 // make sure observation date is in the past
@@ -2661,6 +2664,9 @@ function updateCPPNote() {
         mnth = mnth.indexOf(".") != -1 ? mnth.substring(0, mnth.indexOf(".")) : mnth;
         mnth = mnth.toLowerCase();
         var mnthIdx = getMonthIdx(mnth);
+        // A month this cannot read would become setMonth(-1), December of the year before, and be
+        // judged on that. Leave it to the save, which refuses an unreadable date with a message.
+        if (mnthIdx < 0) return true;
         var year = strDate.substring(strDate.lastIndexOf("-") + 1, strDate.indexOf(" "));
         var time = strDate.substr(strDate.indexOf(" ") + 1);
         var timeArr = time.split(":");
