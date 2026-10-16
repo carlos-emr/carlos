@@ -714,6 +714,48 @@ test('a failed request knows whether the document that issued it went away', asy
   assert.deepEqual(Object.keys(recorder.requestFailures[0]), ['label', 'url', 'resourceType', 'errorText']);
 });
 
+test('an Rx interaction check the browser abandoned with its page is not a finding; any other failure is', async () => {
+  // Every staged-card change on the Rx page asks rx/interactionWarnings 100 ms later (#4707). A check
+  // that leaves or closes the page in that window makes the browser abort the read with the page.
+  let address = 'https://host/carlos/rx/choosePatient?demographicNo=1';
+  const frame = { isDetached: () => false, url: () => address };
+  const read = (url, errorText = 'net::ERR_ABORTED') => ({
+    url: () => url, resourceType: () => 'fetch', frame: () => frame, failure: () => ({ errorText }),
+  });
+  const failed = async (request) => {
+    const recorder = createRecorder();
+    const page = fakePage();
+    wireStrictPage(page, 'rx', recorder, { baseline: [] });
+    await page.emit('request', request);
+    await page.emit('requestfailed', request);
+    return { recorder, page };
+  };
+  const check = 'https://host/carlos/rx/interactionWarnings?demographicNo=1';
+
+  const left = await failed(read(check));
+  const stayed = await failed(read(check));
+  const otherRead = await failed(read('https://host/carlos/rx/showAllergy'));
+  const reset = await failed(read(check, 'net::ERR_CONNECTION_RESET'));
+  // The page that asked stayed where it was: something else cancelled the read, still a finding.
+  assert.throws(() => assertStrictPage(stayed.recorder), /fetch request failed \(net::ERR_ABORTED\)/);
+
+  // The page moved to another address (the navigation commits after the failure it caused).
+  address = 'https://host/carlos/rx/ViewStaticScript2?demographicNo=1';
+  assertStrictPage(left.recorder);
+  // Only this background read is excused, and only an abort.
+  assert.throws(() => assertStrictPage(otherRead.recorder), /fetch request failed \(net::ERR_ABORTED\)/);
+  assert.throws(() => assertStrictPage(reset.recorder), /ERR_CONNECTION_RESET/);
+
+  // The page that asked was closed.
+  address = 'https://host/carlos/rx/choosePatient?demographicNo=1';
+  const closed = await failed(read(check));
+  assert.throws(() => assertStrictPage(closed.recorder), /ERR_ABORTED/);
+  closed.page.isClosed = () => true;
+  assertStrictPage(closed.recorder);
+  // Nothing excused is listed among the problems a failed check reports.
+  assert.deepEqual(harness.buildFailureDetails(closed.recorder).requestFailures, []);
+});
+
 function fakeSignalProcess() {
   const listeners = {};
   return {

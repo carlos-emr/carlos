@@ -109,6 +109,14 @@ that the page never asked.
 
 Browser regression: `scripts/rx-interaction-warnings-playwright-checks.js`.
 
+The check is a background read sent 100 ms after a card change, so a browser check that stages or
+removes a card and then leaves or closes the Rx page can make Chromium abort it with the page. The shared
+Playwright harness does not report that as a failed request (`isAbandonedInteractionCheck` in
+`scripts/lib/playwright-harness.js`). The exemption covers only an `ERR_ABORTED` fetch of
+`rx/interactionWarnings` whose page provably closed or moved to another address. The same abort while
+the page stays, or on a reload of the same address, is still a finding, as is any other error. A check
+that asserts the warnings waits for `#interactingDrugErrorMsg` to leave `data-check-status="pending"`.
+
 ## Bare-Metal Deployment
 
 For a single-host install where CARLOS and DrugRef run on the same machine, the upstream localhost-only default already works — no override needed. For split deployments, drop an equivalent `drugref2.xml` under your Tomcat's `conf/Catalina/localhost/` with the desired CIDR ranges hardcoded in the `allow` attribute.
