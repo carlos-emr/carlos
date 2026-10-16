@@ -3960,6 +3960,21 @@
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
+      "name": "admin-password-pin-reset",
+      "script": "scripts/admin-password-pin-reset-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Throwaway login (hash, PIN and roles copied from the test login) reset through Administration > User Management; its cleanup removes the login, provider, SecurityArchive, preference and log rows.",
+      "notes": "Makes two refused sign-ins. When the client address is not on login_local_ip they also count against that address (login_max_failed_times, 3 in the shipped properties)."
+    },
+    {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
       "tiers": [

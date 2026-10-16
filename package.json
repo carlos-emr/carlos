@@ -289,6 +289,7 @@
     "test:admin-issue-editor-playwright": "node scripts/admin-issue-editor-playwright-checks.js",
     "test:security-password-length-playwright": "node scripts/security-password-length-playwright-checks.js",
     "test:security-record-admin-playwright": "node scripts/security-record-admin-playwright-checks.js",
+    "test:admin-password-pin-reset-playwright": "node scripts/admin-password-pin-reset-playwright-checks.js",
     "test:provider-record-admin-playwright": "node scripts/provider-record-admin-playwright-checks.js",
     "test:rx-print-profile-playwright": "node scripts/rx-print-profile-playwright-checks.js",
     "test:tickler-forward-filters-playwright": "node scripts/tickler-forward-filters-playwright-checks.js",
