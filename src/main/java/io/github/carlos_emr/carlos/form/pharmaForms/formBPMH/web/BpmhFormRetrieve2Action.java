@@ -79,6 +79,12 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     }
 
     public String fetch() {
+        // Built here as save() and print() build theirs: the field was never set for fetch(), so
+        // opening any BPMH form, new or saved, threw NullPointerException (#4731).
+        if (form == null) {
+            form = new BpmhForm2Bean();
+        }
+        bpmhFormHandler = newHandler(form);
         Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no"));
         Integer formHistoryNumber = Integer.parseInt(request.getParameter("formId"));
 
@@ -89,8 +95,19 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         }
 
         bpmhFormHandler.populateFormBean();
+        if (formHistoryNumber == null || formHistoryNumber <= 0) {
+            // A new form is id 0: the page offers Save only for formId 0, and print() parses the posted id.
+            bpmhFormHandler.getBpmhFormBean().setFormId("0");
+        }
+        // The handler fills its own copy of the bean; formBPMH.jsp reads that copy under its Struts 1 bean name.
+        request.setAttribute("bpmh", bpmhFormHandler.getBpmhFormBean());
 
         return SUCCESS;
+    }
+
+    /** The form's handler; a seam so tests can stand in for its data-access lookups. */
+    BpmhForm2Handler newHandler(BpmhForm2Bean bean) {
+        return new BpmhForm2Handler(bean);
     }
 
     public String save() {
@@ -98,10 +115,13 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = null;
 
-        bpmhFormHandler = new BpmhForm2Handler(form);
+        bpmhFormHandler = newHandler(form);
         bpmhFormHandler.setDemographicNo(demographicNo);
         bpmhFormHandler.populateFormBean();
-        form.setEditDate(new Date());
+        // The handler saves its own copy of the bean, so the dates are set on that copy.
+        Date now = new Date();
+        bpmhFormHandler.getBpmhFormBean().setFormDate(now);
+        bpmhFormHandler.getBpmhFormBean().setEditDate(now);
 
         formId = bpmhFormHandler.saveFormHistory();
 
@@ -114,7 +134,8 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         actionRedirect.append("&provNo=");
 
         try {
-            response.sendRedirect(actionRedirect.toString());
+            // A redirect path starting with "/" is relative to the server root, not this application.
+            response.sendRedirect(request.getContextPath() + actionRedirect);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -130,7 +151,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = Integer.parseInt(form.getFormId());
 
-        bpmhFormHandler = new BpmhForm2Handler(form);
+        bpmhFormHandler = newHandler(form);
 
         // form Id greater than zero means that this is a saved instance.
         if (formId > 0) {
@@ -143,9 +164,10 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
         pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        pdfController.writeDataToPDF(form, new String[]{"1"}, demographicNo + "");
+        // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
+        pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
 
-        form.setEditDate(new Date());
+        bpmhFormHandler.getBpmhFormBean().setEditDate(new Date());
 
         if (formId == 0) {
             bpmhFormHandler.saveFormHistory();
@@ -165,12 +187,14 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             output.close();
         }
 
-        return null;
+        // The PDF is already written: no result may forward to a page after it.
+        return NONE;
     }
 
     private BpmhForm2Bean form;
 
-    @StrutsParameter(depth = 1)
+    // Depth 3 reaches form.drugs[i].instruction, the per-drug instructions the form posts.
+    @StrutsParameter(depth = 3)
     public BpmhForm2Bean getForm() {
         return form;
     }
