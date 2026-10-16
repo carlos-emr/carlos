@@ -4628,6 +4628,20 @@
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "prevention-print-selection",
+      "script": "scripts/prevention-print-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two seeded preventions, an Inf immunization and a Tuberculosis screening, on their own dates; cleanup deletes the patient's preventions and ext rows and asserts none remain. Reads each PDF with pdftotext."
+    },
+    {
       "name": "schedule-admin-settings",
       "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [
