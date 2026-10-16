@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -272,6 +273,54 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(remaining.patientFirstName).isEqualTo("Bob");
         assertThat(remaining.encType).isEqualTo("office");
         assertThat(remaining.appointmentNo).isEqualTo("9002");
+    }
+
+    @Test
+    void shouldForgetOnlyItsOwnPatientsEChartText_whenItsChartIsEdited() throws Exception {
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("101"), "A's last eChart text");
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("202"), "B's last eChart text");
+
+        edit("202", true, null);
+
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("202"))).isNull();
+        // A's next save still removes A's own previous text from A's eChart record (issue #4673).
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("A's last eChart text");
+    }
+
+    @Test
+    void shouldHandFiltersOnlyToItsOwnPatientsNoteList_whenItsEditorForwards() throws Exception {
+        MockHttpServletRequest request = request("202");
+        request.setParameter("note_edit", "new");
+        request.setParameter("note_sort", "observation_date_desc");
+        request.setParameter("filter_roles", "7");
+        request.setParameter("filter_providers", "200");
+        request.setParameter("issues", "73");
+        try (var props = mockStatic(CarlosProperties.class);
+             var views = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+
+        assertThat(session.getAttribute(ChartSessionKeys.noteFilterHandoff("note_sort", "202"))).isEqualTo("observation_date_desc");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("filter_roles", "202"))).containsExactly("7");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("filter_provider", "202"))).containsExactly("200");
+        assertThat((String[]) session.getAttribute(ChartSessionKeys.noteFilterHandoff("issues", "202"))).containsExactly("73");
+        for (String name : new String[]{"note_sort", "filter_roles", "filter_provider", "issues"}) {
+            assertThat(session.getAttribute(name)).as("login-wide %s", name).isNull();
+            assertThat(session.getAttribute(ChartSessionKeys.noteFilterHandoff(name, "101"))).as("A's %s", name).isNull();
+        }
+    }
+
+    @Test
+    void shouldSignalTheRestoreOnlyForItsOwnPatient_whenADraftIsRestored() throws Exception {
+        CaseManagementEntry2Action action = action(request("101"));
+        doReturn("view").when(action).edit();
+
+        assertThat(action.restore()).isEqualTo("view");
+
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isEqualTo("true");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("202"))).isNull();
+        assertThat(session.getAttribute("restoring")).isNull();
     }
 
     private record EditedNote(CaseManagementNote note, MockHttpServletRequest request) { }

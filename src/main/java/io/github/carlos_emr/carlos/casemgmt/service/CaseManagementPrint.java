@@ -62,6 +62,7 @@ import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -467,12 +468,37 @@ public class CaseManagementPrint {
     }
 
     /**
+     * Adds the note-list filters this patient's chart last applied (roles, providers, issues) to
+     * {@code criteria}, so the print matches what that chart shows. Only this patient's: the
+     * filters used to be remembered once per login, so a print of one patient left out the notes
+     * another chart window had filtered away (issue #4673).
+     */
+    @SuppressWarnings("unchecked")
+    static void applyThisChartsNoteFilters(HttpSession se, String demoNo, NoteSelectionCriteria criteria) {
+        if (!ChartSessionKeys.isPatientNumber(demoNo)) {
+            return;
+        }
+        Object roles = se.getAttribute(ChartSessionKeys.appliedNoteFilter("roles", demoNo));
+        if (roles != null) {
+            criteria.getRoles().addAll((List<String>) roles);
+        }
+        Object providers = se.getAttribute(ChartSessionKeys.appliedNoteFilter("providers", demoNo));
+        if (providers != null) {
+            criteria.getProviders().addAll((List<String>) providers);
+        }
+        Object issues = se.getAttribute(ChartSessionKeys.appliedNoteFilter("issues", demoNo));
+        if (issues != null) {
+            criteria.getIssues().addAll((List<String>) issues);
+        }
+    }
+
+    /**
      * Retrieves all note IDs for a patient within a specified date range.
      *
      * This method queries the note service with a comprehensive set of filter criteria including
-     * date range boundaries, program context, and session-based filters (roles, providers, issues).
-     * It respects the user's current program assignment and applies any active E-Chart view filters
-     * that may have been set by CaseManagementView2Action.
+     * date range boundaries, program context, and the note filters (roles, providers, issues) this
+     * patient's own chart last applied, as CaseManagementView2Action remembers them per patient.
+     * It respects the user's current program assignment.
      *
      * The method defaults to the "OSCAR" program if the provider has not been assigned to a specific
      * program. Only local notes (NoteDisplayLocal) are included in the returned results.
@@ -484,7 +510,6 @@ public class CaseManagementPrint {
      * @param endDate Date the end of the date range (inclusive)
      * @return String[] array of note IDs (as strings) matching the criteria
      */
-    @SuppressWarnings("unchecked")
     private String[] getAllNoteIdsWithinDateRange(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo, Date startDate, Date endDate) {
 
         HttpSession se = loggedInInfo.getSession();
@@ -512,17 +537,7 @@ public class CaseManagementPrint {
             criteria.setProgramId(programId);
         }
 
-        if (se.getAttribute("CaseManagementViewAction_filter_roles") != null) {
-            criteria.getRoles().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_roles"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_providers") != null) {
-            criteria.getProviders().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_providers"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_issues") != null) {
-            criteria.getIssues().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_issues"));
-        }
+        applyThisChartsNoteFilters(se, demoNo, criteria);
 
         if (logger.isDebugEnabled()) {
             logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));
@@ -546,11 +561,11 @@ public class CaseManagementPrint {
      * Retrieves all note IDs for a patient without date range restrictions.
      *
      * This method queries the note service with filter criteria based on program context and
-     * session-based filters (roles, providers, issues), but without date range boundaries.
-     * It retrieves up to Integer.MAX_VALUE notes and respects the user's current program
-     * assignment and any active E-Chart view filters.
+     * the note filters (roles, providers, issues) this patient's own chart last applied, but
+     * without date range boundaries. It retrieves up to Integer.MAX_VALUE notes and respects the
+     * user's current program assignment.
      *
-     * If no session filters are present (roles, providers, issues), the criteria will have
+     * If this patient's chart applied no filters (roles, providers, issues), the criteria will have
      * empty lists, which signals the note service to return all notes without filtering by
      * those dimensions. The method defaults to the "OSCAR" program if the provider has not
      * been assigned to a specific program.
@@ -562,7 +577,6 @@ public class CaseManagementPrint {
      * @param demoNo String the patient's demographic number as a string
      * @return String[] array of all note IDs (as strings) matching the criteria
      */
-    @SuppressWarnings("unchecked")
     private String[] getAllNoteIds(LoggedInInfo loggedInInfo, HttpServletRequest request, String demoNo) {
 
         HttpSession se = loggedInInfo.getSession();
@@ -588,19 +602,9 @@ public class CaseManagementPrint {
             criteria.setProgramId(programId);
         }
 
-        // Apply session filters if they exist (set by CaseManagementView2Action)
+        // Apply this patient's chart filters if they exist (set by CaseManagementView2Action)
         // If no filters are present, criteria will have empty lists which means "no filtering" - get all notes
-        if (se.getAttribute("CaseManagementViewAction_filter_roles") != null) {
-            criteria.getRoles().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_roles"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_providers") != null) {
-            criteria.getProviders().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_providers"));
-        }
-
-        if (se.getAttribute("CaseManagementViewAction_filter_issues") != null) {
-            criteria.getIssues().addAll((List<String>) se.getAttribute("CaseManagementViewAction_filter_issues"));
-        }
+        applyThisChartsNoteFilters(se, demoNo, criteria);
 
         if (logger.isDebugEnabled()) {
             logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", LogSafe.sanitizeObject(criteria));

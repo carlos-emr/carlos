@@ -181,7 +181,8 @@
 <caisi:isModuleLoad moduleName="caisi">
     <%
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_oscar_bean", bean);
+        // The request-owned bean is not copied into the session: under this unkeyed name it was
+        // the last-entered chart's, and every reader asks for "casemgmt_oscar_bean" + patient.
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
                 (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
         if (request.getParameter("casetoEncounter") == null) {

@@ -225,6 +225,8 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
 
         private void assertLoadsList(String expectedName) throws Exception {
             addRequestParameter("demographicNo", VALID_DEMO_NO);
+            Object sessionPatientBefore = mockSession.getAttribute("demographicNo");
+            Object sessionDiagnosesBefore = mockSession.getAttribute("allDiagnostics");
             try (var coding = mockConstruction(dxResearchCodingSystem.class);
                  var diagnostics = mockConstruction(dxResearchBeanHandler.class);
                  var lists = mockConstruction(dxQuickListBeanHandler.class,
@@ -234,8 +236,26 @@ class DxSetupResearch2ActionTest extends CarlosWebTestBase {
                 assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
                 assertThat(items.constructed()).hasSize(1);
                 assertThat(mockSession.getAttribute("allQuickListItems")).isSameAs(items.constructed().getFirst());
-                assertThat(mockSession.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
+                // The page's patient and diagnoses belong to this request, never to the login:
+                // in the session they were the registry opened last in any window (issue #4673).
+                assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
+                assertThat(mockRequest.getAttribute("allDiagnostics")).isSameAs(diagnostics.constructed().getFirst());
+                assertThat(mockRequest.getAttribute("providerNo")).isEqualTo(TEST_PROVIDER);
+                // Nothing about this patient is written to the session.
+                assertThat(mockSession.getAttribute("demographicNo")).isSameAs(sessionPatientBefore);
+                assertThat(mockSession.getAttribute("allDiagnostics")).isSameAs(sessionDiagnosesBefore);
+                assertThat(diagnostics.constructed()).hasSize(1);
             }
+        }
+
+        @Test
+        void shouldRenderItsOwnPatient_whenAnotherWindowOpenedARegistryLast() throws Exception {
+            // Another window's registry, under the names the page used to read from the session.
+            mockSession.setAttribute("demographicNo", "67890");
+            mockSession.setAttribute("allDiagnostics", "patient 67890's diagnoses");
+            addRequestParameter("quickList", "");
+            assertLoadsList("Default");
+            assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo(VALID_DEMO_NO);
         }
 
         @Test

@@ -70,7 +70,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.form.gate.FormViewRoutes" %>
 
@@ -561,10 +560,11 @@
             </tr>
 
             <%
-                String pAge = Integer.toString(UtilDateUtilities.calcAge(bean.yearOfBirth, bean.monthOfBirth, bean.dateOfBirth));
+                // This patient's lab results for the lab dropdown below, in page scope. They were
+                // stored in the session under a name the dropdown never read (so it was always
+                // empty), where they outlived the page as the last-rendered chart's labs (#4673).
                 CommonLabResultData comLab = new CommonLabResultData();
-                java.util.ArrayList labs = comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", bean.demographicNo, "", "", "", "U");
-                session.setAttribute("casemgmt_labsbeans", labs);
+                pageContext.setAttribute("casemgmtLabsbeans", comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", bean.demographicNo, "", "", "", "U"));
             %>
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <tr>
@@ -631,10 +631,10 @@
                                     <c:set var="otvalue" value="${bsurl}/lab/CA/BC/ViewLabDisplay?segmentID=${labrst.segmentID}&providerNo=${bean.providerNo}" />
 
                                     <c:choose>
-                                        <c:when test="${labrst.mds}">
+                                        <c:when test="${labrst.MDS}">
                                             <option value="${mdvalue}">${lablable}</option>
                                         </c:when>
-                                        <c:when test="${labrst.cml}">
+                                        <c:when test="${labrst.CML}">
                                             <option value="${cmvalue}">${lablable}</option>
                                         </c:when>
                                         <c:otherwise>
@@ -643,7 +643,6 @@
                                     </c:choose>
                                 </c:forEach>
                             </select>
-                            <%session.removeAttribute("casemgmt_labsbeans"); %>
                         </td>
                     </tr>
                 </caisirole:SecurityAccess>

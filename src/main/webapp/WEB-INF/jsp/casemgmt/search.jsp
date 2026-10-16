@@ -156,7 +156,7 @@
                     <tr bgcolor="<%=bgcolor %>" align="center">
                         <td><c:choose>
                             <c:when
-                                    test="${(!note.signed) and (sessionScope.readonly=='false')}">
+                                    test="${(!note.signed) and (requestScope.readonly=='false')}">
                                 <c:url
                                         value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                         var="notesURL"/>
@@ -252,7 +252,7 @@
                                 <tr bgcolor="<%=bgcolor1 %>">
                                     <td width="7%">Action</td>
                                     <td width="93%"><c:if
-                                            test="${(!note.signed) and (sessionScope.readonly=='false')}">
+                                            test="${(!note.signed) and (requestScope.readonly=='false')}">
                                         <c:url
                                                 value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.id}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                 var="notesURL"/>
