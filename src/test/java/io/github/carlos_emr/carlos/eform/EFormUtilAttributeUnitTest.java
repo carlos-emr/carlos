@@ -10,15 +10,19 @@ package io.github.carlos_emr.carlos.eform;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.IntFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -133,6 +137,12 @@ class EFormUtilAttributeUnitTest extends CarlosUnitTestBase {
         return counted.reads;
     }
 
+    private static long readsToScanAttributes(String text) {
+        CountingSequence counted = new CountingSequence(text);
+        EFormUtil.scanAttributes(counted);
+        return counted.reads;
+    }
+
     private static IntFunction<String> hostileTag(String shape) {
         return switch (shape) {
             case "one long $ name" -> n -> "<input " + "a$".repeat(n) + ">";
@@ -162,8 +172,8 @@ class EFormUtilAttributeUnitTest extends CarlosUnitTestBase {
         String small = tag.apply(2_000);
         String large = tag.apply(8_000);
 
-        long smallReads = readsToScan(EFormUtil.ATTRIBUTE_PATTERN, small);
-        long largeReads = readsToScan(EFormUtil.ATTRIBUTE_PATTERN, large);
+        long smallReads = readsToScanAttributes(small);
+        long largeReads = readsToScanAttributes(large);
 
         // Four times the input costs about four times the reads when the scan is linear and sixteen
         // times when it is quadratic; allow a margin for constant overheads.
@@ -181,5 +191,58 @@ class EFormUtilAttributeUnitTest extends CarlosUnitTestBase {
         long largeReads = readsToScan(quadratic, "a".repeat(8_000));
 
         assertThat((double) largeReads / smallReads).isGreaterThan(12.0);
+    }
+
+    /**
+     * The single pattern the name and value patterns replaced (#4770). Sonar flagged it as too complex;
+     * it is kept here only to prove the split finds exactly the same attributes.
+     */
+    private static final Pattern COMBINED_ATTRIBUTE_PATTERN = Pattern.compile(
+            "([a-zA-Z][a-zA-Z0-9_:$-]*)(\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+))?", Pattern.CASE_INSENSITIVE);
+
+    private static List<String> combinedScan(String tag) {
+        List<String> found = new ArrayList<>();
+        Matcher m = COMBINED_ATTRIBUTE_PATTERN.matcher(tag);
+        while (m.find()) {
+            found.add(m.start() + "-" + m.end() + " " + m.group(1) + " " + m.group(3));
+        }
+        return found;
+    }
+
+    private static List<String> splitScan(String tag) {
+        return EFormUtil.scanAttributes(tag).stream()
+                .map(a -> a.start() + "-" + a.end() + " " + a.name() + " " + a.value())
+                .toList();
+    }
+
+    static Stream<String> equivalenceTags() {
+        Stream<String> written = Stream.of(
+                "<INPUT TYPE=checkbox name=\"field_1\" data-carlos-x='y z' xml:lang=\"en\" my_field = 1 checked $x=\"2\">",
+                SAVED_VALUE_FIELD,
+                "<input type=\"button\" name=\"openLinked\" oscarOPEN=\"Linked eForm\" link$eform=\"55\">",
+                "<input name=\"a\" data-carlos-x='y'>",
+                "",
+                "<>",
+                "<input =x>",
+                "<input a= >",
+                "<input a=\"unclosed>",
+                "<input a='x\"y' b=\"x'y\">",
+                "<input 9a=1 _b=2 -c=3 a9:b-c$d_e=f>",
+                "<input\ta\n=\n\"v\"\n>",
+                "<input a=b>c d=e>",
+                "<input A$B=1 a$b= 'two' x>",
+                "<input \u212Aelvin=1 \u017Fx=2 \u00E9t\u00E9=3>");
+        Stream<String> hostile = Stream.of("one long $ name", "names with = and no value", "one unclosed double quote",
+                        "one unclosed single quote", "names followed by long whitespace", "alternating quotes",
+                        "equals and quotes only")
+                .map(shape -> hostileTag(shape).apply(50));
+        return Stream.concat(written, hostile);
+    }
+
+    @ParameterizedTest
+    @MethodSource("equivalenceTags")
+    @DisplayName("should find exactly the attributes the combined pattern found")
+    void shouldFindSameAttributes_asCombinedPattern(String tag) {
+        assertThat(splitScan(tag)).isEqualTo(combinedScan(tag));
     }
 }
