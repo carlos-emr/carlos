@@ -88,6 +88,8 @@ class DisplayHealthCareTeamJspRegressionTest {
     void shouldSetBundleBeforeFirstMessage_whenRendered() throws IOException {
         String jsp = jsp();
 
+        // Presence first: indexOf returns -1 for a missing tag, which would satisfy isLessThan on its own.
+        assertThat(jsp).contains(SET_BUNDLE).contains("<fmt:message");
         assertThat(jsp.indexOf(SET_BUNDLE)).isLessThan(jsp.indexOf("<fmt:message"));
     }
 
@@ -96,7 +98,7 @@ class DisplayHealthCareTeamJspRegressionTest {
     void shouldDeclareFmtTaglibBeforeUse_whenJspIsLoaded() throws IOException {
         String jsp = jsp();
 
-        assertThat(jsp.indexOf(FMT_TAGLIB)).isNotNegative();
+        assertThat(jsp).contains(FMT_TAGLIB).contains(SET_BUNDLE);
         assertThat(jsp.indexOf(FMT_TAGLIB)).isLessThan(jsp.indexOf(SET_BUNDLE));
     }
 }
