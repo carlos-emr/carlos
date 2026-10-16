@@ -725,6 +725,25 @@ function wirePage(page, label, recorder, dialogHandler = null) {
 }
 
 /**
+ * Whether a recorded request failure is the Rx page's drug-interaction check, abandoned by the
+ * browser because the page that asked for it closed or moved to another address.
+ *
+ * Every staged-card change on the Rx page asks GET rx/interactionWarnings 100 ms later (#4707), and
+ * only the page that asked draws the answer. A check that closes or leaves that page inside the
+ * window makes Chromium abort the read, which is the page going away, not the application failing;
+ * any Rx check can do that right after staging or removing a card. Excused only for that read, only
+ * as net::ERR_ABORTED and only when navigatedAway() proves the document went away. An abort while
+ * the page stayed (including a reload of the same address), any other network error and an HTTP
+ * error answer all remain findings, and the checks of the warnings themselves wait for the answer
+ * to be drawn.
+ */
+function isAbandonedInteractionCheck(entry) {
+  return entry.resourceType === 'fetch' && /ERR_ABORTED/.test(entry.errorText || '')
+    && pathOnly(entry.url).endsWith('/rx/interactionWarnings')
+    && typeof entry.navigatedAway === 'function' && entry.navigatedAway();
+}
+
+/**
  * Fail the check on anything the browser reported that is not baselined.
  *
  * @param labels  page labels to consider; omit for every page
@@ -739,6 +758,7 @@ function assertStrictPage(recorder, labels = null) {
     problems.push(`[${entry.label}] console ${entry.type}: ${entry.text.split('\n')[0]}`);
   }
   for (const entry of scoped(recorder.requestFailures)) {
+    if (isAbandonedInteractionCheck(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -875,7 +895,7 @@ function buildFailureDetails(recorder) {
     badResponses: clean(recorder.badResponses),
     consoleIssues: clean(recorder.consoleIssues),
     pageErrors: clean(recorder.pageErrors),
-    requestFailures: clean(recorder.requestFailures),
+    requestFailures: clean(recorder.requestFailures.filter((entry) => !isAbandonedInteractionCheck(entry))),
     dialogs: clean(recorder.dialogs),
   };
 }
