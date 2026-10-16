@@ -1,7 +1,8 @@
 -- Email footer (issue #3981; formatting and a clinic logo added by maintainer decision, 8 Oct 2026).
 --
--- emailLog.footer keeps the footer that was sent below the message, so Manage Emails can copy
--- it into a resend and the log shows exactly what the patient received. It holds the cleaned,
+-- emailLog.footer keeps the footer that was sent below the message, so the log shows exactly what
+-- the patient received. It is a record only: a resend from Manage Emails is a new email that starts
+-- from the sender's current personal footer and the current clinic footer. It holds the cleaned,
 -- formatted (HTML) footer. It is stored apart from body because body is what the chart note is
 -- built from, and the footer is never charted. Base64 BLOB, the same as body. Rows written before
 -- this change read as an empty footer.
