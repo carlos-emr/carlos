@@ -3016,6 +3016,21 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "allergy-list-views",
+      "script": "scripts/allergy-list-views-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (pending finding 294). Every earlier step passes."
+    },
+    {
       "name": "allergy-injected-form-csrf",
       "script": "scripts/allergy-injected-form-csrf-playwright-checks.js",
       "tiers": [
