@@ -67,6 +67,8 @@ async function workflow(s) {
     WHERE description IN (${q(clinic.description)},${q(clinic.edited)})`);
   // Each control posts, and its success handler lists the type again.
   const listed = () => frame.locator('#docDescList option');
+  // HTMLOptionElement.text collapses the list's padding spaces, leaving "(shortcut) description".
+  const optionText = id => frame.locator(`#docDescList option[value="${id}"]`).evaluate(option => option.text);
   const select = async id => {
     await frame.locator(`#docDescList option[value="${id}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
     await frame.locator('#docDescList').selectOption(id);
@@ -86,6 +88,8 @@ async function workflow(s) {
     id = row[0];
     h.assert(row[1] === 'clinic' && row[2] === type && row[3] === shortcut, `Add did not store a clinic-wide entry: ${JSON.stringify(row)}`);
     await frame.locator(`#docDescList option[value="${id}"]`).waitFor({ state: 'attached', timeout: TIMEOUT });
+    h.assert(await optionText(id) === `(${shortcut}) ${clinic.description}`,
+      `The list shows the entry as ${JSON.stringify(await optionText(id))}, not its shortcut and description as typed`);
     h.assert(await frame.locator(`#docDescList option[value="${ownId}"]`).count() === 0,
       'The clinic-wide list shows a provider\'s own entry');
   });
@@ -98,6 +102,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT CONCAT_WS('|', IFNULL(provider_no,'clinic'), description) FROM documentDescriptionTemplate WHERE id=${id}`,
       `clinic|${clinic.edited}`, 'Update did not change the clinic-wide entry');
     await frame.locator(`#docDescList option[value="${id}"]`, { hasText: clinic.edited }).waitFor({ state: 'attached', timeout: TIMEOUT });
+    h.assert(await optionText(id) === `(${shortcut}) ${clinic.edited}`, `The list shows the updated entry as ${JSON.stringify(await optionText(id))}`);
   });
 
   await s.step('Delete removes the entry and leaves the provider\'s own entry', async () => {
@@ -128,9 +133,15 @@ async function workflow(s) {
     await popup.waitForLoadState('load', { timeout: TIMEOUT }).catch(() => {});
     const offered = await popup.locator('#docType').count();
     if (!offered) {
-      // The refusal is this step's finding: consume what it put on the strict recorder, then report it.
-      recorder.badResponses.splice(since.responses);
-      recorder.consoleIssues.splice(since.console);
+      // The refusal is this step's finding: consume only what the page's own refusal put on the strict
+      // recorder (its response and the console line about it), so any other new error still fails the run.
+      const refused = url => new URL(url || 'http://x', 'http://x').pathname.endsWith(PAGE);
+      for (let i = recorder.badResponses.length - 1; i >= since.responses; i--) {
+        if (refused(recorder.badResponses[i].url)) recorder.badResponses.splice(i, 1);
+      }
+      for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+        if (refused(recorder.consoleIssues[i].location && recorder.consoleIssues[i].location.url)) recorder.consoleIssues.splice(i, 1);
+      }
     }
     h.assert(offered === 1, `The doctor's own description templates page was refused (HTTP ${statuses.join(', ') || 'none'})`);
   });
