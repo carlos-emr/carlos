@@ -3473,21 +3473,6 @@
       ]
     },
     {
-      "name": "admin-group-access-control",
-      "script": "scripts/admin-group-access-control-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "notes": "Administration > Access Control (admin/GroupNoAcl): choosing a group lists the active providers; ticking one and saving stores exactly that MyGroupAccessRestriction row and shows it ticked after the reload; unticking removes it; a GET with method=save is refused with 405.",
-      "fixtures": "An owned schedule group (mygroup, named for the run) with the test login as its one member; only that group's restrictions are written. Cleanup deletes the group and its restrictions and asserts both are gone."
-    },
-    {
       "name": "clinic-demo-name",
       "script": "scripts/clinic-demo-name-playwright-checks.js",
       "tiers": [

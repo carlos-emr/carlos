@@ -20,7 +20,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openAdminPage, frameAt } = require('./lib/admin-frame');
+const { openAdminPage, submitInFrame, reopenAdminPage } = require('./lib/admin-frame');
 
 const ROUTE = 'admin/uploadEntryText';
 const FILE_NAME = 'OSCARloginText.txt';
@@ -53,12 +53,7 @@ async function workflow(s) {
     await form.locator('select[name="validDurationPeriod"]').selectOption('weeks');
     if (await form.locator('input[name="validForever"]').isChecked()) await form.locator('input[name="validForever"]').uncheck();
     await form.locator('input[name="importFile"]').setInputFiles({ name: 'fake-agreement.txt', mimeType: 'text/plain', buffer: Buffer.from(text) });
-    await Promise.all([
-      admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`/${ROUTE}`), { timeout: 30000 }),
-      form.locator('input[type="submit"]').click(),
-    ]);
-    frame = await frameAt(admin, ROUTE);
-    await frame.waitForLoadState('load');
+    ({ frame } = await submitInFrame(admin, form.locator('input[type="submit"]'), ROUTE));
     await h.assertNotErrorPage(frame, 'Upload Agreement after the upload');
     await expectValue(sql, "SELECT value FROM property WHERE name='aua_valid_duration' ORDER BY id DESC LIMIT 1", '2 weeks',
       'The upload did not store the validity');
@@ -68,10 +63,7 @@ async function workflow(s) {
   await s.step('the page opened again shows the saved validity', async () => {
     // The left-nav link again, as a user reopens the page (the Administration page may be the day
     // sheet's own window, so the menu is not opened a second time).
-    await admin.locator(`a.xlink[rel$="/${ROUTE}"]`).first().click();
-    await admin.waitForTimeout(500);
-    frame = await frameAt(admin, ROUTE);
-    await frame.waitForLoadState('load');
+    frame = await reopenAdminPage(admin, ROUTE);
     const form = frame.locator(`form[action$="/${ROUTE}"]`);
     h.assert(await form.locator('select[name="validDurationNumber"]').inputValue() === '2', 'The page does not show the saved number');
     h.assert(await form.locator('select[name="validDurationPeriod"]').inputValue() === 'weeks', 'The page does not show the saved period');

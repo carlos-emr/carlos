@@ -17,7 +17,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openAdminPage, frameAt } = require('./lib/admin-frame');
+const { openAdminPage, reopenAdminPage } = require('./lib/admin-frame');
 
 const VIEW = 'admin/ViewClinicNbrManage';
 const ACTION = 'admin/clinicNbrManage';
@@ -65,10 +65,7 @@ async function workflow(s) {
   });
 
   await s.step('after the page is opened again, Remove Selected marks exactly that code deleted', async () => {
-    await admin.locator(`a.xlink[rel$="/${VIEW}"]`).first().click();
-    await admin.waitForTimeout(500);
-    frame = await frameAt(admin, VIEW);
-    await frame.waitForLoadState('load');
+    frame = await reopenAdminPage(admin, VIEW);
     const id = added().split(':')[0];
     h.assert(await frame.locator(`#xml_p_nbr option[value="${id}"]`).count() === 1, 'The reopened page does not list the added code');
     await frame.locator('#xml_p_nbr').selectOption(id);

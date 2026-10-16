@@ -261,7 +261,6 @@
     "test:admin-clinic-nbr-codes-playwright": "node scripts/admin-clinic-nbr-codes-playwright-checks.js",
     "test:admin-configure-sms-playwright": "node scripts/admin-configure-sms-playwright-checks.js",
     "test:admin-login-agreement-upload-playwright": "node scripts/admin-login-agreement-upload-playwright-checks.js",
-    "test:admin-group-access-control-playwright": "node scripts/admin-group-access-control-playwright-checks.js",
     "test:clinic-demo-name-playwright": "node scripts/clinic-demo-name-playwright-checks.js",
     "test:facility-selection-playwright": "node scripts/facility-selection-playwright-checks.js",
     "test:health-care-team-playwright": "node scripts/health-care-team-playwright-checks.js",

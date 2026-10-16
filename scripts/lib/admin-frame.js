@@ -64,16 +64,47 @@ async function openAdminPage(s, route, { label = route, timeout = TIMEOUT, skipR
  * Click `control` in the frame and wait for the POST to `route` it sends, answered; then the frame
  * once it has reloaded at `afterRoute` (default: the same route). A save that redirects back
  * (post/redirect/get) navigates the frame twice: pass `afterQuery`, a piece of the redirected
- * address, so the frame is read only after the second load.
+ * address. The frame is returned only once it holds a new document.
  */
 async function submitInFrame(admin, control, route, { afterRoute = route, afterQuery = '', timeout = TIMEOUT } = {}) {
+  await markStale(admin, route);
   const [response] = await Promise.all([
     admin.waitForResponse(r => r.request().method() === 'POST' && routeOf(r.url()).endsWith(`/${route}`), { timeout }),
     control.click(),
   ]);
-  const frame = await frameAt(admin, afterRoute, { query: afterQuery, timeout });
-  await frame.waitForLoadState('load', { timeout });
+  const frame = await freshFrameAt(admin, afterRoute, { query: afterQuery, timeout });
   return { response, frame };
 }
 
-module.exports = { openAdminPage, frameAt, submitInFrame };
+/** Mark the document the frame at `route` now shows, so a wait can tell it from the next one. */
+async function markStale(admin, route) {
+  const old = admin.frames().find(f => f.parentFrame() && routeOf(f.url()).endsWith(`/${route}`));
+  if (old) await old.evaluate(() => { window.__carlosAdminFrameStale = true; }).catch(() => {});
+}
+
+/** The frame at `route` (and `query`) once it holds a new, fully loaded document. */
+async function freshFrameAt(admin, route, { query = '', timeout = TIMEOUT } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const frame = admin.frames().find(f => f.parentFrame() && routeOf(f.url()).endsWith(`/${route}`) && f.url().includes(query));
+    if (frame) {
+      const stale = await frame.evaluate(() => window.__carlosAdminFrameStale === true || document.readyState !== 'complete')
+        .catch(() => true);
+      if (!stale) return frame;
+    }
+    h.assert(Date.now() < deadline, `The administration frame did not load a new ${route}${query ? ` with ${query}` : ''}`);
+    await admin.waitForTimeout(100);
+  }
+}
+
+/**
+ * The left-nav link for `route` clicked again, as a user reopens a page: returns the frame only once
+ * it holds a NEW document, never the page it just left.
+ */
+async function reopenAdminPage(admin, route, { timeout = TIMEOUT } = {}) {
+  await markStale(admin, route);
+  await admin.locator(`a.xlink[rel$="/${route}"]`).first().click();
+  return freshFrameAt(admin, route, { timeout });
+}
+
+module.exports = { openAdminPage, frameAt, submitInFrame, reopenAdminPage };
