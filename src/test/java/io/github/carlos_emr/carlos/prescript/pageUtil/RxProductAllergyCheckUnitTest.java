@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
@@ -45,7 +46,7 @@ class RxProductAllergyCheckUnitTest extends CarlosUnitTestBase {
         var bean = new RxSessionBean();
         bean.setDemographicNo(42);
         try (var patients = mockStatic(RxPatientData.class);
-             var data = mockConstruction(RxDrugData.class, (value, context) -> {
+             var _ = mockConstruction(RxDrugData.class, (value, context) -> {
                  when(value.getAllergyWarnings(eq("S01CA02"), any(), anyList(), anyString())).thenAnswer(call -> {
                      List<Allergy> missing = call.getArgument(2);
                      if ("00000001".equals(call.getArgument(3))) return new Allergy[]{allergy};
@@ -56,11 +57,9 @@ class RxProductAllergyCheckUnitTest extends CarlosUnitTestBase {
             patients.when(() -> RxPatientData.getPatient(info, 42)).thenReturn(patient);
             var first = bean.checkProductAllergies(info, "S01CA02", "00000001");
             var second = bean.checkProductAllergies(info, "S01CA02", "00000002");
-            assertThat(first.warnings()).hasSize(1);
-            assertThat(first.warnings()[0]).isSameAs(allergy);
+            assertThat(first.warnings()).singleElement().isSameAs(allergy);
             assertThat(second.warnings()).isEmpty();
-            assertThat(second.unchecked()).hasSize(1);
-            assertThat(second.unchecked()[0]).isSameAs(allergy);
+            assertThat(second.unchecked()).singleElement().isSameAs(allergy);
             assertThat(second.failed()).isFalse();
         }
     }
@@ -75,6 +74,31 @@ class RxProductAllergyCheckUnitTest extends CarlosUnitTestBase {
             var result = bean.checkProductAllergies(info, "S01CA02", "00000001");
             assertThat(result.failed()).isTrue();
             assertThat(result.warnings()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldCheckNothing_whenAllergyCheckingIsTurnedOff() {
+        var info = mock(LoggedInInfo.class);
+        var bean = new RxSessionBean();
+        bean.setDemographicNo(42);
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previous = properties.getProperty("RX_ALLERGY_CHECKING");
+        properties.setProperty("RX_ALLERGY_CHECKING", "no");
+        try (var patients = mockStatic(RxPatientData.class);
+             var drugData = mockConstruction(RxDrugData.class)) {
+            var result = bean.checkProductAllergies(info, "S01CA02", "00000001");
+            assertThat(result.warnings()).isEmpty();
+            assertThat(result.unchecked()).isEmpty();
+            assertThat(result.failed()).isFalse();
+            patients.verifyNoInteractions();
+            assertThat(drugData.constructed()).isEmpty();
+        } finally {
+            if (previous == null) {
+                properties.remove("RX_ALLERGY_CHECKING");
+            } else {
+                properties.setProperty("RX_ALLERGY_CHECKING", previous);
+            }
         }
     }
 }

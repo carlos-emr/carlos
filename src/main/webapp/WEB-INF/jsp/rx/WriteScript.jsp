@@ -1477,18 +1477,15 @@
                             <!-- peice Went Here --> <%
                                 //RxPatientData.Patient.Allergy[] allerg = (RxPatientData.Patient.Allergy[]) request.getAttribute("ALLERGIES");
                                 RxSessionBean.AllergyCheck productAllergyCheck = bean.checkProductAllergies(loggedInInfo, atcCode, regionalIdentifier);
-                                Allergy[] allerg = productAllergyCheck.warnings();
-                                if (allerg != null && allerg.length > 0) {
-                                    for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
+                                for (Allergy allerg : productAllergyCheck.warnings()) {
                             %>
-                            <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
-                                <b>Allergy:</b> <carlos:encode value="<%= allerg[allergIndex].getDescription() %>"/> <b>Reaction:</b>
-                                <carlos:encode value="<%= allerg[allergIndex].getReaction() %>"/>
-                                <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
-                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg[allergIndex].getOnsetOfReaction())%>
+                            <div style="background-color:<%=severityOfReactionColor(allerg.getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
+                                <b>Allergy:</b> <carlos:encode value="<%= allerg.getDescription() %>"/> <b>Reaction:</b>
+                                <carlos:encode value="<%= allerg.getReaction() %>"/>
+                                <b>Severity:</b> <%=severityOfReaction(allerg.getSeverityOfReaction())%>
+                                <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg.getOnsetOfReaction())%>
                             </div>
-                            <% }
-                            }%>
+                            <% } %>
                             <% if (productAllergyCheck.failed()) { %>
                             <div role="alert"><fmt:message key="WriteScript.allergyCheck.failed"/></div>
                             <% } else { for (Allergy uncheckedAllergy : productAllergyCheck.unchecked()) { %>

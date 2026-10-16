@@ -48,12 +48,12 @@ class RxShortcutIngredientAllergyUnitTest {
         for (boolean legacy : new boolean[]{false, true}) {
             Allergy allergy = allergy(name, atc, legacy);
             List<Allergy> missing = new ArrayList<>();
-            try (var refs = mockConstruction(RxDrugRef.class, (ref, context) -> {
+            try (var _ = mockConstruction(RxDrugRef.class, (ref, context) -> {
                 when(ref.getAlergyWarnings(anyString(), any())).thenReturn(answer(false));
-                when(ref.getDrugByDIN(eq("00012345"), eq(true))).thenReturn(monograph(ingredient));
+                when(ref.getDrugByDIN("00012345", true)).thenReturn(monograph(ingredient));
             })) {
                 var warnings = new RxDrugData().getAllergyWarnings(drugAtc, new Allergy[]{allergy}, missing, "00012345");
-                assertThat(warnings.length).isEqualTo(warns ? 1 : 0);
+                assertThat(warnings).hasSize(warns ? 1 : 0);
                 if (warns) assertThat(warnings[0]).isSameAs(allergy);
                 assertThat(missing).isEmpty();
             }
@@ -63,7 +63,7 @@ class RxShortcutIngredientAllergyUnitTest {
     @Test
     void shouldRetainTrimethoprimWarning_asPhc007Requested() throws Exception {
         Allergy sulfa = allergy("SULFONAMIDES", "J01E", false);
-        try (var refs = mockConstruction(RxDrugRef.class, (ref, context) ->
+        try (var _ = mockConstruction(RxDrugRef.class, (ref, context) ->
                 when(ref.getAlergyWarnings(anyString(), any())).thenReturn(answer(false)))) {
             assertThat(new RxDrugData().getAllergyWarnings("J01EA01", new Allergy[]{sulfa}, new ArrayList<>()))
                     .hasSize(1);
@@ -76,7 +76,7 @@ class RxShortcutIngredientAllergyUnitTest {
         Allergy penicillin = allergy("PENICILLINS", "J01C", false);
         Allergy sulfa = allergy("SULFONAMIDES", "J01E", false);
         List<Allergy> missing = new ArrayList<>();
-        try (var refs = mockConstruction(RxDrugRef.class, (ref, context) -> {
+        try (var _ = mockConstruction(RxDrugRef.class, (ref, context) -> {
             when(ref.getAlergyWarnings(anyString(), any())).thenReturn(new Vector<>(List.of(
                     Map.of("warnings", List.of("0"), "missing", List.of("1")))));
             if (failure.equals("empty")) when(ref.getDrugByDIN(anyString(), eq(true))).thenReturn(new Hashtable<>());
