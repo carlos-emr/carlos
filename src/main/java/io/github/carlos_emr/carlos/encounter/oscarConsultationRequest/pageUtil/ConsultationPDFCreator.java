@@ -53,6 +53,7 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -712,10 +713,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
             infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
-            infoTable.addCell(setDataCell(cell, String.format("%s%s%s %s", reqFrm.appointmentHour,
-                    !reqFrm.appointmentMinute.equals("") ? ":" : "",
-                    reqFrm.appointmentMinute,
-                    reqFrm.appointmentPm)));
+            infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
+                    reqFrm.appointmentMinute, reqFrm.appointmentPm)));
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgChart")));
@@ -896,6 +895,44 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             logger.error("Error loading consultation digital signature {}", parsedId, e);
             return null;
         }
+    }
+
+    /**
+     * The appointment time as the referral prints it, from the 12-hour parts the form carries:
+     * {@code 3}, {@code 5}, {@code PM} prints {@code 3:05 PM}.
+     *
+     * <p>Print previews the posted form ({@link ConsultationPreviewOverlay}), and the minute it posts
+     * is not zero-padded: the reopened request fills it with {@code String.valueOf(minute)} and the
+     * time box script with {@code String(minute)}. So the time is formatted from the parsed hour and
+     * minute rather than joined as text. A missing hour prints nothing, and the AM/PM label is
+     * printed as given. Parts that are not an hour of 1-12 and a minute of 0-59 are printed as given,
+     * so an unexpected value is never hidden.</p>
+     */
+    static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
+        String hour = StringUtils.trimToEmpty(appointmentHour);
+        String minute = StringUtils.trimToEmpty(appointmentMinute);
+        String half = StringUtils.trimToEmpty(appointmentPm);
+        if (hour.isEmpty()) {
+            return "";
+        }
+        String label = half.isEmpty() ? "" : " " + half;
+        Integer parsedHour = numberInRange(hour, 1, 12);
+        Integer parsedMinute = minute.isEmpty() ? null : numberInRange(minute, 0, 59);
+        if (parsedHour != null && minute.isEmpty()) {
+            return parsedHour + label;
+        }
+        if (parsedHour != null && parsedMinute != null) {
+            return String.format(Locale.ROOT, "%d:%02d", parsedHour, parsedMinute) + label;
+        }
+        return hour + (minute.isEmpty() ? "" : ":" + minute) + label;
+    }
+
+    private static Integer numberInRange(String value, int min, int max) {
+        if (!value.matches("\\d{1,2}")) {
+            return null;
+        }
+        int number = Integer.parseInt(value);
+        return number >= min && number <= max ? number : null;
     }
 
     /**
