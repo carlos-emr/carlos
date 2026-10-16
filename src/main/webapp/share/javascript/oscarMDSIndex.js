@@ -1578,7 +1578,8 @@ function showThisPatientDocs(patientId, keepPrevious) {
 function popupConsultation(segmentId) {
     const page = contextpath + '/encounter/ViewRequest?segmentId=' + segmentId;
     const windowprops = "height=960,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    const popup = window.open(page, msgConsReq, windowprops);
+    // msgConsReq was never defined here, so this threw before the window opened.
+    const popup = window.open(page, 'consultationRequest', windowprops);
     if (popup != null) {
         if (popup.opener == null) {
             popup.opener = self;

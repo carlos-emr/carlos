@@ -284,8 +284,12 @@ class LabDisplayJspRegressionTest {
     private void assertEmbeddedDocumentObservationLinksUseDownloadAction(String jsp) {
         assertThat(jsp)
                 .contains("String embeddedDocumentHref = request.getContextPath() + \"/lab/DownloadEmbeddedDocumentFromLab\" + embeddedDocumentQuery;")
-                .contains("String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;")
+                .contains("String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesUrl;")
                 .contains("href=\"<%= SafeEncode.forHtmlAttribute(observationHref) %>\"")
+                // The lab-values link is a real URL opened in the popup by onclick, never a javascript: URL,
+                // which the browser percent-decodes before running (a test name with & or ' broke it).
+                .contains("<% if (!isEmbeddedDocumentResult) { %> onclick=\"popupStart('660','900',this.href); return false;\"<% } %>")
+                .doesNotContain("javascript:popupStart('660','900'")
                 .contains("href=\"<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>\" class=\"lab-embedded-pdf-download\">"
                         + "<fmt:message key=\"lab.embeddedPdf.download\"/></a>");
     }

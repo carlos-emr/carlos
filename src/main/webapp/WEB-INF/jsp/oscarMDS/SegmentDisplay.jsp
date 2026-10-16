@@ -219,7 +219,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8)%>'                                
 , 'searchPatientWindow')">
                             <% } %> &nbsp; <a
-                                href="javascript:popupStart(400,850,'${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&orderby=appointment_date&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+                                href="${pageContext.request.contextPath}/demographic/DemographicApptHistory?demographic_no=<carlos:encode value='${__enc_1}' context="htmlAttribute"/>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" onclick="popupStart(400,850,this.href,'ApptHist'); return false;"
                                 style="font-size: 12px;" title="Click to see appointment history"><span
                                 class="Field2"><i>Next Appointment: <oscar:nextAppt
                                 demographicNo="<%=demoNo%>"/></i></span></a></td>
@@ -291,7 +291,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
 
                                                                         <a
-                                                                                href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>', 'searchPatientWindow')">
+                                                                                href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=MDS&amp;segmentID=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/>&amp;name=<%=java.net.URLEncoder.encode(pd.getPatientName(), StandardCharsets.UTF_8) %>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                             <% } %> <carlos:encode value='<%= pd.getPatientName() %>' context="html"/>
                                                                         </a></div>
                                                             </td>

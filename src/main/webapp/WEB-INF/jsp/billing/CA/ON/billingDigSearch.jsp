@@ -81,6 +81,9 @@
             }
         </script>
 
+        <style>
+            .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+        </style>
     </head>
 
     <body onLoad="setfocus()">
@@ -134,9 +137,9 @@
             <tbody>
             <c:forEach var="__row" items="${digSearchModel.rows}">
             <tr>
-                <td style="width:12%"><a
-                        href="javascript:CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>')"><carlos:encode value="${__row.code}" context="html"/>
-                </a></td>
+                <td style="width:12%"><button
+                        type="button" class="link-button" onclick="CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>');"><carlos:encode value="${__row.code}" context="html"/>
+                </button></td>
                 <%-- Prefixed name: a control named with a bare numeric dx code made
                      CSRFGuard's form.elements[...] lookup resolve it as an index and
                      throw, so the update form never received its token (#4130).

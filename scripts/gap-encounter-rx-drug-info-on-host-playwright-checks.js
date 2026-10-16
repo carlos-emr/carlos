@@ -70,7 +70,7 @@ async function workflow(s) {
     // Location's host is looked at (the address carries the drug text).
     await clickAndAwaitReload(rx, rx.locator(`#prescrip_${drug}`), { label: 'drug row' });
     h.assert(h.pathOnly(rx.url()).endsWith('/rx/ViewStaticScript2'), 'The drug row did not open the static script page');
-    const info = rx.locator('a[href^="javascript:ShowDrugInfo("]').first();
+    const info = rx.locator('a[href*="/rx/drugInfo?"][onclick^="ShowDrugInfo("]').first();
     await info.waitFor({ state: 'visible', timeout: 20000 });
     await rx.evaluate(() => {
       window.__originalOpen = window.open;
@@ -78,7 +78,7 @@ async function workflow(s) {
       window.open = address => { window.__opened.push(String(address)); return null; };
     });
     await info.click();
-    // A javascript: link runs after the click returns, so wait for the recorder rather than reading it at once.
+    // Wait for the recorder rather than reading it at once.
     await rx.waitForFunction(() => window.__opened && window.__opened.length > 0, null, { timeout: 10000 }).catch(() => {});
     const opened = await rx.evaluate(() => window.__opened);
     h.assert(opened.length === 1, `Clicking Info opened ${opened.length} window(s), not exactly one`);

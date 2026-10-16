@@ -108,6 +108,9 @@
             window.close();
         };
     </SCRIPT>
+<style>
+    .link-button { background: none; border: 0; color: var(--bs-link-color, #0000EE); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+</style>
 </head>
 <body>
 <form method="post" action="<%= request.getContextPath() %>/lab/CA/BC/ViewDemoSelect">
@@ -161,10 +164,10 @@
             for (Demographic d : demographics) {
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
-            <td class="Text" align="center"><a
-                    href="javascript:PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>')">
+            <td class="Text" align="center"><button
+                    type="button" class="link-button" onclick="PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScriptAttribute"/>');">
                 <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
-            </a></td>
+            </button></td>
             <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getLastName()) %>' context="html"/>
             </td>
             <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getFirstName()) %>' context="html"/>

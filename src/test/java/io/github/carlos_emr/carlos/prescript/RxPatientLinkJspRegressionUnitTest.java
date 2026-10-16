@@ -329,8 +329,8 @@ class RxPatientLinkJspRegressionUnitTest {
         assertThat(read("rx/WriteScript.jsp"))
                 .contains("name=\"randomId\" value=\"\"")
                 .contains("form.elements['randomId'].value = randomId")
-                .contains("javascript:addFavorite('${rx2.randomId}'")
-                .doesNotContain("javascript:addFavorite('${loopStatus.index}'");
+                .contains("addFavorite('${rx2.randomId}'")
+                .doesNotContain("addFavorite('${loopStatus.index}'");
     }
 
     @Test

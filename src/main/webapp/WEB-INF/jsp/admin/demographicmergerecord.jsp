@@ -292,7 +292,7 @@
                 %>
                 <td width="15%" align="center" height="25">
                     <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <a href="javascript:popupWindow('<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= head != null ? head : "" %>' context="uriComponent"/>')"><carlos:encode value='<%= demographicNo %>' context="html"/>
+                        <a href="<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= head != null ? head : "" %>' context="uriComponent"/>" onclick="popupWindow(this.href); return false;"><carlos:encode value='<%= demographicNo %>' context="html"/>
                         </a>
                     </caisi:isModuleLoad></td>
                 <td align="center" width="20%" height="25"><carlos:encode value='<%= demo.getLastName() %>' context="html"/>
