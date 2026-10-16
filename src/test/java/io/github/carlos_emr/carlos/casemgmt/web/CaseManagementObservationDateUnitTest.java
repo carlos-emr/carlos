@@ -35,6 +35,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -223,6 +224,35 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         assertThat(action.saveAndExit()).isEqualTo("windowClose");
 
         assertThat(savedFullFormNote().getObservation_date()).isEqualTo(STORED_DATE);
+    }
+
+    private String addIssue() throws Exception {
+        doReturn("").when(action).getDemoName(anyString());
+        doReturn("").when(action).getDemoAge(anyString());
+        doReturn("").when(action).getDemoDOB(anyString());
+        return action.issueAdd();
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "  ", "2026-10-15 19:14:08.0"})
+    void shouldKeepStoredDate_whenIssueAddPostsNoReadableDate(String posted) throws Exception {
+        // IssueSearch.jsp, the only page that adds an issue this way, posts no date at all. Nulling
+        // the note's date here made the next save stamp "now" over the stored encounter date.
+        action.setObservation_date(posted);
+
+        assertThat(addIssue()).isEqualTo("view");
+
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+    }
+
+    @Test
+    void shouldTakePostedDate_whenIssueAddPostsReadableDate() throws Exception {
+        action.setObservation_date("14-Oct-2026 10:05");
+
+        assertThat(addIssue()).isEqualTo("view");
+
+        assertThat(note.getObservation_date()).isEqualTo(at(2026, 10, 14, 10, 5));
     }
 
     @Test

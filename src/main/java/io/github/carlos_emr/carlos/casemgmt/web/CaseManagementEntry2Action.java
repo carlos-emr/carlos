@@ -2542,11 +2542,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (sessionFrm != null) {
             if (sessionFrm.getCaseNote() != null) {
+                // IssueSearch.jsp, the page that posts here, sends no date at all. Only a readable one
+                // replaces the note's: nulling it (as this used to) made the next save stamp "now".
                 try {
-                    sessionFrm.getCaseNote().setObservation_date(
-                            NoteObservationDate.parse(this.getObservation_date(), LocaleUtils.resolveBundleLocale(request)));
+                    Date posted = NoteObservationDate.parse(this.getObservation_date(), LocaleUtils.resolveBundleLocale(request));
+                    if (posted != null) sessionFrm.getCaseNote().setObservation_date(posted);
                 } catch (ParseException unreadable) {
-                    // Keep the date the note had; this used to set it to null, and the next save then stamped "now".
                     logger.debug("issueAdd kept the note's encounter date: the posted one could not be read");
                 }
             }
