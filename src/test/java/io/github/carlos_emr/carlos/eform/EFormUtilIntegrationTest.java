@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -32,6 +33,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +63,36 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
         HashMap<String, Object> loadedForm = EFormUtil.loadEForm(persistedForm.getId().toString());
 
         assertThat(loadedForm).containsEntry("fid", persistedForm.getId().toString());
+    }
+
+    @Test
+    @DisplayName("should run an AP query whose literals carry backslash escapes")
+    void shouldReturnValues_whenApQueryUsesBackslashEscapeLiteral() throws Exception {
+        // The bundled history, allergy and prescription AP keys join rows with '\n'. The SQL safety
+        // gate in getValuesOrNull refused those literals, so the query never reached JDBC and the
+        // Rich Text Letter inserted nothing for them.
+        EForm persistedForm = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(persistedForm);
+        persistedForm.setFormName("AP_BACKSLASH_LITERAL");
+        eFormDao.persist(persistedForm);
+        hibernateTemplate.flush();
+
+        ParameterizedSql query = new ParameterizedSql(
+                "SELECT CONCAT(form_name, '\\n') AS joinedName FROM eform WHERE fid = ?",
+                List.of(persistedForm.getId()));
+        List<String> values = EFormUtil.getValuesOrNull(List.of("joinedName"), query);
+
+        assertThat(values).as("a query the safety gate accepts").isNotNull().hasSize(1);
+        assertThat(values.get(0)).startsWith("AP_BACKSLASH_LITERAL");
+    }
+
+    @Test
+    @DisplayName("should refuse an AP query whose literal end depends on the sql_mode")
+    void shouldReturnNull_whenApQueryBackslashCanEscapeClosingQuote() {
+        ParameterizedSql query = new ParameterizedSql(
+                "SELECT 'x\\' AS joinedName FROM eform WHERE fid = ?", List.of(Integer.MAX_VALUE));
+
+        assertThat(EFormUtil.getValuesOrNull(List.of("joinedName"), query)).isNull();
     }
 
     @Test

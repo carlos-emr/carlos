@@ -408,6 +408,10 @@ public final class LegacyJdbcQuery {
      * because the bundled AP SQL historically included it. Semicolons inside
      * quoted literals, such as {@code GROUP_CONCAT(... SEPARATOR ';')}, are data
      * and are not treated as stacked statements.</p>
+     *
+     * <p>A backslash escape is unsafe only where it could escape the literal's
+     * closing quote, because only then does the literal end in a different place
+     * under {@code NO_BACKSLASH_ESCAPES}. Escapes such as {@code '\n'} are data.</p>
      */
     public static boolean containsUnsafeSqlControlToken(String sql) {
         if (sql == null) {
@@ -430,8 +434,11 @@ public final class LegacyJdbcQuery {
                 char current = sql.charAt(position);
                 char next = nextChar();
                 if (insideQuotedLiteral()) {
-                    if (isSqlModeDependentEscape(current)) {
-                        return true;
+                    if (isStringLiteralBackslash(current)) {
+                        if (backslashRunEscapesClosingQuote()) {
+                            return true;
+                        }
+                        continue;
                     }
                     skipQuotedLiteralToken(current, next);
                 } else if (opensQuotedLiteral(current)) {
@@ -459,8 +466,37 @@ public final class LegacyJdbcQuery {
             }
         }
 
-        private boolean isSqlModeDependentEscape(char current) {
+        /** A backslash inside a string literal; backtick identifiers have no escapes in any mode. */
+        private boolean isStringLiteralBackslash(char current) {
             return quote != '`' && current == '\\';
+        }
+
+        /**
+         * Consumes the run of backslashes starting at {@code position} and reports whether it makes
+         * the end of the literal depend on the server's sql_mode.
+         *
+         * <p>Under the default sql_mode each backslash escapes the character after it; under
+         * {@code NO_BACKSLASH_ESCAPES} it is plain text. The two readings end the literal in
+         * different places only when an ODD run sits directly before the literal's own quote: the
+         * default mode reads an escaped quote and keeps going, while {@code NO_BACKSLASH_ESCAPES}
+         * ends the literal there and parses the rest as SQL ({@code 'safe\' union select ...}).
+         * Any other run, such as the {@code '\n'} separators the bundled eForm AP queries join rows
+         * with, or an escaped backslash before the closing quote, ends the literal at the same quote
+         * in both modes and changes only its content, so it is not a control token. Refusing those
+         * as well blanked every AP field built on them.</p>
+         *
+         * @return true when the literal's end depends on the sql_mode
+         */
+        private boolean backslashRunEscapesClosingQuote() {
+            int runEnd = position;
+            while (runEnd < sql.length() && sql.charAt(runEnd) == '\\') {
+                runEnd++;
+            }
+            boolean oddRun = (runEnd - position) % 2 == 1;
+            boolean beforeClosingQuote = runEnd < sql.length() && sql.charAt(runEnd) == quote;
+            // Resume on the character after the run: the loop increment moves past runEnd - 1.
+            position = runEnd - 1;
+            return oddRun && beforeClosingQuote;
         }
 
         private static boolean opensQuotedLiteral(char current) {
