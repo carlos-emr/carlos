@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.*;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
 import jakarta.ws.rs.NotFoundException;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.*;
 
 /** Privilege and stored-owner checks must precede printing, conversion, demographic reads, and streaming. */
 @Tag("unit")
-class RxWebServiceSecurityUnitTest {
+class RxWebServiceSecurityUnitTest extends CarlosUnitTestBase {
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private RxWebService service;
     private Prescription script;

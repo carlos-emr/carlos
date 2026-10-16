@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -26,7 +27,7 @@ import static org.mockito.Mockito.*;
 /** Exact-product ingredient checks must work when DrugRef has no AHFS class data (#4680). */
 @Tag("unit")
 @Tag("rx")
-class RxShortcutIngredientAllergyUnitTest {
+class RxShortcutIngredientAllergyUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({
         "PENICILLINS,J01C,A02BD07,AMOXICILLIN TRIHYDRATE,true",
