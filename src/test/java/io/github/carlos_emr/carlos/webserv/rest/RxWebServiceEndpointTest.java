@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper;
 
 /**
  * CXF local-transport endpoint tests for {@link RxWebService} using CXF local transport.
