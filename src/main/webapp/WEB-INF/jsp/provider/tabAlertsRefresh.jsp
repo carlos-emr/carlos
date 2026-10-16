@@ -31,25 +31,27 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<%-- Reached only through ViewTabAlertsRefresh2Action, which accepts just the five tab ids below
+     and refuses a tab the user's role cannot see; the equals calls stay null-safe regardless. --%>
 <%
     String curUser_no = (String) session.getAttribute("user");
     String tab = request.getParameter("id");
 
-    if (tab.equals("oscar_new_lab")) { %>
+    if ("oscar_new_lab".equals(tab)) { %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <oscar:newLab providerNo="<%=curUser_no%>"><fmt:message key="global.lab"/></oscar:newLab>
 <% }
-    if (tab.equals("oscar_new_msg")) { %>
+    if ("oscar_new_msg".equals(tab)) { %>
 <oscar:newMessage providerNo="<%=curUser_no%>"><fmt:message key="global.msg"/></oscar:newMessage>
 <% }
-    if (tab.equals("oscar_new_tickler")) { %>
+    if ("oscar_new_tickler".equals(tab)) { %>
 <oscar:newTickler providerNo="<%=curUser_no%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
 <% }
-    if (tab.equals("oscar_aged_consults")) { %>
+    if ("oscar_aged_consults".equals(tab)) { %>
 <oscar:agedConsult providerNo="<%=curUser_no%>"><fmt:message key="global.con"/></oscar:agedConsult>
 <%
     }
-    if (!CarlosProperties.getInstance().isTorontoRFQ() && tab.equals("oscar_scratch")) {
+    if (!CarlosProperties.getInstance().isTorontoRFQ() && "oscar_scratch".equals(tab)) {
 %>
 <img src='<oscar:filledScratch providerNo="<%=curUser_no%>"></oscar:filledScratch>' border='0' align="absbottom"
      title="<fmt:message key='ScratchPad.title'/>">

@@ -31,7 +31,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -60,6 +62,8 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
     private MockedConstruction<RxDrugData> drugData;
     private RxDrugInfo2Action action;
     private RuntimeException lookupFailure;
+    /** Search answers by exact term; any other term gets {@link #search}. */
+    private final Map<String, RxDrugData.DrugSearch> searchesByTerm = new HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -81,7 +85,7 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
         when(monograph.getName()).thenReturn("Synthetic ingredient");
         when(monograph.getProduct()).thenReturn("Synthetic product 20 mg");
         drugData = mockConstruction(RxDrugData.class, (data, context) -> {
-            when(data.listDrug2(anyString())).thenReturn(search);
+            when(data.listDrug2(anyString())).thenAnswer(call -> searchesByTerm.getOrDefault(call.getArgument(0), search));
             when(data.getDrug2(anyString())).thenReturn(monograph);
             when(data.getDrugByDIN(anyString())).thenReturn(monograph);
             if (lookupFailure != null) {
@@ -227,13 +231,24 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotSubstituteATextSearch_whenTheExactDinIsUnknown() {
+    void shouldSearchByName_whenTheExactDinIsUnknown() {
         monograph = null;
         request.setParameter("GN", "Synthetic ingredient");
         request.setParameter("DIN", "00123456");
         assertLocalView();
         assertThat(request.getAttribute("drugInfoMonograph")).isNull();
-        verify(drugData.constructed().getFirst(), never()).listDrug2(anyString());
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
+    }
+
+    @Test
+    void shouldSearchByName_whenTheExactProductHasAnEmptyMonograph() {
+        when(monograph.getName()).thenReturn(" ");
+        when(monograph.getProduct()).thenReturn("");
+        request.setParameter("GN", "Synthetic ingredient");
+        request.setParameter("BN", "1234");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoMonograph")).isNull();
+        verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
     }
 
     @ParameterizedTest
@@ -243,6 +258,66 @@ class RxDrugInfo2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("DIN", missingDin);
         assertLocalView();
         verify(drugData.constructed().getFirst()).listDrug2("Synthetic ingredient");
+    }
+
+    @Test
+    void shouldSearchTheNamePart_whenTheSavedDescriptionWithItsStrengthFindsNothing() {
+        // #4554, as the Info link sends it: the saved description carries strength and form, which the
+        // catalogue search does not match, so an unknown DIN must still lead to the product list.
+        monograph = null;
+        RxDrugData.MinDrug match = match("SYNTHETIC INGREDIENT 20MG");
+        searchesByTerm.put("SYNTHETIC INGREDIENT (SYNTHETIC SALT)", searchFinding(match));
+        request.setParameter("GN", "SYNTHETIC INGREDIENT (SYNTHETIC SALT) 20.0mg tablet");
+        request.setParameter("DIN", "00123456");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoMatches")).isEqualTo(List.of(match));
+        assertThat(request.getAttribute("drugInfoSearchTerm")).isEqualTo("SYNTHETIC INGREDIENT (SYNTHETIC SALT)");
+        verify(drugData.constructed().getFirst()).listDrug2("SYNTHETIC INGREDIENT (SYNTHETIC SALT) 20.0mg tablet");
+    }
+
+    @Test
+    void shouldKeepTheWholeDescription_whenItAlreadyFindsMatches() {
+        RxDrugData.MinDrug match = match("SYNTHETIC INGREDIENT 20MG");
+        searchesByTerm.put("SYNTHETIC INGREDIENT 20MG", searchFinding(match));
+        request.setParameter("GN", "SYNTHETIC INGREDIENT 20MG");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoMatches")).isEqualTo(List.of(match));
+        assertThat(request.getAttribute("drugInfoSearchTerm")).isEqualTo("SYNTHETIC INGREDIENT 20MG");
+        verify(drugData.constructed().getFirst(), never()).listDrug2("SYNTHETIC INGREDIENT");
+    }
+
+    @Test
+    void shouldShowNoMatches_whenNeitherTheDescriptionNorItsNamePartIsKnown() {
+        request.setParameter("GN", "Unknown synthetic ingredient 20mg tablet");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoMatches")).isEqualTo(List.of());
+        assertThat(request.getAttribute("drugInfoUnavailable")).isEqualTo(Boolean.FALSE);
+        assertThat(request.getAttribute("drugInfoSearchTerm")).isEqualTo("Unknown synthetic ingredient 20mg tablet");
+        verify(drugData.constructed().getFirst()).listDrug2("Unknown synthetic ingredient");
+    }
+
+    @Test
+    void shouldReportUnavailable_whenTheNamePartSearchFails() {
+        RxDrugData.DrugSearch failed = mock(RxDrugData.DrugSearch.class);
+        failed.failed = true;
+        searchesByTerm.put("Synthetic ingredient", failed);
+        request.setParameter("GN", "Synthetic ingredient 20mg tablet");
+        assertLocalView();
+        assertThat(request.getAttribute("drugInfoUnavailable")).isEqualTo(Boolean.TRUE);
+    }
+
+    private static RxDrugData.MinDrug match(String name) {
+        RxDrugData.MinDrug match = mock(RxDrugData.MinDrug.class);
+        when(match.getpKey()).thenReturn("1234");
+        when(match.getName()).thenReturn(name);
+        return match;
+    }
+
+    private static RxDrugData.DrugSearch searchFinding(RxDrugData.MinDrug match) {
+        RxDrugData.DrugSearch found = mock(RxDrugData.DrugSearch.class);
+        when(found.getGen()).thenReturn(new ArrayList<>(List.of(match)));
+        when(found.getBrand()).thenReturn(new ArrayList<>());
+        return found;
     }
 
     @Test

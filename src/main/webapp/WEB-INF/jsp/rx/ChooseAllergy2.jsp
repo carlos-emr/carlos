@@ -51,6 +51,7 @@
 <%@page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass" %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -98,13 +99,18 @@
                 return true;
             }
 
-            /** Submits an allergy reaction via the hidden #addReactionForm with a dynamic action URL. */
-            function submitAddReaction(actionUrl, id, type, name) {
+            /**
+             * Submits an allergy reaction via the hidden #addReactionForm with a dynamic action URL.
+             * atc is the ATC class of a class allergen (the shortcuts below, #4576); the search
+             * results do not pass it.
+             */
+            function submitAddReaction(actionUrl, id, type, name, atc) {
                 var form = document.getElementById('addReactionForm');
                 form.action = actionUrl;
                 form.elements['ID'].value = id;
                 form.elements['type'].value = type;
                 form.elements['name'].value = name;
+                form.elements['atc'].value = atc || '';
                 form.submit();
             }
 
@@ -117,12 +123,19 @@
                 }
             }
 
+            <%-- The class shortcuts record an ATC class allergen (#4576): type 8 (ATC Class), no DrugRef
+                 id and the class code. They used to post fixed DrugRef ids, which name other products
+                 in current DrugRef data. --%>
             function addPenicillinAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44452', '10', 'PENICILLINS');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '', '8',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.atcClass() %>' context="javaScript"/>');
             }
 
             function addSulfonamideAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44159', '10', 'SULFONAMIDES');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '', '8',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.atcClass() %>' context="javaScript"/>');
             }
 
             function addCustomNKDA() {
@@ -148,6 +161,7 @@
         <input type="hidden" name="ID" value=""/>
         <input type="hidden" name="type" value=""/>
         <input type="hidden" name="name" value=""/>
+        <input type="hidden" name="atc" value=""/>
         <%-- form.submit() skips the submit listener, so the patient is carried explicitly (#3875). --%>
         <input type="hidden" name="demographicNo" value="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"/>
     </form>

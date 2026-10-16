@@ -27,6 +27,8 @@
         <script type="text/javascript">
             var encounterConfig = {
                 ctx: "${carlos:forJavaScript(ctx)}",
+                demographicNo: "<carlos:encode value='${bean.demographicNo}' context="javaScript"/>",
+                appointmentNo: "<carlos:encode value='${bean.appointmentNo}' context="javaScript"/>",
                 patientSex: "<carlos:encode value='${bean.patientSex}' context="javaScript"/>",
                 pAge: "<carlos:encode value='${pAge}' context="javaScript"/>",
                 popUrl: <c:choose><c:when test="${not empty popUrl}">"<carlos:encode value='${popUrl}' context="javaScript"/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,

@@ -115,18 +115,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        String demoNo = request.getParameter("demographicNo");
-
-        // Check if demographicNo is null or invalid
-        if (demoNo == null || demoNo.trim().isEmpty() || "null".equals(demoNo)) {
-            log.error("EctIncomingEncounter2Action called with null or invalid demographicNo");
-            return "failure";
+        final String demoNo;
+        try {
+            demoNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
         }
-
-        // Validate demographicNo is numeric before crossing the trust boundary
-        if (!demoNo.matches("\\d+")) {
-            log.error("EctIncomingEncounter2Action called with non-numeric demographicNo");
-            return "failure";
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demoNo)) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
@@ -138,14 +135,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         }
 
         EctSessionBean bean;
-        String appointmentNo = null;
-
-        if (request.getSession().getAttribute("cur_appointment_no") != null) {
-            appointmentNo = (String) request.getSession().getAttribute("cur_appointment_no");
-        }
-
         if (request.getParameter("appointmentList") != null) {
-            bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+            bean = newEntryBean(request, loggedInInfo);
             String apptListNo = request.getParameter("appointmentNo");
             if (apptListNo != null && !apptListNo.matches("\\d{1,9}")) {
                 log.warn("Invalid non-numeric appointmentNo in appointmentList branch");
@@ -155,7 +146,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             bean.template = "";
         } else if (request.getParameter("demographicSearch") != null) {
             // Coming in from the demographicSearch page
-            bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+            bean = newEntryBean(request, loggedInInfo);
             // Use pre-validated demoNo (validated at method entry)
             bean.demographicNo = demoNo;
             // no curProviderNo when viewing eCharts from search screen
@@ -218,11 +209,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
                 log.warn("Invalid appointmentNo");
                 return "failure";
             }
-            // use this one.
-            if (bean.appointmentNo != null && appointmentNo != null) {
-                bean.appointmentNo = appointmentNo;
-            }
-
             bean.curProviderNo = request.getParameter("curProviderNo");
             if (bean.curProviderNo != null && !bean.curProviderNo.isEmpty() && !bean.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
                 log.warn("Invalid curProviderNo");
@@ -324,8 +310,21 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         }
 
+        EncounterPatientContext.rememberEncounter(request, bean);
         setEncounterAttributes(request, bean, loggedInInfo);
         return "success2";
+    }
+
+    /** Starts a legacy entry without borrowing another chart window's mutable bean. */
+    private EctSessionBean newEntryBean(HttpServletRequest request, LoggedInInfo loggedInInfo) {
+        EctSessionBean bean = new EctSessionBean();
+        bean.currentDate = new Date();
+        bean.providerNo = loggedInInfo.getLoggedInProviderNo();
+        bean.curProviderNo = bean.providerNo;
+        bean.userName = request.getSession().getAttribute("userfirstname") + " "
+                + request.getSession().getAttribute("userlastname");
+        bean.appointmentDate = UtilDateUtilities.DateToString(bean.currentDate, "yyyy-MM-dd");
+        return bean;
     }
 
     /**

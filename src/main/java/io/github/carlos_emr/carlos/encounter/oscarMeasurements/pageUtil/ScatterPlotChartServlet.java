@@ -56,8 +56,10 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
@@ -75,15 +77,17 @@ public class ScatterPlotChartServlet extends HttpServlet {
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         String type = request.getParameter("type");
         String mInstrc = request.getParameter("mInstrc");
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String demographicNo = null;
-
-        if (request.getParameter("demographicNo") != null) {
-            demographicNo = request.getParameter("demographicNo");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return;
         }
-
-        if (demographicNo == null && bean != null) {
-            demographicNo = bean.getDemographicNo();
+        SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!security.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", demographicNo)) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
         }
 
         try {

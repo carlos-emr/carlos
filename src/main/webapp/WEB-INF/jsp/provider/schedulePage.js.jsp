@@ -732,6 +732,11 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
+<%-- Only tabs the day view rendered for this role are refreshed; the server refuses a hidden
+     tab's count (#2689), so polling one is a wasted 403. --%>
+if (!document.getElementById(id)) {
+return;
+}
 var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
 var pars = "id=" + id;
 jQuery.ajax({

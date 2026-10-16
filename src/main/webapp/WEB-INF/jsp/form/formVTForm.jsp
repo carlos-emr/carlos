@@ -51,6 +51,21 @@
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%
+    // This view is populated by SetupForm for one explicitly authorized patient.
+    try {
+        String formPatientNo = EncounterPatientContext.requireDemographicNo(request);
+        if (!formPatientNo.equals(request.getAttribute("formDemographicNo"))
+                || request.getAttribute("formPatient") == null) {
+            response.sendError(400, "Invalid form patient context");
+            return;
+        }
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400, "Invalid form patient context");
+        return;
+    }
+%>
 <html>
 
     <head>
@@ -61,11 +76,29 @@
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+        <style>
+            .vt-screen-reader-only {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0, 0, 0, 0);
+                white-space: nowrap;
+                border: 0;
+            }
+            th.vt-column-heading {
+                font-size: inherit;
+                font-weight: normal;
+                text-align: left;
+            }
+        </style>
     </head>
 
     <script type="text/javascript">
 
-        var waist, hip, ratio;
+        var WHRBId;
         var smkSDate, smkHDate, smkCDate;
         var smkSCmt, smkHCmt, smkCCmt;
         var DpScId, StScId, LcCtId;
@@ -73,9 +106,9 @@
         var FTExId, ftNeId, ftIsId, ftInId, ftUlId, ftOtId, ftReId;
         var FTExDate, ftNeDate, ftIsDate, ftInDate, ftUlDate, ftOtDate, ftReDate;
         var FTExCmt, ftNeCmt, ftIsCmt, ftInCmt, ftUlCmt, ftOtCmt, ftReCmt;
-        var eyeExId, eyeHypId, eyeDiaId, eyeOthId, eyeRefId;
-        var eyeExCmt, eyeHypCmt, eyeDiaCmt, eyeOthCmt, eyeRefCmt;
-        var eyeExDate, eyeHypDate, eyeDiaDate, eyeOthDate, eyeRefDate;
+        var eyeHypId, eyeDiaId, eyeOthId, eyeRefId;
+        var eyeHypCmt, eyeDiaCmt, eyeOthCmt, eyeRefCmt;
+        var eyeHypDate, eyeDiaDate, eyeOthDate, eyeRefDate;
         var MIValue, AngValue, ACSValue, RVTNValue, CADValue, DMValue, PVDValue;
         var HTNValue, HchlValue, CVDValue;
         var HbA1Value, HbA1Date, HbA1Cmt;
@@ -199,7 +232,6 @@
 
 
             showHideItem('detailLab');
-            showHideItem('detailCounselling');
 
             showHideItem('medications');
             showHideItem('medicationAllergies');
@@ -208,54 +240,6 @@
             showHideItem('medLabel');
 
 
-        }
-
-        function updateWaistHip() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[hip].value = parseInt(parseInt(w) / parseFloat(r));
-            } else if (document.forms[0].elements[hip].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[hip].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[waist].value = parseInt(parseFloat(r) * parseInt(h));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
-        }
-
-        function updateWaistAndRatio() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[hip].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[hip].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[ratio].value = parseInt(w) / parseInt(h);
-            } else if (document.forms[0].elements[hip].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[hip].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = false;
-                document.forms[0].elements[waist].value = parseInt(parseFloat(r) * parseInt(h));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
-        }
-
-        function updateHipAndRatio() {
-            var r = document.forms[0].elements[ratio].value;
-            var w = document.forms[0].elements[waist].value;
-            var h = document.forms[0].elements[hip].value;
-
-            if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[hip].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[hip].value != 0) {
-                document.forms[0].elements[ratio].readOnly = true;
-                document.forms[0].elements[ratio].value = parseInt(w) / parseInt(h);
-            } else if (document.forms[0].elements[waist].value != "" && document.forms[0].elements[ratio].value != "" && document.forms[0].elements[waist].value != 0 && document.forms[0].elements[ratio].value != 0) {
-                document.forms[0].elements[ratio].readOnly = false;
-                document.forms[0].elements[hip].value = parseInt(parseInt(w) / parseFloat(r));
-            } else {
-                document.forms[0].elements[ratio].readOnly = false;
-            }
         }
 
         function storeSMKSupportData() {
@@ -331,13 +315,11 @@
 
         function storeEyeExamSupportData() {
 
-            document.forms[0].elements[eyeExDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeHypDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeDiaDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeOthDate].value = document.forms[0].iDate.value;
             document.forms[0].elements[eyeRefDate].value = document.forms[0].iDate.value;
 
-            document.forms[0].elements[eyeExCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeHypCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeDiaCmt].value = document.forms[0].iComments.value;
             document.forms[0].elements[eyeOthCmt].value = document.forms[0].iComments.value;
@@ -345,52 +327,28 @@
         }
 
 
-        function controlEyeExam() {
-
-            if (document.forms[0].elements[eyeExId].checked == false) {
-                //enable all foot exam checkbox
-                //alert("enable all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].disabled = false;
-                document.forms[0].elements[eyeDiaId - 1].disabled = false;
-                document.forms[0].elements[eyeOthId - 1].disabled = false;
-                document.forms[0].elements[eyeRefId - 1].disabled = false;
-                //document.forms[0].elements[eyeHypId].disabled= false;
-                //document.forms[0].elements[eyeDiaId].disabled= false;
-                //document.forms[0].elements[eyeOthId].disabled= false;
-                //document.forms[0].elements[eyeRefId].disabled= false;
-            } else if (document.forms[0].elements[eyeExId].checked == true) {
-                //uncheck and disable all foot exam checkbox
-                //alert("uncheck all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].checked = false;
-                document.forms[0].elements[eyeDiaId - 1].checked = false;
-                document.forms[0].elements[eyeOthId - 1].checked = false;
-                document.forms[0].elements[eyeRefId - 1].checked = false;
-                document.forms[0].elements[eyeHypId].checked = true;
-                document.forms[0].elements[eyeDiaId].checked = true;
-                document.forms[0].elements[eyeOthId].checked = true;
-                document.forms[0].elements[eyeRefId].checked = true;
-
-                //alert("disable all foot exam checkboxes");
-                document.forms[0].elements[eyeHypId - 1].disabled = true;
-                document.forms[0].elements[eyeDiaId - 1].disabled = true;
-                document.forms[0].elements[eyeOthId - 1].disabled = true;
-                document.forms[0].elements[eyeRefId - 1].disabled = true;
-            }
-        }
-
         function initialize() {
             var e = document.forms[0].elements;
 
+            // Restore this request's values through DOM properties, never executable markup.
+            document.querySelectorAll('#vt-form-values [data-field]').forEach(function (stored) {
+                var name = 'value(' + stored.dataset.field + ')';
+                for (var field of e) {
+                    if (field.name !== name) continue;
+                    if (field.type === 'checkbox') {
+                        field.checked = ['yes', 'on', 'true', '1'].includes(stored.dataset.value);
+                    } else if (field.type === 'radio') {
+                        field.checked = field.value === stored.dataset.value;
+                    } else {
+                        field.value = stored.dataset.value;
+                    }
+                }
+            });
+
             for (i = 0; i < e.length; i++) {
                 switch (e[i].name) {
-                    case 'value(WHRValue)':
-                        ratio = i;
-                        break;
-                    case 'value(WCValue)':
-                        waist = i;
-                        break;
-                    case 'value(HCValue)':
-                        hip = i;
+                    case 'value(WHRBValue)':
+                        WHRBId = i;
                         break;
                     case 'value(SmkSDate)':
                         smkSDate = i;
@@ -501,9 +459,6 @@
                         ftReCmt = i;
                         break;
 
-                    case 'value(iExDate)':
-                        eyeExDate = i;
-                        break;
                     case 'value(iHypDate)':
                         eyeHypDate = i;
                         break;
@@ -517,9 +472,6 @@
                         eyeRefDate = i;
                         break;
 
-                    case 'value(iExComments)':
-                        eyeExCmt = i;
-                        break;
                     case 'value(iHypComments)':
                         eyeHypCmt = i;
                         break;
@@ -533,9 +485,6 @@
                         eyeRefCmt = i;
                         break;
 
-                    case 'value(iExValue)':
-                        eyeExId = i;
-                        break;
                     case 'value(iHypValue)':
                         eyeHypId = i;
                         break;
@@ -632,13 +581,11 @@
         }
 
         function disableEyeExam(control) {
-            document.forms[0].elements[eyeExId - 1].disabled = control;
             document.forms[0].elements[eyeHypId - 1].disabled = control;
             document.forms[0].elements[eyeDiaId - 1].disabled = control;
             document.forms[0].elements[eyeOthId - 1].disabled = control;
             document.forms[0].elements[eyeRefId - 1].disabled = control;
 
-            document.forms[0].elements[eyeExId].disabled = control;
             document.forms[0].elements[eyeHypId].disabled = control;
             document.forms[0].elements[eyeDiaId].disabled = control;
             document.forms[0].elements[eyeOthId].disabled = control;
@@ -700,14 +647,34 @@
     </script>
     <body class="BodyStyle" vlink="#0000FF"
           onload="window.focus();window.resizeTo(680,760); initialize();">
+    <div id="vt-form-values" hidden>
+        <c:forEach var="field" items="${requestScope.formValues}">
+            <span data-field="${carlos:forHtmlAttribute(field.key)}"
+                  data-value="${carlos:forHtmlAttribute(field.value)}"></span>
+        </c:forEach>
+    </div>
     <!--  -->
 
     <form action="${pageContext.request.contextPath}/form/SubmitForm" method="post">
+        <span id="vt-comments-label" class="vt-screen-reader-only"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></span>
+        <span id="vt-new-data-label" class="vt-screen-reader-only"><fmt:message key="form.vt.newData"/></span>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/encounter/oscarMeasurements/styles/measurementStyle.css">
         <link rel="stylesheet" type="text/css" media="print" href="form/print.css"/>
         <input type="hidden" name="value(formName)" value="VTForm"/>
-        <input type="hidden" name="value(formId)" id="value(formId)"/>
+        <input type="hidden" name="demographic_no" value="${carlos:forHtmlAttribute(requestScope.formDemographicNo)}"/>
+        <input type="hidden" name="value(formId)" id="value(formId)" value="${carlos:forHtmlAttribute(requestScope.formValues['formId'])}"/>
+        <%-- The XML/record still contains iEx, but this view has no editor for it. Preserve its
+             stored value and metadata through the encoded formValues restoration without
+             treating it as a visible radio pair or replacing its date/comments on save. --%>
+        <input type="hidden" name="value(iExValue)"/>
+        <input type="hidden" name="value(iExDate)"/>
+        <input type="hidden" name="value(iExComments)"/>
+        <%-- WHR likewise has stored fields but no ratio editor on this page. Retain its
+             history without deriving a new result from the standalone WC/HC inputs. --%>
+        <input type="hidden" name="value(WHRValue)"/>
+        <input type="hidden" name="value(WHRDate)"/>
+        <input type="hidden" name="value(WHRComments)"/>
         <table class="Head" class="hidePrint" width="640px" cellpadding="0"
                cellspacing="0">
             <tr>
@@ -749,12 +716,12 @@
                                             <table width="100%" border="0" cellspacing="0" cellpadding="1">
                                                 <tr>
                                                     <td valign="top" width="22%">
-                                                        <c:if test="${not empty EctSessionBean}">
-                                                            ${EctSessionBean.patientLastName}
-                                                            ${EctSessionBean.patientFirstName}
-                                                            ${EctSessionBean.patientSex}
-                                                            ${EctSessionBean.patientAge}
-                                                        </c:if>
+                                                        <span id="vt-patient-header">
+                                                            ${carlos:forHtml(requestScope.formPatient.lastName)}
+                                                            ${carlos:forHtml(requestScope.formPatient.firstName)}
+                                                            ${carlos:forHtml(requestScope.formPatient.sex)}
+                                                            ${carlos:forHtml(requestScope.formPatient.age)}
+                                                        </span>
 
                                                         <table width="100%" id="showDetailTitle">
                                                             <tr>
@@ -1024,7 +991,7 @@
 									</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("DpScDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-DpSc-label"><%=request.getAttribute("DpScDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
@@ -1041,22 +1008,22 @@
                                                         </table>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="radio" name="value(DpScValue)" value="yes"/>Yes
-                                                        <input type="radio" name="="value(DpScValue)" value="no"/>No
+                                                        <input id="vt-DpSc-yes" aria-labelledby="vt-DpSc-label vt-DpSc-yes-label" type="radio" name="value(DpScValue)" value="yes"/><label id="vt-DpSc-yes-label" for="vt-DpSc-yes">Yes</label>
+                                                        <input id="vt-DpSc-no" aria-labelledby="vt-DpSc-label vt-DpSc-no-label" type="radio" name="value(DpScValue)" value="no"/><label id="vt-DpSc-no-label" for="vt-DpSc-no">No</label>
                                                         <a
                                                             title="clear all"
                                                             href="javascript:clearAll(DpScId, DpScId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(DpScDate)" id="value(DpScDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(DpScComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-DpSc-comments" aria-labelledby="vt-DpSc-label vt-comments-label" type="text" name="value(DpScComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("StScDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-StSc-label"><%=request.getAttribute("StScDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("StScLDDate")%>
@@ -1070,21 +1037,21 @@
                                                         </table>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="radio" name="value(StScValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(StScValue)" value="no"/>No <a
+                                                        <input id="vt-StSc-yes" aria-labelledby="vt-StSc-label vt-StSc-yes-label" type="radio" name="value(StScValue)" value="yes"/><label id="vt-StSc-yes-label" for="vt-StSc-yes">Yes</label>
+                                                        <input id="vt-StSc-no" aria-labelledby="vt-StSc-label vt-StSc-no-label" type="radio" name="value(StScValue)" value="no"/><label id="vt-StSc-no-label" for="vt-StSc-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(StScId, StScId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(StScDate)" id="value(StScDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(StScComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-StSc-comments" aria-labelledby="vt-StSc-label vt-comments-label" type="text" name="value(StScComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("LcCtDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-LcCt-label"><%=request.getAttribute("LcCtDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("LcCtLDDate")%>
@@ -1097,15 +1064,15 @@
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td class="dataEntryTable" align="center"><input type="radio" name="value(LcCtValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(LcCtValue)" value="no"/>No <a
+                                                    <td class="dataEntryTable" align="center"><input id="vt-LcCt-yes" aria-labelledby="vt-LcCt-label vt-LcCt-yes-label" type="radio" name="value(LcCtValue)" value="yes"/><label id="vt-LcCt-yes-label" for="vt-LcCt-yes">Yes</label>
+                                                        <input id="vt-LcCt-no" aria-labelledby="vt-LcCt-label vt-LcCt-no-label" type="radio" name="value(LcCtValue)" value="no"/><label id="vt-LcCt-no-label" for="vt-LcCt-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(LcCtId, LcCtId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(LcCtDate)" id="value(LcCtDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(LcCtComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-LcCt-comments" aria-labelledby="vt-LcCt-label vt-comments-label" type="text" name="value(LcCtComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -1114,26 +1081,26 @@
 
                                     <tr>
                                         <td colspan="2">
-                                            <table cellpadding='1' cellspacing='0' width="100%" border="1">
+                                            <table id="vt-medication-adherence" cellpadding='1' cellspacing='0' width="100%" border="1">
                                                 <tr>
-                                                    <td class="subTitle" width="36%" style="text-align: left">
+                                                    <th aria-labelledby="medHead1" scope="col" class="subTitle vt-column-heading" width="36%" style="text-align: left">
 									<span id="medHead1" style="display: none;">Medication
-									Adherence screen</span></td>
-                                                    <td class="subTitle" width="16%"><span id="medHead2"
+									Adherence screen</span></th>
+                                                    <th aria-labelledby="medHead2" scope="col" class="subTitle vt-column-heading" width="16%"><span id="medHead2"
                                                                                            style="display: none;"><fmt:message key="form.vt.lastData"/></span>
-                                                    </td>
-                                                    <td class="subTitle" width="18%"><span id="medHead3"
+                                                    </th>
+                                                    <th aria-labelledby="medHead3" scope="col" class="subTitle vt-column-heading" width="18%"><span id="medHead3"
                                                                                            style="display: none;"><fmt:message key="form.vt.newData"/></span>
-                                                    </td>
-                                                    <td class="subTitle" width="30%"><span id="medHead4"
+                                                    </th>
+                                                    <th aria-labelledby="medHead4" scope="col" class="subTitle vt-column-heading" width="30%"><span id="medHead4"
                                                                                            style="display: none;"> <fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/>
-									</span></td>
+									</span></th>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("MedGDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-MedG-label"><%=request.getAttribute("MedGDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("MedGLDDate")%>
@@ -1146,21 +1113,21 @@
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td class="dataEntryTable" align="center"><input type="radio" name="value(MedGValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(MedGValue)" value="no"/>No <a
+                                                    <td class="dataEntryTable" align="center"><input id="vt-MedG-yes" aria-labelledby="vt-MedG-label vt-MedG-yes-label" type="radio" name="value(MedGValue)" value="yes"/><label id="vt-MedG-yes-label" for="vt-MedG-yes">Yes</label>
+                                                        <input id="vt-MedG-no" aria-labelledby="vt-MedG-label vt-MedG-no-label" type="radio" name="value(MedGValue)" value="no"/><label id="vt-MedG-no-label" for="vt-MedG-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(MedGId, MedGId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(MedGDate)" id="value(MedGDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(MedGComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedG-comments" aria-labelledby="vt-MedG-label vt-comments-label" type="text" name="value(MedGComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("MedNDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-MedN-label"><%=request.getAttribute("MedNDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("MedNLDDate")%>
@@ -1173,21 +1140,21 @@
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td class="dataEntryTable" align="center"><input type="radio" name="value(MedNValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(MedNValue)" value="no"/>No <a
+                                                    <td class="dataEntryTable" align="center"><input id="vt-MedN-yes" aria-labelledby="vt-MedN-label vt-MedN-yes-label" type="radio" name="value(MedNValue)" value="yes"/><label id="vt-MedN-yes-label" for="vt-MedN-yes">Yes</label>
+                                                        <input id="vt-MedN-no" aria-labelledby="vt-MedN-label vt-MedN-no-label" type="radio" name="value(MedNValue)" value="no"/><label id="vt-MedN-no-label" for="vt-MedN-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(MedNId, MedNId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(MedNDate)" id="value(MedNDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(MedNComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedN-comments" aria-labelledby="vt-MedN-label vt-comments-label" type="text" name="value(MedNComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("MedRDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-MedR-label"><%=request.getAttribute("MedRDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("MedRLDDate")%>
@@ -1200,21 +1167,21 @@
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td class="dataEntryTable" align="center"><input type="radio" name="value(MedRValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(MedRValue)" value="no"/>No <a
+                                                    <td class="dataEntryTable" align="center"><input id="vt-MedR-yes" aria-labelledby="vt-MedR-label vt-MedR-yes-label" type="radio" name="value(MedRValue)" value="yes"/><label id="vt-MedR-yes-label" for="vt-MedR-yes">Yes</label>
+                                                        <input id="vt-MedR-no" aria-labelledby="vt-MedR-label vt-MedR-no-label" type="radio" name="value(MedRValue)" value="no"/><label id="vt-MedR-no-label" for="vt-MedR-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(MedRId, MedRId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(MedRDate)" id="value(MedRDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(MedRComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedR-comments" aria-labelledby="vt-MedR-label vt-comments-label" type="text" name="value(MedRComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("MedADesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-MedA-label"><%=request.getAttribute("MedADesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("MedALDDate")%>
@@ -1228,15 +1195,15 @@
                                                         </table>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="radio" name="value(MedAValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(MedAValue)" value="no"/>No <a
+                                                        <input id="vt-MedA-yes" aria-labelledby="vt-MedA-label vt-MedA-yes-label" type="radio" name="value(MedAValue)" value="yes"/><label id="vt-MedA-yes-label" for="vt-MedA-yes">Yes</label>
+                                                        <input id="vt-MedA-no" aria-labelledby="vt-MedA-label vt-MedA-no-label" type="radio" name="value(MedAValue)" value="no"/><label id="vt-MedA-no-label" for="vt-MedA-no">No</label> <a
                                                             title="clear all"
                                                             href="javascript:clearAll(MedAId, MedAId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(MedADate)" id="value(MedADate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(MedAComments)" size="30%" abindex="9999"/></td>
+                                                        <input id="vt-MedA-comments" aria-labelledby="vt-MedA-label vt-comments-label" type="text" name="value(MedAComments)" size="30%" tabindex="9999"/></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -1245,14 +1212,12 @@
                                     <tr>
                                         <th class="soap" width="2%"><span id="bigO"
                                                                           style="display: none;">O</span></th>
-                                        <th>
-                                            <table id="objective" style="display: none">
-                                                <tr>
-                                                    <th><textarea name="value(objective)" cols="78"
-                                                                       style="height:40"></textarea></th>
-                                                </tr>
-                                            </table>
-                                        </th>
+                                        <td style="text-align: center; font-size: small; font-weight: bold;">
+                                            <div id="objective" style="display: none">
+                                                <label class="vt-screen-reader-only" for="vt-objective">Objective</label><textarea id="vt-objective" name="value(objective)" cols="78"
+                                                                   style="height:40"></textarea>
+                                            </div>
+                                        </td>
                                     </tr>
                                     <tr>
                                         <th class="title" colspan="2"><span id="vitalsLabel"
@@ -1265,25 +1230,25 @@
                                         <td colspan="2">
                                             <table cellpadding='1' cellspacing='0' id="vital">
                                                 <tr>
-                                                    <td class="subTitle" width="36%" style="text-align: left">
-                                                    </td>
-                                                    <td class="subTitle" width="16%"><span id="vitalHead1"
+                                                    <th scope="col" class="subTitle vt-column-heading" width="36%" style="text-align: left"><span class="vt-screen-reader-only">Measurement</span>
+                                                    </th>
+                                                    <th aria-labelledby="vitalHead1" scope="col" class="subTitle vt-column-heading" width="16%"><span id="vitalHead1"
                                                                                            style="display: none;"><fmt:message key="form.vt.lastData"/><br>
-									Entered on</span></td>
-                                                    <td class="subTitle" width="18%"><span id="vitalHead2"
+									Entered on</span></th>
+                                                    <th aria-labelledby="vitalHead2" scope="col" class="subTitle vt-column-heading" width="18%"><span id="vitalHead2"
                                                                                            style="display: none;"><fmt:message key="form.vt.newData"/></span>
-                                                    </td>
-                                                    <td class="subTitle" width="30%"><span id="vitalHead3"
+                                                    </th>
+                                                    <th aria-labelledby="vitalHead3" scope="col" class="subTitle vt-column-heading" width="30%"><span id="vitalHead3"
                                                                                            style="display: none;"><fmt:message key='encounter.oscarMeasurements.Measurements.headingComments'/></span>
-                                                    </td>
+                                                    </th>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("BPDisplay")%>
+                                                    <td class="dataEntryTable"><label id="vt-BP-label" for="vt-BP-value"><%=request.getAttribute("BPDisplay")%></label>
                                                         <br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("BPMeasuringInstrc")%>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><%=request.getAttribute("BPMeasuringInstrc")%>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("BPLDDate")%>
@@ -1297,21 +1262,21 @@
                                                         </table>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(BPValue)" size="5%" /></td>
+                                                        <input id="vt-BP-value" aria-labelledby="vt-BP-label vt-new-data-label" type="text" name="value(BPValue)" size="5%" /></td>
                                                     <input type="hidden" name="value(BPDate)" id="value(BPDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(BPComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-BP-comments" aria-labelledby="vt-BP-label vt-comments-label" type="text" name="value(BPComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
 
 
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("WHRBDisplay")%>
+                                                    <td class="dataEntryTable"><span id="vt-WHRB-label"><%=request.getAttribute("WHRBDisplay")%></span>
                                                         <br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("WHRBMeasuringInstrc")%>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><%=request.getAttribute("WHRBMeasuringInstrc")%>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WHRBLastData}">
-                                                            <table cellpadding="0" cellspacing="0">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
                                                                     <td class="eightyPercent" align="left">${WHRBLDDate}</td>
                                                                 </tr>
@@ -1322,25 +1287,25 @@
                                                         </c:if>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="radio" name="value(WHRBValue)" value="yes"/>Yes
-                                                        <input type="radio" name="value(WHRBValue)" value="no"/>No <a
+                                                        <input id="vt-WHRB-yes" aria-labelledby="vt-WHRB-label vt-WHRB-yes-label" type="radio" name="value(WHRBValue)" value="yes"/><label id="vt-WHRB-yes-label" for="vt-WHRB-yes">Yes</label>
+                                                        <input id="vt-WHRB-no" aria-labelledby="vt-WHRB-label vt-WHRB-no-label" type="radio" name="value(WHRBValue)" value="no"/><label id="vt-WHRB-no-label" for="vt-WHRB-no">No</label> <a
                                                             title="clear all"
-                                                            href="javascript:clearAll(MedAId, MedAId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                            href="javascript:clearAll(WHRBId, WHRBId-1)">&nbsp
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WHRBComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-WHRB-comments" aria-labelledby="vt-WHRB-label vt-comments-label" type="text" name="value(WHRBComments)" size="30%" tabindex="9999" /></td>
                                                     </tr-->
 
 
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("WCDisplay")%>
+                                                    <td class="dataEntryTable"><label id="vt-WC-label" for="vt-WC-value"><%=request.getAttribute("WCDisplay")%></label>
                                                         <br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("WCMeasuringInstrc")%>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><%=request.getAttribute("WCMeasuringInstrc")%>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WCLastData}">
-                                                            <table cellpadding="0" cellspacing="0">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
                                                                     <td class="eightyPercent" align="left">${WCLDDate}</td>
                                                                 </tr>
@@ -1352,21 +1317,21 @@
 
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WCValue)" size="5%" onchange="javascript: updateHipAndRatio();"/>
+                                                        <input id="vt-WC-value" aria-labelledby="vt-WC-label vt-new-data-label" type="text" name="value(WCValue)" size="5%"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WCComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-WC-comments" aria-labelledby="vt-WC-label vt-comments-label" type="text" name="value(WCComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <!--new-->
                                                 <tr>
                                                     <td width="36%"
-                                                        class="dataEntryTable"><%=request.getAttribute("HCDisplay")%>
+                                                        class="dataEntryTable"><label id="vt-HC-label" for="vt-HC-value"><%=request.getAttribute("HCDisplay")%></label>
                                                         <br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("HCMeasuringInstrc")%>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><%=request.getAttribute("HCMeasuringInstrc")%>
+                                                        </span></td>
                                                     <td width="16%" class="dataEntryTable" align="center">
                                                         <c:if test="${not empty HCLastData}">
-                                                            <table cellpadding="0" cellspacing="0">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
                                                                     <td class="eightyPercent" align="left">${HCLDDate}</td>
                                                                 </tr>
@@ -1377,10 +1342,10 @@
                                                         </c:if>
                                                     </td>
                                                     <td width="18%" class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HCValue)" size="5%" onchange="javascript: updateWaistAndRatio();"/>
+                                                        <input id="vt-HC-value" aria-labelledby="vt-HC-label vt-new-data-label" type="text" name="value(HCValue)" size="5%"/>
                                                     </td>
                                                     <td width="33%" class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HCComments)" size="30%" tabindex="9999"/>
+                                                        <input id="vt-HC-comments" aria-labelledby="vt-HC-label vt-comments-label" type="text" name="value(HCComments)" size="30%" tabindex="9999"/>
                                                     </td>
                                                 </tr>
 
@@ -1388,14 +1353,20 @@
                                                     <td colspan="5">
                                                         <table cellpadding="1" cellspacing="0" width="100%"
                                                                style="display: none" id="detailVital">
+                                                            <tr class="vt-screen-reader-only">
+                                                                <th scope="col">Measurement</th>
+                                                                <th scope="col"><fmt:message key="form.vt.lastData"/></th>
+                                                                <th scope="col"><fmt:message key="form.vt.newData"/></th>
+                                                                <th scope="col"><fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></th>
+                                                            </tr>
 
                                                             <tr>
-                                                                <td class="dataEntryTable"><%=request.getAttribute("HRDisplay")%>
+                                                                <td class="dataEntryTable"><label id="vt-HR-label" for="vt-HR-value"><%=request.getAttribute("HRDisplay")%></label>
                                                                     <br>
-                                                                    <font class="eightyPercent"><%=request.getAttribute("HRMeasuringInstrc")%>
-                                                                    </font></td>
+                                                                    <span class="eightyPercent"><%=request.getAttribute("HRMeasuringInstrc")%>
+                                                                    </span></td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <table cellpadding='0' cellspacing='0'>
+                                                                    <table role="presentation" cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
                                                                                 align="left"><%=request.getAttribute("HRLDDate")%>
@@ -1409,19 +1380,19 @@
                                                                     </table>
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(HRValue)" size="5%" />
+                                                                    <input id="vt-HR-value" aria-labelledby="vt-HR-label vt-new-data-label" type="text" name="value(HRValue)" size="5%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(HRComments)" size="30%" tabindex="9999" />
+                                                                    <input id="vt-HR-comments" aria-labelledby="vt-HR-label vt-comments-label" type="text" name="value(HRComments)" size="30%" tabindex="9999" />
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable"><%=request.getAttribute("HTDisplay")%>
+                                                                <td class="dataEntryTable"><label id="vt-HT-label" for="vt-HT-value"><%=request.getAttribute("HTDisplay")%></label>
                                                                     <br>
-                                                                    <font class="eightyPercent"><%=request.getAttribute("HTMeasuringInstrc")%>
-                                                                    </font></td>
+                                                                    <span class="eightyPercent"><%=request.getAttribute("HTMeasuringInstrc")%>
+                                                                    </span></td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <table cellpadding='0' cellspacing='0'>
+                                                                    <table role="presentation" cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
                                                                                 align="left"><%=request.getAttribute("HTLDDate")%>
@@ -1435,23 +1406,23 @@
                                                                     </table>
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(HTValue)" size="5%" />
+                                                                    <input id="vt-HT-value" aria-labelledby="vt-HT-label vt-new-data-label" type="text" name="value(HTValue)" size="5%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(HTComments)" size="30%" tabindex="9999" />
+                                                                    <input id="vt-HT-comments" aria-labelledby="vt-HT-label vt-comments-label" type="text" name="value(HTComments)" size="30%" tabindex="9999" />
                                                                 </td>
                                                             </tr>
                                                         </table>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("WTDisplay")%>
+                                                    <td class="dataEntryTable"><label id="vt-WT-label" for="vt-WT-value"><%=request.getAttribute("WTDisplay")%></label>
                                                         <br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("WTMeasuringInstrc")%>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><%=request.getAttribute("WTMeasuringInstrc")%>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WTLastData}">
-                                                            <table cellpadding="0" cellspacing="0">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
                                                                     <td class="eightyPercent" align="left">${WTLDDate}</td>
                                                                 </tr>
@@ -1462,10 +1433,10 @@
                                                         </c:if>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WTValue)" size="5%" />
+                                                        <input id="vt-WT-value" aria-labelledby="vt-WT-label vt-new-data-label" type="text" name="value(WTValue)" size="5%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(WTComments)" size="30%" tabindex="9999" />
+                                                        <input id="vt-WT-comments" aria-labelledby="vt-WT-label vt-comments-label" type="text" name="value(WTComments)" size="30%" tabindex="9999" />
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1495,12 +1466,12 @@
                                                 </tr>
                                                 <tr>
                                                     <th class="dataEntryTable" colspan="3">Foot Exam</th>
-                                                    <td class="dataEntryTable" valign="top" align="center"><input
+                                                    <td class="dataEntryTable" valign="top" align="center"><label class="vt-screen-reader-only" for="FTDate">Foot exam <fmt:message key="form.vt.obDate"/></label><input
                                                             type="text" id="FTDate" name="FTDate"
                                                             value="<%=request.getAttribute("FTNeDate")%>" size="10%"
                                                             tabindex="9999"/></td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
-                                                        align="center"><textarea name="FTComments" wrap="hard"
+                                                        align="center"><label class="vt-screen-reader-only" for="vt-FTComments">Foot exam <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></label><textarea id="vt-FTComments" name="FTComments" wrap="hard"
                                                                                  cols="24" style="height: 80"
                                                                                  tabindex="9999">
                                                         <c:if test="${not empty FTExComments}">
@@ -1510,10 +1481,10 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTExDesc")%>
+                                                    <td class="dataEntryTable"><span id="vt-FTEx-label"><%=request.getAttribute("FTExDesc")%></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <table cellpadding='0' cellspacing='0'>
+                                                        <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
                                                                     align="left"><%=request.getAttribute("FTExLDDate")%>
@@ -1526,10 +1497,10 @@
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td class="dataEntryTable" align="center"><input type="radio" name="value(FTExValue)"
-                                                            onclick="javascript:controlFTExam();" value="yes"/>Yes
-                                                        <input type="radio" name="="value(FTExValue)"
-                                                                onclick="javascript:controlFTExam();" value="no"/>No <a
+                                                    <td class="dataEntryTable" align="center"><input id="vt-FTEx-yes" aria-labelledby="vt-FTEx-label vt-FTEx-yes-label" type="radio" name="value(FTExValue)"
+                                                            onclick="javascript:controlFTExam();" value="yes"/><label id="vt-FTEx-yes-label" for="vt-FTEx-yes">Yes</label>
+                                                        <input id="vt-FTEx-no" aria-labelledby="vt-FTEx-label vt-FTEx-no-label" type="radio" name="value(FTExValue)"
+                                                                onclick="javascript:controlFTExam();" value="no"/><label id="vt-FTEx-no-label" for="vt-FTEx-no">No</label> <a
                                                                 title="clear all"
                                                                 href="javascript:clearAll(FTExId, FTExId-1)">&nbsp
                                                             <font style="text-decoration: underline; color: blue;">clr</font>
@@ -1723,13 +1694,11 @@
                                                             value="<%=request.getAttribute("iDiaDate")%>" size="10%"/>
                                                     </td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
-                                                        align="center"><textarea name="iComments" wrap="hard"
+                                                        align="center"><%-- Read back from a row storeEyeExamSupportData() writes (the date
+                                                             likewise reads iDiaDate); iEx is retained history only, so it is
+                                                             shown only for a legacy record whose eye rows hold no comment. --%><label class="vt-screen-reader-only" for="vt-iComments">Eye exam <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></label><textarea id="vt-iComments" name="iComments" wrap="hard"
                                                                                  cols="24"
-                                                                                 style="height: 80">
-                                                        <c:if test="${not empty iExComments}">
-                                                        ${iExComments}
-                                                        </c:if>
-                                                        </textarea>
+                                                                                 style="height: 80"><carlos:encode value="${not empty iDiaComments ? iDiaComments : iExComments}"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>

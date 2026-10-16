@@ -6,6 +6,10 @@ disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 the real front door (nginx + ModSecurity/CRS on `:443`), not the devcontainer's
 bare Tomcat.
 
+The 2026-10-15 focused validation for issue #4699, including blocking-WAF
+positive/negative controls and pending encounter-issue preservation, is recorded
+in [PR #4701 validation](pr4701-validation.md).
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
@@ -2885,6 +2889,181 @@ compiled JSP removed, service restarted) the check **FAILS** at "Clear Photo doe
 was opened for"; a scratch copy that read the patient from the popup's URL and kept going showed the old behaviour
 itself: Clear Photo in the first manager deleted the second patient's photo, Upload went to the second patient, the
 patient-less POST was answered as a success and the locked login was served (HTTP 200).
+
+### Schedule group Delete and View groups Save/Delete (2026-10-15, issue #4515)
+
+Finding 80. Administration ▸ Schedule Management ▸ Search/Edit/Delete Groups ▸ Delete answered HTTP 500 because
+`adminnewgroup.jsp` read the CSRFGuard token as a group member. Preferences ▸ View groups ▸ Save and Delete left a blank
+`/provider/providercontrol` page because they ran inside that page's server-side include, which ignores a redirect.
+`release/2026.08` at 244556ad plus the fix branch was packaged as `2026.09.0~snapshot26`, the same way as the MDS run above.
+The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags. DrugRef was built on the host from
+`1941e14`. `dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`, and
+`lintian --fail-on error` passed. carlos-ctl was 1.1.2 from its release. The packages were installed fresh with
+`scripts/deb-docker-validation.sh up` (Ontario, demo dataset, the retrying `BASE_IMAGE`). `carlos-ctl check` reported "All
+checks passed"; the installer's transient "NOT ready to use" left no marker.
+
+| Run | `my-groups` | `get-reject-provider-groups` |
+|---|---|---|
+| fixed packages | PASS, all 8 steps. The admin Delete posts its CSRF token, answers 200 with the notice and removes the ticked row. View groups Save and Delete land on the group list. | PASS. `DeleteMyGroupMembers` and `SaveMyGroup` answer 405 to GET and HEAD; the retired include routes write nothing. |
+| pre-fix `adminnewgroup.jsp` swapped in | FAILS: "Search/Edit/Delete Groups ▸ Delete answered HTTP 500" | not run |
+| pre-fix `providernewgroup.jsp`, `providersavemygroup.jsp` and `providercontrol.jsp` swapped in | FAILS: "Save did not return to the group list (left on /carlos/provider/providercontrol)" | not run |
+
+The first fixed run also surfaced a latent error on the deletion notice, which the 500 had kept anyone from reaching:
+`setfocus()` focused a group-name field the notice does not render. It is guarded in the same change.
+
+The other checks that touch group routes also ran on the fixed packages:
+- `browser-surface`, `schedule-setting`, `appointment-group-copy-cut`, `report-age-sex-visit` and
+  `csrf-runtime-form-month-view-group` pass.
+- `xss-poison-admin-detail` is `known-fail` on finding 122.
+- `report-daysheet-labs` fails on finding 54, as its suite notes expect; its group day-sheet step passes.
+- `admin-role-management` refuses to run without an exclusive-deployment opt-in.
+- `appointment-group-paste-restriction` SKIPs on a missing fixture.
+
+The smoke tier passed 11 of 12. `echart` fails at "a Social History item and an encounter-note draft carrying WAF-scored text
+save and refresh", timing out on `encounter/displayIssues`. Unmodified `release/2026.08` (244556ad) was packaged and installed
+the same way, and the same `echart` script fails there at the same step, so this change did not cause it.
+
+### Allergy class shortcuts validation (2026-10-15, issue #4576)
+
+`release/2026.08` at `378db4ed` plus the #4576 fix branch was packaged unstamped as `2026.09.0~snapshot26`.
+`dpkg-buildpackage -us -uc -b` ran in an `ubuntu:26.04` builder. DrugRef was built from a checkout of the commit
+`debian/drugref.pin` names (`1941e14`, passed as `DRUGREF_SRC`). carlos-ctl was built from its `1.1.2` tag, with a `1.1.2`
+changelog stanza stamped in the throwaway worktree the way its release workflow stamps it, because the tag's own stanza
+reads `1.1.2~dev1`. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported "All checks passed"). The same proxy workaround as the MDS validation above applied, and the
+validation image was built with `DOCKER_BUILDKIT=0`, because BuildKit's metadata lookup of `ubuntu:26.04` hit Docker Hub's
+rate limit.
+
+The packaged DrugRef holds 44452 and 44159, the ids the shortcuts used to post, as a multivitamin brand (category 12) and a
+fluoxetine product (category 11). It still carries AHFS (PENICILLINS `08:12.16`, SULFONAMIDES `08:12.20` and `52:04.08`).
+It has no ATC class named PENICILLINS, and its ATC class named SULFONAMIDES is `G01AE`.
+
+| Run | Result |
+|---|---|
+| fixed packages | `allergy-class-shortcut-alert` (new) passes all 7 steps: Amoxil (J01CA04) and Septra (J01EE01) as the issue asks, HP-PAC (A02BD07) and BLEPHAMIDE (S01CA02) through DrugRef's AHFS class, and Biaxin (J01FA09) clear. `allergy-add-penicillin` and `allergy-add-penicillin-shortcut-id` pass with their expectedFailure entries removed. |
+| pre-fix `RxDrugData` classes swapped into the installed webapp | `allergy-class-shortcut-alert` fails at the Amoxil step: only the old shortcut's row warns, matched by DrugRef's AHFS name |
+| pre-fix `RxDrugData`, `RxAddAllergy2Action`, `RxAddReaction2Action` and the three allergy pages swapped in | `allergy-class-shortcut-alert` fails at its first step; `allergy-add-penicillin-shortcut-id` fails on the type code |
+| the fix's first version of `RxDrugData` (ATC prefix only for a new shortcut allergy) swapped in | `allergy-class-shortcut-alert` fails at the HP-PAC step: only the old shortcut's row warns |
+
+The first three rows ran on packages of the fix's first commit. Review then found that a new shortcut allergy was decided by
+its ATC prefix alone, and the fix now also asks DrugRef about it under both class names. The last row and the first row's 7
+steps ran on packages rebuilt from that commit and reinstalled over the first ones (`apt-get install --reinstall`;
+`carlos-ctl check` clean). On this extract the products the AHFS classes reach outside J01C and J01E are A02BD07, A07EC01,
+D10AB52, G01AE10, J01RA02 and S01CA02.
+
+With the fixed files restored, the following also passed: `allergy-save-retry`, `allergy-rx-alert`, `allergy-custom-lifecycle`,
+`allergy-injected-form-csrf` (its Sulfa step now expects the ATC class row, and the NKDA entry is still archived),
+`allergy-stale-amend-refused`, `concurrency-allergy-amend`, `double-submit-chart-adds`, `drug-search`, `csrf-runtime-forms`,
+`demographic-cds-import`, `cds-export-lab-documents` and `export-content-chart-print-sections`.
+The smoke tier passed 12/12, and `scripts/deb-server-log-audit.sh` found no unexplained signature (8 known, all provoked on
+purpose by the checks that ran; no `RxAddAllergy2Action` or allergy-check error).
+
+On the rebuilt packages the same allergy, CSRF, CDS and export checks passed again, with the smoke tier at 12/12 and the
+server-log audit clean. One run of `csrf-runtime-forms` failed at its eForm Groups step. The modal's Delete link was replaced
+while it was being clicked ("element was detached from the DOM"), and the check passed when run again. That step does not
+reach the allergy code.
+
+### Write-integrity guards and stale Master Record edits (2026-10-15, issue #4225)
+
+The six #4225 workflows still failing on `release/2026.08` were `double-submit-appointment`, `double-submit-billing-on`,
+`double-submit-demographic-add`, `double-submit-admin-adds`, `concurrency-demographic-edit` and
+`concurrency-demographic-ext-insert`. `release/2026.08` at `c793fb04` plus the fix branch was packaged unstamped as
+`2026.09.0~snapshot26+issue4225.N`. The CARLOS WAR was compiled on the host with JDK 25 and the `debian/rules` Maven flags.
+DrugRef was built on the host from the commit `debian/drugref.pin` names (`1941e14`). `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. carlos-ctl was 1.1.2 from its release. Each build was installed
+fresh with `scripts/deb-docker-validation.sh up` (Ontario, demo dataset, `BUILD_CA_BUNDLE` for the egress proxy's CA);
+`carlos-ctl check` reported "all checks passed", and the installer's transient "NOT ready to use" left no marker.
+
+Build `.1` packaged the fix's first commits. Build `.2` added the review fixes (per-patient `_demographic` check before
+the conflict page, transactions the claim observes on Add Demographic and Add Service). The two later commits, the
+Name Used version and `LogSafe` on the update warnings, change `DemographicEditVersion` and `DemographicUpdate2Action`
+only. Their compiled classes were copied into the build `.2` webapp and the service restarted, so the second run tested
+the branch head.
+
+| Check | build `.1` | build `.2` + head classes | `release/2026.08` classes and JSPs swapped in |
+|---|---|---|---|
+| `double-submit-appointment` | PASS | PASS | FAILS: the slow-response re-click booked 2 appointments |
+| `double-submit-billing-on` | PASS | PASS | FAILS: double Enter and the slow re-click each wrote 2 headers and 2 item sets |
+| `double-submit-demographic-add` | PASS | PASS | FAILS: reloading the result page registered a second patient |
+| `double-submit-admin-adds` | PASS | PASS | FAILS: back-to-back clicks, the slow re-click and the reload each added the service twice |
+| `double-submit-intentional-adds` (new) | PASS | PASS | FAILS: "Reloading the confirmation added the service again" |
+| `concurrency-demographic-edit` | PASS | PASS | FAILS: the stale save reverted the other session's phone number to blank |
+| `concurrency-demographic-ext-insert` | PASS | PASS | FAILS: HTTP 500 (`uk_demo_ext`), the whole save rolled back |
+| `demographic-stale-edit-recovery` (new) | PASS | PASS | FAILS: "A stale Update Record answered HTTP 500, expected the 409 conflict page" |
+
+The swap used the classes compiled from `c793fb04` against the packaged WAR's libraries and that commit's five form JSPs,
+then `carlos-ctl restart`. After the fixed files were restored, the target checks passed again.
+
+On build `.2` with the head classes, these demographic, Add Service and replay regressions passed: `demographic-add`,
+`demographic-edit-update`, `demographic-master-crud-smoke`, `master-record-tabs`, `demographic-gates`,
+`gap-records-demographic-add-fields`, `gap-records-demographic-edit-clinical`, `consultation-services-admin`,
+`get-reject-consult-config`, `clinical-freetext`, `echart-print` and `echart-new-patient-notes`.
+`xss-poison-master-record` is `known-fail` on finding 117. Four failed in ways their manifest notes or the diff
+account for:
+- `waiting-list` fails at its first step, as its notes expect, because `edit.jsp` renders the list read-only.
+- `boundary-demographic-text` fails at its last step on the silently truncated `pref_name`, pronoun and gender, as
+  its notes expect.
+- `phi-in-error-pages` misses two cells in code this change does not touch: `demographic/printDemoLabelAction`
+  answers 500 instead of 400, and `admin/DemographicMergeRecord` answers 200. The guarded routes answered as provoked.
+- `waf-clinical-text-corpus` fails at its prevention row with the harness error "Invalid URL". Its appointment add
+  and update rows, through the guarded `AddRecord`, pass.
+
+On build `.1` the billing and appointment regressions passed: `billing-on-submit`, `billing-on-group-disk-zero-total`,
+`billing-review-failed-calculation`, the five `gap-billing-*` form checks, `appointment-patient-typeahead`,
+`schedule-quick-search-appointment`, the three `gap-provider-appointment-*` booking checks, `popup-opener-day-sheet`
+and `echart-note-verify-appointment-status-billing`. `csrf-negative-matrix` passed its appointment, demographic and
+Ontario bill families with the new tokens dropped from the replay. Four others did not pass:
+- `audit-log-billing-on` fails at its last step on the missing audit row, as its notes describe.
+- `authz-write-role-matrix-billing` is the pinned `known-fail` on finding 199.
+- `authz-write-role-matrix` stops at its allergy family, and `csrf-negative-matrix` at its prevention family. Both
+  replay a token an earlier guard already spent: the allergy `saveToken` (#4390) and `carlosPreventionSubmission`
+  (#4455). Those families need a freshly rendered token, as the eForm family has; neither action is in this change.
+
+After the swap was undone, `double-submit-appointment`, `double-submit-demographic-add`,
+`concurrency-demographic-ext-insert` and `demographic-stale-edit-recovery` passed again, and the smoke tier passed 11 of 12.
+`echart` failed at "a Social History item and an encounter-note draft carrying WAF-scored text save and refresh", the step
+the #4515 validation above saw fail the same way on unmodified `release/2026.08`. The server-log audit over that window
+found no unexplained signature (6 known). Over the whole session the audit's unexplained signatures were
+`DemographicLabelPdf` (the `phi-in-error-pages` probe of `printDemoLabelAction`), a `ClientAbortException` from a provider
+signature image, and two `uk_demo_ext_single_value` violations logged during the deliberate pre-fix run.
+
+After the CodeRabbit review (0f9d1f9f: the Add Service id check and unconfirmed repeat, the Add Demographic post-commit
+error log, and the neutral refusal-page title and conflict wording in all five bundles), the build `.2` install was set
+up fresh again. The head's `DemographicEditVersion`, `DemographicUpdate2Action`, `DemographicAddRecord2Action` and
+`EctConAddService2Action` classes and the five `oscarResources_*.properties` bundles were copied in. All eight #4225
+checks above passed, together with `demographic-add`, `demographic-edit-update`, `gap-records-demographic-add-fields`,
+`consultation-services-admin` and `get-reject-consult-config`. The session's container restarted once during this run;
+the stopped validation container was started again with its copied files intact, and the remaining checks were run then.
+
+### Billing History Unbill decides from the stored status (2026-10-15, issue #4538)
+
+The #4538 fix branch, cut from `release/2026.08` at `378db4ed`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS WAR
+was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built from the commit `debian/drugref.pin` names
+(`1941e14`). carlos-ctl was built from the pin's fallback commit (`9ad4938`) and stamped 1.1.2, because the release asset was not
+available on the host. The packages were installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario;
+`carlos-ctl check` reported all checks passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`,
+`BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`).
+
+| Run | `billing-on-correction-delete` |
+|---|---|
+| fixed packages | PASS, 7 of 7 steps, including the forged-`billCode` step |
+| pre-fix `BillingDeleteNoAppt2Action` and `billingONHistory.jsp` swapped into the installed webapp | FAIL at that step: "Unbilling the billed bill with billCode=O was not refused with the cannot-delete page" |
+
+The step posts `billCode` O, W, D, empty and absent for an owned bill in status B and one in status S, and asserts the
+cannot-delete page, an unchanged header and items, and no `billing_on_proc` row. The last step also asserts that the real Unbill
+click posts `billing_no` and no `billCode`.
+
+On the fixed packages these also passed: `billing-on-invoice-third-party`, `billing-on-submit`, `billing-on-third-party`,
+`billing-on-payment-status`, `csrf-runtime-forms`, `csrf-runtime-form-day-sheet-unbill`, `gap-billing-correction-admin-actions` and
+`xss-poison-billing`. `authz-write-role-matrix-billing` was `known-fail` (finding 199). `double-submit-billing-on` ("second click
+500 ms later while the response is slow" saved two bills) and `audit-log-billing-on` (no audit row for the OHIP save or for opening
+Billing History) failed, and they fail identically with the four changed classes and the JSP swapped back to their
+`release/2026.08` versions, so neither depends on this change. The log PHI scan found no match. The server-log audit's
+unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `ApplicationDispatcher.invoke` SEVERE events and a
+`BillingONSave` `SecurityException`) match the time and actions of the `authz-write-role-matrix-billing` run.
+
+The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.
 
 ### CML report-version chain validation (2026-10-15, issue #4568)
 

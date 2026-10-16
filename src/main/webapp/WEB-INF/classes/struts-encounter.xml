@@ -447,6 +447,7 @@
         <action name="encounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
         <action name="encounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
             <result name="list">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
@@ -626,6 +627,9 @@
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <!-- Nothing was written (no type chosen, or the name was taken meanwhile): the
+                 type-selection page again, with the reason. -->
+            <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet</result>

@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -47,6 +48,9 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +59,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -106,13 +111,142 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
+    private final RecordingTransactionManager transactions = new RecordingTransactionManager();
+
+    /** A no-op transaction manager that records how each transaction ended. */
+    static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
+        int commits;
+        int rollbacks;
+
+        @Override protected Object doGetTransaction() { return new Object(); }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
+        @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
+    }
+
     private BillingOnSave2Action newAction() {
         return new BillingOnSave2Action(
                 mockSecurityInfoManager,
                 mockUserPropertyDao,
                 mockBillingDao,
                 mockSaveService,
-                mockCorrectionRecordService);
+                mockCorrectionRecordService,
+                transactions);
+    }
+
+    /** A second POST of the same review page, in the same session as {@code mockRequest}. */
+    private MockHttpServletRequest repeatOf(MockHttpServletRequest first) {
+        MockHttpServletRequest repeat = new MockHttpServletRequest();
+        repeat.setMethod("POST");
+        repeat.setSession(first.getSession());
+        repeat.setParameters(first.getParameterMap());
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(repeat);
+        mockResponse = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+        return repeat;
+    }
+
+    /** A rendered review page for patient {@code demographicNo} whose Save carries its submission token. */
+    private void reviewFor(String demographicNo) {
+        mockRequest.setParameter("demographic_no", demographicNo);
+        mockRequest.setParameter(FormSubmissionGuard.PARAMETER, FormSubmissionGuard.issue(mockRequest.getSession(),
+                FormSubmissionGuard.Scope.BILLING_ON_SAVE, demographicNo));
+        mockRequest.setParameter("billingAction", "SAVE");
+        mockRequest.setParameter("xml_billtype", "HCP");
+        mockRequest.setParameter("payeename", "");
+        mockRequest.setParameter("curBillForm", "ON");
+        when(mockSaveService.getSubmission(any(HttpServletRequest.class))).thenReturn(
+                new BillingClaimSubmissionService.BillingClaimSubmission(
+                        new io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto(), java.util.List.of()));
+        when(mockUserPropertyDao.getProp("999998", UserProperty.WORKLOAD_MANAGEMENT)).thenReturn(null);
+    }
+
+    // -- One claim per rendered review (issue #4225) ----------------------
+
+    @Test
+    void shouldSaveOnce_whenOneReviewIsSubmittedTwice() {
+        reviewFor("42");
+        mockRequest.setParameter("appointment_no", "880");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        when(mockSaveService.getApptStatus("880")).thenReturn("t");
+
+        String first = newAction().execute();
+        MockHttpServletRequest repeat = repeatOf(mockRequest);
+        String second = newAction().execute();
+
+        assertThat(first).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(second).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(repeat.getAttribute("billingNo")).isEqualTo(4321);
+        verify(mockSaveService, times(1)).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any());
+        verify(mockSaveService, times(1)).updateApptStatus(eq("880"), any(), eq("999998"));
+        assertThat(transactions.commits).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRepeatTheFirstSavesRoute_forARepeatedSaveAndPrint() {
+        reviewFor("42");
+        mockRequest.setParameter("billingAction", "SAVE_PRINT");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+
+        newAction().execute();
+        MockHttpServletRequest repeat = repeatOf(mockRequest);
+        String second = newAction().execute();
+
+        assertThat(second).isEqualTo("printInvoice");
+        assertThat(repeat.getAttribute("billingNo")).isEqualTo(4321);
+    }
+
+    @Test
+    void shouldLeaveTheReviewSubmittable_whenTheSaveRolledBack() {
+        reviewFor("42");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException("payee ext write failed"))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+
+        String first = newAction().execute();
+        repeatOf(mockRequest);
+        String retry = newAction().execute();
+
+        assertThat(first).isEqualTo("failure");
+        assertThat(retry).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        verify(mockSaveService, times(2)).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any());
+    }
+
+    @Test
+    void shouldRollBackAndStaySubmittable_whenNothingWasSaved() {
+        reviewFor("42");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any()))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(false, 0))
+                .thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+
+        String first = newAction().execute();
+        repeatOf(mockRequest);
+        String retry = newAction().execute();
+
+        assertThat(first).isEqualTo("failure");
+        assertThat(retry).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRefuseWithoutSaving_whenTheTokenWasIssuedForAnotherPatient() {
+        reviewFor("42");
+        mockRequest.setParameter("demographic_no", "43");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockSaveService, never()).saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any());
     }
 
     @ParameterizedTest

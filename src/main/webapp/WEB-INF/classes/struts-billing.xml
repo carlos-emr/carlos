@@ -640,6 +640,7 @@
             <result name="addAnother">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
             <result name="backToEdit" type="chain">billing/CA/ON/billingView</result>
             <result name="failure">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
 
         <action name="billing/CA/ON/BillingShortcutPg2Save"
