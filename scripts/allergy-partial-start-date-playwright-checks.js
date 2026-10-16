@@ -10,9 +10,11 @@
 //   2. Modify on the year-only allergy offers 2019 in Start Date;
 //   3. that amendment, changing only the reaction, keeps the start date year-only;
 //   4. a new Custom Allergy typed with Start Date 2019-05 is saved year-and-month.
-// Steps 3 and 4 fail on develop: the Start Date box is a flatpickr field (share/calendar/
-// calendar-setup.js, since #1406) whose typed input is parsed as a full date, so the dialogue posts
-// 2019-01-01 / 2019-05-01 and the precision is lost. They run last so steps 1-2 are proven first.
+// Step 4 fails on develop: the Start Date box is a flatpickr field (share/calendar/calendar-setup.js,
+// since #1406) that parses what is in it as a full date when the box loses focus, so the dialogue
+// posts 2019-05-01 and the precision is lost. It runs last so steps 1-3 are proven first. Step 3
+// passes because the prefilled 2019 is never focused; clicking into the box and out again would
+// rewrite it to 2019-01-01 too (seen live; finding 293).
 // Other allergy checks type full dates only (allergy-custom-lifecycle, allergy-add-penicillin,
 // allergy-save-retry).
 // Fixtures: the owned FAKE- patient, two allergies seeded by SQL with their partial_date rows, and the
