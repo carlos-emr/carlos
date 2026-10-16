@@ -3416,6 +3416,39 @@
       "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
     },
     {
+      "name": "admin-configure-sms",
+      "script": "scripts/admin-configure-sms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Administration > SMS (admin/ConfigureSms): opens with every secret field empty; Save stores a FAKE 555-01xx sender with SMS and its scheduler off and keeps the typed webhook secret out of the page; a GET with method=configure is refused with 405. Never presses Send system test. SKIP when the test login holds no _admin.sms right (a database loaded from the development snapshot after its migrations needs V1.0.71 re-run).",
+      "fixtures": "No rows created by the check itself; sms_config is snapshotted byte-exact and restored (the rows the save makes are removed). SMS settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "sms_config"
+      ]
+    },
+    {
+      "name": "admin-group-access-control",
+      "script": "scripts/admin-group-access-control-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Administration > Access Control (admin/GroupNoAcl): choosing a group lists the active providers; ticking one and saving stores exactly that MyGroupAccessRestriction row and shows it ticked after the reload; unticking removes it; a GET with method=save is refused with 405.",
+      "fixtures": "An owned schedule group (mygroup, named for the run) with the test login as its one member; only that group's restrictions are written. Cleanup deletes the group and its restrictions and asserts both are gone."
+    },
+    {
       "name": "clinic-demo-name",
       "script": "scripts/clinic-demo-name-playwright-checks.js",
       "tiers": [
