@@ -4698,7 +4698,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned FAKE- patient with SQL-seeded CPP notes (one per history, a second revision of Medical History, an archived Ongoing Concerns note) and a long-term and a short-term drug; the request form is never submitted. Cleanup deletes the patient's notes, issues, drugs and any referral and asserts none remain."
+      "fixtures": "Owned FAKE- patient with SQL-seeded CPP notes (one per history, a second revision of Medical History, an archived Ongoing Concerns note), a long-term and a short-term drug, and one allergy; the request form is never submitted. Cleanup deletes the patient's notes, issues, drugs, allergies and any referral and asserts none remain."
     },
     {
       "name": "dashboard-display",
