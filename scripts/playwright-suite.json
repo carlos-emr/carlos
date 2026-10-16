@@ -4501,7 +4501,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned synthetic patient; a marker-named custom drug prescribed through the UI (no DrugRef data). Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows; the audit log rows stay."
+      "fixtures": "Owned synthetic patient; two marker-named custom drugs prescribed through the UI (no DrugRef data), one deleted and one kept as the control. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows; the audit log rows stay."
     },
     {
       "name": "rx-edit-discontinue",

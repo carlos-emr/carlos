@@ -12,8 +12,8 @@
 //   4. "Show All" lists it again, struck through as deleted;
 //   5. the E-Chart's Medications box does not list it.
 // A second drug saved with it stays current throughout, so each "no longer listed" has a listed control.
-// No other check uses "Del": rx-edit-discontinue and rx-prescription-lifecycle cover "Discon", and
-// rx-stash-deletion covers clearing the staged drugs.
+// No other check uses "Del": rx-edit-discontinue and rx-prescription-lifecycle (open PR #4712) cover "Discon",
+// and rx-stash-deletion covers clearing the staged drugs.
 // Fixtures: the owned FAKE- patient and two marker-named custom drugs. Cleanup removes the patient's drugs,
 // prescriptions, drugReason and DigitalSignature rows, and asserts none remain. The audit log rows stay.
 const h = require('./lib/playwright-harness');
