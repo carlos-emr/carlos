@@ -4490,6 +4490,20 @@
       "fixtures": "Owned patients in a 1951-1953 window, a provider group, one appointment, three billing headers and four notes; snapshots and restores the clinic-wide visitreport provider list and regenerates the reportagesex cache, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "rx-delete-drug",
+      "script": "scripts/rx-delete-drug-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; a marker-named custom drug prescribed through the UI (no DrugRef data). Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows; the audit log rows stay."
+    },
+    {
       "name": "rx-edit-discontinue",
       "script": "scripts/rx-edit-discontinue-playwright-checks.js",
       "tiers": [
