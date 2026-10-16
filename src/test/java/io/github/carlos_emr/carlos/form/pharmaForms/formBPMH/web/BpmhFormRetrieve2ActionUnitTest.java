@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -139,11 +140,43 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(handedToHandler).isSameAs(posted);
+        assertThat(handedToHandler).isNotSameAs(posted);
+        assertThat(handedToHandler.getDemographicNo()).isEqualTo("1001");
         verify(handler).setDemographicNo(1001);
         verify(handler).saveFormHistory();
         assertThat(filled.getFormDate()).as("the saved copy carries the date it was prepared").isNotNull();
         assertThat(filled.getEditDate()).isNotNull();
         verify(response).sendRedirect("/carlos/formBPMH?method=fetch&demographic_no=1001&formId=42&provNo=");
+    }
+
+    @Test
+    void shouldKeepOnlyEditableFields_fromPostedForm() {
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setNote("FAKE note");
+        posted.setConfirm(true);
+        posted.setAllergiesString("FAKE posted allergy");
+        posted.setFamilyDrName("FAKE posted doctor");
+        BpmhDrug row = new BpmhDrug();
+        row.setId("55");
+        row.setInstruction("continue");
+        row.setWhat("posted what");
+        BpmhDrug noId = new BpmhDrug();
+        noId.setWhat("row without an id");
+        posted.setDrugs(new java.util.ArrayList<>(java.util.List.of(row, noId)));
+
+        BpmhForm2Bean editable = BpmhFormRetrieve2Action.editableFields(posted);
+
+        assertThat(editable.getDemographicNo()).isEqualTo("1001");
+        assertThat(editable.getFormId()).isEqualTo("0");
+        assertThat(editable.getNote()).isEqualTo("FAKE note");
+        assertThat(editable.isConfirm()).isTrue();
+        assertThat(editable.getAllergiesString()).isNull();
+        assertThat(editable.getFamilyDrName()).isNull();
+        assertThat(editable.getDrugs()).hasSize(1);
+        assertThat(editable.getDrugs().get(0).getId()).isEqualTo("55");
+        assertThat(editable.getDrugs().get(0).getInstruction()).isEqualTo("continue");
+        assertThat(editable.getDrugs().get(0).getWhat()).isNotEqualTo("posted what");
     }
 }

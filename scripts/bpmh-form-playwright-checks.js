@@ -12,7 +12,8 @@
  *   - Save stores one formBPMH row for the patient, by the provider, with the note and the drug's typed
  *     instruction, and shows the saved form (read-only, no Save) within the application.
  *   - The saved entry reopens that form with the note and the instruction.
- *   - Print answers a PDF.
+ *   - Print answers a PDF and leaves no stamped copy in the document store (when DOCUMENT_DIR says where).
+ *   - GET and HEAD carrying the save are refused and store nothing.
  * Fixtures: the owned FAKE-PW patient, with one active allergy and one drug with an ICD-9 reason. The
  * BPMH Forms-menu registration is the BC seed's row, given a display order for the run (the seed ships it
  * hidden): an existing row is restored afterwards, an inserted one deleted. The registration is
@@ -161,6 +162,26 @@ async function workflow(s) {
       `Print answered HTTP ${pdf.status} ${pdf.headers['content-type']}`);
     h.assert(pdf.bytes.subarray(0, 4).toString() === '%PDF', 'Print did not answer a PDF');
     h.assert(sql.value(`SELECT COUNT(*) FROM formBPMH WHERE demographic_no=${patient}`) === '1', 'Printing the saved form stored another form');
+    // The PDF is stamped to a file in the document store only to be streamed; none may be left behind.
+    const store = process.env.DOCUMENT_DIR || process.env.RX_FAX_DOCUMENT_DIR;
+    if (store) {
+      const left = require('node:fs').readdirSync(store).filter(name => name.startsWith(`${patient}_`) && name.endsWith('_bpmh_template_marked.pdf'));
+      h.assert(left.length === 0, `Print left ${left.length} stamped PDF(s) of the patient in the document store`);
+    } else {
+      console.log('  NOTE bpmh-form: DOCUMENT_DIR is not set, so the document store was not checked for a left-over PDF');
+    }
+  });
+
+  await s.step('GET and HEAD carrying the save are refused and store nothing', async () => {
+    const probe = `${marker} saved by GET`;
+    for (const method of ['GET', 'HEAD']) {
+      const response = await context.request.fetch(h.appUrl(s.config.baseUrl, '/formBPMH')
+        + `?method=save&form.demographicNo=${patient}&form.formId=0&form.note=${encodeURIComponent(probe)}`,
+      { method, maxRedirects: 0, failOnStatusCode: false });
+      await h.assertRefused(s, { label: `${method} formBPMH method=save`, table: 'formBPMH',
+        where: `demographic_no=${patient} AND note=${q(probe)}`, before: '0', response });
+    }
+    // A GET carrying print is not probed here: method contract pending.
   });
 }
 
