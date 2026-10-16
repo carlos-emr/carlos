@@ -44,13 +44,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * transfer flow. Replaces the scriptlet previously in AdjustAttachments.jsp.
  * <p>
  * Parses {@code item*} checkbox parameters, decodes the {@code xmlDoc}
- * Base64-encoded XML, checks that the selection parses, and redirects to the
- * demographic search page.
+ * Base64-encoded XML, filters the attachment list to the user's selection,
+ * stages it for forwarding and redirects to the demographic search page.
  * <p>
- * It used to put the selected items on the login-wide {@link MsgSessionBean}
- * for a chart import that no longer exists ({@code ImportDemographic2Action}),
- * so the only effect was that the next message sent from any compose window,
- * for any patient, carried them (issue #4673). Nothing is kept now.
+ * The selection is staged under the key of the message view the attachment
+ * window was opened from ({@code attachmentKey}, see
+ * {@link MsgAttachmentStaging}); that view's Compose link opens the compose page
+ * that sends the items. It used to be kept on the login-wide
+ * {@link MsgSessionBean}, so the next message sent from any compose window, for
+ * any patient, carried them (issue #4673).
  * <p>
  * POST-only: the action mutates session state, so GET requests are rejected
  * with 405 to prevent CSRF via link/redirect.
@@ -64,8 +66,10 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Parses checkbox selections and the Base64-encoded {@code xmlDoc} and
-     * redirects to the demographic-search gate; a malformed document is a 400.
+     * Parses checkbox selections and the Base64-encoded {@code xmlDoc}, stages
+     * the selection under the posted message-view key and redirects to the
+     * demographic-search gate. A malformed document, or a missing or malformed
+     * key, is a 400 and stages nothing.
      *
      * @return {@link #NONE} — the action always redirects or sends an HTTP status code
      * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
@@ -104,6 +108,16 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             logger.warn("MsgAdjustAttachments2Action: missing/invalid msgSessionBean for provider={}; redirecting to DisplayMessages",
                     providerNoOf(loggedInInfo));
             response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages");
+            return NONE;
+        }
+
+        // The message view this selection is forwarded from. Without its key the selection could
+        // only be staged where every compose window would find it, so it is refused instead.
+        String forwardKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+        if (!MsgAttachmentStaging.isKey(forwardKey)) {
+            logger.warn("MsgAdjustAttachments2Action: missing or malformed attachmentKey for provider={}",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message view to forward from");
             return NONE;
         }
 
@@ -152,6 +166,8 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Malformed xmlDoc");
             return NONE;
         }
+
+        MsgAttachmentStaging.stageItems(session, forwardKey, sXML);
 
         // DemographicLinkMsg forwards to the relocated msgSearchDemo view;
         // the previous redirect to Transfer/DemographicSearch.jsp 404s because

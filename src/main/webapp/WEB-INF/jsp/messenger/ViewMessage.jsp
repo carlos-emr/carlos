@@ -77,6 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -113,6 +114,11 @@
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
     }
+    // This view's own key for forwarding the message's chart items: its Attachment window stages
+    // the items ticked under "Save Attachments" under it, and its Compose link opens the compose
+    // page that sends them. They used to wait on the login-wide messenger bean, where the next
+    // message sent from any compose window, for any patient, took them (issue #4673).
+    String forwardKey = MsgAttachmentStaging.newKey();
 %>
 <!DOCTYPE html>
 <html>
@@ -378,7 +384,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(forwardKey)) %><%=scheduleNavQuerySuffix%>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -449,7 +455,7 @@ function fmtOscarMsg() {
 						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
-								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>')">
+								href="javascript:popupViewAttach(700,960,'ViewAttach?attachId=<carlos:encode value='<%= id %>' context="javaScript"/>&amp;attachmentKey=<carlos:encode value='<%= forwardKey %>' context="javaScript"/>')">
 							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%

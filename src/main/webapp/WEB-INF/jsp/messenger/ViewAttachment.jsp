@@ -53,6 +53,8 @@
  * Request Attributes:
  * - Attachment: XML string containing structured attachment data
  * - attId: Attachment ID for form processing and AR form links
+ * - MsgAttachmentStaging.KEY_ATTRIBUTE: the forwarding key of the message view that opened this
+ *   window; "Save Attachments" stages the ticked items under it (issue #4673)
  *
  * Session Dependencies:
  * - msgSessionBean: Required for attachment management context
@@ -86,6 +88,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -404,6 +407,10 @@
                     type="hidden" name="xmlDoc"
                     value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
                     type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
+            <%-- The key of the message view this window was opened from; the items are staged for
+                 the compose page its Compose link opens (issue #4673). --%>
+            <input type="hidden" name="attachmentKey"
+                   value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 

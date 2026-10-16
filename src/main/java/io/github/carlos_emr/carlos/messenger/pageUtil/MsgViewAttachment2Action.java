@@ -136,6 +136,12 @@ public class MsgViewAttachment2Action extends ActionSupport {
         // Set attachment data for display
         request.setAttribute("Attachment", att);
         request.setAttribute("attId", attachId);
+        // The message view this window was opened from: "Save Attachments" stages the ticked items
+        // under its key, for the compose page its Compose link opens (issue #4673).
+        String forwardKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+        if (MsgAttachmentStaging.isKey(forwardKey)) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, forwardKey);
+        }
 
         return SUCCESS;
     }
