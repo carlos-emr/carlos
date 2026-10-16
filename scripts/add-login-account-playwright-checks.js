@@ -44,12 +44,15 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
-// Issue #3701 also exercises the new provider's first login: access is refused
-// until the administrator follows the creation confirmation's role-assignment
-// link. Assigning only doctor must then make a fresh login reach the schedule.
-// Cleanup includes the facility/program memberships created by these UI steps.
+// Issue #2689: the form now asks for the first role, with nothing preselected, and
+// the login is created with exactly that role (and the OSCAR program membership the
+// Assign Role page would write), so a fresh login reaches the schedule at once.
+// Issue #3701's denial path is kept for a login whose role is later removed: it is
+// refused with an explanation, and the confirmation's role-assignment link restores
+// access. Cleanup includes the facility/program memberships created by these steps.
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
@@ -58,6 +61,7 @@ const path = require('path');
 const {
   buildArtifactPath, installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING,
 } = require('./eform-local-playwright-utils');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -358,7 +362,7 @@ async function login(page) {
 /** Exercise an actual new login in a separate session; credentials are never logged. */
 async function verifyNewProviderLogin(browser, username, expectDenied) {
   const context = await browser.newContext({
-    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: true,
+    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
   });
   const page = await context.newPage();
   const pageErrors = [];
@@ -377,13 +381,25 @@ async function verifyNewProviderLogin(browser, username, expectDenied) {
       page.locator('input[type="submit"],button[type="submit"]').first().click(),
     ]);
     if (expectDenied) {
-      await page.getByText('You tried to access a resource with insufficient privileges.').waitFor();
+      // Refused, but told why (issue #2689) rather than shown the generic security exception.
+      const reason = page.locator('#noScheduleAccessReason');
+      await reason.waitFor();
+      const noRole = bundleMessage('provider.noScheduleAccess.noRole',
+        'Your account has no role assigned, so it cannot open the schedule or any other part of CARLOS. '
+        + 'Ask a CARLOS administrator to assign your role (Administration, User Management, Assign Role to Provider), '
+        + 'then log in again.');
+      assert((await reason.innerText()).replace(/\s+/g, ' ').trim() === noRole,
+        'A provider without a role must be told the account has no role');
       assert(httpErrors.length === 1 && httpErrors[0].status === 403
         && httpErrors[0].path.endsWith('/provider/providercontrol'),
         `Unassigned provider must be refused at the schedule: ${JSON.stringify(httpErrors)}`);
       assert(await page.locator('a.adhour').count() === 0, 'Unassigned provider received schedule access');
     } else {
       await page.locator('a.adhour').first().waitFor({ state: 'visible', timeout: 30000 });
+      // Let the schedule's tab-count polls finish before the context closes. The caller removes
+      // this login's role next: a poll still running on the server would be judged on its old
+      // role at the gate and its new one inside the count, and answer 500 in the server log.
+      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       assert(httpErrors.length === 0, `Assigned provider hit HTTP errors: ${JSON.stringify(httpErrors)}`);
     }
     assert(pageErrors.length === 0, `New login raised JavaScript errors: ${JSON.stringify(pageErrors)}`);
@@ -460,7 +476,7 @@ async function run() {
     const context = await browser.newContext({
       baseURL: playwrightBaseUrl(),
       viewport: { width: 1280, height: 900 },
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
@@ -488,10 +504,20 @@ async function run() {
     result.screenshots.before = buildArtifactPath(screenshotDir, 'before-create-account');
     await page.screenshot({ path: result.screenshots.before, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
+    // Issue #2689: the first role is an explicit choice; nothing is preselected.
+    const roleSelect = page.locator('select[name="role_name"]');
+    await roleSelect.waitFor({ state: 'visible' });
+    assert(await roleSelect.inputValue() === '', 'Add a Login Record must not preselect a role');
+    result.offeredRoles = await roleSelect.locator('option').evaluateAll(
+      (options) => options.map((option) => option.value).filter(Boolean));
+    assert(result.offeredRoles.includes('doctor'),
+      `Add a Login Record does not offer the doctor role: ${JSON.stringify(result.offeredRoles)}`);
+
     await page.locator('input[name="user_name"]').fill(username);
     await page.locator('input[name="password"]').fill(fixturePassword);
     await page.locator('input[name="conPassword"]').fill(fixturePassword);
     await page.locator('select[name="provider_no"]').selectOption(providerNo);
+    await roleSelect.selectOption('doctor');
 
     const expire = page.locator('input[name="b_ExpireSet"]').first();
     if ((await expire.count()) && (await expire.isChecked())) {
@@ -533,11 +559,29 @@ async function run() {
     result.securityRows = securityRows;
     assert(securityRows.length === 1, `Expected one security row for ${username}/${providerNo}, found ${securityRows.length}`);
 
+    const assignedNotice = page.locator('#providerRoleAssigned');
+    await assignedNotice.waitFor({ state: 'visible' });
+    assert(/\bdoctor\b/.test(await assignedNotice.innerText()), 'Login creation must name the role it assigned');
     const guidance = page.locator('#providerRoleGuidance');
     await guidance.waitFor({ state: 'visible' });
-    assert(/role assignments/i.test(await guidance.innerText()), 'Login creation must explain the remaining role-assignment step');
-    const existingRoles = rows(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
-    assert(existingRoles.length === 0, 'Creating a login unexpectedly granted a role');
+    assert(/role assignments/i.test(await guidance.innerText()), 'Login creation must still point to the role assignments');
+    const createdRoles = rows(`SELECT role_name, COALESCE(activeyn, 0) FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
+    assert(createdRoles.length === 1 && createdRoles[0][0] === 'doctor' && createdRoles[0][1] === '1',
+      `Creating the login must grant exactly the chosen doctor role: ${JSON.stringify(createdRoles)}`);
+    // The same membership Assign Role to Provider writes for new case management.
+    const oscarProgram = sql(`SELECT id FROM program WHERE name='OSCAR' ORDER BY id LIMIT 1`);
+    if (oscarProgram) {
+      const doctorRoleNo = sql(`SELECT role_no FROM secRole WHERE role_name='doctor'`);
+      const membership = rows(`SELECT role_id FROM program_provider`
+        + ` WHERE provider_no='${escapeSql(providerNo)}' AND program_id=${Number(oscarProgram)}`);
+      assert(membership.length === 1 && membership[0][0] === doctorRoleNo,
+        `The new login's OSCAR program membership must carry the doctor role: ${JSON.stringify(membership)}`);
+    }
+    await verifyNewProviderLogin(browser, username, false);
+    result.steps.push('new login created with the explicitly chosen doctor role reached the schedule');
+
+    // A login whose role is removed later (or one created before #2689) is refused with an explanation.
+    sql(`DELETE FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
     await verifyNewProviderLogin(browser, username, true);
 
     await page.locator('#assignProviderRole').click();
@@ -550,7 +594,7 @@ async function run() {
     assert(assignedRoles.length === 1 && assignedRoles[0][0] === 'doctor',
       `Role assignment must grant only doctor: ${JSON.stringify(assignedRoles)}`);
     await verifyNewProviderLogin(browser, username, false);
-    result.steps.push('new login denied without a role; explicit doctor assignment through the guidance link enabled schedule access');
+    result.steps.push('login without a role was refused with an explanation; reassigning doctor through the guidance link restored schedule access');
 
 
     await page.goto('admin/ViewSecurityAddARecord', { waitUntil: 'networkidle', timeout: 30000 });

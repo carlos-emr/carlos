@@ -71,7 +71,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -167,10 +166,9 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
+    // DemographicEdit2Action decides this through WaitingListAvailabilityService: the
+    // link shows while the feature is on and any current list exists (issue #4229).
+    boolean waitingListLinkVisible = Boolean.TRUE.equals(request.getAttribute("waitingListLinkVisible"));
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -279,6 +277,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
@@ -1069,12 +1068,7 @@
                         </tr>
 
                         <%
-                            // wLReadonly already computed in preamble
-                            WaitingList wL = WaitingList.getInstance();
-                            if (!wL.getFound()) {
-                                wLReadonly = "readonly";
-                            }
-                            if (wLReadonly.equals("")) {
+                            if (waitingListLinkVisible) {
                         %>
                         <tr>
                             <td><a
@@ -1112,11 +1106,19 @@
 
 
                                     <br/>
-                                    <a href="javascript:void(0);" onclick="return !showMenu('2', event);"
-                                       onmouseover="callEligibilityWebService('<%=request.getContextPath()%>/billing/CA/BC/ManageTeleplan','returnTeleplanMsg');"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
-                                    <div id='menu2' class='menu' onclick='event.cancelBubble = true;'
-                                         style="width:350px;">
-                                        <span id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
+                                    <fmt:message key="demographic.demographiceditdemographic.btnCheckElig" var="eligibilityTitle"/>
+                                    <fmt:message key="global.btnClose" var="eligibilityClose"/>
+                                    <fmt:message key="inboxhub.form.ajaxError" var="eligibilityError"/>
+                                    <button type="button" id="checkEligibility" class="eligibility-trigger" aria-haspopup="dialog"
+                                            aria-controls="menu2" aria-expanded="false"><carlos:encode value="${eligibilityTitle}"/></button>
+                                    <%-- Kept out of table layout even before JavaScript loads; the dialog moves it to body. --%>
+                                    <div id="menu2" style="display:none"
+                                         data-url="${carlos:forHtmlAttribute(ctx)}/billing/CA/BC/ManageTeleplan"
+                                         data-demographic="${carlos:forHtmlAttribute(demographic.demographicNo)}"
+                                         data-title="${carlos:forHtmlAttribute(eligibilityTitle)}"
+                                         data-close="${carlos:forHtmlAttribute(eligibilityClose)}"
+                                         data-error="${carlos:forHtmlAttribute(eligibilityError)}">
+                                        <output id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></output>
                                         <span id="returnTeleplanMsg"></span>
                                     </div>
                                     <%}%>
@@ -1272,6 +1274,10 @@
                                       onSubmit="return checkTypeInEdit();" autocomplete="off">
                                     <input type="hidden" name="demographic_no"
                                            value="<%=demographic.getDemographicNo()%>">
+                                    <%-- The record version this form was rendered from (issue #4225): a save from a
+                                         form opened before another user's save is refused, not applied over it. --%>
+                                    <input type="hidden" name="demographicVersion"
+                                           value="<carlos:encode value='${demographicEditVersion}' context="htmlAttribute"/>">
                                     <table width="100%" class="demographicDetail">
                                         <%
                                             DemographicMerged dmDAO = new DemographicMerged();
@@ -1517,39 +1523,6 @@
             dobEl.addEventListener('change', syncDobParts);
             dobEl.addEventListener('blur',   syncDobParts);
         }
-
-        function callEligibilityWebService(url, id) {
-            var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<carlos:encode value='${__enc_3}' context="javaScript"/>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
-            fetch(url + '?' + params, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(function(r) { return r.text(); })
-              .then(function(text) {
-                // Server-rendered eligibility HTML inserted into DOM (same-origin trusted content)
-                document.getElementById(id).innerHTML = text;
-                document.getElementById('search_spinner').innerHTML = "";
-            });
-        }
-        
-        function checkInsuranceEligibility() {
-            let params = {};
-            params.demographic = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
-            params.method = 'checkElig';
-            params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
-            let url = '${ctx}/billing/CA/BC/ManageTeleplan';
-            jQuery.post(url, params, function() {
-                jQuery('#menu2').dialog({
-                    title: "MSP Eligibility"
-                });
-            }).done(function(data){
-                jQuery('#menu2 #search_spinner').text("");
-                jQuery('#menu2 #returnTeleplanMsg').html(data);
-            })
-         }
 
         <%
 if (privateConsentEnabled) {

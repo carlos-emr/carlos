@@ -54,6 +54,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -374,7 +375,7 @@ async function findExistingLibraryEform(context, formName) {
 async function readManagerTemplateBackgrounds(context, fid) {
   const requestContext = await request.newContext({
     storageState: await context.storageState(),
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
   });
   try {
     const response = await requestContext.get(appUrl(`/eform/efmformmanageredit?fid=${encodeURIComponent(fid)}`));
@@ -636,7 +637,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
 

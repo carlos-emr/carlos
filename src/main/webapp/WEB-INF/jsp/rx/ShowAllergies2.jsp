@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -419,6 +420,20 @@
                 return true;
             }
 
+            <%-- The Penicillin and Sulfa shortcuts record an ATC class allergen (#4576): type 8 (ATC
+                 Class), no DrugRef id, and the class code, which RxAddReaction2Action carries onto the
+                 dialogue form. They used to post fixed DrugRef ids, which name other products in
+                 current DrugRef data. ID is sent empty, never 0: sendSearchRequest() reads ID=0 as a
+                 free-text allergen and would not archive an active NKDA entry for it. --%>
+            function addAtcClassAllergy(name, atc, buttonValue) {
+                $(".highLightButton").removeClass("highLightButton");
+                var param = "ID=&type=8&name=" + encodeURIComponent(name) + "&atc=" + encodeURIComponent(atc);
+
+                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
+                    param, "#addAllergyDialogue");
+                $("input[value='" + buttonValue + "']").addClass("highLightButton");
+            }
+
             //--> Check if search field is empty.
             function isEmpty() {
                 if (document.forms.searchAllergy2.searchString.value.length === 0) {
@@ -473,21 +488,13 @@
             }
 
             function addPenicillinAllergy() {
-                $(".highLightButton").removeClass("highLightButton");
-                var param = "ID=44452&name=PENICILLINS&type=10";
-
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                    param, "#addAllergyDialogue");
-                $("input[value='Penicillin']").addClass("highLightButton");
+                addAtcClassAllergy('<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.atcClass() %>' context="javaScript"/>', 'Penicillin');
             }
 
             function addSulfonamideAllergy() {
-                $(".highLightButton").removeClass("highLightButton");
-                var param = "ID=44159&name=SULFONAMIDES&type=10";
-
-                sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                    param, "#addAllergyDialogue");
-                $("input[value='Sulfa']").addClass("highLightButton");
+                addAtcClassAllergy('<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.atcClass() %>' context="javaScript"/>', 'Sulfa');
             }
 
             var paramNKDA = "name=No Known Drug Allergies";
@@ -724,17 +731,21 @@
                                                 <td>
                                                     <%
                                                         if (securityManager.hasDeleteAccess("_allergies", roleName$)) {
-                                                            if (intArchived == 0) {
                                                     %>
+                                                    <%-- Inactivate for an active row, Reactivate (action=activate) for an inactive
+                                                         one. Reactivate must not be the amendment dialogue: an amendment of an
+                                                         archived allergy is refused as stale (#4410). --%>
                                                     <a href="#" class="deleteAllergyLink"
                                                        id="deleteAllergy:<%= labelAction %>_ID=<%=allergy.getAllergyId() %>&demographicNo=<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>&action=<%=actionPath %>">
                                                         <%=labelAction%>
-                                                    </a> |
-                                                    <% } %>
+                                                    </a>
+                                                    <% if (intArchived == 0) { %>
+                                                    |
                                                     <a href="#" class="modifyAllergyLink"
                                                        id="modifyAllergy:<%= labelAction %>_ID=<%=allergy.getDrugrefId() %>&name=<carlos:encode value='<%= allergy.getDescription() %>' context="htmlAttribute"/>&type=<%=allergy.getTypeCode() %>&allergyToArchive=<%=allergy.getId() %>">
-                                                        <%=intArchived == 0 ? "Modify" : labelAction%>
+                                                        Modify
                                                     </a>
+                                                    <% } %>
                                                     <% } %>
                                                 </td>
                                             </tr>

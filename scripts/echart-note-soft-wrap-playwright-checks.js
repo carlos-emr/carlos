@@ -475,10 +475,13 @@ async function workflow(session, { legacyOnly = false } = {}) {
     // untouched editor, so opening the note for editing raises no "not saved" prompt.
     chart = await reopenChart(session);
     const noteDiv = chart.locator('#encMainDiv div[id^="n"]').filter({ hasText: `${tag} new-note icon` }).last();
+    const noteContainerId = await noteDiv.getAttribute('id');
+    h.assert(/^n\d+$/.test(noteContainerId), 'The saved note has no stable editor container ID');
     const editLink = noteDiv.locator('a[id^="edit"]').first();
     await editLink.waitFor({ state: 'visible', timeout: 30000 });
     await openEditorAndSettle(chart, () => editLink.click());
-    const editor = noteDiv.locator('textarea[name="caseNote_note"]');
+    // A DOM textarea stores text in .value, so the view's hasText filter no longer matches.
+    const editor = chart.locator(`#${noteContainerId} textarea[name="caseNote_note"]`);
     await editor.first().waitFor({ state: 'visible', timeout: 30000 });
     // editNote() loads the stored text (typed text plus the signature stamp), trimmed, with
     // one trailing line break for the clinician to continue on.

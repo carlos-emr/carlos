@@ -811,9 +811,18 @@ public class RxDrugRef {
      * may be a Vector of interaction records or a Hashtable keyed by interaction source
      * (e.g., "Holbrook Drug Interactions").
      *
+     * <p>An empty answer (an empty list, or a struct naming no source) means DrugRef compared the
+     * drugs and found nothing. Any other answer that carries no Holbrook list means nothing was
+     * compared and is thrown rather than returned as an empty list, because callers show "no
+     * interactions" for an empty list (issue #4506). That covers an answer that is neither a list
+     * nor a struct, a struct with DrugRef's {@code Error} key (no interaction source registered),
+     * and a source whose own lookup failed and answered with an error struct in place of its
+     * list.</p>
+     *
      * @param drugs Vector of drug identifiers (ATC codes or drug names) to check for interactions
      * @return Vector of interaction result Hashtables; empty Vector if no interactions found
-     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or
+     *                   answers without having checked the drugs
      * @since 2026-02-26
      */
     public Vector getInteractions(Vector drugs) throws Exception {
@@ -826,16 +835,26 @@ public class RxDrugRef {
         if (obj instanceof Vector) {
             vec = (Vector) obj;
         } else if (obj instanceof Hashtable) {
-            // Some DrugRef implementations return interactions keyed by source name
-            Object holbrook = ((Hashtable) obj).get("Holbrook Drug Interactions");
-            if (holbrook instanceof Vector) {
-                vec = (Vector) holbrook;
-            }
+            Hashtable<?, ?> sources = (Hashtable<?, ?>) obj;
             // Log only key names — not values, which may contain PHI (medication context).
             // Avoid calling .getClass() on values that may be null.
             if (logger.isDebugEnabled()) {
-                logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
+                logger.debug("DrugRef interaction sources returned: {}", sources.keySet());
             }
+            if (sources.containsKey("Error")) {
+                throw new Exception("DrugRef: 'interactions_byATC' is not available");
+            }
+            // DrugRef keys interactions by source name and leaves out a source that found none,
+            // so an empty struct is "no interactions". Anything else must be the Holbrook list:
+            // a source whose lookup failed answers with its own {"Error": ...} struct here.
+            Object holbrook = sources.get("Holbrook Drug Interactions");
+            if (holbrook instanceof Vector) {
+                vec = (Vector) holbrook;
+            } else if (!sources.isEmpty()) {
+                throw new Exception("DrugRef: 'interactions_byATC' returned no interaction list");
+            }
+        } else {
+            throw new Exception("DrugRef: 'interactions_byATC' returned no result");
         }
         return vec;
     }

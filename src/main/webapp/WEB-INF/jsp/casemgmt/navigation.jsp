@@ -125,7 +125,8 @@
     function popUpMeasurements(vheight, vwidth, name, varpage) { //open a new popup window
         if (varpage != 'null') {
             name.options[0].selected = true;
-            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements?groupName=" + varpage;
+            var page = "<%=session.getAttribute("casemgmt_oscar_baseurl")%>" + "/encounter/oscarMeasurements/SetupMeasurements?groupName=" + encodeURIComponent(varpage)
+                + "&demographicNo=${carlos:forJavaScript(carlos:forUriComponent(param.demographicNo))}";
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=600,screenY=200,top=0,left=0";
             var popup = window.open(page, "", windowprops);
             if (popup != null) {
@@ -505,7 +506,7 @@
                     <tr>
                         <td>
                             <a href="javascript:void(0)"
-                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex'); return false;">-Old
+                               onClick="popupPage('<%=bsurl%>/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=${carlos:forJavaScriptAttribute(carlos:forUriComponent(param.demographicNo))}'); return false;">-Old
                                 Measurements--</a>
                         </td>
                     </tr>

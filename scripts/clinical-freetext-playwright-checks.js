@@ -87,6 +87,7 @@
 
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { CONSULTATION_ROWS, createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -297,7 +298,10 @@ const WORKFLOWS = [
     formName: 'updatedelete',
     action: '/demographic/DemographicUpdate',
     fields: ['alert', 'notes'],
-    overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record' }),
+    // The form names the record version it was rendered from (issue #4225), and the first replay
+    // changes it, so the next replay of the same body would be refused as stale (HTTP 409) before
+    // the WAF question is asked. An empty version is the unversioned save the action still accepts.
+    overrides: () => ({ displaymode: 'Update Record', dboperation: 'update_record', demographicVersion: '' }),
     // An update overwrites the record in place, so the captured body, replayed
     // unchanged, puts the Alert and Notes back exactly as the page rendered them.
     restoreAfterReplays: true,
@@ -530,7 +534,7 @@ async function runFreeTextChecks() {
   // billing-on-third-party and allergy-rx-alert, and the same loopback test as
   // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
     acceptDownloads: true,
   });
 

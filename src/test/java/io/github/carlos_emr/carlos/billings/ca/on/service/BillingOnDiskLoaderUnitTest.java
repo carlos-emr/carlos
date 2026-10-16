@@ -151,4 +151,20 @@ class BillingOnDiskLoaderUnitTest {
         assertThat(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(end.getValue()))
                 .isEqualTo("2026-12-31 23:59:59");
     }
+
+    @Test
+    void shouldReportOhipFilenameInUse_fromDiskNameTable() {
+        when(diskNameDao.existsByOhipFilename("HJ054321.001")).thenReturn(true);
+
+        assertThat(loader.isOhipFilenameInUse("HJ054321.001")).isTrue();
+        assertThat(loader.isOhipFilenameInUse("HJ054321.002")).isFalse();
+    }
+
+    @Test
+    void shouldReportHtmlFilenameInUse_fromFilenameTable() {
+        when(filenameDao.existsByHtmlFilename("HJ054321_001.html")).thenReturn(true);
+
+        assertThat(loader.isHtmlFilenameInUse("HJ054321_001.html")).isTrue();
+        assertThat(loader.isHtmlFilenameInUse("HJ054321_002.html")).isFalse();
+    }
 }

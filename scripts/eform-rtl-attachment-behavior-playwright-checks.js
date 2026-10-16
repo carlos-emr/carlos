@@ -19,6 +19,7 @@
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createSqlRunner, readConfig, sqlString } = require('./lib/playwright-harness');
 const databaseConfig = readConfig({ require: ['MYSQL_PASSWORD'] });
 const db = createSqlRunner(databaseConfig.mysql);
@@ -59,7 +60,7 @@ const config = {
   const recorder = createRecorder();
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   try {
-    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 

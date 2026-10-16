@@ -38,9 +38,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%
@@ -48,7 +45,6 @@
         response.sendRedirect(request.getContextPath() + "/logout.htm");
         return;
     }
-    MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
 <html>
@@ -75,25 +71,6 @@
     </head>
 
     <body onLoad="setfocus()">
-    <%
-        if ("Delete".equals(request.getParameter("submit_form"))) {
-            int rowsAffected = 0;
-            String[] param = new String[2];
-
-            for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-                StringBuffer strbuf = new StringBuffer(e.nextElement().toString());
-                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit_form") != -1
-                        || strbuf.toString().indexOf("CSRF-TOKEN") != -1)
-                    continue;
-                param[0] = request.getParameter(strbuf.toString());
-                param[1] = strbuf.toString().substring(param[0].length());
-                myGroupDao.deleteGroupMember(param[0], param[1]);
-                rowsAffected = 1;
-            }
-            response.sendRedirect(request.getContextPath() + "/provider/providercontrol?displaymode=displaymygroup");
-            return;
-        }
-    %>
 
     <div class="container-fluid p-3">
 
@@ -107,10 +84,13 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol"
+    <%-- Save posts straight to provider/SaveMyGroup. Posting through provider/providercontrol
+         (displaymode=savemygroup) ran the save inside a server-side include, which ignores the
+         save page's redirect and left a blank page (#4515). Deleting members is
+         provider/DeleteMyGroupMembers; this page only renders the form. --%>
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/SaveMyGroup"
           onSubmit="return checkForm();">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-        <input type="hidden" name="displaymode" value="savemygroup">
 
         <div class="bg-light border rounded p-3 mb-3">
             <div class="row mb-3">

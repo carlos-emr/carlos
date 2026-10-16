@@ -89,14 +89,16 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStoreEligibilityLines_whenTeleplanResponseFileContainsDeniedDos() throws Exception {
+    void shouldDispatchEligibilityPost_whenTeleplanResponseFileContainsDeniedDos() throws Exception {
         Path documentDir = Files.createTempDirectory("teleplan-docs");
         Path responseFile = Files.writeString(documentDir.resolve("elig-response.txt"),
                 "claim <unsafe>\nELIG_ON_DOS: no\n");
         String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
         request.setMethod("POST");
+        request.addParameter("method", "checkElig");
         request.addParameter("demographic", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)).thenReturn(true);
 
         Demographic demographic = new Demographic();
         demographic.setHin("9735353315");
@@ -119,7 +121,9 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
              MockedConstruction<TeleplanService> ignoredService = mockConstruction(
                      TeleplanService.class,
                      (mock, context) -> when(mock.getTeleplanAPI("u", "p")).thenReturn(teleplanApi))) {
-            assertThat(new ManageTeleplan2Action().checkElig()).isEqualTo("checkElig");
+            assertThat(new ManageTeleplan2Action().execute()).isEqualTo("checkElig");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeader("Allow")).isNull();
         } finally {
             if (previousDocumentDir == null) {
                 CarlosProperties.getInstance().remove("DOCUMENT_DIR");

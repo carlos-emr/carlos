@@ -6,6 +6,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 @Tag("unit")
 class BillingOutputLockUnitTest {
@@ -39,8 +41,41 @@ class BillingOutputLockUnitTest {
         CarlosProperties.getInstance().remove("HOME_DIR");
         var ran = new AtomicBoolean();
         assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
-                .isInstanceOf(BillingFileWriteException.class);
+                .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.OUTPUT_FOLDER_UNAVAILABLE));
         assertThat(ran).isFalse();
+    }
+
+    @Test
+    void shouldReportUnavailableOutputFolder_whenConfiguredFolderWasNeverCreated() {
+        // A deployment that sets HOME_DIR but never creates it: Startup only creates the
+        // folders it derives itself, so this used to surface as a generic lock failure.
+        CarlosProperties.getInstance().setProperty("HOME_DIR", directory.resolve("oscar/billing/download").toString());
+        var ran = new AtomicBoolean();
+        assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
+                .isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
+                    assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.OUTPUT_FOLDER_UNAVAILABLE);
+                    assertThat(failure.getMessage()).contains("HOME_DIR").doesNotContain(directory.toString());
+                });
+        assertThat(ran).isFalse();
+    }
+
+    @Test
+    void shouldReportUnavailableOutputFolder_whenFolderIsReadOnly() throws Exception {
+        // The lock file may predate the permission change, so opening it can still succeed;
+        // without the up-front check the run allocated disks and only then failed to write.
+        Files.createFile(directory.resolve(".carlos-ohip-disk.lock"));
+        Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
+        try {
+            assumeFalse(Files.isWritable(directory), "the test user bypasses directory permissions");
+            var ran = new AtomicBoolean();
+            assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
+                    .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                            assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.OUTPUT_FOLDER_UNAVAILABLE));
+            assertThat(ran).isFalse();
+        } finally {
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+        }
     }
 
     @Test
@@ -50,7 +85,8 @@ class BillingOutputLockUnitTest {
         Files.createSymbolicLink(directory.resolve(".carlos-ohip-disk.lock"), target);
         var ran = new AtomicBoolean();
         assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
-                .isInstanceOf(BillingFileWriteException.class);
+                .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.LOCK_FAILED));
         assertThat(ran).isFalse();
         assertThat(target).hasContent("unchanged");
     }
@@ -74,7 +110,8 @@ class BillingOutputLockUnitTest {
         CarlosProperties.getInstance().setProperty("HOME_DIR", file.toString());
         var ran = new AtomicBoolean();
         assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
-                .isInstanceOf(BillingFileWriteException.class);
+                .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.OUTPUT_FOLDER_UNAVAILABLE));
         assertThat(ran).isFalse();
         assertThat(file).hasContent("unchanged");
     }

@@ -202,6 +202,7 @@
 		</jaxrs:inInterceptors>
 		
 		<jaxrs:providers>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>

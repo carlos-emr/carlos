@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -168,6 +169,158 @@ for (const [name, after, sentinel, error] of [
     assert.match(result.stdout, error);
   });
 }
+
+// The one-time HL7_LAB_MEASUREMENT_FILTER rewrite (#4613). The old stock line is the postinst's LAB_FILTER_OLD; the new
+// one is the shipped carlos.properties line, which the package's skeleton carries.
+const LAB_FILTER_OLD = /^\s*LAB_FILTER_OLD='([^']*)'$/m.exec(
+  fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8'))[1];
+const LAB_FILTER_NEW = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'carlos.properties'), 'utf8')
+  .split('\n').find(line => line.startsWith('HL7_LAB_MEASUREMENT_FILTER='));
+const LAB_FILTER_SENTINEL = '.lab-measurement-filter-migrated';
+
+function labFilterFixture(t, { sentinel = false, skelLine = LAB_FILTER_NEW } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  const skel = path.join(fixture.env.CARLOS_SHARE_DIR, 'skel', 'carlos.properties');
+  fs.mkdirSync(path.dirname(skel), { recursive: true });
+  fs.writeFileSync(skel, `rx_fax_enabled=true\n${skelLine === null ? '' : `${skelLine}\n`}`);
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n`);
+  if (sentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  fixture.baseline();
+  return { ...fixture, props };
+}
+
+test('upgrade verifier digest of the old lab filter is the postinst old stock line', () => {
+  const verify = fs.readFileSync(path.join(__dirname, 'deb-upgrade-verify.sh'), 'utf8');
+  const sha = /^LAB_FILTER_OLD_SHA=([0-9a-f]{16})$/m.exec(verify);
+  assert.ok(sha, 'deb-upgrade-verify.sh states LAB_FILTER_OLD_SHA');
+  assert.equal(crypto.createHash('sha256').update(`${LAB_FILTER_OLD}\n`).digest('hex').slice(0, 16), sha[1]);
+  // The old line is the one with the four-character range alternative; the shipped one no longer has it.
+  assert.ok(LAB_FILTER_OLD.includes('|^([+-\\\\?]{1,4})|'), LAB_FILTER_OLD);
+  assert.ok(LAB_FILTER_NEW, 'carlos.properties ships HL7_LAB_MEASUREMENT_FILTER');
+  assert.ok(!LAB_FILTER_NEW.includes('{1,4}'), LAB_FILTER_NEW);
+});
+
+test('upgrade verifier accepts the one-time lab-filter migration', t => {
+  const fixture = labFilterFixture(t);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*lab filter: yes/);
+  assert.match(result.stdout, /PASS the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's/);
+  assert.match(result.stdout, /PASS lab-filter migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['an unsanctioned change to the lab filter', 'HL7_LAB_MEASUREMENT_FILTER=.*', false, /FAIL cfg.carlos.properties.sha changed/],
+  ['a lab-filter migration that skipped its sentinel', LAB_FILTER_NEW, false, /FAIL lab-filter migration sentinel missing/],
+  ['a lab-filter rewrite after the migration already ran', LAB_FILTER_NEW, 'pre', /FAIL cfg.carlos.properties.sha changed/],
+  ['an upgrade that left the old lab filter in place', LAB_FILTER_OLD, 'post', /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = labFilterFixture(t, { sentinel: sentinel === 'pre' });
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${after}\nother=kept\n`);
+    if (sentinel === 'post') fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
+test('upgrade verifier rejects an unmigrated lab filter when the skeleton itself still has the old line', t => {
+  // The skeleton's digest equals the old one, so "post equals skeleton" proves nothing.
+  const fixture = labFilterFixture(t, { skelLine: LAB_FILTER_OLD });
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated/);
+  assert.doesNotMatch(result.stdout, /PASS the old stock HL7_LAB_MEASUREMENT_FILTER was migrated/);
+});
+
+test('upgrade verifier rejects a changed lab filter override written with an indent', t => {
+  // java.util.Properties reads the indented line as a definition, so its change is a changed setting.
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n  HL7_LAB_MEASUREMENT_FILTER=^\\\\d+\n`);
+  fixture.baseline();
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_OLD}\nother=kept\n  HL7_LAB_MEASUREMENT_FILTER=.*\n`);
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
+test('upgrade verifier rejects a deleted lab filter when the skeleton lacks the key', t => {
+  // No definition on either side digests alike; a deletion is not the sanctioned rewrite.
+  const fixture = labFilterFixture(t, { skelLine: null });
+  fs.writeFileSync(fixture.props, 'rx_fax_enabled=true\nother=kept\n');
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
+// The one-time Help-link rewrite: the old stock resource_base_url (a path that now returns 404) becomes the line the
+// package's skeleton carries. The old line is the postinst's HELP_URL_OLD; the new one is the shipped carlos.properties.
+const HELP_URL_OLD = /^\s*HELP_URL_OLD='([^']*)'$/m.exec(
+  fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8'))[1];
+const HELP_URL_NEW = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'carlos.properties'), 'utf8')
+  .split('\n').find(line => line.startsWith('resource_base_url='));
+const HELP_URL_SENTINEL = '.help-url-default-migrated';
+
+function helpUrlFixture(t, { sentinel = false } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${HELP_URL_OLD}\nother=kept\n`);
+  if (sentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+  fixture.baseline();
+  return { ...fixture, props };
+}
+
+test('upgrade verifier states the postinst old Help link and the shipped new one', () => {
+  const verify = fs.readFileSync(path.join(__dirname, 'deb-upgrade-verify.sh'), 'utf8');
+  assert.ok(verify.includes(`HELP_URL_OLD='${HELP_URL_OLD}'`), 'verifier old Help link');
+  assert.ok(verify.includes(`HELP_URL_NEW='${HELP_URL_NEW}'`), 'verifier new Help link');
+  assert.equal(HELP_URL_OLD, 'resource_base_url=http://oscarmanual.org/14/');
+  assert.notEqual(HELP_URL_NEW, HELP_URL_OLD);
+});
+
+test('upgrade verifier accepts the one-time Help-link migration', t => {
+  const fixture = helpUrlFixture(t);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${HELP_URL_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*Help link: yes/);
+  assert.match(result.stdout, /PASS the old stock Help link was migrated/);
+  assert.match(result.stdout, /PASS Help-link migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['an unsanctioned change to the Help link', 'resource_base_url=https://help.example.org/', false, /FAIL cfg.carlos.properties.sha changed/],
+  ['a Help-link migration that skipped its sentinel', HELP_URL_NEW, false, /FAIL Help-link migration sentinel missing/],
+  ['a Help-link rewrite after the migration already ran', HELP_URL_NEW, 'pre', /FAIL cfg.carlos.properties.sha changed/],
+  ['an upgrade that left the old Help link in place', HELP_URL_OLD, 'post', /FAIL the Help link was not migrated/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = helpUrlFixture(t, { sentinel: sentinel === 'pre' });
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${after}\nother=kept\n`);
+    if (sentinel === 'post') fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, HELP_URL_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
+test('upgrade verifier accepts an operator Help link that did not change', t => {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.writeFileSync(props, 'rx_fax_enabled=true\nresource_base_url=https://help.example.org/\nother=kept\n');
+  fixture.baseline();
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /PASS cfg.carlos.properties.sha preserved/);
+});
 
 for (const [name, overrides, error, status] of [
   ['failed post snapshot', { FAIL_QUERY: 'COUNT(*) FROM appointment' }, /post-upgrade baseline failed/, 2],
