@@ -43,6 +43,16 @@ function readingCell(flowsheet, id) {
   return flowsheet.locator(`.preventionProcedure[onclick*="measurement=${MEASUREMENT}"][onclick*="&id=${id}&"]`);
 }
 
+// close.jsp refreshes the chart behind the flowsheet (the flowsheet's refreshEncounter) as well as the
+// flowsheet itself. The chart releases its note lock with a sendBeacon on pagehide, and Chromium reports
+// that beacon, cut off by the reload, as an aborted "ping". Consume only that entry, only from this
+// reload (as patient-photo-upload does); every other signal stays strict.
+function consumeUnloadBeacon(recorder, since) {
+  const added = recorder.requestFailures.splice(since);
+  recorder.requestFailures.push(...added.filter((entry) => !(entry.resourceType === 'ping'
+    && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/CaseManagementEntry'))));
+}
+
 function insertReading(sql, { patient, provider }) {
   const id = sql.value(`INSERT INTO measurements (type, demographicNo, providerNo, dataField, measuringInstruction,
     comments, dateObserved, dateEntered) VALUES (${h.sqlString(MEASUREMENT)}, ${patient}, ${h.sqlString(provider)},
@@ -92,9 +102,15 @@ async function workflow(session) {
   });
 
   await session.step('Delete removes the reading, archives a copy, closes the window and refreshes the flowsheet', async () => {
+    const since = session.recorder.requestFailures.length;
     const closed = entry.waitForEvent('close');
+    // Armed before the click: the reloads start as soon as the window's close page loads.
+    const flowsheetReloaded = flowsheet.waitForEvent('load', { timeout: 20000 });
+    const chartReloaded = chart.waitForEvent('load', { timeout: 20000 }).then(() => true, () => false);
     await entry.getByRole('button', { name: 'Delete', exact: true }).click({ noWaitAfter: true });
     await closed;
+    await flowsheetReloaded;
+    if (await chartReloaded) consumeUnloadBeacon(session.recorder, since);
     await expectValue(sql, `SELECT COUNT(*) FROM measurements WHERE id=${id}`, '0',
       'Delete did not remove the reading from measurements');
     await expectValue(sql, `SELECT COUNT(*) FROM measurementsDeleted WHERE originalId=${id}
