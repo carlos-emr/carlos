@@ -325,15 +325,16 @@ test('no stored clinical text is printed raw: every output is a CARLOS encoder (
     assert(/^(request\.getContextPath\(\)|roleName2\$|true|request\.getScheme\(\) \+ .*|error)$/.test(expression), expression);
   }
   assert(body.includes('<carlos:encode value="<%= error %>"/>'), 'action errors are encoded');
-  const rawEl = [...body.matchAll(/\$\{([^}]*)}/g)].map(match => match[1].trim())
-    .filter(expression => !/^carlos:for\w+\(/.test(expression))
-    .filter(expression => !/^(?:not\s+)?empty\b/.test(expression) && !/^pageContext\.request\.contextPath$/.test(expression))
-    .filter(expression => expression !== 'requestScope.formValues' && expression !== 'drugs' && expression !== 'allergies');
-  // What remains is the value attribute of <carlos:encode>, which encodes it.
-  const encodedOnly = [...body.matchAll(/<carlos:encode value="\$\{([^}]*)}"/g)].map(match => match[1].trim());
-  for (const expression of rawEl) {
-    assert(encodedOnly.includes(expression), `raw EL output of ${expression}`);
-  }
+  // Remove every encoded output in place, then nothing but server-controlled EL may remain. Checking each
+  // occurrence where it stands (not whether the same expression is encoded somewhere else) means a raw
+  // ${requestScope.BPLastData} cannot hide behind an encoded one.
+  const remaining = body
+    .replace(/<carlos:encode\s+value="[^"]*"\s*\/>/g, '')
+    .replace(/\$\{carlos:for\w+\([^}]*\)\}/g, '');
+  const rawEl = [...remaining.matchAll(/\$\{([^}]*)}/g)].map(match => match[1].trim());
+  assert.deepEqual(rawEl.filter(expression => !(/^(?:not\s+)?empty\s+\w+$/.test(expression)
+    || expression === 'pageContext.request.contextPath' || expression === 'requestScope.formValues'
+    || expression === 'drugs' || expression === 'allergies')), [], 'raw EL output of stored data');
   for (const attribute of ['SmkSDate', 'SmkSComments', 'FTNeDate', 'iDiaDate']) {
     assert(body.includes(`\${carlos:forHtmlAttribute(requestScope.${attribute})}`), `${attribute} is attribute-encoded`);
   }

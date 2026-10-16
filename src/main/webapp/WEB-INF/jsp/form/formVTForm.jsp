@@ -863,17 +863,17 @@
                                                             </tr>
                                                             <tr>
                                                                 <td class="dataEntryTable"><fmt:message key="form.vt.lastData"/></td>
-                                                                <td class="dataEntryTable"><font style="font-size: 80%">
+                                                                <td class="dataEntryTable"><span style="font-size: 80%">
                                                                     <carlos:encode value="${requestScope.SmkSLastData}"/>
-                                                                </font></td>
-                                                                <td class="dataEntryTable"><font style="font-size: 80%">
+                                                                </span></td>
+                                                                <td class="dataEntryTable"><span style="font-size: 80%">
                                                                     <carlos:encode value="${requestScope.SmkHLastData}"/>
-                                                                </font></td>
+                                                                </span></td>
                                                                 <td class="dataEntryTable"><carlos:encode value="${requestScope.SmkCLastData}"/>
                                                                 </td>
-                                                                <td class="dataEntryTable"><font style="font-size: 80%">
+                                                                <td class="dataEntryTable"><span style="font-size: 80%">
                                                                     <carlos:encode value="${requestScope.SmkSLDDate}"/>
-                                                                </font></td>
+                                                                </span></td>
                                                                 <td class="dataEntryTable">&nbsp;</td>
                                                             </tr>
                                                             <tr>
@@ -922,8 +922,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable">${carlos:forHtml(ExerDesc)}
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.ExerMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.ExerMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -948,8 +948,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable">${carlos:forHtml(DietDesc)}
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.DietMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.DietMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -1501,7 +1501,7 @@
                                                                 onclick="javascript:controlFTExam();" value="no"/><label id="vt-FTEx-no-label" for="vt-FTEx-no">No</label> <a
                                                                 title="clear all"
                                                                 href="javascript:clearAll(FTExId, FTExId-1)">&nbsp
-                                                            <font style="text-decoration: underline; color: blue;">clr</font>
+                                                            <span style="text-decoration: underline; color: blue;">clr</span>
                                                         </a></td>
                                                     <td class="dataEntryTable" rowspan="7" valign="top"
                                                         align="center">&nbsp;
@@ -1529,7 +1529,7 @@
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTNeValue)" value="yes"/>Yes <input type="radio" name="value(FTNeValue)" value="no"/>No <a
                                                             title="clear all"
                                                             href="javascript:clearAll(ftNeId, ftNeId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(FTNeDate)" id="value(FTNeDate)"/>
                                                     <input type="hidden" name="value(FTNeComments)" id="value(FTNeComments)"/>
@@ -1554,7 +1554,7 @@
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTIsValue)" value="yes"/>Yes <input type="radio" name="value(FTIsValue)" value="no"/>No <a
                                                             title="clear all"
                                                             href="javascript:clearAll(ftIsId, ftIsId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(FTIsDate)" id="value(FTIsDate)"/>
                                                     <input type="hidden" name="value(FTIsComments)" id="value(FTIsComments)"/>
@@ -1579,7 +1579,7 @@
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTUlValue)" value="yes"/>Yes <input type="radio" name="value(FTUlValue)" value="no"/>No <a
                                                             title="clear all"
                                                             href="javascript:clearAll(ftUlId, ftUlId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(FTUlDate)" id="value(FTUlDate)"/>
                                                     <input type="hidden" name="value(FTUlComments)" id="value(FTUlComments)"/>
@@ -1604,7 +1604,7 @@
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTInValue)" value="yes"/>Yes <input type="radio" name="value(FTInValue)" value="no"/>No <a
                                                             title="clear all"
                                                             href="javascript:clearAll(ftInId, ftInId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(FTInDate)" id="value(FTInDate)"/>
                                                     <input type="hidden" name="value(FTInComments)" id="value(FTInComments)"/>
@@ -1639,8 +1639,8 @@
                                                                     <a
                                                                             title="clear all"
                                                                             href="javascript:clearAll(ftOtId, ftOtId-1)">&nbsp
-                                                                        <font
-                                                                                style="text-decoration: underline; color: blue;">clr</font>
+                                                                        <span
+                                                                                style="text-decoration: underline; color: blue;">clr</span>
                                                                     </a></td>
                                                                 <input type="hidden" name="value(FTOtDate)" id="value(FTOtDate)"/>
                                                                 <input type="hidden" name="value(FTOtComments)" id="value(FTOtComments)"/>
@@ -1668,7 +1668,7 @@
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(FTReValue)" value="yes"/>Yes <input type="radio" name="value(FTReValue)" value="no"/>No <a
                                                             title="clear all"
                                                             href="javascript:clearAll(ftReId, ftReId-1)">&nbsp
-                                                        <font style="text-decoration: underline; color: blue;">clr</font>
+                                                        <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(FTReDate)" id="value(FTReDate)"/>
                                                     <input type="hidden" name="value(FTReComments)" id="value(FTReComments)"/>
@@ -1718,8 +1718,8 @@
                                                     </td>
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(iDiaValue)" value="yes"/>Yes <input type="radio" name="value(iDiaValue)" value="no"/>No <a
                                                             title="clear all"
-                                                            href="javascript:clearAll(eyeDiaId, eyeDiaId-1)">&nbsp <font
-                                                            style="text-decoration: underline; color: blue;">clr</font>
+                                                            href="javascript:clearAll(eyeDiaId, eyeDiaId-1)">&nbsp <span
+                                                            style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(iDiaDate)" id="value(iDiaDate)"/>
                                                     <input type="hidden" name="value(iDiaComments)" id="value(iDiaComments)"/>
@@ -1754,8 +1754,8 @@
                                                                     <a
                                                                             title="clear all"
                                                                             href="javascript:clearAll(eyeHypId, eyeHypId-1)">&nbsp
-                                                                        <font
-                                                                                style="text-decoration: underline; color: blue;">clr</font>
+                                                                        <span
+                                                                                style="text-decoration: underline; color: blue;">clr</span>
                                                                     </a></td>
                                                                 <input type="hidden" name="value(iHypDate)" id="value(iHypDate)"/>
                                                                 <input type="hidden" name="value(iHypComments)" id="value(iHypComments)"/>
@@ -1784,8 +1784,8 @@
                                                                     <a
                                                                             title="clear all"
                                                                             href="javascript:clearAll(eyeOthId, eyeOthId-1)">&nbsp
-                                                                        <font
-                                                                                style="text-decoration: underline; color: blue;">clr</font>
+                                                                        <span
+                                                                                style="text-decoration: underline; color: blue;">clr</span>
                                                                     </a></td>
                                                                 <input type="hidden" name="value(iOthDate)" id="value(iOthDate)"/>
                                                                 <input type="hidden" name="value(iOthComments)" id="value(iOthComments)"/>
@@ -1811,8 +1811,8 @@
                                                     </td>
                                                     <td class="dataEntryTable" align="center"><input type="radio" name="value(iRefValue)" value="yes"/>Yes <input type="radio" name="value(iRefValue)" value="no"/>No <a
                                                             title="clear all"
-                                                            href="javascript:clearAll(eyeRefId, eyeRefId-1)">&nbsp <font
-                                                            style="text-decoration: underline; color: blue;">clr</font>
+                                                            href="javascript:clearAll(eyeRefId, eyeRefId-1)">&nbsp <span
+                                                            style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <input type="hidden" name="value(iRefDate)" id="value(iRefDate)"/>
                                                     <input type="hidden" name="value(iRefComments)" id="value(iRefComments)"/>
@@ -1844,8 +1844,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.HbA1Desc}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.HbA1MeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.HbA1MeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -1872,8 +1872,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.LDLDesc}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.LDLMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.LDLMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -1899,8 +1899,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.HDLDesc}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.HDLMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.HDLMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -1927,8 +1927,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.TCHLDesc}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.TCHLMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.TCHLMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -1961,8 +1961,8 @@
                                                                 <td width="34%"
                                                                     class="dataEntryTable"><carlos:encode value="${requestScope.TRIGDesc}"/>
                                                                     <br>
-                                                                    <font class="eightyPercent"><carlos:encode value="${requestScope.TRIGMeasuringInstrc}"/>
-                                                                    </font></td>
+                                                                    <span class="eightyPercent"><carlos:encode value="${requestScope.TRIGMeasuringInstrc}"/>
+                                                                    </span></td>
                                                                 <td width="16%" class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
@@ -1989,8 +1989,8 @@
                                                             <tr>
                                                                 <td class="dataEntryTable"><carlos:encode value="${requestScope.BGDesc}"/>
                                                                     <br>
-                                                                    <font class="eightyPercent"><carlos:encode value="${requestScope.BGMeasuringInstrc}"/>
-                                                                    </font></td>
+                                                                    <span class="eightyPercent"><carlos:encode value="${requestScope.BGMeasuringInstrc}"/>
+                                                                    </span></td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
@@ -2020,8 +2020,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.UALBDesc}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.UALBMeasuringInstrc}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.UALBMeasuringInstrc}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
@@ -2048,8 +2048,8 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope['24UADesc']}"/><br>
-                                                        <font class="eightyPercent"><carlos:encode value="${requestScope['24UAMeasuringInstrc']}"/>
-                                                        </font></td>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope['24UAMeasuringInstrc']}"/>
+                                                        </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
