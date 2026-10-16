@@ -28,7 +28,6 @@ const SCREENING = { type: 'Tuberculosis', date: '2026-03-04' };
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
-  requirePoppler('pdftotext');
   s.cleanup(() => {
     sql.execute(`DELETE x FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id WHERE p.demographic_no=${patient};
       DELETE FROM preventions WHERE demographic_no=${patient}`);
@@ -141,5 +140,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('prevention-print-selection', workflow, { openPatient: true });
+if (require.main === module) {
+  runWorkflow('prevention-print-selection', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
+}
 module.exports = { workflow };
