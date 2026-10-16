@@ -19,6 +19,9 @@
  *   4. The PDF printed every comment under a "Comments:" label whatever prevention_show_comments
  *      said, and a second time when it was on. The setting now decides once for page and paper:
  *      inline on the page means printed once, a footnote marker means left off the printout.
+ *   5. Chinese, Japanese and Korean characters and emoji silently dropped out of the PDF. The
+ *      vaccine added through the picker is given by an outside provider typed in all three
+ *      scripts, with an emoji comment, and both must survive the save and the printout.
  *
  * User path: Schedule > Search > Master Record > E-Chart > Preventions (navbar heading) > the
  * patient's Preventions page.
@@ -38,6 +41,14 @@ const PRINT_PATH = /\/prevention\/printPrevention$/;
 // The clinical-prose corpus phrase that CRS rules 932100/932110 refuse at paranoia level 1.
 const WAF_COMMENT = 'Reviewed labs with the patient; find attached the CBC and lytes.';
 const SELECTION_FIELDS = new Set(['CSRF-TOKEN', 'immunizationOnly', 'demographic_no', 'demographicNo', 'printHP']);
+// An outside provider's name in Chinese, Japanese and Korean, and a comment with emoji.
+const OUTSIDE_PROVIDER = '王医生 さくら診療所 김민준';
+const EMOJI_COMMENT = 'Tolerated well 👍 no reaction ❤';
+
+/** A utf8mb4 SQL literal that does not depend on the mysql client's character set. */
+function utf8Literal(value) {
+  return `CONVERT(X'${Buffer.from(value, 'utf8').toString('hex')}' USING utf8mb4)`;
+}
 
 function pdfText(bytes) {
   h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', `Print did not return PDF bytes: ${bytes.subarray(0, 60).toString('utf8')}`);
@@ -225,10 +236,13 @@ async function workflow(s) {
     // Left open: the saved form's close page refreshes this opener and then closes itself.
   });
 
-  await s.step('the vaccine added from the picker is saved with its brand and lot, refreshes the page and prints', async () => {
+  await s.step('the vaccine added from the picker is saved with its brand, lot and non-Latin text, refreshes the page and prints', async () => {
     await editor.locator('[name="given"][value="given"]').check();
     await editor.locator('#prevDate').fill('2026-10-01');
     await editor.locator('input[name="lot"]:visible').first().fill(`${lot}TDAP`);
+    await editor.locator('select[name="provider"]:visible').first().selectOption('-1');
+    await editor.locator('input[name="providerName"]:visible').first().fill(OUTSIDE_PROVIDER);
+    await editor.locator('textarea[name="comments"]:visible').first().fill(EMOJI_COMMENT);
     const closed = editor.waitForEvent('close', { timeout: 30000 });
     const reloaded = index.waitForEvent('load', { timeout: 30000 });
     await editor.locator('input[type="submit"][name="action"]').first().click({ noWaitAfter: true });
@@ -237,12 +251,22 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id
       WHERE p.demographic_no=${patient} AND p.prevention_type='Tdap' AND p.deleted=0 AND x.keyval='lot' AND x.val=${h.sqlString(`${lot}TDAP`)}`,
     '1', 'The Tdap added through the brand picker was not stored with its lot');
+    for (const [key, value] of [['providerName', OUTSIDE_PROVIDER], ['comments', EMOJI_COMMENT]]) {
+      await expectValue(sql, `SELECT COUNT(*) FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id
+        WHERE p.demographic_no=${patient} AND p.prevention_type='Tdap' AND x.keyval='${key}' AND x.val=${utf8Literal(value)}`,
+      '1', `The Tdap's ${key} was not stored intact`);
+    }
     h.assert(await index.locator('input[name="printHP"][value="Tdap"]').count() === 1, 'The refreshed page offers no print box for the new Tdap');
+    const commentShown = await index.locator('div.comments', { hasText: EMOJI_COMMENT }).count() > 0;
     const button = index.locator('input[name="printButton"]');
     await button.click();
     const text = await printFrom(s, index, button);
     h.assert(text.includes('Prevention Tdap') && text.includes('ADACEL') && text.includes(`${lot}TDAP`) && text.includes('2026-10-01'),
       'The printed PDF lacks the Tdap added through the brand picker');
+    const flat = text.replace(/\s+/g, ' ');
+    h.assert(flat.includes(`Provider: ${OUTSIDE_PROVIDER}`), 'The printed PDF lost the outside provider\'s Chinese, Japanese or Korean name');
+    h.assert(flat.includes(EMOJI_COMMENT) === commentShown,
+      `The printed PDF ${commentShown ? 'lost the emoji comment the page shows' : 'prints a comment the page only footnotes'}`);
     await index.close();
   });
 }

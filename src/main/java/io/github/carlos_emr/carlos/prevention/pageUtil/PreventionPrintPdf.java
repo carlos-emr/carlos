@@ -165,13 +165,15 @@ public class PreventionPrintPdf {
         String heading = immunizationsOnly ? "Immunizations" : "Immunizations and Screenings";
         Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), PdfFonts.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
+        // Chart values go through PdfFonts.addText, which draws Chinese, Japanese, Korean and emoji
+        // characters in bundled fallback faces; DejaVu alone silently dropped them.
+        PdfFonts.addText(titlePhrase, demo.getFormattedName(), PdfFonts.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(titlePhrase, demoInfo.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK));
 
         if (printout.mrpName() != null) {
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + printout.mrpName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
+            PdfFonts.addText(titlePhrase, "MRP: " + printout.mrpName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
         }
 
         // Store header phrase, border flag, header padding, and border spacing for the header
@@ -193,16 +195,19 @@ public class PreventionPrintPdf {
                 .append(StringUtils.defaultString(clinicData.getClinicProvince())).append(" ")
                 .append(StringUtils.defaultString(clinicData.getClinicPostal()));
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
+        Font clinicNameFont = PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK);
+        Font clinicFont = PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK);
+        Paragraph clinicParagraph = new Paragraph(LEADING, "", clinicNameFont);
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicName(), clinicNameFont);
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(StringUtils.defaultString(clinicData.getClinicAddress()), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicAddress(), clinicFont);
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicAddrCont.toString(), clinicFont);
         clinicParagraph.add(Chunk.NEWLINE);
         clinicParagraph.add(new Chunk("Ph.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(StringUtils.defaultString(clinicData.getClinicPhone()), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicPhone(), clinicFont);
         clinicParagraph.add(new Chunk(" Fax.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(StringUtils.defaultString(clinicData.getClinicFax()), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicFax(), clinicFont);
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
@@ -264,7 +269,9 @@ public class PreventionPrintPdf {
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
+            Font procHeaderFont = PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK);
+            Phrase procHeader = new Phrase(HEADER_LEADING, "", procHeaderFont);
+            PdfFonts.addText(procHeader, "Prevention " + preventionHeader + "\n", procHeaderFont);
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -302,10 +309,10 @@ public class PreventionPrintPdf {
                 String procedureResult = entry.result();
                 if (procedureResult != null && !procedureResult.isEmpty()) {
                     procedure.add("Result: ");
-                    procedure.add(new Chunk(procedureResult, font));
+                    PdfFonts.addText(procedure, procedureResult, font);
                     String procedureReason = entry.reason();
                     if (procedureReason != null && !procedureReason.isEmpty()) {
-                        procedure.add(new Chunk(" (" + procedureReason + ")", font));
+                        PdfFonts.addText(procedure, " (" + procedureReason + ")", font);
                     } else if (procedureResult.equals("other")) {
                         procedure.add(new Chunk(" (no reason submitted)", font));
                     }
@@ -339,7 +346,7 @@ public class PreventionPrintPdf {
                 Phrase commentsPhrase = new Phrase(LEADING, "", font);
                 String procedureComments = entry.comments();
                 if (procedureComments != null && !procedureComments.isEmpty()) {
-                    commentsPhrase.add(procedureComments);
+                    PdfFonts.addText(commentsPhrase, procedureComments, font);
                     commentsPhrase.add(Chunk.NEWLINE);
                 }
 
@@ -414,7 +421,9 @@ public class PreventionPrintPdf {
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
+                        Font contdFont = PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK);
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "", contdFont);
+                        PdfFonts.addText(contdProcHeader, "Prevention " + preventionHeader + " (cont'd)\n", contdFont);
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -527,7 +536,7 @@ public class PreventionPrintPdf {
         if (label != null) {
             procedure.add(label);
         }
-        procedure.add(new Chunk(value, font));
+        PdfFonts.addText(procedure, value, font);
         procedure.add(Chunk.NEWLINE);
     }
 

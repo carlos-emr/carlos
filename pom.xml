@@ -1540,6 +1540,7 @@
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
                         <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ttc</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>
