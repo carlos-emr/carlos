@@ -49,6 +49,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -70,6 +72,8 @@ import static org.mockito.Mockito.mock;
  *
  * <p>Transactions commit for real (no test transaction) so the patient row lock and the
  * concurrent-save case are exercised; each test removes exactly the rows it created.</p>
+ *
+ * @since 2026-10-16
  */
 @Tag("integration")
 @Tag("encounter")
@@ -232,6 +236,36 @@ class EChartRevisionPersisterIntegrationTest extends CarlosTestBase {
         });
         assertThat(encounters(a)).containsExactly("A history", "Marked");
         assertThat(state(b)).isEqualTo(bBefore);
+    }
+
+    @ParameterizedTest(name = "status [{0}]")
+    @NullAndEmptySource
+    @ValueSource(strings = {" "})
+    @DisplayName("should save the chart and leave a visit without a status as it is when signing")
+    void shouldLeaveVisitWithoutStatus_whenSigning(String blank) {
+        // A sign derives the next status from the current one; there is none to derive it from.
+        int unmarked = tx.execute(status -> appointment(a, blank));
+        List<String> bBefore = state(b);
+
+        Result result = persister.save(a, aBase, unmarked, AppointmentChange.SIGN, revision("Signed"), PROVIDER);
+
+        assertThat(result.outcome()).isEqualTo(Outcome.SAVED);
+        assertThat(result.appointmentUpdated()).isFalse();
+        assertThat(result.appointmentNo()).isEqualTo(unmarked);
+        assertThat(visit(unmarked).getStatus()).isEqualTo(blank);
+        assertThat(visit(unmarked).getLastUpdateUser()).isEqualTo("previous");
+        assertThat(archived(unmarked)).isEmpty();
+        assertThat(encounters(a)).containsExactly("A history", "Signed");
+        assertThat(state(b)).isEqualTo(bBefore);
+    }
+
+    @Test
+    @DisplayName("should report the date of the patient's own visit the save was bound to")
+    void shouldReportVisitDate_whenSaveIsBoundToOwnVisit() {
+        Result result = persister.save(a, aBase, aVisit, AppointmentChange.NONE, revision("Dated"), PROVIDER);
+
+        assertThat(result.appointmentNo()).isEqualTo(aVisit);
+        assertThat(result.appointmentDate()).isEqualTo(visit(aVisit).getAppointmentDate());
     }
 
     @Test

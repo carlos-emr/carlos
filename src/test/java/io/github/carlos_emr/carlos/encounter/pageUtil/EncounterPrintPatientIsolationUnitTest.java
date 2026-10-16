@@ -238,6 +238,14 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should render the legacy editor's appointment encoded")
+        void shouldEncodeAppointment_inLegacyEditorForm() throws IOException {
+            assertThat(source("includes/encounter-row-three.jspf"))
+                    .contains("<input type=\"hidden\" name=\"appointment_no\" value=\"<carlos:encode value='${bean.appointmentNo}' context=\"htmlAttribute\"/>\"/>")
+                    .doesNotContain("value=\"${bean.appointmentNo}\"");
+        }
+
+        @Test
         @DisplayName("should post the legacy editor to its save route whatever the page's base address")
         void shouldPostEditorToSaveRoute_despiteBaseHref() throws IOException {
             // encounter-head.jspf sets <base href> to the context root, so the relative action

@@ -103,7 +103,7 @@
         <input type="hidden" name="presBoxSize" value="<carlos:encode value='${presBoxSize}' context="htmlAttribute"/>">
         <input type="hidden" name="rowThreeSize" value="<carlos:encode value='${rowThreeSize}' context="htmlAttribute"/>">
         <input type="hidden" name="status" value="t"/>
-        <input type="hidden" name="appointment_no" value="${bean.appointmentNo}"/>
+        <input type="hidden" name="appointment_no" value="<carlos:encode value='${bean.appointmentNo}' context="htmlAttribute"/>"/>
     </div>
 </div>
 

@@ -83,12 +83,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * and user name come from this patient's own remembered entry. {@link EChartRevisionPersister}
  * checks the revision and the appointment under the patient's row lock and writes nothing unless
  * both belong to the patient and the revision is still the newest. The login-wide bean is neither
- * read nor changed.</p>
+ * read nor changed. After a save the editor keeps the visit it submitted: the patient's remembered
+ * entry is the latest of any of that patient's windows, so its appointment can be another one's.</p>
  *
- * <p>POST only. A stale revision, an appointment that now belongs to another patient, or an editor
- * without its revision field answers 409 with the unsaved text on the concurrency page (412 for
- * the AJAX form of the request); malformed or conflicting identities answer 400 before anything
- * is written.</p>
+ * <p>POST only, with {@code _demographic} write for the patient and access to the record; every
+ * button but Exit also needs {@code _eChart} write, and Verify and Sign
+ * {@code _eChart.verifyButton} write, as the editor offers them. A stale revision, an appointment
+ * that now belongs to another patient, or an editor without its revision field answers 409 with
+ * the unsaved text on the concurrency page (412 for the AJAX form of the request); malformed or
+ * conflicting identities answer 400 before anything is written.</p>
  */
 public class EctSaveEncounter2Action extends ActionSupport {
 
@@ -180,6 +183,15 @@ public class EctSaveEncounter2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown encounter action");
             return NONE;
         }
+        // The editor offers its writing buttons only with _eChart write, and Verify and Sign only
+        // with _eChart.verifyButton write as well (encounter-row-three.jspf). Exit stores the layout.
+        if (!EXIT.equals(button) && !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
+        if (VERIFY_SIGN.equals(button)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart.verifyButton", "w", demographicNo)) {
+            throw new SecurityException("missing required sec object (_eChart.verifyButton)");
+        }
         String revisionField = request.getParameter("eChartId");
         Integer baseRevision;
         Integer appointmentNo;
@@ -220,6 +232,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
             }
             LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART, demographicNo,
                     request.getRemoteAddr());
+            keepSubmittedVisit(entry, saved, request.getParameter("subject"));
             // TimeOut.jsp refreshes the schedule that opened the chart when a visit status changed.
             request.setAttribute("refreshOpener", saved.appointmentUpdated());
         }
@@ -349,6 +362,23 @@ public class EctSaveEncounter2Action extends ActionSupport {
         entry.template = "";
         request.setAttribute("EctSessionBean", entry);
         EctIncomingEncounter2Action.setEncounterAttributes(request, entry, loggedInInfo, split, true);
+    }
+
+    /**
+     * Binds the rest of this request to the visit this window submitted. The patient's remembered
+     * entry is the latest of any of the patient's windows, so its appointment, date and reason can be
+     * another window's: re-rendered as this editor's, the next Sign would sign that other visit.
+     *
+     * @param entry         this patient's entry, updated in place
+     * @param saved         the accepted save, naming the appointment it checked (or none)
+     * @param postedSubject the visit reason this editor posted as its subject
+     */
+    static void keepSubmittedVisit(EctSessionBean entry, Result saved, String postedSubject) {
+        entry.appointmentNo = saved.appointmentNo() == null ? null : saved.appointmentNo().toString();
+        if (saved.appointmentDate() != null) {
+            entry.appointmentDate = ConversionUtils.toDateString(saved.appointmentDate());
+        }
+        entry.reason = postedSubject;
     }
 
     private static String bill(HttpServletRequest request, LoggedInInfo loggedInInfo, EctSessionBean entry,

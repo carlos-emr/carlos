@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
+import java.util.Date;
 import java.util.Objects;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -53,7 +54,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * </ul>
  * <p>A refusal writes nothing. On Sign or Verify the appointment's status is derived from the
  * status it has now, not the one it had when the editor opened, and its old values are archived
- * only after the revision is written, so a failure leaves the appointment unchanged too.</p>
+ * only after the revision is written, so a failure leaves the appointment unchanged too. A visit
+ * with no status is saved against but not marked.</p>
  *
  * <p>The patient lock serializes legacy saves of one patient; it is a scalar locking read, because
  * loading {@code Demographic} runs legacy property setters that can mark null fields dirty.</p>
@@ -83,8 +85,10 @@ public class EChartRevisionPersister {
      * @param appointmentUpdated whether an appointment of the patient was signed or verified
      * @param appointmentNo      the patient's existing appointment the save was bound to, or
      *                           {@code null} when it named none or that appointment no longer exists
+     * @param appointmentDate    that appointment's date, or {@code null} with no appointment
      */
-    public record Result(Outcome outcome, EChart revision, boolean appointmentUpdated, Integer appointmentNo) { }
+    public record Result(Outcome outcome, EChart revision, boolean appointmentUpdated, Integer appointmentNo,
+                         Date appointmentDate) { }
 
     private final PlatformTransactionManager transactions;
     private final EntityManagerFactory entityManagers;
@@ -140,7 +144,10 @@ public class EChartRevisionPersister {
             revision.setDemographicNo(patient);
             charts.persist(revision);
 
-            boolean marked = appointment != null && change != AppointmentChange.NONE;
+            // The next status is derived from the current one; a visit without one is left as it
+            // is (deriving from "" throws, from null writes ""), as the editor did before #4673.
+            boolean marked = appointment != null && change != AppointmentChange.NONE
+                    && appointment.getStatus() != null && !appointment.getStatus().isBlank();
             if (marked) {
                 ApptStatusData statuses = new ApptStatusData();
                 statuses.setApptStatus(appointment.getStatus());
@@ -150,12 +157,13 @@ public class EChartRevisionPersister {
                 appointment.setLastUpdateUser(provider);
                 appointments.merge(appointment);
             }
-            return new Result(Outcome.SAVED, revision, marked, appointment == null ? null : appointment.getId());
+            return new Result(Outcome.SAVED, revision, marked, appointment == null ? null : appointment.getId(),
+                    appointment == null ? null : appointment.getAppointmentDate());
         });
     }
 
     private static Result refused(TransactionStatus status, Outcome outcome) {
         status.setRollbackOnly();
-        return new Result(outcome, null, false, null);
+        return new Result(outcome, null, false, null, null);
     }
 }

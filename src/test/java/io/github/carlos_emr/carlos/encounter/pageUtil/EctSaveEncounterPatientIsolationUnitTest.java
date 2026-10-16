@@ -43,6 +43,10 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -67,6 +71,8 @@ import static org.mockito.Mockito.when;
  * <p>Each refusal is checked to happen before any write: the revision persister and the layout
  * DAO are never touched and the shared bean keeps its contents. The database behaviour of an
  * accepted save is covered by {@link EChartRevisionPersisterIntegrationTest}.</p>
+ *
+ * @since 2026-10-16
  */
 @Tag("unit")
 @Tag("encounter")
@@ -180,6 +186,42 @@ class EctSaveEncounterPatientIsolationUnitTest {
         assertRefusedWithoutWrites();
     }
 
+    @Test
+    @DisplayName("should refuse a chart write the editor would not offer the user before any write")
+    void shouldRefuseSave_whenChartWriteIsDenied() {
+        // The editor shows Save and the Sign buttons only with _eChart write.
+        when(security.hasPrivilege(login, "_eChart", "w", A)).thenReturn(false);
+
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_eChart)");
+
+        assertRefusedWithoutWrites();
+    }
+
+    @Test
+    @DisplayName("should refuse Verify and Sign without the verify privilege before any write")
+    void shouldRefuseVerify_whenVerifyPrivilegeIsDenied() {
+        request.setParameter("btnPressed", "Verify and Sign");
+        when(security.hasPrivilege(login, "_eChart.verifyButton", "w", A)).thenReturn(false);
+
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_eChart.verifyButton)");
+
+        assertRefusedWithoutWrites();
+    }
+
+    @Test
+    @DisplayName("should still let Exit store the layout without chart write")
+    void shouldExit_whenChartWriteIsDenied() throws Exception {
+        request.setParameter("btnPressed", "Exit");
+        when(security.hasPrivilege(login, "_eChart", "w", A)).thenReturn(false);
+
+        assertThat(execute()).isEqualTo("close");
+
+        verifyNoInteractions(persister);
+        verify(windows).remove("111111");
+    }
+
     @ParameterizedTest(name = "btnPressed={0}")
     @ValueSource(strings = {"", "Delete", "Sign"})
     @DisplayName("should reject an unknown button before any write")
@@ -220,7 +262,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     void shouldSaveSubmittingPatient_whenAnotherChartWasEnteredLast() throws Exception {
         EChart saved = savedRevision(A, 5003);
         when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, saved, true, 777));
+                .thenReturn(new Result(Outcome.SAVED, saved, true, 777, null));
 
         assertThat(execute()).isEqualTo("success");
 
@@ -247,7 +289,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     void shouldNotRefreshOpener_whenNoAppointmentWasMarked() throws Exception {
         request.setParameter("btnPressed", "Verify and Sign");
         when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.VERIFY), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null));
+                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null));
 
         assertThat(execute()).isEqualTo("success");
 
@@ -261,7 +303,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
         request.setParameter("eChartId", "");
         request.setParameter("appointment_no", "null");
         when(persister.save(eq(Integer.parseInt(A)), isNull(), isNull(), eq(AppointmentChange.SIGN), any(), eq("111111")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null));
+                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null));
 
         assertThat(execute()).isEqualTo("success");
 
@@ -272,7 +314,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     @DisplayName("should show the unsaved text and answer 409 when the revision is stale")
     void shouldShowConflictPage_whenRevisionIsStale() throws Exception {
         when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null));
+                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null, null));
 
         assertThat(execute()).isEqualTo("concurrencyError");
 
@@ -298,7 +340,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     @DisplayName("should show the unsaved text when the appointment now belongs to another patient")
     void shouldShowConflictPage_whenAppointmentBelongsToAnotherPatient() throws Exception {
         when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.FOREIGN_APPOINTMENT, null, false, null));
+                .thenReturn(new Result(Outcome.FOREIGN_APPOINTMENT, null, false, null, null));
 
         assertThat(execute()).isEqualTo("concurrencyError");
 
@@ -311,7 +353,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     @DisplayName("should reject another patient's revision as a bad request")
     void shouldReject_whenRevisionBelongsToAnotherPatient() throws Exception {
         when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.FOREIGN_REVISION, null, false, null));
+                .thenReturn(new Result(Outcome.FOREIGN_REVISION, null, false, null, null));
 
         assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
@@ -324,7 +366,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     @DisplayName("should answer 404 when the patient no longer exists")
     void shouldAnswerNotFound_whenPatientIsMissing() throws Exception {
         when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.PATIENT_NOT_FOUND, null, false, null));
+                .thenReturn(new Result(Outcome.PATIENT_NOT_FOUND, null, false, null, null));
 
         assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
@@ -337,7 +379,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     void shouldAnswerPreconditionFailed_whenAjaxRevisionIsStale() throws Exception {
         request.setParameter("submitMethod", "ajax");
         when(persister.save(anyInt(), any(), any(), any(), any(), anyString()))
-                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null));
+                .thenReturn(new Result(Outcome.STALE_REVISION, null, false, null, null));
 
         assertThat(execute()).isEqualTo(ActionSupport.NONE);
 
@@ -363,7 +405,7 @@ class EctSaveEncounterPatientIsolationUnitTest {
     void shouldUseLoggedInProvider_whenPatientsEntryIsNotRemembered() throws Exception {
         EncounterPatientContext.forgetEncounter(request, A);
         when(persister.save(eq(Integer.parseInt(A)), eq(5001), eq(777), eq(AppointmentChange.SIGN), any(), eq("999998")))
-                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), true, 777));
+                .thenReturn(new Result(Outcome.SAVED, savedRevision(A, 5003), true, 777, null));
 
         assertThat(execute()).isEqualTo("success");
 
@@ -372,6 +414,36 @@ class EctSaveEncounterPatientIsolationUnitTest {
         assertThat(row.getValue().getProviderNo()).isEqualTo("999998");
         assertThat(row.getValue().getEncounter()).endsWith("Casey Clinician]");
         assertSharedBeanUnchanged();
+    }
+
+    @Test
+    @DisplayName("should keep the editor's own visit after a save when the patient was entered again from another")
+    void shouldKeepSubmittedVisit_whenPatientWasEnteredAgainForAnotherVisit() {
+        // A's remembered entry is the latest of any of A's windows: here one opened from visit 779.
+        EctSessionBean latest = entry(A, "111111", "779");
+        latest.reason = "Another visit";
+        latest.appointmentDate = "2026-10-20";
+        Date visitDay = new GregorianCalendar(2026, Calendar.OCTOBER, 16).getTime();
+
+        EctSaveEncounter2Action.keepSubmittedVisit(latest,
+                new Result(Outcome.SAVED, savedRevision(A, 5003), false, 777, visitDay), "A reason");
+
+        assertThat(latest.appointmentNo).isEqualTo("777");
+        assertThat(latest.appointmentDate).isEqualTo("2026-10-16");
+        assertThat(latest.reason).isEqualTo("A reason");
+    }
+
+    @Test
+    @DisplayName("should keep no visit after a save from an editor that had none")
+    void shouldKeepNoVisit_whenEditorHadNone() {
+        EctSessionBean latest = entry(A, "111111", "779");
+
+        EctSaveEncounter2Action.keepSubmittedVisit(latest,
+                new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null), "");
+
+        assertThat(latest.appointmentNo).isNull();
+        assertThat(latest.appointmentDate).isEqualTo("2026-10-16");
+        assertThat(latest.reason).isEmpty();
     }
 
     private String execute() throws Exception {
