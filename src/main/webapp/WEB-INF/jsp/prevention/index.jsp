@@ -1295,6 +1295,8 @@
             input.addEventListener('keydown', function(e) {
                 var items = dropdown.querySelectorAll('.ac-item');
                 if (e.key === 'Enter') {
+                    // An IME's Enter confirms the composed text; it neither picks nor submits.
+                    if (e.isComposing || e.keyCode === 229) return;
                     // The box sits inside the print form: Enter must never submit it. Enter picks
                     // the highlighted suggestion, else the first one shown, else does nothing.
                     e.preventDefault();
@@ -1501,6 +1503,8 @@
             input.addEventListener('keydown', function(e) {
                 var items = dropdown.querySelectorAll('.ac-item');
                 if (e.key === 'Enter') {
+                    // An IME's Enter confirms the composed text; it neither picks nor submits.
+                    if (e.isComposing || e.keyCode === 229) return;
                     // The box sits inside the print form: Enter must never submit it. Enter picks
                     // the highlighted suggestion, else the first one shown, else does nothing.
                     e.preventDefault();

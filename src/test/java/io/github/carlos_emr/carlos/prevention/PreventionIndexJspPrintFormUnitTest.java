@@ -82,6 +82,8 @@ class PreventionIndexJspPrintFormUnitTest {
     void shouldRefuseImplicitSubmission_ofPrintForm() {
         assertThat(jsp).contains("<form name=\"printFrm\" method=\"post\" onsubmit=\"return false;\"");
         assertThat(jsp.split("if \\(e\\.key === 'Enter'\\) \\{", -1)).hasSize(3);
+        // An IME's Enter confirms composition and must not pick a suggestion either.
+        assertThat(jsp.split("if \\(e\\.isComposing \\|\\| e\\.keyCode === 229\\) return;", -1)).hasSize(3);
         assertThat(jsp).doesNotContain("e.key === 'Enter' && activeIdx >= 0");
     }
 

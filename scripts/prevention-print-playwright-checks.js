@@ -200,6 +200,11 @@ async function workflow(s) {
     await box.fill('');
     await box.pressSequentially('adac', { delay: 30 });
     await index.locator('#immunization_choices .ac-item').first().waitFor();
+    // An IME's Enter only confirms the composed text: no pick, no submit.
+    const pagesBefore = context.pages().length;
+    await box.evaluate(el => el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })));
+    await index.waitForTimeout(1000);
+    h.assert(context.pages().length === pagesBefore && !watch.posts.length, 'An IME composition Enter picked a vaccine or printed');
     const popup = context.waitForEvent('page', { timeout: 20000 });
     await box.press('Enter');
     editor = await popup;
