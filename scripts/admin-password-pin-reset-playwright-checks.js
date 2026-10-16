@@ -20,6 +20,8 @@
  * Refused sign-ins are kept to two. 127.0.0.1 is not on the default login_local_ip list, so each
  * one also counts against the client address (login_max_failed_times, 3 in the shipped
  * properties); the original password is proved replaced by its hash instead of a third refusal.
+ * Each refusal must end on "Login failed" (lib/throwaway-login-fixture.js submitLoginForm), never a
+ * lockout. Ends SKIP where legacy PINs are off (mfa.legacy.pin.enable): there is then no PIN to reset.
  *
  * Fixture: a throwaway login (lib/throwaway-login-fixture.js) copying the test login's hash, PIN
  * and roles; its cleanup removes the login, its provider, SecurityArchive, preference and log rows.
@@ -28,7 +30,7 @@ const { randomBytes, randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
+const { throwawayLoginFixture, submitLoginForm } = require('./lib/throwaway-login-fixture');
 const { openSection, navigateFrame, searchByUserName } = require('./security-record-admin-playwright-checks');
 
 const TIMEOUT = 20000;
@@ -78,11 +80,13 @@ async function workflow(s) {
     await page.waitForLoadState('load', { timeout: TIMEOUT }).catch(() => {});
     return { browserContext, page, pinAsked };
   }
+  /** A sign-in that must end on "Login failed" (not a lockout, not past the login page). */
   async function expectRefused(label, password, pin, why) {
-    const { browserContext, page } = await signIn(label, password, pin);
+    const browserContext = await h.newContext(context.browser(), config);
+    browserContext.on('page', page => h.wireStrictPage(page, label, recorder));
     try {
-      h.assert(!SIGNED_IN.test(page.url()) && !/forcepasswordreset/i.test(page.url()), `${why}: the sign-in got past the login page (${h.pathOnly(page.url())})`);
-      h.assert(REFUSED.test(page.url()) || await page.locator('#username').count() > 0, `${why}: the sign-in did not come back to a refusal`);
+      const { outcome, landing } = await submitLoginForm(browserContext, config, { username: account.username, password, pin });
+      h.assert(outcome === 'failed', `${why}: the sign-in ended "${outcome}" at ${landing}, not "Login failed"`);
     } finally { await browserContext.close(); }
   }
 
@@ -98,6 +102,11 @@ async function workflow(s) {
     h.assert(new URL(frame.url()).searchParams.get('keyword') === String(account.securityNo), 'The edit page opened another login');
     await frame.locator('input[name="password"]').fill(adminPassword);
     await frame.locator('input[name="conPassword"]').fill(adminPassword);
+    // The PIN rows render only while legacy PINs are on (MfaManager.isOscarLegacyPinEnabled, which the
+    // login page's PIN box follows too); without them there is no PIN to reset.
+    if (await frame.locator('input[name="pin"]').count() === 0) {
+      throw new h.SkipCheck('Legacy PINs are off here (mfa.legacy.pin.enable), so Security Records offer no PIN to reset');
+    }
     await frame.locator('input[name="pin"]').fill(newPin);
     await frame.locator('input[name="conPin"]').fill(newPin);
     await frame.locator('input[name="b_RemoteLockSet"]').check();
@@ -117,11 +126,10 @@ async function workflow(s) {
   });
 
   const adminHash = row().hash;
-  let pinAsked = false;
   await s.step('the first sign-in with the administrator\'s password stops at the forced reset page', async () => {
     const attempt = await signIn('forced-reset', adminPassword, newPin);
-    pinAsked = attempt.pinAsked;
     try {
+      h.assert(attempt.pinAsked, 'The login page asked for no PIN although both PIN-lock flags are set');
       h.assert(/forcepasswordreset/i.test(attempt.page.url()) && await attempt.page.locator('input[name="newPassword"]').count() === 1,
         `The sign-in did not stop at the forced reset page (${h.pathOnly(attempt.page.url())})`);
       h.assert(row().force === '1' && row().hash === adminHash, 'Reaching the reset page changed the login');
@@ -145,10 +153,8 @@ async function workflow(s) {
     await expectRefused('admin-password-refused', adminPassword, newPin, 'The administrator\'s password still signs in');
   });
 
-  // The login page asks for a PIN only while legacy PINs are on (MfaManager.isOscarLegacyPinEnabled);
-  // without one there is no PIN to refuse.
-  await s.step(pinAsked ? 'the old PIN is refused' : 'no PIN at sign-in here, so there is no old PIN to refuse', async () => {
-    if (pinAsked) await expectRefused('old-pin-refused', ownPassword, config.testPin, 'The old PIN still signs in');
+  await s.step('the old PIN is refused', async () => {
+    await expectRefused('old-pin-refused', ownPassword, config.testPin, 'The old PIN still signs in');
   });
 
   await s.step('the user\'s own password with the new PIN reaches the schedule directly', async () => {

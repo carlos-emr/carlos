@@ -181,6 +181,11 @@ async function workflow(s) {
     return result;
   }
   const flag = url => url.searchParams.get('scheduleNav');
+  /**
+   * A window that is not reloaded learns a new mode only from the save page's broadcast, which may land
+   * after the save returns. Wait for it (bounded) before clicking; the click's outcome is still the assertion.
+   */
+  const modeReaches = (page, mode) => page.waitForFunction(m => window.scheduleNavigationMode === m, mode, { timeout: TIMEOUT }).catch(() => {});
 
   await s.step('with no saved mode Focused applies: Tickler replaces the schedule under its top bar with scheduleNav=1', async () => {
     h.assert(property('schedule_navigation_mode') === '' && property('encounter_open_in_tab') === '',
@@ -223,6 +228,7 @@ async function workflow(s) {
 
   await s.step('the second schedule window, not reloaded, follows the Tabs save through the broadcast', async () => {
     h.assert(await second.evaluate(() => window.__notReloaded === true), 'The second schedule window was reloaded');
+    await modeReaches(second, 'tab');
     const result = await openTickler(second);
     h.assert(!result.same && !result.hasOpener && flag(result.url) === '1',
       `The unreloaded window still opens Tickler as same=${result.same}, opener=${result.hasOpener}, scheduleNav=${flag(result.url)}`);
@@ -234,6 +240,7 @@ async function workflow(s) {
     await savePreference('schedule_navigation_mode', 'focused');
     h.assert(property('schedule_navigation_mode') === 'focused' && property('encounter_open_in_tab') === 'no',
       'Focused mode was not stored, or it left the encounter-in-tab flag on');
+    await modeReaches(schedule, 'focused');
     const result = await openTickler(schedule);
     h.assert(result.same && flag(result.url) === '1', `Focused mode did not move the schedule to Tickler with scheduleNav=1 (same=${result.same})`);
     h.assert(await schedule.locator('#navlist').count() > 0, 'Tickler opened without the schedule top bar');
