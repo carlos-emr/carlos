@@ -16,6 +16,9 @@
  *   3. Print Immunizations Only skipped the "nothing selected" check, and a failed print answered
  *      the page's HTML under the PDF's Content-Disposition, so the browser saved HTML as
  *      Prevention.pdf.
+ *   4. The PDF printed every comment under a "Comments:" label whatever prevention_show_comments
+ *      said, and a second time when it was on. The setting now decides once for page and paper:
+ *      inline on the page means printed once, a footnote marker means left off the printout.
  *
  * User path: Schedule > Search > Master Record > E-Chart > Preventions (navbar heading) > the
  * patient's Preventions page.
@@ -115,8 +118,10 @@ async function workflow(s) {
     await index.close();
   });
 
-  await s.step('Print posts only the selection and the PDF carries the chart records, comment included', async () => {
+  await s.step('Print posts only the selection and the PDF carries the chart records as the page shows them', async () => {
     const index = await openIndex();
+    // prevention_show_comments shows a comment inline on the page, or only a footnote marker.
+    const commentShown = await index.locator('div.comments', { hasText: WAF_COMMENT }).count() > 0;
     const watch = watchPrints(index);
     const button = index.locator('input[name="printButton"]');
     await button.click();
@@ -128,7 +133,9 @@ async function workflow(s) {
       '2015-03-03', '2024-05-05', 'FLUZONE High-Dose', 'Sanofi Pasteur', lot, 'Status: Refused', 'Result: normal', 'Screenings:']) {
       h.assert(text.includes(expected), `The printed PDF lacks "${expected}"`);
     }
-    h.assert(text.replace(/\s+/g, ' ').includes(WAF_COMMENT), 'The printed PDF lacks the Inf comment read from the chart');
+    const printed = text.replace(/\s+/g, ' ').split(WAF_COMMENT).length - 1;
+    h.assert(printed === (commentShown ? 1 : 0),
+      `The PDF prints the Inf comment ${printed} time(s) while the page ${commentShown ? 'shows it inline' : 'shows only its footnote marker'}`);
     h.assert(text.indexOf('Prevention PAP') > text.indexOf('Prevention Td'), 'Screenings printed before immunizations');
     h.assert(!/\bnull\b/.test(text), 'The printed PDF shows "null"');
     await index.close();

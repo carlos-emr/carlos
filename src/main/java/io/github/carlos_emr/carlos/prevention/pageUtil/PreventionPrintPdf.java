@@ -212,9 +212,6 @@ public class PreventionPrintPdf {
         //boolean values for headers of Immunizations and Screenings
         boolean isImmunizationHeaderAdded = false, isScreeningsHeaderAdded = false;
 
-        //1 - obtain number of lines of incoming prevention data
-        boolean showComments = CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments", "true");
-
         //3 - Start the column
         ct = new ColumnText(cb);
         ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
@@ -315,7 +312,6 @@ public class PreventionPrintPdf {
                     procedure.add(Chunk.NEWLINE);
                 }
 
-                addLabelAndValue(procedure, "Comments: ", entry.comments(), font);
                 addLabelAndValue(procedure, "Location of shot: ", entry.location(), font);
                 addLabelAndValue(procedure, "Manufacturer: ", entry.manufacturer(), font);
                 addLabelAndValue(procedure, "Name of Vaccine: ", entry.vaccineName(), font);
@@ -337,10 +333,12 @@ public class PreventionPrintPdf {
                     writeDetailOk = false;
                 }
 
-                //Comments
+                // Comments print once, in their own block under the details. The loader leaves them
+                // out when prevention_show_comments is off; they used to print under a "Comments:"
+                // label whatever the setting said, and a second time here when it was on.
                 Phrase commentsPhrase = new Phrase(LEADING, "", font);
                 String procedureComments = entry.comments();
-                if (showComments && procedureComments != null && !procedureComments.isEmpty()) {
+                if (procedureComments != null && !procedureComments.isEmpty()) {
                     commentsPhrase.add(procedureComments);
                     commentsPhrase.add(Chunk.NEWLINE);
                 }

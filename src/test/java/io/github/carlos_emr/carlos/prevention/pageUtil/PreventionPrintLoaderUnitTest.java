@@ -61,6 +61,7 @@ class PreventionPrintLoaderUnitTest {
     private final Map<String, Map<String, String>> extensions = new HashMap<>();
     private final AtomicReference<String> requestedPatient = new AtomicReference<>();
     private boolean mrpModel = true;
+    private boolean showComments = true;
     private PreventionPrintLoader loader;
 
     @BeforeEach
@@ -80,7 +81,8 @@ class PreventionPrintLoaderUnitTest {
         loader = new PreventionPrintLoader(() -> preventionTypes, (info, demographicNo) -> {
             requestedPatient.set(demographicNo);
             return pageData;
-        }, extensionReader, providerNo -> "101".equals(providerNo) ? " Jane Carlos " : "", () -> mrpModel);
+        }, extensionReader, providerNo -> "101".equals(providerNo) ? " Jane Carlos " : "", () -> mrpModel,
+                () -> showComments);
     }
 
     @Test
@@ -132,6 +134,19 @@ class PreventionPrintLoaderUnitTest {
                         "Reviewed with the patient; find attached the CBC.", "left deltoid", "Sanofi", "FLUZONE",
                         "L123", "0.5 mL", "Dr C"),
                 new Entry("2024-10-02", "44 years", "1", null, null, null, null, null, null, null, null, null));
+    }
+
+    @Test
+    @DisplayName("should leave comments off the printout when prevention_show_comments is off")
+    void shouldOmitComments_whenShowCommentsOff() {
+        records("Inf", row("4", "2025-10-01", "45 years", "0", "Dr C"));
+        extensions.put("4", Map.of("comments", "Reviewed with the patient.", "lot", "L123"));
+        showComments = false;
+
+        Entry entry = loader.load(loggedInInfo, "42", new String[]{"Inf"}, false).sections().get(0).entries().get(0);
+
+        assertThat(entry.comments()).isNull();
+        assertThat(entry.lot()).isEqualTo("L123");
     }
 
     @Test
