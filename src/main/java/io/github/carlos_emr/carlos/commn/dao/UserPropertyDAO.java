@@ -55,6 +55,11 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
 
     List<UserProperty> getPropValues(String name, String value);
 
+    /**
+     * @return the provider's property row with that name, or {@code null}; when legacy data holds
+     *         duplicate rows, the one with the lowest id (the row {@link #getProviderPropertiesByNames}
+     *         reads, and the row {@link #saveProp(String, String, String)} updates)
+     */
     UserProperty getProp(String prov, String name);
 
     UserProperty getProp(String name);

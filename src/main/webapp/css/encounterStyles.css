@@ -66,9 +66,15 @@ body.encounter-layout {
 
 /* The rule above forces Arial on every element, which would turn Font Awesome glyphs (the header
    bar's phone icons, the Documents panel's folders) into empty boxes. Icons keep their icon font;
-   the higher specificity wins between the two !important declarations. */
-:root .fa-solid {
-    font-family: "Font Awesome 6 Free" !important;
+   the higher specificity wins between the two !important declarations, so !important stays.
+   Only Font Awesome 6 class names: pages on an older Font Awesome use .fa/.fas with its own family. */
+:root .fa-solid,
+:root .fa-regular {
+    font-family: "Font Awesome 6 Free", sans-serif !important;
+}
+
+:root .fa-brands {
+    font-family: "Font Awesome 6 Brands", sans-serif !important;
 }
 
 #noteEditTxt {

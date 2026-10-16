@@ -149,7 +149,9 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     }
 
     public UserProperty getProp(String prov, String name) {
-        Query query = entityManager.createQuery("select p from UserProperty p where p.providerNo = ?1 and p.name = ?2");
+        // Oldest row first: legacy data can hold duplicate (provider, name) rows, and saveProp must
+        // update the same row getProviderPropertiesByNames reads.
+        Query query = entityManager.createQuery("select p from UserProperty p where p.providerNo = ?1 and p.name = ?2 order by p.id");
         query.setParameter(1, prov);
         query.setParameter(2, name);
 

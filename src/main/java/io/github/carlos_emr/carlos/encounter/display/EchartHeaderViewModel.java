@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.display;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
 import java.util.List;
 
 /**
@@ -76,6 +78,28 @@ public record EchartHeaderViewModel(
 
     public EchartHeaderViewModel {
         phones = List.copyOf(phones);
+    }
+
+    /**
+     * The {@code mailto:} URI for {@link #email()}, still to be encoded for its HTML attribute.
+     *
+     * <p>The local part and the domain are percent-encoded separately around a literal {@code @}:
+     * RFC 6068 leaves that separator unencoded rather than relying on the client to decode
+     * {@code %40}, and a stored {@code ?}, {@code &} or {@code =} must stay part of the address
+     * rather than add {@code cc}/{@code body} header fields to the link.</p>
+     *
+     * @return the URI, or {@code ""} when no address is shown
+     */
+    public String mailtoHref() {
+        if (email == null || email.isEmpty()) {
+            return "";
+        }
+        int at = email.lastIndexOf('@');
+        if (at < 0) {
+            return "mailto:" + SafeEncode.forUriComponent(email);
+        }
+        return "mailto:" + SafeEncode.forUriComponent(email.substring(0, at))
+                + "@" + SafeEncode.forUriComponent(email.substring(at + 1));
     }
 
     /** Which number a {@link Phone} is; selects its icon and its tooltip label. */

@@ -245,6 +245,50 @@ class EchartHeaderViewModelAssemblerUnitTest {
         assertThat(header.emailConsented()).isTrue();
     }
 
+    @Nested
+    @DisplayName("mailtoHref()")
+    class MailtoHref {
+
+        @Test
+        @DisplayName("should keep the @ separator literal")
+        void shouldKeepAtSignLiteral_forPlainAddress() {
+            assertThat(headerWithEmail("jane.doe@example.test").mailtoHref()).isEqualTo("mailto:jane.doe@example.test");
+        }
+
+        @Test
+        @DisplayName("should percent-encode characters that would add mailto header fields")
+        void shouldPercentEncodeHeaderDelimiters_inLocalPartAndDomain() {
+            assertThat(headerWithEmail("a?cc=x&b@ex#ample.test").mailtoHref())
+                    .isEqualTo("mailto:a%3Fcc%3Dx%26b@ex%23ample.test");
+        }
+
+        @Test
+        @DisplayName("should split on the last @ when the local part holds one")
+        void shouldSplitOnLastAtSign_forQuotedLocalPart() {
+            assertThat(headerWithEmail("\"a@b\"@example.test").mailtoHref())
+                    .isEqualTo("mailto:%22a%40b%22@example.test");
+        }
+
+        @Test
+        @DisplayName("should encode an address without @ as a single component")
+        void shouldEncodeWholeValue_whenNoAtSign() {
+            assertThat(headerWithEmail("not an address").mailtoHref()).isEqualTo("mailto:not%20an%20address");
+        }
+
+        @Test
+        @DisplayName("should be empty when no email is shown")
+        void shouldReturnEmpty_whenNoEmail() {
+            assertThat(headerWithEmail("").mailtoHref()).isEmpty();
+        }
+
+        private EchartHeaderViewModel headerWithEmail(String email) {
+            Demographic demographic = patient();
+            demographic.setEmail(email);
+            demographic.setConsentToUseEmailForCare(Boolean.TRUE);
+            return assembler.assemble(VIEWER, demographic, EchartDisplayPreferences.defaults(), Locale.CANADA);
+        }
+    }
+
     private static EchartDisplayPreferences off(String propertyName) {
         return EchartDisplayPreferences.fromStoredValues(Map.of(propertyName, "false"));
     }

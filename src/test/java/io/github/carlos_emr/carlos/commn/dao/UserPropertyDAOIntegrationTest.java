@@ -99,6 +99,36 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
+        @DisplayName("should return the oldest row when the provider has duplicate rows for the name")
+        void shouldReturnOldestRow_whenNameIsDuplicated() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dup");
+            UserProperty oldest = createProperty(providerNo, name, "first");
+            createProperty(providerNo, name, "second");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.getProp(providerNo, name).getId()).isEqualTo(oldest.getId());
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should save into the duplicate row that getProviderPropertiesByNames reads")
+        void shouldUpdateOldestDuplicate_whenSavingByProviderAndName() throws Exception {
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("dupSave");
+            createProperty(providerNo, name, null);
+            createProperty(providerNo, name, "true");
+            userPropertyDAO.flush();
+
+            userPropertyDAO.saveProp(providerNo, name, "false");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.getProviderPropertiesByNames(providerNo, List.of(name)))
+                    .containsExactly(entry(name, "false"));
+        }
+
+        @Test
+        @Tag("read")
         @DisplayName("should return null when no property matches provider and name")
         void shouldReturnNull_whenNoPropertyMatchesProviderAndName() throws Exception {
             createProperty(uniqueProviderNo(), uniqueName("alpha"), "val1");

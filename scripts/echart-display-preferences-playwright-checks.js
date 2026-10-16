@@ -195,6 +195,17 @@ async function workflow(s) {
       await page.locator('#leftNavBar').screenshot({ path: h.buildArtifactPath(s.config.screenshotDir, 'echart-display-defaults-left-column') });
     }
     h.assert(await page.locator('#ocean_placeholder').count() === 0, 'The Ocean placeholder renders although Ocean is off by default');
+
+    // A patient who consented to email for care gets a mailto link, its "@" left literal.
+    sql.execute(`UPDATE demographic SET consentToUseEmailForCare=1 WHERE demographic_no=${patient}`);
+    try {
+      const consented = await renderChart(s, 'defaults-email-consented');
+      h.assert(await consented.locator('#patient-email-link').getAttribute('href') === `mailto:${PATIENT.email}`,
+        'A consented patient\'s email is not a mailto link to the plain address');
+      await consented.close();
+    } finally {
+      sql.execute(`UPDATE demographic SET consentToUseEmailForCare=0 WHERE demographic_no=${patient}`);
+    }
   });
 
   await s.step('Save All stores the opposite choice for every setting', async () => {

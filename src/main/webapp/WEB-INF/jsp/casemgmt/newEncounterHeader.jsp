@@ -225,7 +225,7 @@ function fallbackCopy(text) {
             <%-- A patient who consented to email for care gets a mailto link, as in OSCAR 19. --%>
             <c:when test="${echartHeader.emailConsented}">
                <a id="patient-email-link" class="echart-header-item"
-                  href="mailto:${carlos:forUriComponent(echartHeader.email)}"><carlos:encode value="${echartHeader.email}"/></a>
+                  href="${carlos:forHtmlAttribute(echartHeader.mailtoHref())}"><carlos:encode value="${echartHeader.email}"/></a>
             </c:when>
             <c:otherwise>
                <button type="button" id="patient-email" class="copyable echart-header-item"
