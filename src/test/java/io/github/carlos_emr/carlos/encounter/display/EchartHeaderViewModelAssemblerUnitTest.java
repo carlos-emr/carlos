@@ -331,6 +331,10 @@ class EchartHeaderViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                 "905.555.0199 x123     | tel:9055550199;ext=123",
                 "905-555-0199 ext. 45  | tel:9055550199;ext=45",
                 "905-555-0199 Ext 7*   | tel:9055550199;ext=7",
+                "905-555-0199 ext: 123 | tel:9055550199;ext=123",
+                "905-555-0199 Ext.:12  | tel:9055550199;ext=12",
+                "905-555-0199 extension 456 | tel:9055550199;ext=456",
+                "905-555-0199 EXTENSION:7   | tel:9055550199;ext=7",
                 "416-555-0123 #22      | tel:4165550123;ext=22",
         })
         @DisplayName("should dial only the digits, keep a leading +, and split off an extension")

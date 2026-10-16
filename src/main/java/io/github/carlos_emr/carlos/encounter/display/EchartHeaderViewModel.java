@@ -118,8 +118,11 @@ public record EchartHeaderViewModel(
      */
     public record Phone(PhoneKind kind, String number, PhoneKind alternateKind, String alternateNumber) {
 
-        /** A trailing extension as people type it: "x123", "ext 123", "ext. 123", "#123". */
-        private static final Pattern EXTENSION = Pattern.compile("(?i)(?:ext\\.?|x|#)\\s*(\\d+)$");
+        /**
+         * A trailing extension as people type it: "x123", "ext 123", "ext. 123", "ext: 123", "extension 123",
+         * "#123". The separator class and the digits are disjoint, so matching stays linear.
+         */
+        private static final Pattern EXTENSION = Pattern.compile("(?i)(?:extension|ext|x|#)[\\s.:]*(\\d+)$");
 
         /**
          * The {@code tel:} URI that dials {@link #number()}, still to be encoded for its HTML attribute.
