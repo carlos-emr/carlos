@@ -66,6 +66,8 @@ async function workflow(session) {
   // The chart offers the Diabetes Flowsheet only for a patient with a triggering diagnosis.
   sql.execute(`INSERT INTO dxresearch (demographic_no, start_date, update_date, status, dxresearch_code, coding_system, providerNo)
     VALUES (${patient}, CURDATE(), NOW(), 'A', '250', 'icd9', ${h.sqlString(provider)})`);
+  // The archived copy a Delete writes to measurementsDeleted needs no cleanup here: runWorkflow's
+  // owned-patient cleanup deletes this patient's measurementsDeleted rows and asserts none remain.
   session.cleanup(() => sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${patient};
     DELETE FROM measurements WHERE demographicNo=${patient}`));
   const id = insertReading(sql, { patient, provider });

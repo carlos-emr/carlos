@@ -21,8 +21,13 @@ const source = fs.readFileSync(JSP, 'utf8');
  * scriptlet that closes it. It is the only such guarded block that starts with an IIFE.
  */
 function readOnlyScript() {
+  // The lazy match ends at the FIRST `<% } %>` after the IIFE, which is the scriptlet that closes the
+  // `if ( id != null )` guard only while the IIFE itself holds no scriptlet. Fail loudly if one is
+  // added, rather than run a truncated script or one with raw JSP tags in it.
   const match = /<%\s*if\s*\(\s*id\s*!=\s*null\s*\)\s*\{\s*%>\s*(\(function[\s\S]*?)<%\s*\}\s*%>/.exec(source);
   assert.ok(match, 'AddMeasurementData.jsp has no read-only script for a saved reading');
+  assert.ok(!match[1].includes('<%'),
+    'the read-only script must stay free of JSP scriptlets, or this test can no longer extract it whole');
   return match[1];
 }
 

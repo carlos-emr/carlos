@@ -479,7 +479,7 @@ The login flow creates the session and generates tokens on the first GET to a pr
 1. View page source — confirm `<script src="/carlos/csrfguard"></script>` is present in `<head>`
 2. Browser dev tools (Network tab) — confirm the `csrfguard` script loaded successfully
 3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input, and that it
-   is not `disabled` (a read-only form that disables every control leaves the token out of the POST)
+   is not `disabled` (a read-only form that disables every control omits the token from the POST)
 4. If the script tag is missing, check `CsrfGuardScriptInjectionFilter` is mapped in `web.xml`
 5. If the hidden input is missing, check browser console for JavaScript errors
 6. If the form is built in JavaScript or arrives inside `.load()`-injected HTML, submit it
