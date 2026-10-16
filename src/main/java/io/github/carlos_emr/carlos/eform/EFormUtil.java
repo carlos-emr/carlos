@@ -77,6 +77,7 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -1500,12 +1501,24 @@ public class EFormUtil {
      */
     record AttributeMatch(String name, String text, String value, int start, int end) { }
 
-    /**
-     * Scans a tag's attributes in order, the way one combined attribute pattern's {@code find()} loop
-     * did: each name, then its value if one follows, then the next name after it.
-     */
+    /** Every attribute of a tag, in order (see {@link #firstAttribute}). */
     static List<AttributeMatch> scanAttributes(CharSequence htmlTag) {
         List<AttributeMatch> attributes = new ArrayList<>();
+        firstAttribute(htmlTag, attribute -> {
+            attributes.add(attribute);
+            return false;
+        });
+        return attributes;
+    }
+
+    /**
+     * Scans a tag's attributes in order, the way one combined attribute pattern's {@code find()} loop
+     * did (each name, then its value if one follows, then the next name after it), and stops at the
+     * first one {@code wanted} accepts.
+     *
+     * @return that attribute, or {@code null} if none is accepted
+     */
+    private static AttributeMatch firstAttribute(CharSequence htmlTag, Predicate<AttributeMatch> wanted) {
         Matcher name = ATTRIBUTE_NAME_PATTERN.matcher(htmlTag);
         Matcher value = ATTRIBUTE_VALUE_PATTERN.matcher(htmlTag);
         int from = 0;
@@ -1517,11 +1530,14 @@ public class EFormUtil {
                 end = value.end();
                 attributeValue = value.group(1);
             }
-            attributes.add(new AttributeMatch(name.group(), htmlTag.subSequence(name.start(), end).toString(),
-                    attributeValue, name.start(), end));
+            AttributeMatch attribute = new AttributeMatch(name.group(), htmlTag.subSequence(name.start(), end).toString(),
+                    attributeValue, name.start(), end);
+            if (wanted.test(attribute)) {
+                return attribute;
+            }
             from = end;
         }
-        return attributes;
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -1530,13 +1546,10 @@ public class EFormUtil {
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
 
         String wanted = key.trim().toLowerCase();
-        for (AttributeMatch attribute : scanAttributes(htmlTag)) {
+        return firstAttribute(htmlTag, attribute -> {
             String keypart = attribute.name().toLowerCase();
-            if ((keypart.equals(wanted)) || (startsWith && keypart.startsWith(wanted))) {
-                return attribute;
-            }
-        }
-        return null;
+            return keypart.equals(wanted) || (startsWith && keypart.startsWith(wanted));
+        });
     }
 
     private static String putTemplateValues(ArrayList<String> paramNames, ArrayList<String> paramValues, String template) {

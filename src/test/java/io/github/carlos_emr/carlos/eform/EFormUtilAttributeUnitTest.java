@@ -88,6 +88,17 @@ class EFormUtilAttributeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return the first of a repeated attribute, as before")
+    void shouldReturnFirstAttribute_whenNameRepeats() {
+        String tag = "<input name=\"first\" type=text NAME='second' name=third>";
+
+        assertThat(EFormUtil.getAttribute("name", tag)).isEqualTo("first");
+        assertThat(EFormUtil.getAttributePos("name", tag)).isEqualTo(tag.indexOf("name=\"first\""));
+        assertThat(EFormUtil.getAttributeEndPos("name", tag)).isEqualTo(tag.indexOf(" type"));
+        assertThat(EFormUtil.getAttribute("na", tag, true)).isEqualTo("name=\"first\"");
+    }
+
+    @Test
     @DisplayName("should still return a whole attribute for a prefix lookup")
     void shouldReturnWholeAttribute_forPrefixLookup() {
         assertThat(EFormUtil.getAttribute("data-", "<input name=\"a\" data-carlos-x='y'>", true)).isEqualTo("data-carlos-x='y'");
@@ -231,7 +242,8 @@ class EFormUtilAttributeUnitTest extends CarlosUnitTestBase {
                 "<input\ta\n=\n\"v\"\n>",
                 "<input a=b>c d=e>",
                 "<input A$B=1 a$b= 'two' x>",
-                "<input \u212Aelvin=1 \u017Fx=2 \u00E9t\u00E9=3>");
+                "<input \u212Aelvin=1 \u017Fx=2 \u00E9t\u00E9=3>",
+                "<input name=\"first\" type=text NAME='second' name=third>");
         Stream<String> hostile = Stream.of("one long $ name", "names with = and no value", "one unclosed double quote",
                         "one unclosed single quote", "names followed by long whitespace", "alternating quotes",
                         "equals and quotes only")
