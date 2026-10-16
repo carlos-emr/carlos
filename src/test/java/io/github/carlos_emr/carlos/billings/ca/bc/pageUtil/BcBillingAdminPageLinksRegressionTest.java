@@ -142,6 +142,14 @@ class BcBillingAdminPageLinksRegressionTest {
     }
 
     @Test
+    @DisplayName("should keep the billing code search on the code list's sort link")
+    void shouldKeepSearch_onCodeListSortLink() throws IOException {
+        // The code list shows only the codes matching bCode; a sort link without it opens an empty list.
+        assertThat(read(BC_JSP_DIR.resolve("billingCodeAdjust.jsp"))).contains(
+                "/billing/CA/BC/ViewBillingCodeAdjust?sortOrder=<%=newOrder%>&bCode=<carlos:encode value='<%= bCode %>' context=\"uriComponent\"/>");
+    }
+
+    @Test
     @DisplayName("should map each gate to its page")
     void shouldMapEachGate_toItsPage() throws IOException {
         String struts = read(STRUTS_BILLING);

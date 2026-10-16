@@ -143,8 +143,9 @@
                 %>
                 <table border=1 width="80%">
                     <tr>
+                        <%-- The list shows only codes matching bCode, so the sort link keeps the search. --%>
                         <th>Service Code<a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust?sortOrder=<%=newOrder%>"><%=arrow%>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust?sortOrder=<%=newOrder%>&bCode=<carlos:encode value='<%= bCode %>' context="uriComponent"/>"><%=arrow%>
                         </a></th>
                         <th>Description</th>
                         <th>Price</th>
