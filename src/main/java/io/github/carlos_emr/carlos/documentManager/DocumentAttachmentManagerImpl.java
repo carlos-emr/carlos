@@ -704,17 +704,24 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
-        pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        try {
+            pdfDocumentList.add(consultationFormPDFPath.toString());
+            attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
+            attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
+            attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
+            attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
+            attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
+            attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        Path result = concatPDF(pdfDocumentList, demographicId);
-        cleanupRenderedTempInputs(pdfDocumentList, result);
-        return result;
+            Path result = concatPDF(pdfDocumentList, demographicId);
+            cleanupRenderedTempInputs(pdfDocumentList, result);
+            return result;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // A packet that fails part way leaves no rendered input behind, as the eForm packet does:
+            // the letter and the page naming the labs it leaves out both carry PHI.
+            cleanupRenderedTempInputs(pdfDocumentList, null);
+            throw e;
+        }
     }
 
     /**

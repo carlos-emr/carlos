@@ -18,6 +18,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -58,6 +59,8 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -243,5 +246,35 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
         assertThat(packet.get()).containsExactly(consultationLetter.toString(), hl7LabPdf.toString());
         assertThat(request.getAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE)).isEqualTo(List.of());
         verify(nioFileManager, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+    }
+
+    @Test
+    @DisplayName("should delete the page naming the left-out labs when a later attachment cannot be drawn")
+    void shouldDeleteNoticePage_whenLaterAttachmentFails() throws Exception {
+        // The notice names lab disciplines and dates. The cleanup deletes only files in the CARLOS-owned
+        // temp subtree, which is where NioFileManager.saveTempFile puts it in production.
+        Path applicationTemp = Files.createDirectories(
+                Path.of(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        List<Path> notices = new ArrayList<>();
+        when(nioFileManager.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenAnswer(invocation -> {
+            Path file = Files.createTempFile(applicationTemp, "consultationLabsNotIncluded", ".pdf");
+            Files.write(file, ((ByteArrayOutputStream) invocation.getArgument(1)).toByteArray());
+            notices.add(file);
+            return file;
+        });
+        when(labManager.renderLab(loggedInInfo, 10)).thenThrow(new PDFGenerationException("HL7 lab could not be drawn"));
+        listAttachedLabs(hl7Lab("10"), mdsLab("20"));
+
+        try {
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, new MockHttpServletResponse()))
+                    .isInstanceOf(PDFGenerationException.class);
+
+            assertThat(notices).as("the notice page was made before the HL7 lab failed").hasSize(1);
+            assertThat(notices.get(0)).doesNotExist();
+        } finally {
+            for (Path notice : notices) {
+                Files.deleteIfExists(notice);
+            }
+        }
     }
 }
