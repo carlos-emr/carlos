@@ -4461,6 +4461,21 @@
       "fixtures": "Owned synthetic patient; prescriptions created through the UI against live DrugRef and removed by patient id."
     },
     {
+      "name": "rx-card-options",
+      "script": "scripts/rx-card-options-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
+      "notes": "Fails at its last step on develop: a 12:30 pick-up time is stored as 00:30, because RxWriteScript2Action parses the 24-hour field with \"hh:mm\" (pending finding 290). Every earlier step passes."
+    },
+    {
       "name": "admin-api-keygen",
       "script": "scripts/admin-api-keygen-playwright-checks.js",
       "tiers": [
