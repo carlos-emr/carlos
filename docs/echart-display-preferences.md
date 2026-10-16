@@ -25,6 +25,26 @@ Record), sex, date of birth or age, HIN, phone, email, next appointment (opens t
 history), the clinical calculators, configured chart links, and About | License on the right. Date
 of birth or age, HIN, phone and email are buttons that copy the value to the clipboard.
 
+## Screenshots
+
+Synthetic demo (`FAKE-`) patients only.
+
+Header bar before (CARLOS's earlier two-row identity header) and after (OSCAR 19 format, default settings):
+
+![Header before](images/echart-display-preferences/01-header-before.png)
+![Header after](images/echart-display-preferences/02-header-after.png)
+
+Preferences > eChart with the defaults:
+
+![Preferences eChart section, defaults](images/echart-display-preferences/05-preferences-defaults.png)
+
+The same chart with the defaults, then with every setting flipped (age instead of date of birth, no
+HIN, home phone, no email, no timer, Referring Doctor instead of Family Doctor, documents listed by
+date):
+
+![Chart with the defaults](images/echart-display-preferences/08-chart-defaults.png)
+![Chart with every setting flipped](images/echart-display-preferences/09-chart-all-flipped.png)
+
 ## Implementation
 
 - Settings: `io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreference` (names, defaults),

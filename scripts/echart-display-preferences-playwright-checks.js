@@ -191,6 +191,9 @@ async function workflow(s) {
     h.assert(await consult.getAttribute('aria-expanded') === 'true' && await page.locator(`[id="${listId}"]`).isVisible(),
       'Clicking a folder does not open it');
     h.assert((await text(page, `[id="${listId}"]`)).includes(`${s.marker} consult`), 'The consult folder does not hold the consult document');
+    if (s.config.screenshotDir) {
+      await page.locator('#leftNavBar').screenshot({ path: h.buildArtifactPath(s.config.screenshotDir, 'echart-display-defaults-left-column') });
+    }
     h.assert(await page.locator('#ocean_placeholder').count() === 0, 'The Ocean placeholder renders although Ocean is off by default');
   });
 
