@@ -10,7 +10,8 @@ const xml = fs.readFileSync(path.join(__dirname, '../src/main/webapp/form/VTForm
 const globalScript = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/global.js'), 'utf8');
 const script = jsp.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1]
   .replace(/<fmt:message\b[^>]*\/>/g, 'Confirm save')
-  .replace(/<%=[\s\S]*?%>/g, 'null');
+  .replace(/<%=[\s\S]*?%>/g, 'null')
+  .replace(/\$\{[^}]*}/g, 'null');
 const eyeTypes = ['iDia', 'iHyp', 'iOth', 'iRef'];
 const footTypes = ['FTEx', 'FTNe', 'FTIs', 'FTUl', 'FTIn', 'FTOt', 'FTRe'];
 
@@ -310,6 +311,45 @@ test('each shared comment box is read back from a row its save writes, encoded',
   }
 });
 
+test('no stored clinical text is printed raw: every output is a CARLOS encoder (issue #4681)', () => {
+  // Measurement values, dates, descriptions, instructions, comments, drugs, allergies and ongoing
+  // concerns are stored free text. check-encoder-null-safety.sh does not flag raw EL or <%= %>
+  // output, so this is the guard. Server-controlled context-path/scheme output and the
+  // security-tag/guard scriptlets are the only allowed raw output.
+  const body = jsp.replace(/<%--[\s\S]*?--%>/g, '');
+  const printed = [...body.matchAll(/<%=([\s\S]*?)%>/g)].map(match => match[1].trim());
+  assert.deepEqual(printed.filter(expression => /getAttribute/.test(expression)), [],
+    'request attributes must never be printed through <%= %>');
+  // The only scriptlet outputs left are server-controlled URLs and the encoded error list.
+  for (const expression of printed) {
+    assert(/^(request\.getContextPath\(\)|roleName2\$|true|request\.getScheme\(\) \+ .*|error)$/.test(expression), expression);
+  }
+  assert(body.includes('<carlos:encode value="<%= error %>"/>'), 'action errors are encoded');
+  const rawEl = [...body.matchAll(/\$\{([^}]*)}/g)].map(match => match[1].trim())
+    .filter(expression => !/^carlos:for\w+\(/.test(expression))
+    .filter(expression => !/^(?:not\s+)?empty\b/.test(expression) && !/^pageContext\.request\.contextPath$/.test(expression))
+    .filter(expression => expression !== 'requestScope.formValues' && expression !== 'drugs' && expression !== 'allergies');
+  // What remains is the value attribute of <carlos:encode>, which encodes it.
+  const encodedOnly = [...body.matchAll(/<carlos:encode value="\$\{([^}]*)}"/g)].map(match => match[1].trim());
+  for (const expression of rawEl) {
+    assert(encodedOnly.includes(expression), `raw EL output of ${expression}`);
+  }
+  for (const attribute of ['SmkSDate', 'SmkSComments', 'FTNeDate', 'iDiaDate']) {
+    assert(body.includes(`\${carlos:forHtmlAttribute(requestScope.${attribute})}`), `${attribute} is attribute-encoded`);
+  }
+  const textarea = body.match(/<textarea[^>]*\bname="FTComments"[^>]*>([\s\S]*?)<\/textarea>/)[1];
+  assert.equal(textarea, '<carlos:encode value="${requestScope.FTExComments}"/>',
+    'foot comment is encoded on one line with no template whitespace');
+  for (const loop of ['drg', 'alg']) {
+    assert(body.includes(`<carlos:encode value="\${${loop}}"/><br>`), `${loop} list entries are encoded`);
+  }
+  for (const stored of ['WHRBLastData', 'WCLDDate', 'HCLastData', 'WTLDDate', 'ongoingConcerns', 'MedADesc', 'BPMeasuringInstrc']) {
+    assert(body.includes(`<carlos:encode value="\${requestScope.${stored}}"/>`), `${stored} is body-encoded`);
+  }
+  assert(body.includes('<carlos:encode value="${requestScope[\'24UADesc\']}"/>'), 'digit-leading attribute uses bracket EL');
+  assert(body.includes('var varpage = "${carlos:forJavaScript(requestScope.decisionSupportURL)}";'));
+});
+
 test('saved VT values stay in encoded data attributes and are restored through DOM properties', () => {
   assert(jsp.includes('data-field="${carlos:forHtmlAttribute(field.key)}"'));
   assert(jsp.includes('data-value="${carlos:forHtmlAttribute(field.value)}"'));
@@ -395,7 +435,7 @@ test('presentational tables only arrange one historical date and value, never en
   assert.equal(tables.length, 14);
   for (const [, body] of tables) {
     const nodes = [...fixtureTags(body)];
-    assert.deepEqual(nodes.map(node => node.tag), ['tr', 'td', 'tr', 'td']);
+    assert.deepEqual(nodes.map(node => node.tag).filter(tag => tag !== 'carlos:encode'), ['tr', 'td', 'tr', 'td']);
     assert.match(body, /LDDate/);
     assert.match(body, /LastData/);
   }

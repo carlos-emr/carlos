@@ -9464,6 +9464,26 @@
       }
     },
     {
+      "name": "vt-form-xss",
+      "script": "scripts/vt-form-xss-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, Ongoing Concerns and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
+      "notes": "Issue #4681: the VT form printed stored measurement values, comments, drug and allergy text and Ongoing Concerns raw. Opens /form/SetupForm?formName=VTForm for the saved record (the VT registration is hidden by default, so there is no chart link to click), reveals the medication/allergy detail, and requires every seeded value the form shows to appear as literal text with no [data-xp] element, script error or broken inline handler. The foot-exam and smoking comment boxes must hold exactly the stored text (no template indentation). scripts/vt-form.test.js guards the source."
+    },
+    {
       "name": "xss-poison-schedule",
       "script": "scripts/xss-poison-schedule-playwright-checks.js",
       "tiers": [

@@ -146,12 +146,14 @@
         var pageWindow = null;
 
         function popupDecisionSupport() {
-            var varpage = "<%=request.getAttribute("decisionSupportURL")%>";
+            // JavaScript-string context: the URL is encoded for the script, never as HTML. An unset
+            // attribute encodes to "", which must not open a popup (it used to print "null").
+            var varpage = "${carlos:forJavaScript(requestScope.decisionSupportURL)}";
             var vheight = 760;
             var vwidth = 400;
             var posX = 400;
             var posY = 0;
-            if (varpage != "null") {
+            if (varpage !== "" && varpage !== "null") {
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=680";
                 var popup = window.open(varpage, "DecisionSupport", windowprops);
                 pageWindow = popup;
@@ -705,7 +707,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><carlos:encode value="<%= error %>"/></li>
             <% } %>
         </ul>
     </div>
@@ -830,7 +832,7 @@
                                                                     <span>On Going Concern</span></td>
                                                             </tr>
                                                             <tr>
-                                                                <td><%=request.getAttribute("ongoingConcerns")%>
+                                                                <td><carlos:encode value="${requestScope.ongoingConcerns}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -862,15 +864,15 @@
                                                             <tr>
                                                                 <td class="dataEntryTable"><fmt:message key="form.vt.lastData"/></td>
                                                                 <td class="dataEntryTable"><font style="font-size: 80%">
-                                                                    <%=request.getAttribute("SmkSLastData")%>
+                                                                    <carlos:encode value="${requestScope.SmkSLastData}"/>
                                                                 </font></td>
                                                                 <td class="dataEntryTable"><font style="font-size: 80%">
-                                                                    <%=request.getAttribute("SmkHLastData")%>
+                                                                    <carlos:encode value="${requestScope.SmkHLastData}"/>
                                                                 </font></td>
-                                                                <td class="dataEntryTable"><%=request.getAttribute("SmkCLastData")%>
+                                                                <td class="dataEntryTable"><carlos:encode value="${requestScope.SmkCLastData}"/>
                                                                 </td>
                                                                 <td class="dataEntryTable"><font style="font-size: 80%">
-                                                                    <%=request.getAttribute("SmkSLDDate")%>
+                                                                    <carlos:encode value="${requestScope.SmkSLDDate}"/>
                                                                 </font></td>
                                                                 <td class="dataEntryTable">&nbsp;</td>
                                                             </tr>
@@ -884,11 +886,11 @@
                                                                     <input type="text" name="value(SmkCValue)" size="8%" /></td>
                                                                 <td class="dataEntryTable" align="center"><input
                                                                         type="text" id="SmkDate" name="SmkDate"
-                                                                        value="<%=request.getAttribute("SmkSDate")%>"
+                                                                        value="${carlos:forHtmlAttribute(requestScope.SmkSDate)}"
                                                                         size="8%"/></td>
                                                                 <td class="dataEntryTable" align="center"><input
                                                                         type="text" id="SmkComments" name="SmkComments"
-                                                                        value="<%=request.getAttribute("SmkSComments")%>"
+                                                                        value="${carlos:forHtmlAttribute(requestScope.SmkSComments)}"
                                                                         size="25%"
                                                                         tabindex="9999"/></td>
                                                                 <input type="hidden" name="value(SmkSComments)" id="value(SmkSComments)"/>
@@ -920,18 +922,18 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable">${carlos:forHtml(ExerDesc)}
-                                                        <font class="eightyPercent"><%=request.getAttribute("ExerMeasuringInstrc")%>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.ExerMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("ExerLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.ExerLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("ExerLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.ExerLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -946,18 +948,18 @@
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable">${carlos:forHtml(DietDesc)}
-                                                        <font class="eightyPercent"><%=request.getAttribute("DietMeasuringInstrc")%>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.DietMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("DietLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.DietLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("DietLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.DietLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -991,18 +993,18 @@
 									</span></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-DpSc-label"><%=request.getAttribute("DpScDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-DpSc-label"><carlos:encode value="${requestScope.DpScDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("DpScLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.DpScLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("DpScLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.DpScLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1020,18 +1022,18 @@
                                                         <input id="vt-DpSc-comments" aria-labelledby="vt-DpSc-label vt-comments-label" type="text" name="value(DpScComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-StSc-label"><%=request.getAttribute("StScDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-StSc-label"><carlos:encode value="${requestScope.StScDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("StScLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.StScLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("StScLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.StScLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1048,18 +1050,18 @@
                                                         <input id="vt-StSc-comments" aria-labelledby="vt-StSc-label vt-comments-label" type="text" name="value(StScComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-LcCt-label"><%=request.getAttribute("LcCtDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-LcCt-label"><carlos:encode value="${requestScope.LcCtDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("LcCtLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.LcCtLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("LcCtLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.LcCtLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1097,18 +1099,18 @@
 									</span></th>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-MedG-label"><%=request.getAttribute("MedGDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-MedG-label"><carlos:encode value="${requestScope.MedGDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("MedGLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.MedGLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("MedGLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.MedGLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1124,18 +1126,18 @@
                                                         <input id="vt-MedG-comments" aria-labelledby="vt-MedG-label vt-comments-label" type="text" name="value(MedGComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-MedN-label"><%=request.getAttribute("MedNDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-MedN-label"><carlos:encode value="${requestScope.MedNDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("MedNLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.MedNLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("MedNLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.MedNLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1151,18 +1153,18 @@
                                                         <input id="vt-MedN-comments" aria-labelledby="vt-MedN-label vt-comments-label" type="text" name="value(MedNComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-MedR-label"><%=request.getAttribute("MedRDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-MedR-label"><carlos:encode value="${requestScope.MedRDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("MedRLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.MedRLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("MedRLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.MedRLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1178,18 +1180,18 @@
                                                         <input id="vt-MedR-comments" aria-labelledby="vt-MedR-label vt-comments-label" type="text" name="value(MedRComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-MedA-label"><%=request.getAttribute("MedADesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-MedA-label"><carlos:encode value="${requestScope.MedADesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("MedALDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.MedALDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("MedALastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.MedALastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1243,20 +1245,20 @@
                                                     </th>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-BP-label" for="vt-BP-value"><%=request.getAttribute("BPDisplay")%></label>
+                                                    <td class="dataEntryTable"><label id="vt-BP-label" for="vt-BP-value"><carlos:encode value="${requestScope.BPDisplay}"/></label>
                                                         <br>
-                                                        <span class="eightyPercent"><%=request.getAttribute("BPMeasuringInstrc")%>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.BPMeasuringInstrc}"/>
                                                         </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("BPLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.BPLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("BPLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.BPLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1270,18 +1272,18 @@
 
 
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-WHRB-label"><%=request.getAttribute("WHRBDisplay")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-WHRB-label"><carlos:encode value="${requestScope.WHRBDisplay}"/></span>
                                                         <br>
-                                                        <span class="eightyPercent"><%=request.getAttribute("WHRBMeasuringInstrc")%>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.WHRBMeasuringInstrc}"/>
                                                         </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WHRBLastData}">
                                                             <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="left">${WHRBLDDate}</td>
+                                                                    <td class="eightyPercent" align="left"><carlos:encode value="${requestScope.WHRBLDDate}"/></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="right">${WHRBLastData}</td>
+                                                                    <td class="eightyPercent" align="right"><carlos:encode value="${requestScope.WHRBLastData}"/></td>
                                                                 </tr>
                                                             </table>
                                                         </c:if>
@@ -1299,18 +1301,18 @@
 
 
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-WC-label" for="vt-WC-value"><%=request.getAttribute("WCDisplay")%></label>
+                                                    <td class="dataEntryTable"><label id="vt-WC-label" for="vt-WC-value"><carlos:encode value="${requestScope.WCDisplay}"/></label>
                                                         <br>
-                                                        <span class="eightyPercent"><%=request.getAttribute("WCMeasuringInstrc")%>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.WCMeasuringInstrc}"/>
                                                         </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WCLastData}">
                                                             <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="left">${WCLDDate}</td>
+                                                                    <td class="eightyPercent" align="left"><carlos:encode value="${requestScope.WCLDDate}"/></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="right">${WCLastData}</td>
+                                                                    <td class="eightyPercent" align="right"><carlos:encode value="${requestScope.WCLastData}"/></td>
                                                                 </tr>
                                                             </table>
                                                         </c:if>
@@ -1325,18 +1327,18 @@
                                                 <!--new-->
                                                 <tr>
                                                     <td width="36%"
-                                                        class="dataEntryTable"><label id="vt-HC-label" for="vt-HC-value"><%=request.getAttribute("HCDisplay")%></label>
+                                                        class="dataEntryTable"><label id="vt-HC-label" for="vt-HC-value"><carlos:encode value="${requestScope.HCDisplay}"/></label>
                                                         <br>
-                                                        <span class="eightyPercent"><%=request.getAttribute("HCMeasuringInstrc")%>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.HCMeasuringInstrc}"/>
                                                         </span></td>
                                                     <td width="16%" class="dataEntryTable" align="center">
                                                         <c:if test="${not empty HCLastData}">
                                                             <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="left">${HCLDDate}</td>
+                                                                    <td class="eightyPercent" align="left"><carlos:encode value="${requestScope.HCLDDate}"/></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="right">${HCLastData}</td>
+                                                                    <td class="eightyPercent" align="right"><carlos:encode value="${requestScope.HCLastData}"/></td>
                                                                 </tr>
                                                             </table>
                                                         </c:if>
@@ -1361,20 +1363,20 @@
                                                             </tr>
 
                                                             <tr>
-                                                                <td class="dataEntryTable"><label id="vt-HR-label" for="vt-HR-value"><%=request.getAttribute("HRDisplay")%></label>
+                                                                <td class="dataEntryTable"><label id="vt-HR-label" for="vt-HR-value"><carlos:encode value="${requestScope.HRDisplay}"/></label>
                                                                     <br>
-                                                                    <span class="eightyPercent"><%=request.getAttribute("HRMeasuringInstrc")%>
+                                                                    <span class="eightyPercent"><carlos:encode value="${requestScope.HRMeasuringInstrc}"/>
                                                                     </span></td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <table role="presentation" cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("HRLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.HRLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("HRLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.HRLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1387,20 +1389,20 @@
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable"><label id="vt-HT-label" for="vt-HT-value"><%=request.getAttribute("HTDisplay")%></label>
+                                                                <td class="dataEntryTable"><label id="vt-HT-label" for="vt-HT-value"><carlos:encode value="${requestScope.HTDisplay}"/></label>
                                                                     <br>
-                                                                    <span class="eightyPercent"><%=request.getAttribute("HTMeasuringInstrc")%>
+                                                                    <span class="eightyPercent"><carlos:encode value="${requestScope.HTMeasuringInstrc}"/>
                                                                     </span></td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <table role="presentation" cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("HTLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.HTLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("HTLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.HTLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1416,18 +1418,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-WT-label" for="vt-WT-value"><%=request.getAttribute("WTDisplay")%></label>
+                                                    <td class="dataEntryTable"><label id="vt-WT-label" for="vt-WT-value"><carlos:encode value="${requestScope.WTDisplay}"/></label>
                                                         <br>
-                                                        <span class="eightyPercent"><%=request.getAttribute("WTMeasuringInstrc")%>
+                                                        <span class="eightyPercent"><carlos:encode value="${requestScope.WTMeasuringInstrc}"/>
                                                         </span></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <c:if test="${not empty WTLastData}">
                                                             <table role="presentation" cellpadding="0" cellspacing="0">
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="left">${WTLDDate}</td>
+                                                                    <td class="eightyPercent" align="left"><carlos:encode value="${requestScope.WTLDDate}"/></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="eightyPercent" align="right">${WTLastData}</td>
+                                                                    <td class="eightyPercent" align="right"><carlos:encode value="${requestScope.WTLastData}"/></td>
                                                                 </tr>
                                                             </table>
                                                         </c:if>
@@ -1468,31 +1470,27 @@
                                                     <th class="dataEntryTable" colspan="3">Foot Exam</th>
                                                     <td class="dataEntryTable" valign="top" align="center"><label class="vt-screen-reader-only" for="FTDate">Foot exam <fmt:message key="form.vt.obDate"/></label><input
                                                             type="text" id="FTDate" name="FTDate"
-                                                            value="<%=request.getAttribute("FTNeDate")%>" size="10%"
+                                                            value="${carlos:forHtmlAttribute(requestScope.FTNeDate)}" size="10%"
                                                             tabindex="9999"/></td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
                                                         align="center"><label class="vt-screen-reader-only" for="vt-FTComments">Foot exam <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></label><textarea id="vt-FTComments" name="FTComments" wrap="hard"
                                                                                  cols="24" style="height: 80"
-                                                                                 tabindex="9999">
-                                                        <c:if test="${not empty FTExComments}">
-                                                            ${FTExComments}
-                                                        </c:if>
-                                                    </textarea>
+                                                                                 tabindex="9999"><carlos:encode value="${requestScope.FTExComments}"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><span id="vt-FTEx-label"><%=request.getAttribute("FTExDesc")%></span>
+                                                    <td class="dataEntryTable"><span id="vt-FTEx-label"><carlos:encode value="${requestScope.FTExDesc}"/></span>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table role="presentation" cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTExLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTExLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTExLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTExLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1512,18 +1510,18 @@
                                                     <input type="hidden" name="value(FTExComments)" id="value(FTExComments)"/>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTNeDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.FTNeDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTNeLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTNeLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTNeLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTNeLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1537,18 +1535,18 @@
                                                     <input type="hidden" name="value(FTNeComments)" id="value(FTNeComments)"/>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTIsDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.FTIsDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTIsLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTIsLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTIsLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTIsLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1562,18 +1560,18 @@
                                                     <input type="hidden" name="value(FTIsComments)" id="value(FTIsComments)"/>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTUlDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.FTUlDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTUlLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTUlLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTUlLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTUlLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1587,18 +1585,18 @@
                                                     <input type="hidden" name="value(FTUlComments)" id="value(FTUlComments)"/>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTInDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.FTInDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTInLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTInLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTInLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTInLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1617,18 +1615,18 @@
                                                                style="display: none" id="detailFT">
                                                             <tr>
                                                                 <td width="29%"
-                                                                    class="dataEntryTable"><%=request.getAttribute("FTOtDesc")%>
+                                                                    class="dataEntryTable"><carlos:encode value="${requestScope.FTOtDesc}"/>
                                                                 </td>
                                                                 <td width="16%" class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("FTOtLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.FTOtLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("FTOtLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.FTOtLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1651,18 +1649,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("FTReDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.FTReDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("FTReLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.FTReLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("FTReLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.FTReLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1691,7 +1689,7 @@
                                                     <th class="dataEntryTable" colspan="3">Eye Exam</th>
                                                     <td class="dataEntryTable" valign="top" align="center"><input
                                                             type="text" name="iDate"
-                                                            value="<%=request.getAttribute("iDiaDate")%>" size="10%"/>
+                                                            value="${carlos:forHtmlAttribute(requestScope.iDiaDate)}" size="10%"/>
                                                     </td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
                                                         align="center"><%-- Read back from a row storeEyeExamSupportData() writes (the date
@@ -1702,18 +1700,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("iDiaDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.iDiaDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("iDiaLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.iDiaLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("iDiaLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.iDiaLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1732,18 +1730,18 @@
                                                                style="display: none" id="detailEye">
                                                             <tr>
                                                                 <td width="29%"
-                                                                    class="dataEntryTable"><%=request.getAttribute("iHypDesc")%>
+                                                                    class="dataEntryTable"><carlos:encode value="${requestScope.iHypDesc}"/>
                                                                 </td>
                                                                 <td width="16%" class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("iHypLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.iHypLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("iHypLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.iHypLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1763,18 +1761,18 @@
                                                                 <input type="hidden" name="value(iHypComments)" id="value(iHypComments)"/>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable"><%=request.getAttribute("iOthDesc")%>
+                                                                <td class="dataEntryTable"><carlos:encode value="${requestScope.iOthDesc}"/>
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("iOthLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.iOthLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("iOthLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.iOthLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1801,12 +1799,12 @@
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("iRefLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.iRefLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("iRefLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.iRefLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1845,19 +1843,19 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("HbA1Desc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("HbA1MeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.HbA1Desc}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.HbA1MeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("HbA1LDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.HbA1LDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("HbA1LastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.HbA1LastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1873,19 +1871,19 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("LDLDesc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("LDLMeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.LDLDesc}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.LDLMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("LDLLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.LDLLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("LDLLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.LDLLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1900,19 +1898,19 @@
                                                         <input type="text" name="value(LDLComments)" size="30%" tabindex="9999" /></td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("HDLDesc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("HDLMeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.HDLDesc}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.HDLMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("HDLLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.HDLLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("HDLLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.HDLLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1928,19 +1926,19 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("TCHLDesc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("TCHLMeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.TCHLDesc}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.TCHLMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("TCHLLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.TCHLLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("TCHLLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.TCHLLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -1961,20 +1959,20 @@
                                                                style="display: none" id="detailLab">
                                                             <tr>
                                                                 <td width="34%"
-                                                                    class="dataEntryTable"><%=request.getAttribute("TRIGDesc")%>
+                                                                    class="dataEntryTable"><carlos:encode value="${requestScope.TRIGDesc}"/>
                                                                     <br>
-                                                                    <font class="eightyPercent"><%=request.getAttribute("TRIGMeasuringInstrc")%>
+                                                                    <font class="eightyPercent"><carlos:encode value="${requestScope.TRIGMeasuringInstrc}"/>
                                                                     </font></td>
                                                                 <td width="16%" class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("TRIGLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.TRIGLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("TRIGLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.TRIGLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -1989,20 +1987,20 @@
                                                                             tabindex="9999"/></td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable"><%=request.getAttribute("BGDesc")%>
+                                                                <td class="dataEntryTable"><carlos:encode value="${requestScope.BGDesc}"/>
                                                                     <br>
-                                                                    <font class="eightyPercent"><%=request.getAttribute("BGMeasuringInstrc")%>
+                                                                    <font class="eightyPercent"><carlos:encode value="${requestScope.BGMeasuringInstrc}"/>
                                                                     </font></td>
                                                                 <td class="dataEntryTable" align="center">
                                                                     <table cellpadding='0' cellspacing='0'>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="left"><%=request.getAttribute("BGLDDate")%>
+                                                                                align="left"><carlos:encode value="${requestScope.BGLDDate}"/>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td class="eightyPercent"
-                                                                                align="right"><%=request.getAttribute("BGLastData")%>
+                                                                                align="right"><carlos:encode value="${requestScope.BGLastData}"/>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
@@ -2021,19 +2019,19 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("UALBDesc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("UALBMeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.UALBDesc}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope.UALBMeasuringInstrc}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("UALBLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.UALBLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("UALBLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.UALBLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2049,19 +2047,19 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("24UADesc")%><br>
-                                                        <font class="eightyPercent"><%=request.getAttribute("24UAMeasuringInstrc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope['24UADesc']}"/><br>
+                                                        <font class="eightyPercent"><carlos:encode value="${requestScope['24UAMeasuringInstrc']}"/>
                                                         </font></td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("24UALDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope['24UALDDate']}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("24UALastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope['24UALastData']}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2144,7 +2142,7 @@
                                                     <td>
                                                         <c:if test="${not empty drugs}">
                                                             <c:forEach var="drg" items="${drugs}">
-                                                                ${drg}<br>
+                                                                <carlos:encode value="${drg}"/><br>
                                                             </c:forEach>
                                                         </c:if>
                                                         <c:if test="${empty drugs}">
@@ -2171,7 +2169,7 @@
                                                     <td>
                                                         <c:if test="${not empty allergies}">
                                                             <c:forEach var="alg" items="${allergies}">
-                                                                ${alg}<br>
+                                                                <carlos:encode value="${alg}"/><br>
                                                             </c:forEach>
                                                         </c:if>
                                                         <c:if test="${empty allergies}">
@@ -2203,18 +2201,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("NtrCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.NtrCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("NtrCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.NtrCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("NtrCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.NtrCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2228,18 +2226,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("ExeCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.ExeCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("ExeCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.ExeCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("ExeCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.ExeCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2253,18 +2251,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("SmCCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.SmCCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("SmCCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.SmCCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("SmCCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.SmCCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2278,18 +2276,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("DiaCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.DiaCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("DiaCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.DiaCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("DiaCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.DiaCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2303,18 +2301,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("PsyCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.PsyCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("PsyCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.PsyCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("PsyCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.PsyCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2328,18 +2326,18 @@
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><%=request.getAttribute("OthCDesc")%>
+                                                    <td class="dataEntryTable"><carlos:encode value="${requestScope.OthCDesc}"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
                                                         <table cellpadding='0' cellspacing='0'>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="left"><%=request.getAttribute("OthCLDDate")%>
+                                                                    align="left"><carlos:encode value="${requestScope.OthCLDDate}"/>
                                                                 </td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="eightyPercent"
-                                                                    align="right"><%=request.getAttribute("OthCLastData")%>
+                                                                    align="right"><carlos:encode value="${requestScope.OthCLastData}"/>
                                                                 </td>
                                                             </tr>
                                                             <input type="hidden" name="value(OthCLDDate)" id="value(OthCLDDate)"/>

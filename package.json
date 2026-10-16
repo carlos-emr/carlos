@@ -607,6 +607,7 @@
     "test:concurrency-security-record-playwright": "node scripts/concurrency-security-record-playwright-checks.js",
     "test:xss-poison-master-record-playwright": "node scripts/xss-poison-master-record-playwright-checks.js",
     "test:xss-poison-echart-playwright": "node scripts/xss-poison-echart-playwright-checks.js",
+    "test:vt-form-xss-playwright": "node scripts/vt-form-xss-playwright-checks.js",
     "test:xss-poison-schedule-playwright": "node scripts/xss-poison-schedule-playwright-checks.js",
     "test:xss-poison-documents-inbox-playwright": "node scripts/xss-poison-documents-inbox-playwright-checks.js",
     "test:xss-poison-note-history-playwright": "node scripts/xss-poison-note-history-playwright-checks.js",
