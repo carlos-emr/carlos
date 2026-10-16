@@ -4859,6 +4859,23 @@
       "fixtures": "A patient-bound and a patient-independent marker template, the patient eForm saved through the UI and two seeded independent instances; those fdids, their eform_values rows and the templates are removed."
     },
     {
+      "name": "eform-show-latest-only",
+      "script": "scripts/eform-show-latest-only-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), one set to show the latest form only, and saved copies of each seeded by SQL with fixed dates, one deleted. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "patient-photo-upload",
       "script": "scripts/patient-photo-upload-playwright-checks.js",
       "tiers": [
