@@ -4733,6 +4733,28 @@
       "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (with one configured the check reports SKIP at that step), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
     },
     {
+      "name": "consultation-letterhead",
+      "script": "scripts/consultation-letterhead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:rxAddress",
+        "property:rxCity",
+        "property:rxProvince",
+        "property:rxPostal",
+        "property:rxPhone",
+        "property:faxnumber"
+      ],
+      "fixtures": "Owned FAKE- patient; FAKE prescription contact preferences (rxAddress, rxCity, rxProvince, rxPostal, rxPhone, faxnumber) set on one existing active provider other than the signed-in one, snapshotted and restored; a FAKE service, specialist and referral seeded by SQL and deleted with their archive rows. Reads the print with pdftotext (SKIP without Poppler). The preferences belong to a clinic provider, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "dashboard-display",
       "script": "scripts/dashboard-display-playwright-checks.js",
       "tiers": [
