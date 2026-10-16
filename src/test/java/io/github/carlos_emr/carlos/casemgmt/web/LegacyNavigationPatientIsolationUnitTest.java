@@ -91,14 +91,44 @@ class LegacyNavigationPatientIsolationUnitTest {
     }
 
     @Test
-    @DisplayName("should encode the patient's and user's names wherever the navigation writes them")
+    @DisplayName("should encode the patient's, user's and measurement groups' names wherever the navigation writes them")
     void shouldEncodeFreeTextNames_inNavigation() throws IOException {
         String source = source("casemgmt/navigation.jsp");
 
         assertThat(source)
                 .doesNotContainPattern("<%=\\s*bean\\.patient(Last|First)Name")
                 .doesNotContain("userName=<%=bean.userName%>")
+                .doesNotContain("<option value=\"<%=tmp%>\"><%=tmp %>")
+                .contains("<option value=\"<%= SafeEncode.forHtmlAttribute(tmp) %>\"><%= SafeEncode.forHtmlContent(tmp) %>")
                 .contains("userName=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(bean.userName)) %>");
+    }
+
+    @Test
+    @DisplayName("should give the page's own links the request's patient through its own bean")
+    void shouldExposeRequestBean_toTheNavigationLinks() throws IOException {
+        String source = source("casemgmt/navigation.jsp");
+
+        // Its ${bean.demographicNo} and ${bean.providerNo} links (forms, labs) named no scoped bean,
+        // so they carried no patient or provider at all.
+        assertThat(source).contains("pageContext.setAttribute(\"bean\", bean);");
+        assertThat(source.indexOf("pageContext.setAttribute(\"bean\", bean);"))
+                .isLessThan(source.indexOf("${bean.demographicNo}"));
+    }
+
+    @Test
+    @DisplayName("should list only this patient's messages, encoded, and only to a user who may read messages")
+    void shouldListOwnPatientsMessages_inMessengerSelect() throws IOException {
+        String source = source("casemgmt/navigation.jsp");
+
+        // The loop named the session-wide casemgmt_msgBeans (whichever chart's view loaded last) as a
+        // literal string, so every rendering failed there with a PropertyNotFoundException (a 500).
+        assertThat(source)
+                .doesNotContain("items=\"casemgmt_msgBeans\"")
+                .doesNotContain("casemgmt_msgBeans}")
+                .contains("securityInfoManager.hasPrivilege(loggedInInfo, \"_msg\", \"r\", null)")
+                .contains("caseManagementManager.getMsgBeans(Integer.valueOf(chartPatientNo))")
+                .contains("<c:forEach var=\"cmb\" items=\"${navigationMessages}\">")
+                .contains("<option value=\"<carlos:encode value='${cmb.label}' context=\"htmlAttribute\"/>\"><carlos:encode value='${cmb.value}'/></option>");
     }
 
     @Test

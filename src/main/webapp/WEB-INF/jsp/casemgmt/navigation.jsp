@@ -49,6 +49,10 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.util.LabelValueBean" %>
+<%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle" %>
@@ -97,6 +101,17 @@
     for (MeasurementGroupStyle groupStyle : SpringUtils.getBean(MeasurementGroupStyleDao.class).findAll()) {
         bean.measurementGroupNames.add(groupStyle.getGroupName());
     }
+    // The page's EL links (forms, labs) read this request's own entry; they used to name no
+    // scoped bean at all and so carried no patient or provider.
+    pageContext.setAttribute("bean", bean);
+    // This patient's own messages, for a user who may read messages. The select used to name the
+    // session-wide casemgmt_msgBeans (whichever chart's view loaded last) as a literal string, so
+    // every rendering failed there with a PropertyNotFoundException.
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    CaseManagementManager caseManagementManager = SpringUtils.getBean(CaseManagementManager.class);
+    List<LabelValueBean> navigationMessages = securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)
+            ? caseManagementManager.getMsgBeans(Integer.valueOf(chartPatientNo)) : List.of();
+    pageContext.setAttribute("navigationMessages", navigationMessages);
     String bsurl = (String) session.getAttribute("casemgmt_oscar_baseurl");
     String backurl = bsurl + "/encounter/IncomingEncounter?";
 //get programId
@@ -427,8 +442,8 @@
                         <select name="msgSelect" class="ControlSelect"
                                 onchange="javascript:popUpMsg(600,900,this.options[this.selectedIndex].value)">
                             <option value="null" selected>-Select Message-</option>
-                            <c:forEach var="cmb" items="casemgmt_msgBeans">
-                                <option value="${cmb.label}">${cmb.value}</option>
+                            <c:forEach var="cmb" items="${navigationMessages}">
+                                <option value="<carlos:encode value='${cmb.label}' context="htmlAttribute"/>"><carlos:encode value='${cmb.value}'/></option>
                             </c:forEach>
                         </select>
                     </td>
@@ -512,7 +527,7 @@
                                     for (int j = 0; j < bean.measurementGroupNames.size(); j++) {
                                         String tmp = (String) bean.measurementGroupNames.get(j);
                                 %>
-                                <option value="<%=tmp%>"><%=tmp %>
+                                <option value="<%= SafeEncode.forHtmlAttribute(tmp) %>"><%= SafeEncode.forHtmlContent(tmp) %>
                                 </option>
                                 <%}%>
                             </select>
