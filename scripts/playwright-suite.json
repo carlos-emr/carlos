@@ -4674,6 +4674,21 @@
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "prevention-partial-date",
+      "script": "scripts/prevention-partial-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row); cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its last step on develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 295). Every earlier step passes."
+    },
+    {
       "name": "schedule-admin-settings",
       "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [
