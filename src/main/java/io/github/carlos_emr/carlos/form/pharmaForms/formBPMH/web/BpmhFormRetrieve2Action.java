@@ -44,12 +44,19 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class BpmhFormRetrieve2Action extends ActionSupport {
+    private static final Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -72,7 +79,16 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             try {
                 return print();
             } catch (Exception ex) {
-                //
+                // No fallback to the page: print() may already have reset the response.
+                logger.error("BPMH print failed", ex);
+                try {
+                    if (!response.isCommitted()) {
+                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    }
+                } catch (IOException e) {
+                    logger.error("BPMH print error response failed", e);
+                }
+                return NONE;
             }
         }
         return fetch();
@@ -80,11 +96,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
     public String fetch() {
         // Built here as save() and print() build theirs: the field was never set for fetch(), so
-        // opening any BPMH form, new or saved, threw NullPointerException (#4731).
-        if (form == null) {
-            form = new BpmhForm2Bean();
-        }
-        bpmhFormHandler = newHandler(form);
+        // opening any BPMH form, new or saved, threw NullPointerException (#4731). Opening takes no
+        // posted fields: everything shown comes from the patient's record or the saved form.
+        bpmhFormHandler = newHandler(new BpmhForm2Bean());
         Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no"));
         Integer formHistoryNumber = Integer.parseInt(request.getParameter("formId"));
 
@@ -105,6 +119,35 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * The fields the page edits, and nothing else the request may carry: which patient and form, the
+     * note, the confirmation, and each drug row's id and instruction. Everything else on the form is
+     * filled from the patient's record by the handler.
+     */
+    static BpmhForm2Bean editableFields(BpmhForm2Bean posted) {
+        BpmhForm2Bean editable = new BpmhForm2Bean();
+        if (posted == null) {
+            return editable;
+        }
+        editable.setDemographicNo(posted.getDemographicNo());
+        editable.setFormId(posted.getFormId());
+        editable.setNote(posted.getNote());
+        editable.setConfirm(posted.isConfirm());
+        if (posted.getDrugs() != null) {
+            List<BpmhDrug> rows = new ArrayList<>();
+            for (BpmhDrug postedRow : posted.getDrugs()) {
+                if (postedRow != null && postedRow.getId() != null) {
+                    BpmhDrug row = new BpmhDrug();
+                    row.setId(postedRow.getId());
+                    row.setInstruction(postedRow.getInstruction());
+                    rows.add(row);
+                }
+            }
+            editable.setDrugs(rows);
+        }
+        return editable;
+    }
+
     /** The form's handler; a seam so tests can stand in for its data-access lookups. */
     BpmhForm2Handler newHandler(BpmhForm2Bean bean) {
         return new BpmhForm2Handler(bean);
@@ -115,7 +158,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = null;
 
-        bpmhFormHandler = newHandler(form);
+        bpmhFormHandler = newHandler(editableFields(form));
         bpmhFormHandler.setDemographicNo(demographicNo);
         bpmhFormHandler.populateFormBean();
         // The handler saves its own copy of the bean, so the dates are set on that copy.
@@ -151,7 +194,7 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         Integer demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = Integer.parseInt(form.getFormId());
 
-        bpmhFormHandler = newHandler(form);
+        bpmhFormHandler = newHandler(editableFields(form));
 
         // form Id greater than zero means that this is a saved instance.
         if (formId > 0) {
@@ -164,17 +207,27 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
         PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
         pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
-        pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
+        try {
+            // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
+            pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
 
-        bpmhFormHandler.getBpmhFormBean().setEditDate(new Date());
+            Date now = new Date();
+            bpmhFormHandler.getBpmhFormBean().setEditDate(now);
 
-        if (formId == 0) {
-            bpmhFormHandler.saveFormHistory();
-        }
+            if (formId == 0) {
+                bpmhFormHandler.getBpmhFormBean().setFormDate(now);
+                bpmhFormHandler.saveFormHistory();
+            }
 
-        try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
-            pdfContent = pdfInput.readAllBytes();
+            try (FileInputStream pdfInput = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())))) {
+                pdfContent = pdfInput.readAllBytes();
+            }
+        } finally {
+            // The PDF is stamped to a file only to be streamed; a copy of the patient's medications left in
+            // DOCUMENT_DIR serves nothing and is never cleaned up. The name is set once the file exists.
+            if (pdfController.getFileName() != null) {
+                Files.deleteIfExists(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())).toPath());
+            }
         }
 
         response.reset();

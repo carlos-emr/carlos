@@ -62,4 +62,40 @@ class BpmhForm2HandlerUnitTest {
         assertThat(drugs.get(0).getId()).isEqualTo("55");
         assertThat(drugs.get(0).getHow()).isEqualTo("Take 1 tablet daily");
     }
+
+    @Test
+    void shouldTakeOnlyInstructionFromPostedRows_forCurrentMedications() {
+        Drug drug = new Drug();
+        drug.setId(55);
+        drug.setCustomName("FAKE atorvastatin");
+        drug.setSpecial("FAKE atorvastatin 20 mg\nTake 1 tablet daily");
+        DrugDao drugDao = mock(DrugDao.class);
+        when(drugDao.findByDemographicId(eq(1001), eq(false))).thenReturn(List.of(drug));
+        DrugReasonDao drugReasonDao = mock(DrugReasonDao.class);
+        when(drugReasonDao.getReasonsForDrugID(anyInt(), eq(true))).thenReturn(List.of());
+        BpmhDrug postedMatch = new BpmhDrug();
+        postedMatch.setId("55");
+        postedMatch.setInstruction("continue at discharge");
+        postedMatch.setWhat("a drug the patient does not take");
+        postedMatch.setHow("posted directions");
+        BpmhDrug postedUnknown = new BpmhDrug();
+        postedUnknown.setId("99");
+        postedUnknown.setWhat("not a current medication");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDrugs(new java.util.ArrayList<>(List.of(postedMatch, postedUnknown)));
+
+        BpmhForm2Handler handler = new BpmhForm2Handler();
+        handler.setBpmhFormBean(posted);
+        handler.setDrugDao(drugDao);
+        handler.setDrugReasonDao(drugReasonDao);
+        handler.setDemographicNo(1001);
+
+        handler.setFormBeanDrugList(null);
+
+        List<BpmhDrug> drugs = handler.getBpmhFormBean().getDrugs();
+        assertThat(drugs).extracting(BpmhDrug::getId).containsExactly("55");
+        assertThat(drugs.get(0).getInstruction()).isEqualTo("continue at discharge");
+        assertThat(drugs.get(0).getWhat()).doesNotContain("does not take");
+        assertThat(drugs.get(0).getHow()).isEqualTo("Take 1 tablet daily");
+    }
 }
