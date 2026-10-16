@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -48,11 +49,34 @@ public class SmsConfigValidator {
     static final int MAX_CREDENTIAL_LENGTH = 1024;
 
     /**
+     * What the chosen provider needs before sending can be switched on.
+     *
+     * @param requiredCredentials  names of the credential fields that must have a value
+     * @param senderNumberRequired whether a sender number must be saved
+     * @param storedCredentials    names of the credentials already stored for this provider, which a blank
+     *                             field keeps
+     */
+    public record ProviderNeeds(Set<String> requiredCredentials, boolean senderNumberRequired,
+                                Set<String> storedCredentials) {
+        /** A provider that needs nothing, such as the stub. */
+        public static final ProviderNeeds NONE = new ProviderNeeds(Set.of(), false, Set.of());
+
+        public ProviderNeeds {
+            requiredCredentials = requiredCredentials == null ? Set.of() : Set.copyOf(requiredCredentials);
+            storedCredentials = storedCredentials == null ? Set.of() : Set.copyOf(storedCredentials);
+        }
+    }
+
+    /**
      * @param update             the submitted settings
      * @param installedProviders providers that have a client; choosing another would make every send fail
+     * @param needs              what the chosen provider needs; checked only when sending is switched on, so
+     *                           a clinic can choose a provider and enter its credentials before going live
      * @return message keys for each problem; empty when the settings can be saved
      */
-    public List<String> validate(SmsConfigUpdateDto update, Set<SmsProviderType> installedProviders) {
+    public List<String> validate(SmsConfigUpdateDto update, Set<SmsProviderType> installedProviders,
+                                 ProviderNeeds needs) {
+        Objects.requireNonNull(needs, "provider needs are required; use ProviderNeeds.NONE for none");
         List<String> errors = new ArrayList<>();
         if (update.providerType() == null) {
             errors.add("sms.config.error.providerRequired");
@@ -74,10 +98,25 @@ public class SmsConfigValidator {
         if (credentialTooLong) {
             errors.add("sms.config.error.credentialTooLong");
         }
+        if (update.enabled()) {
+            if (needs.senderNumberRequired() && (senderNumber == null || senderNumber.isBlank())) {
+                errors.add("sms.config.error.senderNumberRequired");
+            }
+            boolean credentialMissing = needs.requiredCredentials().stream()
+                    .anyMatch(field -> !needs.storedCredentials().contains(field)
+                            && isBlank(update.credentials().get(field)));
+            if (credentialMissing) {
+                errors.add("sms.config.error.credentialRequired");
+            }
+        }
         if (update.clearWebhookSecret() && update.webhookSecret() != null && !update.webhookSecret().isBlank()) {
             // Saving would drop the secret just typed: clearing wins, which is not what either choice meant.
             errors.add("sms.config.error.clearAndNewSecret");
         }
         return errors;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

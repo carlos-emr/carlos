@@ -29,7 +29,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -37,6 +41,29 @@ import static org.mockito.Mockito.when;
 class SmsSendServiceUnitTest {
     private static final SmsConsentDecisionDto CONSENTED = SmsConsentDecisionDto.permitted(
             SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"));
+
+    @Test
+    @DisplayName("send records nothing and reaches no SMS provider while the provider is not ready")
+    void shouldRecordNothing_whenProviderIsNotReady() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService();
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsConfigService configService = mock(SmsConfigService.class);
+        when(configService.sendingEnabled()).thenReturn(true);
+        when(configService.readyProviderSettings(SmsProviderType.STUB))
+                .thenThrow(new SmsProviderNotReadyException("a stored SMS provider credential cannot be decrypted"));
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(client)), recorder, providerType -> true,
+                new SmsDefaultProviderResolver(() -> "STUB"), configService);
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.messages()).containsExactly(SmsSendService.SMS_PROVIDER_NOT_READY_MESSAGE);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(client, never()).send(any(), anyString(), any());
+    }
 
     @Test
     @DisplayName("send records a consent-blocked row and never reaches the SMS provider when consent denies")
@@ -753,9 +780,9 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             events.add("providerSend");
-            return super.send(command, clientReferenceId);
+            return super.send(command, clientReferenceId, settings);
         }
     }
 
@@ -766,7 +793,7 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             throw new IllegalStateException("provider unavailable");
         }
 

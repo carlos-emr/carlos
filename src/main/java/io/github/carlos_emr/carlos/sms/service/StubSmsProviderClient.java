@@ -23,7 +23,8 @@ public class StubSmsProviderClient implements SmsProviderClient {
     }
 
     @Override
-    public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+    public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId,
+                                         SmsProviderSettings settings) {
         Objects.requireNonNull(command, "command is required");
         Objects.requireNonNull(clientReferenceId, "clientReferenceId is required");
         if (clientReferenceId.isBlank()) {

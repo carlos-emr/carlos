@@ -127,8 +127,8 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         }
         schemaUrl = serverUrl + schema;
         try (Connection fixture = DriverManager.getConnection(schemaUrl, user, password)) {
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_transaction (");
-            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_provider_rate_limit (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_transaction (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (");
             executeMigrationStatement(fixture, "add_sms_consent", "ALTER TABLE sms_transaction");
         }
         entityManagerFactory = new Configuration().addAnnotatedClass(SmsProviderRateLimit.class)
@@ -308,13 +308,14 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         AtomicInteger sends = new AtomicInteger();
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
 
             @Override
-            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId) {
+            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId,
+                                                               SmsProviderSettings settings) {
                 return SmsProviderMessageStatusDto.notFound();
             }
         };
@@ -412,9 +413,9 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
                 new JpaSmsTransactionService(dao, event -> { }, transactionManager));
         StubSmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 sends.incrementAndGet();
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
         };
         return new SmsSendService(new SmsSendValidator(),

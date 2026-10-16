@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.sms.dao;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
+import jakarta.persistence.LockModeType;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,5 +39,21 @@ public class SmsConfigDaoImpl extends AbstractDaoImpl<SmsConfig> implements SmsC
     @Transactional(readOnly = true)
     public Optional<SmsConfig> findCurrent() {
         return Optional.ofNullable(entityManager.find(SmsConfig.class, SmsConfig.SINGLETON_ID));
+    }
+
+    @Override
+    @Transactional
+    public Optional<SmsConfig> findCurrentForUpdate() {
+        // The caller first holds the materialized STUB limiter row as a selection mutex. A locking
+        // read of the absent config row alone cannot serialize first-save and admission gap locks.
+        // Lock a scalar first: locking an entity query upgrades a cached entity's lock and
+        // compares its stale version before refresh can load the current committed state.
+        var ids = entityManager.createNativeQuery("SELECT id FROM sms_config WHERE id = ?1 FOR UPDATE")
+                .setParameter(1, SmsConfig.SINGLETON_ID)
+                .getResultList();
+        if (ids.isEmpty()) return Optional.empty();
+        SmsConfig current = entityManager.find(SmsConfig.class, SmsConfig.SINGLETON_ID);
+        entityManager.refresh(current, LockModeType.PESSIMISTIC_WRITE);
+        return Optional.of(current);
     }
 }
