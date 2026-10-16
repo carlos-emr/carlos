@@ -2193,16 +2193,35 @@ function collapseFooter() {
         var searchDropDownFlag = false;
 
         /**
-         * Searches for a consultant/specialist by name for the letter addressee field.
-         * Makes an XHR request to the provider search endpoint and displays matching
-         * providers in the tempBin dropdown. Selected consultant's address is inserted
-         * into the CopyTo textarea for "Paste Selected" to use.
+         * Text block for a professional specialist directory entry: the name, then the street
+         * address and fax on their own lines when the directory has them. Many entries leave those
+         * columns empty, and JSON null concatenated as-is was pasted into letters as "null".
+         *
+         * @param {Object} specialist - one entry from /searchProfessionalSpecialist
+         * @returns {string} lines joined with CRLF, ready for the CopyTo block
+         */
+        function specialistAddressBlock(specialist) {
+            var present = function (value) { return value != null && String(value).trim() !== ''; };
+            var lines = [[specialist.firstName, specialist.lastName].filter(present).join(' ')];
+            if (present(specialist.streetAddress)) { lines.push(String(specialist.streetAddress).trim()); }
+            if (present(specialist.fax)) { lines.push('Fax: ' + String(specialist.fax).trim()); }
+            return lines.join('\r\n');
+        }
+
+        /**
+         * Searches the professional specialist directory by name for the letter addressee field
+         * and lists the matches in the tempBin dropdown. The chosen specialist's address block is
+         * put in the CopyTo textarea for "Paste Selected" to use.
+         *
+         * The route is the root-level /searchProfessionalSpecialist action (_con read). The
+         * ../encounter/oscarConsultationRequest/searchProfessionalSpecialist.json path this used to
+         * call has no mapping, and ".json" requests never reach Struts, so every search 404ed.
          *
          * @param {string} term - Search term (minimum 2 characters, "lastname, firstname" format)
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a specialist's name.";
                 return false;
             }
 
@@ -2212,9 +2231,7 @@ function collapseFooter() {
 
             var request = new XMLHttpRequest();
 
-            //professionalSpecialists  2020-Nov-04
-            //request.open('GET', '../encounter/oscarConsultationRequest/searchprofessionalSpecialists.json?keyword=' + term, true);
-            request.open('GET', '../encounter/oscarConsultationRequest/searchProfessionalSpecialist.json?keyword='+encodeURIComponent(term), true);
+            request.open('GET', '../searchProfessionalSpecialist?keyword='+encodeURIComponent(term), true);
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 
@@ -2243,8 +2260,10 @@ function collapseFooter() {
                             for (var idx = 0; idx < data.length; idx++) {
                                 var li = document.createElement('li');
                                 li.setAttribute('data-id', String(data[idx].id).trim());
-                                li.setAttribute('data-address', data[idx].firstName + ' ' + data[idx].lastName + '\r\n' + data[idx].streetAddress + ' \r\nFax: ' + data[idx].fax);
-                                li.textContent = data[idx].lastName + ', ' + data[idx].firstName;
+                                li.setAttribute('data-address', specialistAddressBlock(data[idx]));
+                                li.textContent = [data[idx].lastName, data[idx].firstName]
+                                    .filter(function (part) { return part != null && String(part).trim() !== ''; })
+                                    .join(', ');
                                 li.addEventListener('click', function() { populateInputField(this, 'consultant'); });
                                 ul.appendChild(li);
                             }
@@ -2303,7 +2322,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a specialist's name.";
             }
         }
 
