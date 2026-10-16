@@ -16,6 +16,7 @@ const {
 } = require('./lib/playwright-harness');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 async function main() {
   const config = readConfig();
@@ -71,6 +72,8 @@ async function main() {
       // same viewer, so deliberately choose just the first matching link.
       const target = chart.locator(`#docs a[onclick*="segmentID=${id}'"]`).first();
       assert(await target.count() === 1, `document ${id} is missing from its patient's chart`);
+      // Filed by type (the provider's eChart preference): open the document's folder first.
+      await revealAuditLink(chart, target, 45000);
       const pending = context.waitForEvent('page', { timeout: 45000 });
       pending.catch(() => {});
       await target.click();

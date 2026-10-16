@@ -41,6 +41,8 @@
     <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
     <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -78,6 +80,17 @@
     var reloadWindows = new Object();
     var updateDivTimer = null;
     var reloadDivUrl;
+    <%-- Family Doctor / Referring Doctor left-column panels this provider's eChart preferences turn
+         on (Family Doctor on and Referring Doctor off by default; EchartDisplayPreference), in display
+         order. Static paths and ids only; navBarLoader() puts them at the top of the left column. --%>
+    <%
+        EchartDisplayPreferences navEchartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class)
+                .resolve(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    %>
+    var echartDoctorPanels = [<% if (navEchartPrefs.showFamilyDoctor()) { %>
+        {path: "/encounter/displayFamilyDoctor", id: "fDoc"},<% } %><% if (navEchartPrefs.showReferringDoctor()) { %>
+        {path: "/encounter/displayReferringDoctor", id: "rDoc"},<% } %>
+    ];
     var reloadDiv;
     var activeCCWindows = [];
 
@@ -981,6 +994,12 @@
                 ctx + "/encounter/displayEForms?hC=" + Colour.eForms,
             ];
             var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
+            // Family Doctor / Referring Doctor panels go first in the column, as OSCAR 19 placed its
+            // fDoc/rDoc widgets; which of them this provider sees is decided server-side above.
+            for (var panelIdx = echartDoctorPanels.length - 1; panelIdx >= 0; --panelIdx) {
+                leftNavBar.unshift(ctx + echartDoctorPanels[panelIdx].path + "?hC=" + Colour.contacts);
+                leftNavBarTitles.unshift(echartDoctorPanels[panelIdx].id);
+            }
             var rightNavBar = [
                 ctx + "/encounter/displayDisease?hC=" + Colour.disease,
                 ctx + "/CaseManagementView?hc=" + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,

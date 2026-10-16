@@ -538,6 +538,8 @@ Clinical encounter management and workflow.
 | encounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
 | encounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
 | encounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
+| encounter/displayFamilyDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action | eChart Family Doctor panel (provider eChart preference) |
+| encounter/displayReferringDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action | eChart Referring Doctor panel (provider eChart preference) |
 | encounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
 | encounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
 | encounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |

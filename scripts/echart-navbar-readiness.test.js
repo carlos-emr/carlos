@@ -11,7 +11,7 @@ const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
 const script = source.slice(start, end).replace(/<%--[\s\S]*?--%>/g, '');
 
-function harness({ throwFirstSend = false } = {}) {
+function harness({ throwFirstSend = false, doctorPanels = [] } = {}) {
   const elements = {}; const requests = []; const errors = [];
   function element(id = '') {
     return {
@@ -29,7 +29,7 @@ function harness({ throwFirstSend = false } = {}) {
   const context = {
     window: {}, document: { getElementById: id => elements[id], createElement: () => element() },
     $: id => elements[id], Element: { remove: el => { delete elements[el.id]; } },
-    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', providerNo: '9', demographicNo: '2', appointmentNo: 0,
+    Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', echartDoctorPanels: doctorPanels, providerNo: '9', demographicNo: '2', appointmentNo: 0,
     famHistoryLabel: 'Family', oMedsLabel: 'Other', riskFactorsLabel: 'Risk',
     console: { error: (...args) => errors.push(args) },
     CarlosAjax: { request(url, options) {
@@ -123,4 +123,24 @@ test('fragment exceptions and aborted XHRs settle their module without concealin
   for (let i = 2; i < 22; i++) h.complete(i);
   assert.equal(h.state().pending, 0);
   assert.deepEqual(Array.from(h.state().failed), ['preventions', 'tickler']);
+});
+
+test('the provider\'s Family and Referring Doctor panels load first in the left column, in that order', () => {
+  const h = harness({ doctorPanels: [
+    { path: '/encounter/displayFamilyDoctor', id: 'fDoc' },
+    { path: '/encounter/displayReferringDoctor', id: 'rDoc' },
+  ] });
+  assert.equal(h.requests.length, 24);
+  assert.deepEqual(h.elements.leftNavBar.children.slice(0, 3).map(child => child.id), ['fDoc', 'rDoc', 'preventions']);
+  assert.match(h.requests[0].url, /^\/carlos\/encounter\/displayFamilyDoctor\?hC=/);
+  assert.match(h.requests[1].url, /^\/carlos\/encounter\/displayReferringDoctor\?hC=/);
+  for (let i = 0; i < 24; i++) h.complete(i);
+  assert.equal(h.state().pending, 0);
+  assert.equal(h.state().modules.fDoc.column, 'leftNavBar');
+});
+
+test('without doctor panels the left column starts with Preventions', () => {
+  const h = harness();
+  assert.equal(h.elements.leftNavBar.children[0].id, 'preventions');
+  assert.ok(!h.requests.some(request => /display(Family|Referring)Doctor/.test(request.url)));
 });

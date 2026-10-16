@@ -64,6 +64,13 @@ body.encounter-layout {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* The rule above forces Arial on every element, which would turn Font Awesome glyphs (the header
+   bar's phone icons, the Documents panel's folders) into empty boxes. Icons keep their icon font;
+   the higher specificity wins between the two !important declarations. */
+:root .fa-solid {
+    font-family: "Font Awesome 6 Free" !important;
+}
+
 #noteEditTxt {
     font-size: larger;
 }
@@ -144,21 +151,93 @@ div#userSettings ul#userSettingsMenu li .fa-solid {
     width: 100%;
 }
 
-#header-top-row, #header-top-row #left-column {
-    display: flex;
+/* eChart header bar, OSCAR 19 format (casemgmt/newEncounterHeader.jsp). One compact line in the
+   viewer's provider colour; background, text and link colours arrive as inline styles from
+   EchartHeaderViewModelAssembler (validated #RRGGBB). Items wrap rather than overflow. */
+/* The bar fills the chart's sticky header edge to edge, as OSCAR 19's did. */
+body.encounter-layout div#header {
+    padding: 0;
 }
 
-#header-top-row {
+#header-top-row.echart-header-bar {
+    display: flex;
     width: 100%;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
+    padding: 2px 4px;
+    font-size: 12px;
+    line-height: 1.5;
 }
 
-#header-top-row #left-column #branding-logo {
-    margin: 5px 5px auto 5px;
-    position: relative;
-    top: 0;
-    left: 0;
+#header-top-row.echart-header-bar #left-column {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 12px;
+    row-gap: 0;
+    min-width: 0;
+}
+
+#header-top-row.echart-header-bar #right-column {
+    white-space: nowrap;
+    font-size: 10px;
+}
+
+#header-top-row.echart-header-bar a {
+    color: var(--echart-header-link, #0000CC);
+}
+
+#header-top-row.echart-header-bar .echart-header-item {
+    white-space: nowrap;
+}
+
+#header-top-row.echart-header-bar .echart-header-mrp {
+    border-bottom: medium solid transparent;
+}
+
+#header-top-row.echart-header-bar .echart-header-mrp-name {
+    text-transform: uppercase;
+}
+
+#header-top-row.echart-header-bar .echart-header-name {
+    font-weight: bold;
+    text-decoration: none;
+}
+
+#header-top-row.echart-header-bar .echart-header-next-appt {
+    font-size: 11px;
+    text-decoration: none;
+    margin-left: 8px;
+}
+
+#header-top-row.echart-header-bar button.copyable {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+#header-top-row.echart-header-bar button.copyable:hover,
+#header-top-row.echart-header-bar button.copyable:focus-visible {
+    text-decoration: underline;
+}
+
+#header-top-row.echart-header-bar .label {
+    margin: 0;
+    font-weight: normal !important;
+    text-decoration: none;
+    display: inline;
+    color: inherit;
+}
+
+#header-top-row.echart-header-bar .label::after {
+    content: ':\00a0';
 }
 
 .noteRounded {
@@ -184,15 +263,6 @@ fieldset legend {
 }
 
 
-div#patient-label {
-    display: flex;
-    align-items: baseline;
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    padding: 3px 0;
-    width: 100%;
-}
 
 .boxsizingBorder {
     -webkit-box-sizing: border-box;
@@ -214,69 +284,6 @@ textarea.unsigned-textarea, textarea.edit-textarea {
     border-radius: unset;
 }
 
-div#patient-label > button.copyable {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    border-radius: 0;
-    color: inherit;
-    font: inherit;
-    text-align: inherit;
-}
-
-div#patient-label > div,
-div#patient-label > button.copyable {
-    margin: 2px 0;
-    padding: 0 6px;
-    font-size: 11px;
-    border-right: 1px solid #ccc;
-    white-space: nowrap;
-}
-
-div#patient-label > div:last-child {
-    border-right: none;
-}
-
-div#patient-label > div#patient-mrp {
-    margin-left: auto;
-}
-
-div#patient-label div#patient-full-name, div#patient-label div#patient-full-name h1, div#patient-label div#patient-full-name h1 a {
-    margin: 0;
-    font-size: 12px;
-    font-weight: bold;
-    display: inline;
-}
-
-div#patient-full-name a {
-    text-decoration: none;
-    color: blue;
-}
-
-div#patient-label div#header-top-row {
-    width: 100%;
-}
-
-div#patient-label .label {
-    margin: 0;
-    font-weight: normal !important;
-    font-size: 10px;
-    text-decoration: none;
-    display: inline;
-    color: #666;
-}
-
-div#patient-label .label::after {
-    content: ':\00a0';
-}
-
-div#patient-label .copyable {
-    cursor: pointer;
-}
-
-div#patient-label .copyable:hover {
-    text-decoration: underline;
-}
 
 
 .float-end {
@@ -932,6 +939,47 @@ div.leftBox li:nth-of-type(odd) {
 
 div.leftBox li:nth-of-type(even) {
     background-color: whitesmoke !important;
+}
+
+/* Documents filed in folders by type (provider eChart preference; LeftNavBarDisplay.jsp
+   displayFolders). The leftBox list rule above sets display:flex, which would override the
+   hidden attribute of a closed folder, so the closed state is restated here. */
+div.leftBox ul.nav-folder-items {
+    padding-left: 14px;
+}
+
+div.leftBox ul.nav-folder-items[hidden] {
+    display: none;
+}
+
+div.leftBox button.nav-folder-toggle {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0 2px;
+    margin: 0;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+div.leftBox button.nav-folder-toggle::before {
+    content: '\25B8';
+    display: inline-block;
+    width: 1em;
+}
+
+div.leftBox button.nav-folder-toggle[aria-expanded="true"]::before {
+    content: '\25BE';
+}
+
+div.leftBox button.nav-folder-toggle .fa-folder {
+    color: #c9a227;
 }
 
 div.leftBox li a, div.leftBox li span {

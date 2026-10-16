@@ -9,6 +9,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { markOpener, clickAndAwaitReload } = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { documentChain, openerState, assertId } = require('./lib/popup-opener-helpers');
 const { textPdf } = require('./lib/stored-pdf-documents');
 
@@ -74,7 +75,10 @@ async function workflow(s) {
     // Navbar captions include a date and may be cropped; identify the saved PDF
     // by its real document id and require its visible caption to show the marker.
     const link = chart.locator(`#docs a[onclick*="segmentID=${id}'"]`).filter({ hasText: marker.slice(0, 12) });
-    await link.waitFor({ state: 'visible', timeout: 20000 });
+    // Filed by type (the provider's eChart preference): the refreshed panel lists it in its folder.
+    await link.first().waitFor({ state: 'attached', timeout: 20000 });
+    await revealAuditLink(chart, link.first(), 20000);
+    await link.first().waitFor({ state: 'visible', timeout: 20000 });
     h.assert((await link.innerText()).includes(marker.slice(0, 12)), 'The Documents caption does not identify the upload');
     h.assert(await chart.evaluate(name => window[name], sentinel.marker) === sentinel.token, 'The chart reloaded instead of refreshing Documents');
     h.assert(path.basename(file) === file && fs.existsSync(path.join(store, file)), 'The uploaded document file is missing');

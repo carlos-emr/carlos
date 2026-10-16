@@ -164,14 +164,18 @@ class EncounterChartHeaderI18nUnitTest {
     void shouldHandBrowserLocale_toIdentityBlockAge() throws IOException {
         String header = stripComments(read(HEADER_JSP));
 
-        // The identity block is rendered by the JSP itself; its one locale-sensitive value is the
-        // age. If that is not given the negotiated locale it silently falls back to the server's,
-        // which is the "header is not i18n even though the page is" symptom in the report.
+        // The identity block's one locale-sensitive value is the age, formatted by
+        // EchartHeaderViewModelAssembler. If that is not given the negotiated locale it silently
+        // falls back to the server's, which is the "header is not i18n even though the page is"
+        // symptom in the report.
         assertThat(header)
                 .contains("LocaleUtils.resolveBundleLocale(request)")
-                .contains("getAgeAsOf(new Date(), browserLocale)")
+                .contains(".assemble(viewerProviderNo, demographic, echartPrefs, browserLocale)")
                 .doesNotContain("request.getLocale()")
                 .doesNotContain("LocaleContextHolder");
+        assertThat(read(MODULE_ROOT.resolve("src/main/java/io/github/carlos_emr/carlos/encounter/display/"
+                + "EchartHeaderViewModelAssembler.java")))
+                .contains("demographic.getAgeAsOf(new Date(), locale)");
         assertThat(stripComments(read(MODULE_ROOT.resolve("src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp"))))
                 .contains("getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request))")
                 .doesNotContain("getRosterStatusDisplay(request.getLocale())");
@@ -198,7 +202,7 @@ class EncounterChartHeaderI18nUnitTest {
         String header = stripComments(read(HEADER_JSP));
         assertThat(header)
                 .contains("pageContext.setAttribute(\"negotiatedLanguageTag\", browserLocale.toLanguageTag());")
-                .contains("<div id=\"header-top-row\" lang=\"${carlos:forHtmlAttribute(negotiatedLanguageTag)}\">");
+                .contains("<div id=\"header-top-row\" lang=\"${carlos:forHtmlAttribute(negotiatedLanguageTag)}\"");
     }
 
     @Test

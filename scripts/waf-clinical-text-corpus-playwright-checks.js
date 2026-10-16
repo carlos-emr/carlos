@@ -56,6 +56,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { watchFrontDoor } = require('./lib/front-door-checks');
 const boundary = require('./lib/boundary-values');
@@ -776,7 +777,10 @@ function rows(s, ctx) {
         let viewer;
         try {
           const chart = await s.chart();
-          viewer = await s.popup(chart, chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: docs[0].label }).first(), 'document-viewer');
+          const documentLink = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: docs[0].label }).first();
+          // Filed by type (the provider's eChart preference): open the document's folder first.
+          await revealAuditLink(chart, documentLink, 30000);
+          viewer = await s.popup(chart, documentLink, 'document-viewer');
           const input = viewer.locator(`#docDesc_${docs[0].id}`);
           await input.waitFor({ state: 'visible', timeout: 30000 });
           await input.fill(`${marker}-MD-UI`);

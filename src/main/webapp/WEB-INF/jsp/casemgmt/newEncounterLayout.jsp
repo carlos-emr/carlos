@@ -95,6 +95,9 @@
         </title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/encounterStyles.css?v=<%= System.currentTimeMillis() %>" type="text/css">
+        <%-- Font Awesome 6 (bundled locally): the header bar's phone, cell and work-phone glyphs, the
+             same icon family OSCAR 19's header used. --%>
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/fontawesome-all.min.css" type="text/css">
 
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" href="${carlos:forHtmlAttribute(ctx)}/css/oscarRx.css">
