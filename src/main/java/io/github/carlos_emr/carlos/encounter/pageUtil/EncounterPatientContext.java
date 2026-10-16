@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -86,6 +89,47 @@ public final class EncounterPatientContext {
         if (bean.appointmentDate == null) bean.appointmentDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
         if (bean.currentDate == null) bean.currentDate = new Date();
         return bean;
+    }
+
+    /**
+     * The appointment this patient was last opened for from the day sheet in this login, provided
+     * that appointment still exists and is still this patient's; otherwise null.
+     *
+     * <p>Work that belongs to "the current visit" uses this: Health Tracker measurements and
+     * notes are linked to it, and a multisite tickler or prescription defaults to its clinic
+     * site. It used to be the day sheet's login-wide {@code cur_appointment_no}, the appointment
+     * last clicked for any patient, so once another patient's appointment was opened, work in
+     * this patient's window was tied to the other patient's visit (issue #4673). The day sheet
+     * now files the appointment under the patient it is booked for
+     * ({@code ViewStoreApptInSession2Action}), and the ownership check here also covers an
+     * appointment that was moved to another patient after it was opened.</p>
+     *
+     * @param request the request whose session holds this login's day-sheet appointments
+     * @param demographicNo the patient; a missing or invalid value yields null
+     * @param appointments the DAO used to confirm the appointment is this patient's
+     * @return this patient's own current appointment, or null when there is none
+     */
+    public static Appointment currentAppointment(HttpServletRequest request, String demographicNo,
+                                                 OscarAppointmentDao appointments) {
+        String patient;
+        try {
+            patient = canonicalPatient(demographicNo);
+        } catch (IllegalArgumentException invalidPatient) {
+            return null;
+        }
+        HttpSession session = request.getSession(false);
+        Object stored = session == null ? null
+                : session.getAttribute(ChartSessionKeys.currentAppointment(patient));
+        if (!(stored instanceof String appointmentNo) || !appointmentNo.matches("[0-9]{1,9}")) {
+            return null;
+        }
+        int id = Integer.parseInt(appointmentNo);
+        if (id <= 0) {
+            return null;
+        }
+        Appointment appointment = appointments.find(id);
+        return appointment != null && Integer.toString(appointment.getDemographicNo()).equals(patient)
+                ? appointment : null;
     }
 
     /** Releases only the chart being closed, retaining metadata for other open patients. */

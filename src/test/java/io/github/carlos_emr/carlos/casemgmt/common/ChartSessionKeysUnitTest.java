@@ -49,7 +49,8 @@ class ChartSessionKeysUnitTest {
             patient -> ChartSessionKeys.noteFilterHandoff("issues", patient),
             patient -> ChartSessionKeys.appliedNoteFilter("issues", patient),
             ChartSessionKeys::lastSavedNoteText,
-            ChartSessionKeys::draftRestoring);
+            ChartSessionKeys::draftRestoring,
+            ChartSessionKeys::currentAppointment);
 
     @Test
     void shouldNameDifferentAttributes_forDifferentPatients() {
@@ -57,7 +58,7 @@ class ChartSessionKeysUnitTest {
             assertThat(key.apply("101")).isNotEqualTo(key.apply("202"));
             // The old login-wide names must not be reused for any patient.
             assertThat(key.apply("101")).isNotIn("issues", "CaseManagementViewAction_filter_issues",
-                    "lastSavedNoteString", "restoring");
+                    "lastSavedNoteString", "restoring", "cur_appointment_no");
         }
     }
 

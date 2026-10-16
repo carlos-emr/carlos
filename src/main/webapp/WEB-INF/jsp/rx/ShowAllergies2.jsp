@@ -567,17 +567,12 @@
                             <span class="view_menu">View:
 <%
 
-    String demoNo = request.getParameter("demographicNo");
-
-    if (demoNo == null) {
-        demoNo = (String) session.getAttribute("demographicNo");
-    } else {
-        session.setAttribute("demographicNo", demoNo);
-    }
-
-    if (demoNo == null || demoNo.equals("null")) {
-        demoNo = String.valueOf(bean.getDemographicNo());
-    }
+    // The patient whose allergies this page shows: the bean authorised for this request above.
+    // It used to come from the parameter or, when absent, from session "demographicNo" (the patient
+    // of the last waiting-list, registry or allergy page in any window), and this page wrote that
+    // session value too, so the view links and Inactivate/Reactivate could name another patient
+    // (issue #4673).
+    String demoNo = bean == null ? "" : String.valueOf(bean.getDemographicNo());
 
     String strView = request.getParameter("view");
     if (strView == null) {strView = "Active";}

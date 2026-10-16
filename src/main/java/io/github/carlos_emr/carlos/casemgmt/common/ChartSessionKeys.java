@@ -37,7 +37,11 @@ package io.github.carlos_emr.carlos.casemgmt.common;
  *       before appending its own: a save after another patient's save looked for that patient's
  *       text in this patient's record;</li>
  *   <li>the editor's "a draft is being restored" signal to the chart view: another chart's view
- *       could consume it and so withhold its own unsaved-draft prompt.</li>
+ *       could consume it and so withhold its own unsaved-draft prompt;</li>
+ *   <li>the appointment last opened from the day sheet, which Health Tracker saves link their
+ *       measurements and note to and which picks the default clinic site of a tickler or a
+ *       prescription: work in one patient's window was tied to the visit last opened for
+ *       another patient.</li>
  * </ul>
  * <p>Each such attribute is now keyed by the patient it belongs to. Two windows of the same
  * patient still share their state, as they did before. A patient number is never read back from
@@ -103,6 +107,19 @@ public final class ChartSessionKeys {
      */
     public static String draftRestoring(String demographicNo) {
         return key("restoring", demographicNo);
+    }
+
+    /**
+     * The attribute holding the appointment this patient was last opened for from the day sheet
+     * (its encounter, master record or prescription link). Readers must confirm the appointment
+     * still belongs to the patient; see {@code EncounterPatientContext.currentAppointment}.
+     *
+     * @param demographicNo the patient the appointment is booked for
+     * @return the session attribute name
+     * @throws IllegalArgumentException if {@code demographicNo} is not a patient number
+     */
+    public static String currentAppointment(String demographicNo) {
+        return key("cur_appointment_no", demographicNo);
     }
 
     /**

@@ -72,6 +72,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -763,18 +764,12 @@
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                             List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
-                            String appNo = (String) session.getAttribute("cur_appointment_no");
-                            String location = null;
-                            if (appNo != null) {
-                                try {
-                                    Appointment a = appointmentDao.find(Integer.parseInt(appNo));
-                                    if (a != null) {
-                                        location = a.getLocation();
-                                    }
-                                } catch (NumberFormatException e) {
-                                    // Malformed appointment number in session — skip location lookup
-                                }
-                            }
+                            // Default to the site of the appointment this tickler's patient was opened
+                            // for from the day sheet, never another patient's (issue #4673). A tickler
+                            // with no patient yet has no visit, so it gets no site default.
+                            Appointment currentAppointment = EncounterPatientContext.currentAppointment(request,
+                                    demographic == null ? null : String.valueOf(demographic.getDemographicNo()), appointmentDao);
+                            String location = currentAppointment == null ? null : currentAppointment.getLocation();
                         %>
                         <script>
                             var _providers = [];

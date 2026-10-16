@@ -232,12 +232,12 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
     }
 
     // -------------------------------------------------------------------------
-    // Trust Boundary Fix — Session Attributes Must Use Validated Value
+    // Trust Boundary Fix — Page Attributes Must Use Validated Value (request scope, issue #4673)
     // -------------------------------------------------------------------------
 
     @Nested
-    @DisplayName("Trust Boundary — Session Storage")
-    class TrustBoundarySessionStorage {
+    @DisplayName("Trust Boundary — Page Attributes")
+    class TrustBoundaryPageAttributes {
 
         @BeforeEach
         void allowAccess() {
@@ -245,8 +245,8 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should store validated integer string in session, not raw request param")
-        void shouldStoreValidatedIntegerString_inSession() throws Exception {
+        @DisplayName("should publish the validated integer string for the page, not the raw request param")
+        void shouldPublishValidatedIntegerString_forThePage() throws Exception {
             // Raw parameter has leading/trailing whitespace to verify normalisation
             addRequestParameter("demographic_no", " 42 ");
 
@@ -257,14 +257,15 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isEqualTo("continue");
-            // Session must hold the normalised integer string, never the raw " 42 "
-            Object sessionDemoNo = getMockSession().getAttribute("demographicNo");
-            assertThat(sessionDemoNo).isEqualTo("42");
-            assertThat(sessionDemoNo).isNotEqualTo(" 42 ");
+            // The page gets the normalised integer string, never the raw " 42 "
+            Object pageDemoNo = getMockRequest().getAttribute("demographicNo");
+            assertThat(pageDemoNo).isEqualTo("42");
+            assertThat(pageDemoNo).isNotEqualTo(" 42 ");
+            assertThat(getMockSession().getAttribute("demographicNo")).isNull();
         }
 
         @Test
-        @DisplayName("should set demoInfo and patientWaitingList session attributes on success")
+        @DisplayName("should set demoInfo and patientWaitingList request attributes on success")
         void shouldSetDemoInfoAndPatientWaitingList_onSuccess() throws Exception {
             addRequestParameter("demographic_no", "100");
 
@@ -275,9 +276,29 @@ class WLSetupDisplayPatientWaitingList2ActionTest extends CarlosWebTestBase {
             String result = executeAction(action);
 
             assertThat(result).isEqualTo("continue");
-            assertThat(getMockSession().getAttribute("demoInfo")).isNotNull();
-            assertThat(getMockSession().getAttribute("patientWaitingList")).isNotNull();
-            assertThat(getMockSession().getAttribute("demographicNo")).isEqualTo("100");
+            assertThat(getMockRequest().getAttribute("demoInfo")).isNotNull();
+            assertThat(getMockRequest().getAttribute("patientWaitingList")).isNotNull();
+            assertThat(getMockRequest().getAttribute("demographicNo")).isEqualTo("100");
+        }
+
+        @Test
+        @DisplayName("should leave the session untouched when another window opened a waiting list")
+        void shouldPublishThisPatientOnly_whenAnotherWindowOpenedAWaitingList() throws Exception {
+            // Another patient's waiting list, under the names this page used to read from the
+            // session; they leaked into every page that resolves ${demographicNo} (issue #4673).
+            getMockSession().setAttribute("demographicNo", "200");
+            getMockSession().setAttribute("demoInfo", "Other, Patient F 50");
+            addRequestParameter("demographic_no", "100");
+            Demographic mockDemo = createMockDemographic("Doe", "Jane", "F");
+            when(mockDemographicManager.getDemographic(any(LoggedInInfo.class), eq("100")))
+                    .thenReturn(mockDemo);
+
+            assertThat(executeAction(action)).isEqualTo("continue");
+
+            assertThat(getMockRequest().getAttribute("demographicNo")).isEqualTo("100");
+            assertThat((String) getMockRequest().getAttribute("demoInfo")).startsWith("Doe, Jane");
+            assertThat(getMockSession().getAttribute("demographicNo")).isEqualTo("200");
+            assertThat(getMockSession().getAttribute("patientWaitingList")).isNull();
         }
     }
 

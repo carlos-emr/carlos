@@ -341,7 +341,7 @@ public class ClientManager2Action extends ActionSupport {
             }
         }
 
-        // Validate id is present and numeric before DAO lookup or session writes.
+        // Validate id is present and numeric before the DAO lookup.
         // Use \d{1,9} (not \d{1,10}) to prevent Integer.parseInt overflow
         // (10-digit values can exceed Integer.MAX_VALUE = 2,147,483,647).
         // Also require a positive value, since DemographicDaoImpl.getClientByDemographicNo
@@ -352,13 +352,18 @@ public class ClientManager2Action extends ActionSupport {
         }
 
         setEditAttributes(request, id);
+        if (request.getAttribute("client") == null) {
+            // Unknown client: refused as an invalid id is. (The removed session copy below used to
+            // fail here on the null record instead.)
+            return ERROR;
+        }
 
         LogAction.log("read", "pmm client record", id, request);
 
-        Demographic demographic = clientManager.getClientByDemographicNo(id);
-        request.getSession().setAttribute("clientGender", demographic.getSex()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("clientAge", demographic.getAge()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("demographicId", demographic.getDemographicNo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // This client's sex, age and number used to be copied into the session here. Nothing read
+        // the first two, and the session "demographicId" was what any page's ${demographicId}
+        // fell back to when its own action set no such attribute: the client viewed last in any
+        // window (issue #4673). The edit page reads the client from setEditAttributes above.
 
         return "edit";
     }

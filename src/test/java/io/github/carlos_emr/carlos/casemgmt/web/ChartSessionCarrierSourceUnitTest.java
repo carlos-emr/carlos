@@ -38,12 +38,16 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * No code keeps one chart's working state in a login-wide session attribute any more (issue
- * #4673). Each of these attributes was written by one chart window and read by a request from
- * another: the patient a request fell back to, the read-only right, the remembered note filters
- * the print applies, the text the last save wrote into the legacy eChart, the draft-restore
- * signal, a patient's message and lab lists, and the legacy editor's bean. The scan covers all
- * main Java and JSP sources, with comments removed, so a reintroduction anywhere fails here.
+ * No code keeps one chart's working state, or a patient's identity, in a login-wide session
+ * attribute any more (issue #4673). Each of these attributes was written by one patient's window
+ * and read by a request from another: the patient a request fell back to, the read-only right,
+ * the remembered note filters the print applies, the text the last save wrote into the legacy
+ * eChart, the draft-restore signal, a patient's message and lab lists, the legacy editor's bean,
+ * and the patient number and data that the Disease Registry, the waiting list, the Rx allergy page
+ * and the PMM client view copied into the session under generic names, and the appointment last
+ * opened from the day sheet, which tied one patient's Health Tracker save and multisite tickler and
+ * prescription defaults to another patient's visit. The scan covers all main Java and JSP sources,
+ * with comments removed, so a reintroduction anywhere fails here.
  *
  * @since 2026-10-16
  */
@@ -60,6 +64,7 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
      * {@code request.getSession()}); request attributes live for one request and are allowed.
      */
     private static final String SESSION_ACCESS = "(?<!request)\\.(get|set|remove)Attribute\\(\\s*\"";
+    private static final String SESSION_RECEIVER = "\\b(session|se|httpSession|sess|getSession\\(\\))";
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile(SESSION_ACCESS + "casemgmt_DemoNo\""),
             Pattern.compile("sessionScope\\.readonly"),
@@ -69,7 +74,15 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             Pattern.compile(SESSION_ACCESS + "CaseManagementViewAction_filter_"),
             Pattern.compile(SESSION_ACCESS + "casemgmt_msgBeans\""),
             Pattern.compile(SESSION_ACCESS + "casemgmt_labsbeans\""),
-            Pattern.compile("(?<!request)\\.setAttribute\\(\\s*\"casemgmt_oscar_bean\"\\s*,"));
+            Pattern.compile("(?<!request)\\.setAttribute\\(\\s*\"casemgmt_oscar_bean\"\\s*,"),
+            // A patient number, or a patient's data, under a generic session name: every page that
+            // resolves ${demographicNo} (or the others) through EL falls back to it whenever its own
+            // action sets no attribute of that name, i.e. to whichever patient's page wrote it last.
+            Pattern.compile(SESSION_RECEIVER + "\\.(get|set)Attribute\\(\\s*\"(demographicNo|demographicId|"
+                    + "clientAge|clientGender|demoInfo|patientWaitingList|allDiagnostics)\""),
+            // The day sheet's last-opened appointment, for any patient. It is now filed per patient
+            // (ChartSessionKeys.currentAppointment) and read back only for that patient.
+            Pattern.compile(SESSION_ACCESS + "cur_appointment_no\""));
 
     @Test
     void shouldFindNoLoginWideChartState_inAnyMainSource() {
@@ -83,6 +96,21 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             }
         }
         assertThat(offenders).isEmpty();
+    }
+
+    @Test
+    void shouldRememberOnlyAHandPickedPrescriptionAddress_inTheSession() {
+        // RX_ADDR is the prescriber's own last address choice. The prescription preview used to
+        // store the site of the last day-sheet appointment there as well, so one patient's visit
+        // site became the default address on the next patient's prescription.
+        Pattern write = Pattern.compile(SESSION_RECEIVER + "\\.setAttribute\\(\\s*\"RX_ADDR\"");
+        List<String> writers = new ArrayList<>();
+        for (Path source : sources()) {
+            if (write.matcher(withoutComments(read(source), source.toString().endsWith(".java"))).find()) {
+                writers.add(ROOT.relativize(source).toString().replace('\\', '/'));
+            }
+        }
+        assertThat(writers).containsExactly("src/main/webapp/WEB-INF/jsp/rx/setDefaultAddr.jsp");
     }
 
     @Test
