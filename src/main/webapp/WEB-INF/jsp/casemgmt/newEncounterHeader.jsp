@@ -32,7 +32,7 @@
   Purpose: Render the eChart header bar above the encounter, in OSCAR 19's format.
   Features: One compact bar in the viewer's provider colour: MRP (underlined in the MRP's own colour),
   the patient's name (opens the Master Record), sex, date of birth or age, HIN, a phone number, email,
-  next appointment, the clinical calculators, and configured chart links; About | License on the right.
+  next appointment, the clinical calculators, and configured chart links.
   What the bar shows is each provider's choice: the "eChart" section of their Preferences
   (EchartDisplayPreference) turns the date of birth (age otherwise), cell phone, HIN and email on or off.
   EchartHeaderViewModelAssembler applies those settings and OSCAR 19's phone rules, so this JSP only
@@ -156,18 +156,22 @@ function fallbackCopy(text) {
     document.body.removeChild(ta);
 }
 </script>
-<%-- The bar's colours come from EchartHeaderViewModelAssembler, which only ever returns validated
-     #RRGGBB values (a provider colour that is anything else falls back to OSCAR's default). --%>
+<%-- OSCAR 19's eChart bar (casemgmt/newEncounterHeader.jsp + encounterStyles.css), as its users see it:
+     "MRP  DOCTOR NAME" in the table font, then the patient's details in bold at 80% of that size, and
+     links in #0088CC. The colours come from EchartHeaderViewModelAssembler,
+     which only ever returns validated #RRGGBB values (a provider colour that is anything else falls
+     back to OSCAR's default). --%>
 <div id="header-top-row" lang="${carlos:forHtmlAttribute(negotiatedLanguageTag)}" class="echart-header-bar"
      style="background-color: ${carlos:forHtmlAttribute(echartHeader.headerBackground)}; color: ${carlos:forHtmlAttribute(echartHeader.headerText)}; --echart-header-link: ${carlos:forHtmlAttribute(echartHeader.headerLink)};">
    <div id="left-column">
       <c:if test="${not empty echartHeader.mrpName}">
-         <span id="patient-mrp" class="echart-header-item echart-header-mrp"
-               style="border-bottom-color: ${carlos:forHtmlAttribute(echartHeader.mrpUnderline)};">
-            <span class="label"><fmt:message key="demographic.demographiceditdemographic.formMRP"/></span>
-            <span class="echart-header-mrp-name"><carlos:encode value="${echartHeader.mrpName}"/></span>
-         </span>
+         <span id="patient-mrp" class="echart-header-mrp"
+               style="border-bottom-color: ${carlos:forHtmlAttribute(echartHeader.mrpUnderline)};"><span
+               class="label echart-header-mrp-label"><fmt:message key="encounter.Index.msgMRP"/></span>&nbsp;&nbsp;<span
+               class="echart-header-mrp-name"><carlos:encode value="${echartHeader.mrpName}"/></span></span>
       </c:if>
+      <%-- OSCAR 19's span.Header: everything about the patient is bold, at 80% of the bar's size. --%>
+      <span class="echart-header-details">
       <fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile" var="masterRecordTitle"/>
       <a id="patient-full-name" class="echart-header-item echart-header-name"
          href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicEdit?demographic_no=${carlos:forUriComponent(popupDemographicNo)}"
@@ -191,8 +195,7 @@ function fallbackCopy(text) {
          <button type="button" id="patient-hin" class="copyable echart-header-item"
                  title="${carlos:forHtmlAttribute(clickToCopyMsg)}"
                  onclick="copyToClip('${carlos:forJavaScriptAttribute(echartHeader.hin)}',this)"><span class="label"><fmt:message key="demographic.patient.context.hin"/></span><carlos:encode value="${echartHeader.hin}"/><c:if
-                 test="${not empty echartHeader.hinVersion}">&nbsp;<carlos:encode value="${echartHeader.hinVersion}"/></c:if><c:if
-                 test="${not empty echartHeader.hcType}"> (<carlos:encode value="${echartHeader.hcType}"/>)</c:if></button>
+                 test="${not empty echartHeader.hinVersion}">&nbsp;<carlos:encode value="${echartHeader.hinVersion}"/></c:if></button>
       </c:if>
       <%-- One number, or every number the patient marked preferred; the tooltip names the other
            number when there is one (see EchartHeaderViewModelAssembler#selectPhones). --%>
@@ -234,18 +237,18 @@ function fallbackCopy(text) {
             </c:otherwise>
          </c:choose>
       </c:if>
-      <fmt:message key="global.viewAppointmentHistory" var="appointmentHistoryTitle"/>
+      <%-- "Next Appt: <date>", the date left blank when nothing is booked, exactly as OSCAR 19 showed it. --%>
+      <fmt:message key="encounter.Header.nextApptMsg" var="appointmentHistoryTitle"/>
       <a id="patient-next-appointment" class="echart-header-item echart-header-next-appt"
          href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicApptHistory?demographic_no=${carlos:forUriComponent(popupDemographicNo)}&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25"
-         title="${carlos:forHtmlAttribute(appointmentHistoryTitle)}" target="_blank"><span class="label"><fmt:message key="global.nextAppointment"/></span><c:choose><c:when
-            test="${not empty echartHeader.nextAppointment}"><carlos:encode value="${echartHeader.nextAppointment}"/></c:when><c:otherwise><fmt:message
-            key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/></c:otherwise></c:choose></a>
-      <%-- The chart's single entry point to the clinical calculators. A second anchor to the
-           same route used to sit lower in this bar, labelled identically and differing only in
-           passing sex/age in the query string; phc007 reported the pair as two calculator links
-           in the header. This one is the form to keep: calculators.jsp resolves sex and age from
-           the record when given demo=, which keeps patient attributes out of navigation URLs
-           (asserted by scripts/admin-fragment-navigation.test.js).
+         title="${carlos:forHtmlAttribute(appointmentHistoryTitle)}" target="_blank"><span class="label"><fmt:message
+         key="encounter.Header.nextAppt"/></span><carlos:encode value="${echartHeader.nextAppointment}"/></a>
+      <%-- The chart's single entry point to the clinical calculators (CARLOS keeps it in OSCAR 19's
+           bar). A second anchor to the same route used to sit lower in this bar, labelled identically
+           and differing only in passing sex/age in the query string; phc007 reported the pair as two
+           calculator links in the header. This one is the form to keep: calculators.jsp resolves sex
+           and age from the record when given demo=, which keeps patient attributes out of navigation
+           URLs (asserted by scripts/admin-fragment-navigation.test.js).
            The href is the real route, not javascript:void(0): the click opens the popup and
            returns false, so a plain click behaves like the other header popups, while a
            middle-click or keyboard follow still reaches the page (and the anchor is a link, not a
@@ -263,11 +266,7 @@ function fallbackCopy(text) {
       </span>
       <%}%>
       <span class="echart-header-item echart-header-link"><%=getEChartLinks() %></span>
-   </div>
-   <div id="right-column">
-      <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a>
-      |
-      <a href="${carlos:forHtmlAttribute(ctx)}/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a>
+      </span>
    </div>
 </div>
 

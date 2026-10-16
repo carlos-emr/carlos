@@ -72,7 +72,8 @@ public class EchartHeaderViewModelAssembler {
     private static final String PREFERRED_MARK = "*";
     private static final String DARK_TEXT = "#000000";
     private static final String LIGHT_TEXT = "#FFFFFF";
-    private static final String DARK_LINK = "#0000CC";
+    /** OSCAR 19's eChart link colour (encounterStyles.css), readable on its light provider colours. */
+    static final String OSCAR_LINK = "#0088CC";
 
     private final UserPropertyDAO userPropertyDao;
 
@@ -105,7 +106,7 @@ public class EchartHeaderViewModelAssembler {
         return new EchartHeaderViewModel(
                 background,
                 text,
-                LIGHT_TEXT.equals(text) ? LIGHT_TEXT : DARK_LINK,
+                LIGHT_TEXT.equals(text) ? LIGHT_TEXT : OSCAR_LINK,
                 mrpName,
                 mrpUnderline,
                 StringUtils.trimToEmpty(demographic.getFormattedName()),
@@ -117,7 +118,6 @@ public class EchartHeaderViewModelAssembler {
                 StringUtils.trimToEmpty(demographic.getAgeAsOf(new Date(), locale)),
                 hin,
                 hin.isEmpty() ? "" : StringUtils.trimToEmpty(demographic.getVer()),
-                hin.isEmpty() ? "" : StringUtils.trimToEmpty(demographic.getHcType()),
                 selectPhones(demographic.getCellPhone(), demographic.getPhone(), demographic.getPhone2(),
                         preferences.showCell()),
                 email,

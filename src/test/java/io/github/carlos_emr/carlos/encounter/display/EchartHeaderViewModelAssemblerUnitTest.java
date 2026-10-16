@@ -83,7 +83,7 @@ class EchartHeaderViewModelAssemblerUnitTest {
         }
 
         @Test
-        @DisplayName("should show the name, sex, HIN with version and province, email, and next appointment")
+        @DisplayName("should show the name, sex, HIN with version, email, and next appointment")
         void shouldShowIdentityItems_withDefaultSettings() {
             EchartHeaderViewModel header = assembler.assemble(VIEWER, patient(), EchartDisplayPreferences.defaults(), Locale.CANADA);
 
@@ -91,7 +91,6 @@ class EchartHeaderViewModelAssemblerUnitTest {
             assertThat(header.sex()).isEqualTo("F");
             assertThat(header.hin()).isEqualTo("9876543225");
             assertThat(header.hinVersion()).isEqualTo("AB");
-            assertThat(header.hcType()).isEqualTo("ON");
             assertThat(header.email()).isEqualTo("jane@example.test");
             assertThat(header.emailConsented()).isFalse();
             assertThat(header.nextAppointment()).isEqualTo("2026-11-02");
@@ -131,13 +130,12 @@ class EchartHeaderViewModelAssemblerUnitTest {
         }
 
         @Test
-        @DisplayName("should hide the HIN and its version and province")
+        @DisplayName("should hide the HIN and its version")
         void shouldHideHin_whenHinSettingOff() {
             EchartHeaderViewModel header = assembler.assemble(VIEWER, patient(), off("echart_show_HIN"), Locale.CANADA);
 
             assertThat(header.hin()).isEmpty();
             assertThat(header.hinVersion()).isEmpty();
-            assertThat(header.hcType()).isEmpty();
         }
 
         @Test
@@ -190,7 +188,7 @@ class EchartHeaderViewModelAssemblerUnitTest {
     class Colours {
 
         @Test
-        @DisplayName("should use the viewer's provider colour with readable black text and blue links")
+        @DisplayName("should use the viewer's provider colour with readable black text and OSCAR 19's blue links")
         void shouldUseViewerColour_withReadableText() {
             when(userPropertyDao.getProviderPropertiesByNames(eq(VIEWER), any())).thenReturn(Map.of("ProviderColour", "#FFCC99"));
 
@@ -198,7 +196,7 @@ class EchartHeaderViewModelAssemblerUnitTest {
 
             assertThat(header.headerBackground()).isEqualTo("#FFCC99");
             assertThat(header.headerText()).isEqualTo("#000000");
-            assertThat(header.headerLink()).isEqualTo("#0000CC");
+            assertThat(header.headerLink()).isEqualTo("#0088CC");
         }
 
         @Test

@@ -53,6 +53,7 @@ class EchartDisplayJspContractUnitTest {
     private static final Path WEBAPP = Path.of("src", "main", "webapp");
     private static final Path PREFERENCES_JSP = WEBAPP.resolve("WEB-INF/jsp/provider/providerpreference.jsp");
     private static final Path HEADER_JSP = WEBAPP.resolve("WEB-INF/jsp/casemgmt/newEncounterHeader.jsp");
+    private static final Path LAYOUT_JSP = WEBAPP.resolve("WEB-INF/jsp/casemgmt/newEncounterLayout.jsp");
     private static final Path CHART_NOTES_JSP = WEBAPP.resolve("WEB-INF/jsp/casemgmt/ChartNotes.jsp");
     private static final Path CASE_VIEW_JSP = WEBAPP.resolve("WEB-INF/jsp/casemgmt/newCaseManagementView.jsp");
     private static final Path CASE_VIEW_JS_JSP = WEBAPP.resolve("js/newCaseManagementView.js.jsp");
@@ -175,6 +176,29 @@ class EchartDisplayJspContractUnitTest {
                 .contains("numDisplayed = displayFolders(dao, jscode, displayThreshold, reloadURL.toString(), request, out);")
                 .contains("aria-expanded=")
                 .contains("SafeEncode.forHtmlContent(name)");
+    }
+
+    @Test
+    @DisplayName("should title the chart window and label the bar as OSCAR 19 did")
+    void shouldMatchOscar19_inWindowTitleAndBarLabels() throws IOException {
+        String layout = source(LAYOUT_JSP);
+        String header = source(HEADER_JSP);
+
+        assertThat(layout)
+                .contains("<title><fmt:message key=\"encounter.Index.windowTitle\"/> - <oscar:nameage demographicNo=\"${demographicNo}\"/></title>");
+        assertThat(Pattern.compile("<title>").matcher(layout).results().count()).as("title elements").isEqualTo(1);
+        assertThat(header)
+                .contains("<fmt:message key=\"encounter.Index.msgMRP\"/>")
+                .contains("key=\"encounter.Header.nextAppt\"")
+                .contains("id=\"chartCalculatorsLink\"")
+                .doesNotContain("/encounter/ViewAbout")
+                .doesNotContain("/encounter/ViewLicense")
+                .doesNotContain("global.help");
+        for (String locale : LOCALES) {
+            assertThat(bundle(locale).getProperty("encounter.Index.windowTitle"))
+                    .as("encounter.Index.windowTitle in oscarResources_%s", locale)
+                    .isEqualTo("E");
+        }
     }
 
     private static String source(Path path) throws IOException {

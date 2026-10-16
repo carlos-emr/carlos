@@ -165,56 +165,58 @@ body.encounter-layout div#header {
     padding: 0;
 }
 
+/* OSCAR 19's eChart bar, at the sizes OSCAR 19's encounterStyles.css and casemgmt.css gave it:
+   the MRP in the table font (11pt, normal weight), the patient's details bold at 80% of that
+   (span.Header), "Next Appt" a bold 11px link, and links #0088CC without underline (white on a
+   dark provider colour; see EchartHeaderViewModelAssembler). */
 #header-top-row.echart-header-bar {
     display: flex;
     width: 100%;
-    justify-content: space-between;
+    box-sizing: border-box;
     align-items: center;
-    gap: 8px;
-    padding: 2px 4px;
-    font-size: 12px;
-    line-height: 1.5;
+    padding: 0 2px 0 2px;
+    font-size: 11pt;
+    line-height: normal;
+}
+
+/* The page-wide ":root * { font-size: 12px }" would pin every item to 12px; inside the bar each
+   element inherits instead, so OSCAR 19's 11pt / 80% / 11px sizes below cascade as they did. */
+#header-top-row.echart-header-bar * {
+    font-size: inherit;
 }
 
 #header-top-row.echart-header-bar #left-column {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    column-gap: 12px;
-    row-gap: 0;
     min-width: 0;
 }
 
-#header-top-row.echart-header-bar #right-column {
-    white-space: nowrap;
-    font-size: 10px;
-}
-
 #header-top-row.echart-header-bar a {
-    color: var(--echart-header-link, #0000CC);
-}
-
-#header-top-row.echart-header-bar .echart-header-item {
-    white-space: nowrap;
+    color: var(--echart-header-link, #0088CC);
+    text-decoration: none;
 }
 
 #header-top-row.echart-header-bar .echart-header-mrp {
     border-bottom: medium solid transparent;
+    margin-right: 0.6em;
+    white-space: nowrap;
 }
 
 #header-top-row.echart-header-bar .echart-header-mrp-name {
     text-transform: uppercase;
 }
 
-#header-top-row.echart-header-bar .echart-header-name {
+#header-top-row.echart-header-bar .echart-header-details {
+    font-size: 80%;
     font-weight: bold;
-    text-decoration: none;
+}
+
+#header-top-row.echart-header-bar .echart-header-item {
+    margin-right: 0.45em;
+    white-space: nowrap;
 }
 
 #header-top-row.echart-header-bar .echart-header-next-appt {
     font-size: 11px;
-    text-decoration: none;
-    margin-left: 8px;
+    margin-left: 20px;
 }
 
 #header-top-row.echart-header-bar button.copyable {
@@ -234,9 +236,13 @@ body.encounter-layout div#header {
     text-decoration: underline;
 }
 
+/* Captions take their item's weight and size (OSCAR 19's "HIN:" and "Next Appt:" are bold);
+   !important because a global .label rule would otherwise restyle them. */
 #header-top-row.echart-header-bar .label {
     margin: 0;
-    font-weight: normal !important;
+    padding: 0;
+    font-size: inherit !important;
+    font-weight: inherit !important;
     text-decoration: none;
     display: inline;
     color: inherit;
@@ -244,6 +250,11 @@ body.encounter-layout div#header {
 
 #header-top-row.echart-header-bar .label::after {
     content: ':\00a0';
+}
+
+/* OSCAR 19 wrote "MRP" without a colon. */
+#header-top-row.echart-header-bar .echart-header-mrp-label::after {
+    content: none;
 }
 
 .noteRounded {

@@ -35,7 +35,7 @@ import java.util.List;
  *
  * @param headerBackground the viewer's provider colour ({@code #RRGGBB}), the bar's background
  * @param headerText       black or white, whichever reads on {@code headerBackground}
- * @param headerLink       link colour that reads on {@code headerBackground}
+ * @param headerLink       link colour: OSCAR 19's {@code #0088CC}, or white on a dark provider colour
  * @param mrpName          the most responsible provider's name, {@code ""} when none is assigned
  * @param mrpUnderline     the MRP's provider colour ({@code #RRGGBB}), underlining the MRP name
  * @param patientName      "LAST, FIRST (alias)"
@@ -48,7 +48,6 @@ import java.util.List;
  * @param age              localized age, e.g. "45 years"
  * @param hin              health insurance number, {@code ""} when hidden or not on file
  * @param hinVersion       its version code, {@code ""} when none
- * @param hcType           issuing province, {@code ""} when none
  * @param phones           the phone numbers to show, in display order; may be empty
  * @param email            email address, {@code ""} when hidden or not on file
  * @param emailConsented   whether the patient consented to email for care (the address is then a mailto link)
@@ -70,7 +69,6 @@ public record EchartHeaderViewModel(
         String age,
         String hin,
         String hinVersion,
-        String hcType,
         List<Phone> phones,
         String email,
         boolean emailConsented,

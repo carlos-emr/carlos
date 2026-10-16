@@ -11,23 +11,34 @@ were clinic-wide (Administration > eChart > eChart Display Settings); in CARLOS 
 | File Documents in Folders by Document Type | Yes | The left-column Documents panel lists one collapsed folder per document type ("consult (2)", "lab (1)", ...) instead of a list by date. Documents without a type go in "Other". |
 | Display Date of Birth (yyyy-mm-dd) | Yes | The header bar shows the date of birth with the age as its tooltip; No shows the age with the date of birth as its tooltip. |
 | Display Cell Phone Number if Available | Yes | The header bar shows the cell number (home number in the tooltip); No, or no cell on file, shows the home number. A number the patient marked preferred (trailing `*`) is always shown instead. |
-| Display Health Insurance Number (HIN) | Yes | The HIN, version code and province in the header bar. |
+| Display Health Insurance Number (HIN) | Yes | The HIN and version code in the header bar. |
 | Display Patient Email Address if Available | Yes | The email address in the header bar; a mailto link when the patient consented to email for care. |
 | Display Family Doctor | Yes | A Family Doctor panel at the top of the left column: the patient's "Family Doctor" professional contact (Health Care Team), else the legacy family-doctor field. |
 | Display Referring Doctor | No | A Referring Doctor panel at the top of the left column: the master record's Referral Doctor, else a "Referring Doctor" professional contact. |
 | Display OCEAN UI | No | The Ocean toolbar placeholder. Ocean must also be enabled for the clinic: `cme_js=ocean` in `carlos.properties`, and Administration > eChart > eChart Display Settings left on. |
 
-## The header bar
+## The chart window title and the header bar
 
-One compact line in the viewer's provider colour (Preferences > Set Provider Colour; light blue
-when never chosen): MRP (underlined in the MRP's colour), the patient's name (opens the Master
-Record), sex, date of birth or age, HIN, phone, email, next appointment (opens the appointment
-history), the clinical calculators, configured chart links, and About | License on the right. Date
-of birth or age, HIN, phone and email are buttons that copy the value to the clipboard.
+As in OSCAR 19, the chart window's title bar names the patient: `E - LAST, FIRST SEX AGE`
+(for example `E - FAKE-Jacky, FAKE-Jones M 41 years`), so several open charts can be told apart in
+the taskbar.
+
+The header bar is OSCAR 19's single line in the viewer's provider colour (Preferences > Set Provider
+Colour; light blue when never chosen), styled as OSCAR 19 styled it: "MRP  DOCTOR NAME" in the larger
+plain font, underlined in the MRP's own colour, then the patient's details in smaller bold text: the
+name (a `#0088CC` link that opens the Master Record), sex, date of birth or age, HIN, phone, email,
+and "Next Appt: <date>" (blank when nothing is booked; opens the appointment history). CARLOS keeps
+its clinical calculators link and any configured chart links after them; there are no Help or About
+links. Date of birth or age, HIN, phone and email are buttons that copy the value to the clipboard.
 
 ## Screenshots
 
 Synthetic demo (`FAKE-`) patients only.
+
+OSCAR 19 (its own `newEncounterHeader.jsp` markup and stylesheets) and CARLOS, same patient, each
+under its window title:
+
+![OSCAR 19 and CARLOS compared](images/echart-display-preferences/11-oscar19-comparison.png)
 
 Header bar before (CARLOS's earlier two-row identity header) and after (OSCAR 19 format, default settings):
 
@@ -51,7 +62,9 @@ date):
   stored as `property` rows (`provider_no`, `name`, `"true"`/`"false"`); a provider with no row gets
   the default. Saved by `EchartDisplayPreferencePersister` from Save All
   (`ProviderPropertyAction`); read by `EchartDisplayPreferenceResolver`.
-- Header bar: `casemgmt/newEncounterHeader.jsp`, built from `EchartHeaderViewModelAssembler`.
+- Header bar: `casemgmt/newEncounterHeader.jsp`, built from `EchartHeaderViewModelAssembler`, styled in
+  `css/encounterStyles.css` (`#header-top-row.echart-header-bar`). Window title:
+  `casemgmt/newEncounterLayout.jsp` (`encounter.Index.windowTitle` + `oscar:nameage`).
 - Left-column panels: `encounter/displayFamilyDoctor`, `encounter/displayReferringDoctor`
   (`EctDisplayPatientDoctorAction`); Documents folders: `EctDisplayDocs2Action` +
   `LeftNavBarDisplay.jsp` (`displayFolders`).

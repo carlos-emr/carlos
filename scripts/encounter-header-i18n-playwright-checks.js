@@ -38,7 +38,7 @@
  * single-language check ever written: one language is always right.
  *
  * WHAT IT ASSERTS, per language:
- *   1. The identity labels of the OSCAR 19 style header bar (MRP, HIN, Next Appt.)
+ *   1. The identity labels of the OSCAR 19 style header bar (MRP, HIN, Next Appt)
  *      are in the browser's language. The bar's other items (sex, date of birth or
  *      age, phone, email) are unlabelled values, as in OSCAR 19, and which of them
  *      appear is the provider's eChart preference
@@ -93,11 +93,11 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
  * completely and the one the report came from.
  */
 const ENGLISH_LABELS = Object.freeze({
-  'patient-hin': 'HIN', 'patient-next-appointment': 'Next Appt.', 'patient-mrp': 'MRP',
+  'patient-hin': 'HIN', 'patient-next-appointment': 'Next Appt', 'patient-mrp': 'MRP',
 });
 const FRENCH_LABELS = Object.freeze({
   ...ENGLISH_LABELS,
-  'patient-next-appointment': 'Prochain rendez-vous',
+  'patient-next-appointment': 'Prochain rdv',
 });
 
 const LANGUAGES = [
@@ -106,7 +106,7 @@ const LANGUAGES = [
     acceptLanguage: 'en-CA,en;q=0.9',
     // language subtag the server must state it negotiated (html lang / #header-top-row lang)
     expectedLanguage: 'en',
-    // demographiceditdemographic.formMRP / patient.context.hin / global.nextAppointment
+    // encounter.Index.msgMRP / patient.context.hin / encounter.Header.nextAppt (OSCAR 19's keys)
     javaLabels: ENGLISH_LABELS,
     // encounter.Index.calculators  (JSP-rendered, same header)
     calculators: 'calculators',
