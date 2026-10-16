@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,8 @@ class BillingBcFormJspRegressionTest {
 
     private static final Path BILLING_BC_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingBC.jsp");
     private static final Path BILL_RECEIPT_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp");
+    private static final Path BILLING_VIEW_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingView.jsp");
+    private static final Path STRUTS_BILLING_XML = Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
@@ -135,5 +138,29 @@ class BillingBcFormJspRegressionTest {
         assertThat(page).containsSubsequence(
                 "<form action=\"${pageContext.request.contextPath}/billing/CA/BC/UpdateBilling\" method=\"post\">",
                 "<input type=\"hidden\" name=\"billingNo\" id=\"billingNo\" value=\"${carlos:forHtmlAttribute(billingViewBean.billingNo)}\"/>");
+    }
+
+    /**
+     * Issue #4673: the receipt shown after Update Invoice read the invoice the session held, which
+     * was the one viewed last in any window, not the one just updated. The update now redirects to
+     * the view of the invoice it updated, and both pages read only the invoice their own request
+     * loaded.
+     */
+    @Test
+    @DisplayName("should show the updated invoice's own receipt after Update Invoice")
+    void shouldRedirectToUpdatedInvoice_afterUpdateInvoice() throws IOException {
+        String xml = read(STRUTS_BILLING_XML);
+        Matcher mapping = Pattern.compile(
+                "<action name=\"billing/CA/BC/UpdateBilling\"[^>]*>(.*?)</action>", Pattern.DOTALL).matcher(xml);
+        assertThat(mapping.find()).isTrue();
+
+        assertThat(mapping.group(1).replaceAll("(?s)<!--.*?-->", "")).contains(
+                "<result name=\"success\" type=\"redirect\">"
+                        + "/billing/CA/BC/billingView?billing_no=${billingNo}&amp;receipt=yes</result>");
+        for (Path page : new Path[]{BILL_RECEIPT_JSP, BILLING_VIEW_JSP}) {
+            assertThat(read(page)).as(page.toString())
+                    .contains("(BillingViewBean) request.getAttribute(\"billingViewBean\")")
+                    .doesNotContain("findAttribute(\"billingViewBean\")");
+        }
     }
 }

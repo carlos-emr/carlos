@@ -78,7 +78,8 @@
     double totalRefunds = 0;
     String color = "", colorflag = "";
     BillingHistoryDAO dao = new BillingHistoryDAO();
-    BillingViewBean bean = (BillingViewBean) pageContext.findAttribute("billingViewBean");
+    // This request's invoice (BillingView2Action), never the one viewed last in any window (#4673).
+    BillingViewBean bean = (BillingViewBean) request.getAttribute("billingViewBean");
     request.setAttribute("paymentTypes", bean.getPaymentTypes());
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());

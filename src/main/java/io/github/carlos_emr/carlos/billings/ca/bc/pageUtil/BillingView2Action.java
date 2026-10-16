@@ -155,7 +155,10 @@ public final class BillingView2Action
         this.setMessageNotes(bean.getMessageNotes());
         this.setBillStatus(bean.getBillingType());
         this.setPaymentMethod(bean.getPaymentMethod());
-        request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // This window's invoice, for the page this request renders. In the session it was the
+        // invoice viewed last in any window, which the receipt shown after "Update Invoice" then
+        // displayed and printed in place of the one updated (issue #4673).
+        request.setAttribute("billingViewBean", bean);
         String receipt = request.getParameter("receipt");
         if (receipt != null && receipt.equals("yes")) {
 

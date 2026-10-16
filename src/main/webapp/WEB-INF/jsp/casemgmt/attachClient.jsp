@@ -70,7 +70,10 @@
 @import "${request.contextPath}/jsCalendar/skins/aqua/theme.css";
 </style -->
 <%
-    String noteId$ = (String) session.getAttribute("noteId");
+    // The note this popup attaches, handed over by the action from this popup's own request. It
+    // used to be read from the session, where another chart's attach popup could replace it, so
+    // this popup's results attached that chart's note (issue #4673).
+    String noteId$ = (String) request.getAttribute("noteId");
 %>
 
 <script>
@@ -119,6 +122,7 @@
 <form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
     <input type="hidden" name="method" value="attachSearch"/>
     <input type="hidden" name="method" value="attachSearch"/>
+    <input type="hidden" name="noteId" value="<carlos:encode value='<%= noteId$ %>' context="htmlAttribute"/>"/>
 
     <div id="projecthome" class="app">
         <div class="h4">
@@ -227,7 +231,7 @@
 
                 <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
                 <a
-                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${carlos:forUriComponent(client.demographicNo)}&demographicNo=${carlos:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<%=noteId$%>">${carlos:forHtml(client.demographicNo)}</a>
+                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${carlos:forUriComponent(client.demographicNo)}&demographicNo=${carlos:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<carlos:encode value='<%= noteId$ %>' context="uriComponent"/>">${carlos:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a

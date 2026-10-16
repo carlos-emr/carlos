@@ -141,8 +141,9 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockRequest.getAttribute("summary")).isSameAs(summary);
         assertThat(mockRequest.getAttribute("result")).isEqualTo(List.of());
-        // session state for the PDF action to read.
-        assertThat(mockRequest.getSession().getAttribute("summary")).isSameAs(summary);
+        // Nothing for another window's print or page to pick up (issue #4673); the print
+        // computes its own statement from the form.
+        assertThat(mockRequest.getSession().getAttribute("summary")).isNull();
     }
 
     @Test

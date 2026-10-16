@@ -95,10 +95,7 @@ class PatientEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnSuccessClearStaleSummaryAndEchoNames_forDefaultInput() {
-        // Pre-populate the session with a stale summary; the initial render
-        // should clear it so the JSP doesn't show a leftover invoice table.
-        mockRequest.getSession(true).setAttribute("summary", "stale");
+    void shouldReturnSuccessAndEchoNamesWithoutSummary_forDefaultInput() {
         mockRequest.setParameter("firstNameParam", "Jane");
         mockRequest.setParameter("lastNameParam", "Doe");
 
@@ -106,7 +103,8 @@ class PatientEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
                 new PatientEndYearStatement2Action(mockSecurityInfoManager);
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-        assertThat(mockRequest.getSession().getAttribute("summary")).isNull();
+        // The page reads only requestScope.summary, which this initial render leaves empty.
+        assertThat(mockRequest.getAttribute("summary")).isNull();
         assertThat(mockRequest.getAttribute("firstNameParamEcho")).isEqualTo("Jane");
         assertThat(mockRequest.getAttribute("lastNameParamEcho")).isEqualTo("Doe");
         assertThat(mockRequest.getAttribute("patientNameDisplay")).isEqualTo("Jane Doe");

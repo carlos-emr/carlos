@@ -22,11 +22,13 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.io.IOException;
+import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -36,11 +38,15 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * Streams the end-year-statement PDF for the {@code summary} previously
- * stashed by {@link SearchEndYearStatement2Action} on the session. If
- * nothing has been searched yet, sends HTTP 400. Rendering failures send HTTP
- * 500 before the response is committed. Always returns {@code NONE} after
- * handling the response so Struts cannot append a page to the PDF.
+ * Streams the end-year-statement PDF for the patient and date range the statement page's form
+ * posts (its "Print PDF" button submits the same fields as "Create Statement"). The statement is
+ * computed for this request, as the search computes it. If the form names no single patient or
+ * a malformed date, sends HTTP 400. Rendering failures send HTTP 500 before the response is
+ * committed. Always returns {@code NONE} after handling the response so Struts cannot append a
+ * page to the PDF.
+ *
+ * <p>It used to print the {@code summary} the last search had left in the session, i.e. the
+ * patient last searched in any window, under this form's dates (issue #4673).</p>
  *
  * <p>Split out of the legacy {@code PatientEndYearStatement2Action#handlePdf}
  * so the {@code endYearStatement/pdf} URL has a single responsibility.</p>
@@ -71,10 +77,20 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
 
         PatientEndYearStatements.echoNames(request);
 
-        PatientEndYearStatementSummary summary =
-                (PatientEndYearStatementSummary) request.getSession().getAttribute("summary");
-        if (summary == null) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, getText("error.billingReport.invalidPatientName"));
+        // This form's own patient and dates, never the statement another window searched last.
+        PatientEndYearStatementSummary summary;
+        try {
+            Date fromDate = PatientEndYearStatements.parseIso(getFromDateParam(), "from date");
+            Date toDate = PatientEndYearStatements.parseIso(getToDateParam(), "to date");
+            Demographic demographic = statementService.findUniquePatient(
+                    loggedInInfo, getDemographicNoParam(), getFirstNameParam(), getLastNameParam());
+            summary = statementService.aggregateInvoices(demographic, fromDate, toDate).summary();
+        } catch (PatientEndYearStatements.InvalidDateFilterException ex) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, ex.getMessage());
+            return NONE;
+        } catch (PatientEndYearStatementService.Failure ex) {
+            PatientEndYearStatements.logFailure(ex, getDemographicNoParam());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, getText(ex.reason().i18nKey()));
             return NONE;
         }
         try {
@@ -82,7 +98,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
                     response, PDF_FILENAME_BASE, summary,
                     getFromDateParam(), getToDateParam());
         } catch (PatientEndYearStatementService.Failure ex) {
-            PatientEndYearStatements.logFailure(ex, request.getParameter("demographicNoParam"));
+            PatientEndYearStatements.logFailure(ex, getDemographicNoParam());
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, getText(ex.reason().i18nKey()));
@@ -97,6 +113,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
     private String lastNameParam;
     private String fromDateParam;
     private String toDateParam;
+    private String demographicNoParam;
 
     public String getFirstNameParam() { return firstNameParam; }
     @StrutsParameter
@@ -113,4 +130,8 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
     public String getToDateParam() { return toDateParam; }
     @StrutsParameter
     public void setToDateParam(String toDateParam) { this.toDateParam = toDateParam; }
+
+    public String getDemographicNoParam() { return demographicNoParam; }
+    @StrutsParameter
+    public void setDemographicNoParam(String demographicNoParam) { this.demographicNoParam = demographicNoParam; }
 }

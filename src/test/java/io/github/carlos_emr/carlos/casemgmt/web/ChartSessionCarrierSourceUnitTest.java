@@ -47,9 +47,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * and the PMM client view copied into the session under generic names, and the appointment last
  * opened from the day sheet, which tied one patient's Health Tracker save and multisite tickler and
  * prescription defaults to another patient's visit, the Messenger's message, PDF list and
- * compose attachments, which a second Messenger window replaced or sent, and the BC bill being
- * built, which a second billing window replaced so the first billed the other patient. The scan covers all main
- * Java and JSP sources, with comments removed, so a reintroduction anywhere fails here.
+ * compose attachments, which a second Messenger window replaced or sent, the BC bill being
+ * built, which a second billing window replaced so the first billed the other patient, the BC
+ * invoice last viewed, which the receipt after "Update Invoice" showed in place of the one
+ * updated, the Ontario year-end statement's totals, which another window's search replaced
+ * before the PDF was printed, and the note a PMM client search attaches, which another window's
+ * search redirected. The scan covers all main Java and JSP sources, with comments removed, so a
+ * reintroduction anywhere fails here.
  *
  * @since 2026-10-16
  */
@@ -74,7 +78,8 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
     private static final String REPLACED_NAMES = "(casemgmt_DemoNo|readonly|lastSavedNoteString|restoring"
             + "|casemgmt_msgBeans|casemgmt_labsbeans|casemgmt_oscar_bean|demographicNo|demographicId|clientAge"
             + "|clientGender|demoInfo|patientWaitingList|allDiagnostics|cur_appointment_no|PDFAttachment"
-            + "|billingSessionBean|attachedDemographics|viewMessage[A-Za-z]*|CaseManagementViewAction_filter_\\w*)";
+            + "|billingSessionBean|attachedDemographics|viewMessage[A-Za-z]*|CaseManagementViewAction_filter_\\w*"
+            + "|billingViewBean|summary|noteId)";
     private static final List<Pattern> FORBIDDEN = List.of(
             Pattern.compile(SESSION_ACCESS + "casemgmt_DemoNo\""),
             Pattern.compile("sessionScope\\.readonly"),
@@ -102,6 +107,10 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             // the pages as a request attribute; findAttribute would fall back to the session.
             Pattern.compile(SESSION_ACCESS + "billingSessionBean\""),
             Pattern.compile("findAttribute\\(\\s*\"billingSessionBean\""),
+            // The BC invoice a view renders, the Ontario year-end statement's totals and the note
+            // a PMM client search attaches: each request names or recomputes its own.
+            Pattern.compile(SESSION_RECEIVER + "\\.(get|set|remove)Attribute\\(\\s*\"(billingViewBean|summary|noteId)\""),
+            Pattern.compile("findAttribute\\(\\s*\"billingViewBean\""),
             // The same names through EL's session scope, JSTL or a page-context session write.
             Pattern.compile("sessionScope\\." + REPLACED_NAMES + "\\b"),
             Pattern.compile("sessionScope\\[\\s*['\"]" + REPLACED_NAMES + "['\"]\\s*\\]"),
@@ -172,6 +181,16 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         }
         String action = read(ROOT.resolve("src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java"));
         assertThat(action).contains("request.setAttribute(\"readonly\"");
+    }
+
+    @Test
+    void shouldPromptOnlyForTheBookedPatientsWaitingList_onTheAppointmentAddedPage() {
+        // The waiting-list page leaves the list it last showed in the session as waitingListName.
+        // Read through bare EL, it offered to take a patient on no waiting list off that list.
+        String jsp = withoutComments(read(ROOT.resolve(
+                "src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp")), false);
+        assertThat(jsp).contains("${not empty requestScope.waitingListName}")
+                .doesNotContainPattern(Pattern.compile("\\$\\{[^}]*(?<![\\w.])waitingList(Name|Id|DemographicNo)\\b"));
     }
 
     @Test

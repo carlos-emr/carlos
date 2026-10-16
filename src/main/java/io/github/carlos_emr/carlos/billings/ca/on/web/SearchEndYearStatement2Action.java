@@ -97,7 +97,6 @@ public class SearchEndYearStatement2Action extends ActionSupport {
 
         request.setAttribute("summary", result.summary());
         request.setAttribute("result", result.invoices());
-        request.getSession().setAttribute("summary", result.summary()); // nosemgrep: tainted-session-from-http-request -- summary bean populated from DAO billing query results and utility-formatted totals
         return SUCCESS;
     }
 
