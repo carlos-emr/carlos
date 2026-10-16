@@ -1750,6 +1750,21 @@
       ]
     },
     {
+      "name": "lab-linked-tickler",
+      "script": "scripts/lab-linked-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSLABTICKLER) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the two ticklers saved from the lab's Tickler button carry the run marker. Cleanup deletes the ticklers with their ticklerdocs, comments and updates, then the lab rows, by id, and asserts them gone. No clinic-wide state is changed.",
+      "notes": "Regression for #4722: a lab with linked ticklers (one assigned to another provider, one to the test provider) opens again from the Inbox and lists both with their assignees; before the fix the lab display answered 500 (LazyInitializationException on Tickler.assignee)."
+    },
+    {
       "name": "rx-stash-patient-isolation",
       "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
       "tiers": [
