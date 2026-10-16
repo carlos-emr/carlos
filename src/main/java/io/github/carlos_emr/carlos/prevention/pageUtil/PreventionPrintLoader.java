@@ -60,7 +60,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * those types as the page itself lists them, through {@link PreventionPageData} (which makes the
  * {@code _demographic} read checks for the patient), so the printout cannot differ from the chart.
  * Names that are not configured prevention types, and types the patient has no record of, are
- * ignored rather than printed as empty sections.
+ * ignored rather than printed as empty sections. Comments are read only when the clinic's
+ * {@code prevention_show_comments} setting is on, the same setting that shows them inline on the
+ * page, so the printout carries exactly what goes on paper.
  *
  * @see PreventionPrintPdf
  * @see PreventionPrint2Action
@@ -81,7 +83,8 @@ public class PreventionPrintLoader {
      *        for Yes, Never and Previous
      * @param result the recorded result, or {@code null}
      * @param reason the reason recorded with the result, or {@code null}
-     * @param comments the comments, or {@code null}
+     * @param comments the comments, or {@code null} when there are none or the clinic's
+     *        {@code prevention_show_comments} setting is off
      * @param location the injection site, or {@code null}
      * @param manufacturer the manufacturer, or {@code null}
      * @param vaccineName the product or brand name, or {@code null}
@@ -130,13 +133,15 @@ public class PreventionPrintLoader {
     private final Function<String, Map<String, String>> extensionReader;
     private final UnaryOperator<String> providerNames;
     private final BooleanSupplier mrpModel;
+    private final BooleanSupplier showComments;
 
     /** Reads the live configuration, chart and provider records. */
     public PreventionPrintLoader() {
         this(() -> PreventionDisplayConfig.getInstance().getPreventions(), PreventionPageData::new,
                 PreventionData::getPreventionKeyValues,
                 ProviderData::getProviderName,
-                () -> CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes"));
+                () -> CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes"),
+                () -> CarlosProperties.getInstance().isPropertyActive("prevention_show_comments"));
     }
 
     /**
@@ -147,12 +152,14 @@ public class PreventionPrintLoader {
                           BiFunction<LoggedInInfo, String, PreventionPageData> pageDataFactory,
                           Function<String, Map<String, String>> extensionReader,
                           UnaryOperator<String> providerNames,
-                          BooleanSupplier mrpModel) {
+                          BooleanSupplier mrpModel,
+                          BooleanSupplier showComments) {
         this.preventionTypes = preventionTypes;
         this.pageDataFactory = pageDataFactory;
         this.extensionReader = extensionReader;
         this.providerNames = providerNames;
         this.mrpModel = mrpModel;
+        this.showComments = showComments;
     }
 
     /**
@@ -180,6 +187,7 @@ public class PreventionPrintLoader {
             throw new IllegalArgumentException("Patient not found");
         }
 
+        boolean withComments = showComments.getAsBoolean();
         Set<String> selected = selectedTypes == null ? Set.of() : new HashSet<>(Arrays.asList(selectedTypes));
         Set<String> printed = new HashSet<>();
         List<Section> immunizations = new ArrayList<>();
@@ -191,7 +199,8 @@ public class PreventionPrintLoader {
             // type prints once.
             boolean wanted = name != null && selected.contains(name) && !(screening && immunizationsOnly);
             if (wanted && printed.add(name)) {
-                List<Entry> entries = pageData.getPreventionData(name).stream().map(this::entry).toList();
+                List<Entry> entries = pageData.getPreventionData(name).stream()
+                        .map(row -> entry(row, withComments)).toList();
                 if (!entries.isEmpty()) {
                     (screening ? screenings : immunizations)
                             .add(new Section(name, screening, "history".equals(type.get("layout")), entries));
@@ -202,10 +211,10 @@ public class PreventionPrintLoader {
         return new Printout(patient, mrpName(patient), immunizationsOnly, immunizations);
     }
 
-    private Entry entry(Map<String, Object> row) {
+    private Entry entry(Map<String, Object> row, boolean withComments) {
         Map<String, String> ext = extensionReader.apply(text(row.get("id")));
         return new Entry(text(row.get("prevention_date_no_time")), text(row.get("age")), text(row.get("refused")),
-                ext.get("result"), ext.get("reason"), ext.get("comments"), ext.get("location"),
+                ext.get("result"), ext.get("reason"), withComments ? ext.get("comments") : null, ext.get("location"),
                 ext.get("manufacture"), ext.get("name"), ext.get("lot"), ext.get("dose"),
                 text(row.get("provider_name")));
     }

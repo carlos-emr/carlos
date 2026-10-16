@@ -596,7 +596,8 @@ finding is named in its evidence cell.
 Reported against `2026.08.0-alpha19` with no further detail: "Preventions section doesn't allow
 enable print to work and still has when adding vaccines". Reproduced on `release/2026.08` against
 Tomcat with the Ontario demo data, and through the shipped nginx/ModSecurity/CRS policy with
-`scripts/waf/check-clinical-policy.py`'s engine. Pinned by `prevention-print`.
+`scripts/waf/check-clinical-policy.py`'s engine. Pinned by `prevention-print`. Findings from 273
+on were raised as follow-ups on the same pull request.
 
 | # | Defect | Evidence | Status |
 |---|---|---|---|
@@ -604,6 +605,7 @@ Tomcat with the Ontario demo data, and through the shipped nginx/ModSecurity/CRS
 | 270 | **Enter in the Preventions page's vaccine box prints.** The "Pick vaccine brand/generic" (and CVC lot) box sat inside the Print form, so Enter with no suggestion highlighted submitted it: a `Prevention.pdf` download, a "check at least one prevention" alert, or on the packaged install the 403 page in place of the Preventions page | Live: typing `adac` and Enter posted `/prevention/printPrevention` and downloaded `Prevention.pdf`. **Fixed:** the form refuses implicit submission; Enter opens the highlighted suggestion, else the first one shown, else nothing | fixed |
 | 271 | **Print Immunizations Only with nothing ticked, or any failed print, saved the page's HTML as `Prevention.pdf`.** `printImmOnly()` skipped the selection check, and `PreventionPrint2Action` set the PDF `Content-Disposition` before generating, then answered its `error` result (the Preventions page) under it; the page's print-error banner also showed only when there were recommendations | Live: the download's first bytes were `<!DOCTYPE html`. **Fixed:** both buttons check the selection; the PDF is drawn into a buffer and checked for `%PDF-` before any header; failures answer the page with the banner (400 nothing printable, 500 drawing failed) | fixed |
 | 272 | **The printout could show the wrong prevention, "HIN: (ON) null null", and never its MRP line.** Boxes in "show/hide all other Preventions" were numbered by that list's position while the hidden fields used the configuration position; the header printed null health card parts; the MRP line came from the session `providerBean` (filled only by the day schedule; a NullPointerException without it) and overflowed the fixed 60pt header box | Source and `PreventionPrintPdfUnitTest`. **Fixed:** boxes carry the type name; blank HIN parts are left out; the MRP is the patient's own, by `mrp_model`, and the top margin grows by a line for it | fixed |
+| 273 | **`prevention_show_comments` did not hide comments on the printout, and printed them twice when on.** The PDF printed each record's comment under a "Comments:" label whatever the setting said, then again in its own block when the setting was on; the Preventions page itself honours it (inline when on, a footnote marker when off) | Live: with the shipped default (`false`) the page footnoted the Inf comment while the PDF printed it; a unit print with the setting on had the comment twice in the extracted text. **Fixed:** `PreventionPrintLoader` reads comments only when the setting is on and the PDF prints them once; `prevention-print` asserts the PDF matches the page in both settings (run with each) | fixed |
 
 ## How this list is meant to be used
 

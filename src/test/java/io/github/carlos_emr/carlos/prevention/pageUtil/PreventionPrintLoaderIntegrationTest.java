@@ -123,7 +123,7 @@ class PreventionPrintLoaderIntegrationTest extends CarlosTestBase {
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException(e);
             }
-        }, PreventionData::getPreventionKeyValues, providerNo -> "Integration MRP", () -> true);
+        }, PreventionData::getPreventionKeyValues, providerNo -> "Integration MRP", () -> true, () -> true);
     }
 
     @AfterEach
