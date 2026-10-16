@@ -23,6 +23,8 @@ class EmailLogContentUnitTest {
         return Stream.of(
                 Arguments.of("body", (Function<EmailLog, String>) EmailLog::getBody,
                         (BiConsumer<EmailLog, String>) EmailLog::setBody),
+                Arguments.of("footer", (Function<EmailLog, String>) EmailLog::getFooter,
+                        (BiConsumer<EmailLog, String>) EmailLog::setFooter),
                 Arguments.of("encryptedMessage", (Function<EmailLog, String>) EmailLog::getEncryptedMessage,
                         (BiConsumer<EmailLog, String>) EmailLog::setEncryptedMessage),
                 Arguments.of("internalComment", (Function<EmailLog, String>) EmailLog::getInternalComment,

@@ -18,6 +18,9 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import java.text.MessageFormat;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -54,7 +57,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -82,6 +88,8 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     @BeforeEach
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(SecurityInfoManager.class, securityInfoManager);
         emailManager = mock(EmailManager.class);
         registerMock(EmailManager.class, emailManager);
@@ -99,6 +107,137 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"accepted", "failed", "unconfirmed"})
+    void shouldUpdateSavedPersonalOnlyAfterAccepted_andNeverPromoteCombinedHistory(String outcome) {
+        var request = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        request.setParameter("message", "FAKE message");
+        request.setParameter("demographicId", "42");
+        request.setParameter("footerEmail", "<b>Chosen personal</b>");
+        request.setParameter("saveFooterAsMine", "true");
+        request.setParameter("personalFooterRevision", io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("101", ""));
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("101");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
+        prepareSubmission(request);
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        var log = new EmailLog();
+        log.setFooter("<div>Chosen personal</div><div>Historical Clinic</div>");
+        log.setStatus(outcome.equals("accepted") ? EmailStatus.SUCCESS : EmailStatus.PENDING);
+        when(emailManager.sendEmailWithResult(any(), any())).thenReturn(switch (outcome) {
+            case "accepted" -> EmailSendResult.accepted(log, true);
+            case "failed" -> EmailSendResult.failed(log, false);
+            default -> EmailSendResult.unconfirmed(log);
+        });
+        var action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        assertThat(action.sendDirectEmail()).isEqualTo(ActionSupport.SUCCESS);
+        if (outcome.equals("accepted")) {
+            org.mockito.Mockito.verify(personal).saveOwnFooter("101", "<b>Chosen personal</b>", request.getParameter("personalFooterRevision"));
+            assertThat(request.getAttribute("footerSavedAsMine")).isEqualTo(true);
+        } else {
+            verifyNoInteractions(personal);
+            assertThat(request.getAttribute("footerSaveAsMineNotDone")).isEqualTo(true);
+        }
+        assertThat(log.getFooter()).contains("Historical Clinic");
+    }
+
+    @Test
+    void shouldExposePersonalUpdateFailure_withoutSavedClaim() {
+        var request = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        request.setParameter("saveFooterAsMine", "true");
+        request.setParameter("personalFooterRevision", io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("101", ""));
+        request.setParameter("footerEmail", "Own");
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("FAKE persistence failure"))
+                .when(personal).saveOwnFooter("101", "Own", request.getParameter("personalFooterRevision"));
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("101");
+        when(securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        var action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        action.saveFooterAsMineIfAsked(user, true);
+        assertThat(request.getAttribute("footerSaveAsMineFailed")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSavedAsMine")).isNull();
+    }
+
+    @Test
+    void shouldClearPersonalDefaultAfterAccepted_withoutUsingClinicSnapshot() {
+        var request = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        request.setParameter("saveFooterAsMine", "true");
+        request.setParameter("personalFooterRevision", io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf("101", ""));
+        request.setParameter("footerEmail", "");
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("101");
+        when(securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        var action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        action.saveFooterAsMineIfAsked(user, true);
+        org.mockito.Mockito.verify(personal).saveOwnFooter("101", "", request.getParameter("personalFooterRevision"));
+        assertThat(request.getAttribute("footerSavedEmpty")).isEqualTo(true);
+    }
+
+    @Test
+    void shouldRefreshTrustedClinicAndKeepPersonal_whenStaleDraftRetries() {
+        var oldClinic = new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("Old Clinic", null);
+        var currentClinic = new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("Current Clinic", null);
+        var clinics = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        when(clinics.snapshot()).thenReturn(currentClinic);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class, clinics);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("message", "Message");
+        request.setParameter("footerEmail", "<b>Personal</b>");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("demographicId", "42");
+        request.setParameter("senderConfigId", "1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+        var context = io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext
+                .direct("42").withClinicFooter(oldClinic);
+        String originalToken = submissionStates.store(request.getSession(), "passphrase", "Deliver separately",
+                List.of(), context);
+        request.setParameter(io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM,
+                originalToken);
+        EmailLog refused = new EmailLog();
+        refused.setStatus(EmailStatus.FAILED);
+        refused.setErrorMessage("Clinic changed; review the refreshed preview");
+        EmailLog accepted = new EmailLog();
+        accepted.setStatus(EmailStatus.SUCCESS);
+        var attempts = new java.util.ArrayList<EmailData>();
+        when(emailManager.sendEmailWithResult(any(), any())).thenAnswer(call -> {
+            EmailData data = call.getArgument(1);
+            attempts.add(data);
+            return attempts.size() == 1 ? EmailSendResult.failed(refused, false) : EmailSendResult.accepted(accepted, true);
+        });
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        assertThat(action.sendDirectEmail()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("<b>Personal</b>");
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("Current Clinic");
+        String tokenName = io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
+        String retryToken = (String) request.getAttribute(tokenName);
+        assertThat(retryToken).isNotBlank().isNotEqualTo(originalToken);
+        request.setParameter(tokenName, retryToken);
+        assertThat(action.sendDirectEmail()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(attempts).hasSize(2);
+        assertThat(attempts.get(0).getClinicFooterSnapshot()).isEqualTo(oldClinic);
+        assertThat(attempts.get(1).getClinicFooterSnapshot()).isEqualTo(currentClinic);
+        assertThat(attempts.get(1).getFooter()).isEqualTo("<b>Personal</b>");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
     }
 
     @Test
@@ -349,6 +488,50 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the submitted footer, cleaned, on the retry form when delivery fails")
+    void shouldKeepFooter_whenRetryRendersAfterDeliveryFailure() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("personalFooterRevision", "b".repeat(64));
+        request.setParameter("footerEmail", "<b>Riverside Clinic</b><br>Not monitored for urgent issues.<script>x()</script>");
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        prepareSubmission(request);
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("personalFooterRevision")).isEqualTo("b".repeat(64));
+        assertThat(request.getAttribute("footerEmail"))
+                .isEqualTo("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should keep the submitted footer when the compose window has expired")
+    void shouldKeepFooter_whenComposeStateIsMissing() {
+        MockHttpServletRequest request = encryptedSendRequest();
+        request.setParameter("footerEmail", "Riverside Clinic");
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("Riverside Clinic");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
     @DisplayName("should retain the failed sender when refreshing sender accounts fails")
     void shouldRetainFailedSender_whenSenderAccountRefreshFails() {
         MockHttpServletRequest request = encryptedSendRequest();
@@ -452,6 +635,124 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a footer over the server-side size limit before sending")
+    void shouldRejectFooter_whenFooterExceedsSizeLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("footerEmail", "f".repeat(EmailData.FOOTER_MAX_LENGTH + 1));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = footerValidationAction(Locale.ENGLISH);
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("Footer must not exceed 2000 characters");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should reject a footer whose formatting is over its own limit, with a message that says so")
+    void shouldRejectFooter_whenFormattingExceedsHtmlLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        // 1,500 visible characters, well under 2,000, but 12,000 characters of HTML.
+        request.setParameter("footerEmail", "<b>x</b>".repeat(1_500));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = footerValidationAction(Locale.ENGLISH);
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("Footer must not exceed 10000 characters of formatting");
+        verifyNoInteractions(emailManager);
+    }
+
+    @ParameterizedTest(name = "{0} server footer errors")
+    @ValueSource(strings = {"en", "fr", "es", "pl", "pt-BR"})
+    @DisplayName("should return the localized limit error without sending")
+    void shouldLocalizeFooterErrors_whenServerRejectsSubmittedFooter(String language) throws Exception {
+        Locale locale = Locale.forLanguageTag(language);
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
+        List<String> footers = List.of("f".repeat(EmailData.FOOTER_MAX_LENGTH + 1),
+                "<b>x</b>".repeat(1_500), "x".repeat(40_001));
+        for (int i = 0;
+        i < footers.size();
+        i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+            request.setParameter("method", "sendDirectEmail");
+            request.setParameter("message", "Message");
+            request.setParameter("isEmailEncrypted", "false");
+            request.setParameter("footerEmail", footers.get(i));
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+            when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+            EmailSend2Action action = footerValidationAction(locale);
+            action.request = request;
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            action.response = response;
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            String key = i == 0 ? "email.compose.footer.errorTextLength"
+                    : "email.compose.footer.errorFormattingLength";
+            String limit = i == 0 ? "2000" : "10000";
+            String expected = new MessageFormat(bundle.getString(key), locale).format(new Object[]{limit});
+            assertThat(response.getContentAsString()).contains(expected).doesNotContain("{0}", key);
+            if (!"en".equals(language)) {
+                assertThat(response.getContentAsString()).doesNotContain("Footer must not exceed");
+            }
+        }
+        verifyNoInteractions(emailManager);
+    }
+
+    // Unit fixture for Struts' localized text provider: format real deployed bundle text,
+    // while leaving the action's request validation and HTTP response path intact.
+    private EmailSend2Action footerValidationAction(Locale locale) {
+        EmailSend2Action action = spy(new EmailSend2Action());
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
+        doAnswer(call -> new MessageFormat(bundle.getString(call.getArgument(0, String.class)), locale)
+                .format(((List<?>) call.getArgument(1)).toArray()))
+                .when(action).getText(anyString(), anyList());
+        return action;
+    }
+
+    @Test
+    @DisplayName("should count each line break once against the footer limit")
+    void shouldAcceptFooter_whenLimitReachedOnlyByLineBreaks() {
+        // 1,998 + one line break + 1 = exactly 2,000 characters of plain text.
+        String footer = "f".repeat(EmailData.FOOTER_MAX_LENGTH - 2) + "<br>" + "g";
+
+        EmailData sent = captureSentEmail("A non-clinical reminder.", "false", "false", footer);
+
+        assertThat(sent.getFooter()).isEqualTo(footer);
+    }
+
+    @Test
+    @DisplayName("should send the footer after the secure-message notice and outside the encrypted PDF")
+    void shouldSendFooterAfterNotice_whenEncryptionOn() {
+        EmailData sent = captureSentEmail(
+                "Confidential lab result for the patient.", "true", "true", "Riverside Clinic");
+
+        assertThat(sent.getBody()).isEqualTo("SECURE_NOTICE");
+        assertThat(sent.getFooter()).isEqualTo("Riverside Clinic");
+        assertThat(sent.getTransmittedBody()).isEqualTo("SECURE_NOTICE\n\nRiverside Clinic");
+        assertThat(sent.getEncryptedMessage())
+                .isEqualTo("Confidential lab result for the patient.")
+                .doesNotContain("Riverside Clinic");
+    }
+
+    @Test
     @DisplayName("should reject overlong consent override reasons before sending")
     void shouldRejectConsentOverrideReason_whenLongerThanAuditColumn() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
@@ -527,7 +828,16 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
      */
     private EmailData captureSentEmail(
             String message, String isEmailEncrypted, String isEmailAttachmentEncrypted) {
+        return captureSentEmail(message, isEmailEncrypted, isEmailAttachmentEncrypted, null);
+    }
+
+    /** As above, also submitting {@code footerEmail} unless it is null. */
+    private EmailData captureSentEmail(
+            String message, String isEmailEncrypted, String isEmailAttachmentEncrypted, String footer) {
         MockHttpServletRequest request = new MockHttpServletRequest();
+        if (footer != null) {
+            request.setParameter("footerEmail", footer);
+        }
         if (message != null) {
             request.setParameter("message", message);
         }
@@ -564,4 +874,26 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         return log.getStatus() == EmailLog.EmailStatus.SUCCESS
                 ? EmailSendResult.accepted(log, true) : EmailSendResult.failed(log, true);
     }
+    @Test
+    void shouldKeepAcceptedSendWhenSavedPersonalChanged_afterComposeWasOpened() {
+        var request = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        request.setParameter("saveFooterAsMine", "true");
+        request.setParameter("footerEmail", "Draft personal");
+        request.setParameter("personalFooterRevision", "a".repeat(64));
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.email.core.EmailFooterService.StaleFooterException())
+                .when(personal).saveOwnFooter("101", "Draft personal", "a".repeat(64));
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        var user = mock(LoggedInInfo.class);
+        when(user.getLoggedInProviderNo()).thenReturn("101");
+        when(securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        var action = new EmailSend2Action();
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        action.saveFooterAsMineIfAsked(user, true);
+        assertThat(request.getAttribute("footerSaveAsMineStale")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSavedAsMine")).isNull();
+        assertThat(request.getAttribute("footerSaveAsMineFailed")).isNull();
+    }
+
 }

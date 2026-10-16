@@ -1464,6 +1464,18 @@
                 <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
+                <%-- Only users who can send patient email (_email write) have an email footer to set. It
+                     opens the footer editor window here, which reads and saves the footer itself (Ben's demo
+                     of 15 Oct 2026); without the window's scripts it is a plain link to My Email Footer. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+                <a href="${pageContext.request.contextPath}/email/myEmailFooter" class="pref-link" target="_blank" rel="noopener noreferrer"
+                   id="myEmailFooterLink" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                   data-footer-editor-load="${carlos:forHtmlAttribute(ctx)}/email/myEmailFooter"
+                   data-footer-editor-remote-save="${carlos:forHtmlAttribute(ctx)}/email/saveMyEmailFooter"
+                   data-footer-editor-status="myEmailFooterSaved">
+                    <i class="fas fa-envelope-open-text"></i> <fmt:message key="provider.providerpreference.link.myEmailFooter"/>
+                </a>
+                </security:oscarSec>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>
@@ -1482,6 +1494,9 @@
                     <i class="fas fa-tasks"></i> <fmt:message key="provider.providerpreference.link.ticklerPrefs"/>
                 </a>
             </div>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+            <div class="alert alert-success d-none mt-2 mb-0 py-2" role="status" id="myEmailFooterSaved"></div>
+            </security:oscarSec>
         </div>
     </div>
 </div>
@@ -2010,6 +2025,14 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     };
 })();
 </script>
+<%-- The personal email footer window, for "Personal email footer" above (_email write only). Last on
+     the page: the fragment sets the message bundle for what follows it. --%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
+<c:set var="footerEditorPersonalOnly" value="${true}"/>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeMine"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.save"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
+</security:oscarSec>
 </body>
 
 </html>

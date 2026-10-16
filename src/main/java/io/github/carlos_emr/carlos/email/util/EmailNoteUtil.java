@@ -138,6 +138,9 @@ public class EmailNoteUtil {
     }
 
     private void addBody(EmailLog emailLog, StringBuilder noteBuilder) {
+        // The body only. The footer (EmailLog.getFooter()) is deliberately left out of the chart
+        // note: it is clinic boilerplate sent to the patient, not part of the clinical message
+        // (issue #3981). The outbound archive keeps the full sent copy, footer included.
         noteBuilder.append(emailLog.getBody().trim()).append("\n\n");
     }
 

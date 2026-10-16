@@ -64,6 +64,48 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
 
     UserProperty getProp(String name);
 
+    /** Clinic-only footer rows, oldest first; provider properties cannot override these. */
+    List<UserProperty> findClinicEmailFooter();
+
+    /**
+     * A clinic-wide setting: the row with this name and no provider (the oldest, should there be
+     * more than one). A user's own row with the same name is never returned.
+     *
+     * @param name the setting's name
+     * @return the row, or {@code null} when the clinic has none
+     */
+    UserProperty findClinicProperty(String name);
+
+    /**
+     * Fresh detached snapshots from a locking scalar read after the durable clinic mutex.
+     * Strict snapshot conflicts abort instead of returning an earlier transaction view.
+     */
+    List<UserProperty> findClinicEmailFooterForUpdate();
+
+    /** Update the already locked canonical clinic row through a current write, never a snapshot merge. */
+    void updateClinicEmailFooter(UserProperty current, String value);
+
+    /** Delete an already locked duplicate clinic row through a scoped current write. */
+    void deleteClinicEmailFooter(Integer id);
+
+    /** Serialize clinic footer saves, including the first save, on the existing clinic row. */
+    void lockClinicEmailFooterSettings();
+
+    /** Match a resolved row to this owner's personal footer using the database's name collation. */
+    boolean isPersonalEmailFooterRow(String providerNo, Integer propertyId);
+
+    /** Serialize personal footer saves on the existing provider row, including first creation. */
+    void lockPersonalEmailFooterOwner(String providerNo);
+
+    /** Fresh detached personal snapshots from a locking scalar read, oldest first. */
+    List<UserProperty> findPersonalEmailFooterForUpdate(String providerNo);
+
+    /** Persist only this owner's cleaned personal row, avoiding merge loads from an old RR view. */
+    void savePersonalEmailFooterRow(String providerNo, UserProperty property);
+
+    /** Current-row deletion for one locked personal property; owner and name are checked in SQL. */
+    void deletePersonalEmailFooterRow(String providerNo, Integer propertyId);
+
     List<UserProperty> getDemographicProperties(String providerNo);
 
     Map<String, String> getProviderPropertiesAsMap(String providerNo);

@@ -106,6 +106,7 @@ class EmailManagerPendingStatusUnitTest extends CarlosUnitTestBase {
                         EmailLog.EmailConsentStatus.OPT_IN, null, null));
         emailManager = new EmailManager(consentResolver,
                 new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "oscarLogDao", oscarLogDao);

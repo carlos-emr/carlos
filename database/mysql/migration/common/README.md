@@ -195,3 +195,10 @@ demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, s
 an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
 `scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
 already-patched rows, and can be rerun safely.
+
+## Email footers (V1.0.79–V1.0.80)
+
+- `V1.0.79__add_email_log_footer.sql` records the footer snapshot on each email log.
+- `V1.0.80__email_front_desk_default.sql` grants the front desk default email access while retaining explicit denials.
+
+These versions follow the current develop and release/2026.08 migration ranges.

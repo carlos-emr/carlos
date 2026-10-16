@@ -90,6 +90,11 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         // written. The test never ran in CI, so the missing registration went unnoticed.
         pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
 
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailManager.class, emailManager);
@@ -462,6 +467,50 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
 
         assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
         assertThat(request.getAttribute("isPendingEmailResend")).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep historical combined footers out of a new resend's personal field")
+    void shouldNotPromoteHistoricalFooter_whenCopyingEmailForResend() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog failed = pendingEmailLog();
+        failed.setStatus(EmailLog.EmailStatus.FAILED);
+        failed.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        var currentPersonal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(currentPersonal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenReturn("<i>Current personal</i>");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, currentPersonal);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("message")).isEqualTo("body");
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("<i>Current personal</i>");
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Mandatory Clinic");
+        assertThat(failed.getFooter()).isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should fill in an empty footer when copying an email logged before footers existed")
+    void shouldPrefillEmptyFooter_whenCopyingLegacyEmailWithoutFooter() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog legacy = pendingEmailLog();
+        legacy.setStatus(EmailLog.EmailStatus.FAILED);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(legacy);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("");
     }
 
     @Test

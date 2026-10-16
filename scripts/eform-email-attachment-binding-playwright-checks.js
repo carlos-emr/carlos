@@ -20,13 +20,15 @@
  * and from emailLog/emailAttachment/eform_data.
  *
  * Fixtures: the workflow's FAKE patient (X), a second FAKE patient (Y) named after the run marker,
- * an owned eForm template and an owned sender account pointing at the sink. Cleanup removes the
+ * an owned eForm template, an owned sender account pointing at the sink and, when none is saved, a
+ * FAKE clinic email footer (scripts/lib/clinic-email-footer-fixture.js). Cleanup removes the
  * owned email logs, attachments, chart notes, eForm instances, template, sender and patient Y, and
  * asserts each is gone. Run on a disposable install only, never beside another check: while it runs
  * the owned sender is offered clinic-wide (as for admin-email-config).
  */
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
+const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -102,6 +104,8 @@ async function workflow(s) {
   if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(s.config.baseUrl.hostname.toLowerCase())) {
     throw new h.SkipCheck('The SMTP sink binds the runner\'s loopback, which CARLOS can reach only when BASE_URL is loopback');
   }
+  // Send stays disabled until a clinic email footer is saved (#3981).
+  ensureClinicEmailFooter(s);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const lastNameY = `${marker}Y`;

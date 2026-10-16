@@ -5,6 +5,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
 import java.io.ByteArrayOutputStream;
 import io.github.carlos_emr.carlos.email.core.BoundedEmailOutputStream;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -70,6 +71,8 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
     private final String[] recipients;
     private final String subject;
     private final String body;
+    private String htmlBody;
+    private EmailInlineImage inlineImage;
     private final String additionalParams;
     private static final String DEFAULT_END_POINT = "https://api.sendgrid.com/v3/mail/send";
     private static final int MAX_PAYLOAD_BYTES = 50 * 1024 * 1024;
@@ -323,7 +326,28 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
         contentObj.put("type", "text/plain");
         contentObj.put("value", body);
         content.add(contentObj);
+        if (htmlBody != null) {
+            // SendGrid requires text/plain first; together they make a multipart/alternative email.
+            ObjectNode html = objectMapper.createObjectNode();
+            html.put("type", "text/html");
+            html.put("value", htmlBody);
+            content.add(html);
+        }
         emailJson.put("content", content);
+    }
+
+    /**
+     * Adds the formatted (HTML) version sent alongside the plain-text body (issue #3981), with the
+     * clinic logo, when given, attached inline for the HTML's {@code cid:} reference. Without it
+     * (null) the email is plain text only. Call before {@link #prepareArtifactBytes()}.
+     *
+     * @param htmlBody the HTML document, or null for plain text only
+     * @param inlineImage the clinic logo the HTML refers to, or null
+     * @since 2026-10-08
+     */
+    public void setFormattedVersion(String htmlBody, EmailInlineImage inlineImage) {
+        this.htmlBody = htmlBody;
+        this.inlineImage = htmlBody == null ? null : inlineImage;
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
@@ -367,6 +391,20 @@ public class APISendGridEmailSender implements OutboundEmailTransport {
             } catch (IOException | SecurityException e) {
                 throw new EmailSendingException("An email attachment could not be read.", e);
             }
+        }
+        if (inlineImage != null) {
+            // The clinic logo: shown in the HTML, not a document of the patient's, so it has no
+            // archive attachment record; the archived payload carries its bytes.
+            if (inlineImage.bytes().length > remainingBytes) {
+                throw new EmailSendingException("SendGrid attachments exceed the archive size limit.");
+            }
+            ObjectNode logo = objectMapper.createObjectNode();
+            logo.put("content", Base64.encodeBase64String(inlineImage.bytes()));
+            logo.put("filename", inlineImage.fileName());
+            logo.put("type", inlineImage.contentType());
+            logo.put("disposition", "inline");
+            logo.put("content_id", inlineImage.contentId());
+            jsonAttachments.add(logo);
         }
         emailJson.put("attachments", jsonAttachments);
         preparedAttachmentMetadata = List.copyOf(attachmentMetadata);

@@ -199,6 +199,15 @@ class MutatorActionGetRejectionContractUnitTest {
             // and persist EmailLog; cancel consumes session-scoped attachment state.
             Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
                     "_email", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.email.action.SaveMyEmailFooter2Action",
+                    "_email", "w"),
+            // Replaces or removes the clinic's email footer logo (issue #3981). The HTTP method is
+            // checked before authorization, so a GET rejects without any hasPrivilege call.
+            Arguments.of("io.github.carlos_emr.carlos.email.admin.SaveClinicEmailLogo2Action",
+                    "_admin", "w"),
+            // Replaces or removes the mandatory clinic email footer (issue #3981).
+            Arguments.of("io.github.carlos_emr.carlos.email.admin.SaveClinicEmailFooter2Action",
+                    "_admin", "w"),
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),
@@ -541,7 +550,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.documentManager.actions.AnnotateDocument2Action",
         // Returns word bounding boxes for snap-to-text highlighting. Read-only.
         "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
-        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action"
+        "io.github.carlos_emr.carlos.report.gate.ViewReport2Action",
+        // Serves the clinic's email footer logo picture (issue #3981): GET and HEAD only, read-only.
+        "io.github.carlos_emr.carlos.email.action.ClinicEmailLogo2Action"
     );
 
     /**
@@ -609,6 +620,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // email slice: only EmailSend2Action is registered (issue #3111); the broader email
         // production-readiness audit that surfaced it is tracked via PR #3096.
         "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+        // The clinic email footer and its logo (issue #3981): their save actions and the read-only picture.
+        "io.github.carlos_emr.carlos.email.admin.SaveClinicEmailLogo2Action",
+        "io.github.carlos_emr.carlos.email.admin.SaveClinicEmailFooter2Action",
+        "io.github.carlos_emr.carlos.email.action.ClinicEmailLogo2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",

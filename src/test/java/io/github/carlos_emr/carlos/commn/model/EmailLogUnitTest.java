@@ -59,6 +59,27 @@ class EmailLogUnitTest {
     }
 
     @Test
+    @DisplayName("should read an empty footer from a log written before footers existed")
+    void shouldReturnEmptyFooter_whenFooterNeverSet() {
+        EmailLog emailLog = new EmailLog(null, "clinic@example.com", new String[] {"a@example.com"},
+                "Subject", "Body", EmailLog.EmailStatus.SUCCESS);
+
+        assertThat(emailLog.getFooter()).isEmpty();
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+    }
+
+    @Test
+    @DisplayName("should keep the footer apart from the body")
+    void shouldStoreFooterApart_fromBody() {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setBody("Body");
+        emailLog.setFooter("Riverside Clinic");
+
+        assertThat(emailLog.getBody()).isEqualTo("Body");
+        assertThat(emailLog.getFooter()).isEqualTo("Riverside Clinic");
+    }
+
+    @Test
     @DisplayName("should return an empty array when recipients are explicitly set to an empty list")
     void shouldReturnEmptyArray_whenToEmailSetToEmptyArray() {
         EmailLog emailLog = new EmailLog();

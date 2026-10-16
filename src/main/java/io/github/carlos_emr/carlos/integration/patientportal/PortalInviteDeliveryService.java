@@ -256,6 +256,7 @@ public class PortalInviteDeliveryService {
         requireEmailChannel(request);
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
+        requireClinicFooter();
         requireConsent(user, email);
         withdrawStaleAttempts(user, patient, staff, request.withdrawStale());
         Optional<PatientPortalInviteDto> pending = pendingInvite(patient.getDemographicNo(), staff);
@@ -278,6 +279,7 @@ public class PortalInviteDeliveryService {
         requireEmailChannel(request);
         PortalInviteContact contact = PortalInviteContact.from(patient);
         EmailData email = emails.request(user, patient.getDemographicNo(), contact.email(), request);
+        requireClinicFooter();
         requireConsent(user, email);
         withdrawStaleAttempts(user, patient, staff, request.withdrawStale());
         boolean pending = portal.listInvites(patient.getDemographicNo(), staff).stream()
@@ -1146,6 +1148,15 @@ public class PortalInviteDeliveryService {
         return portal.listInvites(demographicNo, staff).stream()
                 .filter(invite -> STATUS_PENDING.equals(invite.status()))
                 .findFirst();
+    }
+
+    private void requireClinicFooter() {
+        // Checked before the portal prepares a code: the send itself would refuse later and leave
+        // staff only "could not be sent". The footer can still vanish in between; the send then
+        // refuses as before and the attempt ends blocked.
+        if (emailManager.clinicFooterMissing()) {
+            throw new PortalInviteException(Reason.CLINIC_FOOTER_MISSING);
+        }
     }
 
     private void requireConsent(LoggedInInfo user, EmailData email) {

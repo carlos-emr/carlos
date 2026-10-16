@@ -50,6 +50,7 @@ class EmailManagerPassphraseUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
 
         EmailManager emailManager = new EmailManager(mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "demographicManager", demographicManager);
@@ -98,6 +99,7 @@ class EmailManagerPassphraseUnitTest extends CarlosUnitTestBase {
     void shouldReportActiveStatus_whenSenderConfigIsChecked() {
         EmailConfigDaoImpl emailConfigDao = mock(EmailConfigDaoImpl.class);
         EmailManager emailManager = new EmailManager(mock(EmailConsentResolver.class), mock(EmailSenderFactory.class), mock(SecurityInfoManager.class), mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
 
         when(emailConfigDao.findActiveEmailConfigById(1)).thenReturn(new EmailConfig());

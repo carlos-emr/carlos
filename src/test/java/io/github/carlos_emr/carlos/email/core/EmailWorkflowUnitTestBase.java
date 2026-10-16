@@ -40,6 +40,11 @@ public abstract class EmailWorkflowUnitTestBase extends CarlosUnitTestBase {
         when(passwords.generatePassphrase()).thenReturn("velvet-orbit-123-cabin-river-456");
         registerMock(EmailPdfPasswordService.class, passwords);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
+        registerMock(ClinicEmailFooterService.class, ConfiguredClinicFooterFixture.service());
+        EmailFooterService personal = mock(EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(EmailFooterService.class, personal);
+
         // Develop's send path re-reads each attachment's owner (release #4425); these tests are
         // about other behaviour, so ownership always holds.
         AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);

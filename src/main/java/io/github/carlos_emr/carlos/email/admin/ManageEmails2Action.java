@@ -313,7 +313,7 @@ public class ManageEmails2Action extends ActionSupport {
      * portal password email goes to {@code /email/portalDelivery}, and a patient portal
      * invitation to the patient's {@code /demographic/portalManage} page.
      *
-     * Email data including encryption settings, chart display options, and additional
+     * Email data including the footer, encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
      * resend instead of reusing the original email's password values.
@@ -435,12 +435,14 @@ public class ManageEmails2Action extends ActionSupport {
             return resendComposeUnavailable(workingDirectory);
         }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot clinic;
         try {
+            clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
-                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)).withClinicFooter(clinic),
                     workingDirectory);
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
@@ -466,6 +468,15 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // A resend is a new email. Its historical combined footer remains audit-only;
+        // the new optional personal text is the current user's default; the clinic preview is current.
+        String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo());
+        request.setAttribute("footerEmail", personalDefault);
+        request.setAttribute("personalFooterRevision",
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf(
+                        loggedInInfo.getLoggedInProviderNo(), personalDefault));
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

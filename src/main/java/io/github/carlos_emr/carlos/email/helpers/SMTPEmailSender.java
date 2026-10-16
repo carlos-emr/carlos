@@ -6,7 +6,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import io.github.carlos_emr.carlos.email.core.BoundedEmailOutputStream;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -43,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailPreparationException;
@@ -107,6 +110,8 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     private String[] recipients = new String[0];
     private String subject;
     private String body;
+    private String htmlBody;
+    private EmailInlineImage inlineImage;
     private List<EmailAttachment> attachments;
     private MimeMessage preparedMessage;
     private List<PreparedAttachment> preparedAttachments = List.of();
@@ -177,6 +182,21 @@ public class SMTPEmailSender implements OutboundEmailTransport {
     }
 
     /**
+     * Adds the formatted (HTML) version sent alongside the plain-text body (issue #3981): an email
+     * with a footer goes out as multipart/alternative, with the clinic logo, when given, carried
+     * inline for the HTML's {@code cid:} reference. Without it (null) the email is plain text only.
+     * Call before {@link #prepareArtifactBytes()}.
+     *
+     * @param htmlBody the HTML document, or null for plain text only
+     * @param inlineImage the clinic logo the HTML refers to, or null
+     * @since 2026-10-08
+     */
+    public void setFormattedVersion(String htmlBody, EmailInlineImage inlineImage) {
+        this.htmlBody = htmlBody;
+        this.inlineImage = htmlBody == null ? null : inlineImage;
+    }
+
+    /**
      * Sends the configured email message via SMTP with TLS encryption.
      *
      * <p>Validates user privileges, creates a TLS-enabled mail sender, constructs
@@ -217,11 +237,23 @@ public class SMTPEmailSender implements OutboundEmailTransport {
         try {
             javaMailSender = createTLSMailSender(emailConfig);
             MimeMessage message = javaMailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            // UTF-8 for every text part: without it the HTML part is written in the platform's
+            // single-byte charset while labelled UTF-8, and accented text arrives garbled.
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(emailConfig.getSenderEmail(), emailConfig.getSenderFullName());
             helper.setTo(recipients);
             helper.setSubject(subject);
-            helper.setText(body, false);
+            if (htmlBody == null) {
+                helper.setText(body, false);
+            } else {
+                // multipart/alternative: mail apps show the formatted version, simple ones the text.
+                helper.setText(body, htmlBody);
+                if (inlineImage != null) {
+                    // After setText, into the related part the HTML refers to through cid:.
+                    helper.addInline(inlineImage.contentId(), inlineImage.fileName(),
+                            new ByteArrayResource(inlineImage.bytes()), inlineImage.contentType());
+                }
+            }
             List<PreparedAttachment> attachmentSnapshots = addAttachments(helper, attachments, attachmentSnapshotPaths);
             message.saveChanges();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

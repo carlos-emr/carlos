@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.email.helpers;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -238,6 +240,122 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(sender::sendPrepared)
                 .isInstanceOf(EmailSendingException.class)
                 .hasMessageContaining("SMTP message must be prepared before sending");
+    }
+
+    @Test
+    @DisplayName("should archive and send the same plain-text body with the footer below it")
+    void shouldArchiveAndSendFooter_inPlainTextBody() throws Exception {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Body text");
+        emailData.setFooter("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Footer test", emailData.getTransmittedBody(),
+                List.of(), mailSender);
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        String expected = "Body text\n\nRiverside Clinic\nNot monitored for urgent issues.";
+        assertThat(plainText(archivedMessageBytes)).isEqualTo(expected);
+        assertThat(plainText(mailSender.getSentMessageBytes())).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should send a footer email as text plus HTML, with the clinic logo carried inline")
+    void shouldSendAlternativeWithInlineLogo_whenFooterAndLogoSet() throws Exception {
+        EmailData emailData = new EmailData();
+        // Accented text in both parts: each must arrive as UTF-8, not garbled.
+        emailData.setBody("Body <text> \u00e9t\u00e9 \u2013 caf\u00e9");
+        emailData.setFooter("<b>Clinique Sainte-Th\u00e9r\u00e8se</b>");
+        byte[] logo = {(byte) 0x89, 'P', 'N', 'G', 1, 2, 3};
+        emailData.setFooterLogo(new EmailInlineImage("clinic-logo-0123456789abcdef@carlos-emr", "image/png", logo));
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Footer test", emailData.getTransmittedBody(),
+                List.of(), mailSender);
+        sender.setFormattedVersion(emailData.getTransmittedHtml(), emailData.getFooterLogo());
+
+        byte[] archivedMessageBytes = sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        for (byte[] bytes : List.of(archivedMessageBytes, mailSender.getSentMessageBytes())) {
+            MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(bytes));
+            assertThat(plainText(bytes)).isEqualTo("Body <text> \u00e9t\u00e9 \u2013 caf\u00e9\n\nClinique Sainte-Th\u00e9r\u00e8se");
+            Part alternative = findPart(message, part -> part.isMimeType("multipart/alternative"));
+            assertThat(alternative).as("multipart/alternative").isNotNull();
+            Part html = findPart(message, part -> part.isMimeType("text/html"));
+            assertThat(html.getContentType()).containsIgnoringCase("charset=UTF-8");
+            assertThat((String) html.getContent())
+                    .contains("Body &lt;text&gt; \u00e9t\u00e9 \u2013 caf\u00e9")
+                    .contains("<img src=\"cid:clinic-logo-0123456789abcdef@carlos-emr\"")
+                    .contains("<b>Clinique Sainte-Th\u00e9r\u00e8se</b>");
+            Part image = findPart(message, part -> part.isMimeType("image/png"));
+            assertThat(image.getHeader("Content-ID")).containsExactly("<clinic-logo-0123456789abcdef@carlos-emr>");
+            assertThat(image.getDisposition()).isEqualToIgnoringCase(Part.INLINE);
+            assertThat(image.getFileName()).isEqualTo("clinic-logo-0123456789abcdef.png");
+            assertThat(image.getInputStream().readAllBytes()).isEqualTo(logo);
+        }
+    }
+
+    @Test
+    @DisplayName("should send plain text only, without the logo, when there is no formatted version")
+    void shouldSendPlainTextOnly_whenNoFormattedVersion() throws Exception {
+        CapturingJavaMailSender mailSender = new CapturingJavaMailSender();
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "No footer", "Body text", List.of(), mailSender);
+        sender.setFormattedVersion(null, new EmailInlineImage("clinic-logo-1@carlos-emr", "image/png", new byte[] {1}));
+
+        sender.prepareArtifactBytes();
+        sender.sendPrepared();
+
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()),
+                new ByteArrayInputStream(mailSender.getSentMessageBytes()));
+        assertThat(plainText(mailSender.getSentMessageBytes())).isEqualTo("Body text");
+        assertThat(findPart(message, part -> part.isMimeType("text/html"))).isNull();
+        assertThat(findPart(message, part -> part.isMimeType("image/*"))).isNull();
+    }
+
+    private interface PartTest {
+        boolean matches(Part part) throws Exception;
+    }
+
+    private Part findPart(Part part, PartTest test) throws Exception {
+        if (test.matches(part)) {
+            return part;
+        }
+        if (part.getContent() instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                Part found = findPart(multipart.getBodyPart(i), test);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private String plainText(byte[] messageBytes) throws Exception {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(messageBytes));
+        String text = findPlainText(message);
+        assertThat(text).as("MIME message plain-text body").isNotNull();
+        return text.replace("\r\n", "\n");
+    }
+
+    private String findPlainText(Part part) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof String text && part.isMimeType("text/plain")) {
+            return text;
+        }
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String text = findPlainText(multipart.getBodyPart(i));
+                if (text != null) {
+                    return text;
+                }
+            }
+        }
+        return null;
     }
 
     private byte[] firstAttachmentBytes(byte[] messageBytes) throws Exception {
