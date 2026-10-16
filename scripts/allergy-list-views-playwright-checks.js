@@ -3,17 +3,19 @@
 // allergy-list-views: the allergy list's Active / All / Inactive views and Reactivate.
 // User path: E-Chart ▸ Allergies (rx/showAllergy) ▸
 //   1. the default Active view lists the active allergy only, with its Inactivate and Modify links;
-//   2. Inactive lists the inactive allergy only, marked Inactive with a Reactivate link;
+//   2. Inactive lists the inactive allergy only, marked Inactive, offering Reactivate and not Inactivate;
 //   3. All lists both;
-//   4. Reactivate on the inactive allergy opens the dialogue with its details, and Add Allergy makes it
-//      active again: one active copy with the same allergen and reaction, nothing refused.
-// Step 4 runs last: Reactivate posts the inactive allergy as allergyToArchive, which the stale-
-// amendment guard of #4410 (RxAddAllergy2Action) answers with 409 because that allergy is archived.
+//   4. the row's Reactivate makes the allergy active again: one active copy with the same allergen and
+//      reaction, the other allergy untouched, nothing refused, and the Active view lists it.
+// Step 4 runs last and follows whichever Reactivate the row offers: the activate link (rx/deleteAllergy2
+// action=activate) when the page renders it, otherwise the amendment dialogue. On develop the page
+// offers only the dialogue, which posts the inactive allergy as allergyToArchive, and the stale-
+// amendment guard of #4410 (RxAddAllergy2Action) answers 409 because that allergy is archived.
 // allergy-custom-lifecycle covers Inactivate; allergy-stale-amend-refused covers the 409 for a form
 // that went stale. Neither uses the views or Reactivate.
 // Fixtures: the owned FAKE- patient and two allergies seeded by SQL, one active and one inactive.
 // Cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.
-const { assert, sqlString } = require('./lib/playwright-harness');
+const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -62,9 +64,10 @@ async function workflow(s) {
     await row(inactive).waitFor({ state: 'visible' });
     assert(await row(active).count() === 0, 'The Inactive view lists the active allergy');
     assert(/^\s*Inactive\b/.test(await row(inactive).locator('td').first().innerText()), 'The inactive allergy is not marked Inactive');
-    assert(await row(inactive).locator('a.modifyAllergyLink', { hasText: 'Reactivate' }).count() === 1
-      && await row(inactive).locator('a.deleteAllergyLink').count() === 0,
-    'The inactive allergy does not offer Reactivate alone');
+    // By the links' words, not their classes: which control carries Reactivate is what finding 294 is about.
+    assert(await row(inactive).getByRole('link', { name: 'Reactivate', exact: true }).count() === 1
+      && await row(inactive).getByRole('link', { name: 'Inactivate', exact: true }).count() === 0,
+    'The inactive allergy does not offer Reactivate (and only Reactivate)');
   });
 
   await s.step('the All view lists both', async () => {
@@ -74,23 +77,42 @@ async function workflow(s) {
   });
 
   await s.step('Reactivate makes the inactive allergy active again', async () => {
-    await row(inactive).locator('a.modifyAllergyLink', { hasText: 'Reactivate' }).click();
-    const form = page.locator('#RxAddAllergyForm');
-    await form.waitFor({ state: 'visible' });
-    assert(await form.locator('#reactionDescription').inputValue() === inactiveReaction, 'Reactivate did not open the allergy\'s reaction');
-    const [response] = await Promise.all([
-      page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/addAllergy2')),
-      form.locator('input[type="submit"]').click(),
-    ]);
+    const reactivate = row(inactive).getByRole('link', { name: 'Reactivate', exact: true });
     const activeCopies = `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND archived=0
       AND DESCRIPTION=${sqlString(inactiveName)} AND reaction=${sqlString(inactiveReaction)}`;
-    if (response.status() !== 200 && response.status() !== 302) {
+    let response;
+    if ((await reactivate.getAttribute('id') || '').includes('action=activate')) {
+      // The activate link confirms, posts rx/deleteAllergy2 and reloads the list.
+      const dialogs = await withExpectedDialogs(page, async () => {
+        [response] = await Promise.all([
+          page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/deleteAllergy2')),
+          reactivate.click(),
+        ]);
+      }, { accept: true });
+      assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && /Reactivate/.test(dialogs[0].text), 'Reactivate did not ask for confirmation');
+    } else {
+      await reactivate.click();
+      const form = page.locator('#RxAddAllergyForm');
+      await form.waitFor({ state: 'visible' });
+      assert(await form.locator('#reactionDescription').inputValue() === inactiveReaction, 'Reactivate did not open the allergy\'s reaction');
+      [response] = await Promise.all([
+        page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/addAllergy2')),
+        form.locator('input[type="submit"]').click(),
+      ]);
+    }
+    if (response.status() >= 400) {
       const status = (await page.locator('[role="alert"]:visible').allInnerTexts().catch(() => [])).join(' | ').replace(/\s+/g, ' ').slice(0, 200);
       assert(false, `Reactivate was refused with HTTP ${response.status()} (${sql.value(activeCopies)} active copies; the page says ${JSON.stringify(status)})`);
     }
     await expectValue(sql, activeCopies, '1', 'Reactivate did not leave one active copy of the allergy');
-    assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND archived=0`) === '2',
-      'Reactivate changed the patient\'s other allergies');
+    assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND archived=0`) === '2'
+      && sql.value(`SELECT archived FROM allergies WHERE allergyid=${active}`) === '0',
+    'Reactivate changed the patient\'s other allergy');
+    await page.waitForLoadState('domcontentloaded');
+    await view('Active');
+    const reactivated = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0
+      AND DESCRIPTION=${sqlString(inactiveName)}`);
+    await row(reactivated).waitFor({ state: 'visible' });
   });
 }
 
