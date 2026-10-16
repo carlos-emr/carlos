@@ -70,6 +70,9 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreference" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
@@ -134,6 +137,9 @@
 
     // ── Bulk-load all UserProperty values into a map for efficient access ──
     Map<String, String> props = propertyDao.getProviderPropertiesAsMap(providerNo);
+
+    // eChart display settings (section "eChart"): stored value or the setting's default.
+    EchartDisplayPreferences echartPrefs = EchartDisplayPreferences.fromStoredValues(props);
 
     // Prescription preferences
     String rxPageSize = props.getOrDefault(UserProperty.RX_PAGE_SIZE, "");
@@ -358,6 +364,18 @@
             line-height: 1.4;
         }
         .pref-value { flex: 1; }
+
+        /* ─── Yes/No radio pairs (eChart section, OSCAR 19 layout) ─── */
+        .pref-yesno {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 18px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .pref-yesno input[type="radio"] { cursor: pointer; margin: 0; }
+        .echart-intro { margin: 0 0 6px 0; }
 
         /* ─── Form inputs (schedule page cream style) ─── */
         .pref-input {
@@ -1075,6 +1093,86 @@
         </div>
     </div>
 </div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 6b: ECHART
+     OSCAR 19's eChart Display Settings, made personal: what this provider's
+     eChart header, note panel and left navigation show. Yes/No radios post
+     "true"/"false" under each EchartDisplayPreference property name; the
+     defaults (everything on except Referring Doctor and Ocean) live in that enum.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<fmt:message key="global.yes" var="echartYesLabel"/>
+<fmt:message key="global.no" var="echartNoLabel"/>
+<%
+    String echartYes = (String) pageContext.getAttribute("echartYesLabel");
+    String echartNo = (String) pageContext.getAttribute("echartNoLabel");
+%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secEchart" aria-expanded="false" aria-controls="secEchart">
+            <i class="fas fa-notes-medical section-icon"></i> <fmt:message key="provider.providerpreference.section.echart"/>
+        </button>
+    </h2>
+    <div id="secEchart" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <p class="hint echart-intro"><fmt:message key="provider.providerpreference.echart.intro"/></p>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_timer-label"><fmt:message key="provider.providerpreference.echart.echart_show_timer"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_timer-label"><%= echartYesNo(EchartDisplayPreference.SHOW_TIMER, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_group_document_by_type-label"><fmt:message key="provider.providerpreference.echart.echart_show_group_document_by_type"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_group_document_by_type-label"><%= echartYesNo(EchartDisplayPreference.GROUP_DOCUMENTS_BY_TYPE, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_DOB-label"><fmt:message key="provider.providerpreference.echart.echart_show_DOB"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_DOB-label"><%= echartYesNo(EchartDisplayPreference.SHOW_DOB, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_cell-label"><fmt:message key="provider.providerpreference.echart.echart_show_cell"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_cell-label"><%= echartYesNo(EchartDisplayPreference.SHOW_CELL, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_HIN-label"><fmt:message key="provider.providerpreference.echart.echart_show_HIN"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_HIN-label"><%= echartYesNo(EchartDisplayPreference.SHOW_HIN, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_email_indicator-label"><fmt:message key="provider.providerpreference.echart.echart_email_indicator"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_email_indicator-label"><%= echartYesNo(EchartDisplayPreference.SHOW_EMAIL, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_fam_doc_widget-label"><fmt:message key="provider.providerpreference.echart.echart_show_fam_doc_widget"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_fam_doc_widget-label"><%= echartYesNo(EchartDisplayPreference.SHOW_FAMILY_DOCTOR, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_ref_doc_widget-label"><fmt:message key="provider.providerpreference.echart.echart_show_ref_doc_widget"/>:</div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_ref_doc_widget-label"><%= echartYesNo(EchartDisplayPreference.SHOW_REFERRING_DOCTOR, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label" id="echart_show_ocean-label"><fmt:message key="provider.providerpreference.echart.echart_show_ocean"/>:
+                    <span class="hint"><fmt:message key="provider.providerpreference.echart.oceanHint"/></span></div>
+                <div class="pref-value" role="radiogroup" aria-labelledby="echart_show_ocean-label"><%= echartYesNo(EchartDisplayPreference.SHOW_OCEAN, echartPrefs, echartYes, echartNo) %></div>
+            </div>
+        </div>
+    </div>
+</div>
+<%!
+    /**
+     * One Yes/No radio pair, OSCAR 19's eChart Display Settings markup (ids "<key>-true"/"<key>-false",
+     * values "true"/"false"). The labels are already-resolved bundle text and are encoded here.
+     */
+    String echartYesNo(EchartDisplayPreference preference, EchartDisplayPreferences current, String yes, String no) {
+        String name = preference.propertyName();
+        boolean on = current.isEnabled(preference);
+        return "<label class=\"pref-yesno\" for=\"" + name + "-true\"><input type=\"radio\" id=\"" + name
+                + "-true\" name=\"" + name + "\" value=\"true\"" + (on ? " checked" : "") + "> "
+                + SafeEncode.forHtmlContent(yes) + "</label>"
+                + "<label class=\"pref-yesno\" for=\"" + name + "-false\"><input type=\"radio\" id=\"" + name
+                + "-false\" name=\"" + name + "\" value=\"false\"" + (on ? "" : " checked") + "> "
+                + SafeEncode.forHtmlContent(no) + "</label>";
+    }
+%>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 7: LAB, PREVENTION & MESSAGING

@@ -30,6 +30,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -61,6 +62,20 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     List<UserProperty> getDemographicProperties(String providerNo);
 
     Map<String, String> getProviderPropertiesAsMap(String providerNo);
+
+    /**
+     * Reads only the named properties of one provider, in a single query.
+     *
+     * <p>For callers that render on every chart open and need a handful of settings, where
+     * {@link #getProviderPropertiesAsMap(String)} would load every row the provider owns.</p>
+     *
+     * @param providerNo the provider whose rows to read
+     * @param names      the {@code property.name} values wanted; {@code null} or empty reads nothing
+     * @return name to value for the rows that exist; a name with no row is absent from the map. If
+     *         duplicate rows exist for one name, the one with the lowest id wins
+     * @since 2026-10-16
+     */
+    Map<String, String> getProviderPropertiesByNames(String providerNo, Collection<String> names);
 
     void saveProperties(String providerNo, Map<String, String> props);
 
