@@ -112,6 +112,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
     private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
+    /** Request attribute set when a save is refused for an unreadable encounter date (closeWithError.jsp). */
+    static final String OBSERVATION_DATE_REJECTED = "observationDateRejected";
     private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
     @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
@@ -1524,6 +1526,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
+        // Read the encounter date before the session note is touched: an unreadable one refuses
+        // the whole save (#4711) and must leave the note the chart still shows unchanged.
+        Date dateObserve;
+        try {
+            dateObserve = NoteObservationDate.parse(this.getObservation_date(), LocaleUtils.resolveBundleLocale(request));
+        } catch (ParseException unreadable) {
+            rejectObservationDate();
+            return -1L;
+        }
+
         bindNoteAppointment(note);
         note.setNote(noteTxt);
 
@@ -1694,10 +1706,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         Date now = new Date();
 
-        String observationDate = this.getObservation_date();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
-        if (observationDate != null && !observationDate.equals("")) {
-            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH);
+        if (dateObserve != null) {
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -1925,8 +1935,23 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "view";
     }
 
+    /**
+     * Refuses a note save whose encounter date {@link NoteObservationDate} cannot read (#4711),
+     * with 400 instead of the unhandled {@code ParseException} that answered 500. The posted value
+     * is not logged: it is client-supplied text about a patient's visit.
+     */
+    private void rejectObservationDate() {
+        logger.warn("Note save refused: the posted encounter date could not be read");
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        request.setAttribute(OBSERVATION_DATE_REJECTED, Boolean.TRUE);
+    }
+
     /** Keep a rejected full-form draft available when the response replaces the editor page. */
     private String rejectedFullFormSave(String unsavedNoteText, String fallbackResult) {
+        if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))) {
+            request.setAttribute("unsavedNoteText", unsavedNoteText);
+            return "windowCloseError";
+        }
         if (response.getStatus() != HttpServletResponse.SC_CONFLICT) return fallbackResult;
         request.setAttribute("noteRevisionConflict", Boolean.TRUE);
         request.setAttribute("unsavedNoteText", unsavedNoteText);
@@ -1956,6 +1981,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
 
+        // Before the note is loaded, so a refusal changes nothing. The editor renders English
+        // months whatever the browser's language; reading them in the request locale (as this
+        // did) made every non-English switch save fail once that rendering was fixed (#4711).
+        Date dateObserve;
+        try {
+            dateObserve = NoteObservationDate.parse(request.getParameter("obsDate"), LocaleUtils.resolveBundleLocale(request));
+        } catch (ParseException unreadable) {
+            rejectObservationDate();
+            return null;
+        }
+
         Provider provider = loggedInInfo.getLoggedInProvider();
 
         CaseManagementNote note;
@@ -1980,10 +2016,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         bindNoteAppointment(note);
-        String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
-        if (observationDate != null && !observationDate.equals("")) {
-            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, request.getLocale());
+        if (dateObserve != null) {
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -2507,8 +2541,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
         if (sessionFrm != null) {
-            if (sessionFrm.getCaseNote() != null)
-                sessionFrm.getCaseNote().setObservation_date(UtilDateUtilities.StringToDate(this.getObservation_date(), "dd-MMM-yyyy H:mm"));
+            if (sessionFrm.getCaseNote() != null) {
+                // IssueSearch.jsp, the page that posts here, sends no date at all. Only a readable one
+                // replaces the note's: nulling it (as this used to) made the next save stamp "now".
+                try {
+                    Date posted = NoteObservationDate.parse(this.getObservation_date(), LocaleUtils.resolveBundleLocale(request));
+                    if (posted != null) sessionFrm.getCaseNote().setObservation_date(posted);
+                } catch (ParseException unreadable) {
+                    logger.debug("issueAdd kept the note's encounter date: the posted one could not be read");
+                }
+            }
             if (this.getCaseNote() != null && this.getCaseNote().getEncounter_type() != null)
                 sessionFrm.getCaseNote().setEncounter_type(this.getCaseNote().getEncounter_type());
             if (this.getMinuteOfEncounterTime() != null)

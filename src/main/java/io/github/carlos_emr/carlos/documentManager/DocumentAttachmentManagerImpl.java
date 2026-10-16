@@ -18,10 +18,12 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.openpdf.text.DocumentException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLabsNotIncluded;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -687,23 +690,59 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<EDoc> attachedEDocs = retainOwnedAttachments(DocumentType.DOC, ownerDemographicNo,
                 EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED), EDoc::getDocId);
         CommonLabResultData labResultData = new CommonLabResultData();
+        List<LabResultData> listedLabs = labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED);
         List<LabResultData> attachedLabs = retainOwnedAttachments(DocumentType.LAB, ownerDemographicNo,
-                AttachmentOwnershipService.renderableLabsOnly(labResultData.populateLabResultsData(loggedInInfo, demographicId, requestId, CommonLabResultData.ATTACHED)),
-                LabResultData::getSegmentID);
+                AttachmentOwnershipService.renderableLabsOnly(listedLabs), LabResultData::getSegmentID);
+        // Issue #4693: the labs the renderer cannot draw (CML, MDS, PathNet, unconfirmed source) are
+        // still attached. The packet names them on a page after the letter, and the caller's
+        // warning or confirmation page names them to the sender from this request attribute.
+        Locale readerLocale = LocaleUtils.resolveBundleLocale(request);
+        List<String> labsNotIncluded = ConsultationLabsNotIncluded.describe(
+                AttachmentOwnershipService.labsNotRenderable(listedLabs), readerLocale);
+        request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, labsNotIncluded);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
-        pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        try {
+            pdfDocumentList.add(consultationFormPDFPath.toString());
+            attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
+            attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
+            attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
+            attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
+            attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
+            attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        Path result = concatPDF(pdfDocumentList, demographicId);
-        cleanupRenderedTempInputs(pdfDocumentList, result);
-        return result;
+            Path result = concatPDF(pdfDocumentList, demographicId);
+            cleanupRenderedTempInputs(pdfDocumentList, result);
+            return result;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // A packet that fails part way leaves no rendered input behind, as the eForm packet does:
+            // the letter and the page naming the labs it leaves out both carry PHI.
+            cleanupRenderedTempInputs(pdfDocumentList, null);
+            throw e;
+        }
+    }
+
+    /**
+     * Adds the page that names the attached labs the packet cannot draw, when there are any. The
+     * receiver of a print or fax has no other way to learn that a lab was attached (issue #4693),
+     * so a page that cannot be made fails the packet rather than leaving them out silently.
+     */
+    private void attachLabsNotIncludedNotice(List<String> labsNotIncluded, Locale locale,
+                                             ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        if (labsNotIncluded.isEmpty()) {
+            return;
+        }
+        try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
+            notice.write(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, locale));
+            Path noticePath = nioFileManager.saveTempFile("consultationLabsNotIncluded" + new Date().getTime(), notice);
+            pdfDocumentList.add(noticePath.toString());
+        } catch (IOException | DocumentException e) {
+            throw new PDFGenerationException(
+                    "The page naming the attached labs the consultation PDF cannot include could not be created", e);
+        }
+        logger.info("Consultation PDF names {} attached lab(s) it cannot include", labsNotIncluded.size());
     }
 
     /**

@@ -109,16 +109,22 @@
 
             <%=WebUtils.popInfoMessagesAsHtml(session)%>
 
+            <%-- Issue #4693: the attached labs the print or fax could not include. --%>
+            <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/labsNotIncludedNotice.jspf" %>
+
             <% if ("true".equals(isPreview)) { %>
                 <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
             <% } %>
 
+            <%-- A page naming labs that were left out waits for the user instead of closing itself. --%>
             <% if (!"true".equals(isPreview)) { %>
+                <c:if test="${empty consultLabsNotIncluded}">
                 <p class="text-muted mb-3" style="font-size:0.85rem;">
                     <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
                     <br>
                     <span id="countdown" class="fw-semibold">5</span>s
                 </p>
+                </c:if>
             <% } %>
 
             <button type="button" id="closeButton" class="btn btn-sm btn-outline-secondary">
@@ -159,6 +165,10 @@
             const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF);
+                return;
+            }
+            // Issue #4693: the user has to read which attached labs the fax could not include.
+            if (document.getElementById('consultLabsNotIncluded')) {
                 return;
             }
 

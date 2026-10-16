@@ -335,6 +335,61 @@ class AttachmentOwnershipServiceUnitTest {
     }
 
     /**
+     * Issue #4693: a lab that {@link AttachmentOwnershipService#renderableLabsOnly} drops is still
+     * attached to the consultation, so the packet has to name it. This is the other half of that
+     * split, once per source-qualified lab.
+     */
+    @Nested
+    @DisplayName("labsNotRenderable")
+    class LabsNotRenderable {
+
+        private LabResultData lab(String type, String segmentId) {
+            LabResultData lab = mock(LabResultData.class);
+            when(lab.isHL7TEXT()).thenReturn(LabResultData.HL7TEXT.equals(type));
+            when(lab.getLabType()).thenReturn(type);
+            when(lab.getSegmentID()).thenReturn(segmentId);
+            return lab;
+        }
+
+        @Test
+        @DisplayName("should return the CML, MDS, BCP and unresolved entries the renderer cannot draw, in order")
+        void shouldReturnNonHl7Labs_whenListingMixesSources() {
+            LabResultData hl7 = lab("HL7", "10");
+            LabResultData mds = lab("MDS", "20");
+            LabResultData cml = lab("CML", "30");
+            LabResultData bcp = lab("BCP", "40");
+            LabResultData unresolved = lab("UNRESOLVED", "50");
+
+            assertThat(AttachmentOwnershipService.labsNotRenderable(Arrays.asList(hl7, mds, null, cml, bcp, unresolved)))
+                    .containsExactly(mds, cml, bcp, unresolved);
+        }
+
+        @Test
+        @DisplayName("should list a lab once when the listing repeats it, as with CML_LABS and Epsilon_LABS both on")
+        void shouldListLabOnce_whenListingRepeatsIt() {
+            LabResultData first = lab("CML", "30");
+            LabResultData repeat = lab("CML", "30");
+
+            assertThat(AttachmentOwnershipService.labsNotRenderable(List.of(first, repeat))).containsExactly(first);
+        }
+
+        @Test
+        @DisplayName("should keep two labs that share a number but not a source")
+        void shouldKeepBothLabs_whenNumbersCollideAcrossSources() {
+            LabResultData mds = lab("MDS", "20");
+            LabResultData cml = lab("CML", "20");
+
+            assertThat(AttachmentOwnershipService.labsNotRenderable(List.of(mds, cml))).containsExactly(mds, cml);
+        }
+
+        @Test
+        @DisplayName("should return an empty list for a null listing")
+        void shouldReturnEmptyList_forNullListing() {
+            assertThat(AttachmentOwnershipService.labsNotRenderable(null)).isEmpty();
+        }
+    }
+
+    /**
      * Pins how the lab properties map to {@code patient_lab_routing.lab_type} values, including
      * Epsilon: the consultation form lists CML routings for Epsilon_LABS, and Epsilon HL7 uploads
      * are routed as HL7, so no {@code Epsilon} lab type is ever queried.
