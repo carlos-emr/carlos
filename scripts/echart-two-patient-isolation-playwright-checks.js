@@ -35,6 +35,14 @@
  * opener navigates to B must leave B's editor and complete clinical rows unchanged. Invalid patient
  * parameters and cross-patient form IDs are rejected without exposing names or changing either
  * patient's rows. CPP signature hashes and VT forms are included in owned fixture cleanup.
+ *
+ * Issue #4673 adds the bean's other readers, each driven in both directions right after the other
+ * chart was entered: the chart print's MRP line (B's MRP is a second named doctor); the legacy
+ * encounter save, its Sign, Save and Exit of the chart's own appointment and its refusals; the
+ * legacy editor and history prints; the legacy immunization schedule; the legacy case-management
+ * navigation; and the notes list's edit rights once the other chart was entered from another
+ * provider's day sheet. One owned appointment per patient, its archive rows and the immunization
+ * schedules are in the snapshot and the cleanup; the provider's encounterWindow row is restored.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -570,13 +578,14 @@ async function run(s) {
    * could pass only because an earlier step had pointed the session at its own patient. A new
    * window rather than chartB.reload(): leaving a chart sends its note-lock release beacon, which
    * the browser reports as an aborted ping and the strict recorder counts as a failure.
+   * entryProvider is the entry's providerNo: the provider whose day sheet the chart is opened from.
    */
-  async function activateOther(chart) {
+  async function activateOther(chart, entryProvider = provider) {
     const patient = new URL(chart.url()).searchParams.get('demographicNo');
     h.assert(patient === String(A) || patient === String(B), 'The chart to select belongs to neither owned patient');
     const fresh = await context.newPage();
     await h.gotoApp(fresh, s.config.baseUrl,
-      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(provider)}`);
+      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patient)}&providerNo=${encodeURIComponent(entryProvider)}`);
     await waitForNavbars(fresh, TIMEOUT);
     h.assert(new URL(fresh.url()).searchParams.get('demographicNo') === patient,
       'Entering the other chart opened a different patient');
@@ -1270,6 +1279,42 @@ async function run(s) {
       h.assert(anonymous.status === 200 && !/[?&;](?:demographic_no|demographicNo|de|functionid|demoview|demo)=\d/.test(anonymous.body),
         'The legacy navigation without a patient linked to one');
       assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy navigation`);
+    });
+  }
+
+  // The notes list (ChartNotesAjax.jsp) compares each unsigned note's author with its chart entry's
+  // provider. It used to take that provider from the bean, so once the other chart was entered from
+  // another provider's day sheet, this chart's list treated the logged-in author's own unsigned
+  // notes as another provider's: Edit first asked to confirm editing a note "not been signed by the
+  // owner".
+  for (const d of directions) {
+    await s.step(`${d.label}'s notes list keeps the logged-in provider's unsigned notes editable after the other chart was entered from another provider's day sheet`, async () => {
+      const own = sql.rows(`SELECT note_id FROM casemgmt_note n WHERE demographic_no=${d.patient}
+        AND provider_no=${q(provider)} AND signed=0
+        AND note_id=(SELECT MAX(note_id) FROM casemgmt_note WHERE uuid=n.uuid) ORDER BY note_id`).map(row => row[0]);
+      h.assert(own.length > 0, `${d.label} has no unsigned note by the logged-in provider`);
+      await activateOther(d.otherChart, mrpB);
+      const before = snapshot(d.other);
+      const token = await csrfTokenPresent(d.chart);
+      // The chart's own notes loader (newCaseManagementView.js.jsp notesLoader) sends this request.
+      const response = await context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementView'), {
+        form: {method: 'viewNotesOpt', offset: '0', numToReturn: '50', demographicNo: d.patient, 'CSRF-TOKEN': token},
+        headers: {'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest'},
+        maxRedirects: 0, failOnStatusCode: false,
+      });
+      let body;
+      try {
+        h.assert(response.status() === 200, `${d.label}'s notes list answered HTTP ${response.status()}`);
+        body = await response.text();
+      } finally { await response.dispose(); }
+      const warnings = own.map(id => (body.match(new RegExp(`id="editWarn${id}" value="(true|false)"`)) || [])[1])
+        .filter(Boolean);
+      h.assert(warnings.length > 0, `${d.label}'s notes list does not show its own unsigned notes`);
+      h.assert(warnings.every(value => value === 'false'),
+        `${d.label}'s notes list treats the logged-in provider's own unsigned notes as another provider's`);
+      assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s notes list`);
+      // Later steps expect the other chart's entry to be the logged-in provider's again.
+      await activateOther(d.otherChart);
     });
   }
 

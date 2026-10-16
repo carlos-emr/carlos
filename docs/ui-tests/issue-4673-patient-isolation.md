@@ -32,7 +32,8 @@ rules are enforced there, not in the page:
   `_demographic` write for that patient and access to the record;
 - the revision the editor shows (`eChartId`, rendered by `Index2.jsp`): another patient's revision
   or a malformed one is 400; a revision that is no longer the patient's newest, or an editor without
-  the field, is 409 with the refused text on the concurrency page (412 for the AJAX form);
+  the field, is 409 with the refused text on the concurrency page (412 when the request says
+  `submitMethod=ajax`, which no current page sends);
 - the appointment (`appointment_no`): another patient's appointment is 409; a deleted appointment is
   treated as none; Sign/Verify derive the new status from the appointment's current status and
   archive the old values only after the revision is written;
@@ -59,12 +60,16 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
   `dpkg-buildpackage` in an Ubuntu 26.04 / JDK 25 builder and installed into a fresh Ubuntu 26.04
   container (MariaDB 11.8, Ontario demonstration data) with `scripts/deb-docker-validation.sh`; the
   browser checks ran through the packaged front door.
-- **`echart-two-patient-isolation`** passes all 38 steps (the 24 existing and 14 new). With the other
+- **`echart-two-patient-isolation`** passes all 40 steps (the 24 existing and 16 new). With the other
   chart entered last, in each direction: the chart print's MRP line; the legacy save, its Sign, Save
   and Exit of the chart's own appointment (archived, then signed `tS`), and its refusals (stale,
   missing or foreign revision, another patient's appointment, malformed values, missing or
   conflicting patients, GET) with both patients' rows unchanged; the editor and history prints; the
-  immunization schedule's template add and set delete; the legacy navigation's links.
+  immunization schedule's template add and set delete; the legacy navigation's links; and the notes
+  list, which must keep the logged-in provider's own unsigned notes editable after the other chart
+  was entered from another provider's day sheet. The notes list compares each unsigned note's
+  author with the chart entry's provider, which it used to take from the bean.
+  The notes service has no browser step (see 1 below).
 - **`legacy-encounter-editor-isolation`** drives the editor itself, opened from the day sheet in two
   windows, with `caisi=on`: both Saves, Print, the stale editor's 409 concurrency page and Sign &
   Save (which closes the window and refreshes the day sheet) pass all 6 steps. With `caisi=off` it
@@ -73,7 +78,8 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
   each new group of steps fails on the crossover it pins: A's print names B's MRP; the legacy save
   reopens the other patient's chart; the signed save's closing page does not refresh the schedule;
   a stale revision is accepted (302); A's editor print is not A's chart alone; the immunization
-  template is not added to A's schedule; the navigation renders no links. The editor check, with
+  template is not added to A's schedule; the navigation renders no links; A's notes list treats the
+  logged-in provider's own unsigned notes as another provider's. The editor check, with
   only the previous form action corrected, fails at the first Save: "A's legacy Save: the other
   patient's echart rows changed". Unmodified, every previous editor Save is a 404. Each run's
   cleanup asserted every owned row removed.
