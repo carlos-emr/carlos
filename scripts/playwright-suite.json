@@ -1117,6 +1117,24 @@
       "fixtures": "Creates, edits and deletes one uniquely named library eForm ('Playwright Admin CRUD <timestamp>'); the delete only sets eform.status to 0, so an inactive row remains (a failing run leaves it active). The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "eform-saved-value-prefill",
+      "script": "scripts/eform-saved-value-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1) and saved copies of them seeded by SQL (eform_data + eform_values), one deleted and one under an unused demographic number. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails at its last step on develop: attributes with a $ in their name (eform$name, var$value) are never read (EFormUtil.getAttributeMatcher), so fields meant to read another eForm silently show the current eForm's own value and count (pending finding 296). Every earlier step passes."
+    },
+    {
       "name": "eform-admin-schedule-navigation",
       "script": "scripts/eform-admin-schedule-navigation-playwright-checks.js",
       "tiers": [
