@@ -540,6 +540,23 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("callbacks are checked against the saved webhook secret, which must decrypt")
+    void shouldReadWebhookSecret_whenSaved() throws Exception {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        assertThat(service().webhookSecret()).isEmpty();
+
+        SmsConfig stored = new SmsConfig();
+        stored.setWebhookSecret("webhook-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+        assertThat(service().webhookSecret()).contains("webhook-value");
+
+        EncryptionKeyTestSupport.seedFreshKey();
+        assertThatThrownBy(() -> service().webhookSecret())
+                .isInstanceOf(SmsProviderNotReadyException.class)
+                .hasMessageNotContaining("webhook-value");
+    }
+
+    @Test
     @DisplayName("a provider is not ready while a required credential is missing, as when nothing is saved")
     void shouldNotBeReady_whenRequiredCredentialIsMissing() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());

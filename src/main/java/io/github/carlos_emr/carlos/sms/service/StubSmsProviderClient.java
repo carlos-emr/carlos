@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,18 +39,18 @@ public class StubSmsProviderClient implements SmsProviderClient {
     }
 
     @Override
-    public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
+    public boolean validateCallback(SmsWebhookRequest request, String webhookSecret, SmsProviderSettings settings) {
         // Fail closed: with no configured secret a callback cannot be authenticated, so it must be
         // rejected rather than trusted. Recording inbound/delivery callbacks persists rows, so an
         // unauthenticated callback would otherwise let an unauthenticated caller inject SMS records.
-        if (secret == null || secret.isBlank()) {
+        // Not called while the stub declares no callbacks. Kept so the endpoint work (#3837) can have the stub
+        // declare them for end-to-end tests without a real provider.
+        if (webhookSecret == null || webhookSecret.isBlank() || request == null) {
             return false;
         }
-        if (payload == null || headers == null) {
-            return false;
-        }
-        String provided = headers.get("X-Carlos-Sms-Stub-Secret");
-        return provided != null && constantTimeEquals(secret, provided);
+        return request.header("X-Carlos-Sms-Stub-Secret")
+                .map(provided -> constantTimeEquals(webhookSecret, provided))
+                .orElse(false);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {
@@ -62,13 +61,13 @@ public class StubSmsProviderClient implements SmsProviderClient {
     }
 
     @Override
-    public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
+    public Optional<SmsInboundWebhookDto> parseInboundWebhook(SmsWebhookRequest request) {
         // The outbound-only stub has no callback payload format to parse.
         return Optional.empty();
     }
 
     @Override
-    public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
+    public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(SmsWebhookRequest request) {
         // The outbound-only stub has no callback payload format to parse.
         return Optional.empty();
     }

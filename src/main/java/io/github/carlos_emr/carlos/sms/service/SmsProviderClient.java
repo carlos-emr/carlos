@@ -8,9 +8,9 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * One SMS provider, such as VoIP.ms. Everything that differs between providers lives behind this interface: how a
@@ -33,8 +33,12 @@ public interface SmsProviderClient {
      * validation failures should return a failed
      * {@link SmsProviderSendResultDto}. Throwing a runtime exception should be reserved for unexpected
      * adapter defects or infrastructure failures the adapter cannot safely classify. A timeout or
-     * otherwise ambiguous outcome must return {@link SmsProviderSendResultDto#uncertain(String)};
-     * it must never be classified as a definite failure eligible for blind retry.
+     * otherwise ambiguous outcome must return {@link SmsProviderSendResultDto#uncertain(String)}, with a fixed code
+     * of the client's own (capitals, digits and underscores, never built from the provider's answer); it must
+     * never be classified as a definite failure eligible for blind retry. An uncertain answer also ends that queue
+     * run's sending, so it is for real doubt, not for a routine answer. A definite failure carries one
+     * of the fixed CARLOS codes ({@code SmsProviderSendResultDto.failed(SmsProviderErrorCode)}); any other code is
+     * recorded as {@code REJECTED_OTHER}, and the provider's own wording is never recorded.
      * <p>
      * The recipient is always in E.164 form ({@code +14165550123}); a provider that wants another form converts
      * it. A provider whose settings lack something it needs (a login, the sender number) must return a failed
@@ -69,24 +73,48 @@ public interface SmsProviderClient {
             throw new IllegalArgumentException("clientReferenceId or providerMessageId is required");
         }
         return SmsProviderMessageStatusDto.unavailable(
-                "PROVIDER_STATUS_LOOKUP_UNSUPPORTED",
-                "SMS provider message status lookup is not implemented."
+                SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_CODE,
+                SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_MESSAGE
         );
     }
 
     /**
-     * Authenticate an inbound SMS-provider callback before it is recorded.
+     * Authenticate an SMS-provider callback before it is read or recorded. It is called only for the clinic's
+     * active provider and a kind it declares in {@link #acceptedCallbacks()}.
      * <p>
-     * Implementations MUST fail closed: if no secret/signing material is configured, or the payload or
-     * headers are missing, return {@code false} rather than trusting the callback. Recording callbacks
+     * Implementations MUST fail closed: if no secret/signing material is configured, or what the check needs is
+     * missing from the request, return {@code false} rather than trusting the callback. Recording callbacks
      * persists rows, so a permissive default would let an unauthenticated caller inject SMS records.
      * Secret/signature comparisons should be constant-time (e.g. {@link java.security.MessageDigest#isEqual}).
+     *
+     * @param request       the callback as it reached CARLOS
+     * @param webhookSecret the clinic's webhook secret from Administration &gt; SMS, or {@code null} when none is
+     *                      saved; a provider that sends no signature (VoIP.ms) checks it as a token in the address
+     * @param settings      this provider's settings, for a provider that signs callbacks with its own credentials
      */
-    boolean validateCallback(String payload, Map<String, String> headers, String secret);
+    boolean validateCallback(SmsWebhookRequest request, String webhookSecret, SmsProviderSettings settings);
 
-    Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers);
+    /**
+     * Read an authenticated callback about a text a patient sent. Empty when the request is not one. Its metadata
+     * may hold only identifiers and status values.
+     */
+    Optional<SmsInboundWebhookDto> parseInboundWebhook(SmsWebhookRequest request);
 
-    Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers);
+    /**
+     * Read an authenticated delivery report. Empty when the request is not one. Its metadata may hold only
+     * identifiers and status values, never message text or phone numbers. A failure report should carry a
+     * {@link io.github.carlos_emr.carlos.sms.SmsProviderErrorCode}; any other code is recorded as
+     * {@code REJECTED_OTHER}, and the provider's own wording is never recorded.
+     */
+    Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(SmsWebhookRequest request);
+
+    /**
+     * The callbacks this provider sends. Defaults to none, as for the stub provider; a provider that reports
+     * delivery only through {@link #lookupMessageStatus} (VoIP.ms) declares {@link SmsCallbackKind#INBOUND} only.
+     */
+    default Set<SmsCallbackKind> acceptedCallbacks() {
+        return Set.of();
+    }
 
     /**
      * The login fields this provider needs (for example an API user and password), in the order
