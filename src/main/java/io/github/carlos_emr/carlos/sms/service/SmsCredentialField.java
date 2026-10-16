@@ -35,15 +35,34 @@ import java.util.regex.Pattern;
  */
 public record SmsCredentialField(String name, String labelKey, boolean required) {
     private static final Pattern NAME = Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,63}");
-    private static final Pattern MESSAGE_KEY = Pattern.compile("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+");
+    private static final Pattern FIRST_KEY_PART = Pattern.compile("[A-Za-z][A-Za-z0-9_]*");
+    private static final Pattern KEY_PART = Pattern.compile("[A-Za-z0-9_]+");
 
     public SmsCredentialField {
         if (name == null || !NAME.matcher(name).matches()) {
             throw new IllegalArgumentException("SMS credential field name must be a letter followed by letters, "
                     + "digits or underscores, at most 64 in all");
         }
-        if (labelKey == null || !MESSAGE_KEY.matcher(labelKey).matches()) {
+        if (labelKey == null || !isMessageKey(labelKey)) {
             throw new IllegalArgumentException("SMS credential field label must be a dotted message key");
         }
+    }
+
+    /**
+     * Whether {@code key} is a dotted message key: a part that starts with a letter, then one or more
+     * {@code .}-separated parts of letters, digits or underscores. Checked part by part rather than with
+     * one repeated group, which a long key could drive into a stack overflow.
+     */
+    static boolean isMessageKey(String key) {
+        String[] parts = key.split("\\.", -1);
+        if (parts.length < 2 || !FIRST_KEY_PART.matcher(parts[0]).matches()) {
+            return false;
+        }
+        for (int i = 1; i < parts.length; i++) {
+            if (!KEY_PART.matcher(parts[i]).matches()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -26,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -67,6 +68,57 @@ class SmsProviderValueTypesUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    /**
+     * What the label check accepts. The verdicts are those of the regular expression the part-by-part
+     * check replaced, {@code [A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+}, matched against the whole key.
+     */
+    @ParameterizedTest(name = "\"{0}\" -> {1}")
+    @CsvSource(delimiter = '|', value = {
+            "sms.provider.fake.user | true",
+            "a.b | true",
+            "a.b.c | true",
+            "A1_.b2_ | true",
+            "a._ | true",
+            "a.1 | true",
+            "a.b_c.D9 | true",
+            "a.b.c.d.e.f.g.h | true",
+            "_a.b | false",
+            "1a.b | false",
+            "a | false",
+            "a. | false",
+            "a..b | false",
+            ".a | false",
+            "a.b. | false",
+            "'a b.c' | false",
+            "'a.b c' | false",
+            "a.b-c | false",
+            "a$.b | false",
+            "\u00e4.b | false",
+            "a.\u00e4 | false",
+            ".. | false",
+    })
+    @DisplayName("should accept exactly the dotted message keys the earlier pattern accepted")
+    void shouldAcceptSameMessageKeys_asEarlierPattern(String key, boolean accepted) {
+        assertThat(SmsCredentialField.isMessageKey(key)).isEqualTo(accepted);
+    }
+
+    @Test
+    @DisplayName("should refuse a message key with a line break")
+    void shouldRefuseMessageKey_withLineBreak() {
+        assertThat(SmsCredentialField.isMessageKey("a.b\n")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should check a very long message key without overflowing the stack")
+    void shouldCheckVeryLongMessageKey_withoutStackOverflow() {
+        String longKey = "sms" + ".part".repeat(200_000);
+
+        assertThat(SmsCredentialField.isMessageKey(longKey)).isTrue();
+        assertThat(SmsCredentialField.isMessageKey(longKey + ".")).isFalse();
+        assertThat(SmsCredentialField.isMessageKey(longKey + "..x")).isFalse();
+        assertThat(new SmsCredentialField("api_user", longKey, true).labelKey()).isEqualTo(longKey);
+    }
+
     @Test
     @DisplayName("a send rate allows at least one text in a window of at least one millisecond")
     void shouldRefuseSendRate_whenItCouldNeverSend() {
@@ -103,7 +155,8 @@ class SmsProviderValueTypesUnitTest {
                 Map.of("api_user", "fake-user"));
 
         assertThat(original).isEqualTo(same).hasSameHashCodeAs(same);
-        assertThat(original).isNotEqualTo(null).isNotEqualTo("fake-user");
+        Object notSettings = "fake-user";
+        assertThat(original).isNotEqualTo(null).isNotEqualTo(notSettings);
         assertThat(original).isNotEqualTo(SmsProviderSettings.of(SmsProviderType.VOIPMS, "+16135550100",
                 Map.of("api_user", "fake-user")));
         assertThat(original).isNotEqualTo(SmsProviderSettings.of(SmsProviderType.CLOUDLI, "+16135550101",
