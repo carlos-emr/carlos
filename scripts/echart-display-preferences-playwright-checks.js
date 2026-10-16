@@ -177,7 +177,7 @@ async function workflow(s) {
     // OSCAR 19's window title: "E - LAST, FIRST SEX AGE", the line above the bar in the popup.
     const title = await page.title();
     // The marker is random hex and may hold digits, so pin the age itself, right after the sex.
-    h.assert(title.startsWith('E - ') && title.includes(s.marker) && new RegExp(`\\bF ${ageInYears(PATIENT.dob)}\\b`).test(title),
+    h.assert(title.startsWith('E - ') && title.includes(s.marker) && title.includes(` F ${ageInYears(PATIENT.dob)} `),
       `The chart window title does not carry the patient's name, sex and age as OSCAR 19's did: ${JSON.stringify(title.replace(s.marker, '<patient>'))}`);
     h.assert(await page.locator('#header-top-row a[href*="ViewAbout"], #header-top-row a[href*="ViewLicense"]').count() === 0,
       'The header bar still carries About/License links');

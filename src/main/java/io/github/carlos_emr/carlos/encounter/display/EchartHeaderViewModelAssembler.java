@@ -77,7 +77,7 @@ public class EchartHeaderViewModelAssembler {
      * white, so {@link #readableLinkColour} darkens it per provider colour.
      */
     static final String OSCAR_LINK = "#0088CC";
-    /** WCAG 2.1 AA contrast for normal-size text; the bar's details are about 12px bold. */
+    /** WCAG 2.1 AA contrast for normal-size text; the bar's details are about 12px bold. Text and links meet it. */
     static final double MIN_LINK_CONTRAST = 4.5;
 
     private final UserPropertyDAO userPropertyDao;
@@ -193,14 +193,14 @@ public class EchartHeaderViewModelAssembler {
         return trimmed.startsWith("#") ? trimmed : "#" + trimmed;
     }
 
-    /** Black on light backgrounds, white on dark ones (YIQ brightness, threshold 128). */
+    /**
+     * Black or white, whichever has the higher WCAG 2.1 contrast with the background. The better of the
+     * two is never under 4.58:1 (they tie at about 4.58:1), so text, and white links, always meet
+     * {@value #MIN_LINK_CONTRAST}:1, saturated provider colours such as {@code #FF00FF} included.
+     */
     static String readableTextColour(String hexColour) {
-        String hex = normalizeColour(hexColour).substring(1);
-        int red = Integer.parseInt(hex.substring(0, 2), 16);
-        int green = Integer.parseInt(hex.substring(2, 4), 16);
-        int blue = Integer.parseInt(hex.substring(4, 6), 16);
-        int brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-        return brightness >= 128 ? DARK_TEXT : LIGHT_TEXT;
+        double backgroundLuminance = relativeLuminance(normalizeColour(hexColour));
+        return contrast(0.0, backgroundLuminance) >= contrast(1.0, backgroundLuminance) ? DARK_TEXT : LIGHT_TEXT;
     }
 
     /**

@@ -215,6 +215,41 @@ class EchartHeaderViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should pick black text and a dark blue link on saturated magenta, where white reaches only 3.1:1")
+        void shouldPickBlackText_onSaturatedMagenta() {
+            when(userPropertyDao.getProviderPropertiesByNames(eq(VIEWER), any())).thenReturn(Map.of("ProviderColour", "#FF00FF"));
+
+            EchartHeaderViewModel header = assembler.assemble(VIEWER, patient(), EchartDisplayPreferences.defaults(), Locale.CANADA);
+
+            assertThat(contrast("#FFFFFF", "#FF00FF")).isLessThan(4.5);
+            assertThat(header.headerText()).isEqualTo("#000000");
+            assertThat(contrast(header.headerLink(), "#FF00FF")).isGreaterThanOrEqualTo(4.5);
+        }
+
+        @Test
+        @DisplayName("should keep header text and links at 4.5:1 or better on every web-safe provider colour")
+        void shouldKeepTextAndLinksReadable_onEveryWebSafeColour() {
+            int[] steps = {0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF};
+            for (int red : steps) {
+                for (int green : steps) {
+                    for (int blue : steps) {
+                        String background = String.format(Locale.ROOT, "#%02X%02X%02X", red, green, blue);
+                        when(userPropertyDao.getProviderPropertiesByNames(eq(VIEWER), any()))
+                                .thenReturn(Map.of("ProviderColour", background));
+
+                        EchartHeaderViewModel header = assembler.assemble(VIEWER, patient(),
+                                EchartDisplayPreferences.defaults(), Locale.CANADA);
+
+                        assertThat(contrast(header.headerText(), background)).as("text on %s", background)
+                                .isGreaterThanOrEqualTo(4.5);
+                        assertThat(contrast(header.headerLink(), background)).as("links on %s", background)
+                                .isGreaterThanOrEqualTo(4.5);
+                    }
+                }
+            }
+        }
+
+        @Test
         @DisplayName("should darken OSCAR 19's blue no further than the default colour needs")
         void shouldDarkenOscarBlueMinimally_forDefaultColour() {
             assertThat(contrast(EchartHeaderViewModelAssembler.OSCAR_LINK, "#CCCCFF")).isLessThan(4.5);

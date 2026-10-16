@@ -35,8 +35,9 @@ links. Date of birth or age, HIN, phone and email are buttons that copy the valu
 
 Links use OSCAR 19's blue (`#0088CC`), darkened in the same hue only as far as the provider colour
 needs for 4.5:1 contrast (WCAG 2.1 AA): OSCAR's own blue reaches 2.5:1 on the default light blue and
-under 4:1 even on white. On the default colour that is `#005F8E`. On a dark provider colour the text
-and links are white.
+under 4:1 even on white. On the default colour that is `#005F8E`. The bar's text is black or white,
+whichever contrasts more with the provider colour (never under 4.58:1); with white text the links are
+white too.
 
 ## Screenshots
 
