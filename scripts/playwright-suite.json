@@ -1368,6 +1368,22 @@
       "fixtures": "Needs consult_sig_<signer>.png in the eForm images directory (deb-install-validation.md fixture b); read-only, never saves the letter."
     },
     {
+      "name": "eform-rtl-side-panel",
+      "script": "scripts/eform-rtl-side-panel-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "RTL_FORM_NAME"
+      ],
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js) seeded with one allergy, prescription, prevention, weight and history note per side-panel section and a referring doctor; a throwaway login (lib/throwaway-login-fixture.js) who is that patient's MRP and signs the letters; that login's signature stamp, uploaded and deleted through the Preferences stamp endpoint (asserted 204 before and after); and a FAKE specialist named by the patient's referral number. The letters, their values, the drawn signature, the specialist, the login and the patient are removed by key and asserted gone. The signature pad's preview image in the server's temp directory is the application's own and is left. Step 7 needs the eForm PDF renderer and pdfimages (poppler-utils)."
+    },
+    {
       "name": "eform-runtime-compat",
       "script": "scripts/eform-runtime-compat-playwright-checks.js",
       "tiers": [
