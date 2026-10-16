@@ -374,6 +374,7 @@
     "test:billing-on-admin-config-playwright": "node scripts/billing-on-admin-config-playwright-checks.js",
     "test:billing-on-year-end-statement-playwright": "node scripts/billing-on-year-end-statement-playwright-checks.js",
     "test:billing-on-reports-inr-eoy-playwright": "node scripts/billing-on-reports-inr-eoy-playwright-checks.js",
+    "test:billing-on-report-center-claims-playwright": "node scripts/billing-on-report-center-claims-playwright-checks.js",
     "test:patient-swipe-card-search-playwright": "node scripts/patient-swipe-card-search-playwright-checks.js",
     "test:form-rourke2020-growth-playwright": "ROURKE_GROWTH_EXCEPT=rourke2020.headcirc,rourke2020.measuredate,rourke2020.storage,rourke2020.printnull,rourke2020.printsex,rourke2020.printgestation,rourke2020.printnotes,growth036.printdob,growthchart.printdob,growthchart.printbmi,rourke2020.graphtitle,growth036.title node scripts/form-rourke2020-growth-playwright-checks.js",
     "test:form-rourke2020-growth-head-circumference-playwright": "ROURKE_GROWTH_ONLY=rourke2020.headcirc node scripts/form-rourke2020-growth-playwright-checks.js",

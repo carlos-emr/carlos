@@ -5200,6 +5200,21 @@
       "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
     },
     {
+      "name": "billing-on-report-center-claims",
+      "script": "scripts/billing-on-report-center-claims-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The Ontario Billing Report Center (Billed, Unsettled) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: both reports read the retired billing table, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open and a submitted Ontario claim, an owned role and a throwaway login; all removed in cleanup."
+    },
+    {
       "name": "billing-on-year-end-statement",
       "script": "scripts/billing-on-year-end-statement-playwright-checks.js",
       "tiers": [
