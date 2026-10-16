@@ -2939,6 +2939,24 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "flowsheet-measurement-delete",
+      "script": "scripts/flowsheet-measurement-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates and removes an owned FAKE-PW patient with a diabetes diagnosis and saved NRTF readings; local disposable database only."
+    },
+    {
       "name": "prevention-lifecycle",
       "script": "scripts/prevention-lifecycle-playwright-checks.js",
       "tiers": [

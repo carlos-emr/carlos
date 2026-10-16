@@ -42,6 +42,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -189,6 +190,48 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.isAllowedToDelete(mock(LoggedInInfo.class), null)).isFalse();
     }
 
+    @Test
+    @DisplayName("should delete, archive and answer the close page when the read-only Add Measurement page posts")
+    void shouldDeleteAndArchive_whenPostedByReadOnlyMeasurementPage() throws Exception {
+        // AddMeasurementData.jsp opens a saved reading read-only and posts Delete with the form's
+        // hidden inputs (issue #4715): the reading, the chart's patient and no history "type" to
+        // return to, so the answer is the success result that closes the popup, not a redirect.
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(nullable(LoggedInInfo.class), eq(111)))
+                .thenReturn(true);
+        when(measurementDao.find((Object) Integer.valueOf(5))).thenReturn(measurementFor(111, 5));
+        action.setDeleteCheckbox(new String[]{"5"});
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EctDeleteData2Action.SUCCESS);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(measurementsDeletedDao).persist(any(MeasurementsDeleted.class));
+        verify(measurementDao).remove((Object) Integer.valueOf(5));
+    }
+
+    @Test
+    @DisplayName("should answer 400 and delete nothing when the posted reading is another patient's")
+    void shouldAnswerBadRequest_whenReadingBelongsToAnotherPatient() throws Exception {
+        // The read-only page now submits its demographicNo, so the action can tell that the reading
+        // named by deleteCheckbox is not in the chart the page was opened for.
+        request.setParameter("demographicNo", "111");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), anyString(), anyString(),
+                nullable(String.class))).thenReturn(true);
+        when(measurementDao.find((Object) Integer.valueOf(7))).thenReturn(measurementFor(222, 7));
+        action.setDeleteCheckbox(new String[]{"7"});
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(EctDeleteData2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(measurementDao, never()).remove(any(Object.class));
+        verify(measurementsDeletedDao, never()).persist(any(MeasurementsDeleted.class));
+    }
+
     /**
      * A row as the endpoint sees it. Only the owning demographic matters here —
      * the test never reaches the delete pass, which is the point of it.
@@ -196,6 +239,13 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
     private static Measurement measurementFor(int demographicNo) {
         Measurement measurement = new Measurement();
         measurement.setDemographicId(demographicNo);
+        return measurement;
+    }
+
+    /** The same row with its primary key, which a delete reads back through {@code getId()}. */
+    private static Measurement measurementFor(int demographicNo, int id) {
+        Measurement measurement = measurementFor(demographicNo);
+        ReflectionTestUtils.setField(measurement, "id", id);
         return measurement;
     }
 }
