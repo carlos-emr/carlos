@@ -3136,6 +3136,21 @@
       "notes": "Fresh sessions compare the original chart HTTP response parsed without executing scripts against the loaded header and a reload: browser-native French, English, French, unsupported German fallback, and German followed by French. Checks labels, locale diagnostics, calculator uniqueness and template-search translations; no second GET is used to capture the initial header."
     },
     {
+      "name": "echart-note-signed-edit",
+      "script": "scripts/echart-note-signed-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient (lib/workflow-session.js); its notes and their issue/ext/link rows, note locks, drafts and eChart rows are removed and asserted gone. No clinic-wide state is changed.",
+      "notes": "Issue #4711: Edit ▸ Sign & Save of a signed note answered HTTP 500 when the browser language had no date format (the Edit field held java.sql.Timestamp.toString()) or had other month names (German). Four edit rounds -- the runner's language, de-DE, zz and fr-CA with a date written by the French calendar -- each assert the Edit field shows the stored date as dd-MMM-yyyy HH:mm in English, Sign & Save stores one new signed revision with the same uuid and the encounter date kept (or the picked one), and every earlier revision is unchanged. Last, an unreadable date (the raw timestamp) is refused with 400, its reason and the unsaved text, and nothing is stored."
+    },
+    {
       "name": "echart-note-editor",
       "script": "scripts/echart-note-editor-playwright-checks.js",
       "tiers": [
