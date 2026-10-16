@@ -31,18 +31,33 @@
  *   legacy form  the lab page's own reassignForm fields, posted as they were before the fix (with the
  *                page's CSRF token, so only the payload is under test), answer 400; the recipient holds no
  *                routing row; the sender's routing row and forwarding favourites are unchanged.
+ *   list         the patient lab list without a demographicNo (lab/ViewDemographicLab, the only mode with
+ *                Forward and File, which lists labs filed under demographic 0): the owned HL7 lab's
+ *                checkbox carries data-lab-type HL7; ticked, Forward opens the picker, which posts
+ *                oscarMDS/ReportReassign (not AJAX) with exactly "<id>:HL7" and the recipient; the list
+ *                lands back on itself; the recipient holds a New routing row and the sender's row and
+ *                forwarding favourites are unchanged.
  *
  * Fixtures: the owned FAKE- patient (runWorkflow, no master record opened); one CML lab seeded by SQL by
- * legacy-lab-display's describeLab under a random 10-digit number verified unoccupied; a throwaway provider
- * login that is the would-be recipient. Cleanup removes exactly those rows by key (removeLab proves the lab
- * header still carries the run's marker first) and asserts them gone. The test login's forwarding favourites
+ * legacy-lab-display's describeLab under a random 10-digit number verified unoccupied; one synthetic HL7 lab
+ * uploaded through Inbox > HL7 Lab Upload with a unique accession, matched to the owned patient and then filed
+ * under demographic 0 by SQL (where an unlinked lab lives); a throwaway provider login that is the recipient.
+ * Cleanup removes exactly those rows by key (removeLab proves the CML header still carries the run's marker
+ * first; the HL7 lab is found by its accession, with its upload checksum row and the archived upload file under
+ * LAB_UPLOAD_DOCUMENT_STORE) and asserts them gone. The test login's forwarding favourites
  * are snapshotted, asserted unchanged, and restored if anything rewrote them, so this must not run
  * concurrently with another check that creates favourites (live wrapper: EXCLUSIVE=1).
  */
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const h = require('./lib/playwright-harness');
-const { runWorkflow } = require('./lib/workflow-session');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture, bundleMessage } = require('./lib/throwaway-login-fixture');
 const { describeLab, removeLab } = require('./legacy-lab-display-playwright-checks');
+const { syntheticCmlLab } = require('./lab-upload-playwright-checks');
+const { removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox } = require('./lab-forwarding-rules-playwright-checks');
 
 const NAME = 'lab-forward-picker';
 const TIMEOUT = 30000;
@@ -55,6 +70,7 @@ const STEP = Object.freeze({
   noOpener: 'Forward from a picker with no lab page behind it says so, stays open and sends nothing',
   emptyList: 'Forward with an empty Forward List says so, stays open and sends nothing',
   legacyForm: 'the pre-fix lab page form with bare id lists is refused with 400 and writes nothing',
+  listForward: 'Forward from the patient lab list routes the checked lab and returns to the list',
 });
 
 const FORWARD_ROUTES = /\/(oscarMDS\/Forward|oscarMDS\/ReportReassign|lab\/CA\/(ON|BC|ALL)\/Forward)$/;
@@ -90,6 +106,21 @@ async function workflow(s) {
     console.log('  note: the test login\'s forwarding favourites were rewritten; they were restored as found');
   });
   s.cleanup(() => removeLab({ sql, lab, patient, provider }));
+
+  // The patient lab list's own fixture: one synthetic HL7 lab uploaded through Inbox > HL7 Lab Upload.
+  const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
+  const listLab = { labNo: null, accession: `FP${stamp}`, fileName: `lab-forward-picker-${stamp}.hl7` };
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-forward-picker-'));
+  s.cleanup(() => {
+    fs.rmSync(workDir, { recursive: true, force: true });
+    const found = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${q(listLab.accession)}`).map(([id]) => id);
+    removeOwnedHl7Labs(sql, [...found, listLab.labNo].filter(Boolean));
+    // A rejected upload leaves its checksum row and archive without any lab row; the unique name finds both.
+    sql.execute(`DELETE FROM fileUploadCheck WHERE filename LIKE ${q(`LabUpload.${listLab.fileName}.%`)}`);
+    removeArchiveFiles(archivesNamed(listLab.fileName));
+    h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${q(listLab.accession)}`) === '0',
+      'The synthetic HL7 lab was not removed');
+  });
 
   /** Every Forward/ReportReassign POST a page sends, so a refusal can be shown to have sent nothing. */
   function watchForwardPosts(page) {
@@ -215,6 +246,98 @@ async function workflow(s) {
   } finally {
     await labPage.close().catch(() => {});
   }
+
+  await s.step(STEP.listForward, async () => {
+    // Fixture: the lab is uploaded matched to the owned patient (routed to the test provider as its MRP),
+    // then filed under demographic 0, where an unlinked lab lives. The list without a demographicNo, the
+    // only mode that shows Forward and File, lists exactly those labs.
+    const file = path.join(workDir, listLab.fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- fixed file name under the run's own temp dir
+    fs.writeFileSync(file, Buffer.from(syntheticCmlLab(listLab.accession, marker), 'latin1'));
+    const inbox = await s.context.newPage();
+    let status;
+    try {
+      await h.gotoApp(inbox, config.baseUrl, '/web/inboxhub/Inboxhub');
+      await inbox.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+      status = await uploadFromInbox(inbox, recorder, file, listLab.fileName);
+    } finally {
+      await inbox.close().catch(() => {});
+    }
+    h.assert(status === 'Uploaded successfully', `The synthetic HL7 lab upload reported "${status}"`);
+    await expectValue(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${q(listLab.accession)}`, '1',
+      'The synthetic HL7 lab did not reach hl7TextInfo');
+    listLab.labNo = sql.value(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${q(listLab.accession)}`);
+    h.assert(/^[1-9]\d*$/.test(listLab.labNo), 'The synthetic HL7 lab has no lab number');
+    const hl7 = (who) => JSON.stringify(sql.rows(`SELECT id, provider_no, status, IFNULL(comment,'<null>'), IFNULL(timestamp,'<null>')
+      FROM providerLabRouting WHERE lab_type='HL7' AND lab_no=${listLab.labNo} AND provider_no=${q(who)} ORDER BY id`));
+    h.assert(sql.value(`SELECT IFNULL(GROUP_CONCAT(status),'') FROM providerLabRouting WHERE lab_type='HL7'
+      AND lab_no=${listLab.labNo} AND provider_no=${q(provider)}`) === 'N', 'The upload did not route the HL7 lab to the test provider as New');
+    h.assert(hl7(recipient.providerNo) === '[]', 'The recipient already holds the HL7 lab');
+    sql.execute(`UPDATE patientLabRouting SET demographic_no=0 WHERE lab_type='HL7' AND lab_no=${listLab.labNo} AND demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${listLab.labNo} AND demographic_no=0`) === '1',
+      'The synthetic HL7 lab could not be filed under demographic 0');
+    const senderBefore = hl7(provider);
+
+    const list = await s.context.newPage();
+    try {
+      await h.gotoApp(list, config.baseUrl, '/lab/ViewDemographicLab');
+      await h.assertNotErrorPage(list, 'the patient lab list');
+      await list.locator('#labResultsTbl').waitFor({ state: 'attached', timeout: TIMEOUT });
+      // The list pages its rows (DataTables); page forward, as a clinician would, until the owned lab is shown.
+      const box = list.locator(`input[name="flaggedLabs"][value="${listLab.labNo}"]`);
+      for (let pageNo = 0; pageNo < 200 && await box.count() === 0; pageNo += 1) {
+        const next = list.locator('#labResultsTbl_next:not(.disabled) a, #labResultsTbl_next:not(.disabled)').first();
+        if (await next.count() === 0) break;
+        await next.click();
+      }
+      h.assert(await box.count() === 1, 'The patient lab list does not list the owned unlinked HL7 lab');
+      h.assert(await box.getAttribute('data-lab-type') === 'HL7', 'The owned lab\'s checkbox does not carry its lab type');
+      await box.check();
+
+      const picker = await s.popup(list, list.getByRole('button', { name: forwardLabel, exact: true }).first(), `${NAME}-list-picker`);
+      try {
+        await picker.waitForLoadState('load', { timeout: TIMEOUT });
+        await chooseRecipient(picker);
+        const sent = list.waitForRequest((request) => request.method() === 'POST'
+          && new URL(request.url()).pathname.endsWith('/oscarMDS/ReportReassign'), { timeout: 15000 }).catch(() => null);
+        const returned = list.waitForResponse((response) => {
+          const navigation = response.request();
+          const from = navigation.redirectedFrom();
+          return navigation.isNavigationRequest() && navigation.method() === 'GET' && from !== null && from.method() === 'POST';
+        }, { timeout: TIMEOUT }).catch(() => null);
+        const closed = picker.waitForEvent('close', { timeout: 15000 }).then(() => true, () => false);
+        await picker.locator('#submitButton').click();
+        const request = await sent;
+        h.assert(request, 'Forward from the patient lab list posted no oscarMDS/ReportReassign request');
+        h.assert(await closed, 'The picker opened from the patient lab list stayed open after Forward');
+        const body = new URLSearchParams(request.postData() || '');
+        const parsed = (name, key) => {
+          try { return JSON.parse(body.get(name))[key]; } catch (error) { return undefined; }
+        };
+        h.assert(JSON.stringify(parsed('flaggedLabs', 'files')) === JSON.stringify([`${listLab.labNo}:HL7`]),
+          'The patient lab list\'s Forward request does not name exactly the checked lab as "<id>:HL7"');
+        h.assert(JSON.stringify(parsed('selectedProviders', 'providers')) === JSON.stringify([recipient.providerNo]),
+          'The patient lab list\'s Forward request does not name exactly the recipient');
+        h.assert(body.has('ajax') === false, 'The patient lab list\'s Forward request was sent as an AJAX request');
+        const landing = await returned;
+        h.assert(landing, 'The patient lab list\'s Forward post was not redirected to a page');
+        const landed = new URL(landing.url());
+        h.assert(landed.pathname.endsWith('/lab/ViewDemographicLab') && landed.searchParams.get('providerNo') === provider,
+          `After Forward the patient lab list did not return to itself (it was sent to ${landed.pathname})`);
+        h.assert(landing.status() === 200, `The patient lab list the Forward post returned to answered HTTP ${landing.status()}`);
+        await list.waitForURL(landing.url(), { timeout: TIMEOUT });
+        await h.assertNotErrorPage(list, 'the patient lab list after Forward');
+      } finally {
+        await picker.close().catch(() => {});
+      }
+      await expectValue(sql, `SELECT IFNULL(GROUP_CONCAT(status),'') FROM providerLabRouting WHERE lab_type='HL7'
+        AND lab_no=${listLab.labNo} AND provider_no=${q(recipient.providerNo)}`, 'N',
+      'Forward from the patient lab list did not give the recipient one New routing row');
+      h.assert(hl7(provider) === senderBefore, 'Forward from the patient lab list changed the sender\'s routing row');
+      h.assert(favourites() === favouritesBefore, 'Forward from the patient lab list changed the sender\'s forwarding favourites');
+    } finally {
+      await list.close().catch(() => {});
+    }
+  });
   h.assertStrictPage(recorder);
 }
 

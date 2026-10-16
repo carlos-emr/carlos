@@ -577,6 +577,13 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
         const sent = labPage.waitForRequest((request) => request.method() === 'POST'
           && new URL(request.url()).pathname.endsWith(lab.forwardPath), { timeout: 15000 }).catch(() => null);
         const pickerClosed = picker.waitForEvent('close', { timeout: 15000 }).then(() => true, () => false);
+        // The page the Forward post's redirect lands on. Keyed on the redirected navigation itself: the lab page
+        // is already on its display URL, so waiting on the URL alone would be satisfied before the post commits.
+        const returned = labPage.waitForResponse((response) => {
+          const navigation = response.request();
+          const from = navigation.redirectedFrom();
+          return navigation.isNavigationRequest() && navigation.method() === 'GET' && from !== null && from.method() === 'POST';
+        }, { timeout: TIMEOUT }).catch(() => null);
         await submit.first().click();
         const request = await sent;
         h.assert(request, `Pressing the picker's Submit made the ${lab.title} page post no Forward request to ${lab.forwardPath} `
@@ -597,11 +604,13 @@ async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
 
         // The page post returns to the lab page's own display for the same lab, not "<route>&providerNo=...".
         const displayRoute = lab.displayPath.split('?')[0];
-        await labPage.waitForURL((url) => url.pathname.endsWith(displayRoute) && url.searchParams.get('segmentID') === String(lab.id),
-          { timeout: TIMEOUT }).catch(() => {});
-        const landed = new URL(labPage.url());
+        const landing = await returned;
+        h.assert(landing, `The ${lab.title} Forward post was not redirected to a page`);
+        const landed = new URL(landing.url());
         h.assert(landed.pathname.endsWith(displayRoute) && landed.searchParams.get('segmentID') === String(lab.id),
-          `After Forward the ${lab.title} lab page did not return to its own display for the lab (it is on ${landed.pathname})`);
+          `After Forward the ${lab.title} lab page did not return to its own display for the lab (it was sent to ${landed.pathname})`);
+        h.assert(landing.status() === 200, `The ${lab.title} display the Forward post returned to answered HTTP ${landing.status()}`);
+        await labPage.waitForURL(landing.url(), { timeout: TIMEOUT });
         await labPage.waitForLoadState('load', { timeout: TIMEOUT });
         await h.assertNotErrorPage(labPage, `${lab.title} lab display after Forward`);
         // The picker closes itself while its CSRFGuard client script may still be loading; excuse that one abort.

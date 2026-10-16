@@ -3064,3 +3064,40 @@ unexplained signatures (a `CaseManagementView` `ConfigurationException`, two `Ap
 `BillingONSave` `SecurityException`) match the time and actions of the `authz-write-role-matrix-billing` run.
 
 The swaps used `docker cp` on the installed classes and JSP and a `systemctl restart carlos-emr`.
+
+### Lab Forward from the lab pages and the patient lab list (2026-10-16, issue #4558)
+
+The #4558 fix branch, cut from `release/2026.08` at `3c52e90e`, was packaged unstamped as `2026.09.0~snapshot26`. The CARLOS
+WAR was compiled on the host with the `debian/rules` Maven flags (JDK 25), and `dpkg-buildpackage -us -uc -b` ran in an
+`ubuntu:26.04` builder with `CARLOS_WAR` and `DRUGREF_WAR`. DrugRef was built on the host from the commit `debian/drugref.pin`
+names (`1941e14`); carlos-ctl was 1.1.2 from its release (checksum verified by `debian/fetch-carlos-ctl.sh`). The packages were
+installed fresh with `scripts/deb-docker-validation.sh up` (demo dataset, Ontario; `carlos-ctl check` reported all checks
+passed), behind an egress proxy that only tunnels HTTPS (`BUILD_PROXY`, `BUILD_CA_BUNDLE`, `APT_FORCE_HTTPS=true`). The proxy
+broke apt's pipelined downloads at the same file on every attempt, so `BASE_IMAGE` named an `ubuntu:26.04` derivative whose only
+change is `Acquire::Retries "20"`, `Acquire::Queue-Mode "access"` and pipelining off, as in the #4567 run above. Later edits to
+the branch (the action's test constructor, the picker's message wording, its form lookup) were copied into the installed webapp
+with `carlos-ctl restart`, and every file was compared by checksum with the branch.
+
+| Run | `legacy-lab-display` (CML) | `legacy-lab-display-mds` | `lab-forward-picker` (new) |
+|---|---|---|---|
+| packages as built | PASS, 5 of 5 | PASS, 5 of 5 | (not yet written) |
+| branch head copied in | PASS, 5 of 5 | PASS, 5 of 5 | PASS, 6 of 6 |
+| pre-fix `ReportReassign2Action` and JSPs copied in | FAIL at "CML forward routes the lab to the chosen provider": the picker has no control that sends the chosen provider back | not run | FAIL at its first browser step: no Forward button |
+| new JSPs, pre-fix action | FAIL at the same step: "sent to `/carlos/lab/CA/ON/Forward&providerNo=999998&searchProviderNo=&status=&segmentID=<id>%3ACML`" | not run | FAIL at the bare-id step: answered 302 to that path, not 400 |
+| head, pre-fix `DemographicLab.jsp` only | not run | not run | FAIL at the patient lab list step: the checkbox carries no lab type |
+
+Both legacy checks run with their finding-184 `expectedFailure` removed. Their Forward step now also asserts the posted
+contract (`flaggedLabs` `{"files":["<id>:<TYPE>"]}`, exactly the recipient, a favourites list), that the lab page's redirect
+lands on its own display for the same lab (keyed on the redirected navigation, not the URL, which is already the display's
+before the post), and that the sender's forwarding favourites are unchanged. `legacy-lab-display-pathnet` SKIPs on Ontario.
+
+`lab-forward-picker` holds what a successful Forward cannot show: the picker as a popup has Forward and the same page as the
+Inbox dialog requests it does not; Forward with no lab page behind the picker, or with an empty Forward List, raises its alert,
+stays open and sends nothing; the lab page's own `reassignForm` posted as it was before the fix is answered 400 and writes
+nothing; and Forward from the patient lab list without a `demographicNo` routes a ticked HL7 lab and returns to the list. That
+list shows labs filed under demographic 0 (an uploaded lab unlinked from its patient; an unmatched upload gets no
+`patientLabRouting` row and is not listed), so the check uploads a synthetic lab matched to the owned patient and files it there.
+
+On the head these passed as well: `inbox-file-forward` (10 of 10, including the GET/HEAD replay refusal and unchanged
+favourites), `detached-delete-forward-favourites`, `document-upload`, `lab-forwarding-rules`, `inbox-document-forwarding-scope`
+and `gap-records-autocomplete-labels`, and the smoke tier, 12 of 12.
