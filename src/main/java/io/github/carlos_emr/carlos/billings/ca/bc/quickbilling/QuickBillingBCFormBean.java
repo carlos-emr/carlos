@@ -257,9 +257,16 @@ public class QuickBillingBCFormBean implements Serializable {
     }
 
 
+    /**
+     * The bills added so far, for showing them: a copy taken under the bill list's lock, so the page can
+     * go through it while another request of the same session adds or removes a bill. Changes go
+     * through {@link #addBill}, {@link #removeBill} and {@link #takeBillingData}.
+     *
+     * @return a copy of the bill list, never {@code null}
+     */
     public ArrayList<BillingSessionBean> getBillingData() {
         synchronized (billsLock) {
-            return billingData;
+            return billingData == null ? new ArrayList<BillingSessionBean>() : new ArrayList<BillingSessionBean>(billingData);
         }
     }
 
