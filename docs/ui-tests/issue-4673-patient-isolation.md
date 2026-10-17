@@ -104,10 +104,10 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
 Found while testing, outside this issue's readers:
 
 1. The notes service's new-note REST call (`POST /ws/rs/notes/{demographicNo}/getCurrentNote`)
-   answers 500 when the patient has no note in progress: `CaseManagementNote.isLinkTo()` looks up
-   the links of a note whose id is still null, which Hibernate 7 rejects. That happens before the
-   visit type is read, so the visit-type fix is covered by unit tests only. Not changed here
-   (#4811, item 21).
+   answers 500 whenever it has to start a new note: `CaseManagementNote.isLinkTo()` looks up the
+   links of a note whose id is still null, and `JpqlQueryHelper` refuses the null parameter
+   (#4784). That happens before the visit type is read, so the visit-type fix is covered by unit
+   tests only. Not changed here.
 2. The browser check's patient snapshot read `measurementsExt` with `IN (... UNION ...)`, which
    MariaDB 11.8 runs as a dependent subquery for every extension row: minutes against the
    demonstration data. A derived table returns the same rows in under a second.
@@ -116,8 +116,9 @@ Found while testing, outside this issue's readers:
    short). Fixed here, with the list bound to the request's patient.
 4. `NotesService.saveNote` dereferenced a missing body (`POST /ws/rs/notes/{demographicNo}/save`
    without one), as SonarCloud reported; it now saves nothing, as for an empty note.
-5. `EctImmCreateImmunizationSetConfig2Action` (template creation, not patient data) still writes on
-   GET; its page posts. Not changed here (#4811, item 20).
+5. `EctImmCreateImmunizationSetConfig2Action` and `EctImmInitConfigDeleteImmuSet2Action` (templates,
+   not patient data) do not check the request method themselves; `HttpMethodGuardFilter` refuses
+   GET on both routes. Not changed here (#4811, item 20).
 
 
 ## Session state beyond the encounter bean
