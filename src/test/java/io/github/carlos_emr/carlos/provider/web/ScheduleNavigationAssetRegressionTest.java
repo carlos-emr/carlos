@@ -212,9 +212,10 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
-                // Compose carries this view's forwarding key first (issue #4673), then the nav flag.
-                .contains("ViewCreateMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute("
-                        + "SafeEncode.forUriComponent(forwardKey)) %><%=scheduleNavQuerySuffix%>");
+                // Compose names the message it is opened from first (issue #4673): the compose page
+                // starts with its own copy of that message's saved items. Then the nav flag.
+                .contains("ViewCreateMessage<%= viewedMessageId > 0 ? \"?forwardMessage=\" + viewedMessageId"
+                        + " + scheduleNavQuerySuffix : scheduleNavFirstQuerySuffix %>");
         assertThat(createMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")

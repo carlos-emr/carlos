@@ -302,7 +302,6 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         return "success2";
     }
 
-    /** Starts a legacy entry without borrowing another chart window's mutable bean. */
     /**
      * The PMM "attach note to client" popup's result (casemgmt/attachClient.jsp): copies the note
      * it was opened for into the client's chart, then opens that chart. The client is this
@@ -320,6 +319,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
      *
      * @return {@link #NONE} after the redirect or a refusal
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: the redirect goes to this application's own chart route for the
+    // validated numeric patient number, never to a URL taken from the request.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-origin redirect to this application's chart route for a validated numeric patient number, never to a URL taken from the request")
     private String attachNoteToClient(HttpServletRequest request, HttpServletResponse response,
             LoggedInInfo loggedInInfo, String client) throws IOException {
         if (!"POST".equals(request.getMethod())) {
@@ -357,6 +359,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         return NONE;
     }
 
+    /** Starts a legacy entry without borrowing another chart window's mutable bean. */
     private EctSessionBean newEntryBean(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         EctSessionBean bean = new EctSessionBean();
         bean.currentDate = new Date();

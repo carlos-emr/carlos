@@ -58,7 +58,7 @@
      no script, so every search POST was refused as a CSRF violation (403). The stylesheets named
      ${request.contextPath}, which is not an EL object, and so loaded from outside the application. --%>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
 <title>Attach note to client</title>
 <link rel="stylesheet" type="text/css"
