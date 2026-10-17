@@ -4507,7 +4507,7 @@
         "CAISI_REPORT"
       ],
       "fixtures": "The runWorkflow FAKE patient only (unused by this entry).",
-      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step: the entry points at PMmodule/Reports/ProgramActivityReport, which has no route, so the frame shows a 404 (pending finding 397). No expectedFailure pin until the finding is in the log."
+      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries; the check looks for the Population Report entry, which stays after the fix); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step while the dead entry is still offered: it points at PMmodule/Reports/ProgramActivityReport, which has had no route since the report's pages were removed, so it opens a 404 (pending finding 397; the fix for #4855 removes the entry, which can come back when a report exists). No expectedFailure pin until the finding is in the log."
     },
     {
       "name": "admin-caisi-population-report",

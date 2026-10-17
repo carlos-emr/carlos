@@ -8,10 +8,10 @@
  * and admin-caisi-population-report entries, so each known failure has its own entry: a script
  * stops at its first failing step). Unset, it runs both, Activity first.
  *
- * Activity: Schedule ▸ Administration ▸ Reports ▸ "Activity Report" (an .xlink into the shell's
- * frame) shows the report, not an error page: the per-program summary of admissions and referrals
- * the report showed when last shipped (its JSPs were removed in ee972fcfd2; ActivityReport2Action
- * remains, with no route).
+ * Activity: Schedule ▸ Administration ▸ Reports offers no "Activity Report" entry. The report's
+ * pages were removed in ee972fcfd2 (ActivityReport2Action remains, with no route), and the entry
+ * left behind points at PMmodule/Reports/ProgramActivityReport, which answers 404; the fix
+ * (issue #4855) removes the entry, which can come back when a report exists.
  *
  * Population: with the owned FAKE patient admitted to an owned FAKE active Service program, so
  * the report's current population is not 0, the legacy Administration page (admin/ViewAdmin,
@@ -22,14 +22,14 @@
  * fields shared by every user, so a run within an hour of another request sees that request's
  * figures.
  *
- * Known failures, held for the findings log: the Activity Report entry points at
- * PMmodule/Reports/ProgramActivityReport, which has no route, so the frame shows a 404; the shell's
- * Population Report entry has a `page` attribute and no href, so clicking it does nothing.
+ * Known failures, held for the findings log (fixed by issue #4855): the dead Activity Report entry is
+ * still offered; the shell's Population Report entry has a `page` attribute and no href, so
+ * clicking it does nothing.
  *
  * Needs caisi=on, with ModuleNames including Caisi as the shipped carlos.properties pairs them
  * ("Load CAISI Application Context"): the menu entries render only with the caisi module, and the
- * report's beans load only with the Caisi context. Without the menu entries it SKIPs before
- * creating its program and admission (the runWorkflow patient is removed as usual).
+ * report's beans load only with the Caisi context. Without the Population Report entry it SKIPs
+ * before creating its program and admission (the runWorkflow patient is removed as usual).
  *
  * Fixtures: one FAKE Service program named with the run marker (inserted with SQL: the CAISI
  * Program editor needs _pmm_management, which no role holds on a fresh install) and one admission
@@ -44,13 +44,18 @@ const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 const ACTIVITY_LINK = 'a[rel$="/PMmodule/Reports/ProgramActivityReport"]';
-const ACTIVITY_COLUMNS = ['Program', 'Total Admissions', 'Total Referrals'];
 const POPULATION_SECTIONS = ['Homeless Shelter Population', 'Intensity of Shelter Use', 'Major Medical Condition',
   'Major Mental Illness', 'Incidence in the past year of Serious Medical Conditions', 'Notes on the Data'];
 const REPORT = process.env.CAISI_REPORT || '';
 h.assert(['', 'activity', 'population'].includes(REPORT),
   `CAISI_REPORT must be activity, population or unset (was ${JSON.stringify(REPORT)})`);
 const runs = report => !REPORT || REPORT === report;
+
+/**
+ * The shell's Population Report entry: any <a> of that name, with or without an href (the unfixed
+ * entry has none, so it has no link role; a fix may load the report in the panel or the frame).
+ */
+const populationEntry = admin => admin.locator('#adminNav a').filter({ hasText: /^\s*Population Report\s*$/ }).first();
 
 async function openAdmin(s) {
   const { page } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
@@ -92,29 +97,17 @@ async function workflow(s) {
   const q = h.sqlString;
 
   const admin = await openAdmin(s);
-  if (await admin.locator(`#adminNav ${ACTIVITY_LINK}`).count() === 0) {
-    throw new h.SkipCheck('Administration ▸ Reports offers no Activity Report link; '
+  // Every CAISI entry of Reports renders only with the caisi module; Population Report stays
+  // after the fix, so it is the one that tells whether the module is on.
+  if (await populationEntry(admin).count() === 0) {
+    throw new h.SkipCheck('Administration ▸ Reports offers no Population Report entry; '
       + 'the CAISI report entries need the CAISI module (caisi=on in carlos.properties)');
   }
 
-  if (runs('activity')) await s.step('Administration ▸ Reports ▸ Activity Report shows the activity report', async () => {
-    const link = admin.locator(`#adminNav ${ACTIVITY_LINK}`).first();
-    await revealAuditLink(admin, link, TIMEOUT);
-    const answered = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/PMmodule/Reports/ProgramActivityReport'),
-      { timeout: TIMEOUT });
-    await link.click();
-    const response = await answered;
-    // The frame starts as about:blank; read it only once it holds the report's document.
-    const container = await landedContent(admin, '/PMmodule/Reports/ProgramActivityReport', text => text.trim().length > 0,
-      'Activity Report');
-    const text = (await container.innerText()).replace(/\s+/g, ' ').trim();
-    h.assert(response.status() < 400 && !h.isApplicationErrorPage(text),
-      `Activity Report answered HTTP ${response.status()} and showed ${JSON.stringify(text.slice(0, 80))} instead of the report`);
-    // The report as last shipped (PMmodule/reports/ActivityReport.jsp, removed in ee972fcfd2) is a
-    // per-program summary of admissions and referrals.
-    for (const column of ACTIVITY_COLUMNS) {
-      h.assert(text.includes(column), `Activity Report has no "${column}" column`);
-    }
+  if (runs('activity')) await s.step('Administration ▸ Reports offers no Activity Report entry', async () => {
+    const offered = await admin.locator(`#adminNav ${ACTIVITY_LINK}`).count();
+    h.assert(offered === 0, 'Administration ▸ Reports still offers Activity Report, which points at '
+      + 'PMmodule/Reports/ProgramActivityReport: that has no route, so the entry opens a 404');
   });
 
   if (!runs('population')) return;
@@ -158,10 +151,7 @@ async function workflow(s) {
   });
 
   await s.step('Administration ▸ Reports ▸ Population Report opens the report', async () => {
-    // Any <a> of that name, with or without an href (today's entry has none, so it has no link role):
-    // a fix may load the report in the panel (contentLink) or the frame (xlink).
-    const link = admin.locator('#adminNav a').filter({ hasText: /^\s*Population Report\s*$/ }).first();
-    h.assert(await link.count() === 1, 'Administration ▸ Reports offers no Population Report entry');
+    const link = populationEntry(admin);
     await revealAuditLink(admin, link, TIMEOUT);
     const answered = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/PopulationReport'), { timeout: 10000 })
       .then(response => response, () => null);
