@@ -25,17 +25,25 @@
  *   3. A private bill of two service lines for A ▸ Save & Print Receipt ▸ a private bill for B in
  *      the other window ▸ Save & Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
  *      again is A's, with both lines.
- *   4. Schedule ▸ B on A's fourth appointment ▸ another billing form ▸ Continue with a service code
+ *   4. Schedule ▸ B on A's fifth appointment ▸ Bill WCB (the list of A's WCB forms) ▸ A's WCB form ▸
+ *      B's bill form opened in the other window ▸ Continue in A's window with a service code that
+ *      needs a complete WCB report: refused, back to A's own bill form ▸ Bill WCB, A's form, a code
+ *      that needs no report ▸ Continue ▸ Save Bill: A's claim is saved on A's appointment with A's
+ *      WCB form. (Before this the list answered 404, a submit reloaded it and cleared the chosen
+ *      form, and the WCB check on Continue answered 500; see the bill form and create action.)
+ *   5. Schedule ▸ B on A's fourth appointment ▸ another billing form ▸ Continue with a service code
  *      that does not exist: the bill form comes back with the chosen form's code table. Then eight
  *      more bills opened in the same login push this bill out of the session: the window's next
  *      Continue is told that its billing session expired, rather than a bare error.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
- * PatientBravo, the same marker last name), both with a synthetic BC PHN; four appointments today
- * for A and two for B; an owned billing physician created through Administration ▸ Add Provider
+ * PatientBravo, the same marker last name), both with a synthetic BC PHN; five appointments today
+ * for A and three for B; one WCB form for each (the patient's details and the injury, as the WCB
+ * form page saves them); an owned billing physician created through Administration ▸ Add Provider
  * (so the application's provider caches see it) and deactivated through Update Provider at the
  * end. Cleanup removes every claim, note, history and recipient row of the two patients, their
- * appointments, B and the physician, and asserts them gone. BC installs only (billregion=BC).
+ * WCB forms, their appointments, B and the physician, and asserts them gone. BC installs only
+ * (billregion=BC).
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -125,6 +133,36 @@ function ownAppointments(s, patients) {
       + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${list}))`) === '0',
     'Owned appointments were not removed');
   });
+}
+
+/** A service code WorkSafeBC pays only with a complete WCB report (WCBCodes' default list). */
+const WCB_FORM_CODE = '19937';
+
+/**
+ * One WCB form for each patient, as saved earlier from the WCB form page: the patient's details
+ * and the injury, enough to bill a code that needs no report but not one that does. Removed by
+ * key after the claims that name them.
+ */
+function ownWcbForms(s, patients, day) {
+  const { sql, marker, provider } = s;
+  const forms = {};
+  for (const [label, patient] of Object.entries(patients)) {
+    const first = label === 'A' ? A_FIRST_NAME : B_FIRST_NAME;
+    const phn = sql.value(`SELECT hin FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
+    forms[label] = key(h.insertId(sql, `INSERT INTO wcb (demographic_no, provider_no, formCreated, formEdited,
+        w_reporttype, w_fname, w_lname, w_gender, w_dob, w_city, w_phn, w_servicedate, w_doi, w_noi, w_icd9,
+        w_diagnosis, w_duration, status, formNeeded)
+      VALUES (${patient}, ${q(provider)}, NOW(), NOW(), 'F', ${q(first)}, 'Fake', 'F', '1980-01-02', 'Testville',
+        ${q(phn)}, ${q(day)}, ${q(day)}, '03500', '780', ${q(marker)}, 1, 'W', 0)`, `${label}'s WCB form`),
+    `${label}'s WCB form`);
+  }
+  const ids = Object.values(forms).join(',');
+  const list = Object.values(patients).join(',');
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM wcb WHERE ID IN (${ids}) AND demographic_no IN (${list})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM wcb WHERE ID IN (${ids})`) === '0', 'The owned WCB forms were not removed');
+  });
+  return forms;
 }
 
 /**
@@ -315,7 +353,8 @@ async function billInTwoWindows(s, A, B, physician) {
   for (const [label, patient, first, start, end] of [
     ['A1', A, A_FIRST_NAME, '09:00:00', '09:14:00'], ['B1', B, B_FIRST_NAME, '09:15:00', '09:29:00'],
     ['A2', A, A_FIRST_NAME, '09:30:00', '09:44:00'], ['A3', A, A_FIRST_NAME, '09:45:00', '09:59:00'],
-    ['B3', B, B_FIRST_NAME, '10:00:00', '10:14:00'], ['A4', A, A_FIRST_NAME, '10:15:00', '10:29:00']]) {
+    ['B3', B, B_FIRST_NAME, '10:00:00', '10:14:00'], ['A4', A, A_FIRST_NAME, '10:15:00', '10:29:00'],
+    ['A5', A, A_FIRST_NAME, '10:30:00', '10:44:00'], ['B5', B, B_FIRST_NAME, '10:45:00', '10:59:00']]) {
     appointment[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
         end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator,
         lastupdateuser)
@@ -483,6 +522,54 @@ async function billInTwoWindows(s, A, B, physician) {
   function serviceCodes(form) {
     return form.locator('#billingFormTable input[name="service"]').evaluateAll(boxes => boxes.map(box => box.value));
   }
+
+  /** Bill WCB: the bill form lists its own patient's WCB forms (the list is fetched for the bill's patient). */
+  async function chooseWcbBill(form, label, ownForm, otherForm) {
+    const [listed] = await Promise.all([
+      form.waitForResponse(r => new URL(r.url()).pathname.endsWith('/billing/CA/BC/ViewWcbForms'), { timeout: TIMEOUT }),
+      form.locator('#xml_billtype').selectOption('WCB'),
+    ]);
+    h.assert(listed.status() === 200, `${label}'s WCB form list answered HTTP ${listed.status()}`);
+    const choice = form.locator(`#wcbForms input[name="WCBid"][value="${ownForm}"]`);
+    await choice.waitFor({ state: 'visible', timeout: TIMEOUT });
+    h.assert(await form.locator(`#wcbForms input[name="WCBid"][value="${otherForm}"]`).count() === 0,
+      `${label}'s bill form lists the other patient's WCB form`);
+    await choice.check();
+  }
+
+  await s.step('a WCB bill keeps its own patient\'s WCB form through a refused Continue while another window bills B', async () => {
+    const wcb = ownWcbForms(s, { A, B }, day);
+    const form = await openBillForm(sheets[0], 'A5');
+    const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
+    await chooseBillingPhysician(form, physician.providerNo);
+    await chooseWcbBill(form, 'A', wcb.A, wcb.B);
+    // B's bill is opened in the other window after A's.
+    const formB = await openBillForm(sheets[1], 'B5');
+
+    // A service code that needs a complete WCB report, with a form that has only the injury on
+    // it: Continue is refused, warnings ignored or not, and comes back to this window's own bill.
+    const refused = await fillAndContinue(form, { physician: physician.providerNo, codes: [WCB_FORM_CODE], dx: '780',
+      ignoreWarnings: true });
+    h.assert(refused.status() === 302, `A WCB Continue with an incomplete WCB form answered HTTP ${refused.status()}`);
+    await form.waitForURL(url => url.pathname.endsWith('/billing') && url.searchParams.get('billKey') === billKey,
+      { timeout: TIMEOUT });
+    await expectOwnBillForm(form, 'The WCB bill form after a refused Continue', billKey);
+
+    // The form comes back as a new MSP bill would; the prescriber chooses WCB and the form again.
+    await chooseWcbBill(form, 'A, after the refused Continue,', wcb.A, wcb.B);
+    await continueToReview(form, 'A\'s WCB bill', { physician: physician.providerNo, codes: ['00100'], dx: '780' });
+    h.assert(names(await reviewText(form), A_FIRST_NAME, B_FIRST_NAME), 'A\'s WCB bill review does not name A alone');
+    await save(form, 'A\'s WCB bill', 'Save Bill', sheets[0]);
+    const claims = claimOf('A5');
+    h.assert(JSON.stringify(claims) === JSON.stringify([[A, appointment.A5, '00100', '780']]),
+      `A's WCB claim was saved as ${JSON.stringify(claims)}, not for A on A's appointment with A's codes`);
+    h.assert(sql.value(`SELECT CONCAT(b.billingtype, ':', bm.wcb_id) FROM billing b
+        JOIN billingmaster bm ON bm.billing_no=b.billing_no WHERE b.appointment_no=${appointment.A5}`) === `WCB:${wcb.A}`,
+    'A\'s WCB claim does not carry A\'s WCB form');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing WHERE appointment_no=${appointment.B5}`) === '0',
+      'Saving A\'s WCB bill saved a claim for B\'s appointment');
+    await formB.close();
+  });
 
   // Last: the eight bills it opens push every earlier bill of this login out of the session.
   await s.step('a bill window comes back to the billing form it shows, and one whose bill was dropped is told so', async () => {
