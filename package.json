@@ -35,6 +35,7 @@
     "test:pmm-attach-note-two-window-isolation-playwright": "node scripts/pmm-attach-note-two-window-isolation-playwright-checks.js",
     "test:chart-session-state-two-window-isolation-playwright": "node scripts/chart-session-state-two-window-isolation-playwright-checks.js",
     "test:rx-drug-pick-patient-isolation-playwright": "node scripts/rx-drug-pick-patient-isolation-playwright-checks.js",
+    "test:rx-preview-visit-site-isolation-playwright": "node scripts/rx-preview-visit-site-isolation-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
     "test:deb-login-playwright": "node scripts/deb-login-playwright-checks.js",
     "test:omd-flowsheet-conformance-playwright": "node scripts/omd-flowsheet-conformance-playwright-checks.js",

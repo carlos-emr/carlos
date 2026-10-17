@@ -10094,6 +10094,25 @@
       "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); the drugs and prescription rows Save Only writes for them are removed by patient key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "rx-preview-visit-site-isolation",
+      "script": "scripts/rx-preview-visit-site-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4673, multisite: the prescription print window preselects the clinic address of the patient's own day-sheet visit. Schedule ▸ Rx on A's visit at site SA ▸ M on B's visit at SB ▸ Custom Drug ▸ Save And Print in A's Rx window shows SA (release/2026.08: SB, the visit the day sheet opened last); the address picked there by hand (SC) stays the remembered one, so B's print window shows SB and a prescription for C, who has no visit, shows SC (release/2026.08: SB, because loading B's window stored its preselection as the remembered address). Also pins the multisite tickler page, which looked the same visit up as if to preselect its clinic but never applied it: A's new tickler starts on 'select clinic' and picking SA lists the provider. Reports SKIP when multisites is off.",
+      "fixtures": "Operator prerequisite: multisites=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards. Owned FAKE patients A/B/C (the run marker as last name); three active sites named '<marker> SA/SB/SC' linked to the test provider through providersite, which every login's clinic lists show while the check runs, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); A's and B's appointments today at SA and SB; the custom drugs and scripts saved for A, B and C. Cleanup removes every owned row by key and asserts it gone.",
+      "mutates": [
+        "site",
+        "providersite"
+      ]
+    },
+    {
       "name": "echart-note-draft-recovery",
       "script": "scripts/echart-note-draft-recovery-playwright-checks.js",
       "tiers": [
