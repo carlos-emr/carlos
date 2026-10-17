@@ -3515,6 +3515,24 @@
       "env": []
     },
     {
+      "name": "billing-bc-referral-doctors",
+      "script": "scripts/billing-bc-referral-doctors-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "billingreferral"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Manage Referral Doctors: the list, its last-name search, Add Doctor and a doctor's Edit, inside the Administration panel, plus the list opened on its own. First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the empty-billing-number step fails until #4853 (release, issue #4852) is forward-merged: the form's number check throws and the form is posted, and the later steps fail on the rest of #4852 (Save leaves the panel, the address boxes, a no-match search, the Edit). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "Doctor A is created through Add (a free FAKE 9xxxx billing number, last name = the run marker); doctor B is SQL-seeded the same way (last name = marker + \"-B\"). The pages have no Delete, so the cleanup deletes exactly those two by billing number AND last name and fails the run if anything else carries the marker. The doctors join the clinic's referral doctor list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [

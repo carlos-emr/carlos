@@ -253,6 +253,7 @@
     "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
     "test:rh-form-workflow-playwright": "node scripts/rh-form-workflow-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
+    "test:billing-bc-referral-doctors-playwright": "node scripts/billing-bc-referral-doctors-playwright-checks.js",
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
     "test:email-recovery-playwright": "node scripts/email-recovery-playwright-checks.js",
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
