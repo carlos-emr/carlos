@@ -22,7 +22,9 @@
  *   4. A new search lists the control lot only.
  *   5. With the lot number cleared, Delete raises the page's "must be entered" alert and posts nothing.
  *   6. A GET (and HEAD) replay of the real delete POST, aimed at the control lot, is refused by the application and
- *      leaves the control lot undeleted.
+ *      leaves the control lot undeleted. The replay is sent from the page (a same-origin fetch): the session cookie
+ *      is Secure, and over plain HTTP only the browser sends it to a loopback origin, not the context's request
+ *      client (issue #4718).
  *
  * Fixtures: two lots of an owned prevention type ('PW' and the run marker's tail), inserted directly as the test
  * login; one carries an apostrophe, double quotes and an ampersand. Cleanup removes both by id and asserts none of
@@ -34,6 +36,7 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { captureRequest, replayParams } = require('./lib/get-reject-probe');
 const { bundleMessage } = require('./lib/throwaway-login-fixture');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 const NAME = 'admin-lot-number-delete';
 const TIMEOUT = 20000;
@@ -47,6 +50,24 @@ const STEP = {
   blank: 'Delete with the lot number cleared asks for it and posts nothing',
   replay: 'a GET or HEAD replay of the delete is refused and deletes nothing',
 };
+
+/**
+ * Send a replay from the page itself rather than the context's request client: the session cookie is Secure,
+ * which the browser sends to a loopback origin over plain HTTP but the request client does not (issue #4718).
+ * Returns what h.assertRefused reads: status, headers and body. A redirect is not followed (it is not a refusal).
+ */
+async function replayFromPage(page, url, method) {
+  return page.evaluate(async ({ target, verb }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the URL is the check's own replay of a captured same-origin request
+    const response = await fetch(target, { method: verb, credentials: 'same-origin', redirect: 'manual' });
+    const headers = {};
+    response.headers.forEach((value, name) => { headers[name] = value; });
+    return {
+      status: response.type === 'opaqueredirect' ? 302 : response.status,
+      headers,
+      body: verb === 'HEAD' ? '' : await response.text(),
+    };
+  }, { target: url, verb: method });
+}
 
 async function workflow(s) {
   const { sql, provider, marker, recorder } = s;
@@ -170,22 +191,17 @@ async function workflow(s) {
   await s.step(STEP.blank, async () => {
     await openDeletePage(control);
     await frame.locator('form[name="deletelotnr"] input[name="lotnr"]').fill('');
-    let posted = false;
-    const watch = (request) => {
-      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/admin/LotNrDeleteRecord')) posted = true;
-    };
-    admin.on('request', watch);
-    try {
-      const dialogs = await h.withExpectedDialogs(admin, async () => {
-        await frame.locator('form[name="deletelotnr"] input[type="submit"]').click();
-        await admin.waitForTimeout(1000);
-      });
-      h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === MISSING,
-        `Delete with the lot number cleared did not raise the "must be entered" alert (${dialogs.map((d) => d.type).join(',') || 'no dialog'})`);
-    } finally {
-      admin.off('request', watch);
-    }
-    h.assert(!posted, 'Delete with the lot number cleared still posted to LotNrDeleteRecord');
+    // Armed before the click: a POST that slipped past the page's check would resolve this to true.
+    const posted = admin.waitForRequest((request) => request.method() === 'POST'
+      && new URL(request.url()).pathname.endsWith('/admin/LotNrDeleteRecord'), { timeout: 3000 })
+      .then(() => true, () => false);
+    const dialogs = await h.withExpectedDialogs(admin, async () => {
+      await frame.locator('form[name="deletelotnr"] input[type="submit"]').click();
+      await posted;
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === MISSING,
+      `Delete with the lot number cleared did not raise the "must be entered" alert (${dialogs.map((d) => d.type).join(',') || 'no dialog'})`);
+    h.assert(!(await posted), 'Delete with the lot number cleared still posted to LotNrDeleteRecord');
     h.assert(rowOf(control) === controlBefore, 'Delete with the lot number cleared changed the control lot');
   });
 
@@ -197,9 +213,12 @@ async function workflow(s) {
     for (const method of ['GET', 'HEAD']) {
       const before = sql.value(`SELECT COUNT(*) FROM PreventionsLotNrs WHERE ${where}`);
       h.assert(before === '1', `The control lot was not undeleted before the ${method} replay`);
-      const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+      const mark = failureMark(recorder);
+      const response = await replayFromPage(admin, url, method);
       const verdict = await h.assertRefused(s, { response, table: 'PreventionsLotNrs', where, before,
         label: `LotNrDeleteRecord as ${method}` });
+      // The refusal the page just received is the point of the step, not a page fault: consume exactly it.
+      consumeExpectedFailure(recorder, mark, { status: 405, method, path: /\/admin\/LotNrDeleteRecord$/ });
       console.log(`  probe ${NAME}: LotNrDeleteRecord as ${method} -> ${verdict.evidence}; control lot unchanged (${verdict.rows})`);
     }
     h.assert(rowOf(control) === controlBefore, 'A replay of the delete changed the control lot');
