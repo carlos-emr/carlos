@@ -176,16 +176,21 @@
                     }
 
 
-                    // The save answers each date as epoch milliseconds, or null for a code with no end date.
+                    // The save answers each date as the epoch milliseconds of its midnight on the server, or null for a
+                    // code with no end date. Read it in UTC: in the browser's own zone, a browser west of a UTC server
+                    // would show the day before (right for any server at or west of UTC, which covers Canada).
                     function shownDate(value) {
                         if (value === null || value === undefined || value === '') {
                             return '';
+                        }
+                        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                            return value;
                         }
                         var d = new Date(typeof value === 'object' ? value.time : value);
                         if (isNaN(d.getTime())) {
                             return '';
                         }
-                        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
                     }
 
                     function saveCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {

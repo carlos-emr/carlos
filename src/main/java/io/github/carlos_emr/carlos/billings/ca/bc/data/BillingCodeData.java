@@ -44,12 +44,12 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * @author root
  */
 public final class BillingCodeData implements Comparable {
-    /**
-     * DAO used for billing service persistence operations.
-     */
     /** The end date of a code that has no planned end. */
     static final String OPEN_ENDED_TERMINATION_DATE = "9999-12-31";
 
+    /**
+     * DAO used for billing service persistence operations.
+     */
     private final BillingServiceDao billingServiceDao;
   
 

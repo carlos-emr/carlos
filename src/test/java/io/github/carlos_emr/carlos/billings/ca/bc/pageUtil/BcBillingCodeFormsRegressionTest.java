@@ -108,6 +108,8 @@ class BcBillingCodeFormsRegressionTest {
                 .contains("function shownDate(value) {")
                 .contains("if (value === null || value === undefined || value === '') {")
                 .contains("var d = new Date(typeof value === 'object' ? value.time : value);")
+                // In UTC, so a browser west of a UTC server does not show the day before.
+                .contains("d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0')")
                 .contains("textContent = shownDate(data.billingserviceDate);")
                 .contains("textContent = shownDate(data.terminationDate);")
                 .doesNotContain("data.billingserviceDate.time")
