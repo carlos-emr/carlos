@@ -10,8 +10,8 @@
  * the form).
  *
  * Asserted: MIS offers exactly the functional centres programs of this facility use (or says none
- * is in use) and only its Service programs. With a FAKE Service program on a functional centre,
- * CDS offers that centre and program, and its report names the centre and the dates chosen and
+ * is in use) and only its Service programs. With a FAKE Service program on a FAKE functional
+ * centre, CDS offers that centre and program, and its report names the centre and the dates chosen and
  * lists every CDS 4 category with a count. MIS for one month counts that month's visits in the
  * program, by functional centre and by program: one face-to-face note in that month, none by
  * telephone, one individual served; the two face-to-face notes of the following month must not
@@ -37,11 +37,12 @@
  *
  * Fixtures: the program is inserted with SQL, because the CAISI Program editor
  * (PMmodule/ProgramManager) requires _pmm_management, which no role holds on a fresh install
- * (SecurityObjectSeedContractUnitTest, KNOWN_UNREACHABLE). The run owns the program (named with
- * the run marker), the runWorkflow FAKE patient and three notes on that patient in the program;
- * all are deleted by their captured ids. The functional centres are shipped reference data and
- * are only read. The program shows in the facility's program lists while the run lasts, so the check
- * needs an exclusive run; a MySQL named lock also keeps two runs from counting each other's notes.
+ * (SecurityObjectSeedContractUnitTest, KNOWN_UNREACHABLE). The run owns a functional centre and
+ * the program on it (both named with the run marker), the runWorkflow FAKE patient and three notes
+ * on that patient in the program; all are deleted by their captured ids. The centre is the run's
+ * own because MIS by functional centre counts every program of the facility on it. The centre and
+ * program show in the facility's lists while the run lasts, so the check needs an exclusive run;
+ * a MySQL named lock also keeps two runs from counting each other's notes.
  */
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -158,9 +159,17 @@ async function workflow(s) {
   });
 
   // ------------------------------------------------------------------ owned program and notes
-  const centre = sql.rows('SELECT accountId, description FROM FunctionalCentre ORDER BY accountId LIMIT 1')
-    .map(([accountId, description]) => ({ accountId, description }))[0];
-  if (!centre) throw new h.SkipCheck('This database has no functional centres to report on');
+  // A functional centre of the run's own: MIS by functional centre counts every program of the
+  // facility on that centre, so a shipped centre a real program uses would add its visits too.
+  const centre = { accountId: marker, description: 'FAKE CDS/MIS report centre' };
+  sql.execute(`INSERT INTO FunctionalCentre (accountId, description) VALUES (${q(centre.accountId)}, ${q(centre.description)})`);
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM FunctionalCentre WHERE accountId=${q(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM FunctionalCentre WHERE accountId=${q(marker)}`) === '0',
+      'The owned functional centre was not removed');
+  });
+  h.assert(sql.value(`SELECT COUNT(*) FROM FunctionalCentre WHERE accountId=${q(marker)}`) === '1',
+    'The owned functional centre fixture was not created');
   const program = h.insertId(sql, `INSERT INTO program (facilityId,name,description,functionalCentreId,type,maxAllowed,
       holdingTank,allowBatchAdmission,allowBatchDischarge,hic,programStatus,transgender,firstNation,bedProgramAffiliated,
       alcohol,physicalHealth,mentalHealth,housing,exclusiveView,defaultServiceRestrictionDays,ageMin,ageMax,userDefined,
@@ -240,13 +249,13 @@ async function workflow(s) {
     }
   };
 
-  if (runs('mis')) await s.step(`MIS Report by functional centre counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
+  if (runs('mis')) await s.step('MIS Report by functional centre counts only the visits of the month chosen', async () => {
     const panel = await openPanel(admin, MIS_LINK, '#dynamic-content #misForm');
     misMatches(await runMis(admin, panel, { reportBy: 'functionalCentre', value: centre.accountId, month: chosen }),
       'by functional centre');
   });
 
-  if (runs('mis')) await s.step(`MIS Report by program counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
+  if (runs('mis')) await s.step('MIS Report by program counts only the visits of the month chosen', async () => {
     const panel = await openPanel(admin, MIS_LINK, '#dynamic-content #misForm');
     misMatches(await runMis(admin, panel, { reportBy: 'programs', value: program, month: chosen }), 'by program');
   });
