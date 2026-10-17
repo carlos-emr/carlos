@@ -809,8 +809,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1148,8 +1147,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1398,8 +1396,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1478,8 +1475,7 @@
                             </div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>

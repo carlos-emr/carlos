@@ -1,6 +1,6 @@
 /**
  * Source tests for the prevention edit form's Date box (WEB-INF/jsp/prevention/AddPreventionData.jsp and
- * the preventionDateBox.jspf fragment each of its four layouts includes).
+ * the preventionDateBox.jspf fragment, the Date row each of its four layouts includes).
  *
  * A prevention can be dated to the year or the year and month only (a CDS import stores a
  * partial_date row). A date input cannot hold "2019": it opens empty and, being required, refuses
@@ -18,7 +18,10 @@ const vm = require('node:vm');
 const PREVENTION_JSPS = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'prevention');
 const JSP = fs.readFileSync(path.join(PREVENTION_JSPS, 'AddPreventionData.jsp'), 'utf8');
 const FRAGMENT = fs.readFileSync(path.join(PREVENTION_JSPS, 'preventionDateBox.jspf'), 'utf8');
-const INCLUDE = '<div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>';
+const INDENT = ' '.repeat(36);
+const INCLUDE = `\n${INDENT}<%@ include file="preventionDateBox.jspf" %>\n`;
+const LABEL_CELL = '<div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields">'
+  + '<fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>';
 
 /** Every <input ... name="prevDate" ...> tag in the text, up to the ">" that ends it (its attributes hold JSP "%>"). */
 const dateBoxes = (text) => [...text.matchAll(/<input type="(?:(?!<input )[\s\S])*?name="prevDate"[\s\S]*?<% \} %>>/g)].map((m) => m[0]);
@@ -36,10 +39,11 @@ const PARTIAL_JAVA_LITERAL = String.raw`"\\d{4}(-\\d{2})?"`;
 const PARTIAL = /^(?:\d{4}(-\d{2})?)$/;
 
 test('shouldRenderEveryLayoutsDateBox_fromOneSharedFragment', () => {
-  // One prevDate element in the source: each of the four layouts (exclusive branches) includes the same
-  // fragment instead of carrying its own copy.
+  // One prevDate element in the source, with its label in the same file: each of the four layouts
+  // (exclusive branches) includes the same Date row instead of carrying its own copy.
   assert.equal(dateBoxes(JSP).length, 0, 'no layout writes its own Date box');
   assert.ok(!JSP.includes('id="prevDate"'), 'the page itself has no prevDate element');
+  assert.ok(!JSP.includes('for="prevDate"'), 'nor its label');
   const layouts = ['"injection"', '"h1n1"', '"PAPMAM"', '"history"'].map((name) => JSP.indexOf(`layoutType.equals(${name})`));
   assert.ok(layouts.every((at) => at > 0), 'the page has the four prevention layouts');
   const includes = [...JSP.matchAll(/<%@ include file="preventionDateBox\.jspf" %>/g)].map((m) => m.index);
@@ -47,12 +51,15 @@ test('shouldRenderEveryLayoutsDateBox_fromOneSharedFragment', () => {
   for (let i = 0; i < 4; i++) {
     assert.ok(includes[i] > layouts[i] && (i === 3 || includes[i] < layouts[i + 1]), `layout ${i + 1} includes its own Date box`);
   }
-  assert.equal(JSP.split(INCLUDE).length - 1, 4, 'the include sits in the Date row cell, as the inline box did');
+  assert.equal(JSP.split(INCLUDE).length - 1, 4, 'the include stands on its own line at the Date row cells\' indent');
   assert.equal(inputs.length, 1, 'the fragment holds the one Date box');
   assert.equal((FRAGMENT.match(/id="prevDate"/g) || []).length, 1);
-  // The fragment is written out where it is included: a trailing newline would land inside the cell.
-  assert.ok(FRAGMENT.endsWith(inputs[0]), 'nothing follows the Date box in the fragment');
-  assert.ok(/--%><input /.test(FRAGMENT), 'the box starts right after the fragment comment');
+  // The fragment is written out where it is included, so it must reproduce the two cells exactly: the label
+  // cell straight after the comment and the fmt declaration, then the box cell on the next line at the
+  // include's indent, and nothing after it (a trailing newline would add a blank line to the page).
+  const row = `--%><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>${LABEL_CELL}\n${INDENT}<div class="col-sm-8">${inputs[0]}</div>`;
+  assert.ok(FRAGMENT.endsWith(row), 'the fragment is the Date row\'s two cells, exactly');
+  assert.ok(JSP.includes('<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>'), 'the fragment declares the page\'s own fmt URI');
 });
 
 test('shouldSwitchThePreventionDateBoxToText_forAPartialDate', () => {
