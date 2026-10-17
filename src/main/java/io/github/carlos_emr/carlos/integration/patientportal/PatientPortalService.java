@@ -97,6 +97,7 @@ public class PatientPortalService implements Closeable {
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
 
     private static final String BOOKING_PROMPTS_PATH = "/internal/carlos/patients/%d/booking-prompts";
+    private static final String BOOKING_ELIGIBILITY_PATH = "/internal/carlos/patients/%d/booking-eligibility";
     private static final String BOOKING_WITHDRAW_PATH = "/internal/carlos/booking-prompts/%d/withdraw";
 
     private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
@@ -269,6 +270,17 @@ public class PatientPortalService implements Closeable {
                 staff,
                 node -> confirmedCommittedInvite(node, inviteId, operationId, reference),
                 inviteId);
+    }
+
+    /** Returns only booking eligibility; booking staff do not need general account-read permission. */
+    public boolean isBookingEligible(int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(GET, BOOKING_ELIGIBILITY_PATH, null, OK, staff, payload -> {
+            if (!settings.clinicId().equals(PortalJson.requiredText(payload, "clinic_id"))
+                    || PortalJson.positiveInt(payload, "demographic_no") != demographicNo) {
+                throw new PortalContractException("portal returned a different booking eligibility scope");
+            }
+            return PortalJson.requiredBool(payload, "eligible");
+        }, demographicNo);
     }
 
     /** Stable operation IDs make a repeated create return the original prompt without another notice. */

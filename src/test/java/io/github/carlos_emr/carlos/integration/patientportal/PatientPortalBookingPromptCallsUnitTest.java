@@ -89,6 +89,35 @@ class PatientPortalBookingPromptCallsUnitTest {
         return new String(request.getEntity().getContent().readAllBytes(), StandardCharsets.UTF_8);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldReadScopedEligibility_withOnlyBookingPermission(boolean eligible) throws Exception {
+        Exchange exchange = new Exchange().reply(200,
+                "{\"clinic_id\":\"clinic-a\",\"demographic_no\":123,\"eligible\":" + eligible + "}");
+        assertThat(service(exchange).isBookingEligible(123, STAFF)).isEqualTo(eligible);
+        var request = exchange.sent.getFirst();
+        assertThat(request.getMethod()).isEqualTo("GET");
+        assertThat(request.getRequestUri()).isEqualTo("/internal/carlos/patients/123/booking-eligibility");
+        String assertion = request.getFirstHeader(PortalStaffAssertionSigner.HEADER).getValue();
+        var claims = new ObjectMapper().readTree(Base64.getUrlDecoder().decode(assertion.split("\\.")[0]));
+        assertThat(claims.get("permissions").toString()).isEqualTo("[\"portal.booking_prompt.manage\"]");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"clinic_id\":\"other\",\"demographic_no\":123,\"eligible\":true}",
+            "{\"clinic_id\":\"clinic-a\",\"demographic_no\":456,\"eligible\":true}",
+            "{\"demographic_no\":123,\"eligible\":true}",
+            "{\"clinic_id\":\"clinic-a\",\"eligible\":true}",
+            "{\"clinic_id\":\"clinic-a\",\"demographic_no\":123,\"eligible\":\"true\"}",
+            "{\"clinic_id\":\"clinic-a\",\"demographic_no\":123}"
+    })
+    void shouldRejectUnconfirmedEligibility_whenScopeOrBooleanIsInvalid(String reply) {
+        assertThatThrownBy(() -> service(new Exchange().reply(200, reply)).isBookingEligible(123, STAFF))
+                .isInstanceOfSatisfying(PatientPortalException.class,
+                        failure -> assertThat(failure.kind()).isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE));
+    }
+
     @Test
     void shouldConfirmOriginalPrompt_whenCreationIsRetried() throws Exception {
         Exchange exchange = new Exchange().reply(201, created(true)).reply(201, created(false));
