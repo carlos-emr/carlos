@@ -11,7 +11,8 @@
 //   3. that amendment, changing only the reaction, keeps the start date year-only;
 //   4. a new Custom Allergy typed with the full date 2019-05-14 is saved as that day;
 //   5. a new Custom Allergy whose Start Date is typed, left, then cleared is saved with no start date;
-//   6. a day picked on the calendar, here 1 May 2019 after 2019-05 was typed, is saved as that day;
+//   6. a day picked on the calendar, here 1 May 2019 after 2019-05 was typed, is saved as that day (picked with
+//      the calendar button, with the calendar left open after the box lost focus, and with a click alone);
 //   7. a year or a year and month keeps its precision: new allergies typed 2019 and 2019-05 are saved
 //      year-only and year-and-month and listed as typed, and Modify on the stored 2019-05 allergy, after
 //      clicking into Start Date and out again, still posts 2019-05 and saves it year-and-month.
@@ -157,6 +158,15 @@ async function workflow(s) {
     });
     assert(open.sent === '2019-05-01' && stored(open.id) === '2019-05-01|full',
       `1 May 2019 picked after the box lost focus posted ${JSON.stringify(open.sent)} and stored ${stored(open.id)}`);
+    // The same pick made by a screen reader's or voice control's activate, which sends the click alone.
+    const activated = await addCustom('picked click', async start => {
+      await start.click();
+      await start.fill('2019-05');
+      await start.evaluate(box => box.blur());
+      await page.locator('.flatpickr-calendar.open .flatpickr-day[aria-label="May 1, 2019"]').dispatchEvent('click');
+    });
+    assert(activated.sent === '2019-05-01' && stored(activated.id) === '2019-05-01|full',
+      `1 May 2019 activated with a click alone posted ${JSON.stringify(activated.sent)} and stored ${stored(activated.id)}`);
   });
 
   await s.step('a year or a year and month, typed or kept on Modify, is saved with that precision', async () => {
