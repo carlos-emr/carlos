@@ -144,6 +144,10 @@ class SearchEndYearStatement2ActionUnitTest extends CarlosUnitTestBase {
         // Nothing for another window's print or page to pick up (issue #4673); the print
         // computes its own statement from the form.
         assertThat(mockRequest.getSession().getAttribute("summary")).isNull();
+        // The statement shown, for the page's Print PDF to print whatever its fields say by then.
+        assertThat(mockRequest.getAttribute("statementDemographicNo")).isEqualTo("1");
+        assertThat(mockRequest.getAttribute("statementFromDate")).isEqualTo("2025-01-01");
+        assertThat(mockRequest.getAttribute("statementToDate")).isEqualTo("2025-12-31");
     }
 
     @Test

@@ -145,6 +145,57 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPrintTheStatementOnScreen_whenTheFieldsWereChangedSinceItWasCreated() throws Exception {
+        PatientEndYearStatementSummary onScreen = statementFor("101");
+        statementFor("202");
+        PrintEndYearStatementPdf2Action action = new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService);
+        // The statement Create Statement showed...
+        action.setStatementDemographicNo("101");
+        action.setStatementFromDate("2025-01-01");
+        action.setStatementToDate("2025-12-31");
+        // ...and the fields above it, changed since without creating it again.
+        action.setDemographicNoParam("202");
+        action.setFromDateParam("2024-01-01");
+        action.setToDateParam("2024-12-31");
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        verify(mockService).findUniquePatient(any(), eq("101"), isNull(), isNull());
+        verify(mockService, times(1)).writePdfResponse(any(), any(), eq(onScreen), eq("2025-01-01"), eq("2025-12-31"));
+    }
+
+    @Test
+    void shouldSendBadRequest_whenTheShownStatementNamesNoChartNumber() throws Exception {
+        PrintEndYearStatementPdf2Action action = formAction(
+                new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService), "101");
+        action.setStatementDemographicNo("101 OR 1=1");
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockService);
+    }
+
+    @Test
+    void shouldSendServerError_whenTotallingTheStatementFails() throws Exception {
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(101);
+        when(mockService.findUniquePatient(any(), eq("101"), any(), any())).thenReturn(patient);
+        when(mockService.aggregateInvoices(eq(patient), any(), any()))
+                .thenThrow(new PatientEndYearStatementService.Failure(
+                        PatientEndYearStatementService.Reason.DATABASE_ERROR));
+        PrintEndYearStatementPdf2Action action = spy(formAction(
+                new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService), "101"));
+        doReturn("errors.billing.ca.on.database").when(action).getText(any(String.class));
+
+        assertThat(action.execute()).isEqualTo("none");
+
+        // The server's failure, not a bad request.
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        verify(mockService, never()).writePdfResponse(any(), any(), any(), any(), any());
+    }
+
+    @Test
     void shouldSendBadRequest_whenTheFormNamesNoSinglePatient() throws Exception {
         when(mockService.findUniquePatient(any(), any(), any(), any()))
                 .thenThrow(new PatientEndYearStatementService.Failure(

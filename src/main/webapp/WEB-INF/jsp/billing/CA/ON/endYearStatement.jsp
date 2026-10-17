@@ -150,6 +150,17 @@
                 </div>
             </div>
 
+            <%-- The statement shown below, which Print PDF prints: the dates above can be changed in
+                 place without pressing Create Statement again (issue #4673). --%>
+            <c:if test="${not empty requestScope.statementDemographicNo}">
+                <input type="hidden" name="statementDemographicNo"
+                       value="${carlos:forHtmlAttribute(requestScope.statementDemographicNo)}"/>
+                <input type="hidden" name="statementFromDate"
+                       value="${carlos:forHtmlAttribute(requestScope.statementFromDate)}"/>
+                <input type="hidden" name="statementToDate"
+                       value="${carlos:forHtmlAttribute(requestScope.statementToDate)}"/>
+            </c:if>
+
             <div class="col-md-10">
                 <input class="btn btn-secondary" type="submit" value="Create Statement"
                        onclick="return validateFields();">

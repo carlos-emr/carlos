@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -38,10 +39,13 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * Streams the end-year-statement PDF for the patient and date range the statement page's form
- * posts (its "Print PDF" button submits the same fields as "Create Statement"). The statement is
- * computed for this request, as the search computes it. If the form names no single patient or
- * a malformed date, sends HTTP 400. Rendering failures send HTTP 500 before the response is
+ * Streams the end-year-statement PDF of the statement the page shows. Create Statement renders
+ * the statement's own patient and dates into the form ({@code statementDemographicNo},
+ * {@code statementFromDate}, {@code statementToDate}), and Print PDF prints exactly that
+ * statement, recomputed for this request, even if the dates above it were changed since without
+ * creating it again. A request without those fields prints the patient and dates the form's
+ * fields name. If that is no single patient, or a date is malformed, sends HTTP 400; a
+ * failure while computing or rendering the statement sends HTTP 500 before the response is
  * committed. Always returns {@code NONE} after handling the response so Struts cannot append a
  * page to the PDF.
  *
@@ -56,6 +60,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 public class PrintEndYearStatementPdf2Action extends ActionSupport {
 
     private static final String PDF_FILENAME_BASE = "end_year_statement_report";
+
+    /** The shown statement's patient, as Create Statement renders it: a chart number. */
+    private static final Pattern STATEMENT_PATIENT = Pattern.compile("\\d{1,9}");
 
     private final SecurityInfoManager securityInfoManager;
     private final PatientEndYearStatementService statementService;
@@ -77,28 +84,41 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
 
         PatientEndYearStatements.echoNames(request);
 
-        // This form's own patient and dates, never the statement another window searched last.
+        // The statement on the page, never the statement another window searched last. The page
+        // names it in its statement* fields: its date fields can be changed in place without
+        // pressing Create Statement again, and the PDF must be the statement on screen.
+        boolean shown = statementDemographicNo != null && !statementDemographicNo.isEmpty();
+        if (shown && !STATEMENT_PATIENT.matcher(statementDemographicNo).matches()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        String demographicNo = shown ? statementDemographicNo : getDemographicNoParam();
+        String from = shown ? statementFromDate : getFromDateParam();
+        String to = shown ? statementToDate : getToDateParam();
         PatientEndYearStatementSummary summary;
         try {
-            Date fromDate = PatientEndYearStatements.parseIso(getFromDateParam(), "from date");
-            Date toDate = PatientEndYearStatements.parseIso(getToDateParam(), "to date");
-            Demographic demographic = statementService.findUniquePatient(
-                    loggedInInfo, getDemographicNoParam(), getFirstNameParam(), getLastNameParam());
+            Date fromDate = PatientEndYearStatements.parseIso(from, "from date");
+            Date toDate = PatientEndYearStatements.parseIso(to, "to date");
+            Demographic demographic = statementService.findUniquePatient(loggedInInfo, demographicNo,
+                    shown ? null : getFirstNameParam(), shown ? null : getLastNameParam());
             summary = statementService.aggregateInvoices(demographic, fromDate, toDate).summary();
         } catch (PatientEndYearStatements.InvalidDateFilterException ex) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, ex.getMessage());
             return NONE;
         } catch (PatientEndYearStatementService.Failure ex) {
-            PatientEndYearStatements.logFailure(ex, getDemographicNoParam());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, getText(ex.reason().i18nKey()));
+            PatientEndYearStatements.logFailure(ex, demographicNo);
+            // No such patient (or more than one) is the request's; anything else, a database
+            // failure while totalling the invoices, is the server's.
+            boolean requestFault = ex.reason() == PatientEndYearStatementService.Reason.PATIENT_NOT_FOUND
+                    || ex.reason() == PatientEndYearStatementService.Reason.PATIENT_NOT_UNIQUE;
+            response.sendError(requestFault ? HttpServletResponse.SC_BAD_REQUEST
+                    : HttpServletResponse.SC_INTERNAL_SERVER_ERROR, getText(ex.reason().i18nKey()));
             return NONE;
         }
         try {
-            statementService.writePdfResponse(
-                    response, PDF_FILENAME_BASE, summary,
-                    getFromDateParam(), getToDateParam());
+            statementService.writePdfResponse(response, PDF_FILENAME_BASE, summary, from, to);
         } catch (PatientEndYearStatementService.Failure ex) {
-            PatientEndYearStatements.logFailure(ex, getDemographicNoParam());
+            PatientEndYearStatements.logFailure(ex, demographicNo);
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, getText(ex.reason().i18nKey()));
@@ -134,4 +154,23 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
     public String getDemographicNoParam() { return demographicNoParam; }
     @StrutsParameter
     public void setDemographicNoParam(String demographicNoParam) { this.demographicNoParam = demographicNoParam; }
+
+    private String statementDemographicNo;
+    private String statementFromDate;
+    private String statementToDate;
+
+    /** @return the patient of the statement the page shows, or null when it shows none */
+    public String getStatementDemographicNo() { return statementDemographicNo; }
+    @StrutsParameter
+    public void setStatementDemographicNo(String statementDemographicNo) { this.statementDemographicNo = statementDemographicNo; }
+
+    /** @return the start date of the statement the page shows ({@code yyyy-MM-dd}, or empty for none) */
+    public String getStatementFromDate() { return statementFromDate; }
+    @StrutsParameter
+    public void setStatementFromDate(String statementFromDate) { this.statementFromDate = statementFromDate; }
+
+    /** @return the end date of the statement the page shows ({@code yyyy-MM-dd}, or empty for none) */
+    public String getStatementToDate() { return statementToDate; }
+    @StrutsParameter
+    public void setStatementToDate(String statementToDate) { this.statementToDate = statementToDate; }
 }
