@@ -34,8 +34,9 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
  * An eForm action template's {@code <consultRequest>} without a usable {@code <referredToSpecialist>}
- * is skipped, like one whose specialist is not found, with a warning naming the eForm's form id,
- * instead of stopping the submission (issue #4833).
+ * or {@code <referredToService>} id (missing, not a number, or too long for an int) is skipped, like
+ * one whose specialist is not found, with a warning naming the eForm's form id, instead of stopping
+ * the submission (issue #4833).
  *
  * <p>Each test runs {@link EFormUtil#writeEformTemplate} on a template holding one consultation
  * request, with the DAOs mocked, and checks whether the request is saved.</p>
@@ -58,8 +59,16 @@ class EFormUtilTemplateConsultSpecialistUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(ClinicDAO.class);
     }
 
-    /** Runs an eForm whose template is a consultation request with this specialist tag (or none). */
+    private static final String WARNING =
+            "eForm template consultRequest skipped: service or specialist missing or not a number (eForm fid 41)";
+
+    /** Runs an eForm whose template is a consultation request for service 12 with this specialist tag (or none). */
     private void submit(String specialistTag) {
+        submit("<referredToService>12</referredToService>", specialistTag);
+    }
+
+    /** Runs an eForm whose template is a consultation request with these service and specialist tags. */
+    private void submit(String serviceTag, String specialistTag) {
         EForm eForm = new EForm();
         eForm.setFid("41");
         eForm.setFormName("FAKE consult template form");
@@ -67,7 +76,7 @@ class EFormUtilTemplateConsultSpecialistUnitTest extends CarlosUnitTestBase {
         eForm.setProviderNo("111");
         eForm.setFormDate("2026-10-17");
         eForm.setFormHtml("<html><body><form></form><!-- <template><consultRequest>"
-                + "<referredToService>12</referredToService>" + specialistTag
+                + serviceTag + specialistTag
                 + "<referredBy>111</referredBy><reason>FAKE reason</reason>"
                 + "</consultRequest></template> --></body></html>");
 
@@ -88,8 +97,7 @@ class EFormUtilTemplateConsultSpecialistUnitTest extends CarlosUnitTestBase {
         try (LogCapture capture = LogCapture.forLogger(EFormUtil.class)) {
             submit("");
 
-            assertThat(capture.messages())
-                    .containsExactly("eForm template consultRequest skipped: specialist missing or not a number (eForm fid 41)");
+            assertThat(capture.messages()).containsExactly(WARNING);
         }
     }
 
@@ -99,6 +107,34 @@ class EFormUtilTemplateConsultSpecialistUnitTest extends CarlosUnitTestBase {
         assertThatCode(() -> submit("<referredToSpecialist>Dr FAKE</referredToSpecialist>")).doesNotThrowAnyException();
 
         verify(consultationRequestDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should skip the request without failing when the specialist id is too long for an int")
+    void shouldSkipRequest_whenSpecialistIdOverflows() {
+        assertThatCode(() -> submit("<referredToSpecialist>12345678901</referredToSpecialist>")).doesNotThrowAnyException();
+
+        verify(consultationRequestDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should skip the request when the specialist id is zero")
+    void shouldSkipRequest_whenSpecialistIdIsZero() {
+        submit("<referredToSpecialist>0</referredToSpecialist>");
+
+        verify(consultationRequestDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should skip the request with a warning when the service is not a number")
+    void shouldSkipRequest_whenServiceIsNotANumber() {
+        try (LogCapture capture = LogCapture.forLogger(EFormUtil.class)) {
+            assertThatCode(() -> submit("<referredToService>Cardiology</referredToService>",
+                    "<referredToSpecialist>" + SPECIALIST + "</referredToSpecialist>")).doesNotThrowAnyException();
+
+            verify(consultationRequestDao, never()).persist(any());
+            assertThat(capture.messages()).containsExactly(WARNING);
+        }
     }
 
     @Test

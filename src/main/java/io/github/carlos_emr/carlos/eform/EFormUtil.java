@@ -1212,19 +1212,22 @@ public class EFormUtil {
 
             ConsultationRequest consult = new ConsultationRequest();
 
-            // A request without a specialist id is skipped like one whose specialist is not found; parsing it
-            // would throw and stop the eForm's submission after the eForm and its other outputs were saved.
-            // The warning names only the eForm's form id, so a clinic can find the template to correct.
-            if (!NumberUtils.isDigits(referredToSpecialist)) {
-                logger.warn("eForm template consultRequest skipped: specialist missing or not a number (eForm fid {})",
+            // A request whose specialist or service id is missing, not a number or too long for an int is
+            // skipped like one whose specialist is not found; parsing it would throw and stop the eForm's
+            // submission after the eForm and its other outputs were saved. The warning names only the eForm's
+            // form id, so a clinic can find the template to correct.
+            int specialistId = NumberUtils.toInt(referredToSpecialist, -1);
+            int serviceId = NumberUtils.toInt(referredToService, -1);
+            if (specialistId <= 0 || serviceId <= 0) {
+                logger.warn("eForm template consultRequest skipped: service or specialist missing or not a number (eForm fid {})",
                         NumberUtils.toInt(eForm.getFid()));
                 continue;
             }
-            ProfessionalSpecialist ps = professionalSpecialistDao().find(Integer.parseInt(referredToSpecialist));
+            ProfessionalSpecialist ps = professionalSpecialistDao().find(specialistId);
             if (ps == null) continue;
-            if (referredToService == null || referredBy == null) continue;
+            if (referredBy == null) continue;
 
-            consult.setServiceId(Integer.parseInt(referredToService));
+            consult.setServiceId(serviceId);
             consult.setDemographicId(Integer.parseInt(eForm.getDemographicNo()));
             consult.setProviderNo(referredBy);
             consult.setFdid(Integer.parseInt(fdid));
