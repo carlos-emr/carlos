@@ -295,14 +295,14 @@
             })
 
             function disableFields(selected) {
-                // disable other settings whenever a default providers is selected to override.
+                // disable other settings whenever a default provider is selected to override.
                 if (selected && selected !== defaultValue) {
 
-                    document.getElementById("default-providers-alert").style.display = '';
+                    document.getElementById("default-provider-alert").style.display = '';
 
                 } else {
 
-                    document.getElementById("default-providers-alert").style.display = 'none';
+                    document.getElementById("default-provider-alert").style.display = 'none';
                 }
             }
 
