@@ -22,14 +22,14 @@ import static org.mockito.Mockito.*;
 
 /**
  * The eChart loads its notes through {@code viewNotesOpt}, and ChartNotesAjax.jsp reads the logged-in
- * provider's stale date ({@code cme_note_date}) from the request. Without it, it applied a one-year
- * stale date to everyone. The single-line format ({@code cme_note_format}) stays unpassed: its page
- * script expands the notes it should fold onto one line.
+ * provider's stale date ({@code cme_note_date}) and single-line format ({@code cme_note_format}) from the
+ * request. Without them, it applied a one-year stale date to everyone and never folded stale notes onto
+ * one line.
  *
  * @since 2026-10-16
  */
 @Tag("unit")
-@DisplayName("eChart note list passes the stale date")
+@DisplayName("eChart note list passes the stale-note preferences")
 class CaseManagementViewStaleNotePreferencesUnitTest extends CarlosUnitTestBase {
     private CaseManagementView2Action action;
     private MockHttpServletRequest request;
@@ -82,11 +82,21 @@ class CaseManagementViewStaleNotePreferencesUnitTest extends CarlosUnitTestBase 
     }
 
     @Test
-    @DisplayName("should not pass the single-line format, whose page script would expand stale notes")
-    void shouldNotPassSingleLineFormat_forDefaultCase() {
-        when(manager.getUserProperty("4249", UserProperty.STALE_FORMAT)).thenReturn(property(UserProperty.STALE_FORMAT, "yes"));
+    @DisplayName("should pass the logged-in provider's single-line format to the note list")
+    void shouldPassSingleLineFormat_whenProviderHasOne() {
+        UserProperty format = property(UserProperty.STALE_FORMAT, "yes");
+        when(manager.getUserProperty("4249", UserProperty.STALE_FORMAT)).thenReturn(format);
 
-        action.viewNotesOpt();
+        assertThat(action.viewNotesOpt()).isEqualTo("ajaxDisplayNotes");
+
+        assertThat(request.getAttribute(UserProperty.STALE_FORMAT)).isSameAs(format);
+        verify(manager).getUserProperty("4249", UserProperty.STALE_FORMAT);
+    }
+
+    @Test
+    @DisplayName("should leave stale notes unfolded when the provider has no single-line format")
+    void shouldLeaveNotesUnfolded_whenProviderHasNoFormat() {
+        assertThat(action.viewNotesOpt()).isEqualTo("ajaxDisplayNotes");
 
         assertThat(request.getAttribute(UserProperty.STALE_FORMAT)).isNull();
     }
