@@ -240,5 +240,6 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('admin-cds-mis-reports', workflow);
+// The notes are inserted for the owned patient; its record is never opened.
+if (require.main === module) runWorkflow('admin-cds-mis-reports', workflow, { openMaster: false });
 module.exports = { workflow, reportMonths };
