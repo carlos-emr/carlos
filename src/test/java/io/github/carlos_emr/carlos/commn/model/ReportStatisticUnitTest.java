@@ -98,8 +98,8 @@ class ReportStatisticUnitTest {
         half.setLabel("x");
         quarter.setLabel("x");
 
-        assertThat(empty.compareTo(quarter)).isNegative();
-        assertThat(quarter.compareTo(half)).isNegative();
-        assertThat(new ReportStatistic(2, 4).compareTo(new ReportStatistic(1, 2))).isZero();
+        assertThat(empty).isLessThan(quarter);
+        assertThat(quarter).isLessThan(half);
+        assertThat(new ReportStatistic(2, 4)).isEqualByComparingTo(new ReportStatistic(1, 2));
     }
 }

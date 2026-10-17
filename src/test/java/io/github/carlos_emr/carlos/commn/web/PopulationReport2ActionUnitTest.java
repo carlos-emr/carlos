@@ -40,6 +40,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,9 +68,12 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
         resetCache();
         createAndRegisterMock(SecurityInfoManager.class);
         manager = createAndRegisterMock(PopulationReportManager.class);
-        when(manager.getShelterPopulation()).thenReturn(mock(ShelterPopulation.class));
-        when(manager.getShelterUsage()).thenReturn(mock(ShelterUsage.class));
-        when(manager.getMortalities()).thenReturn(mock(Mortalities.class));
+        ShelterPopulation population = mock(ShelterPopulation.class);
+        ShelterUsage usage = mock(ShelterUsage.class);
+        Mortalities deaths = mock(Mortalities.class);
+        when(manager.getShelterPopulation()).thenReturn(population);
+        when(manager.getShelterUsage()).thenReturn(usage);
+        when(manager.getMortalities()).thenReturn(deaths);
         when(manager.getMajorMedicalConditions()).thenReturn(Map.of("Diabetes", new ReportStatistic(1, 2)));
         when(manager.getMajorMentalIllnesses()).thenReturn(Map.of());
         when(manager.getSeriousMedicalConditions()).thenReturn(Map.of());
@@ -95,14 +99,11 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
         return (Map<String, ReportStatistic>) request.getAttribute("majorMedicalConditions");
     }
 
-    /** The report keeps its figures in static fields; each test starts with none. */
+    /** The report caches its figures in a static reference; each test starts with none. */
     private static void resetCache() throws Exception {
-        Field stamp = PopulationReport2Action.class.getDeclaredField("lastDataRetrievedTime");
-        stamp.setAccessible(true);
-        stamp.setLong(null, 0L);
-        Field conditions = PopulationReport2Action.class.getDeclaredField("majorMedicalConditions");
-        conditions.setAccessible(true);
-        conditions.set(null, null);
+        Field cached = PopulationReport2Action.class.getDeclaredField("CACHED_FIGURES");
+        cached.setAccessible(true);
+        ((AtomicReference<?>) cached.get(null)).set(null);
     }
 
     @Test
@@ -111,7 +112,8 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
                 .thenThrow(new ArithmeticException("The denominator must not be zero"))
                 .thenReturn(Map.of("Diabetes", new ReportStatistic(1, 2)));
 
-        assertThatThrownBy(() -> newAction().report()).isInstanceOf(ArithmeticException.class);
+        PopulationReport2Action failing = newAction();
+        assertThatThrownBy(failing::report).isInstanceOf(ArithmeticException.class);
         String result = newAction().report();
 
         assertThat(result).isEqualTo("report");
@@ -134,10 +136,12 @@ class PopulationReport2ActionUnitTest extends CarlosUnitTestBase {
     void shouldPublishNoFigures_whenTheFirstComputeFails() {
         when(manager.getMajorMentalIllnesses()).thenThrow(new IllegalStateException("database unavailable"));
 
-        assertThatThrownBy(() -> newAction().report()).isInstanceOf(IllegalStateException.class);
+        PopulationReport2Action first = newAction();
+        assertThatThrownBy(first::report).isInstanceOf(IllegalStateException.class);
 
         // The conditions computed before the failure are not left behind for the next request.
-        assertThatThrownBy(() -> newAction().report()).isInstanceOf(IllegalStateException.class);
+        PopulationReport2Action second = newAction();
+        assertThatThrownBy(second::report).isInstanceOf(IllegalStateException.class);
         verify(manager, times(2)).getMajorMedicalConditions();
     }
 }
