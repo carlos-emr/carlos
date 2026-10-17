@@ -24,6 +24,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, markOpener } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { documentChain, pickInPopup, lostOpenerMessage, assertId } = require('./lib/popup-opener-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 20000;
 
@@ -121,7 +122,7 @@ async function workflow(s) {
   };
 
   await s.step('Manage Contacts opens from the Master Record with empty personal and professional lists', async () => {
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts');
     await contacts.locator('form#contactForm').waitFor();
     h.assert(await contacts.locator('#contact_container > *').count() === 0
       && await contacts.locator('#procontact_container > *').count() === 0, 'Manage Contacts opened with rows for a patient that has none');
@@ -172,7 +173,7 @@ async function workflow(s) {
   // first; this step tries all three and names each one that fails.
   await s.step('Specialist, professional-contact and Referral Doctor pickers each hand the pick back and it saves', async () => {
     const failures = [];
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts-2');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts-2');
     await contacts.locator('form#contactForm').waitFor();
     const specialistRow = await addRow('procontact');
     await contacts.locator(`[name="${specialistRow}.type"]`).selectOption('3');

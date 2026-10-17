@@ -13,6 +13,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const CASES = [
   { label: 'apostrophe', term: 'BENADRYL ALLERGY', pick: "CHILDREN'S BENADRYL ALLERGY" },
@@ -23,7 +24,7 @@ const isPost = (route) => (response) => response.request().method() === 'POST' &
 async function workflow(s) {
   const { sql, patient } = s;
   s.cleanup(() => h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === '0', 'A drug was written for the owned patient'));
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');
 

@@ -20,6 +20,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 20000;
 
@@ -80,7 +81,7 @@ async function workflow(s) {
   const ownedSuggestion = `SELECT CONCAT(COUNT(*),':',COALESCE(MAX(active),'-')) FROM tickler_text_suggest
     WHERE suggested_text=${S} AND creator=${h.sqlString(provider)} AND id>${baselineMax}`;
 
-  const ticklerList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+  const ticklerList = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
   await ticklerList.waitForLoadState('domcontentloaded');
   async function openAdd() {
     const add = await s.popup(ticklerList, ticklerList.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');

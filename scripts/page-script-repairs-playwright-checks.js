@@ -39,6 +39,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { fixturePdf } = require('./incoming-pdf-extraction-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 20000;
 const PREFERENCE = 'edoc_browser_in_document_report';
@@ -185,7 +186,7 @@ async function workflow(s) {
   // ---- Document Browser ------------------------------------------------------------------
   let browser;
   await s.step('Documents > Browse opens the document browser with a scope token, not the patient\'s name', async () => {
-    const report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'edoc-report');
+    const report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'edoc-report');
     const link = report.locator('a[href*="/documentManager/ViewDocumentBrowser"]').first();
     await link.waitFor({ state: 'attached', timeout: TIMEOUT });
     const href = new URL(await link.getAttribute('href'), report.url());

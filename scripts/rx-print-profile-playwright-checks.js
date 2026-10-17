@@ -28,6 +28,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const isEncounterWrite = response => response.request().method() === 'POST'
   && /\/rx\/WriteToEncounter(?:\?|$)/.test(h.pathOnly(response.url()));
@@ -97,7 +98,7 @@ async function workflow(s) {
   // Master Record ▸ Prescriptions opens the Rx module for this patient. Entered from the Master
   // Record rather than the E-Chart on purpose: with an encounter as opener, ViewScript2 pastes into
   // the open note editor and never calls rx/WriteToEncounter, which is the route under test.
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
 
