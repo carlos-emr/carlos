@@ -1,0 +1,486 @@
+#!/usr/bin/env node
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Two patients' BC bills in two windows of one login keep their own patient (issue #4673).
+ *
+ * The BC bill being built lived in one login-wide session attribute, so a bill form opened in a
+ * second window replaced the first window's bill: Continue and Save in the first window then billed
+ * the second window's patient and appointment with the first window's codes. The receipt shown
+ * after "Update Invoice" was likewise the invoice viewed last in any window. Each bill is now staged
+ * under its own key (BcBillStaging) and the receipt is shown again by its own bill numbers.
+ *
+ * User paths (the first and third in two windows of one login):
+ *
+ *   1. Schedule ▸ B on A's appointment, then B on B's appointment (from a second schedule tab, as
+ *      the day sheet opens every bill in one named window) ▸ billing physician, a service code
+ *      and a diagnosis in each ▸ Continue in each ▸ Save Bill in A's window, then in B's: each
+ *      review names its own patient, and each claim is saved for its own patient and appointment
+ *      with its own codes.
+ *   2. Schedule ▸ B on A's second appointment ▸ change the billing physician back and forth (each
+ *      change reloads the form's patient bar and code table in place; the reloads used to stage a
+ *      bill each, pushing the window's own bill out of the session) ▸ Continue with a service code
+ *      that does not exist ▸ Continue ▸ Go Back ▸ Continue ▸ Another Bill ▸ Continue ▸ Save Bill: the
+ *      refused Continue, Go Back and Another Bill each return to this window's own bill form, and
+ *      both claims are saved for A on A's appointment.
+ *   3. A private bill of two service lines for A ▸ Save & Print Receipt ▸ a private bill for B in
+ *      the other window ▸ Save & Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
+ *      again is A's, with both lines.
+ *
+ * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
+ * PatientBravo, the same marker last name), both with a synthetic BC PHN; three appointments today
+ * for A and two for B; an owned billing physician created through Administration ▸ Add Provider
+ * (so the application's provider caches see it) and deactivated through Update Provider at the
+ * end. Cleanup removes every claim, note, history and recipient row of the two patients, their
+ * appointments, B and the physician, and asserts them gone. BC installs only (billregion=BC).
+ */
+const { randomInt } = require('node:crypto');
+const h = require('./lib/playwright-harness');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { withProviderCleanup } = require('./billing-bc-simulation-encoding-playwright-checks');
+
+const TIMEOUT = 30000;
+const A_FIRST_NAME = 'PatientAlpha';
+const B_FIRST_NAME = 'PatientBravo';
+const q = h.sqlString;
+
+function key(value, what) {
+  h.assert(/^[1-9]\d*$/.test(String(value)), `The owned ${what} key is invalid`);
+  return String(value);
+}
+
+function unusedValue(sql, table, column, prefix, digits = 5) {
+  for (let i = 0; i < 20; i++) {
+    const value = `${prefix}${randomInt(10 ** (digits - 1), 10 ** digits)}`;
+    if (sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=${q(value)}`) === '0') return value;
+  }
+  throw new Error(`Could not find an unused ${table}.${column}`);
+}
+
+/** A synthetic BC PHN for an owned patient: 9 and the zero-padded patient number, never a real one. */
+function givePhn(sql, marker, patient) {
+  sql.execute(`UPDATE demographic SET hc_type='BC', province='BC', hin=${q(`9${String(patient).padStart(9, '0').slice(-9)}`)},
+      ver='' WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
+}
+
+/** The second patient, owned by this run; removed last, after every child row. */
+function createSecondPatient(s) {
+  const { sql, marker, provider } = s;
+  const patient = h.insertId(sql, `INSERT INTO demographic (last_name, first_name, year_of_birth,
+      month_of_birth, date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status,
+      lastUpdateDate)
+    VALUES (${q(marker)}, ${q(B_FIRST_NAME)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'BC', 'BC', 'NR',
+      NOW())`, 'second patient');
+  s.cleanup(() => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
+      AND last_name=${q(marker)}`) === '1', 'The second patient fixture changed owner');
+    sql.execute(['demographicExt', 'demographicArchive', 'casemgmt_note_lock']
+      .map(table => `DELETE FROM ${table} WHERE demographic_no=${patient}`).join(';'));
+    sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
+      'The second patient was not removed');
+  });
+  return patient;
+}
+
+/** Every claim the two windows save, with the rows a save, a receipt update and the archive write. */
+function ownBills(s, patients) {
+  const { sql } = s;
+  const list = patients.join(',');
+  s.cleanup(() => {
+    const masters = sql.rows(`SELECT billingmaster_no FROM billingmaster WHERE demographic_no IN (${list})`)
+      .map(([id]) => key(id, 'billing line'));
+    const bills = sql.rows(`SELECT billing_no FROM billing WHERE demographic_no IN (${list})`)
+      .map(([id]) => key(id, 'bill'));
+    if (masters.length) {
+      const ids = masters.join(',');
+      sql.execute(`DELETE FROM billing_history WHERE billingmaster_no IN (${ids});
+        DELETE FROM billingnote WHERE billingmaster_no IN (${ids});
+        DELETE FROM billingmaster WHERE billingmaster_no IN (${ids}) AND demographic_no IN (${list})`);
+    }
+    if (bills.length) {
+      sql.execute(`DELETE FROM bill_recipients WHERE billingNo IN (${bills.join(',')});
+        DELETE FROM billing WHERE billing_no IN (${bills.join(',')}) AND demographic_no IN (${list})`);
+    }
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM billing WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM billingmaster WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM billing_history WHERE billingmaster_no IN (${masters.join(',') || 0}))
+      + (SELECT COUNT(*) FROM billingnote WHERE billingmaster_no IN (${masters.join(',') || 0}))
+      + (SELECT COUNT(*) FROM bill_recipients WHERE billingNo IN (${bills.join(',') || 0}))`) === '0',
+    'Owned BC claims, notes, history or recipients were not removed');
+  });
+}
+
+/** Every appointment of the two patients; an orphan appointment breaks the whole day sheet. */
+function ownAppointments(s, patients) {
+  const { sql } = s;
+  const list = patients.join(',');
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM appointmentArchive WHERE demographic_no IN (${list});
+      DELETE FROM appointment WHERE demographic_no IN (${list})`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${list}))`) === '0',
+    'Owned appointments were not removed');
+  });
+}
+
+/**
+ * The owned billing physician, created and deactivated through Administration, never behind the
+ * application's back: the active-provider list is cached, and only a provider save evicts it.
+ */
+function ownBillingPhysician(s, admin) {
+  const { sql, marker } = s;
+  // Five characters, like an MSP practitioner number: the claim's payee and practitioner columns hold five.
+  const ohipNo = unusedValue(sql, 'provider', 'ohip_no', '8', 4);
+  const firstName = `Bill${ohipNo}`;
+  const owned = `last_name=${q(marker)} AND first_name=${q(firstName)}`;
+  s.cleanup(() => {
+    const ownedNo = `provider_no IN (SELECT provider_no FROM provider WHERE ${owned})`;
+    sql.execute(['program_provider', 'provider_facility', 'secUserRole', 'providersite']
+      .map(table => `DELETE FROM ${table} WHERE ${ownedNo}`).join(';'));
+    sql.execute(`DELETE FROM provider WHERE ${owned}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned}`) === '0', 'The owned billing physician was not removed');
+  });
+  /** Deactivates every saved owned physician, one whose creation failed half way included. */
+  async function deactivate() {
+    for (const [providerNo] of sql.rows(`SELECT provider_no FROM provider WHERE ${owned} AND status='1'`)) {
+      await h.gotoApp(admin, s.config.baseUrl, `/admin/ViewProviderUpdateProvider?keyword=${encodeURIComponent(providerNo)}`);
+      const form = admin.locator('form[name="updatearecord"]');
+      await form.locator('#statusInactive').check();
+      await Promise.all([
+        admin.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+        form.locator('input[type="submit"][name="subbutton"]').click(),
+      ]);
+      h.assert(sql.value(`SELECT status FROM provider WHERE provider_no=${q(providerNo)}`) === '0',
+        'Update Provider did not deactivate the owned billing physician');
+    }
+  }
+  async function create() {
+    await h.gotoApp(admin, s.config.baseUrl, '/admin/ViewProviderAddARecordHtm');
+    const form = admin.locator('form[name="searchprovider"]');
+    const providerNoInput = form.locator('input[name="provider_no"]').first();
+    await providerNoInput.waitFor({ state: 'visible' });
+    if ((await providerNoInput.getAttribute('readonly')) === null) {
+      await providerNoInput.fill(unusedValue(sql, 'provider', 'provider_no', '9'));
+    }
+    await form.locator('input[name="last_name"]').fill(marker);
+    await form.locator('input[name="first_name"]').fill(firstName);
+    await form.locator('select[name="provider_type"]').selectOption('doctor');
+    await form.locator('select[name="sex"]').selectOption('F');
+    await form.locator('input[name="ohip_no"]').fill(ohipNo);
+    await form.locator('input[name="billing_no"]').fill(ohipNo);
+    await Promise.all([
+      admin.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+      form.locator('input[type="submit"]').first().click(),
+    ]);
+    const providerNo = sql.value(`SELECT provider_no FROM provider WHERE ${owned} AND ohip_no=${q(ohipNo)} AND status='1'`);
+    h.assert(providerNo, 'Add Provider did not create the owned billing physician');
+    return providerNo;
+  }
+  return { create, deactivate };
+}
+
+async function settle(page, label) {
+  await page.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
+  await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+  await h.assertNotErrorPage(page, label);
+}
+
+/** A bill form's in-place reload: the same page fetched again for its patient bar or code table. */
+function isFormReload(response) {
+  const url = new URL(response.url());
+  return response.request().method() === 'GET' && url.pathname.endsWith('/billing') && url.searchParams.has('demographic_no');
+}
+
+/**
+ * Changes one of the bill form's selects and waits for the in-place reloads that change makes (the
+ * physician reloads the patient bar and then the code table; the bill type, the code table).
+ */
+async function changeAndAwaitReloads(form, select, value, count, what) {
+  const reloads = [];
+  const onResponse = (response) => { if (isFormReload(response)) reloads.push(response); };
+  form.on('response', onResponse);
+  try {
+    await form.locator(select).selectOption(value);
+    const deadline = Date.now() + TIMEOUT;
+    while (reloads.length < count && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+    h.assert(reloads.length >= count, `${what} reloaded the bill form ${reloads.length} times, not ${count}`);
+    await form.waitForFunction(() => !window.jQuery || window.jQuery.active === 0, null, { timeout: TIMEOUT });
+  } finally {
+    form.off('response', onResponse);
+  }
+  for (const response of reloads) {
+    h.assert(response.status() === 200, `A bill form reload after ${what} answered HTTP ${response.status()}`);
+  }
+  await h.assertNotErrorPage(form, `bill form after ${what}`);
+}
+
+function chooseBillingPhysician(form, providerNo) {
+  return changeAndAwaitReloads(form, '#xml_provider', providerNo, 2, 'choosing the billing physician');
+}
+
+/** The billing physician, service lines and diagnosis of a bill form, then Continue. */
+async function fillAndContinue(form, { physician, codes, dx, ignoreWarnings }) {
+  if (await form.locator('#xml_provider').inputValue() !== physician) await chooseBillingPhysician(form, physician);
+  for (const [index, code] of codes.entries()) {
+    await form.locator(`input[name="xml_other${index + 1}"]`).fill(code);
+    await form.locator(`input[name="xml_other${index + 1}_unit"]`).fill('1');
+  }
+  await form.locator('input[name="xml_diagnostic_detail1"]').fill(dx);
+  await form.locator('#ignoreWarn').setChecked(ignoreWarnings);
+  const [posted] = await Promise.all([
+    form.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/billing/CA/BC/CreateBilling'), { timeout: TIMEOUT }),
+    form.locator('#buttonRow input[type="submit"][value="Continue"]').click(),
+  ]);
+  return posted;
+}
+
+/** Continue, warnings ignored, to the bill review. */
+async function continueToReview(form, label, { physician, codes, dx }) {
+  const posted = await fillAndContinue(form, { physician, codes, dx, ignoreWarnings: true });
+  h.assert(posted.status() === 200, `${label}'s Continue answered HTTP ${posted.status()}`);
+  await settle(form, `${label}'s bill review`);
+  h.assert(await form.locator('form[action$="/billing/CA/BC/SaveBilling"]').count() === 1,
+    `${label}'s Continue did not reach the bill review`);
+}
+
+/** A page's text, whitespace folded and lower-cased: the pages show names in their own capitalisation. */
+async function textOf(locator) {
+  return (await locator.innerText()).replace(/\s+/g, ' ').toLowerCase();
+}
+
+function reviewText(page) {
+  return textOf(page.locator('form[action$="/billing/CA/BC/SaveBilling"]'));
+}
+
+function names(text, own, other) {
+  return text.includes(own.toLowerCase()) && !text.includes(other.toLowerCase());
+}
+
+/**
+ * Save Bill (or Save & Print Receipt) on a bill review. Save Bill's answer closes the bill window and
+ * refreshes the day sheet that opened it; Save & Print Receipt turns the window into the receipt.
+ */
+async function save(page, label, button, daySheet = null) {
+  const closed = button === 'Save Bill' ? page.waitForEvent('close', { timeout: TIMEOUT }) : null;
+  const refreshed = closed && daySheet ? daySheet.waitForEvent('load', { timeout: TIMEOUT }) : null;
+  const [posted] = await Promise.all([
+    page.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/billing/CA/BC/SaveBilling'), { timeout: TIMEOUT }),
+    page.locator(`input[type="submit"][name="submit"][value="${button}"]`).click(),
+  ]);
+  h.assert(posted.status() < 400, `${label}'s ${button} answered HTTP ${posted.status()}`);
+  if (closed) {
+    await closed;
+    if (refreshed) {
+      await refreshed;
+      await settle(daySheet, `the day sheet ${label}'s save refreshed`);
+    }
+    return;
+  }
+  await settle(page, `${label} after ${button}`);
+}
+
+async function workflow(s) {
+  const { sql, marker, provider, context } = s;
+  const A = key(s.patient, 'patient');
+  sql.execute(`UPDATE demographic SET first_name=${q(A_FIRST_NAME)} WHERE demographic_no=${A} AND last_name=${q(marker)}`);
+  // Registered first, so it runs after every child cleanup below.
+  const B = key(createSecondPatient(s), 'second patient');
+  givePhn(sql, marker, A);
+  givePhn(sql, marker, B);
+  ownAppointments(s, [A, B]);
+  ownBills(s, [A, B]);
+  const admin = await context.newPage();
+  h.wireStrictPage(admin, 'billing-bc-two-window-admin', s.recorder);
+  const owner = ownBillingPhysician(s, admin);
+  // The physician is deactivated through Administration whatever happens below, before the SQL
+  // cleanup removes it; every failure, the scenario's and the teardown's, is reported.
+  await withProviderCleanup(async () => {
+    const physician = { providerNo: await owner.create() };
+    await billInTwoWindows(s, A, B, physician);
+  }, owner.deactivate, () => admin.close());
+}
+
+async function billInTwoWindows(s, A, B, physician) {
+  const { sql, marker, provider, context } = s;
+
+  const day = sql.value('SELECT CURDATE()');
+  const [year, month, dayOfMonth] = day.split('-');
+  const appointment = {};
+  for (const [label, patient, first, start, end] of [
+    ['A1', A, A_FIRST_NAME, '09:00:00', '09:14:00'], ['B1', B, B_FIRST_NAME, '09:15:00', '09:29:00'],
+    ['A2', A, A_FIRST_NAME, '09:30:00', '09:44:00'], ['A3', A, A_FIRST_NAME, '09:45:00', '09:59:00'],
+    ['B3', B, B_FIRST_NAME, '10:00:00', '10:14:00']]) {
+    appointment[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+        end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator,
+        lastupdateuser)
+      VALUES (${q(provider)}, ${q(day)}, '${start}', '${end}', ${q(`${marker},${first}`)}, ${patient},
+        ${q(marker)}, ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment');
+  }
+  const daySheetPath = `/provider/providercontrol?${new URLSearchParams({ year, month: String(Number(month)),
+    day: String(Number(dayOfMonth)), view: '0', displaymode: 'day', dboperation: 'searchappointmentday', viewall: '1' })}`;
+
+  // The day sheet opens every bill in one named window, so a second bill comes from a second
+  // schedule tab, as a clinician keeping two bills open would have it.
+  const sheets = [s.schedule, await context.newPage()];
+  for (const sheet of sheets) {
+    await h.gotoApp(sheet, s.config.baseUrl, daySheetPath);
+    await settle(sheet, 'day sheet');
+  }
+
+  /** Schedule ▸ B on one appointment: that appointment's bill form, in a window of its own. */
+  async function openBillForm(sheet, label) {
+    const link = sheet.locator(`a[onclick*="/billing?billRegion="][onclick*="appointment_no=${appointment[label]}&"]`).first();
+    await link.waitFor({ state: 'visible', timeout: TIMEOUT });
+    const [form] = await Promise.all([context.waitForEvent('page', { timeout: TIMEOUT }), link.click()]);
+    await settle(form, `${label}'s bill form`);
+    h.assert(await form.locator('#bcBillingForm').count() === 1, `B on ${label}'s appointment did not open the bill form`);
+    h.assert(/^[A-Za-z0-9_-]{22}$/.test(await form.locator('#bcBillingForm input[name="billKey"]').inputValue()),
+      `${label}'s bill form carries no bill key`);
+    return form;
+  }
+
+  function claimOf(label) {
+    return sql.rows(`SELECT b.demographic_no, b.appointment_no, bm.billing_code, bm.dx_code1
+      FROM billing b JOIN billingmaster bm ON bm.billing_no=b.billing_no
+      WHERE b.appointment_no=${appointment[label]} ORDER BY bm.billingmaster_no`);
+  }
+
+  await s.step('two bills open in two windows each review and save their own patient, appointment and codes', async () => {
+    const formA = await openBillForm(sheets[0], 'A1');
+    const formB = await openBillForm(sheets[1], 'B1');
+    await chooseBillingPhysician(formA, physician.providerNo);
+    await chooseBillingPhysician(formB, physician.providerNo);
+    // B's bill was opened last, and B's window continued last: A's Continue must still be A's bill.
+    await continueToReview(formB, 'B', { physician: physician.providerNo, codes: ['00120'], dx: '250' });
+    await continueToReview(formA, 'A', { physician: physician.providerNo, codes: ['00100'], dx: '780' });
+    const reviewA = await reviewText(formA);
+    h.assert(names(reviewA, A_FIRST_NAME, B_FIRST_NAME), `A's bill review does not name A alone: ${reviewA.slice(0, 300)}`);
+    const reviewB = await reviewText(formB);
+    h.assert(names(reviewB, B_FIRST_NAME, A_FIRST_NAME), `B's bill review does not name B alone: ${reviewB.slice(0, 300)}`);
+
+    await save(formA, 'A', 'Save Bill', sheets[0]);
+    await save(formB, 'B', 'Save Bill', sheets[1]);
+    await expectValue(sql, `SELECT COUNT(*) FROM billing WHERE demographic_no IN (${A},${B})`, '2',
+      'The two windows did not save one claim each');
+    const claimA = claimOf('A1');
+    const claimB = claimOf('B1');
+    h.assert(JSON.stringify(claimA) === JSON.stringify([[A, appointment.A1, '00100', '780']]),
+      `A's claim was saved as ${JSON.stringify(claimA)}, not for A on A's appointment with A's codes`);
+    h.assert(JSON.stringify(claimB) === JSON.stringify([[B, appointment.B1, '00120', '250']]),
+      `B's claim was saved as ${JSON.stringify(claimB)}, not for B on B's appointment with B's codes`);
+    for (const label of ['A1', 'B1']) {
+      h.assert(sql.value(`SELECT status FROM appointment WHERE appointment_no=${appointment[label]}`).includes('B'),
+        `${label}'s appointment was not marked billed`);
+    }
+  });
+
+  /** The bill form in this window is still the one opened: its own key, its own patient. */
+  async function expectOwnBillForm(form, label, billKey) {
+    await settle(form, label);
+    h.assert(await form.locator('#bcBillingForm').count() === 1, `${label} did not show the bill form`);
+    h.assert(await form.locator('#bcBillingForm input[name="billKey"]').inputValue() === billKey,
+      `${label} shows another bill than the one this window opened`);
+    h.assert(names(await textOf(form.locator('body')), A_FIRST_NAME, B_FIRST_NAME), `${label} does not show A's bill alone`);
+  }
+
+  await s.step('one bill window keeps its own bill through in-place reloads, a refused Continue, Go Back and Another Bill', async () => {
+    const form = await openBillForm(sheets[0], 'A2');
+    const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
+    // Each physician change reloads the patient bar and the code table in place. The list holds the
+    // owned physician and nobody else on a bare install, so "Select Provider" is the other choice.
+    const otherPhysician = (await form.locator('#xml_provider option').evaluateAll(options => options.map(o => o.value)))
+      .find(value => value && value !== physician.providerNo) || '';
+    for (const choice of [physician.providerNo, otherPhysician, physician.providerNo, otherPhysician, physician.providerNo]) {
+      await changeAndAwaitReloads(form, '#xml_provider', choice, 2, 'changing the billing physician');
+    }
+
+    // Ten reloads by now, more than the session keeps bills. A Continue the validation refuses (a
+    // service code that does not exist, warnings not ignored) returns to this window's own bill form.
+    const unknownCode = unusedValue(sql, 'billingservice', 'service_code', '9', 4);
+    const refused = await fillAndContinue(form, { physician: physician.providerNo, codes: [unknownCode], dx: '780',
+      ignoreWarnings: false });
+    h.assert(refused.status() === 302, `A Continue with an unknown service code answered HTTP ${refused.status()}`);
+    await form.waitForURL(url => url.pathname.endsWith('/billing') && url.searchParams.get('billKey') === billKey,
+      { timeout: TIMEOUT });
+    await expectOwnBillForm(form, 'The bill form after a refused Continue', billKey);
+
+    await continueToReview(form, 'A after the reloads', { physician: physician.providerNo, codes: ['00100'], dx: '780' });
+    h.assert(names(await reviewText(form), A_FIRST_NAME, B_FIRST_NAME), 'The reloaded bill form\'s review does not name A alone');
+    await Promise.all([
+      form.waitForURL(url => url.pathname.endsWith('/billing') && url.searchParams.get('billKey') === billKey,
+        { timeout: TIMEOUT }),
+      form.locator('input[type="button"][value="Go Back"]').click(),
+    ]);
+    await expectOwnBillForm(form, 'The bill form after Go Back', billKey);
+
+    await continueToReview(form, 'A after Go Back', { physician: physician.providerNo, codes: ['00100'], dx: '780' });
+    const [another] = await Promise.all([
+      form.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/BC/SaveBilling'), { timeout: TIMEOUT }),
+      form.locator('input[type="submit"][name="submit"][value="Another Bill"]').click(),
+    ]);
+    h.assert(another.status() === 200, `Another Bill answered HTTP ${another.status()}`);
+    await expectOwnBillForm(form, 'The bill form after Another Bill', billKey);
+    await expectValue(sql, `SELECT COUNT(*) FROM billing WHERE appointment_no=${appointment.A2}`, '1',
+      'Another Bill did not save the first claim');
+
+    await continueToReview(form, 'A\'s other bill', { physician: physician.providerNo, codes: ['00120'], dx: '780' });
+    await save(form, 'A\'s other bill', 'Save Bill', sheets[0]);
+    const claims = claimOf('A2');
+    h.assert(JSON.stringify(claims) === JSON.stringify([[A, appointment.A2, '00100', '780'], [A, appointment.A2, '00120', '780']]),
+      `The window's two claims were saved as ${JSON.stringify(claims)}, not both for A on A's appointment`);
+  });
+
+  await s.step('Update Invoice on a two-line private receipt shows that receipt again, not another window\'s invoice', async () => {
+    async function privateReceipt(sheet, label, codes) {
+      const form = await openBillForm(sheet, label);
+      await chooseBillingPhysician(form, physician.providerNo);
+      // Private turns the billing form to the private one, reloading the code table in place.
+      await changeAndAwaitReloads(form, '#xml_billtype', 'Pri', 1, 'choosing a private bill');
+      await continueToReview(form, label, { physician: physician.providerNo, codes, dx: '780' });
+      await save(form, label, 'Save & Print Receipt');
+      await form.waitForURL(url => url.pathname.endsWith('/billing/CA/BC/billingView'), { timeout: TIMEOUT });
+      await settle(form, `${label}'s receipt`);
+      return form;
+    }
+    const receiptA = await privateReceipt(sheets[0], 'A3', ['00100', '00120']);
+    const billsA = sql.rows(`SELECT billing_no FROM billing WHERE appointment_no=${appointment.A3} ORDER BY billing_no`).map(([id]) => id);
+    h.assert(billsA.length === 2, `A's private bill of two lines was saved as ${billsA.length} claims`);
+    h.assert(new URL(receiptA.url()).searchParams.getAll('billing_no').join(',') === billsA.join(','),
+      'Save & Print Receipt did not open the receipt of both lines');
+    const receiptB = await privateReceipt(sheets[1], 'B3', ['00100']);
+    await receiptB.close();
+
+    const [updated] = await Promise.all([
+      receiptA.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/BC/UpdateBilling'), { timeout: TIMEOUT }),
+      receiptA.locator('input[type="submit"][value="Update Invoice"]').click(),
+    ]);
+    h.assert(updated.status() < 400, `Update Invoice answered HTTP ${updated.status()}`);
+    if (updated.status() === 302) {
+      await receiptA.waitForURL(url => url.pathname.endsWith('/billing/CA/BC/billingView'), { timeout: TIMEOUT });
+    }
+    await settle(receiptA, 'A\'s receipt after Update Invoice');
+    const text = await textOf(receiptA.locator('body'));
+    h.assert(names(text, A_FIRST_NAME, B_FIRST_NAME), 'The receipt after Update Invoice is not A\'s alone');
+    for (const code of ['00100', '00120']) {
+      h.assert(text.includes(code), `The receipt after Update Invoice lost A's ${code} line`);
+    }
+    // Shown by the view of the receipt's own bills, loaded again, not rendered from the session.
+    h.assert(updated.status() === 302 && new URL(receiptA.url()).pathname.endsWith('/billing/CA/BC/billingView')
+      && new URL(receiptA.url()).searchParams.getAll('billing_no').join(',') === billsA.join(','),
+    `Update Invoice did not show the view of A's bills ${billsA} (HTTP ${updated.status()}, ${receiptA.url()})`);
+    await receiptA.close();
+  });
+}
+
+async function preflight({ sql }) {
+  if (sql.value("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='billingmaster'") !== '1') {
+    throw new h.SkipCheck('BC billing schema is required (billregion=BC)');
+  }
+}
+
+if (require.main === module) runWorkflow('billing-bc-two-window-isolation', workflow, { openPatient: true, preflight });
+module.exports = { workflow };

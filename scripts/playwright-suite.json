@@ -10008,6 +10008,21 @@
       "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); one appointment per patient today plus the two bookings it makes tomorrow; a Health Tracker item, measurements and notes per patient; an owned messenger group holding the test provider, two delivered messages with chart items and the messages it sends; one PAT bill per patient; an owned waiting list holding B; one registry code per patient. Every owned row is removed by key and asserted gone. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-bc-two-window-isolation",
+      "script": "scripts/billing-bc-two-window-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #4673, BC billing in two windows of one login. Schedule B on A's appointment and on B's (from a second schedule tab), a billing physician, code and diagnosis in each, Continue in each and Save Bill in each: each review names its own patient and each claim is saved for its own patient and appointment with its own codes. A bill form whose physician is changed back and forth (each change reloads the form in place) keeps its own bill through a refused Continue, Go Back and Another Bill, and both its claims are saved for its own patient and appointment. A two-line private bill's Save & Print Receipt, a private bill in the other window, then Update Invoice on the first receipt: the receipt shown again is the first patient's, with both lines.",
+      "fixtures": "Owned FAKE patients A/B with synthetic BC PHNs (B removed by the check, A by the harness); three appointments today for A and two for B; an owned billing physician created through Add Provider and deactivated through Update Provider; the claims the windows save. Every claim, note, history and recipient row of the two patients, their appointments and the physician are removed and asserted gone. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "legacy-encounter-editor-isolation",
       "script": "scripts/legacy-encounter-editor-isolation-playwright-checks.js",
       "tiers": [

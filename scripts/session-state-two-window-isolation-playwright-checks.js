@@ -38,8 +38,8 @@
  * waiting list holding B; one registry code per patient. Cleanup removes every owned row by key
  * and asserts it gone.
  *
- * Not driven here: the BC bill and invoice receipt (BC installs only; their unit tests cover two
- * bills), the PMM "attach note to client" popup (its search form renders the text criteria as
+ * Not driven here: the BC bill and invoice receipt (BC installs only; billing-bc-two-window-isolation
+ * drives them), the PMM "attach note to client" popup (its search form renders the text criteria as
  * checkboxes, so it finds no client to attach to; ClientSearchAttachNoteUnitTest covers it) and the
  * prescription pages (they need DrugRef).
  */
