@@ -24,29 +24,41 @@ package io.github.carlos_emr.carlos.integration.patientportal.web;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptRequest;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalOfferedSlot;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
+import io.github.carlos_emr.carlos.integration.patientportal.booking.PortalBookingOfferService;
+import io.github.carlos_emr.carlos.integration.patientportal.booking.PortalBookingSettings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 /**
  * Staff booking-prompt JSON contract. Lists need patient-specific read; changes need write.
  * Creating also needs account read, because the patient must have an active portal account.
- * The CSRFGuard filter protects every POST, including the read operation.
+ * Offering open times with a prompt (#3850) also needs schedule write, because the patient's pick
+ * becomes a booking on that provider's schedule. The CSRFGuard filter protects every POST, including the read operation.
  */
 public class PortalBookingPrompt2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = MiscUtils.getLogger();
     private final transient SecurityInfoManager security;
     private final transient PortalStaffContextResolver resolver;
+    private final transient PortalBookingOfferService injectedOffers;
+    /** Schedule write: an offered time the patient picks becomes a booking. */
+    static final String OBJECT_APPOINTMENT = "_appointment";
 
     public PortalBookingPrompt2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class), null,
@@ -55,9 +67,62 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
 
     PortalBookingPrompt2Action(SecurityInfoManager security, PatientPortalService service,
             PortalStaffContextResolver resolver) {
+        this(security, service, resolver, null);
+    }
+
+    PortalBookingPrompt2Action(SecurityInfoManager security, PatientPortalService service,
+            PortalStaffContextResolver resolver, PortalBookingOfferService offers) {
         super(service);
         this.security = security;
         this.resolver = resolver;
+        this.injectedOffers = offers;
+    }
+
+    /** Looked up only when times are offered, so a prompt without times needs no schedule beans. */
+    private PortalBookingOfferService offers() {
+        return injectedOffers != null ? injectedOffers : SpringUtils.getBean(PortalBookingOfferService.class);
+    }
+
+    /** Which provider's schedule to offer from, and the window; null when no times are offered. */
+    record OfferRequest(String providerNo, LocalDate from, LocalDate to, int count) {
+        static final int DEFAULT_COUNT = 4;
+        static final int DEFAULT_WITHIN_DAYS = 14;
+
+        /** @throws IllegalArgumentException for a malformed provider or window */
+        static OfferRequest parse(HttpServletRequest request, LocalDate today) {
+            String provider = request.getParameter("offerFrom");
+            if (provider == null || provider.isBlank()) {
+                return null;
+            }
+            if (!provider.matches("[A-Za-z0-9-]{1,6}")) {
+                throw new IllegalArgumentException("offered times provider is invalid");
+            }
+            int after = bounded(request.getParameter("offerAfterDays"), 0, 0, PortalBookingOfferService.MAX_DAYS_AHEAD);
+            int within = bounded(request.getParameter("offerWithinDays"), DEFAULT_WITHIN_DAYS, 1, 92);
+            int count = bounded(request.getParameter("offerCount"), DEFAULT_COUNT, 1,
+                    PatientPortalOfferedSlot.MAX_PER_PROMPT);
+            LocalDate from = today.plusDays(after);
+            // The portal refuses a time more than 366 days ahead.
+            LocalDate last = today.plusDays(PortalBookingOfferService.MAX_DAYS_AHEAD);
+            LocalDate to = from.plusDays(within - 1L);
+            return new OfferRequest(provider, from, to.isAfter(last) ? last : to, count);
+        }
+
+        private static int bounded(String value, int fallback, int min, int max) {
+            if (value == null || value.isBlank()) {
+                return fallback;
+            }
+            int parsed;
+            try {
+                parsed = Integer.parseInt(value.strip());
+            } catch (NumberFormatException invalid) {
+                throw new IllegalArgumentException("offered times window is invalid", invalid);
+            }
+            if (parsed < min || parsed > max) {
+                throw new IllegalArgumentException("offered times window is invalid");
+            }
+            return parsed;
+        }
     }
 
     @Override
@@ -80,6 +145,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
                 "list".equals(method) ? SecurityInfoManager.READ : SecurityInfoManager.WRITE, patient);
         PatientPortalBookingPromptRequest creation = null;
+        OfferRequest offer = null;
         long promptId = 0;
         if ("create".equals(method)) {
             requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_ACCOUNT,
@@ -91,6 +157,14 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                         request.getParameter("urgency"), request.getParameter("appointmentType"), null);
             } catch (PortalRequestPreparationException invalid) {
                 return badRequest(response, "booking prompt request is invalid");
+            }
+            try {
+                offer = OfferRequest.parse(request, LocalDate.now());
+            } catch (IllegalArgumentException invalid) {
+                return badRequest(response, "offered times request is invalid");
+            }
+            if (offer != null) {
+                requirePatientPrivilege(security, session, OBJECT_APPOINTMENT, SecurityInfoManager.WRITE, patient);
             }
         } else if ("withdraw".equals(method)) {
             promptId = positiveLong(request.getParameter("promptId"));
@@ -116,14 +190,41 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                     return notFound(response, "portal_account_inactive",
                             "This patient does not have an active portal account. Contact the patient directly.");
                 }
+                if (offer != null) {
+                    List<PatientPortalOfferedSlot> times;
+                    try {
+                        times = offers().offer(creation.operationId(), patient, offer.providerNo(), offer.from(),
+                                offer.to(), offer.count(), session.getLoggedInProviderNo(),
+                                PortalBookingSettings.fromCarlosProperties());
+                    } catch (IllegalArgumentException reused) {
+                        return badRequest(response, "booking prompt request is invalid");
+                    }
+                    if (times.isEmpty()) {
+                        return conflict(response, "no_open_times",
+                                "No bookable times were found in that window. Choose another window, or ask the patient to call.");
+                    }
+                    creation = new PatientPortalBookingPromptRequest(creation.operationId(), creation.urgency(),
+                            creation.appointmentType(), creation.suggestedBy(), times);
+                }
                 mutationAttempted = true;
                 PatientPortalBookingPromptDto.Creation result =
                         portal.createBookingPrompt(patient, creation, staff);
+                if (offer != null) {
+                    try {
+                        offers().attachPrompt(creation.operationId(), result.prompt().id());
+                    } catch (RuntimeException unattached) {
+                        // The prompt exists; its times still match by patient, so carry on and audit it.
+                        LOGGER.warn("Offered times not linked to their portal prompt; exceptionClass={}",
+                                unattached.getClass().getSimpleName());
+                    }
+                }
                 audit(session, result.created() ? "PortalBookingPrompt2Action.create"
                         : "PortalBookingPrompt2Action.create.confirmed", result.prompt().id(), patient,
-                        result.created() ? "" : "retry");
+                        (result.created() ? "" : "retry")
+                                + (creation.offeredSlots().isEmpty() ? "" : " offered:" + creation.offeredSlots().size()));
                 payload.set("prompt", promptJson(result.prompt()));
                 payload.put("created", result.created());
+                payload.put("offeredTimes", creation.offeredSlots().size());
                 return write(response, result.created() ? HttpServletResponse.SC_CREATED
                         : HttpServletResponse.SC_OK, payload);
             }
