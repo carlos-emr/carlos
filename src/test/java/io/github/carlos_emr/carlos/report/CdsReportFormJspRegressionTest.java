@@ -46,14 +46,41 @@ class CdsReportFormJspRegressionTest {
 
     private static final Path FORM = Path.of("src/main/webapp/WEB-INF/jsp/oscarReport/cds_4_report_form.jsp");
 
+    private static final String PAGE_ONLY = "<% if (!RequestNegotiation.isAjax(request)) { %>";
+    private static final String[] SCRIPTS = {
+        "<script src=\"${ctx}/library/jquery/jquery-3.7.1.min.js\"></script>",
+        "<script src=\"${ctx}/library/jquery/jquery-compat.js\"></script>",
+        "<script src=\"${ctx}/library/flatpickr/flatpickr.min.js\"></script>",
+        "<script src=\"${ctx}/library/jquery/jquery.validate-1.21.0.min.js\"></script>",
+    };
+
     @Test
     void shouldNotLoadItsOwnJquery_forThePanelOfTheAdministrationPage() throws IOException {
         String form = Files.readString(FORM, StandardCharsets.UTF_8);
 
-        assertThat(form).doesNotContain("<script src=\"${ctx}/library/jquery/jquery-3.7.1.min.js\"")
-                .doesNotContain("<script src=\"${ctx}/library/jquery/jquery-compat.js\"")
-                .doesNotContain("<script src=\"${ctx}/library/flatpickr/flatpickr.min.js\"");
+        // Every script include sits inside the block that runs only when the form is not a panel (AJAX) load.
+        int open = form.indexOf(PAGE_ONLY);
+        assertThat(open).as("the page-only block").isGreaterThanOrEqualTo(0);
+        int close = form.indexOf("<% } %>", open);
+        assertThat(close).isGreaterThan(open);
+        String block = form.substring(open, close);
+        String outside = form.substring(0, open) + form.substring(close);
+        for (String script : SCRIPTS) {
+            assertThat(block).contains(script);
+            assertThat(outside).doesNotContain(script);
+        }
         assertThat(form).contains("$('#cdsForm').validate(");
+    }
+
+    @Test
+    void shouldLoadWhatItNeeds_whenOpenedAsAPageOfItsOwn() throws IOException {
+        String form = Files.readString(FORM, StandardCharsets.UTF_8);
+
+        // The legacy Administration page links the form as a plain page: the scripts, including the Validation
+        // plugin, come with it, and the administration page's registerFormSubmit is only called when present.
+        assertThat(form).contains(PAGE_ONLY);
+        assertThat(form).contains("if (typeof registerFormSubmit === 'function') {");
+        assertThat(form).doesNotContain("\n    registerFormSubmit('cdsForm', 'cds-results');\n</script>");
     }
 
     @Test
