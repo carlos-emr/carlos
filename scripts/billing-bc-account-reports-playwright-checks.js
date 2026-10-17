@@ -9,8 +9,8 @@
  * the #dynamic-content iframe) ▸ Report type, Provider, Payee, Account (ALL), Format, From/To dates ▸ Create Report
  * (POST billing/CA/BC/createBillingReportAction) ▸ the report downloads.
  * Asserted: the menu item opens the report form; the Write-Off PDF names the chosen provider and payee, each on its
- * own label; the Payments and Refunds PDF and its summary PDF print the chosen provider's and payee's initials; the
- * summary as a spreadsheet downloads.
+ * own label; the Payments and Refunds PDF and its summary PDF print the chosen provider's and payee's initials and
+ * total the seeded $33.70 payment; the summary as a spreadsheet downloads.
  *
  * Fixtures: the owned FAKE- patient (lib/workflow-session.js), two FAKE providers inserted by SQL (provider "Quinn"
  * and payee "Yara", last name = the run marker, each with its own free 5-digit provider/OHIP number and a
@@ -107,6 +107,10 @@ function seedReportRows(s) {
     VALUES (${rows.billing}, NOW(), 'X', ${patient}, 0, 'C02', '00000', ${q(rows.payee)}, ${q(rows.provider)}, '9000000000', 'WOR',
       '00', '1', '00', '00', '0', '00', '00100', '33.70', '0', ${q(today)}, '00', '0', '', '780', '', '', '', 'A', '0', '', '0', '',
       '', '', '', '19800102', '', '0', '', 'N', '', '', '', '', '', '', '', '', '', '', 'F', '', '', '', '', '', '1', 0)`, 'bill line');
+  // MSP amounts are 7 digits in cents (t_billamt and t_paidamt are varchar(7)); a longer value is cut without an error
+  // under the empty sql_mode, so the width is asserted before the payment line is written.
+  h.assert(sql.value("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='teleplanS00' AND COLUMN_NAME='t_paidamt'") === '7',
+    'teleplanS00.t_paidamt is not the 7-character MSP amount this fixture writes');
   rows.s00 = h.insertId(sql, `INSERT INTO teleplanS00 (s21_id, filename, t_s00type, t_datacenter, t_dataseq, t_payment, t_linecode,
       t_payeeno, t_mspctlno, t_practitionerno, t_msprcddate, t_initial, t_surname, t_phn, t_phndepno, t_servicedate, t_today,
       t_billnoservices, t_billclafcode, t_billfeeschedule, t_billamt, t_paidnoservices, t_paidclafcode, t_paidfeeschedule,
@@ -114,8 +118,8 @@ function seedReportRows(s) {
       t_aja3, t_ajc4, t_aja4, t_ajc5, t_aja5, t_ajc6, t_aja6, t_ajc7, t_aja7, t_paidrate, t_planrefno, t_claimsource,
       t_previouspaiddate, t_insurercode, t_icbcwcb, t_filler)
     VALUES (0, ${q(marker)}, 'S01', '00000', '0000001', ${q(today)}, '1', ${q(rows.payee)}, '000000', ${q(rows.provider)}, ${q(today)},
-      'W', ${q(marker.slice(0, 18))}, '9000000000', '00', ${q(today)}, '00', '001', '00', '00100', '0000003370', '001', '00',
-      '00100', '0000003370', ${q(rows.master)}, '', '', '', '', '', '', '', '', '0000000', '', '0000000', '', '0000000', '',
+      'W', ${q(marker.slice(0, 18))}, '9000000000', '00', ${q(today)}, '00', '001', '00', '00100', '0003370', '001', '00',
+      '00100', '0003370', ${q(rows.master)}, '', '', '', '', '', '', '', '', '0000000', '', '0000000', '', '0000000', '',
       '0000000', '', '0000000', '', '0000000', '', '0000000', '', '', '', '', '', '', '')`, 'payment line');
   return rows;
 }
@@ -187,12 +191,15 @@ async function workflow(s) {
     // The payments reports print initials: Q(uinn) F(AKE-…), Y(ara) F(AKE-…).
     h.assert(/Provider:\s*QF\b/.test(text), "The Payments and Refunds PDF does not print the provider's initials");
     h.assert(/Payee:\s*YF\b/.test(text), "The Payments and Refunds PDF does not print the payee's initials");
+    // The total paid comes from the seeded payment line (t_paidamt 0003370), so a wrong seed shows here.
+    h.assert(/TOTAL:\s*\$33\.70\b/.test(text), 'The Payments and Refunds PDF does not total the $33.70 payment');
   });
 
   await s.step(STEP.payRefSummary, async () => {
     const text = await pdfReport('REP_PAYREF_SUM');
     h.assert(/Provider:\s*QF\b/.test(text), "The Payments and Refunds summary PDF does not print the provider's initials");
     h.assert(/Payee:\s*YF\b/.test(text), "The Payments and Refunds summary PDF does not print the payee's initials");
+    h.assert(/TOTAL:\s*\$33\.70\b/.test(text), 'The Payments and Refunds summary PDF does not total the $33.70 payment');
   });
 
   await s.step(STEP.spreadsheet, async () => {
