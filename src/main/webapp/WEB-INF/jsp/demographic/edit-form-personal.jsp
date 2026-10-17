@@ -656,7 +656,7 @@
                                                                 } %> : </b></td>
                                                         <td align="left"><input type="text" name="postal"
                                                                                 size="30" <%=getDisabled("postal")%>
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPostal())%>"
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPostal()) %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"
                                                                                 onChange="isPostalCode()"></td>
                                                     </tr>
@@ -943,7 +943,7 @@
                                                             <input type="text" name="phone"
                                                                    onblur="formatPhoneNum(this);" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
-                                                                   value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
+                                                                   value="<carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone())) %>' context="htmlAttribute"/>">
                                                             <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="hPhoneExt"
@@ -959,7 +959,7 @@
                                                                                 name="phone2" <%=getDisabled("phone2")%>
                                                                                 onblur="formatPhoneNum(this);"
                                                                                 style="display: inline; width: auto;"
-                                                                                value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
+                                                                                value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context="htmlAttribute"/>">
                                                             <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
                                                             <input type="text" style="width:50% !important;"
                                                                    name="wPhoneExt"
@@ -1104,12 +1104,12 @@
                                                         </td>
                                                         <td align="left" nowrap><input type="text" name="hin"
                                                                                        id="hinBox" <%=getDisabled("hin")%>
-                                                                                       value="<%=StringUtils.trimToEmpty(demographic.getHin())%>"
+                                                                                       value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getHin()) %>' context="htmlAttribute"/>"
                                                                                        size="17">
                                                             <fmt:message key="demographic.demographiceditdemographic.formVer"/><input
                                                                     type="text" name="ver"
                                                                     style="width:20% !important;" <%=getDisabled("ver")%>
-                                                                    value="<%=StringUtils.trimToEmpty(demographic.getVer())%>"
+                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getVer()) %>' context="htmlAttribute"/>"
                                                                     onBlur="upCaseCtrl(this)" id="verBox">
                                                             <%if ("online".equals(oscarProps.getProperty("hcv.type", "simple"))) { %>
                                                             <input type="button" value="Validate"
