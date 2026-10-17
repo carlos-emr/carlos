@@ -92,6 +92,9 @@ public interface NioFileManager {
      *         cannot be keyed. The source-scoped page prefix is then underivable, so the flush
      *         cannot verify the PHI preview pages are gone; the caller must treat this as an
      *         uncleared cache, not as "nothing to remove"
+     * @throws SecurityException when {@code filename} is null, blank, or not a single valid path
+     *         component; as with an unkeyable source, the flush must not report "0 removed" when it
+     *         could not derive the page prefix at all
      */
     public int removeCacheVersions(LoggedInInfo loggedInInfo, String sourceDirectory, String filename) throws IOException;
 
