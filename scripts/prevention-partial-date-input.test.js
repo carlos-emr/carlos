@@ -1,5 +1,6 @@
 /**
- * Source tests for the prevention edit form's Date box (WEB-INF/jsp/prevention/AddPreventionData.jsp).
+ * Source tests for the prevention edit form's Date box (WEB-INF/jsp/prevention/AddPreventionData.jsp and
+ * the preventionDateBox.jspf fragment each of its four layouts includes).
  *
  * A prevention can be dated to the year or the year and month only (a CDS import stores a
  * partial_date row). A date input cannot hold "2019": it opens empty and, being required, refuses
@@ -14,13 +15,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const JSP = fs.readFileSync(
-  path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'prevention', 'AddPreventionData.jsp'),
-  'utf8',
-);
+const PREVENTION_JSPS = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'prevention');
+const JSP = fs.readFileSync(path.join(PREVENTION_JSPS, 'AddPreventionData.jsp'), 'utf8');
+const FRAGMENT = fs.readFileSync(path.join(PREVENTION_JSPS, 'preventionDateBox.jspf'), 'utf8');
+const INCLUDE = '<div class="col-sm-8"><%@ include file="preventionDateBox.jspf" %></div>';
 
-/** Every <input ... name="prevDate" ...> tag, up to the "></div>" that closes it (its attributes hold JSP "%>"). */
-const inputs = [...JSP.matchAll(/<input type="(?:(?!<input )[\s\S])*?name="prevDate"[\s\S]*?><\/div>/g)].map((m) => m[0]);
+/** Every <input ... name="prevDate" ...> tag in the text, up to the ">" that ends it (its attributes hold JSP "%>"). */
+const dateBoxes = (text) => [...text.matchAll(/<input type="(?:(?!<input )[\s\S])*?name="prevDate"[\s\S]*?<% \} %>>/g)].map((m) => m[0]);
+const inputs = dateBoxes(FRAGMENT);
 
 // The partial-date box's pattern attribute, as the JSP must spell it, and the same text as the regex a
 // browser makes of it (anchored, v flag). The test pins the JSP to the text and checks dates with the
@@ -33,12 +35,31 @@ const PATTERN_AS_BROWSER = /^(?:\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)
 const PARTIAL_JAVA_LITERAL = String.raw`"\\d{4}(-\\d{2})?"`;
 const PARTIAL = /^(?:\d{4}(-\d{2})?)$/;
 
-test('shouldSwitchEveryPreventionDateBoxToText_forAPartialDate', () => {
-  assert.equal(inputs.length, 4, 'the page has four prevention layouts, each with a Date box');
+test('shouldRenderEveryLayoutsDateBox_fromOneSharedFragment', () => {
+  // One prevDate element in the source: each of the four layouts (exclusive branches) includes the same
+  // fragment instead of carrying its own copy.
+  assert.equal(dateBoxes(JSP).length, 0, 'no layout writes its own Date box');
+  assert.ok(!JSP.includes('id="prevDate"'), 'the page itself has no prevDate element');
+  const layouts = ['"injection"', '"h1n1"', '"PAPMAM"', '"history"'].map((name) => JSP.indexOf(`layoutType.equals(${name})`));
+  assert.ok(layouts.every((at) => at > 0), 'the page has the four prevention layouts');
+  const includes = [...JSP.matchAll(/<%@ include file="preventionDateBox\.jspf" %>/g)].map((m) => m.index);
+  assert.equal(includes.length, 4, 'each layout includes the Date box once');
+  for (let i = 0; i < 4; i++) {
+    assert.ok(includes[i] > layouts[i] && (i === 3 || includes[i] < layouts[i + 1]), `layout ${i + 1} includes its own Date box`);
+  }
+  assert.equal(JSP.split(INCLUDE).length - 1, 4, 'the include sits in the Date row cell, as the inline box did');
+  assert.equal(inputs.length, 1, 'the fragment holds the one Date box');
+  assert.equal((FRAGMENT.match(/id="prevDate"/g) || []).length, 1);
+  // The fragment is written out where it is included: a trailing newline would land inside the cell.
+  assert.ok(FRAGMENT.endsWith(inputs[0]), 'nothing follows the Date box in the fragment');
+  assert.ok(/--%><input /.test(FRAGMENT), 'the box starts right after the fragment comment');
+});
+
+test('shouldSwitchThePreventionDateBoxToText_forAPartialDate', () => {
   for (const tag of inputs) {
     assert.match(tag, /^<input type="<%= partialPrevDate \? "text" : "date" %>"/);
-    assert.match(tag, /required<% if \(partialPrevDate\) \{ %> pattern="[^"]+" title="yyyy \| yyyy-mm \| yyyy-mm-dd"<% \} %>><\/div>$/);
-    assert.equal(/pattern="([^"]+)"/.exec(tag)[1], PATTERN, 'every box carries the same pattern text');
+    assert.match(tag, /required<% if \(partialPrevDate\) \{ %> pattern="[^"]+" title="yyyy \| yyyy-mm \| yyyy-mm-dd"<% \} %>>$/);
+    assert.equal(/pattern="([^"]+)"/.exec(tag)[1], PATTERN, 'the box carries the pattern text');
   }
   assert.equal(PATTERN_AS_BROWSER.source, `^(?:${PATTERN})$`, 'the literal checked below is the pattern text');
 });
