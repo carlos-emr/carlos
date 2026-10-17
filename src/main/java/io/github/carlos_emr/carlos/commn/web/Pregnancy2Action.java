@@ -143,7 +143,7 @@ public class Pregnancy2Action extends ActionSupport {
         if (!validType(code)) return reject(400, "Invalid pregnancy type");
         request.setAttribute("code", code);
         request.setAttribute("description", PREGNANCY_TYPES.get(code));
-        request.setAttribute("startDate", LocalDate.now().toString());
+        request.setAttribute("startDate", LocalDate.now(ZoneId.systemDefault()).toString());
         return "form";
     }
 
@@ -167,7 +167,7 @@ public class Pregnancy2Action extends ActionSupport {
         String code = request.getParameter("code");
         LocalDate start = calendarDate(request.getParameter("startDate"));
         String notes = request.getParameter("notes");
-        if (!validType(code) || start == null || start.isAfter(LocalDate.now()) || !validNotes(notes)) {
+        if (!validType(code) || start == null || start.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
             return invalidForm("Check the pregnancy type, start date and notes.");
         }
         Mutation result = inPatientTransaction(patient, em -> {
@@ -202,7 +202,7 @@ public class Pregnancy2Action extends ActionSupport {
         if (id == null) return reject(400, "Invalid pregnancy identifier");
         LocalDate end = calendarDate(request.getParameter("endDate"));
         String notes = request.getParameter("notes");
-        if (end == null || end.isAfter(LocalDate.now()) || !validNotes(notes)) {
+        if (end == null || end.isAfter(LocalDate.now(ZoneId.systemDefault())) || !validNotes(notes)) {
             return invalidForm("Check the completion date and notes.");
         }
         Mutation result = inPatientTransaction(patient, em -> {

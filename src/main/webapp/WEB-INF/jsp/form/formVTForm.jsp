@@ -891,8 +891,7 @@
                                                                 <td class="dataEntryTable" align="center"><input
                                                                         type="text" id="SmkComments" name="SmkComments"
                                                                         value="${carlos:forHtmlAttribute(requestScope.SmkSComments)}"
-                                                                        size="25%"
-                                                                        tabindex="9999"/></td>
+                                                                        size="25%"/></td>
                                                                 <input type="hidden" name="value(SmkSComments)" id="value(SmkSComments)"/>
                                                                 <input type="hidden" name="value(SmkSDate)" id="value(SmkSDate)"/>
                                                                 <input type="hidden" name="value(SmkHComments)" id="value(SmkHComments)"/>
@@ -943,7 +942,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(ExerDate)" id="value(ExerDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(ExerComments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(ExerComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -968,7 +967,7 @@
                                                         <input type="text" name="value(DietValue)" size="4%" /></td>
                                                     <input type="hidden" name="value(DietDate)" id="value(DietDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(DietComments)" size="30%" tabindex="9999" /></td>
+                                                        <input type="text" name="value(DietComments)" size="30%" /></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -1019,7 +1018,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(DpScDate)" id="value(DpScDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-DpSc-comments" aria-labelledby="vt-DpSc-label vt-comments-label" type="text" name="value(DpScComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-DpSc-comments" aria-labelledby="vt-DpSc-label vt-comments-label" type="text" name="value(DpScComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><span id="vt-StSc-label"><carlos:encode value="${requestScope.StScDesc}"/></span>
@@ -1047,7 +1046,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(StScDate)" id="value(StScDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-StSc-comments" aria-labelledby="vt-StSc-label vt-comments-label" type="text" name="value(StScComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-StSc-comments" aria-labelledby="vt-StSc-label vt-comments-label" type="text" name="value(StScComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><span id="vt-LcCt-label"><carlos:encode value="${requestScope.LcCtDesc}"/></span>
@@ -1074,7 +1073,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(LcCtDate)" id="value(LcCtDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-LcCt-comments" aria-labelledby="vt-LcCt-label vt-comments-label" type="text" name="value(LcCtComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-LcCt-comments" aria-labelledby="vt-LcCt-label vt-comments-label" type="text" name="value(LcCtComments)" size="30%" /></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -1123,7 +1122,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(MedGDate)" id="value(MedGDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-MedG-comments" aria-labelledby="vt-MedG-label vt-comments-label" type="text" name="value(MedGComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedG-comments" aria-labelledby="vt-MedG-label vt-comments-label" type="text" name="value(MedGComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><span id="vt-MedN-label"><carlos:encode value="${requestScope.MedNDesc}"/></span>
@@ -1150,7 +1149,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(MedNDate)" id="value(MedNDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-MedN-comments" aria-labelledby="vt-MedN-label vt-comments-label" type="text" name="value(MedNComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedN-comments" aria-labelledby="vt-MedN-label vt-comments-label" type="text" name="value(MedNComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><span id="vt-MedR-label"><carlos:encode value="${requestScope.MedRDesc}"/></span>
@@ -1177,7 +1176,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(MedRDate)" id="value(MedRDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-MedR-comments" aria-labelledby="vt-MedR-label vt-comments-label" type="text" name="value(MedRComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-MedR-comments" aria-labelledby="vt-MedR-label vt-comments-label" type="text" name="value(MedRComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><span id="vt-MedA-label"><carlos:encode value="${requestScope.MedADesc}"/></span>
@@ -1205,7 +1204,7 @@
                                                     </a></td>
                                                     <input type="hidden" name="value(MedADate)" id="value(MedADate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-MedA-comments" aria-labelledby="vt-MedA-label vt-comments-label" type="text" name="value(MedAComments)" size="30%" tabindex="9999"/></td>
+                                                        <input id="vt-MedA-comments" aria-labelledby="vt-MedA-label vt-comments-label" type="text" name="value(MedAComments)" size="30%"/></td>
                                                 </tr>
                                             </table>
                                         </td>
@@ -1245,7 +1244,7 @@
                                                     </th>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-BP-label" for="vt-BP-value"><carlos:encode value="${requestScope.BPDisplay}"/></label>
+                                                    <td class="dataEntryTable"><label id="vt-BP-label" for="vt-BP-value">${carlos:forHtml(empty requestScope.BPDisplay ? 'BP' : requestScope.BPDisplay)}</label>
                                                         <br>
                                                         <span class="eightyPercent"><carlos:encode value="${requestScope.BPMeasuringInstrc}"/>
                                                         </span></td>
@@ -1267,7 +1266,7 @@
                                                         <input id="vt-BP-value" aria-labelledby="vt-BP-label vt-new-data-label" type="text" name="value(BPValue)" size="5%" /></td>
                                                     <input type="hidden" name="value(BPDate)" id="value(BPDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-BP-comments" aria-labelledby="vt-BP-label vt-comments-label" type="text" name="value(BPComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-BP-comments" aria-labelledby="vt-BP-label vt-comments-label" type="text" name="value(BPComments)" size="30%" /></td>
                                                 </tr>
 
 
@@ -1296,12 +1295,12 @@
                                                         <span style="text-decoration: underline; color: blue;">clr</span>
                                                     </a></td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-WHRB-comments" aria-labelledby="vt-WHRB-label vt-comments-label" type="text" name="value(WHRBComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-WHRB-comments" aria-labelledby="vt-WHRB-label vt-comments-label" type="text" name="value(WHRBComments)" size="30%" /></td>
                                                     </tr-->
 
 
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-WC-label" for="vt-WC-value"><carlos:encode value="${requestScope.WCDisplay}"/></label>
+                                                    <td class="dataEntryTable"><label id="vt-WC-label" for="vt-WC-value">${carlos:forHtml(empty requestScope.WCDisplay ? 'WC' : requestScope.WCDisplay)}</label>
                                                         <br>
                                                         <span class="eightyPercent"><carlos:encode value="${requestScope.WCMeasuringInstrc}"/>
                                                         </span></td>
@@ -1322,12 +1321,12 @@
                                                         <input id="vt-WC-value" aria-labelledby="vt-WC-label vt-new-data-label" type="text" name="value(WCValue)" size="5%"/>
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-WC-comments" aria-labelledby="vt-WC-label vt-comments-label" type="text" name="value(WCComments)" size="30%" tabindex="9999" /></td>
+                                                        <input id="vt-WC-comments" aria-labelledby="vt-WC-label vt-comments-label" type="text" name="value(WCComments)" size="30%" /></td>
                                                 </tr>
                                                 <!--new-->
                                                 <tr>
                                                     <td width="36%"
-                                                        class="dataEntryTable"><label id="vt-HC-label" for="vt-HC-value"><carlos:encode value="${requestScope.HCDisplay}"/></label>
+                                                        class="dataEntryTable"><label id="vt-HC-label" for="vt-HC-value">${carlos:forHtml(empty requestScope.HCDisplay ? 'HC' : requestScope.HCDisplay)}</label>
                                                         <br>
                                                         <span class="eightyPercent"><carlos:encode value="${requestScope.HCMeasuringInstrc}"/>
                                                         </span></td>
@@ -1347,7 +1346,7 @@
                                                         <input id="vt-HC-value" aria-labelledby="vt-HC-label vt-new-data-label" type="text" name="value(HCValue)" size="5%"/>
                                                     </td>
                                                     <td width="33%" class="dataEntryTable" align="center">
-                                                        <input id="vt-HC-comments" aria-labelledby="vt-HC-label vt-comments-label" type="text" name="value(HCComments)" size="30%" tabindex="9999"/>
+                                                        <input id="vt-HC-comments" aria-labelledby="vt-HC-label vt-comments-label" type="text" name="value(HCComments)" size="30%"/>
                                                     </td>
                                                 </tr>
 
@@ -1363,7 +1362,7 @@
                                                             </tr>
 
                                                             <tr>
-                                                                <td class="dataEntryTable"><label id="vt-HR-label" for="vt-HR-value"><carlos:encode value="${requestScope.HRDisplay}"/></label>
+                                                                <td class="dataEntryTable"><label id="vt-HR-label" for="vt-HR-value">${carlos:forHtml(empty requestScope.HRDisplay ? 'HR' : requestScope.HRDisplay)}</label>
                                                                     <br>
                                                                     <span class="eightyPercent"><carlos:encode value="${requestScope.HRMeasuringInstrc}"/>
                                                                     </span></td>
@@ -1385,11 +1384,11 @@
                                                                     <input id="vt-HR-value" aria-labelledby="vt-HR-label vt-new-data-label" type="text" name="value(HRValue)" size="5%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input id="vt-HR-comments" aria-labelledby="vt-HR-label vt-comments-label" type="text" name="value(HRComments)" size="30%" tabindex="9999" />
+                                                                    <input id="vt-HR-comments" aria-labelledby="vt-HR-label vt-comments-label" type="text" name="value(HRComments)" size="30%" />
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td class="dataEntryTable"><label id="vt-HT-label" for="vt-HT-value"><carlos:encode value="${requestScope.HTDisplay}"/></label>
+                                                                <td class="dataEntryTable"><label id="vt-HT-label" for="vt-HT-value">${carlos:forHtml(empty requestScope.HTDisplay ? 'HT' : requestScope.HTDisplay)}</label>
                                                                     <br>
                                                                     <span class="eightyPercent"><carlos:encode value="${requestScope.HTMeasuringInstrc}"/>
                                                                     </span></td>
@@ -1411,14 +1410,14 @@
                                                                     <input id="vt-HT-value" aria-labelledby="vt-HT-label vt-new-data-label" type="text" name="value(HTValue)" size="5%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input id="vt-HT-comments" aria-labelledby="vt-HT-label vt-comments-label" type="text" name="value(HTComments)" size="30%" tabindex="9999" />
+                                                                    <input id="vt-HT-comments" aria-labelledby="vt-HT-label vt-comments-label" type="text" name="value(HTComments)" size="30%" />
                                                                 </td>
                                                             </tr>
                                                         </table>
                                                     </td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="dataEntryTable"><label id="vt-WT-label" for="vt-WT-value"><carlos:encode value="${requestScope.WTDisplay}"/></label>
+                                                    <td class="dataEntryTable"><label id="vt-WT-label" for="vt-WT-value">${carlos:forHtml(empty requestScope.WTDisplay ? 'WT' : requestScope.WTDisplay)}</label>
                                                         <br>
                                                         <span class="eightyPercent"><carlos:encode value="${requestScope.WTMeasuringInstrc}"/>
                                                         </span></td>
@@ -1438,7 +1437,7 @@
                                                         <input id="vt-WT-value" aria-labelledby="vt-WT-label vt-new-data-label" type="text" name="value(WTValue)" size="5%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input id="vt-WT-comments" aria-labelledby="vt-WT-label vt-comments-label" type="text" name="value(WTComments)" size="30%" tabindex="9999" />
+                                                        <input id="vt-WT-comments" aria-labelledby="vt-WT-label vt-comments-label" type="text" name="value(WTComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1470,12 +1469,10 @@
                                                     <th class="dataEntryTable" colspan="3">Foot Exam</th>
                                                     <td class="dataEntryTable" valign="top" align="center"><label class="vt-screen-reader-only" for="FTDate">Foot exam <fmt:message key="form.vt.obDate"/></label><input
                                                             type="text" id="FTDate" name="FTDate"
-                                                            value="${carlos:forHtmlAttribute(requestScope.FTNeDate)}" size="10%"
-                                                            tabindex="9999"/></td>
+                                                            value="${carlos:forHtmlAttribute(requestScope.FTNeDate)}" size="10%"/></td>
                                                     <td class="dataEntryTable" rowspan="8" valign="top"
                                                         align="center"><label class="vt-screen-reader-only" for="vt-FTComments">Foot exam <fmt:message key="encounter.oscarMeasurements.Measurements.headingComments"/></label><textarea id="vt-FTComments" name="FTComments" wrap="hard"
-                                                                                 cols="24" style="height: 80"
-                                                                                 tabindex="9999"><carlos:encode value="${requestScope.FTExComments}"/></textarea>
+                                                                                 cols="24" style="height: 80"><carlos:encode value="${requestScope.FTExComments}"/></textarea>
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1864,10 +1861,10 @@
                                                         <input type="text" name="value(HbA1Value)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HbA1Date)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(HbA1Date)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HbA1Comments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(HbA1Comments)" size="30%" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1892,10 +1889,10 @@
                                                         <input type="text" name="value(LDLValue)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(LDLDate)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(LDLDate)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(LDLComments)" size="30%" tabindex="9999" /></td>
+                                                        <input type="text" name="value(LDLComments)" size="30%" /></td>
                                                 </tr>
                                                 <tr>
                                                     <td class="dataEntryTable"><carlos:encode value="${requestScope.HDLDesc}"/><br>
@@ -1919,10 +1916,10 @@
                                                         <input type="text" name="value(HDLValue)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HDLDate)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(HDLDate)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(HDLComments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(HDLComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1947,10 +1944,10 @@
                                                         <input type="text" name="value(TCHLValue)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(TCHLDate)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(TCHLDate)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(TCHLComments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(TCHLComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -1980,11 +1977,9 @@
                                                                 <td width="5%" class="dataEntryTable" align="center">
                                                                     <input type="text" name="value(TRIGValue)" size="4%"/></td>
                                                                 <td width="10%" class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(TRIGDate)" size="10%"
-                                                                            tabindex="9999"/></td>
+                                                                    <input type="text" name="value(TRIGDate)" size="10%"/></td>
                                                                 <td width="35%" class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(TRIGComments)" size="30%"
-                                                                            tabindex="9999"/></td>
+                                                                    <input type="text" name="value(TRIGComments)" size="30%"/></td>
                                                             </tr>
                                                             <tr>
                                                                 <td class="dataEntryTable"><carlos:encode value="${requestScope.BGDesc}"/>
@@ -2009,10 +2004,10 @@
                                                                     <input type="text" name="value(BGValue)" size="4%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(BGDate)" size="10%" tabindex="9999" />
+                                                                    <input type="text" name="value(BGDate)" size="10%" />
                                                                 </td>
                                                                 <td class="dataEntryTable" align="center">
-                                                                    <input type="text" name="value(BGComments)" size="30%" tabindex="9999" />
+                                                                    <input type="text" name="value(BGComments)" size="30%" />
                                                                 </td>
                                                             </tr>
                                                         </table>
@@ -2040,10 +2035,10 @@
                                                         <input type="text" name="value(UALBValue)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(UALBDate)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(UALBDate)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(UALBComments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(UALBComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2068,10 +2063,10 @@
                                                         <input type="text" name="value(24UAValue)" size="4%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(24UADate)" size="10%" tabindex="9999" />
+                                                        <input type="text" name="value(24UADate)" size="10%" />
                                                     </td>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(24UAComments)" size="30%" tabindex="9999" />
+                                                        <input type="text" name="value(24UAComments)" size="30%" />
                                                     </td>
                                                 </tr>
                                             </table>
@@ -2222,7 +2217,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(NtrCDate)" id="value(NtrCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(NtrCComments)" size="45" tabindex="9999" />
+                                                        <input type="text" name="value(NtrCComments)" size="45" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2247,7 +2242,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(ExeCDate)" id="value(ExeCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(ExeCComments)" size="45" tabindex="9999" />
+                                                        <input type="text" name="value(ExeCComments)" size="45" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2272,7 +2267,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(SmCCDate)" id="value(SmCCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(SmCCComments)" size="45" tabindex="9999" />
+                                                        <input type="text" name="value(SmCCComments)" size="45" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2297,7 +2292,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(DiaCDate)" id="value(DiaCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(DiaCComments)" size="45" tabindex="9999" />
+                                                        <input type="text" name="value(DiaCComments)" size="45" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2322,7 +2317,7 @@
                                                     </td>
                                                     <input type="hidden" name="value(PsyCDate)" id="value(PsyCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(PsyCComments)" size="45" tabindex="9999" />
+                                                        <input type="text" name="value(PsyCComments)" size="45" />
                                                     </td>
                                                 </tr>
                                                 <tr>
@@ -2348,7 +2343,7 @@
                                                         <input type="checkbox" name="value(OthCValue)"/></td>
                                                     <input type="hidden" name="value(OthCDate)" id="value(OthCDate)"/>
                                                     <td class="dataEntryTable" align="center">
-                                                        <input type="text" name="value(OthCComments)" size="45" tabindex="9999"/></td>
+                                                        <input type="text" name="value(OthCComments)" size="45"/></td>
                                                 </tr>
                                             </table>
                                         </td>

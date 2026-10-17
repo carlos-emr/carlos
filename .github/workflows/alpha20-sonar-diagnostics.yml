@@ -14,8 +14,33 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - name: Test the diagnostic
         run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
-      - name: Read existing alpha20 PR reliability findings
+      - name: Read main quality gate and new-code reliability findings
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          PR_NUMBER: '4902'
-        run: python3 scripts/sonar_reliability_report.py
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, ssl, sys
+          from http.client import HTTPSConnection
+          from urllib.parse import urlencode
+          sys.path.insert(0, 'scripts')
+          from sonar_reliability_report import reliability_issues, report
+          auth = base64.b64encode((os.environ['SONAR_TOKEN'] + ':').encode()).decode()
+          def fetch(path, params):
+              connection = HTTPSConnection('sonarcloud.io', timeout=30, context=ssl.create_default_context())
+              try:
+                  connection.request('GET', path + '?' + urlencode(params), headers={'Authorization': 'Basic ' + auth})
+                  response = connection.getresponse()
+                  if response.status != 200:
+                      raise RuntimeError('Sonar HTTP ' + str(response.status))
+                  return json.load(response)
+              finally:
+                  connection.close()
+          project = 'carlos-emr_carlos'
+          print('LATEST_MAIN_ANALYSIS ' + json.dumps(fetch('/api/project_analyses/search', {'project': project, 'branch': 'main', 'ps': 1}), ensure_ascii=True))
+          print('MAIN_QUALITY_GATE ' + json.dumps(fetch('/api/qualitygates/project_status', {'projectKey': project, 'branch': 'main'}), ensure_ascii=True))
+          def page(params):
+              params.pop('pullRequest', None)
+              params.update(branch='main', sinceLeakPeriod='true')
+              return fetch('/api/issues/search', params)
+          print('MAIN_NEW_RELIABILITY ' + json.dumps(report(reliability_issues(page, 0)), ensure_ascii=True))
+          PY

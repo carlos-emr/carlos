@@ -3,13 +3,14 @@
 
 import base64
 import html
+from http.client import HTTPSConnection
 import json
 import os
+import ssl
 from pathlib import Path
 import sys
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 PROJECT = "carlos-emr_carlos"
 API = "https://sonarcloud.io/api/issues/search"
@@ -58,10 +59,21 @@ def main():
     auth = base64.b64encode((token + ":").encode()).decode()
 
     def fetch_page(params):
-        request = Request(API + "?" + urlencode(params), headers={
-            "Authorization": "Basic " + auth, "Accept": "application/json"})
-        with urlopen(request, timeout=30) as response:
+        # A fixed HTTPS peer and path prevent file-scheme access and cross-host
+        # redirects from forwarding the Sonar token. Only query values are dynamic.
+        # The CI runtime is modern Python. Explicit default context requires both
+        # certificate-chain and hostname verification; the fixed peer cannot redirect.
+        # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected
+        connection = HTTPSConnection("sonarcloud.io", timeout=30, context=ssl.create_default_context())
+        try:
+            connection.request("GET", "/api/issues/search?" + urlencode(params), headers={
+                "Authorization": "Basic " + auth, "Accept": "application/json"})
+            response = connection.getresponse()
+            if response.status != 200:
+                raise HTTPError(API, response.status, "Sonar issue request failed", {}, None)
             return json.load(response)
+        finally:
+            connection.close()
 
     findings = report(reliability_issues(fetch_page, pull_request))
     text = json.dumps(findings, indent=2, ensure_ascii=True)

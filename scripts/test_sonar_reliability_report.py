@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import sonar_reliability_report as sonar
 
@@ -43,16 +43,38 @@ class SonarReliabilityReportTest(unittest.TestCase):
     def test_empty_analysis_is_reported(self):
         self.assertEqual([], sonar.reliability_issues(lambda _: {"issues": [], "total": 0}, 4902))
 
+    def test_fixed_https_peer_rejects_redirects_without_forwarding_credentials(self):
+        response = Mock(status=302)
+        connection = Mock()
+        connection.getresponse.return_value = response
+        with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "4902"}), \
+                patch.object(sonar, "HTTPSConnection", return_value=connection) as peer:
+            with self.assertRaises(sonar.HTTPError):
+                sonar.main()
+        peer.assert_called_once()
+        self.assertEqual(("sonarcloud.io",), peer.call_args.args)
+        self.assertEqual(30, peer.call_args.kwargs["timeout"])
+        tls = peer.call_args.kwargs["context"]
+        self.assertEqual(sonar.ssl.CERT_REQUIRED, tls.verify_mode)
+        self.assertTrue(tls.check_hostname)
+        connection.request.assert_called_once()
+        self.assertEqual("GET", connection.request.call_args.args[0])
+        self.assertTrue(connection.request.call_args.args[1].startswith("/api/issues/search?"))
+        connection.close.assert_called_once()
+
     def test_summary_escapes_markup_and_logs_escape_workflow_commands(self):
         payload = "</pre><script>unsafe</script>\n::error::forged %0A"
         with tempfile.TemporaryDirectory() as directory:
             summary = Path(directory) / "summary.md"
             body = io.StringIO('{"issues": ' + json.dumps([
                 {"key": "bug", "type": "BUG", "message": payload}]) + ', "total": 1}')
+            body.status = 200
+            connection = Mock()
+            connection.getresponse.return_value = body
             output = io.StringIO()
             with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "4902",
                                          "GITHUB_STEP_SUMMARY": str(summary), "GITHUB_ACTIONS": "true"}), \
-                    patch.object(sonar, "urlopen", return_value=body), contextlib.redirect_stdout(output):
+                    patch.object(sonar, "HTTPSConnection", return_value=connection), contextlib.redirect_stdout(output):
                 sonar.main()
             self.assertNotIn("\n::error::forged", output.getvalue())
             self.assertNotIn("synthetic-secret", output.getvalue())

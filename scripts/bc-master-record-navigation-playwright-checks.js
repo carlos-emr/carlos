@@ -11,6 +11,7 @@
 'use strict';
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
+const { assertPopupDestinations } = require('./page-health-master-record-playwright-checks');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const VIEWPORTS = [{ width: 1280, height: 720 }, { width: 1600, height: 1000 }];
@@ -77,6 +78,7 @@ async function checkViewport(browser, config, viewport) {
       searchTerm: process.env.BC_NAV_SEARCH || 'FAKE-',
       preferredDemographicNo: process.env.BC_NAV_DEMOGRAPHIC_NO || '2', timeout: TIMEOUT,
     });
+    await assertPopupDestinations(masterPage);
     // Popup feature strings can override the context viewport.
     await masterPage.setViewportSize(viewport);
     const trigger = masterPage.locator('#checkEligibility');
@@ -90,7 +92,7 @@ async function checkViewport(browser, config, viewport) {
     h.assert(requests === 0, 'Hovering or focusing eligibility must not request Teleplan');
 
     const chartLink = masterPage.locator('a[onclick*="popupEChart"]').first();
-    const invoiceLink = masterPage.locator('a[onclick*="/billing/CA/BC/reprocessBill"]').first();
+    const invoiceLink = masterPage.locator('a[href*="/billing/CA/BC/reprocessBill"]').first();
     for (const link of [chartLink, invoiceLink]) await assertCenterIsClickable(link);
     const invoice = await ui.clickOpensPopup(masterPage, invoiceLink, {
       context, recorder, label: 'bc-invoices', timeout: TIMEOUT,
