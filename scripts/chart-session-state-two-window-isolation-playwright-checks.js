@@ -24,6 +24,15 @@
  *      enters it, a telephone visit: each carries its own chart's visit type. It took the visit type of
  *      the chart entered last in any window. A new note also answered HTTP 500 until #4784 was
  *      fixed (an unsaved note's link lookup).
+ *      A save posted with no note body saves nothing; it dereferenced the missing body.
+ *   4. A Disease Registry add by POST, as a chart's scripts post, after B's chart was entered last:
+ *      with no patient, a malformed one or two different ones it is refused (400) and writes
+ *      nothing; naming A, it files the code for A and leaves B's registry as it was.
+ *   5. B's message, opened from B's message list ▸ Write to Encounter, with B's new chart holding
+ *      its note list back: A's note list, loaded meanwhile as A's chart loads it, does not carry the
+ *      message, and B's new note does. The login-wide bean held the pending message for whichever
+ *      chart's note list rendered next: A's list wrote B's message into its page's script, and
+ *      cleared it.
  *
  * Not driven, with the unit tests that cover them:
  *   - the text a history (CPP) item save remembers so that the patient's next such save replaces it
@@ -39,11 +48,12 @@
  *
  * Fixtures: the workflow's FAKE patient (A) and a second FAKE patient (B, PatientBravo); the notes
  * saved in their charts (and a copy of A's, as A's second note), their legacy eChart rows, one
- * casemgmt_issue linked to A's note, and any registry row a refused request might have written
- * (asserted absent). Cleanup
- * removes every owned row by key and asserts it gone. No clinic-wide state is changed.
+ * casemgmt_issue linked to A's note, the registry code A's add files (a refused request's is
+ * asserted absent), and one message linked to B, delivered to the test provider. Cleanup removes
+ * every owned row by key and asserts it gone. No clinic-wide state is changed.
  */
 const h = require('./lib/playwright-harness');
+const { csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -307,6 +317,127 @@ async function patientlessRequests(s, A, B) {
   });
 }
 
+/** POST CaseManagementView with the chart's token, as the chart's own scripts post. */
+async function postChartView(s, chart, fields) {
+  const token = await csrfTokenPresent(chart);
+  const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementView'), {
+    data: new URLSearchParams([...fields, ['CSRF-TOKEN', token]]).toString(),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+    maxRedirects: 0, failOnStatusCode: false,
+  });
+  try {
+    return { status: response.status(), body: await response.text() };
+  } finally { await response.dispose(); }
+}
+
+async function registryAddByPost(s, charts, A, B) {
+  const { sql } = s;
+  await step(s, 'a Disease Registry add by POST is refused without one valid patient and files the code for the patient it names', async () => {
+    const registryOf = patient => JSON.stringify(sql.rows(`SELECT dxresearch_code, status, coding_system FROM dxresearch
+      WHERE demographic_no=${patient} ORDER BY dxresearch_no`));
+    const before = { A: registryOf(A), B: registryOf(B) };
+    for (const [label, patient] of [['no', []], ['a malformed', [['demographicNo', '12x']]],
+      ['two different', [['demographicNo', A], ['demographic_no', B]]]]) {
+      const refused = await postChartView(s, charts.A, [['method', 'addToDx'], ['issue_code', DX_CODE], ...patient]);
+      h.assert(refused.status === 400, `A Disease Registry add with ${label} patient answered HTTP ${refused.status}, not 400`);
+    }
+    h.assert(registryOf(A) === before.A && registryOf(B) === before.B, 'A refused Disease Registry add wrote a registry row');
+    // B's chart was entered last; the add names A and files the code for A alone.
+    const added = await postChartView(s, charts.A, [['method', 'addToDx'], ['issue_code', DX_CODE], ['demographicNo', A]]);
+    h.assert(added.status === 200, `A's Disease Registry add answered HTTP ${added.status}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${A} AND dxresearch_code=${q(DX_CODE)}
+      AND status='A'`) === '1', 'A\'s Disease Registry add did not file the code for A');
+    h.assert(registryOf(B) === before.B, 'A\'s Disease Registry add changed B\'s registry');
+  });
+}
+
+/** A message linked to `patient`, delivered to the test provider, owned by this run. */
+function linkedMessage(s, patient, subject, body) {
+  const { sql, provider, marker } = s;
+  const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
+  h.assert(/^\d+$/.test(location), 'No current messenger location is configured');
+  const id = key(h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
+      sentbyNo, sentByLocation, type)
+    VALUES(CURDATE(), CURTIME(), ${q(body)}, ${q(subject)}, 'FAKE-PW sender', 'FAKE-PW recipient', ${q(provider)},
+      ${location}, 0)`, 'message'), 'message');
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM msgDemoMap WHERE messageID=${id} AND demographic_no=${patient};
+      DELETE FROM messagelisttbl WHERE message=${id} AND provider_no=${q(provider)};
+      DELETE FROM messagetbl WHERE messageid=${id} AND thesubject LIKE ${q(`${marker}%`)}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM messagetbl WHERE messageid=${id})
+      + (SELECT COUNT(*) FROM messagelisttbl WHERE message=${id})
+      + (SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${id})`) === '0', 'The owned message was not removed');
+  });
+  sql.execute(`INSERT INTO messagelisttbl(message, provider_no, status, remoteLocation, destinationFacilityId,
+      sourceFacilityId) VALUES(${id}, ${q(provider)}, 'new', ${location}, 0, 0);
+    INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${id}, ${patient})`);
+  return id;
+}
+
+async function writeToEncounter(s, charts, A, B) {
+  const { marker, context, config } = s;
+  // The pages write the message into their scripts JavaScript-encoded, which escapes the marker's
+  // hyphen, so the pages are searched for a part of the text that the encoding leaves as written.
+  const token = `pendingEncounter${marker.replace(/[^A-Za-z0-9]/g, '')}`;
+  const text = `${marker} ${token}`;
+  const id = linkedMessage(s, B, `${marker} write to encounter`, text);
+  await step(s, 'Write to Encounter from B\'s message fills B\'s new note, and A\'s note list, loaded meanwhile, does not carry it', async () => {
+    // B's message, opened from B's message list.
+    const view = await context.newPage();
+    await h.gotoApp(view, config.baseUrl,
+      `/messenger/ViewMessage?from=encounter&demographic_no=${B}&messageID=${id}&msgCount=1&orderBy=date&messagePosition=0`);
+    await settle(view, 'B\'s message');
+    // Hold the note list of the chart the message opens, so A's list loads while B's entry is pending.
+    let release;
+    const released = new Promise(resolve => { release = resolve; });
+    let heldBy = null;
+    const hold = async route => {
+      const form = new URLSearchParams(route.request().postData() || '');
+      if (!heldBy && route.request().method() === 'POST' && form.get('method') === 'viewNotesOpt'
+          && form.get('demographicNo') === B && route.request().frame().page() !== charts.B) {
+        heldBy = route.request().frame().page();
+        await released;
+      }
+      await route.continue();
+    };
+    await context.route('**/CaseManagementView', hold);
+    try {
+      await view.locator('input[name="writeToEncounter"]').click();
+      const deadline = Date.now() + TIMEOUT;
+      while (!heldBy && Date.now() < deadline) await view.waitForTimeout(100);
+      h.assert(heldBy, 'Write to Encounter opened no chart that lists B\'s notes');
+      // A's note list, as A's chart loads it, while B's chart was entered from the message.
+      const listed = await postChartView(s, charts.A, [['method', 'viewNotesOpt'], ['offset', '0'], ['numToReturn', '20'],
+        ['demographicNo', A]]);
+      h.assert(listed.status === 200, `A's note list answered HTTP ${listed.status}`);
+      h.assert(!listed.body.includes(token), 'A\'s note list carries the message written to B\'s chart');
+    } finally {
+      release();
+    }
+    const chartB = heldBy;
+    await chartB.waitForFunction(wanted => {
+      const editor = window.caseNote && document.getElementById(window.caseNote);
+      return Boolean(editor && editor.value.includes(wanted));
+    }, text, { timeout: TIMEOUT });
+    // B's own page carries the token as written, so A's list could not have hidden it by encoding.
+    h.assert((await chartB.content()).includes(token), 'B\'s chart page does not carry the message token as written');
+    await context.unroute('**/CaseManagementView', hold);
+    h.assert(!(await charts.A.locator(NOTE).inputValue()).includes(text), 'A\'s note editor took the message written to B\'s chart');
+    // Closing B's second chart window releases its note lock by a beacon, which the browser
+    // reports as an aborted ping because the window is gone.
+    const mark = s.recorder.requestFailures.length;
+    await chartB.close({ runBeforeUnload: false });
+    await view.close();
+    for (let i = s.recorder.requestFailures.length - 1; i >= mark; i--) {
+      const entry = s.recorder.requestFailures[i];
+      if (entry.resourceType === 'ping' && /ERR_ABORTED/.test(entry.errorText || '')
+          && new URL(entry.url).pathname.endsWith('/CaseManagementEntry')) {
+        s.recorder.requestFailures.splice(i, 1);
+      }
+    }
+  });
+}
+
 async function filterHandoff(s, charts, A, B, notes) {
   const { sql } = s;
   await step(s, 'a filter applied in A\'s chart is not applied to B\'s note list', async () => {
@@ -390,6 +521,20 @@ async function newNoteVisitTypes(s, charts, A, B) {
   });
 }
 
+async function emptyNoteSave(s, charts, A) {
+  await step(s, 'a notes service save without a note saves nothing', async () => {
+    const notes = `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${A}`;
+    const before = s.sql.value(notes);
+    // A REST client of this login posting no note body (POST ws/rs/notes/{patient}/save).
+    const answer = await charts.A.request.post(`${s.config.baseUrl}/ws/rs/notes/${A}/save`,
+      { headers: { 'Content-Type': 'application/json' }, data: Buffer.alloc(0) });
+    try {
+      h.assert(answer.status() < 300, `A notes service save without a note answered HTTP ${answer.status()}`);
+    } finally { await answer.dispose(); }
+    h.assert(s.sql.value(notes) === before, 'A notes service save without a note wrote a note');
+  });
+}
+
 async function workflow(s) {
   const A = key(s.patient, 'patient');
   const B = createSecondPatient(s);
@@ -398,8 +543,11 @@ async function workflow(s) {
   const notes = {};
   await saveChartNotes(s, charts, notes);
   await patientlessRequests(s, A, B);
+  await registryAddByPost(s, charts, A, B);
   await filterHandoff(s, charts, A, B, notes);
   await newNoteVisitTypes(s, charts, A, B);
+  await emptyNoteSave(s, charts, A);
+  await writeToEncounter(s, charts, A, B);
   await releaseChartLocks(s.context, s.config.baseUrl);
 }
 

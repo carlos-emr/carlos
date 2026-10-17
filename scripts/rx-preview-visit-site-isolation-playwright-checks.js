@@ -18,12 +18,13 @@
  *
  * Also pins the multisite tickler page, which looked the same visit up as if to preselect its clinic
  * but never applied it: A's new tickler still starts on "select clinic", and picking A's clinic
- * lists its providers.
+ * lists its providers. And the print window's address list shows a clinic name with markup (site
+ * SD) as written; it printed the names unencoded.
  *
  * Skips when multisites is off (the day sheet has no clinic selector).
  *
  * Fixtures: the workflow's FAKE patient (A), two more FAKE patients (B with a visit, C without),
- * three active sites named with the run's marker and linked to the test provider, A's and B's
+ * four active sites named with the run's marker and linked to the test provider, A's and B's
  * appointments today, and the custom drugs and scripts saved for A, B and C. Cleanup removes
  * every owned row by key and asserts it gone.
  */
@@ -72,19 +73,21 @@ function ownedSites(s) {
   const sites = {};
   // Registered before the first insert: a site left behind would show in every login's clinic
   // lists. The sites are found by the run's marker, which no other site name carries.
-  const owned = `SELECT site_id FROM site WHERE name LIKE ${q(`${marker} S_`)}`;
+  const owned = `SELECT site_id FROM site WHERE name LIKE ${q(`${marker} S%`)}`;
   s.cleanup(() => {
     const ids = sql.rows(owned).map(([id]) => key(id, 'site')).join(',');
     if (ids) {
       sql.execute(`DELETE FROM providersite WHERE site_id IN (${ids});
         DELETE FROM site WHERE site_id IN (${ids})`);
     }
-    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name LIKE ${q(`${marker} S_`)}`) === '0'
+    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name LIKE ${q(`${marker} S%`)}`) === '0'
       && (!ids || sql.value(`SELECT COUNT(*) FROM providersite WHERE site_id IN (${ids})`) === '0'),
     'The owned sites were not removed');
   });
-  for (const [label, street] of [['SA', '11 Alpha Road'], ['SB', '22 Bravo Road'], ['SC', '33 Charlie Road']]) {
-    const name = `${marker} ${label}`;
+  // SD's name carries markup, which the print window's address list must show as text.
+  for (const [label, street, suffix] of [['SA', '11 Alpha Road', ''], ['SB', '22 Bravo Road', ''],
+    ['SC', '33 Charlie Road', ''], ['SD', '44 Delta Road', ' <i>Clinic</i> & "Co"']]) {
+    const name = `${marker} ${label}${suffix}`;
     const id = key(h.insertId(sql, `INSERT INTO site (name, short_name, phone, fax, bg_color, address, city,
         province, postal, status)
       VALUES (${q(name)}, ${q(`${hex}${label}`)}, '555-0100', '555-0101', '#FFFFFF', ${q(street)}, 'Testville',
@@ -197,6 +200,9 @@ async function workflow(s) {
     const master = await openFromDaySheet('B', masterLink('B'), '/demographic/DemographicEdit');
     await master.close();
     const { address, shown } = await saveAndPrint(rxA, 'A', A);
+    // A clinic name is text: its markup is shown, not applied.
+    const labels = await address.evaluate(select => Array.from(select.options, option => option.label));
+    h.assert(labels.includes(sites.SD.name), 'The print window\'s address list does not show a clinic name with markup as written');
     h.assert(shown === sites.SA.name, `A's print window preselected ${shown === sites.SB.name
       ? 'B\'s visit site, the visit the day sheet opened last' : `"${shown}"`} instead of A's visit site`);
 

@@ -31,18 +31,19 @@
  * keeps its own visit through a Save after A was entered again from another visit, so its Sign signs
  * that visit; Verify & Sign verifies only A's own appointment; Split Chart (offered once the
  * encounter fills half of what the editor holds) stores A's whole encounter as A's split revision and
- * continues A's chart from its end in the next one; Exit closes the editor and saves neither chart; a
- * double-clicked Save posts the editor once, writes one revision and shows the editor again. Every
- * step compares the other patient's complete clinical rows before and after. On release/2026.08 the
- * editor posted to an address that does not exist (it saved nothing); with that fixed but the old
- * save action, each Save writes the other chart and Verify & Sign and Split Chart fail. Exit writes
- * nothing with either action.
+ * continues A's chart from its end in the next one; Exit closes the editor and saves neither chart;
+ * on a BC install, Sign, Save & Bill opens a bill of A's own visit; a double-clicked Save posts the
+ * editor once, writes one revision and shows the editor again. Every step compares the other
+ * patient's complete clinical rows before and after. On release/2026.08 the editor posted to an
+ * address that does not exist (it saved nothing); with that fixed but the old save action, each Save
+ * writes the other chart, Verify & Sign and Split Chart fail, and on a BC install Sign, Save & Bill
+ * writes the other chart and opens no bill. Exit writes nothing with either action.
  *
  * Fixtures: the workflow's FAKE patient (A, first name LegacyAlpha), a second FAKE patient (B,
- * LegacyBravo, last name the run marker), one owned appointment each and three more of A's. Cleanup
- * removes both patients' eChart revisions, appointments, appointment archive rows, note locks and
- * drafts by key and asserts each is gone, and restores the provider's encounterWindow (editor
- * layout) row exactly.
+ * LegacyBravo, last name the run marker), one owned appointment each and three more of A's (four on
+ * a BC install). Cleanup removes both patients' eChart revisions, appointments, appointment archive
+ * rows, note locks and drafts by key and asserts each is gone, and restores the provider's
+ * encounterWindow (editor layout) row exactly.
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
@@ -239,12 +240,16 @@ async function run(s) {
   // ---- Steps -----------------------------------------------------------------------------------
   let editorA;
   let editorB;
+  const signSaveBill = 'Sign, Save & Bill';
+  let offersBilling = false;
   await s.step('A\'s and B\'s legacy editors, opened in two windows of one login, each show their own patient', async () => {
     editorA = await openEditor(A, appointmentOf.A);
     assertOwnEditor(await editorOwner(editorA), A, 'A\'s editor');
     editorB = await openEditor(B);
     assertOwnEditor(await editorOwner(editorB), B, 'B\'s editor');
     assertOwnEditor(await editorOwner(editorA), A, 'A\'s editor, after B\'s was opened');
+    // A BC install's editor also offers Sign, Save & Bill (billregion=BC).
+    offersBilling = await editorA.locator(`form[name="encForm"] input[type="button"][value="${signSaveBill}"]`).count() > 0;
   });
 
   const directions = [
@@ -472,6 +477,33 @@ async function run(s) {
     assertPatientStateUnchanged(before.B, snapshot(B), 'A\'s Exit');
     await other.close();
   });
+
+  if (offersBilling) {
+    await s.step('A\'s Sign, Save & Bill, after B\'s editor was opened last, opens a bill of A\'s own visit (BC)', async () => {
+      const visit = addVisit(A);
+      const editor = await openEditor(A, visit);
+      const other = await openEditor(B, appointmentOf.B);
+      const before = snapshot(B);
+      const text = `${marker}-A-legacy-billed`;
+      await editor.locator('textarea[name="enTextarea"]').fill(text);
+      await clickAndAwaitReload(editor, editor.locator(`form[name="encForm"] input[type="button"][value="${signSaveBill}"]`),
+        {label: 'A legacy Sign, Save & Bill'});
+      await editor.locator('input[name="billKey"]').waitFor({state: 'attached', timeout: TIMEOUT});
+      const page = norm(await editor.locator('body').innerText());
+      h.assert(namesA(page) && !namesB(page), 'The bill Sign, Save & Bill opened does not name A alone');
+      // The form's own reload links name the bill's patient and visit.
+      const named = (await editor.content()).match(/demographic_no=' \+ '(\d+)' \+ '&appointment_no=' \+ '(\d*)'/);
+      h.assert(named && named[1] === String(A) && named[2] === String(visit),
+        'The bill Sign, Save & Bill opened is not for A\'s own visit');
+      const revision = revisionsOf(A).at(-1);
+      h.assert((sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`) || '').startsWith(`${text}\n[`),
+        'Sign, Save & Bill did not write A\'s signed revision');
+      h.assert(visitRow(appointmentOf.B) === untouched(B), 'Sign, Save & Bill changed B\'s appointment');
+      assertPatientStateUnchanged(before, snapshot(B), 'A\'s Sign, Save & Bill');
+      await editor.close();
+      await other.close();
+    });
+  }
 
   await s.step('a double-clicked Save writes one revision and shows the editor again, not the concurrency page', async () => {
     // B's first editor still shows B's latest revision. Its second post, made from the revision the

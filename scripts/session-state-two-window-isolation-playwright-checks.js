@@ -12,7 +12,8 @@
  *   1. Schedule ▸ M on A's appointment, then on B's ▸ Health Tracker ▸ Save All for A, then for B,
  *      then M on A's again and Save All for B: every measurement and its progress note is linked
  *      to its own patient's appointment. The day sheet kept one "current appointment" per login;
- *      ViewStoreApptInSession now files it per patient.
+ *      ViewStoreApptInSession now files it per patient, and refuses a store that names no valid
+ *      appointment (400) or comes by GET (405).
  *   2. E-Chart ▸ Messenger + for A and for B ▸ Attach Patient ▸ patient information ▸ Attach in
  *      both compose windows, then Send Message from each: each message carries only the PDF
  *      rendered for its own patient. Compose attachments lived on the login's messenger bean;
@@ -274,6 +275,25 @@ async function healthTrackerVisits(s, A, B) {
     // And the other way round: A's visit opened last, B's save names B's visit.
     await openFromDaySheet('A', A);
     await saveTracker('B', B, '88.1');
+    // The store takes a POST naming one appointment; anything else is refused and files nothing,
+    // so B's next save still names B's visit.
+    const token = await ui.csrfTokenPresent(daySheet);
+    const store = h.appUrl(s.config.baseUrl, '/provider/ViewStoreApptInSession');
+    for (const [label, fields] of [['no appointment', []], ['a malformed one', [['appointment_no', '12x']]],
+      ['appointment 0', [['appointment_no', '0']]]]) {
+      const refused = await context.request.post(store, {
+        data: new URLSearchParams([...fields, ['CSRF-TOKEN', token]]).toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token }, maxRedirects: 0,
+        failOnStatusCode: false });
+      try {
+        h.assert(refused.status() === 400, `The day sheet's visit store with ${label} answered HTTP ${refused.status()}, not 400`);
+      } finally { await refused.dispose(); }
+    }
+    const read = await context.request.get(`${store}?appointment_no=${appointmentOf.A}`, { maxRedirects: 0, failOnStatusCode: false });
+    try {
+      h.assert(read.status() === 405, `The day sheet's visit store answered a GET with HTTP ${read.status()}, not 405`);
+    } finally { await read.dispose(); }
+    await saveTracker('B', B, '88.6');
   });
 
   return appointmentOf;
