@@ -16,6 +16,7 @@
  *   singleClick → (always true in flatpickr — dates are selected on click)
  *   firstDay    → locale.firstDayOfWeek (falls back to Calendar._FD)
  *   range       → minDate / maxDate
+ *   partialDates → (CARLOS) keep a typed yyyy or yyyy-mm as typed; see below
  *
  * @see https://github.com/carlos-emr/carlos/issues/1355
  * @since 2026-04-08
@@ -195,6 +196,35 @@ Calendar._doSetup = function (params) {
         }
     }
 
+    /* Partial dates: a box that takes yyyy, yyyy-mm or yyyy-mm-dd (the allergy Start Date).
+     * With allowInput, flatpickr re-parses the box's text with dateFormat when the box loses focus,
+     * on Enter and on a click outside, and writes the date back in full: 2019 became 2019-01-01,
+     * and the server then stored a known day instead of a known year. A year, or a year and month,
+     * is parsed to the first day of that period so the calendar opens there, and that date is
+     * printed back as the text that was typed. Any press inside the calendar (mouse, touch or key)
+     * forgets the typed text, so a day picked there, even the first of a month, is written in full. */
+    if (params.partialDates) {
+        var typedPartial = null;
+        fpOpts.parseDate = function (dateStr, format) {
+            var text = String(dateStr).trim();
+            var parts = /^(\d{4})(?:-(\d{1,2}))?$/.exec(text);
+            var month = parts && parts[2] ? Number(parts[2]) : 1;
+            if (parts && month >= 1 && month <= 12) {
+                var start = new Date(Number(parts[1]), month - 1, 1);
+                typedPartial = { text: text, time: start.getTime() };
+                return start;
+            }
+            typedPartial = null;
+            return flatpickr.parseDate(dateStr, format);
+        };
+        fpOpts.formatDate = function (date, format, locale) {
+            if (typedPartial && format === fpOpts.dateFormat && date.getTime() === typedPartial.time) {
+                return typedPartial.text;
+            }
+            return flatpickr.formatDate(date, format, locale);
+        };
+    }
+
     /* First day of week (from lang file or explicit param) */
     var firstDay = (typeof params.firstDay === "number")
         ? params.firstDay
@@ -248,6 +278,11 @@ Calendar._doSetup = function (params) {
     }
     var fp = flatpickr(target, fpOpts);
     if (inputEl && !params.multiple) inputEl.value = initialValue;
+    if (params.partialDates && fp && fp.calendarContainer) {
+        ["mousedown", "touchstart", "keydown"].forEach(function (type) {
+            fp.calendarContainer.addEventListener(type, function () { typedPartial = null; }, true);
+        });
+    }
 
     /* ── Button trigger ──────────────────────────────────────────────── */
     if (buttonEl && buttonEl !== inputEl) {
