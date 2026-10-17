@@ -32,6 +32,13 @@
  *   6. E-Chart ▸ Disease Registry for A and for B ▸ an unknown code in A's window: the refusal
  *      re-renders A's own diagnoses, and A's next code is registered for A only. The re-render
  *      read the registry opened last.
+ *   7. Two compose windows, each with its own patient's PDF attached ▸ Clear New Message in A's:
+ *      B's message still carries B's PDF and A's fresh page sends nothing. Clear emptied the
+ *      login's messenger bean, so it also dropped every other compose window's attachments.
+ *   8. A compose window for B open ▸ the transfer page's post (messenger/Transfer/PostItems, with
+ *      A's items): the compose window the transfer opens carries them, and B's message carries none.
+ *      The transfer left its items on the login's messenger bean for whichever window sent next.
+ *      (The transfer page itself cannot render on any install; the step posts its form.)
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name); one appointment today per patient and the bookings
@@ -298,6 +305,39 @@ function storedPdfs(s, messageId) {
   return { count: entries.length, text };
 }
 
+/** E-Chart ▸ Messenger + ▸ Attach Patient ▸ patient information ▸ Attach, in the patient's own chart. */
+async function composeWithPatientPdf(s, chart, label, patient) {
+  const { context } = s;
+  const compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
+    `compose-${label}`);
+  await compose.locator('#subject').waitFor({ timeout: TIMEOUT });
+  h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === patient,
+    `${label}'s compose window is not linked to ${label}`);
+  const [chooser] = await Promise.all([
+    context.waitForEvent('page', { timeout: TIMEOUT }),
+    compose.locator('input[name="attachDemo"]').click(),
+  ]);
+  await chooser.waitForURL(url => url.pathname.endsWith('/messenger/attachmentFrameset'),
+    { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
+  let main;
+  const deadline = Date.now() + TIMEOUT;
+  while (!(main = chooser.frame({ name: 'main' })) && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  h.assert(main, `${label}'s attachment chooser has no main frame`);
+  await main.locator('form[action$="/messenger/Doc2PDF"]').waitFor({ timeout: TIMEOUT });
+  h.assert(await main.locator('input[name="demographic_no"]').inputValue() === patient,
+    `${label}'s attachment chooser is for another patient`);
+  await main.locator('input[name="item"][value="demographic"]').check();
+  // The chooser closes itself once the PDF is attached (its own late loads are abandoned).
+  await Promise.all([
+    chooser.waitForEvent('close', { timeout: 60000 }),
+    main.locator('button[name="Attach"]').click(),
+  ]);
+  await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
+  return compose;
+}
+
 async function composeAttachments(s, A, B, messenger) {
   const { context, recorder, marker } = s;
   const chartOf = {};
@@ -314,44 +354,12 @@ async function composeAttachments(s, A, B, messenger) {
     await waitForNavbars(chartOf.B, TIMEOUT);
   }
 
-  /** E-Chart ▸ Messenger + ▸ Attach Patient ▸ patient information ▸ Attach. */
-  async function composeWithPatientPdf(label, patient) {
-    const chart = chartOf[label];
-    const compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
-      `compose-${label}`);
-    await compose.locator('#subject').waitFor({ timeout: TIMEOUT });
-    h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === patient,
-      `${label}'s compose window is not linked to ${label}`);
-    const [chooser] = await Promise.all([
-      context.waitForEvent('page', { timeout: TIMEOUT }),
-      compose.locator('input[name="attachDemo"]').click(),
-    ]);
-    await chooser.waitForURL(url => url.pathname.endsWith('/messenger/attachmentFrameset'),
-      { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
-    let main;
-    const deadline = Date.now() + TIMEOUT;
-    while (!(main = chooser.frame({ name: 'main' })) && Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    h.assert(main, `${label}'s attachment chooser has no main frame`);
-    await main.locator('form[action$="/messenger/Doc2PDF"]').waitFor({ timeout: TIMEOUT });
-    h.assert(await main.locator('input[name="demographic_no"]').inputValue() === patient,
-      `${label}'s attachment chooser is for another patient`);
-    await main.locator('input[name="item"][value="demographic"]').check();
-    // The chooser closes itself once the PDF is attached (its own late loads are abandoned).
-    await Promise.all([
-      chooser.waitForEvent('close', { timeout: 60000 }),
-      main.locator('button[name="Attach"]').click(),
-    ]);
-    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
-    return compose;
-  }
 
   await step(s, 'each compose window sends only the chart PDF attached in it, linked to its own patient', async () => {
     await openCharts();
-    const composeA = await composeWithPatientPdf('A', A);
+    const composeA = await composeWithPatientPdf(s, chartOf.A, 'A', A);
     // B's compose window attaches B's chart after A's has attached A's.
-    const composeB = await composeWithPatientPdf('B', B);
+    const composeB = await composeWithPatientPdf(s, chartOf.B, 'B', B);
     for (const [label, patient, compose, own, other] of [
       ['A', A, composeA, A_FIRST_NAME, B_FIRST_NAME], ['B', B, composeB, B_FIRST_NAME, A_FIRST_NAME]]) {
       const id = await sendToSelf(s, compose, messenger.groupId, `${marker} ${label} chart PDF`);
@@ -365,6 +373,93 @@ async function composeAttachments(s, A, B, messenger) {
     }
   });
   return chartOf;
+}
+
+/** What the compose page says when the window has attachments staged (CreateMessage.jsp). */
+const ATTACHMENTS_LABEL = 'Message has attachments!';
+
+/** The chart items XML stored on one message ("" when it carries none). */
+function storedItems(s, messageId) {
+  return s.sql.value(`SELECT IFNULL(attachment, '') FROM messagetbl WHERE messageid=${messageId}`) || '';
+}
+
+async function clearNewMessage(s, A, B, messenger, chartOf) {
+  const { marker } = s;
+  await step(s, 'Clear New Message in one compose window leaves the other compose window\'s attachment', async () => {
+    const composeA = await composeWithPatientPdf(s, chartOf.A, 'A', A);
+    const composeB = await composeWithPatientPdf(s, chartOf.B, 'B', B);
+    const clear = composeA.locator('a[href*="/messenger/ClearMessage?attachmentKey="]');
+    h.assert(await clear.count() === 1, 'A\'s compose window offers no Clear New Message of its own');
+    await Promise.all([
+      composeA.waitForURL(url => url.pathname.endsWith('/messenger/ClearMessage'), { timeout: TIMEOUT }),
+      clear.click(),
+    ]);
+    await settle(composeA, 'A\'s cleared compose window');
+    h.assert(!(await composeA.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+      'A\'s cleared compose window still says it has attachments');
+    // B's window, whose attachment A's Clear must not touch, sends first.
+    const idB = await sendToSelf(s, composeB, messenger.groupId, `${marker} B after A cleared`);
+    const pdfsB = storedPdfs(s, idB);
+    h.assert(pdfsB.count === 1 && pdfsB.text.includes(B_FIRST_NAME),
+      `Clearing A's compose window left B's message with ${pdfsB.count} chart PDFs instead of B's own one`);
+    const idA = await sendToSelf(s, composeA, messenger.groupId, `${marker} A after its Clear`);
+    h.assert(storedPdfs(s, idA).count === 0 && storedItems(s, idA) === '',
+      'A\'s cleared compose window still sent an attachment');
+    await composeA.close();
+    await composeB.close();
+  });
+}
+
+async function transferredItems(s, A, B, messenger, chartOf) {
+  const { marker, context } = s;
+  await step(s, 'the eDocs posted by the transfer page go out only with the compose window they open', async () => {
+    // B's compose window is open, with nothing attached, before the transfer posts its items.
+    const chart = chartOf.B;
+    const composeB = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
+      'compose-B-beside-transfer');
+    await composeB.locator('#subject').waitFor({ timeout: TIMEOUT });
+    // The transfer page (messenger/Transfer/SelectItems) cannot render: it reads /DocXferConfig.xml
+    // from the server's filesystem root, which no install has, so it fails for every patient. Its
+    // form posts xmlDoc (the patient's document, Base64) and item<N>=on for each ticked item to
+    // messenger/Transfer/PostItems, which is live. The same form is built and submitted here, from a
+    // messenger page, so CSRFGuard adds its token as it does for the page's own form.
+    const transfer = await context.newPage();
+    await h.gotoApp(transfer, s.config.baseUrl, '/messenger/DisplayMessages');
+    await settle(transfer, 'the inbox the transfer is posted from');
+    const content = `${marker} ${A_FIRST_NAME} transferred eDoc`;
+    const xmlDoc = Buffer.from(`<root><table name="Demographics"><item itemId="1" removable="true">`
+      + `<content>${content}</content></item></table></root>`).toString('base64');
+    await Promise.all([
+      transfer.waitForURL(url => url.pathname.endsWith('/messenger/ViewCreateMessage'), { timeout: TIMEOUT }),
+      transfer.evaluate(({ action, xmlDoc }) => {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = action;
+        for (const [name, value] of [['xmlDoc', xmlDoc], ['item1', 'on']]) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        }
+        document.body.appendChild(form);
+        form.submit();
+      }, { action: `${new URL(transfer.url()).pathname.replace(/\/messenger\/.*$/, '')}/messenger/Transfer/PostItems`, xmlDoc }),
+    ]);
+    await settle(transfer, 'the compose window the transfer opened');
+    h.assert(/^[A-Za-z0-9_-]{16,}$/.test(new URL(transfer.url()).searchParams.get('attachmentKey') || ''),
+      'The transfer did not open a compose window of its own (no attachment key)');
+    h.assert((await transfer.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+      'The compose window the transfer opened shows no attachment');
+    const idB = await sendToSelf(s, composeB, messenger.groupId, `${marker} B beside a transfer`);
+    h.assert(storedItems(s, idB) === '' && storedPdfs(s, idB).count === 0,
+      'B\'s message, sent from a compose window opened before the transfer, carries the transfer\'s items');
+    const idT = await sendToSelf(s, transfer, messenger.groupId, `${marker} transfer of A`);
+    h.assert(storedItems(s, idT).includes(content),
+      'The transfer\'s own message does not carry the items it posted');
+    await transfer.close();
+    await composeB.close();
+  });
 }
 
 async function forwardedItems(s, A, messenger) {
@@ -679,7 +774,9 @@ async function workflow(s) {
   const messenger = ownedMessengerGroup(s);
 
   await healthTrackerVisits(s, A, B);
-  await composeAttachments(s, A, B, messenger);
+  const charts = await composeAttachments(s, A, B, messenger);
+  await clearNewMessage(s, A, B, messenger, charts);
+  await transferredItems(s, A, B, messenger, charts);
   await forwardedItems(s, A, messenger);
   await yearEndStatements(s, A, B);
   await waitingListPrompt(s, A, B);
