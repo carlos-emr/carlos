@@ -1,0 +1,21 @@
+name: Alpha20 Sonar reliability diagnostics
+
+on:
+  push:
+    branches: [codex/alpha20-sonar-diagnostics]
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Test the diagnostic
+        run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
+      - name: Read existing alpha20 PR reliability findings
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: '4902'
+        run: python3 scripts/sonar_reliability_report.py
