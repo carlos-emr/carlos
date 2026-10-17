@@ -2906,7 +2906,8 @@ function updateQty(element){
         const statusMessage = count === 1
             ? CONFIRMATION_MESSAGE.SINGLE
             : CONFIRMATION_MESSAGE.MULTIPLE(count);
-        return "There " + statusMessage + ".\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
+        // Each locale's key is the whole first sentence; a word added here would stay in English.
+        return statusMessage + "\n" + SAVE_WARNING + "\n" + SAVE_PROMPT;
     }
 
 <%--	<%--%>
