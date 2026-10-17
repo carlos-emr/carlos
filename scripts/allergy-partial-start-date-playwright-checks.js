@@ -9,12 +9,16 @@
 //      save stores them) are listed as 2019 and 2019-05, not as the first day of the period;
 //   2. Modify on the year-only allergy offers 2019 in Start Date;
 //   3. that amendment, changing only the reaction, keeps the start date year-only;
-//   4. a new Custom Allergy typed with Start Date 2019-05 is saved year-and-month.
-// Step 4 fails on develop: the Start Date box is a flatpickr field (share/calendar/calendar-setup.js,
+//   4. a new Custom Allergy typed with the full date 2019-05-14 is saved as that day;
+//   5. a new Custom Allergy whose Start Date is typed, left, then cleared is saved with no start date;
+//   6. a day picked on the calendar, here 1 May 2019 after 2019-05 was typed, is saved as that day;
+//   7. a year or a year and month keeps its precision: new allergies typed 2019 and 2019-05 are saved
+//      year-only and year-and-month and listed as typed, and Modify on the stored 2019-05 allergy, after
+//      clicking into Start Date and out again, still posts 2019-05 and saves it year-and-month.
+// Step 7 fails on develop: the Start Date box is a flatpickr field (share/calendar/calendar-setup.js,
 // since #1406) that parses what is in it as a full date when the box loses focus, so the dialogue
-// posts 2019-05-01 and the precision is lost. It runs last so steps 1-3 are proven first. Step 3
-// passes because the prefilled 2019 is never focused; clicking into the box and out again would
-// rewrite it to 2019-01-01 too (seen live; finding 293).
+// posts 2019-01-01 and 2019-05-01 and the precision is lost (finding 293). Step 3 passes because the
+// prefilled 2019 is never focused. Step 7 records all three cases before it reports.
 // Other allergy checks type full dates only (allergy-custom-lifecycle, allergy-add-penicillin,
 // allergy-save-retry).
 // Fixtures: the owned FAKE- patient, two allergies seeded by SQL with their partial_date rows, and the
@@ -64,10 +68,11 @@ async function workflow(s) {
     assert(column >= 0, 'The allergy list has no Start Date column');
     return (await row.locator('td').nth(column).innerText()).trim();
   }
-  /** Submit the reaction form; resolves with the startDate the dialogue posted. */
+  /** Submit the reaction form; resolves, once the allergy list has reloaded, with the startDate the dialogue posted. */
   async function submit() {
     const [save] = await Promise.all([
       page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/addAllergy2')),
+      page.waitForEvent('load'),
       form.locator('input[type="submit"]').click(),
     ]);
     return new URLSearchParams(save.postData() || '').get('startDate');
@@ -98,21 +103,90 @@ async function workflow(s) {
       `The amendment stored the start date as ${stored(amended)} (the dialogue posted startDate=${JSON.stringify(sent)})`);
   });
 
-  await s.step('a new allergy typed with Start Date 2019-05 is saved year-and-month', async () => {
-    const reaction = `${marker} FAKE hives`;
-    await page.locator('#searchString').fill(`${marker.slice(-8).toUpperCase()} NEW`);
+  /** Adds a Custom Allergy with this Start Date; returns its id and the startDate the dialogue posted. */
+  async function addCustom(label, fillStart) {
+    const reaction = `${marker} FAKE ${label}`;
+    await page.locator('#searchString').fill(`${marker.slice(-8).toUpperCase()} ${label.toUpperCase()}`);
     const dialogs = await withExpectedDialogs(page, () => page.locator('input[value="Custom Allergy"]').click());
     assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Custom Allergy did not ask for confirmation');
     await form.waitFor({ state: 'visible' });
     await form.locator('#reactionDescription').fill(reaction);
     await form.locator('[name="nonDrug"]').selectOption('on');
-    await form.locator('#startDate').fill('2019-05');
+    await fillStart(form.locator('#startDate'));
     const sent = await submit();
     await expectValue(sql, `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND reaction=${sqlString(reaction)}`,
-      '1', 'The new allergy was not saved');
+      '1', `The ${label} allergy was not saved`);
     const id = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND reaction=${sqlString(reaction)}`);
-    assert(stored(id) === '2019-05-01|YYYY-MM',
-      `The new allergy stored its start date as ${stored(id)} (the dialogue posted startDate=${JSON.stringify(sent)})`);
+    await page.locator(`#allergy_${id}`).waitFor({ state: 'visible' });
+    return { id, sent };
+  }
+  /** Leaves the Start Date box the way a clinician does, by clicking the next box (Age Of Onset). The calendar
+   *  opens above Start Date, over the reaction box, so the box below is the one a click can reach. */
+  const leave = start => form.locator('[name="ageOfOnset"]').click().then(() => start);
+
+  await s.step('a new allergy typed with the full date 2019-05-14 is saved as that day', async () => {
+    const { id, sent } = await addCustom('day', async start => { await start.fill('2019-05-14'); await leave(start); });
+    assert(stored(id) === '2019-05-14|full', `The allergy stored its start date as ${stored(id)} (posted ${JSON.stringify(sent)})`);
+  });
+
+  await s.step('a new allergy whose Start Date is cleared is saved with no start date', async () => {
+    const { id, sent } = await addCustom('cleared', async start => {
+      await start.fill('2019'); await leave(start);
+      await start.fill(''); await leave(start);
+    });
+    const saved = sql.value(`SELECT CONCAT(IFNULL(DATE(start_date),'none'),'|',(SELECT COUNT(*) FROM partial_date
+      WHERE table_name=${ALLERGIES} AND field_name=${START_DATE} AND table_id=${id})) FROM allergies WHERE allergyid=${id}`);
+    assert(sent === '' && saved === 'none|0', `A cleared Start Date posted ${JSON.stringify(sent)} and stored ${saved}`);
+  });
+
+  await s.step('a day picked on the calendar is saved as that day, even the first of a typed month', async () => {
+    const { id, sent } = await addCustom('picked', async start => {
+      await start.fill('2019-05'); await leave(start);
+      await form.locator('#startDateCal').click();
+      await page.locator('.flatpickr-calendar.open .flatpickr-day[aria-label="May 1, 2019"]').click();
+    });
+    assert(sent === '2019-05-01' && stored(id) === '2019-05-01|full',
+      `A picked 1 May 2019 posted ${JSON.stringify(sent)} and stored ${stored(id)}`);
+    // The same pick while the calendar stays open after the box lost focus (as when the clinician switches
+    // window): the typed 2019-05 has been read again by then, and the picked day must still win.
+    const open = await addCustom('picked open', async start => {
+      await start.click();
+      await start.fill('2019-05');
+      await start.evaluate(box => box.blur());
+      await page.locator('.flatpickr-calendar.open .flatpickr-day[aria-label="May 1, 2019"]').click();
+    });
+    assert(open.sent === '2019-05-01' && stored(open.id) === '2019-05-01|full',
+      `1 May 2019 picked after the box lost focus posted ${JSON.stringify(open.sent)} and stored ${stored(open.id)}`);
+  });
+
+  await s.step('a year or a year and month, typed or kept on Modify, is saved with that precision', async () => {
+    const found = {};
+    const year = await addCustom('year', async start => { await start.fill('2019'); await leave(start); });
+    found.year = { sent: year.sent, stored: stored(year.id), listed: await listedStart(year.id) };
+    const month = await addCustom('month', async start => { await start.fill('2019-05'); await leave(start); });
+    found.month = { sent: month.sent, stored: stored(month.id), listed: await listedStart(month.id) };
+    // Modify on the stored 2019-05 allergy, then click into Start Date, press Escape and click out again.
+    await page.locator(`#allergy_${yearMonth} a.modifyAllergyLink`).click();
+    await form.waitFor({ state: 'visible' });
+    const start = form.locator('#startDate');
+    const offered = await start.inputValue();
+    await start.click();
+    await start.press('Escape');
+    await leave(start);
+    found.modify = { offered, afterFocus: await start.inputValue() };
+    found.modify.sent = await submit();
+    await expectValue(sql, `SELECT archived FROM allergies WHERE allergyid=${yearMonth}`, '1', 'The amendment did not archive the original');
+    const replacement = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0
+      AND allergyid NOT IN (${[yearOnly, yearMonth, year.id, month.id].join(',')}) AND reaction=${sqlString(`${marker} FAKE rash`)}`);
+    assert(/^[1-9]\d*$/.test(replacement || ''), 'The amendment did not leave one active replacement');
+    found.modify.stored = stored(replacement);
+    console.log(`    found: ${JSON.stringify(found)}`);
+    const expected = {
+      year: { sent: '2019', stored: '2019-01-01|YYYY', listed: '2019' },
+      month: { sent: '2019-05', stored: '2019-05-01|YYYY-MM', listed: '2019-05' },
+      modify: { offered: '2019-05', afterFocus: '2019-05', sent: '2019-05', stored: '2019-05-01|YYYY-MM' },
+    };
+    assert(JSON.stringify(found) === JSON.stringify(expected), `Partial start dates were saved as ${JSON.stringify(found)}`);
   });
 }
 
