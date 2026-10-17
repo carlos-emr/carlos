@@ -17,9 +17,17 @@
  * telephone, one individual served; the two face-to-face notes of the following month must not
  * count.
  *
- * Known failure, held for the findings log: MIS builds its dates with new GregorianCalendar(year,
+ * CDS_MIS_REPORT=cds or =mis runs one report's steps (the manifest's admin-cds-report and
+ * admin-mis-report entries, so each known failure has its own entry: a script stops at its first
+ * failing step). Unset, it runs both, CDS first.
+ *
+ * Known failures, held for the findings log: MIS builds its dates with new GregorianCalendar(year,
  * month, 1) from month options numbered 1 to 12, while Java counts months from 0, so every MIS
  * report covers the month after the one chosen (December runs into January of the next year).
+ * The CDS form loads its own jQuery over the administration page's, so its jQuery Validation
+ * call throws ($(...).validate is not a function) when the panel opens, as finding 40 records
+ * for other Reports panels; the required functional centre is then never enforced, and with
+ * none in use (a fresh install) View Report gets HTTP 500 and the panel stays empty.
  * Not covered: CDS counts above zero, which need CDS intake forms on admissions; and a login
  * refused by the shared _report gate (ViewReport2Action).
  *
@@ -46,6 +54,9 @@ const FACE_TO_FACE = 'face to face encounter with client';
 const MIS_ROWS = { faceToFace: '4502440', phone: '4512440', individualsServed: '4552440' };
 const MIS_LINK = 'a[href$="/oscarReport/ViewMisReportForm"]';
 const CDS_LINK = 'a[href$="/oscarReport/ViewCds4ReportForm"]';
+const REPORT = process.env.CDS_MIS_REPORT || '';
+h.assert(['', 'cds', 'mis'].includes(REPORT), `CDS_MIS_REPORT must be cds, mis or unset (was ${JSON.stringify(REPORT)})`);
+const runs = report => !REPORT || REPORT === report;
 
 const pad = value => String(value).padStart(2, '0');
 
@@ -128,7 +139,7 @@ async function workflow(s) {
   const servicePrograms = () => sql.rows(`SELECT id FROM program WHERE facilityId=${facility} AND type='Service' ORDER BY id`)
     .map(([id]) => id);
 
-  await s.step('MIS Report offers exactly the functional centres in use and only the Service programs', async () => {
+  if (runs('mis')) await s.step('MIS Report offers exactly the functional centres in use and only the Service programs', async () => {
     const panel = await openPanel(admin, MIS_LINK, '#dynamic-content #misForm');
     const inUse = centresInUse();
     if (inUse.length === 0) {
@@ -177,7 +188,7 @@ async function workflow(s) {
   note(following, 20);
   const monthName = month => `${month.year}-${pad(month.month)}`;
 
-  await s.step('CDS Report offers the functional centre in use and the new program', async () => {
+  if (runs('cds')) await s.step('CDS Report offers the functional centre in use and the new program', async () => {
     const panel = await openPanel(admin, CDS_LINK, '#dynamic-content #cdsForm');
     const centres = await options(panel.locator('#functionalCentreId'));
     h.assert(centres.some(option => option.value === centre.accountId && option.text === `${centre.accountId}, ${centre.description}`),
@@ -187,7 +198,7 @@ async function workflow(s) {
       'CDS Report does not offer the new Service program');
   });
 
-  await s.step('CDS Report names the functional centre and dates chosen and lists every CDS 4 category with a count', async () => {
+  if (runs('cds')) await s.step('CDS Report names the functional centre and dates chosen and lists every CDS 4 category with a count', async () => {
     const panel = admin.locator('#dynamic-content');
     const start = `${monthName(chosen)}-01`;
     const end = `${monthName(following)}-${pad(new Date(following.year, following.month, 0).getDate())}`;
@@ -228,18 +239,20 @@ async function workflow(s) {
     }
   };
 
-  await s.step(`MIS Report by functional centre counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
+  if (runs('mis')) await s.step(`MIS Report by functional centre counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
     const panel = await openPanel(admin, MIS_LINK, '#dynamic-content #misForm');
     misMatches(await runMis(admin, panel, { reportBy: 'functionalCentre', value: centre.accountId, month: chosen }),
       'by functional centre');
   });
 
-  await s.step(`MIS Report by program counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
+  if (runs('mis')) await s.step(`MIS Report by program counts only the visits of the month chosen (${monthName(chosen)})`, async () => {
     const panel = await openPanel(admin, MIS_LINK, '#dynamic-content #misForm');
     misMatches(await runMis(admin, panel, { reportBy: 'programs', value: program, month: chosen }), 'by program');
   });
 }
 
 // The notes are inserted for the owned patient; its record is never opened.
-if (require.main === module) runWorkflow('admin-cds-mis-reports', workflow, { openMaster: false });
+if (require.main === module) {
+  runWorkflow(REPORT ? `admin-${REPORT}-report` : 'admin-cds-mis-reports', workflow, { openMaster: false });
+}
 module.exports = { workflow, reportMonths };
