@@ -16,8 +16,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The drug profile row of a Note (Rx page ▸ Note). A note has no name, brand or identifier, so the static
- * script its created date, start date and text linked to matched nothing and opened empty. On a Note row
- * those three cells are now plain text; every other row keeps its three links unchanged.
+ * script its created date, start date and text linked to matched nothing and opened empty. Each of those three
+ * cells is now one {@code <a>} with the same id and colour on every row; only rows other than a Note's get its
+ * href, which is unchanged. One element per cell keeps the page's ids unique, and the page's scripts (Delete,
+ * Discontinue) still find each cell by id and strike or read it.
  */
 @DisplayName("Rx drug profile row for a Note")
 @Tag("unit")
@@ -27,42 +29,53 @@ class RxProfileNoteEntryJspRegressionTest {
 
     private static final Path LIST_DRUGS_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/ListDrugs.jsp");
     private static final String NOTE_ROW = "boolean noteRow = Boolean.TRUE.equals(prescriptDrug.isCustomNote());";
-    private static final String NOTE_BRANCH = "<% if (noteRow) { %>";
-    private static final String OTHER_ROWS = "<% } else { %>";
-    private static final String END = "<% } %>";
+    private static final String HREF_GUARD = "<% if (!noteRow) { %>";
+    private static final String GUARD_END = "<% } %>";
     private static final String STATIC_SCRIPT = "<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo="
             + "<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context=\"uriComponent\"/>"
             + "&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context=\"uriComponent\"/>"
             + "&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context=\"uriComponent\"/>"
             + "&amp;bn=<carlos:encode value='<%= bn %>' context=\"uriComponent\"/>";
+    private static final String ATC = "&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context=\"uriComponent\"/>";
     private static final String TEXT = "<carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \") %>'/>";
 
-    /** The row's three cells that open the static script, as each was before Notes got their own branch. */
+    /** The row's three cells that open the static script: the href each had before, and the element it is now. */
     enum Cell {
-        CREATED("createDate_",
-                "<td><a id=\"createDate_<%=prescriptIdInt%>\"   <%=styleColor%> href=\"" + STATIC_SCRIPT
-                        + "&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context=\"uriComponent\"/>\">"
-                        + "<%=DateToString(prescriptDrug.getCreateDate())%></a></td>",
-                "<td><span id=\"createDate_<%=prescriptIdInt%>\"   <%=styleColor%>><%=DateToString(prescriptDrug.getCreateDate())%></span></td>"),
-        START("rxDate_",
-                "<a id=\"rxDate_<%=prescriptIdInt%>\"   <%=styleColor%>\n                   href=\"" + STATIC_SCRIPT + "\"><%=startDate%>\n"
-                        + "                </a>",
-                "<span id=\"rxDate_<%=prescriptIdInt%>\"   <%=styleColor%>><%=startDate%></span>"),
-        TEXT_CELL("prescrip_",
-                "<td ><a id=\"prescrip_<%=prescriptIdInt%>\" <%=styleColor%> href=\"" + STATIC_SCRIPT
-                        + "&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context=\"uriComponent\"/>\"   <%=tComment%>   >"
-                        + TEXT + "</a></td>",
-                "<td ><span id=\"prescrip_<%=prescriptIdInt%>\" <%=styleColor%> <%=tComment%>>" + TEXT + "</span></td>");
+        CREATED("createDate_", " href=\"" + STATIC_SCRIPT + ATC + "\"",
+                "<a id=\"createDate_<%=prescriptIdInt%>\"   <%=styleColor%>" + HREF_GUARD + " href=\"" + STATIC_SCRIPT + ATC
+                        + "\"" + GUARD_END + "><%=DateToString(prescriptDrug.getCreateDate())%></a>"),
+        START("rxDate_", "\n                   href=\"" + STATIC_SCRIPT + "\"",
+                "<a id=\"rxDate_<%=prescriptIdInt%>\"   <%=styleColor%>" + HREF_GUARD + "\n                   href=\""
+                        + STATIC_SCRIPT + "\"" + GUARD_END + "><%=startDate%>\n                </a>"),
+        TEXT_CELL("prescrip_", " href=\"" + STATIC_SCRIPT + ATC + "\"",
+                "<a id=\"prescrip_<%=prescriptIdInt%>\" <%=styleColor%>" + HREF_GUARD + " href=\"" + STATIC_SCRIPT + ATC
+                        + "\"" + GUARD_END + "   <%=tComment%>   >" + TEXT + "</a>");
 
         final String id;
-        final String link;
-        final String noteSpan;
+        final String href;
+        final String element;
 
-        Cell(String id, String link, String noteSpan) {
+        Cell(String id, String href, String element) {
             this.id = id;
-            this.link = link;
-            this.noteSpan = noteSpan;
+            this.href = href;
+            this.element = element;
         }
+
+    }
+
+    /** The cell's element as the page writes it: from its {@code <a id=...>} to its closing tag. */
+    private static String rendered(Cell cell) {
+        int start = source.indexOf("<a id=\"" + cell.id + "<%=prescriptIdInt%>\"");
+        assertThat(start).as("%s is an <a> element", cell).isPositive();
+        return source.substring(start, source.indexOf("</a>", start) + "</a>".length());
+    }
+
+    /** The part of the element that only rows other than a Note's render. */
+    private static String guardedPart(String element) {
+        int guard = element.indexOf(HREF_GUARD);
+        assertThat(guard).as("the href is rendered only for rows other than a Note's").isPositive();
+        int from = guard + HREF_GUARD.length();
+        return element.substring(from, element.indexOf(GUARD_END, from));
     }
 
     private static String source;
@@ -72,33 +85,32 @@ class RxProfileNoteEntryJspRegressionTest {
         source = Files.readString(LIST_DRUGS_JSP, StandardCharsets.UTF_8);
     }
 
-    /** The if/else that holds the cell's markup: [note branch, other rows]. */
-    private static String[] branches(Cell cell) {
-        int at = source.indexOf("id=\"" + cell.id + "<%=prescriptIdInt%>\"");
-        int branch = source.lastIndexOf(NOTE_BRANCH, at);
-        assertThat(branch).as("%s has a branch for Notes", cell).isPositive();
-        int other = source.indexOf(OTHER_ROWS, branch);
-        int end = source.indexOf(END, other);
-        assertThat(other).isPositive();
-        assertThat(end).isPositive();
-        return new String[] {source.substring(branch, other), source.substring(other, end)};
-    }
-
     @ParameterizedTest
     @EnumSource(Cell.class)
-    @DisplayName("should show a Note row's cell as plain text with no link")
-    void shouldShowCellWithoutLink_onNoteRow(Cell cell) {
+    @DisplayName("should render each cell as one element, whatever the row")
+    void shouldRenderOneElement_forEveryRow(Cell cell) {
         assertThat(source).contains(NOTE_ROW);
-        String noteBranch = branches(cell)[0];
-
-        // Same id and colour, so the page's scripts (Delete, Discontinue) still find and strike it.
-        assertThat(noteBranch).contains(cell.noteSpan).doesNotContain("href").doesNotContain("ViewStaticScript2");
+        assertThat(source.split("id=\"" + cell.id + "<%=prescriptIdInt%>\"", -1))
+                .as("%s's id appears once in the page", cell).hasSize(2);
+        assertThat(rendered(cell)).isEqualTo(cell.element);
     }
 
     @ParameterizedTest
     @EnumSource(Cell.class)
     @DisplayName("should keep every other row's link to its drug's static script unchanged")
-    void shouldKeepLinkUnchanged_onOtherRows(Cell cell) {
-        assertThat(branches(cell)[1]).contains(cell.link);
+    void shouldKeepHrefUnchanged_onOtherRows(Cell cell) {
+        assertThat(guardedPart(rendered(cell))).isEqualTo(cell.href);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Cell.class)
+    @DisplayName("should give a Note row's cell no href, keeping its id and colour")
+    void shouldOmitHref_onNoteRow(Cell cell) {
+        String element = rendered(cell);
+        String noteRow = element.replace(HREF_GUARD + guardedPart(element) + GUARD_END, "");
+
+        // Same id and colour, so the page's scripts (Delete, Discontinue) still find and strike it.
+        assertThat(noteRow).contains("<a id=\"" + cell.id + "<%=prescriptIdInt%>\"").contains("<%=styleColor%>")
+                .doesNotContain("href").doesNotContain("ViewStaticScript2");
     }
 }
