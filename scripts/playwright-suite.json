@@ -4490,6 +4490,24 @@
       "fixtures": "Owned patients in a 1951-1953 window, a provider group, one appointment, three billing headers and four notes; snapshots and restores the clinic-wide visitreport provider list and regenerates the reportagesex cache, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "admin-cds-mis-reports",
+      "script": "scripts/admin-cds-mis-reports-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "program"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "One FAKE Service program on a shipped functional centre (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install), the runWorkflow FAKE patient and three face-to-face notes on that patient in the program, one in the month reported and two in the month after; all are deleted by their captured ids. Functional centres and CDS 4 categories are read only. The program shows in the facility's program lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); a MySQL named lock also keeps two runs of this check apart.",
+      "notes": "Skips on the packaged default (caisi=off hides both report links). With caisi=on it fails at its MIS by-functional-centre step: the MIS form's months are numbered 1-12 but go to new GregorianCalendar(year, month, 1), which counts from 0, so every MIS report covers the month after the one chosen (pending finding 394). No expectedFailure pin until that finding is in the log."
+    },
+    {
       "name": "rx-edit-discontinue",
       "script": "scripts/rx-edit-discontinue-playwright-checks.js",
       "tiers": [
