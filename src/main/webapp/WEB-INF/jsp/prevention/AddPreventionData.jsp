@@ -132,6 +132,7 @@
     String provider = (String) session.getAttribute("user");
     String dateFmt = "yyyy-MM-dd HH:mm";
     String prevDate = UtilDateUtilities.getToday(dateFmt);
+    boolean partialPrevDate = false;
     String completed = "0";
     String nextDate = "";
     String summary = "";
@@ -154,6 +155,10 @@
 
         prevDate = (String) existingPrevention.get("preventionDate");
         prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);
+        // A prevention can be dated to the year or the year and month only (a CDS import, a partial_date
+        // row). A date input cannot hold "2019" and would open empty, so such a date is edited in a text
+        // box that takes yyyy, yyyy-mm or yyyy-mm-dd, the forms PreventionData.setPreventionDate saves.
+        partialPrevDate = prevDate != null && prevDate.matches("\\d{4}(-\\d{2})?");
 
         providerName = (String) existingPrevention.get("providerName");
         provider = (String) existingPrevention.get("provider_no");
@@ -633,8 +638,35 @@
                     prevDateInput.setCustomValidity('Date is required');
                     return false;
                 }
+                // The partial-date text box's pattern lets an impossible day such as 2019-02-31 through, which
+                // the server then refuses. Refuse it here with the box's own format hint, the text the browser
+                // shows for other input the pattern refuses. The message is cleared on the next edit, or it
+                // would block the corrected date's submit before this check runs again.
+                if (prevDateInput.type === 'text' && !isCalendarDate(prevDateInput.value)) {
+                    prevDateInput.setCustomValidity(prevDateInput.title);
+                    prevDateInput.addEventListener('input', function () {
+                        prevDateInput.setCustomValidity('');
+                    }, {once: true});
+                    prevDateInput.reportValidity();
+                    return false;
+                }
                 prevDateInput.setCustomValidity('');
                 return true;
+            }
+
+            // True unless the value is a yyyy-mm-dd day that the calendar does not have; yyyy and yyyy-mm are
+            // not checked here. setUTCFullYear keeps years below 100 as written, which Date.UTC would not.
+            function isCalendarDate(value) {
+                const fullDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+                if (!fullDate) {
+                    return true;
+                }
+                const year = Number(fullDate[1]);
+                const month = Number(fullDate[2]);
+                const day = Number(fullDate[3]);
+                const date = new Date(0);
+                date.setUTCFullYear(year, month - 1, day);
+                return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
             }
 
             <%
@@ -777,11 +809,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
-                                                                                          id="prevDate"
-                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1119,11 +1147,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
-                                                                                          id="prevDate"
-                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1372,11 +1396,7 @@
                             <div>&nbsp;</div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
-                                                                                                          id="prevDate"
-                                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                                          required></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1455,11 +1475,7 @@
                             </div>
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
-                                    <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
-                                                                                          id="prevDate"
-                                                                                          value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                    <%@ include file="preventionDateBox.jspf" %>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
