@@ -10910,6 +10910,24 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "eform-template-outputs",
+      "script": "scripts/eform-template-outputs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; a marker-named eForm in the clinic's eForm library (status 1) whose action template sends a message to the login, files a patient document and assigns a tickler to the login, submitted once through E-Chart > eForms > Add. Cleanup deletes the eForm, its saved copy, and the message (with its recipient and patient links), the tickler (with its comments, updates and attachments) and the document (with its chart link and any chart-note or queue rows, lib/document-residue.js) the submission wrote, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "What an eForm's action template sends out when the eForm is submitted (EFormUtil.writeEformTemplate); eform-template-provider covers the template's preventions and encounter notes. Steps: submitting the eForm saves it once and writes one message, one document and one tickler; the message is from and to the login, unread, and listed with its subject in the login's Messenger inbox; the document is filed under the patient as an HTML document (text/html, status H) and listed in the E-Chart's Documents; the tickler is assigned to and created by the login, active and dated, and listed on the patient's Tickler list. Passes on develop and on release/2026.08."
     }
   ]
 }
