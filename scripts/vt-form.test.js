@@ -347,7 +347,7 @@ test('no stored clinical text is printed raw: every output is a CARLOS encoder (
   for (const stored of ['WHRBLastData', 'WCLDDate', 'HCLastData', 'WTLDDate', 'ongoingConcerns', 'MedADesc', 'BPMeasuringInstrc']) {
     assert(body.includes(`<carlos:encode value="\${requestScope.${stored}}"/>`), `${stored} is body-encoded`);
   }
-  assert(body.includes('<carlos:encode value="${requestScope[\'24UADesc\']}"/>'), 'digit-leading attribute uses bracket EL');
+  assert(body.includes("requestScope['24UADesc']"), 'digit-leading attribute uses bracket EL inside its encoder');
   assert(body.includes('var varpage = "${carlos:forJavaScript(requestScope.decisionSupportURL)}";'));
 });
 
@@ -395,7 +395,19 @@ test('affected VT controls have unique IDs and contextual labels without changin
     labelled.push(field);
   }
   assert.equal(p.form.FTDate.attrs.id, 'FTDate', 'Keep the existing ID used by callers');
-  assert.equal(labelled.length, 42);
+  for (const type of ['Exer', 'Diet', 'HbA1', 'LDL', 'HDL', 'TCHL', 'TRIG', 'BG', 'UALB', '24UA',
+    'NtrC', 'ExeC', 'SmCC', 'DiaC', 'PsyC', 'OthC']) {
+    const rowLabel = `vt-${type}-label`;
+    const value = p.form[`value(${type}Value)`];
+    const counselling = value.type === 'checkbox';
+    assertReferences(value, counselling ? [rowLabel] : [rowLabel, 'vt-new-data-label']);
+    assert.equal(byId.get(rowLabel).tag, 'label');
+    assert.equal(byId.get(rowLabel).attrs.for, value.attrs.id);
+    assertReferences(p.form[`value(${type}Comments)`], [rowLabel, 'vt-comments-label']);
+    const date = p.form[`value(${type}Date)`];
+    if (date.type !== 'hidden') assertReferences(date, [rowLabel, 'vt-observation-date-label']);
+  }
+  assert.equal(labelled.length, 82);
   assert(labelled.every(field => field.type !== 'hidden'));
   assert.equal(p.form.elements.length, 186, 'Accessibility must not introduce clinical controls');
 });

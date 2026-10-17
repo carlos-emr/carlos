@@ -95,6 +95,31 @@ async function workflow(s) {
         `Tab skipped the ${code} comment field`);
     }
   });
+  await step('lifestyle, laboratory and counselling fields have distinct contextual names', async () => {
+    const types = ['Exer', 'Diet', 'HbA1', 'LDL', 'HDL', 'TCHL', 'TRIG', 'BG', 'UALB', '24UA',
+      'NtrC', 'ExeC', 'SmCC', 'DiaC', 'PsyC', 'OthC'];
+    for (const type of types) {
+      const label = page.locator(`#vt-${type}-label`);
+      h.assert((await label.textContent()).trim().length > 0, `The ${type} row has no field name`);
+      for (const [suffix, column] of [['Value', 'new-data'], ['Date', 'observation-date'], ['Comments', 'comments']]) {
+        const input = page.locator(`[name="value(${type}${suffix})"]`);
+        if (await input.getAttribute('type') === 'hidden') continue;
+        const checkbox = await input.getAttribute('type') === 'checkbox';
+        const expected = `vt-${type}-label` + (checkbox ? '' : ` vt-${column}-label`);
+        h.assert(await input.getAttribute('aria-labelledby') === expected, `The ${type} ${suffix} field lost its contextual name`);
+        for (const id of expected.split(' ')) {
+          h.assert((await page.locator(`#${id}`).textContent()).trim().length > 0, `Missing name text for ${type} ${suffix}`);
+        }
+      }
+    }
+    for (const type of ['Exer', 'HbA1']) {
+      await page.locator(`#vt-${type}-value`).focus();
+      await page.keyboard.press('Tab');
+      const next = type === 'HbA1' ? 'date' : 'comments';
+      h.assert(await page.locator(`#vt-${type}-${next}`).evaluate(element => element === document.activeElement),
+        `Tab skipped the ${type} ${next} field`);
+    }
+  });
   await step('the page printed none of the stored markup as elements', async () => {
     h.assert(await page.locator('[data-xp]').count() === 0, 'Stored markup became an element on the Vascular Tracker form');
     f.assertNone('Vascular Tracker form');

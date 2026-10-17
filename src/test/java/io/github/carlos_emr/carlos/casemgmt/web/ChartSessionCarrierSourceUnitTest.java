@@ -75,7 +75,7 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
      */
     private static final String SESSION_ACCESS = "(?<!request)\\.(get|set|remove)Attribute\\(\\s*\"";
     private static final String SESSION_RECEIVER =
-            "\\b(session|se|httpSession|sess|getSession\\(\\s*(true|false)?\\s*\\))";
+            "\\b(session|se|httpSession|sess|getSession\\(\\s*+(?:(?:true|false)\\s*+)?\\))";
 
     /** Every login-wide name the fix replaced, for the session forms the patterns above do not cover. */
     private static final String REPLACED_NAMES = "(casemgmt_DemoNo|readonly|lastSavedNoteString|restoring"
@@ -248,7 +248,7 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         assertThat(hasForbiddenSessionTag("<script><c:set scope='session' var='noteId'/></script>")).isTrue();
         assertThat(hasForbiddenSessionTag("<c:set var='noteId' scope='request'/>")).isFalse();
         assertThat(hasForbiddenSessionTag("<c:set var='unrelatedPreference' scope='session'/>")).isFalse();
-        assertThat(hasForbiddenSessionTag("<c:set " + "x ".repeat(100_000))).isFalse();
+        assertThat(hasForbiddenSessionTag("<c:set scope='session' " + "x ".repeat(100_000))).isFalse();
     }
 
     @Test
@@ -258,6 +258,24 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         assertThat(hasUnscopedWaitingListExpression("${requestScope.waitingListDemographicNo}")).isFalse();
         assertThat(hasUnscopedWaitingListExpression("${not empty requestScope.waitingListName}")).isFalse();
         assertThat(hasUnscopedWaitingListExpression("${".repeat(100_000))).isFalse();
+    }
+
+    @Test
+    void shouldRecognizeEverySessionReceiver_withOptionalBooleanAndWhitespace() {
+        Pattern receiver = Pattern.compile(SESSION_RECEIVER + "\\.setAttribute\\(\\s*\"RX_ADDR\"");
+        for (String name : List.of("session", "se", "httpSession", "sess", "request.getSession()",
+                "request.getSession(   )", "request.getSession( true )", "request.getSession( false\\t)")) {
+            assertThat(receiver.matcher(name.replace("\\t", "\t") + ".setAttribute(\"RX_ADDR\", value)").find()).as(name).isTrue();
+        }
+        assertThat(receiver.matcher("request.setAttribute(\"RX_ADDR\", value)").find()).isFalse();
+        assertThat(receiver.matcher("request.getSession(other).setAttribute(\"RX_ADDR\", value)").find()).isFalse();
+    }
+
+    @Test
+    void shouldRejectUnterminatedSessionCalls_withLongWhitespace() {
+        Pattern receiver = Pattern.compile(SESSION_RECEIVER);
+        assertThat(receiver.matcher("request.getSession(" + " ".repeat(100_000) + "x").find()).isFalse();
+        assertThat(receiver.matcher("request.getSession(" + " ".repeat(100_000) + ")").find()).isTrue();
     }
 
     private static List<Path> sources() {
