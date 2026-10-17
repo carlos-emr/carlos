@@ -1632,7 +1632,10 @@ public class ProviderProperty2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty delegate = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_DELEGATE);
-        UserProperty subject = this.userPropertyDAO.getProp(providerNo, "labRecallMsgSubject");
+        UserProperty subject = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
+        if (subject == null) {
+            subject = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY);
+        }
         UserProperty ticklerAssignee = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_TICKLER_ASSIGNEE);
         UserProperty priority = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_TICKLER_PRIORITY);
 
@@ -1758,12 +1761,12 @@ public class ProviderProperty2Action extends ActionSupport {
             userPropertyDAO.saveProp(dProperty);
         }
 
-        // Save subject text field
-        UserProperty sProperty = this.userPropertyDAO.getProp(providerNo, "labRecallMsgSubject");
+        // Save subject text field, under the name the messenger reads for a lab Recall message
+        UserProperty sProperty = this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
         if (sProperty == null) {
             sProperty = new UserProperty();
             sProperty.setProviderNo(providerNo);
-            sProperty.setName("labRecallMsgSubject");
+            sProperty.setName(UserProperty.LAB_RECALL_MSG_SUBJECT);
         }
         if (delete) {
             userPropertyDAO.delete(sProperty);
@@ -1771,6 +1774,8 @@ public class ProviderProperty2Action extends ActionSupport {
             sProperty.setValue(subject);
             userPropertyDAO.saveProp(sProperty);
         }
+        // A subject saved before #4720 under the old name is superseded by the row above (or deleted with it).
+        userPropertyDAO.delete(this.userPropertyDAO.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY));
 
         // Save tickler assignee checkbox
         String defaultToDelegate = "no";
