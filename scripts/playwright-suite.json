@@ -10910,6 +10910,23 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "hrm-tickler",
+      "script": "scripts/hrm-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named text HRM reports (lib/gap-records-hrm-fixture.js: the XML file in DOCUMENT_DIR and its HRMDocument row), one linked to the owned patient (HRMDocumentToDemographic) and routed to the login (HRMDocumentToProvider), one linked to nobody. Cleanup deletes the check's ticklers (by marker) with their attachments, comments and history, then both reports with their links and files, and asserts none remain. No clinic-wide state is changed.",
+      "notes": "Making a tickler from an HRM report's Tickler button (displayHRMReport.jsp mainTickler_<id> > tickler/ForwardDemographicTickler, docType=HRM, then tickler/DbTicklerAdd); lab-linked-tickler (open PR) covers a lab's Tickler and document-tickler a document's; tickler-forward-filters leaves this forward out. Steps: E-Chart > HRM Documents > the owned report > Tickler opens Add Tickler naming the report's one linked patient with the report, and Save stores one tickler for that patient with the report attached (ticklerdocs H), asks nothing and closes; the patient's tickler list shows the tickler with one attachment; a report linked to no patient offers Tickler and Msg disabled."
     }
   ]
 }
