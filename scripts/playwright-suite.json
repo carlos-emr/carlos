@@ -10910,6 +10910,21 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "rx-static-script-pickup",
+      "script": "scripts/rx-static-script-pickup-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient and two marker-named custom drugs written through the Rx card (Save Only), one with a pick-up date and time, one with a pick-up date only. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows, and asserts none remain. No clinic-wide state is changed.",
+      "notes": "The pick-up line of a saved prescription on the static script (rx/ViewStaticScript2) and on the drug record it links to (rx/ViewDisplayRxRecord); rx-card-options (open PR) covers saving and re-prescribing a pick-up date and time. Steps: a pick-up date with the time 14:30 is stored as 14:30 and both pages show the time; LAST, a pick-up date with no time is stored at midnight and both pages show the date alone. Fails on develop and on release/2026.08 at the last step: the static script prints 12:00 a.m. and the drug record 00:00, pending #4861 (release fix #4862). The check turns green when that fix reaches develop in the forward merge; drop this note then."
     }
   ]
 }
