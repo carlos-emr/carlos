@@ -1577,7 +1577,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                                     <option value="<%=i%>"
                                                             <% if ( rxAddr != null && rxAddr.equals(""+i)){ %>SELECTED<%}%>
-                                                    ><%=te%>
+                                                    ><carlos:encode value='<%= te %>'/>
                                                     </option>
                                                     <% }%>
 
