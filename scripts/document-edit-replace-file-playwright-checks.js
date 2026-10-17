@@ -10,7 +10,10 @@
  * (documentManager/ViewEditDocument popup) ▸ File: a new PDF ▸ Update (POST documentManager/addEditDocument).
  * Asserted: the document now names a new stored file that holds exactly the uploaded bytes, the old
  * file is left as it was, the description and patient link are kept, the report's own link serves exactly
- * the uploaded bytes, and the document records the new file's page count.
+ * the uploaded bytes, and the document records the new file's page count. Last, the document's viewer
+ * (documentManager/ViewShowDocument, the Inbox's document pane) offers the new file's pages: it counts 3,
+ * it offers Remove first page, Split lists 3 pages, and, when it shows page images (the login's document
+ * display preference; the default), its page links reach page 3.
  * Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR). SKIP when the popup's File field is
  * hidden (ALLOW_UPDATE_DOCUMENT_CONTENT is not true).
  * Fixtures: the owned patient and one owned 1-page PDF document (row + file, name carries the marker);
@@ -26,6 +29,7 @@ const {
   textPdf, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
+const { observeStoredPreviewCapacity } = require('./lib/stored-preview-capacity-check');
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
@@ -106,6 +110,60 @@ async function workflow(s) {
   await s.step('the document records the replacement\'s page count', async () => {
     const pages = sql.value(`SELECT number_of_pages FROM document WHERE document_no=${doc.id}`);
     h.assert(pages === '3', `The document still records ${pages} page(s) after its file was replaced by a 3-page PDF`);
+  });
+
+  await s.step('the document viewer offers the replacement\'s pages: a count of 3, Remove first page, a 3-page Split and page links', async () => {
+    // The viewer and Split draw their pages from the stored page count, so these follow the step above.
+    const viewer = await s.context.newPage();
+    try {
+      await h.gotoApp(viewer, s.config.baseUrl, `/documentManager/ViewShowDocument?segmentID=${doc.id}&inWindow=true`);
+      await viewer.locator(`#numPages_${doc.id}`).waitFor({ state: 'attached' });
+      const counted = (await viewer.locator(`#numPages_${doc.id}`).textContent() || '').trim();
+      h.assert(counted === '3', `The viewer counts ${counted} page(s), not the replacement's 3`);
+      // Page links are drawn only for page images; with the PDF preference the browser's PDF viewer pages.
+      const mode = await viewer.locator(`#displayDocumentAs_${doc.id}`).inputValue();
+      console.log(`    viewer display: ${mode}`);
+      if (mode === 'Image') {
+        h.assert(await viewer.locator(`#nextP_${doc.id}`).count() === 1, 'The viewer offers no page links');
+        for (let page = 2; page <= 3; page++) {
+          await viewer.locator(`#nextP_${doc.id}`).click();
+          await viewer.waitForFunction(({ id, page }) => document.getElementById(`viewedPage_${id}`)?.textContent.trim() === String(page),
+            { id: doc.id, page });
+        }
+        const shown = await viewer.locator(`#docImg_${doc.id}`).getAttribute('src');
+        h.assert(new URL(shown, viewer.url()).searchParams.get('curPage') === '3', `Page 3 of the viewer shows ${shown}`);
+      }
+      const remove = viewer.locator(`#removeFirstPagebtn_${doc.id}`);
+      h.assert(await remove.count() === 1 && await remove.isVisible(), 'The viewer does not offer Remove first page');
+      // Split opens the page picker; only open it, nothing is split. Its page images load together, and the
+      // server may refuse some with its render-capacity 503 (Retry-After: 1) before the page retries them; the
+      // shared observer accepts only refusals that recover to a decoded image of the same page.
+      let previews;
+      s.context.once('page', page => {
+        previews = observeStoredPreviewCapacity({ page, label: 'document-split', recorder: s.recorder, documentId: doc.id,
+          endpoint: new URL('documentManager/ManageDocument', String(s.config.baseUrl).replace(/\/?$/, '/')).href });
+      });
+      const splitter = await s.popup(viewer, viewer.locator('input[onclick^="split("]'), 'document-split');
+      try {
+        const images = splitter.locator('#picker img.page');
+        await images.first().waitFor({ state: 'attached' });
+        const listed = await images.count();
+        h.assert(listed === 3, `Split lists ${listed} page(s), not the replacement's 3`);
+        for (let index = 0; index < listed; index++) {
+          await images.nth(index).scrollIntoViewIfNeeded();
+          await splitter.waitForFunction(index => {
+            const image = document.querySelectorAll('#picker img.page')[index];
+            return image && image.complete && image.naturalWidth > 0 && image.getAttribute('data-document-image-state') === 'loaded';
+          }, index);
+        }
+        await previews.finish(await images.evaluateAll(list => list.map(image => image.getAttribute('data-document-image-src'))));
+      } finally {
+        if (previews) previews.close();
+        await splitter.close().catch(() => {});
+      }
+    } finally {
+      await viewer.close().catch(() => {});
+    }
   });
 }
 

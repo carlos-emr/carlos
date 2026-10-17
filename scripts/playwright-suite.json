@@ -4608,7 +4608,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Chooses a new file in a stored document's Edit popup (shown with ALLOW_UPDATE_DOCUMENT_CONTENT=true, the shipped default; SKIP otherwise). document-refile-combine edits the metadata with the File field blank. On develop the last step fails: the document keeps the old page count (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "notes": "Chooses a new file in a stored document's Edit popup (shown with ALLOW_UPDATE_DOCUMENT_CONTENT=true, the shipped default; SKIP otherwise). document-refile-combine edits the metadata with the File field blank. On develop the page-count step fails: the document keeps the old page count (a held finding; its expectedFailure is added with the finding number when the findings log is assembled; release fix #4819). The last step, which follows it, checks what that count drives in the document viewer: the page count shown, page links to page 3, Remove first page and a 3-page Split; it passes with #4819's change.",
       "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
     },
     {
