@@ -53,22 +53,24 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- A whole document: CsrfGuardScriptInjectionFilter adds the CSRF client script before </head>,
+     and that script is what gives the search form below its token. As a bare fragment the page got
+     no script, so every search POST was refused as a CSRF violation (403). The stylesheets named
+     ${request.contextPath}, which is not an EL object, and so loaded from outside the application. --%>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Attach note to client</title>
 <link rel="stylesheet" type="text/css"
-      href='${request.contextPath}/css/tigris.css'/>
+      href='${pageContext.request.contextPath}/css/tigris.css'/>
 <link rel="stylesheet" type="text/css"
-      href='${request.contextPath}/css/displaytag.css'/>
+      href='${pageContext.request.contextPath}/css/displaytag.css'/>
 
 <link rel="stylesheet" type="text/css"
-      href='${request.contextPath}/share/calendar/calendar.css'/>
+      href='${pageContext.request.contextPath}/share/calendar/calendar.css'/>
 
 <link rel="stylesheet" type="text/css"
-      href='${request.contextPath}/css/topnav.css'/>
-
-<!-- style type="text/css">
-@import "${request.contextPath}/css/tigris.css";
-@import "${request.contextPath}/css/displaytag.css";
-@import "${request.contextPath}/jsCalendar/skins/aqua/theme.css";
-</style -->
+      href='${pageContext.request.contextPath}/css/topnav.css'/>
 <%
     // The note this popup attaches, handed over by the action from this popup's own request. It
     // used to be read from the session, where another chart's attach popup could replace it, so
@@ -91,7 +93,7 @@
         // form.elements['criteria.dateFrom'].value='';
         // form.elements['criteria.dateTo'].value='';
         // form.elements['criteria.bedProgramId'].selectedIndex = 0;
-        form.elements['criteria.active'].selectedIndex = 0;
+        form.elements['active'].selectedIndex = 0;
         form.elements['criteria.gender'].selectedIndex = 0;
     }
 
@@ -119,8 +121,12 @@
         alert('not yet implemented... will show term definitions');
     }
 </script>
-<form action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
-    <input type="hidden" name="method" value="attachSearch"/>
+</head>
+<body>
+<%-- Named for resetClientFields(). The criteria are text boxes: they were rendered as checkboxes,
+     which post "on" or nothing, so the popup could not find a client to attach the note to. The two
+     real checkboxes post "true": Struts cannot convert a bare checkbox's "on" to a boolean. --%>
+<form name="clientSearchForm2" action="${pageContext.request.contextPath}/PMmodule/ClientSearch2" method="post">
     <input type="hidden" name="method" value="attachSearch"/>
     <input type="hidden" name="noteId" value="<carlos:encode value='<%= noteId$ %>' context="htmlAttribute"/>"/>
 
@@ -132,34 +138,34 @@
             <table border="0" cellspacing="2" cellpadding="3">
                 <tr>
                     <th>Client No</th>
-                    <td><input type="checkbox" name="criteria.demographicNo" size="15" /></td>
+                    <td><input type="text" name="criteria.demographicNo" value="${carlos:forHtmlAttribute(criteria.demographicNo)}" size="15" /></td>
                 </tr>
                 <tr>
                     <th>First Name</th>
-                    <td><input type="checkbox" name="criteria.firstName" size="15" /></td>
+                    <td><input type="text" name="criteria.firstName" value="${carlos:forHtmlAttribute(criteria.firstName)}" size="15" /></td>
                 </tr>
 
                 <tr>
                     <th>Last Name</th>
-                    <td><input type="checkbox" name="criteria.lastName" size="15" /></td>
+                    <td><input type="text" name="criteria.lastName" value="${carlos:forHtmlAttribute(criteria.lastName)}" size="15" /></td>
                 </tr>
 
                 <tr>
                     <th>Date of Birth</th>
-                    <td><input type="checkbox" name="criteria.dob" size="15" /><br/><font size="1">yyyy/mm/dd</font></td>
+                    <td><input type="text" name="criteria.dob" value="${carlos:forHtmlAttribute(criteria.dob)}" size="15" /><br/><font size="1">yyyy/mm/dd</font></td>
                 </tr>
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <caisi:isModuleLoad moduleName="GET_OHIP_INFO" reverse="false">
                         <tr>
                             <th>Health Card Number</th>
-                            <td><input type="checkbox" name="criteria.healthCardNumber" size="15" />
-                                <input type="checkbox" name="criteria.healthCardVersion" size="2" /></td>
+                            <td><input type="text" name="criteria.healthCardNumber" value="${carlos:forHtmlAttribute(criteria.healthCardNumber)}" size="15" />
+                                <input type="text" name="criteria.healthCardVersion" value="${carlos:forHtmlAttribute(criteria.healthCardVersion)}" size="2" /></td>
                         </tr>
                     </caisi:isModuleLoad>
 
                     <tr>
                         <th>Chart No (MRN)</th>
-                        <td><input type="checkbox" name="criteria.chartNo" size="15" /></td>
+                        <td><input type="text" name="criteria.chartNo" value="${carlos:forHtmlAttribute(criteria.chartNo)}" size="15" /></td>
                     </tr>
 
                     <!-- <th>Search outside of domain <a href="javascript:void(0)" onclick="popupHelp('domain')">?</a></th>
@@ -169,23 +175,23 @@
                                 moduleName="pmm.client.search.outside.of.domain.enabled">
                             <th>Search all clients <a href="javascript:void(0)"
                                                       onclick="popupHelp('domain')">?</a></th>
-                            <td><input type="checkbox" name="criteria.searchOutsideDomain"/></td>
+                            <td><input type="checkbox" name="criteria.searchOutsideDomain" value="true" ${criteria.searchOutsideDomain ? 'checked' : ''}/></td>
                         </caisi:isModuleLoad>
                     </tr>
 
                     <tr>
                         <th>Soundex on names <a href="javascript:void(0)"
                                                 onclick="popupHelp('soundex')">?</a></th>
-                        <td><input type="checkbox" name="criteria.searchUsingSoundex"/></td>
+                        <td><input type="checkbox" name="criteria.searchUsingSoundex" value="true" ${criteria.searchUsingSoundex ? 'checked' : ''}/></td>
                     </tr>
                     <tr>
                         <th>Admission Date From</th>
-                        <td><input type="checkbox" name="criteria.dateFrom" size="12" /><br/><font size="1">yyyy/mm/dd</font>
+                        <td><input type="text" name="criteria.dateFrom" value="${carlos:forHtmlAttribute(criteria.dateFrom)}" size="12" /><br/><font size="1">yyyy/mm/dd</font>
                         </td>
                     </tr>
                     <tr>
                         <th>Admission Date To</th>
-                        <td><input type="checkbox" name="criteria.dateTo" size="12" /><br/><font size="1">yyyy/mm/dd</font></td>
+                        <td><input type="text" name="criteria.dateTo" value="${carlos:forHtmlAttribute(criteria.dateTo)}" size="12" /><br/><font size="1">yyyy/mm/dd</font></td>
                     </tr>
                 </caisi:isModuleLoad>
                 <tr>
@@ -300,3 +306,5 @@
     </security:oscarSec> <br/>
     </form>
 </c:if>
+</body>
+</html>
