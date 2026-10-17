@@ -53,6 +53,8 @@
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <html>
 <head>
@@ -77,6 +79,12 @@
 </table>
 
 <br/>
+
+<%-- The defaults are applied to a patient's first encounter only when wl_default_issue=true
+     (EctIncomingEncounter2Action); carlos.properties ships it false (issue #4855). --%>
+<% if (!"true".equals(CarlosProperties.getInstance().getProperty("wl_default_issue", "false"))) { %>
+<p id="defaultIssuesNotApplied"><fmt:message key="admin.admin.defaultEncounterIssue.msgNotApplied"/></p>
+<% } %>
 
 <%@ include file="/WEB-INF/jsp/caisicore/messages.jsp" %>
 
