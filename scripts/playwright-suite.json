@@ -10910,6 +10910,25 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "document-tickler",
+      "script": "scripts/document-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "document",
+        "ctl_document"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named HTML documents seeded by SQL the way an eForm's template files them (content in docxml, no file): one filed under the owned patient (ctl_document module \"demographic\") and one under the login (module \"providers\"). Cleanup deletes the check's ticklers (by marker) with their attachments, comments and history, and both documents with their links, and asserts none remain. The login's eDoc list is clinic-wide (every check that logs in as the test provider sees the login's document while the check runs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Making a tickler from a document's Tickler link (tickler/ForwardDemographicTickler, docType=DOC, then tickler/DbTicklerAdd); tickler-attachments covers the attachment picker and tickler-forward-filters leaves this forward out. Steps: Master Record > Documents > Tickler on the owned patient's document opens Add Tickler naming the patient with the document, and Save stores one tickler for the patient with the document attached (ticklerdocs D), asks nothing and closes; the patient's tickler list shows the tickler with one attachment; LAST, the login's eDoc list (Schedule > eDoc) offers no Tickler link on the login's own document, and the URL that link opened (demographic_no = the provider number) opens the form with no patient, says a patient must be chosen and stores nothing on Save. Fails on develop and on release/2026.08 at the last step: the eDoc list offers the link and the form has no such message, pending finding 370 (#4839; release fix #4841). The check turns green when that fix reaches develop in the forward merge; drop this note then."
     }
   ]
 }
