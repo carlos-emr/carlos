@@ -82,6 +82,52 @@ class BcAccountReportsRegressionTest {
         return found;
     }
 
+    /** The body of the first {@code if} whose condition contains {@code condition}, found by matching its braces. */
+    private static String block(String source, String condition) {
+        int at = source.indexOf(condition);
+        assertThat(at).as(condition).isNotNegative();
+        int open = source.indexOf('{', at);
+        int depth = 0;
+        for (int i = open; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}' && --depth == 0) {
+                return source.substring(open + 1, i);
+            }
+        }
+        throw new AssertionError("Unbalanced braces after " + condition);
+    }
+
+    private static String reportTypeCondition(String reportType) {
+        return "repType.equals(MSPReconcile." + reportType + ")";
+    }
+
+    /**
+     * The parameters the action sets for one report type: those it sets outside every report-type branch, and those
+     * set in the branch that names the type, leaving out the sub-branches that branch keeps for its other types. So a
+     * parameter one branch sets cannot stand in for one another branch forgets.
+     */
+    private static Set<String> paramsFor(String reportType) throws IOException {
+        String source = read(ACTION);
+        String put = "reportParams\\.put\\(\"(\\w+)\"";
+        Set<String> branchTypes = matches(source, "repType\\.equals\\(MSPReconcile\\.(\\w+)\\)");
+
+        String outside = source;
+        for (String type : branchTypes) {
+            outside = outside.replace(block(outside, reportTypeCondition(type)), "");
+        }
+        String own = block(source, reportTypeCondition(reportType));
+        for (String type : matches(own, "repType\\.equals\\(MSPReconcile\\.(\\w+)\\)")) {
+            if (!type.equals(reportType)) {
+                own = own.replace(block(own, reportTypeCondition(type)), "");
+            }
+        }
+        Set<String> params = matches(outside, put);
+        params.addAll(matches(own, put));
+        return params;
+    }
+
     /** The template file the action names for each report type ({@code cfgReports()}). */
     private static Map<String, String> templateByReportType() throws IOException {
         Map<String, String> templates = new LinkedHashMap<>();
@@ -105,17 +151,20 @@ class BcAccountReportsRegressionTest {
     @Test
     @DisplayName("should set every parameter the account report templates print")
     void shouldSetEveryParameter_theAccountReportTemplatesPrint() throws IOException {
-        Set<String> set = matches(read(ACTION), "reportParams\\.put\\(\"(\\w+)\"");
         Map<String, String> templates = templateByReportType();
         for (String report : ACCOUNT_REPORTS) {
+            // Each template against the parameters of its own report type's branch, not of the action as a whole.
+            Set<String> set = paramsFor(report);
             for (String format : FORMATS) {
                 Path template = REPORTS.resolve(format + "_" + templates.get(report));
                 Set<String> printed = matches(read(template), "\\$P\\{(\\w+)\\}");
-                assertThat(set).as(template.toString()).containsAll(printed);
+                assertThat(set).as(report + " " + template).containsAll(printed);
             }
         }
         // The three reports that print the provider: a rename once set it under another name.
-        assertThat(set).contains("provider", "payee");
+        for (String report : List.of("REP_WO", "REP_PAYREF", "REP_PAYREF_SUM")) {
+            assertThat(paramsFor(report)).as(report).contains("provider", "payee");
+        }
     }
 
     @Test
