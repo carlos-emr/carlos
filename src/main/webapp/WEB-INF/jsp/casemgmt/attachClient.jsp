@@ -93,7 +93,7 @@
         // form.elements['criteria.dateFrom'].value='';
         // form.elements['criteria.dateTo'].value='';
         // form.elements['criteria.bedProgramId'].selectedIndex = 0;
-        form.elements['active'].selectedIndex = 0;
+        form.elements['criteria.active'].selectedIndex = 0;
         form.elements['criteria.gender'].selectedIndex = 0;
     }
 
@@ -219,10 +219,12 @@
                 </caisi:isModuleLoad>
                 <tr>
                     <th><label for="attachStatus">Status</label></th>
-                    <td><select id="attachStatus" name="active">
+                    <%-- criteria.active, which the search reads: named "active", it was never applied, so
+                         discharged clients were listed whatever was chosen. A search keeps its choice. --%>
+                    <td><select id="attachStatus" name="criteria.active">
                         <option value="1">Admitted</option>
-                        <option value="0">Discharged</option>
-                        <option value="">ALL</option>
+                        <option value="0" ${criteria.active eq '0' ? 'selected' : ''}>Discharged</option>
+                        <option value="" ${not empty criteria and empty criteria.active ? 'selected' : ''}>ALL</option>
                     </select></td>
                 </tr>
                 <tr>

@@ -12,11 +12,12 @@
  * The popup used to read the note to attach from the session, where the second popup replaced it.
  *
  * Also pins the popup's search form (fixed here): its criteria were rendered as checkboxes,
- * which post "on" or nothing, so it could not find a client, and it keeps the criteria it
- * searched with. And the attach itself: each copy is posted with a CSRF token (it was a link, so
- * a GET copied the note), is a new note of C's own (a new uuid and no appointment: with the
- * source's uuid the copy became the newest revision of the source note, which its chart could
- * then no longer save), A's chart saves its note again afterwards, and a GET attach copies nothing.
+ * which post "on" or nothing, so it could not find a client; it keeps the criteria it searched
+ * with; and its Status filter, named so that the search never read it, applies. And the attach
+ * itself: each copy is posted with a CSRF token (it was a link, so a GET copied the note), is a
+ * new note of C's own (a new uuid and no appointment: with the source's uuid the copy became the
+ * newest revision of the source note, which its chart could then no longer save), A's chart saves
+ * its note again afterwards, and a GET attach copies nothing.
  *
  * Not driven: the PMM client view (PMmodule/ClientManager?id=N). Its result names a Tiles page
  * (page.pmm.client) that does not exist in CARLOS, so it cannot render; ClientManager2ActionTest
@@ -224,10 +225,24 @@ async function workflow(s) {
       // program domain is set by PMMFilter, which runs after Struts has already answered PMM
       // actions (web.xml filter order; a separate defect, see the PR's notes).
       await popup.locator('input[name="criteria.searchOutsideDomain"]').check();
-      // The navigation wait is armed before the click, so the results read below are the search's.
-      await ui.clickAndAwaitReload(popup, popup.locator('input[type="submit"][value="search"]'),
-        { label: `${label}'s attach search`, timeout: TIMEOUT });
-      await settle(popup, `${label}'s attach search`);
+      const search = async what => {
+        // The navigation wait is armed before the click, so the results read below are the search's.
+        await ui.clickAndAwaitReload(popup, popup.locator('input[type="submit"][value="search"]'),
+          { label: `${label}'s ${what}`, timeout: TIMEOUT });
+        await settle(popup, `${label}'s ${what}`);
+      };
+      if (label === 'A') {
+        // The Status filter applies (it was named "active", which the search never read): C,
+        // admitted to no program, is not among the admitted clients.
+        await popup.locator('#attachStatus').selectOption('1');
+        await search('admitted-client search');
+        h.assert(await popup.locator(`a.attach-note-to-client[data-client="${C}"]`).count() === 0,
+          'The attach search listed C, who is admitted to no program, among the admitted clients');
+      }
+      await popup.locator('#attachStatus').selectOption('');
+      await search('attach search');
+      h.assert(await popup.locator('#attachStatus').inputValue() === '',
+        `${label}'s attach search did not keep its Status choice`);
       const links = popup.locator(`a.attach-note-to-client[data-client="${C}"]`);
       h.assert(await links.count() >= 1, `${label}'s attach search did not find client C`);
       // A standards-mode page (its messages render inside the body, not above the doctype), whose

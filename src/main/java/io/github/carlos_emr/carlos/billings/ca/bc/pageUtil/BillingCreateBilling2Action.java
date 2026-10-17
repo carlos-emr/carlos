@@ -52,6 +52,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -230,7 +231,17 @@ public class BillingCreateBilling2Action extends ActionSupport {
             // type (the scanned billingmasterDAO and applicationContext.xml's BillingmasterDAO), so a
             // lookup by type alone failed and every WCB Continue answered HTTP 500.
             BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
-            WCB wcbForm = billingmasterDAO.getWCBForm(request.getParameter("WCBid"));
+            WCB wcbForm = patientsWcbForm(billingmasterDAO, request.getParameter("WCBid"), demo.getDemographicNo());
+            if (wcbForm == null) {
+                // Only a crafted post names another patient's form: answered as plainly as the
+                // expired-bill refusal, without billing anything.
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setHeader("X-Content-Type-Options", "nosniff");
+                response.getWriter().write("This WCB form is not this patient's.");
+                return NONE;
+            }
 
             for (Iterator<BillingItem> iter = billItem.iterator(); iter.hasNext(); ) {
                 BillingItem item = iter.next();
@@ -294,6 +305,22 @@ public class BillingCreateBilling2Action extends ActionSupport {
     /**
      * The bill form of this window's own bill: back to it after a validation failure.
      */
+    /**
+     * The WCB form a WCB bill names, when it is one of the bill's own patient's forms. The bill form
+     * lists only that patient's forms; a form of another patient would be billed, and its report
+     * sent to WorkSafeBC, for this patient.
+     *
+     * @return the form, or null for a malformed id, a form that does not exist or another
+     *         patient's form
+     */
+    static WCB patientsWcbForm(BillingmasterDAO dao, String wcbId, Integer patient) {
+        if (wcbId == null || !wcbId.matches("[1-9]\\d{0,8}")) {
+            return null;
+        }
+        WCB form = dao.getWCBForm(wcbId);
+        return form != null && Integer.valueOf(form.getDemographic_no()).equals(patient) ? form : null;
+    }
+
     private String billingRedirect() {
         return request.getContextPath() + BILLING_REDIRECT + "?" + BcBillStaging.KEY_PARAMETER + "="
                 + request.getAttribute(BcBillStaging.KEY_ATTRIBUTE);

@@ -31,6 +31,8 @@
  *      that needs no report ▸ Continue ▸ Save Bill: A's claim is saved on A's appointment with A's
  *      WCB form. (Before this the list answered 404, a submit reloaded it and cleared the chosen
  *      form, and the WCB check on Continue answered 500; see the bill form and create action.)
+ *      First, a Continue for A's bill that names B's WCB form (a crafted post) is refused: the
+ *      create action billed whichever form was named.
  *   5. Schedule ▸ B on A's fourth appointment ▸ another billing form ▸ Continue with a service code
  *      that does not exist: the bill form comes back with the chosen form's code table. Then eight
  *      more bills opened in the same login push this bill out of the session: the window's next
@@ -540,6 +542,38 @@ async function billInTwoWindows(s, A, B, physician) {
 
   await s.step('a WCB bill keeps its own patient\'s WCB form through a refused Continue while another window bills B', async () => {
     const wcb = ownWcbForms(s, { A, B }, day);
+    // A Continue that names B's WCB form for A's bill (a crafted post: the form lists A's forms
+    // only) is refused before anything is billed, rather than billing B's report for A.
+    const crafted = await openBillForm(sheets[0], 'A5');
+    await chooseBillingPhysician(crafted, physician.providerNo);
+    await chooseWcbBill(crafted, 'A', wcb.A, wcb.B);
+    await crafted.locator(`#wcbForms input[name="WCBid"][value="${wcb.A}"]`)
+      .evaluate((input, other) => { input.value = other; }, wcb.B);
+    const craftedBad = s.recorder.badResponses.length;
+    const craftedConsole = s.recorder.consoleIssues.length;
+    const foreign = await fillAndContinue(crafted, { physician: physician.providerNo, codes: ['00100'], dx: '780',
+      ignoreWarnings: true });
+    h.assert(foreign.status() === 400, `A WCB Continue naming B's WCB form for A's bill answered HTTP ${foreign.status()}`);
+    await crafted.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
+    await crafted.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+    h.assert((await crafted.locator('body').innerText()).includes('This WCB form is not this patient\'s.'),
+      'The refused WCB Continue did not say why');
+    // The refusal is the expected outcome: excuse its response, Chromium's console line for that
+    // document load and the site icon a page without one asks the server root for.
+    const refusals = s.recorder.badResponses.slice(craftedBad);
+    h.assert(refusals.length === 1 && refusals[0].status === 400
+      && new URL(refusals[0].url).pathname.endsWith('/billing/CA/BC/CreateBilling'),
+    'The refused WCB Continue was not the one bad response');
+    s.recorder.badResponses.splice(craftedBad, 1);
+    for (let i = s.recorder.consoleIssues.length - 1; i >= craftedConsole; i--) {
+      const entry = s.recorder.consoleIssues[i];
+      const where = entry.location && entry.location.url ? new URL(entry.location.url).pathname : '';
+      if (entry.type === 'error' && ((/status of 400\b/.test(entry.text) && where.endsWith('/billing/CA/BC/CreateBilling'))
+          || (/status of 404\b/.test(entry.text) && where === '/favicon.ico'))) {
+        s.recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    await crafted.close();
     const form = await openBillForm(sheets[0], 'A5');
     const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
     await chooseBillingPhysician(form, physician.providerNo);
