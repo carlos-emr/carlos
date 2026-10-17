@@ -68,7 +68,7 @@ class DocumentAttachmentManagerConsultAccessUnitTest extends CarlosUnitTestBase 
 
     @BeforeEach
     void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
+        manager = new DocumentAttachmentManagerImpl(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.LabManager.class));
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
         injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);

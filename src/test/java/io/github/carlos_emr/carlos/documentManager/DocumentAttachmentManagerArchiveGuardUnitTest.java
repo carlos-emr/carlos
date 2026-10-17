@@ -41,6 +41,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.github.carlos_emr.carlos.managers.LabManager;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -80,6 +81,9 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo loggedInInfo;
 
+    @Mock
+    private LabManager labManager;
+
     private DocumentAttachmentManagerImpl manager;
 
     /*
@@ -90,7 +94,7 @@ class DocumentAttachmentManagerArchiveGuardUnitTest extends CarlosUnitTestBase {
      */
     @BeforeEach
     void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
+        manager = new DocumentAttachmentManagerImpl(labManager);
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
         injectDependency(manager, "eFormDocsDao", eFormDocsDao);

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -219,6 +221,60 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     }
 
     @Test
+    @DisplayName("should refuse to print a consult for a patient the provider is restricted from, before reading attachments")
+    void shouldRefusePrint_whenPatientIsRestricted() {
+        // General consult read is granted; the restriction is on this consult's own patient.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        eDocUtilMock.verifyNoInteractions();
+        verifyNoInteractions(consultationManager, faxManager);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should check the consult's own patient, not the submitted one, before reading attachments")
+    void shouldRefusePrint_whenOnlyTheSubmittedPatientIsAllowed() {
+        // The submitted patient is one the provider may read; consult 42's saved patient (1) is not.
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", "1");
+        eDocUtilMock.verifyNoInteractions();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should fail the print, streaming nothing, when an attached document's file cannot be read")
+    void shouldFailPrint_whenAttachedDocumentFileCannotBeRead() throws Exception {
+        EDoc missing = new EDoc();
+        missing.setDocId("41");
+        missing.setFileName("FAKE-missing-" + System.nanoTime() + ".pdf");
+        missing.setContentType("application/pdf");
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), any(), any(), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(missing)));
+        // The patient's own document, so it passes the owner filter and reaches the readability check.
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(41));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            concatPdfMock.verifyNoInteractions();
+        }
+    }
+
+    @Test
     @DisplayName("should return NONE after a successful print whose bytes were already streamed")
     void shouldReturnNone_afterSuccessfulPrintStreaming() throws Exception {
         // No attachments; ConcatPDF is stubbed inert so the (mock-inert) consultation PDF
@@ -313,7 +369,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
             assertThat(transportConstruction.constructed()).hasSize(1);
-            verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
+            org.mockito.Mockito.verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
             // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
             assertThat(logCapture.events())
                     .anySatisfy(event -> {
@@ -357,6 +413,12 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @DisplayName("should print only the consultation patient's own eForms and documents when consult docs reference another patient's")
     void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient() throws Exception {
         Path ownForm = Files.createTempFile("consult-print-own-", ".pdf");
+        // The print refuses a document whose file cannot be read, so the owned one must exist.
+        Path documentDir = Files.createTempDirectory("consult-print-docs-");
+        Path ownPdf = Files.writeString(documentDir.resolve("own.pdf"), "FAKE PDF fixture");
+        io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String oldDocumentDir = properties.getProperty("DOCUMENT_DIR");
+        properties.setProperty("DOCUMENT_DIR", documentDir.toString());
         try {
             EFormData ownEForm = mock(EFormData.class);
             when(ownEForm.getId()).thenReturn(7);
@@ -384,6 +446,10 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 assertThat(printed.getValue()).noneSatisfy(item -> assertThat(String.valueOf(item)).endsWith("foreign.pdf"));
             }
         } finally {
+            if (oldDocumentDir == null) properties.remove("DOCUMENT_DIR");
+            else properties.setProperty("DOCUMENT_DIR", oldDocumentDir);
+            Files.deleteIfExists(ownPdf);
+            Files.deleteIfExists(documentDir);
             Files.deleteIfExists(ownForm);
         }
     }

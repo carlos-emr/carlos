@@ -203,7 +203,7 @@ public class FormTransportContainer {
                     throw new IllegalArgumentException("writeListener must not be null");
                 }
                 throw new IllegalStateException(
-                        "FormTransportContainer captures forwarded form output synchronously and does not support asynchronous writes");
+                        "FormTransportContainer captures included form output synchronously and does not support asynchronous writes");
             }
 
             @Override
