@@ -119,6 +119,15 @@ class BcAccountReportsRegressionTest {
     }
 
     @Test
+    @DisplayName("should compare the requested provider, not a Provider object, with ALL")
+    void shouldCompareRequestedProvider_withAll() throws IOException {
+        // A Provider never equals the String "ALL", so such a check is always false.
+        assertThat(matches(read(ACTION), "(\\w+Prov)\\.equals\\(")).isEmpty();
+        assertThat(read(ACTION)).contains(
+                "reportParams.put(\"provider\", \"ALL\".equals(provider) ? \"ALL\" : payeeProv.getInitials());");
+    }
+
+    @Test
     @DisplayName("should ship and allow every report template the action names, in each format it is offered")
     void shouldShipEveryTemplate_theActionNames() throws IOException {
         Map<String, String> templates = templateByReportType();

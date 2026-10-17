@@ -146,7 +146,8 @@ public class CreateBillingReport2Action extends ActionSupport {
                 Provider payeeProv = msp.getProvider(provider, 1);
                 reportParams.put("mspBean", msp);
                 //set parameters for payee of providers
-                reportParams.put("provider", payeeProv.equals("ALL") ? "ALL" : payeeProv.getInitials());
+                // "ALL" is the requested value, as the other reports compare it; a Provider never equals a String.
+                reportParams.put("provider", "ALL".equals(provider) ? "ALL" : payeeProv.getInitials());
                 reportParams.put("providerNo", payeeProv.getProviderNo());
                 //set parameters for S21 report header
                 reportParams.put("payeeName", s21.getPayeeName());
