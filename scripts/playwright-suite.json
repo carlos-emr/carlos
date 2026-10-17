@@ -10076,6 +10076,24 @@
       "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); the notes saved in their charts and a copy of A's note as A's second note, their legacy eChart rows and one casemgmt_issue linked to A's note; any registry row a refused request might write is asserted absent. Every owned row is removed by key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "rx-drug-pick-patient-isolation",
+      "script": "scripts/rx-drug-pick-patient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_PICK_DRUG_TERM",
+        "RX_PICK_DRUG_NAME"
+      ],
+      "notes": "Issue #4673: a drug picked from the Rx search box suggestions is staged and saved for the Rx page's own patient after another window showed another patient's allergies, on the Rx page itself (rx/choosePatient) and on the prescribing page (rx/prescribing, which no page links to). The page named its patient through the EL name demographicNo, which on routes without that action property fell back to the session, where the allergies, waiting-list and registry pages wrote their patient; on release/2026.08 the prescribing page stages the pick for the other patient. Needs carlos-emr-drugref (SKIP without it); RX_PICK_DRUG_TERM / RX_PICK_DRUG_NAME select the product (default LIPITOR 20 / LIPITOR 20MG).",
+      "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); the drugs and prescription rows Save Only writes for them are removed by patient key and asserted gone. No clinic-wide state is changed."
+    },
+    {
       "name": "echart-note-draft-recovery",
       "script": "scripts/echart-note-draft-recovery-playwright-checks.js",
       "tiers": [
