@@ -25,8 +25,9 @@
  *
  * Fixtures: the workflow's FAKE patient (A) and two more FAKE patients (B, C) with the run's
  * marker as last name; a throwaway login with the test login's roles plus an owned role
- * (FAKEPW<hex>) that holds _pmm_management, and the test provider's program memberships; the
- * notes written for A and B and the copies attached to C. Facility.enablePhoneEncounter is set
+ * (FAKEPW<hex>) that holds _pmm_management, and the test provider's program memberships; one visit
+ * each for A and B, which their charts are entered for, so the notes written for A and B carry
+ * them; the copies attached to C. Facility.enablePhoneEncounter is set
  * for the run and restored to its value. Cleanup removes every owned row by key and asserts it
  * gone.
  */
@@ -62,6 +63,8 @@ function ownedPatient(s, firstName) {
       ['admission', 'client_id'],
     ];
     sql.execute(support.map(([table, column]) => `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
+    h.assert(sql.value(`SELECT ${support.map(([table, column]) => `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${patient})`)
+      .join(' + ')}`) === '0', `The ${firstName} fixture's locks, drafts, archive or admission rows were not removed`);
     sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
       `The ${firstName} fixture was not removed`);
@@ -76,19 +79,21 @@ function ownChartRows(s, patients) {
   s.cleanup(() => {
     const notes = sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no IN (${list})`)
       .map(([id]) => key(id, 'note'));
+    const ids = notes.join(',');
+    const children = ['casemgmt_issue_notes', 'casemgmt_note_ext', 'casemgmt_note_link'];
     if (notes.length) {
-      const ids = notes.join(',');
-      sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${ids});
-        DELETE FROM casemgmt_note_ext WHERE note_id IN (${ids});
-        DELETE FROM casemgmt_note_link WHERE note_id IN (${ids});
+      sql.execute(`${children.map(table => `DELETE FROM ${table} WHERE note_id IN (${ids})`).join(';')};
         DELETE FROM casemgmt_note WHERE note_id IN (${ids}) AND demographic_no IN (${list})`);
     }
     sql.execute(`DELETE FROM eChart WHERE demographicNo IN (${list});
       DELETE FROM casemgmt_note_lock WHERE demographic_no IN (${list});
       DELETE FROM casemgmt_tmpsave WHERE demographic_no IN (${list})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${list}))
-      + (SELECT COUNT(*) FROM eChart WHERE demographicNo IN (${list}))`) === '0',
-    'Owned notes or eChart rows were not removed');
+      + (SELECT COUNT(*) FROM eChart WHERE demographicNo IN (${list}))
+      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no IN (${list}))${notes.length
+    ? children.map(table => ` + (SELECT COUNT(*) FROM ${table} WHERE note_id IN (${ids}))`).join('') : ''}`) === '0',
+    'Owned notes, their links, locks, drafts or eChart rows were not removed');
   });
 }
 
@@ -159,6 +164,23 @@ async function workflow(s) {
   const B = ownedPatient(s, 'PatientBravo');
   const C = ownedPatient(s, 'PatientCharlie');
   ownChartRows(s, [A, B, C]);
+  // Each source chart is entered for a visit of its own, so the note it saves carries that visit,
+  // which the copy attached to C must not.
+  const visitOf = {};
+  for (const [label, patient] of [['A', A], ['B', B]]) {
+    visitOf[label] = key(h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
+        end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator,
+        lastupdateuser)
+      VALUES (${q(provider)}, CURDATE(), '23:00:00', '23:14:59', ${q(marker)}, ${patient}, ${q(marker)},
+        ${q(marker)}, 't', NOW(), NOW(), ${q(provider)}, ${q(provider)})`, 'appointment'), 'appointment');
+  }
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM appointmentArchive WHERE demographic_no IN (${A},${B});
+      DELETE FROM appointment WHERE demographic_no IN (${A},${B}) AND name=${q(marker)}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM appointment WHERE demographic_no IN (${A},${B}))
+      + (SELECT COUNT(*) FROM appointmentArchive WHERE demographic_no IN (${A},${B}))`) === '0',
+    'The owned visits were not removed');
+  });
 
   const role = `${marker.replace(/^FAKE-PW/, 'FAKEPW')}pmm`;
   const login = throwawayLoginFixture({ sql, marker, provider, testUser: config.testUser });
@@ -194,13 +216,15 @@ async function workflow(s) {
       // preference opens the top menu in place, so the Master Record route is not used here.)
       const chart = await context.newPage();
       await h.gotoApp(chart, config.baseUrl, `/encounter/IncomingEncounter?demographicNo=${patient}`
-        + `&providerNo=${encodeURIComponent(login.providerNo)}&curProviderNo=`);
+        + `&providerNo=${encodeURIComponent(login.providerNo)}&curProviderNo=&appointmentNo=${visitOf[label]}`);
       await settle(chart, `${label}'s chart`);
       await waitForNavbars(chart, TIMEOUT);
       h.assert(new URL(chart.url()).searchParams.get('demographicNo') === patient,
         `${label}'s chart is not ${label}'s`);
       charts[label] = chart;
       notes[label] = await saveNote(chart, sql, patient, `${marker}-${label}-note-to-attach`);
+      h.assert(sql.value(`SELECT appointmentNo FROM casemgmt_note WHERE note_id=${notes[label]}`) === visitOf[label],
+        `${label}'s saved note does not carry the visit its chart was entered for`);
     }
     // Both popups open before either searches: the second popup's request is the last to name a note.
     const popups = {};

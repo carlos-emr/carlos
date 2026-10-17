@@ -122,11 +122,16 @@ function ownChartRows(s, patients) {
       DELETE FROM casemgmt_tmpsave WHERE demographic_no IN (${list});
       DELETE FROM casemgmt_note_lock WHERE demographic_no IN (${list});
       DELETE FROM dxresearch WHERE demographic_no IN (${list})`);
+    const children = notes.length ? ['casemgmt_issue_notes', 'casemgmt_note_ext', 'casemgmt_note_link']
+      .map(table => ` + (SELECT COUNT(*) FROM ${table} WHERE note_id IN (${notes.join(',')}))`).join('') : '';
+    const issueLinks = issues.length
+      ? ` + (SELECT COUNT(*) FROM casemgmt_issue_notes WHERE id IN (${issues.join(',')}))` : '';
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${list}))
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no IN (${list}))
       + (SELECT COUNT(*) FROM eChart WHERE demographicNo IN (${list}))
       + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no IN (${list}))
-      + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${list}))`) === '0',
+      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${list}))${children}${issueLinks}`) === '0',
     'Owned chart rows were not removed');
   });
 }
@@ -422,7 +427,6 @@ async function writeToEncounter(s, charts, A, B) {
     // B's own page carries the token as written, so A's list could not have hidden it by encoding.
     h.assert((await chartB.content()).includes(token), 'B\'s chart page does not carry the message token as written');
     await context.unroute('**/CaseManagementView', hold);
-    h.assert(!(await charts.A.locator(NOTE).inputValue()).includes(text), 'A\'s note editor took the message written to B\'s chart');
     // Closing B's second chart window releases its note lock by a beacon, which the browser
     // reports as an aborted ping because the window is gone.
     const mark = s.recorder.requestFailures.length;

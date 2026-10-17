@@ -64,8 +64,9 @@ function ownPrescriptions(s, patients) {
       DELETE FROM drugs WHERE demographic_no IN (${list});
       DELETE FROM DigitalSignature WHERE demographicId IN (${list}) AND moduleType='PRESCRIPTION'`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no IN (${list}))
-      + (SELECT COUNT(*) FROM prescription WHERE demographic_no IN (${list}))`) === '0',
-    'Owned prescription rows were not removed');
+      + (SELECT COUNT(*) FROM prescription WHERE demographic_no IN (${list}))
+      + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId IN (${list}) AND moduleType='PRESCRIPTION')`) === '0',
+    'Owned prescription or signature rows were not removed');
   });
 }
 

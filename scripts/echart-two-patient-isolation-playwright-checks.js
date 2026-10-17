@@ -1379,6 +1379,8 @@ async function run(s) {
     if (ids.length) {
       sql.execute(`DELETE FROM msgDemoMap WHERE messageID IN (${ids.join(',')}) AND demographic_no IN (${patients});
         DELETE FROM messagetbl WHERE messageid IN (${ids.join(',')})`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${ids.join(',')})
+        AND demographic_no IN (${patients})`) === '0', 'The owned navigation messages\' patient links were not removed');
     }
     h.assert(sql.rows(ownedMessages).length === 0, 'The owned navigation messages were not removed');
   });
@@ -1634,6 +1636,9 @@ async function run(s) {
       await expectValue(sql, lockQuery, '0', 'Navigation left A\'s note lock behind');
       h.assert(JSON.stringify(sql.rows(otherLockQuery)) === JSON.stringify(otherLocks),
         'Releasing A\'s note lock changed B\'s note locks');
+      // The browser can report the delivered beacon as aborted only after A's document is gone:
+      // wait until each release has settled, so that its report is in before it is excused.
+      await Promise.all(releases.map(request => request.response().catch(() => null)));
       consumeDeliveredLockReleases(recorder, candidates);
     } finally {
       chartA.off('requestfailed', onFailure);

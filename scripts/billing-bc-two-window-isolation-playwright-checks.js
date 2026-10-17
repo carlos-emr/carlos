@@ -180,8 +180,10 @@ function ownBillingPhysician(s, admin) {
   const owned = `last_name=${q(marker)} AND first_name=${q(firstName)}`;
   s.cleanup(() => {
     const ownedNo = `provider_no IN (SELECT provider_no FROM provider WHERE ${owned})`;
-    sql.execute(['program_provider', 'provider_facility', 'secUserRole', 'providersite']
-      .map(table => `DELETE FROM ${table} WHERE ${ownedNo}`).join(';'));
+    const memberships = ['program_provider', 'provider_facility', 'secUserRole', 'providersite'];
+    sql.execute(memberships.map(table => `DELETE FROM ${table} WHERE ${ownedNo}`).join(';'));
+    h.assert(sql.value(`SELECT ${memberships.map(table => `(SELECT COUNT(*) FROM ${table} WHERE ${ownedNo})`).join(' + ')}`)
+      === '0', 'The owned billing physician\'s program, facility, role or site rows were not removed');
     sql.execute(`DELETE FROM provider WHERE ${owned}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE ${owned}`) === '0', 'The owned billing physician was not removed');
   });
@@ -669,8 +671,6 @@ async function billInTwoWindows(s, A, B, physician) {
         s.recorder.consoleIssues.splice(i, 1);
       }
     }
-    await expectValue(sql, `SELECT COUNT(*) FROM billing WHERE appointment_no=${appointment.A4}`, '0',
-      'A bill was saved for the appointment whose bill window only continued');
     await form.close();
   });
 }

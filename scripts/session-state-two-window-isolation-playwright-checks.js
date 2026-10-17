@@ -118,6 +118,8 @@ function createSecondPatient(s) {
       ['demographicArchive', 'demographic_no'],
     ];
     sql.execute(support.map(([table, column]) => `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
+    h.assert(sql.value(`SELECT ${support.map(([table, column]) => `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${patient})`)
+      .join(' + ')}`) === '0', 'The second patient\'s locks, drafts, deleted measurements or archive rows were not removed');
     sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${q(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
       'The second patient was not removed');
@@ -141,10 +143,12 @@ function ownChartRows(s, patients) {
     }
     sql.execute(`DELETE FROM measurements WHERE demographicNo IN (${list});
       DELETE FROM flowsheet_customization WHERE demographic_no IN (${patients.map(p => q(p)).join(',')})`);
+    const children = notes.length ? ['casemgmt_issue_notes', 'casemgmt_note_ext', 'casemgmt_note_link']
+      .map(table => ` + (SELECT COUNT(*) FROM ${table} WHERE note_id IN (${notes.join(',')}))`).join('') : '';
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${list}))
       + (SELECT COUNT(*) FROM measurements WHERE demographicNo IN (${list}))
-      + (SELECT COUNT(*) FROM flowsheet_customization WHERE demographic_no IN (${patients.map(p => q(p)).join(',')}))`) === '0',
-    'Owned notes, measurements or tracker items were not removed');
+      + (SELECT COUNT(*) FROM flowsheet_customization WHERE demographic_no IN (${patients.map(p => q(p)).join(',')}))${children}`) === '0',
+    'Owned notes, their links, measurements or tracker items were not removed');
   });
 }
 
@@ -318,10 +322,13 @@ function ownedMessengerGroup(s) {
     }
     sql.execute(`DELETE FROM groupMembers_tbl WHERE groupID=${groupId} AND provider_No=${q(provider)};
       DELETE FROM groups_tbl WHERE groupID=${groupId} AND groupDesc=${q(marker)}`);
+    // Delivery and patient-link rows of the owned messages, above the marks (the demo's orphans stay).
+    const deliveries = ids.length ? ` + (SELECT COUNT(*) FROM msgDemoMap WHERE messageID IN (${ids.join(',')})
+      AND id > ${demoMapMark}) + (SELECT COUNT(*) FROM messagelisttbl WHERE message IN (${ids.join(',')}) AND id > ${listMark})` : '';
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${like})
       + (SELECT COUNT(*) FROM groups_tbl WHERE groupID=${groupId})
-      + (SELECT COUNT(*) FROM groupMembers_tbl WHERE groupID=${groupId})`) === '0',
-    'Owned messages or the owned messenger group were not removed');
+      + (SELECT COUNT(*) FROM groupMembers_tbl WHERE groupID=${groupId})${deliveries}`) === '0',
+    'Owned messages, their deliveries or the owned messenger group were not removed');
   });
   sql.execute(`INSERT INTO groupMembers_tbl(groupID, provider_No, facilityId) VALUES(${groupId}, ${q(provider)}, 0)`);
   return { groupId, demoMapMark };
@@ -662,8 +669,10 @@ async function twoChoosers(s, A, B, messenger, chartOf) {
       // Both choosers are open before either attaches.
       const chooserA = await openChooser(s, composeA, 'A', A);
       const chooserB = await openChooser(s, composeB, 'B', B);
-      h.assert(!chooserA.chooser.isClosed() && chooserA.chooser !== chooserB.chooser,
-        'B\'s attachment chooser took over A\'s chooser window');
+      // A's chooser still shows A's own attachment page: one window name would have navigated it to B's.
+      h.assert(!chooserA.chooser.isClosed() && await chooserA.main.locator('input[name="demographic_no"]')
+        .inputValue({ timeout: 5000 }).catch(() => null) === String(A),
+      'B\'s attachment chooser took over A\'s chooser window');
       await attachInChooser(chooserB, composeB);
       h.assert(!(await composeA.locator('#pdf-attachment-indicator').isVisible())
           && !(await composeA.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
