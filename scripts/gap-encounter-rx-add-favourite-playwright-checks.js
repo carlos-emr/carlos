@@ -117,13 +117,13 @@ async function workflow(s) {
       await chosen;
     }, { accept: true });
     await writeScript.locator('form#frm textarea[name="customName"]').waitFor({ state: 'attached', timeout: 20000 });
-    h.assert(await writeScript.locator('a[href^="javascript:addFavorite("]').count() >= 2,
+    h.assert(await writeScript.locator('button[onclick^="addFavorite("]').count() >= 2,
       'The write-script page does not offer Add to Favorites for the staged cards');
   });
 
   await s.step('write-script page ▸ Add to Favorites on the card with instructions stores a second favourite', async () => {
     const row = writeScript.locator('tr', { hasText: cardDrug }).first();
-    const response = await favouriteByLink(row.locator('a[href^="javascript:addFavorite("]').first(), legacyFavourite);
+    const response = await favouriteByLink(row.locator('button[onclick^="addFavorite("]').first(), legacyFavourite);
     h.assert(response.status() < 400, `rx/addFavoriteWriteScript answered HTTP ${response.status()}`);
     await writeScript.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await h.assertNotErrorPage(writeScript, 'write-script page after Add to Favorites');
@@ -138,7 +138,7 @@ async function workflow(s) {
   // `special` column (RxPrescriptionData.Favorite.Save) and the page answers HTTP 500.
   await s.step('write-script page ▸ Add to Favorites on a custom drug with no instructions stores the favourite', async () => {
     const empty = `${marker}-noinstr-fav`;
-    const response = await favouriteByLink(writeScript.locator('a[href^="javascript:addFavorite("]').last(), empty);
+    const response = await favouriteByLink(writeScript.locator('button[onclick^="addFavorite("]').last(), empty);
     h.assert(response.status() < 400, `Add to Favorites on a drug with no instructions answered HTTP ${response.status()}`);
     await expectValue(sql, `SELECT COUNT(*) FROM favorites WHERE provider_no=${q(provider)} AND favoritename=${q(empty)}`, '1',
       'A drug with no instructions could not be saved as a favourite');

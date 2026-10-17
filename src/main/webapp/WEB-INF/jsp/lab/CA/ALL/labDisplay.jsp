@@ -1630,7 +1630,7 @@ input[id^='acklabel_']{
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
-                                                                            <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
+                                                                            <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_6}' context="htmlAttribute"/>&amp;name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="htmlAttribute"/>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
                                                                                 <% } %>
                                                                                 <carlos:encode value='<%= handler.getPatientName() %>' context="html"/>
                                                                             </a>
