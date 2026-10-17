@@ -548,7 +548,10 @@
               <td><carlos:encode value='<%= item.getProperty("first_name", "") %>' context="html"/></td>
               <td><carlos:encode value='<%= item.getProperty("last_name", "") %>' context="html"/></td>
             <td>
-              <select name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
+              <%-- One role select per row, so each needs its own id to be labelled. The label is
+                   visually hidden because the column header already carries the visible text. --%>
+              <label class="visually-hidden" for="roleNew-<%= i %>"><fmt:message key="role"/></label>
+              <select id="roleNew-<%= i %>" name="roleNew" onchange="enableAddRoleButton(this)" data-org="<%= item.getProperty("role_name", "") %>">
                     <option value="-">-</option>
                     <%
                         for (int j = 0; j < vecRoleName.size(); j++) {
