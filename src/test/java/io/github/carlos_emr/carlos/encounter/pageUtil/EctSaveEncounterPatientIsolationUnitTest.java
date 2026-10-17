@@ -436,15 +436,20 @@ class EctSaveEncounterPatientIsolationUnitTest {
     }
 
     @Test
-    @DisplayName("should keep no visit after a save from an editor that had none")
+    @DisplayName("should keep no visit, dated today, after a save from an editor that had none")
     void shouldKeepNoVisit_whenEditorHadNone() {
+        // A's remembered entry is another window's visit of A, on another day.
         EctSessionBean latest = entry(A, "111111", "779");
+        latest.appointmentDate = "2026-10-20";
+        String before = java.time.LocalDate.now().toString();
 
         EctSaveEncounter2Action.keepSubmittedVisit(latest,
                 new Result(Outcome.SAVED, savedRevision(A, 5003), false, null, null), "");
 
         assertThat(latest.appointmentNo).isNull();
-        assertThat(latest.appointmentDate).isEqualTo("2026-10-16");
+        // Today, as a chart opened without an appointment is dated: never the other visit's day,
+        // which Sign, Save and Bill would put on this bill.
+        assertThat(latest.appointmentDate).isIn(before, java.time.LocalDate.now().toString());
         assertThat(latest.reason).isEmpty();
     }
 

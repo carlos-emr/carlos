@@ -153,8 +153,6 @@ public class EctSaveEncounter2Action extends ActionSupport {
         return defaultValue;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of the legacy "null" appointment sentinel; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of the legacy \"null\" appointment sentinel; not a security or authorization decision")
     @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -373,7 +371,8 @@ public class EctSaveEncounter2Action extends ActionSupport {
     /**
      * Binds the rest of this request to the visit this window submitted. The patient's remembered
      * entry is the latest of any of the patient's windows, so its appointment, date and reason can be
-     * another window's: re-rendered as this editor's, the next Sign would sign that other visit.
+     * another window's: re-rendered as this editor's, the next Sign would sign that other visit, and
+     * Sign, Save and Bill would bill on that visit's date.
      *
      * @param entry         this patient's entry, updated in place
      * @param saved         the accepted save, naming the appointment it checked (or none)
@@ -381,9 +380,10 @@ public class EctSaveEncounter2Action extends ActionSupport {
      */
     static void keepSubmittedVisit(EctSessionBean entry, Result saved, String postedSubject) {
         entry.appointmentNo = saved.appointmentNo() == null ? null : saved.appointmentNo().toString();
-        if (saved.appointmentDate() != null) {
-            entry.appointmentDate = ConversionUtils.toDateString(saved.appointmentDate());
-        }
+        // The appointment's own date; a visit without one is dated today, as a chart opened
+        // without an appointment is.
+        entry.appointmentDate = ConversionUtils.toDateString(
+                saved.appointmentDate() != null ? saved.appointmentDate() : new Date());
         entry.reason = postedSubject;
     }
 
