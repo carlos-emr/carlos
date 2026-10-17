@@ -14,6 +14,7 @@
  * the way are asserted in the last step. Fixtures: role, throwaway login and mygroup named by the marker;
  * no role delete exists in the UI, so cleanup deletes every marker row and asserts they are gone.
  */
+const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -145,6 +146,11 @@ async function workflow(s) {
 
   const admin = await openAdmin(s.schedule, context, recorder, 'role-administration');
   let frame;
+  await s.step('an administrator can open the flowsheet editor from its menu', async () => {
+    const flowsheets = await openItem(admin, 'ManageFlowsheets', '#flowsheetActionForm');
+    await h.assertNotErrorPage(flowsheets, 'administrator flowsheet editor');
+  });
+
   await s.step('Add A Role refuses a one-letter name in the page before any request is sent', async () => {
     frame = await openItem(admin, 'ProviderAddRole', 'input#role_name');
     const before = frame.url();
@@ -204,7 +210,11 @@ async function workflow(s) {
     const { ctx, schedule } = await throwawaySession('role-throwaway-before', false);
     try {
       h.assert(await refused(ctx, 'ProviderAddRole') === 403, 'A plain doctor was not refused Add A Role');
-      // The doctor role holds _admin.flowsheet, which shows the Administration link on the day sheet.
+      h.assert(await refused(ctx, 'ManageFlowsheets') === 403,
+        'Flowsheet read permission granted the write-only flowsheet editor');
+      // The fixture's doctor role holds flowsheet read permission and must reach the shell.
+      h.assert(await schedule.locator('#admin-panel').count() === 1,
+        'A flowsheet-read doctor was not offered the Administration shell');
       if (await schedule.locator('#admin-panel').count()) {
         const label = 'role-throwaway-before-administration';
         const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
@@ -220,8 +230,8 @@ async function workflow(s) {
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
             'Flowsheet access exposed the role-rights editor');
           h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
-          const flowsheets = await openItem(own, 'ManageFlowsheets', '#flowsheetActionForm');
-          await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 0,
+            'The menu advertised the write-only flowsheet editor to a read-only doctor');
         }
       }
     } finally { await ctx.close(); }
@@ -271,6 +281,69 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${throwaway}`) === 'doctor',
       'The owned role was not unassigned (or doctor went with it)');
   });
+  const flowObjects = ['_admin', '_admin.misc', '_admin.flowsheet'];
+  for (const [index, writeObject] of ['_admin.misc', ...flowObjects, '_admin.userAdmin'].entries()) {
+    const mixed = index > 0;
+    const readObjects = mixed ? flowObjects.filter(object => object !== writeObject) : [];
+    await s.step(`administration menu honors ${writeObject} write with ${mixed ? 'other objects read-only' : 'no other admin grants'}`, async () => {
+      const miscRole = `${role}-flow${index}`;
+      const M = h.sqlString(miscRole);
+      const miscFixture = throwawayLoginFixture({ sql, marker: `FAKE-PW${randomBytes(8).toString('hex')}`, provider: s.provider, testUser: config.testUser });
+      h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${M}`) === '0', 'The miscellaneous role already exists');
+      s.cleanup(() => {
+        try {
+          miscFixture.cleanup();
+        } finally {
+          sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${M}; DELETE FROM secRole WHERE role_name=${M}`);
+          h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM secRole WHERE role_name=${M})
+            + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${M})`) === '0', 'Owned flowsheet role was not removed');
+        }
+      });
+      // Copy sign-in rights without inheriting doctor's flowsheet grant.
+      // Each mixed role has exactly one write grant and read on the other flow objects.
+      sql.execute(`INSERT INTO secRole (role_name,description) VALUES (${M},${M});
+        INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+          SELECT ${M},objectName,privilege,priority,provider_no FROM secObjPrivilege
+          WHERE roleUserGroup='doctor' AND LEFT(objectName,6)<>'_admin';
+        INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+          VALUES (${M},${h.sqlString(writeObject)},'w',0,${h.sqlString(s.provider)})`);
+      if (mixed) {
+        for (const readObject of readObjects) {
+          sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+            VALUES (${M},${h.sqlString(readObject)},'r',0,${h.sqlString(s.provider)})`);
+        }
+      }
+      miscFixture.create({ roleNames: [miscRole] });
+      h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege
+        WHERE roleUserGroup=${M} AND LEFT(objectName,6)='_admin'`) === String(readObjects.length + 1), 'The fixture has unexpected admin grants');
+      const ctx = await h.newContext(context.browser(), config);
+      ctx.on('page', page => h.wireStrictPage(page, 'role-misc-only', recorder));
+      try {
+        const schedule = await h.login(ctx, { ...config, testUser: miscFixture.username }, recorder, { label: 'role-misc-only' });
+        const own = await openAdmin(schedule, ctx, recorder, 'role-misc-only-administration');
+        if (flowObjects.includes(writeObject)) {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 1,
+            'The allowed flowsheet link is missing or duplicated');
+          const flowsheets = await openItem(own, 'ManageFlowsheets', '#flowsheetActionForm');
+          await h.assertNotErrorPage(flowsheets, 'miscellaneous administrator flowsheet editor');
+        } else {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 0,
+            'User administration write exposed the flowsheet editor without a flowsheet write grant');
+          h.assert(await refused(ctx, 'ManageFlowsheets') === 403, 'User administration write opened the flowsheet editor');
+        }
+        if (['_admin', '_admin.userAdmin'].includes(writeObject)) {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 1,
+            'The allowed role-rights link is missing or duplicated');
+          const rights = await openItem(own, 'ProviderPrivilege', 'select[name="roleUserGroup"]');
+          await h.assertNotErrorPage(rights, 'authorized role-rights editor');
+        } else {
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+            'Scoped flowsheet access exposed the role-rights editor');
+          h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Scoped flowsheet access opened the role-rights editor');
+        }
+      } finally { await ctx.close(); }
+    });
+  }
   // The Administration link replaced the original day sheet, so a second admin session keeps one open.
   const dayContext = await h.newContext(context.browser(), config);
   dayContext.on('page', page => h.wireStrictPage(page, 'role-day-sheet', recorder));
