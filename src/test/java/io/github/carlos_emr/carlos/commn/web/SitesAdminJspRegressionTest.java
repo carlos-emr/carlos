@@ -96,6 +96,22 @@ class SitesAdminJspRegressionTest {
         assertThat(page).contains("<c:if test=\"${site.province == code}\">selected</c:if>");
     }
 
+    /** Each visible field of the form has an id, and its caption is a {@code <label for>} that id. */
+    @Test
+    @DisplayName("should label every visible site field with its caption")
+    void shouldLabelEveryVisibleField_withCaption() throws IOException {
+        String page = read(DETAIL_JSP);
+        Matcher field = Pattern.compile("<(input|select)\\b(?![^>]*type=\"hidden\")[^>]*name=\"site\\.(\\w+)\"[^>]*>").matcher(page);
+        int labelled = 0;
+        while (field.find()) {
+            Matcher id = Pattern.compile("\\bid=\"([^\"]+)\"").matcher(field.group());
+            assertThat(id.find()).as("site.%s has no id", field.group(2)).isTrue();
+            assertThat(page).as("site.%s has no label", field.group(2)).contains("<label for=\"" + id.group(1) + "\">");
+            labelled++;
+        }
+        assertThat(labelled).isEqualTo(12);
+    }
+
     /** A save missing a required field comes back to the form naming each one. */
     @Test
     @DisplayName("should name each missing required field on the form")

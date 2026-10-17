@@ -60,6 +60,9 @@ public class SitesManage2Action extends ActionSupport {
 
     private SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
 
+    /** The result that renders the site form (sitesAdminDetail.jsp). */
+    private static final String DETAILS = "details";
+
     /** Bundle keys of the labels of the required fields a save found empty; the form names each one. */
     private final List<String> missingFields = new ArrayList<>();
 
@@ -96,7 +99,7 @@ public class SitesManage2Action extends ActionSupport {
         Site s = new Site();
         this.setSite(s);
 
-        return "details";
+        return DETAILS;
     }
 
     /**
@@ -126,7 +129,7 @@ public class SitesManage2Action extends ActionSupport {
             missingFields.add("admin.sitesAdminDetail.label.themeColor");
         }
         if (!missingFields.isEmpty()) {
-            return "details";
+            return DETAILS;
         }
 
         if (s.getSiteId() != null) {
@@ -167,7 +170,7 @@ public class SitesManage2Action extends ActionSupport {
         }
 
         this.setSite(s);
-        return "details";
+        return DETAILS;
     }
 
     public List<String> getMissingFields() {
