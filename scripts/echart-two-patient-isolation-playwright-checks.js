@@ -1244,6 +1244,24 @@ async function run(s) {
       const added = sql.rows(schedule);
       h.assert(added.length === 1 && added[0][1] === provider && added[0][2].includes(`name="${template[1].replace(/&/g, '&amp;')}"`),
         `${d.label}'s template was not added to ${d.label}'s schedule by the logged-in provider`);
+      // Record a dose from the schedule (a set item's edit link): the dose window names this
+      // patient, and choosing Given offers the logged-in provider as the giver. Both came from the
+      // login-wide encounter bean, here the other chart's, entered from another doctor's day sheet.
+      await activateOther(d.otherChart, mrpB);
+      // Sets render collapsed: ticking the set's box shows its doses.
+      await page.locator('#chkSet0').check();
+      const doseLink = page.locator('#tblSet0 a[href^="javascript:edit("]').first();
+      h.assert(await doseLink.count() === 1, `${d.label}'s schedule offers no dose to record`);
+      const [dose] = await Promise.all([context.waitForEvent('page', {timeout: TIMEOUT}), doseLink.click()]);
+      await dose.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(dose, `${d.label}'s dose window`);
+      const doseText = norm(await dose.locator('body').innerText());
+      h.assert(d.ownName(doseText) && !d.otherName(doseText),
+        `${d.label}'s dose window names ${d.otherName(doseText) ? 'the other patient' : 'no patient'}`);
+      await dose.locator('input[name="chkStatus"][onclick*="changeStatus(1)"]').check();
+      h.assert(await dose.locator('#provider').inputValue() === provider,
+        `${d.label}'s dose window does not offer the logged-in provider as the giver`);
+      await dose.close();
       await activateOther(d.otherChart);
       const deletion = page.locator('a[onclick*="submitScheduleMutation(\'delete\', 0)"]');
       h.assert(await deletion.count() === 1, `${d.label}'s schedule does not offer exactly one set to delete`);
