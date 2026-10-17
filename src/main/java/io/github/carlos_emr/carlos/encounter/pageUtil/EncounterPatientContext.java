@@ -111,7 +111,7 @@ public final class EncounterPatientContext {
      * that appointment still exists and is still this patient's; otherwise null.
      *
      * <p>Work that belongs to "the current visit" uses this: Health Tracker measurements and
-     * notes are linked to it, and a multisite tickler or prescription defaults to its clinic
+     * notes are linked to it, and a multisite prescription preselects the address of its clinic
      * site. It used to be the day sheet's login-wide {@code cur_appointment_no}, the appointment
      * last clicked for any patient, so once another patient's appointment was opened, work in
      * this patient's window was tied to the other patient's visit (issue #4673). The day sheet

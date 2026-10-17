@@ -37,9 +37,9 @@ package io.github.carlos_emr.carlos.casemgmt.common;
  *   <li>the editor's "a draft is being restored" signal to the chart view: another chart's view
  *       could consume it and so withhold its own unsaved-draft prompt;</li>
  *   <li>the appointment last opened from the day sheet, which Health Tracker saves link their
- *       measurements and note to and which picks the default clinic site of a tickler or a
- *       prescription: work in one patient's window was tied to the visit last opened for
- *       another patient.</li>
+ *       measurements and note to and whose clinic site a multisite prescription preselects as its
+ *       address: work in one patient's window was tied to the visit last opened for another
+ *       patient.</li>
  * </ul>
  * <p>Each such attribute is now keyed by the patient it belongs to. Two windows of the same
  * patient still share their state, as they did before. A patient number is never read back from

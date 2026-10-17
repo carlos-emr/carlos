@@ -45,8 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * eChart, the draft-restore signal, a patient's message and lab lists, the legacy editor's bean,
  * and the patient number and data that the Disease Registry, the waiting list, the Rx allergy page
  * and the PMM client view copied into the session under generic names, and the appointment last
- * opened from the day sheet, which tied one patient's Health Tracker save and multisite tickler and
- * prescription defaults to another patient's visit, the Messenger's message, PDF list and
+ * opened from the day sheet, which tied one patient's Health Tracker save and multisite
+ * prescription address to another patient's visit, the Messenger's message, PDF list and
  * compose attachments, which a second Messenger window replaced or sent, the BC bill being
  * built, which a second billing window replaced so the first billed the other patient, the BC
  * invoice last viewed, which the receipt after "Update Invoice" showed in place of the one

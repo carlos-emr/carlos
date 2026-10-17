@@ -60,8 +60,8 @@ import static org.mockito.Mockito.when;
  * The day sheet's "remember this appointment" call files the appointment under the patient it is
  * booked for, so a later appointment opened for another patient leaves this patient's current
  * visit alone (issue #4673). It used to set one login-wide {@code cur_appointment_no}, which tied
- * Health Tracker saves and the multisite tickler and prescription defaults in one patient's window
- * to the visit last opened for another patient.
+ * Health Tracker saves and the multisite prescription address in one patient's window to the visit
+ * last opened for another patient.
  *
  * @since 2026-10-16
  */

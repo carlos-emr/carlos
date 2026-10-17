@@ -27,8 +27,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Remembers which appointment a patient was opened for from the day sheet. The day sheet posts
  * here ({@code storeApptNo} in {@code schedulePage.js.jsp}) when its encounter, master record or
- * prescription link is clicked; Health Tracker saves and the multisite tickler and prescription
- * pages read it back through {@code EncounterPatientContext.currentAppointment}.
+ * prescription link is clicked; Health Tracker saves and the multisite prescription page read it
+ * back through {@code EncounterPatientContext.currentAppointment}.
  *
  * <p>The appointment is filed under the patient it is booked for, which this action reads from the
  * appointment itself rather than from the request. It used to be one login-wide value, so with two
