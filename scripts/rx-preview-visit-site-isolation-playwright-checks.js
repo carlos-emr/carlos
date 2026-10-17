@@ -70,6 +70,19 @@ function ownedSites(s) {
   const { sql, marker, provider } = s;
   const hex = marker.slice(-8);
   const sites = {};
+  // Registered before the first insert: a site left behind would show in every login's clinic
+  // lists. The sites are found by the run's marker, which no other site name carries.
+  const owned = `SELECT site_id FROM site WHERE name LIKE ${q(`${marker} S_`)}`;
+  s.cleanup(() => {
+    const ids = sql.rows(owned).map(([id]) => key(id, 'site')).join(',');
+    if (ids) {
+      sql.execute(`DELETE FROM providersite WHERE site_id IN (${ids});
+        DELETE FROM site WHERE site_id IN (${ids})`);
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name LIKE ${q(`${marker} S_`)}`) === '0'
+      && (!ids || sql.value(`SELECT COUNT(*) FROM providersite WHERE site_id IN (${ids})`) === '0'),
+    'The owned sites were not removed');
+  });
   for (const [label, street] of [['SA', '11 Alpha Road'], ['SB', '22 Bravo Road'], ['SC', '33 Charlie Road']]) {
     const name = `${marker} ${label}`;
     const id = key(h.insertId(sql, `INSERT INTO site (name, short_name, phone, fax, bg_color, address, city,
@@ -78,14 +91,6 @@ function ownedSites(s) {
         'ON', 'A1A1A1', 1)`, `site ${label}`), `site ${label}`);
     sites[label] = { id, name };
   }
-  const ids = Object.values(sites).map(site => site.id).join(',');
-  s.cleanup(() => {
-    sql.execute(`DELETE FROM providersite WHERE site_id IN (${ids});
-      DELETE FROM site WHERE site_id IN (${ids}) AND name LIKE ${q(`${marker} %`)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM site WHERE site_id IN (${ids}))
-      + (SELECT COUNT(*) FROM providersite WHERE site_id IN (${ids}))`) === '0',
-    'The owned sites were not removed');
-  });
   sql.execute(Object.values(sites).map(site =>
     `INSERT INTO providersite (provider_no, site_id) VALUES (${q(provider)}, ${site.id})`).join(';'));
   return sites;
@@ -202,16 +207,17 @@ async function workflow(s) {
       address.selectOption({ label: sites.SC.name }),
     ]);
     h.assert(remembered.ok(), `Remembering the picked address answered HTTP ${remembered.status()}`);
-    // The page's fetch never reads the empty reply, so Chromium may cancel its body
-    // (net::ERR_ABORTED) after the server answered; that entry is not a failure.
-    await rxA.waitForTimeout(500);
+    await rxA.close();
+    // The page's fetch never reads the empty reply, so its body may stay open until the window
+    // closes and Chromium then cancels it (net::ERR_ABORTED). Wait, briefly, for that to be
+    // reported: the entry, for the request answered above, is not a failure.
+    await Promise.race([remembered.finished().catch(() => {}), new Promise(resolve => setTimeout(resolve, 5000))]);
     for (let i = recorder.requestFailures.length - 1; i >= 0; i--) {
       const entry = recorder.requestFailures[i];
       if (entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/rx/ViewSetDefaultAddr')) {
         recorder.requestFailures.splice(i, 1);
       }
     }
-    await rxA.close();
   });
 
   await s.step('B\'s print window preselects B\'s visit site without changing the address picked by hand', async () => {

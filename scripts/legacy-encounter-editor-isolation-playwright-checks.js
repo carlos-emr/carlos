@@ -129,14 +129,20 @@ async function run(s) {
   // The editor renders only in CAISI mode; elsewhere Index2.jsp forwards to the case-management chart.
   const probe = await context.request.get(h.appUrl(base, `/encounter/IncomingEncounter?${entryQuery(A)}`),
     {maxRedirects: 0, failOnStatusCode: false});
+  const probeStatus = probe.status();
   let editorRenders;
+  let forwardedToChart;
   try {
-    editorRenders = probe.status() === 200 && /<form name="encForm"/.test(await probe.text());
+    editorRenders = probeStatus === 200 && /<form name="encForm"/.test(await probe.text());
+    forwardedToChart = probeStatus === 302
+      && /\/casemgmt\/ViewForward\b/.test(probe.headers().location || '');
   } finally { await probe.dispose(); }
-  if (!editorRenders) {
+  if (forwardedToChart) {
     throw new h.SkipCheck('the legacy encounter editor renders only with caisi=on in carlos.properties '
       + '(then carlos-ctl restart); this deployment forwards it to the case-management chart');
   }
+  // Anything else (an error, another page) is the editor failing, not a configuration to skip.
+  h.assert(editorRenders, `The legacy encounter editor answered HTTP ${probeStatus} without its form`);
 
   /**
    * The editor's left column loads its modules (preventions, ticklers, ...) by XHR after the page

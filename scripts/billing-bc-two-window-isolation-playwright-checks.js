@@ -139,9 +139,10 @@ function ownAppointments(s, patients) {
 const WCB_FORM_CODE = '19937';
 
 /**
- * One WCB form for each patient, as saved earlier from the WCB form page: the patient's details
- * and the injury, enough to bill a code that needs no report but not one that does. Removed by
- * key after the claims that name them.
+ * One WCB form for each patient, as the WCB form page would have saved it (that page cannot be
+ * opened, #4864): the patient's details and the injury, enough to bill a code that needs no report
+ * but not one that does. Removed by key; the claims that name a form keep only its id, so the order
+ * of the two cleanups does not matter.
  */
 function ownWcbForms(s, patients, day) {
   const { sql, marker, provider } = s;

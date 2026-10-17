@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -143,6 +144,6 @@ class NotesServiceUnitTest extends CarlosUnitTestBase {
         // A body-less POST /notes/{demographicNo}/save used to dereference the missing note.
         assertThat(service.saveNote(5, null)).isNull();
 
-        verify(mockCaseManagementMgr, never()).getCPP(anyString());
+        verifyNoInteractions(mockCaseManagementMgr);
     }
 }

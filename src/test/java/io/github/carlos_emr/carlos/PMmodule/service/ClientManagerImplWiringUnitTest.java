@@ -48,7 +48,7 @@ import static org.mockito.Mockito.when;
  * @since 2026-10-17
  */
 @Tag("unit")
-@Tag("pmm")
+@Tag("pmmodule")
 @DisplayName("ClientManagerImpl joint-admission DAO wiring")
 class ClientManagerImplWiringUnitTest {
 

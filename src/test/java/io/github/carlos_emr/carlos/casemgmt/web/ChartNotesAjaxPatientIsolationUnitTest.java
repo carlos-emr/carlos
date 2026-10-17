@@ -83,9 +83,12 @@ class ChartNotesAjaxPatientIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(source)
                 .contains("String oscarMsg = ownChartBean && bean.oscarMsg != null ? bean.oscarMsg : \"\";")
                 .doesNotContain("String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : \"\";");
-        // The shared bean's message and reason are cleared only after the own-chart test above.
-        int consumed = source.indexOf("bean.oscarMsg = \"\";");
-        assertThat(consumed).isGreaterThan(source.indexOf("boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals(\"\");"));
+        // The shared bean's message and reason are cleared only inside the block that the own-chart
+        // message above opens, so another chart's pending message is left for that chart.
+        assertThat(source).containsPattern(Pattern.compile(
+                "boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg\\.equals\\(\"\"\\);\\s*"
+                        + "if \\(hasOscarMsg\\) \\{\\s*bean\\.reason = \"\";\\s*bean\\.oscarMsg = \"\";"));
+        assertThat(source.split("bean\\.oscarMsg = \"\";", -1)).as("the message is cleared in one place").hasSize(2);
     }
 
     @Test

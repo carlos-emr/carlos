@@ -536,9 +536,18 @@ async function run(s) {
     return handlers.map(onclick => (onclick.match(/demographic(?:_no|No)=(\d+)/) || [])[1]);
   }
 
+  /**
+   * Shows the Forms module's Add Form menu. Its "+" is hovered by firing its mouseover, as
+   * bpmh-form does: the menu opens over the "+" itself whenever its list is wide enough to reach
+   * it, so Playwright's hover, which waits for the "+" to receive the pointer, never settles.
+   */
+  async function showFormMenu(chart) {
+    await chart.locator('#menuTitle1 a').dispatchEvent('mouseover');
+  }
+
   /** Open the first Add Form item of a chart window's Forms module. */
   async function openFirstForm(chart, label) {
-    await chart.locator('#menuTitle1 a').hover();
+    await showFormMenu(chart);
     const item = chart.locator(FORM_MENU_ITEMS).first();
     await item.waitFor({ state: 'visible', timeout: TIMEOUT });
     return s.popup(chart, item, label);
@@ -876,7 +885,7 @@ async function run(s) {
     });
 
     await isolatedWrite(d, 'Vascular Tracker setup and Update', async () => {
-      await d.chart.locator('#menuTitle1 a').hover();
+      await showFormMenu(d.chart);
       const item = d.chart.locator(FORM_MENU_ITEMS).filter({hasText: /^\s*Vascular Tracker\s*$/});
       await item.waitFor({state: 'visible', timeout: TIMEOUT});
       h.assert(await item.count() === 1, 'The Forms menu must offer exactly one Vascular Tracker');
@@ -1022,8 +1031,8 @@ async function run(s) {
   // line, the legacy encounter save and its prints, the legacy immunization schedule and the legacy
   // case-management navigation each used to read the bean IncomingEncounter rewrites for whichever
   // chart was entered last. Every request below names only its own patient and is sent right after
-  // the other chart was entered. (The notes service's new-note visit type is unit-tested only: its
-  // REST endpoint answers 500 for every new note on this build, before the visit type is used.)
+  // the other chart was entered. (chart-session-state-two-window-isolation drives the notes
+  // service's new-note visit type.)
   // As the print names a provider (EctProviderData): "Dr. " before a first name that lacks it.
   const providerName = no => norm(sql.value(`SELECT CONCAT(IF(INSTR(BINARY first_name, 'Dr.')>0, '', 'Dr. '),
     first_name, ' ', last_name) FROM provider WHERE provider_no=${q(no)}`));

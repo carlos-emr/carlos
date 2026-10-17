@@ -27,6 +27,7 @@
  * gone.
  */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -218,10 +219,9 @@ async function workflow(s) {
       // program domain is set by PMMFilter, which runs after Struts has already answered PMM
       // actions (web.xml filter order; a separate defect, see the PR's notes).
       await popup.locator('input[name="criteria.searchOutsideDomain"]').check();
-      await Promise.all([
-        popup.waitForLoadState('domcontentloaded'),
-        popup.locator('input[type="submit"][value="search"]').click(),
-      ]);
+      // The navigation wait is armed before the click, so the results read below are the search's.
+      await ui.clickAndAwaitReload(popup, popup.locator('input[type="submit"][value="search"]'),
+        { label: `${label}'s attach search`, timeout: TIMEOUT });
       await settle(popup, `${label}'s attach search`);
       const links = popup.locator(`a[href*="PEAttach=yes"][href*="selectId=${C}&"]`);
       h.assert(await links.count() >= 1, `${label}'s attach search did not find client C`);
@@ -235,7 +235,10 @@ async function workflow(s) {
         popup.waitForURL(/casemgmt|CaseManagement|IncomingEncounter/, { timeout: TIMEOUT }),
         links.first().click(),
       ]);
-      await popup.waitForLoadState('domcontentloaded');
+      // The popup becomes C's chart. Wait for its note editor, as the user sees it load: a chart
+      // closed before its editor arrives throws from its unload handler.
+      await settle(popup, `C's chart after ${label}'s attach`);
+      await popup.locator(NOTE).waitFor({ state: 'visible', timeout: TIMEOUT });
     }
     for (const label of ['A', 'B']) {
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}

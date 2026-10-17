@@ -81,7 +81,12 @@ async function workflow(s) {
   const B = createSecondPatient(s);
   ownPrescriptions(s, [A, B]);
 
-  /** Pick DRUG_NAME from the page's search box suggestions; returns the patient the pick request named. */
+  /**
+   * Pick DRUG_NAME from the page's search box suggestions; returns the patient the pick request
+   * named. Only the first pick may report SKIP (no DrugRef); once it has shown that DrugRef answers,
+   * a page that offers no suggestion is a failure.
+   */
+  let drugrefAnswered = false;
   async function pickDrug(rx) {
     const search = rx.locator('#searchString');
     await search.waitFor({ state: 'visible', timeout: TIMEOUT });
@@ -92,8 +97,10 @@ async function workflow(s) {
     try {
       await suggestion.waitFor({ state: 'visible', timeout: TIMEOUT });
     } catch (error) {
+      if (drugrefAnswered) throw new Error(`This page's drug search offered no "${DRUG_NAME}", which an earlier page offered`);
       throw new h.SkipCheck(`The drug search offered no "${DRUG_NAME}" (is carlos-emr-drugref installed and loaded?)`);
     }
+    drugrefAnswered = true;
     const [staged] = await Promise.all([
       rx.waitForResponse(r => h.pathOnly(r.url()).endsWith('/rx/WriteScript') && r.request().method() === 'POST'
         && new URLSearchParams(r.request().postData() || '').get('parameterValue') === 'createNewRx', { timeout: TIMEOUT }),
