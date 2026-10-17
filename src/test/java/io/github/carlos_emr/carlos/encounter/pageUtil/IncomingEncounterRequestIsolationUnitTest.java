@@ -2,16 +2,12 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
-import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
-import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -179,27 +175,6 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
             assertEncounter((EctSessionBean) request.getAttribute("EctSessionBean"), "101", "9001");
             assertEncounter(EncounterPatientContext.findEncounter(request, "101"), "101", "9001");
             verify(security).hasPrivilege(login, "_demographic", "r", "101");
-        }
-    }
-
-    @Test
-    void shouldOpenTheFirstEncounter_whenDefaultIssuesAreOnAndNoProgramIsChosen() throws Exception {
-        // #4838: with wl_default_issue=true, a patient with no notes, and no CAISI program in the
-        // session, the encounter used to fail with a NumberFormatException (HTTP 500).
-        when(properties.getProperty("wl_default_issue", "false")).thenReturn("true");
-        ProgramProviderDAO programProviders = createAndRegisterMock(ProgramProviderDAO.class);
-        DefaultIssueDao defaults = createAndRegisterMock(DefaultIssueDao.class);
-        createAndRegisterMock(IssueDAO.class);
-        CaseManagementIssueDAO patientIssues = createAndRegisterMock(CaseManagementIssueDAO.class);
-        try (var props = mockStatic(CarlosProperties.class);
-             var patients = mockStatic(RxPatientData.class);
-             var beans = clinicalBeans()) {
-            props.when(CarlosProperties::getInstance).thenReturn(properties);
-            MockHttpServletRequest request = request("101", "9001");
-            assertThat(execute(request, new MockHttpServletResponse())).isEqualTo("success2");
-            assertEncounter((EctSessionBean) request.getAttribute("EctSessionBean"), "101", "9001");
-            verify(notes).getNotesCountByDemographicId("101");
-            verifyNoInteractions(programProviders, defaults, patientIssues);
         }
     }
 

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -31,12 +32,19 @@ import io.github.carlos_emr.carlos.casemgmt.dao.RoleProgramAccessDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.EChartDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -45,6 +53,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import java.util.Collections;
 import java.util.List;
@@ -55,6 +66,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -81,14 +97,19 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
     private IssueDAO issues;
     private DefaultIssueDao defaults;
     private CaseManagementIssueDAO patientIssues;
+    private CaseManagementNoteDAO notes;
+    private SecurityInfoManager security;
     private EctSessionBean bean;
 
     @BeforeEach
     void registerBeans() {
-        // The action's own fields.
-        createAndRegisterMock(CaseManagementNoteDAO.class);
+        // The action's own fields, and what opening an encounter reads.
+        notes = createAndRegisterMock(CaseManagementNoteDAO.class);
         createAndRegisterMock(CaseManagementManager.class);
-        createAndRegisterMock(SecurityInfoManager.class);
+        security = createAndRegisterMock(SecurityInfoManager.class);
+        createAndRegisterMock(EChartDao.class);
+        createAndRegisterMock(EncounterWindowDao.class);
+        createAndRegisterMock(DrugDao.class);
         programProviders = createAndRegisterMock(ProgramProviderDAO.class);
         programAccess = createAndRegisterMock(ProgramAccessDAO.class);
         roles = createAndRegisterMock(SecroleDao.class);
@@ -168,6 +189,58 @@ class EctIncomingEncounterDefaultIssuesUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getProgram_id()).isEqualTo(10034);
         assertThat(saved.getValue().getDemographic_no()).isEqualTo(4242);
         verify(patientIssues, never()).getIssuebyId(PATIENT, "51");
+    }
+
+    @Test
+    void shouldOpenTheFirstEncounter_whenDefaultIssuesAreOnAndNoProgramIsChosen() throws Exception {
+        // The real entry point: wl_default_issue=true, a patient with no notes (the notes mock
+        // counts 0), and no CAISI program in the session. Before #4838 this threw
+        // NumberFormatException, which the browser saw as HTTP 500.
+        LoggedInInfo login = new LoggedInInfo();
+        Provider provider = new Provider();
+        provider.setProviderNo(PROVIDER);
+        login.setLoggedInProvider(provider);
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("user", PROVIDER);
+        session.setAttribute("userfirstname", "Synthetic");
+        session.setAttribute("userlastname", "Provider");
+        LoggedInInfo.setLoggedInInfoIntoSession(session, login);
+        when(security.hasPrivilege(eq(login), eq("_demographic"), eq("r"), nullable(String.class))).thenReturn(true);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
+        // Past the program-domain check, to the default-issue block.
+        when(properties.getProperty("program_domain.show_echart", "false")).thenReturn("true");
+        when(properties.getProperty("wl_default_issue", "false")).thenReturn("true");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/encounter/IncomingEncounter");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("curProviderNo", PROVIDER);
+        request.setParameter("encType", "telephone");
+        request.setParameter("appointmentDate", "2026-10-15");
+
+        try (var props = mockStatic(CarlosProperties.class);
+             var patients = mockStatic(RxPatientData.class);
+             var servlet = mockStatic(ServletActionContext.class);
+             var beans = mockConstruction(EctSessionBean.class, (constructed, context) -> {
+                 when(constructed.getDemographicNo()).thenAnswer(call -> constructed.demographicNo);
+                 doAnswer(call -> {
+                     constructed.patientFirstName = "Synthetic";
+                     constructed.patientLastName = "Patient";
+                     constructed.yearOfBirth = "1980";
+                     constructed.monthOfBirth = "01";
+                     constructed.dateOfBirth = "02";
+                     constructed.eChartId = "chart-" + constructed.demographicNo;
+                     constructed.encounter = "Synthetic chart";
+                     return null;
+                 }).when(constructed).setUpEncounterPage(login);
+             })) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            assertThat(new EctIncomingEncounter2Action().execute()).isEqualTo("success2");
+        }
+        verify(notes).getNotesCountByDemographicId(PATIENT);
+        verifyNoInteractions(programProviders, defaults, patientIssues);
     }
 
     private static Secrole role(Long id, String name) {
