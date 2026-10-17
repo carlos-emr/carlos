@@ -15,7 +15,7 @@
 // Fixtures: the owned FAKE- patient, a marker-named consultation service and specialist (linked), and a marker-named
 // eForm in the clinic's eForm library (status 1). Cleanup deletes the eForm and its saved copy, the request the
 // submission wrote, and the service and specialist, and asserts none remain. The eForm library is clinic-wide
-// (EXCLUSIVE).
+// (EXCLUSIVE), and so are the consultation service and specialist lists.
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
