@@ -638,8 +638,35 @@
                     prevDateInput.setCustomValidity('Date is required');
                     return false;
                 }
+                // The partial-date text box's pattern lets an impossible day such as 2019-02-31 through, which
+                // the server then refuses. Refuse it here with the box's own format hint, the text the browser
+                // shows for other input the pattern refuses. The message is cleared on the next edit, or it
+                // would block the corrected date's submit before this check runs again.
+                if (prevDateInput.type === 'text' && !isCalendarDate(prevDateInput.value)) {
+                    prevDateInput.setCustomValidity(prevDateInput.title);
+                    prevDateInput.addEventListener('input', function () {
+                        prevDateInput.setCustomValidity('');
+                    }, {once: true});
+                    prevDateInput.reportValidity();
+                    return false;
+                }
                 prevDateInput.setCustomValidity('');
                 return true;
+            }
+
+            // True unless the value is a yyyy-mm-dd day that the calendar does not have; yyyy and yyyy-mm are
+            // not checked here. setUTCFullYear keeps years below 100 as written, which Date.UTC would not.
+            function isCalendarDate(value) {
+                const fullDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+                if (!fullDate) {
+                    return true;
+                }
+                const year = Number(fullDate[1]);
+                const month = Number(fullDate[2]);
+                const day = Number(fullDate[3]);
+                const date = new Date(0);
+                date.setUTCFullYear(year, month - 1, day);
+                return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
             }
 
             <%
