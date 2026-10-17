@@ -135,8 +135,16 @@ public final class BcBillStaging {
     public static void save(HttpServletRequest request, BillingSessionBean bill) {
         Object key = request.getAttribute(KEY_ATTRIBUTE);
         HttpSession session = request.getSession(false);
-        if (session != null && key instanceof String k && isKey(k) && bills(session).containsKey(k)) {
-            store(session, k, bill);
+        if (session == null || !(key instanceof String k) || !isKey(k)) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            // Looked up and stored under one lock, with the session's own key: a bill another
+            // request dropped in the meantime stays dropped instead of coming back.
+            String held = heldKey(bills(session), k);
+            if (held != null) {
+                store(session, held, bill);
+            }
         }
     }
 
