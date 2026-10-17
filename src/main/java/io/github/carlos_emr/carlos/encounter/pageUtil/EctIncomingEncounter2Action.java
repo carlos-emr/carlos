@@ -275,8 +275,9 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
                     && CarlosProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
-                assignDefaultIssues(bean,
-                        (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID));
+                // assign default issues for a feature: WL: default issues assignment
+                String wlProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
+                assignDefaultIssues(bean, wlProgramId);
             }
 
         }
