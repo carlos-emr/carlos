@@ -107,10 +107,11 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
 Found while testing, outside this issue's readers:
 
 1. The notes service's new-note REST call (`POST /ws/rs/notes/{demographicNo}/getCurrentNote`)
-   answers 500 whenever it has to start a new note: `CaseManagementNote.isLinkTo()` looks up the
-   links of a note whose id is still null, and `JpqlQueryHelper` refuses the null parameter
-   (#4784). That happens before the visit type is read, so the visit-type fix is covered by unit
-   tests only. Not changed here.
+   answered 500 whenever it had to start a new note: `CaseManagementNote.isLinkTo()` looked up the
+   links of a note whose id was still null, and `JpqlQueryHelper` refuses the null parameter
+   (#4784). Fixed here: a note not saved yet has no links and is not looked up
+   (`NotesServiceNewNoteResponseUnitTest` builds the answer with the real `NoteDisplayLocal`), and
+   `chart-session-state-two-window-isolation` now drives the visit-type fix in two charts.
 2. The browser check's patient snapshot read `measurementsExt` with `IN (... UNION ...)`, which
    MariaDB 11.8 runs as a dependent subquery for every extension row: minutes against the
    demonstration data. A derived table returns the same rows in under a second.

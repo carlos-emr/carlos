@@ -16,6 +16,12 @@
  *      hands the filters to the next note list through the session; that handoff was login-wide,
  *      so B's list consumed A's filter and showed none of B's notes. The overlap is held open by
  *      delaying A's own note-list request in the browser.
+ *   3. A new note from the notes service (POST ws/rs/notes/{patient}/getCurrentNote, a REST
+ *      client of this login) for A's chart, entered as a face-to-face visit the way the day
+ *      sheet's E link enters it, and for B's, entered after it as its Master Record's E-Chart link
+ *      enters it, a telephone visit: each carries its own chart's visit type. It took the visit type of
+ *      the chart entered last in any window. A new note also answered HTTP 500 until #4784 was
+ *      fixed (an unsaved note's link lookup).
  *
  * Not driven, with the unit tests that cover them:
  *   - the text a history (CPP) item save remembers so that the patient's next such save replaces it
@@ -47,6 +53,9 @@ const B_FIRST_NAME = 'PatientBravo';
 // A catalog issue the issues-filter checks also use; the filter step links it to A's note.
 const ISSUE_CODE = 'CTCMM1000';
 const DX_CODE = '250';
+// The visit types the day sheet's E link and the Master Record's E-Chart link enter a chart with.
+const FACE_TO_FACE = 'face to face encounter with client';
+const TELEPHONE = 'telephone encounter with client';
 const q = h.sqlString;
 
 function key(value, what) {
@@ -151,6 +160,29 @@ async function reloadChart(s, chart, label) {
     const entry = s.recorder.requestFailures[i];
     if (entry.resourceType === 'ping' && /ERR_ABORTED/.test(entry.errorText || '')
         && new URL(entry.url).pathname.endsWith('/CaseManagementEntry')) {
+      s.recorder.requestFailures.splice(i, 1);
+    }
+  }
+}
+
+/**
+ * Enter a patient's chart again in its own window with the given visit type, the address the day
+ * sheet's E link opens (without an appointment). As for a reload, the replaced document's
+ * note-lock release beacon is excused.
+ */
+async function enterChart(s, chart, patient, encType, label) {
+  const mark = s.recorder.requestFailures.length;
+  const entry = new URLSearchParams({ providerNo: s.provider, appointmentNo: '', demographicNo: patient,
+    curProviderNo: s.provider, reason: '', encType, curDate: s.sql.value('SELECT CURDATE()'),
+    appointmentDate: '', startTime: '', status: '' });
+  await h.gotoApp(chart, s.config.baseUrl, `/encounter/IncomingEncounter?${entry}`);
+  await settle(chart, label);
+  await waitForNavbars(chart, TIMEOUT);
+  h.assert(new URL(chart.url()).searchParams.get('demographicNo') === patient, `${label} is another patient's chart`);
+  for (let i = s.recorder.requestFailures.length - 1; i >= mark; i--) {
+    const failure = s.recorder.requestFailures[i];
+    if (failure.resourceType === 'ping' && /ERR_ABORTED/.test(failure.errorText || '')
+        && new URL(failure.url).pathname.endsWith('/CaseManagementEntry')) {
       s.recorder.requestFailures.splice(i, 1);
     }
   }
@@ -336,6 +368,23 @@ async function filterHandoff(s, charts, A, B, notes) {
   });
 }
 
+async function newNoteVisitTypes(s, charts, A, B) {
+  await step(s, 'a new note from the notes service carries the visit type of its own patient\'s chart', async () => {
+    await enterChart(s, charts.A, A, FACE_TO_FACE, 'A\'s chart, entered as a face-to-face visit');
+    // Then B's, as its Master Record's E-Chart link enters it: the chart entered last.
+    await enterChart(s, charts.B, B, TELEPHONE, 'B\'s chart, entered as a telephone visit');
+    for (const [label, patient, chart, expected] of [['A', A, charts.A, FACE_TO_FACE], ['B', B, charts.B, TELEPHONE]]) {
+      const answer = await chart.request.post(`${s.config.baseUrl}/ws/rs/notes/${patient}/getCurrentNote`,
+        { data: { note_edit: 'new' } });
+      h.assert(answer.status() === 200, `A new note for ${label} answered HTTP ${answer.status()}`);
+      const note = await answer.json();
+      h.assert(note.noteId == null, `The new note for ${label} names a saved note`);
+      h.assert(note.encounterType === expected, `${label}'s new note has the visit type "${note.encounterType}", `
+        + `not that of ${label}'s chart${label === 'A' && note.encounterType === TELEPHONE ? ' (B\'s, the chart entered last)' : ''}`);
+    }
+  });
+}
+
 async function workflow(s) {
   const A = key(s.patient, 'patient');
   const B = createSecondPatient(s);
@@ -345,6 +394,7 @@ async function workflow(s) {
   await saveChartNotes(s, charts, notes);
   await patientlessRequests(s, A, B);
   await filterHandoff(s, charts, A, B, notes);
+  await newNoteVisitTypes(s, charts, A, B);
   await releaseChartLocks(s.context, s.config.baseUrl);
 }
 
