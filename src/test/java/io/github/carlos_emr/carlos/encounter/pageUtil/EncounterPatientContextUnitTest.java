@@ -217,6 +217,32 @@ class EncounterPatientContextUnitTest {
         assertThat(entry.currentDate).isNotNull();
     }
 
+    @Test
+    void shouldGiveEachChartItsOwnEntryProvider_whenAnotherChartWasEnteredLast() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EncounterPatientContext.rememberEncounter(request, metadata("123", "A", "700"));
+        // Chart B entered last in another window: the login-wide bean is B's.
+        EctSessionBean b = metadata("456", "B", "800");
+        EncounterPatientContext.rememberEncounter(request, b);
+        request.getSession().setAttribute("EctSessionBean", b);
+
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "123")).isEqualTo("A provider");
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "456")).isEqualTo("B provider");
+        // A chart this login has not entered, or no chart at all: the logged-in provider.
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "789")).isEqualTo("999998");
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), null)).isEqualTo("999998");
+    }
+
+    @Test
+    void shouldUseTheLoggedInProvider_whenTheChartsEntryNamesNone() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        EctSessionBean entry = metadata("123", "A", "700");
+        entry.providerNo = "";
+        EncounterPatientContext.rememberEncounter(request, entry);
+
+        assertThat(EncounterPatientContext.entryProvider(request, loggedIn("999998"), "123")).isEqualTo("999998");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"0", "-1", "abc"})
     void shouldRejectInvalidPatient_forEntryLookup(String invalid) {

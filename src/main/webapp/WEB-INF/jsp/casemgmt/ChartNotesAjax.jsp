@@ -146,7 +146,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     }
     boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
 
-    String provNo = ownChartBean ? bean.providerNo : loggedInInfo.getLoggedInProviderNo();
+    // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+    // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+    // was entered last, so taking it only when it was this chart's still changed the same chart's
+    // edit warnings with the order its windows were opened in (issue #4673).
+    String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
 
     String dateFormat = "dd-MMM-yyyy H:mm";
     String anotherDateFormat = "dd-MM-yyyy";

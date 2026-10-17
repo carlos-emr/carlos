@@ -63,14 +63,15 @@ class ChartNotesAjaxPatientIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should take entry metadata from the session bean only when it is this chart's patient")
+    @DisplayName("should take entry metadata only from this chart's own patient")
     void shouldUseSessionBean_onlyForTheChartsOwnPatient() throws IOException {
         String source = source();
 
         assertThat(source)
                 .contains("chartPatientNo = EncounterPatientContext.requireDemographicNo(request);")
                 .contains("boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);")
-                .contains("String provNo = ownChartBean ? bean.providerNo : loggedInInfo.getLoggedInProviderNo();")
+                .contains("String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);")
+                .doesNotContain("provNo = ownChartBean")
                 .doesNotContain("String provNo = bean.providerNo;");
     }
 

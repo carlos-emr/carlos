@@ -83,13 +83,14 @@ class ChartNotesPatientIsolationUnitTest {
     }
 
     @Test
-    @DisplayName("should use the login-wide bean only when it belongs to this chart's patient")
+    @DisplayName("should take entry metadata only from this chart's own patient")
     void shouldUseSessionBean_onlyForTheChartsOwnPatient() throws IOException {
         String source = source();
 
         assertThat(source)
                 .contains("boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);")
-                .contains("String provNo = ownChartBean ? bean.providerNo : loggedInInfo.getLoggedInProviderNo();")
+                .contains("String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);")
+                .doesNotContain("provNo = ownChartBean")
                 .contains("if (!ownChartBean || bean.source == null) {")
                 .doesNotContain("bean.demographicNo%>");
     }

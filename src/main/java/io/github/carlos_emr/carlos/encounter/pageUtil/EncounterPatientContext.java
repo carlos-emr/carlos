@@ -92,6 +92,21 @@ public final class EncounterPatientContext {
     }
 
     /**
+     * The provider this patient's chart was entered for in this login, or the logged-in provider
+     * when this login has not entered it (or {@code demographicNo} is null). The notes pages compare
+     * unsigned notes' authors with it. Never the provider of another chart's entry: the login-wide
+     * bean's is whichever chart was entered last (issue #4673).
+     *
+     * @throws IllegalArgumentException if {@code demographicNo} is given but not a valid patient ID
+     */
+    public static String entryProvider(HttpServletRequest request, LoggedInInfo loggedInInfo, String demographicNo) {
+        EctSessionBean entry = demographicNo == null ? null : findEncounter(request, demographicNo);
+        return entry != null && entry.providerNo != null && !entry.providerNo.isEmpty()
+                ? entry.providerNo
+                : loggedInInfo.getLoggedInProviderNo();
+    }
+
+    /**
      * The appointment this patient was last opened for from the day sheet in this login, provided
      * that appointment still exists and is still this patient's; otherwise null.
      *
