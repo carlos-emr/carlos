@@ -25,6 +25,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -51,9 +55,15 @@ class GroupAccessControlUpdaterRegressionTest {
     @DisplayName("should record the signed-in provider as each saved restriction's last updater")
     void shouldRecordSignedInProvider_asLastUpdater() throws IOException {
         String page = Files.readString(PAGE, StandardCharsets.UTF_8);
-        assertThat(page).contains("String providerNo = loggedInInfo.getLoggedInProviderNo();");
-        assertThat(page).contains("mgra.setProviderNo(providerNoTemp);");
-        assertThat(page).contains("mgra.setLastUpdateUser(providerNo);");
-        assertThat(page).doesNotContain("setLastUpdateUser(providerNoTemp)");
+        assertThat(page).containsPattern("String\\s+providerNo\\s*=\\s*loggedInInfo\\.getLoggedInProviderNo\\(\\)\\s*;");
+        assertThat(page).containsPattern("mgra\\.setProviderNo\\(\\s*providerNoTemp\\s*\\)");
+
+        // Every updater call on the page, not only one line, so a later wrong call cannot slip past.
+        List<String> updaters = new ArrayList<>();
+        Matcher call = Pattern.compile("setLastUpdateUser\\(([^)]*)\\)").matcher(page);
+        while (call.find()) {
+            updaters.add(call.group(1).trim());
+        }
+        assertThat(updaters).isNotEmpty().allMatch("providerNo"::equals);
     }
 }
