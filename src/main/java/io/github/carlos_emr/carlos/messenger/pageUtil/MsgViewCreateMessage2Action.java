@@ -71,8 +71,9 @@ public final class MsgViewCreateMessage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // The document-transfer step redirects here with the key its items are staged under, so
-        // this compose window sends them (issue #4673). Any other visit starts a new message.
+        // The document-transfer step redirects here, and a message view's Compose link points
+        // here, with the key the items to send are staged under, so this compose window sends them
+        // (issue #4673). Any other visit starts a new message.
         String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
         if (MsgAttachmentStaging.isKey(attachmentKey)) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, attachmentKey);

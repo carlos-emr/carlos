@@ -303,6 +303,31 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should refuse once, then send without them, when the session released this window's attachments")
+        void shouldRefuseOnceThenSendWithoutThem_whenTheSessionReleasedThisWindowsAttachments() throws Exception {
+            // Attachments staged in enough other windows push this window's out of the session.
+            for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+                MsgAttachmentStaging.stageItems(getMockSession(), MsgAttachmentStaging.newKey(), "<root/>");
+            }
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError")).contains("attachments were released");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("101");
+
+            // The user has been told; sending again goes out without them.
+            assertThat(send()).isEqualTo("success");
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isNull();
+            assertThat(sentItems.get()).isNull();
+        }
+
+        @Test
         @DisplayName("should put the attachments back when there is no valid recipient")
         void shouldKeepAttachments_whenNoValidRecipients() throws Exception {
             noRecipients = true;

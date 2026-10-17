@@ -77,11 +77,14 @@
     - user: Current username
 
     Attachments (issue #4673):
-    - Each render carries its own random attachmentKey in the form, in the attachment chooser
-      it opens and in its Clear link; the chooser stages chart PDFs under that key with the
-      patient they were rendered for (MsgAttachmentStaging), and the send takes exactly that
-      entry. A failed send hands the key back as a request attribute so the page keeps its
-      attachments. Another compose window, for the same or another patient, never sees them.
+    - Each render carries its own attachmentKey in the form, in the attachment chooser it opens
+      and in its Clear link; the chooser stages chart PDFs under that key with the patient they
+      were rendered for (MsgAttachmentStaging), and the send takes exactly that entry. A failed
+      send hands the key back as a request attribute so the page keeps its attachments. A reply
+      or forward, and a message view's Compose link, hand over that message's forwarding key, so
+      the chart items saved from the message's Attachment window go with it. Any other render
+      gets a new random key. Another compose window, for the same or another patient, never sees
+      this one's attachments.
 
     @since 2002-11-08
 --%>
@@ -171,8 +174,9 @@
 
     // This compose window's own key: its form, its attachment chooser and its Clear link carry it,
     // and the send takes exactly the attachments staged under it (issue #4673). A send that failed
-    // hands its key back so the attachments stay with this window; every other render starts a
-    // new message with a new key.
+    // hands its key back so the attachments stay with this window, and a reply, forward or a
+    // message view's Compose link hands over that message's forwarding key; every other render
+    // starts a new message with a new key.
     String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
     if (!MsgAttachmentStaging.isKey(attachmentKey)) {
         attachmentKey = MsgAttachmentStaging.newKey();

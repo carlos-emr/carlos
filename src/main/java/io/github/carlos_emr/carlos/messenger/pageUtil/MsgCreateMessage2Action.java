@@ -73,8 +73,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * once. They used to come from the login-wide {@link MsgSessionBean}, so with two compose windows
  * open the message sent from one carried the chart PDFs attached in the other, for another patient
  * (issue #4673). Chart PDFs are refused on a message linked to a patient other than the one they
- * were rendered for. When the message does not go out, the attachments are put back and the
- * compose page is shown again with the error and what was written.</p>
+ * were rendered for, and a message whose attachments the session released while its window was
+ * open is refused once rather than sent without them. When the message does not go out, the
+ * attachments are put back and the compose page is shown again with the error and what was
+ * written.</p>
  * 
  * @version 2.0 Struts2 migration
  * @since 2003-07-21
@@ -162,6 +164,17 @@ public class MsgCreateMessage2Action extends ActionSupport {
             }
             // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
             int parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+
+            // The session keeps a few compose windows' attachments, and staging in other windows
+            // released this one's while it was open. Its page may show them, so the message is not
+            // sent without them unannounced: the first send is refused with the reason, and sending
+            // again goes out without them.
+            if (staged == null && MsgAttachmentStaging.claimDropped(session, attachmentKey)) {
+                MiscUtils.getLogger().warn("Refused a message whose attachments were released before it was sent");
+                return redisplay(session, null, "This message was not sent: its attachments were released because"
+                        + " attachments were being prepared in too many other windows at once. Attach them again,"
+                        + " or send the message again without them.", parsedDemoNo);
+            }
 
             // Chart PDFs go only on a message linked to the patient they were rendered for: the
             // linked patient can be changed or cleared after attaching.

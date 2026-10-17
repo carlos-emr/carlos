@@ -407,8 +407,9 @@
                     type="hidden" name="xmlDoc"
                     value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
                     type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
-            <%-- The key of the message view this window was opened from; the items are staged for
-                 the compose page its Compose link opens (issue #4673). --%>
+            <%-- The forwarding key of the message this window was opened from; the items are
+                 staged for the compose page its view's Compose link, Reply, Reply All or Forward
+                 opens (issue #4673). --%>
             <input type="hidden" name="attachmentKey"
                    value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)) %>"/>
 

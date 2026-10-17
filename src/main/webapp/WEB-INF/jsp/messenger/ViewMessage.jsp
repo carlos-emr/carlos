@@ -114,11 +114,16 @@
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
     }
-    // This view's own key for forwarding the message's chart items: its Attachment window stages
-    // the items ticked under "Save Attachments" under it, and its Compose link opens the compose
-    // page that sends them. They used to wait on the login-wide messenger bean, where the next
-    // message sent from any compose window, for any patient, took them (issue #4673).
-    String forwardKey = MsgAttachmentStaging.newKey();
+    // This message's key for forwarding its chart items: its Attachment window stages the items
+    // ticked under "Save Attachments" under it, and the compose page that its Compose link, Reply,
+    // Reply All or Forward opens sends them. The key is the same on every view of this message in
+    // this login, so showing the view again (linking a patient does) keeps what was saved. The
+    // items used to wait on the login-wide messenger bean, where the next message sent from any
+    // compose window, for any patient, took them (issue #4673).
+    int viewedMessageId = ConversionUtils.fromIntString((String) request.getAttribute("viewMessageId"));
+    String forwardKey = viewedMessageId > 0
+            ? MsgAttachmentStaging.forwardKey(session, viewedMessageId)
+            : MsgAttachmentStaging.newKey();
 %>
 <!DOCTYPE html>
 <html>

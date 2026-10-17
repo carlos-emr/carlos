@@ -160,6 +160,62 @@ class MsgAttachmentStagingUnitTest {
     }
 
     @Test
+    void shouldTellTheWindowOnce_whenTheCapDroppedItsAttachments() {
+        String dropped = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, dropped, 101, "<PDF>A</PDF>");
+        String kept = null;
+        for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            kept = MsgAttachmentStaging.newKey();
+            MsgAttachmentStaging.stageItems(session, kept, "<root/>");
+        }
+
+        assertThat(MsgAttachmentStaging.take(session, dropped)).isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, dropped)).isTrue();
+        // Told once: the next send from that window goes out without them.
+        assertThat(MsgAttachmentStaging.claimDropped(session, dropped)).isFalse();
+        assertThat(MsgAttachmentStaging.claimDropped(session, kept)).isFalse();
+        assertThat(MsgAttachmentStaging.claimDropped(session, MsgAttachmentStaging.newKey())).isFalse();
+        assertThat(MsgAttachmentStaging.claimDropped(session, "malformed")).isFalse();
+    }
+
+    @Test
+    void shouldForgetTheDrop_whenTheWindowStagesAgainOrIsCleared() {
+        String restaged = MsgAttachmentStaging.newKey();
+        String cleared = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, restaged, 101, "<PDF>A</PDF>");
+        MsgAttachmentStaging.stagePdfs(session, cleared, 102, "<PDF>B</PDF>");
+        for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            MsgAttachmentStaging.stageItems(session, MsgAttachmentStaging.newKey(), "<root/>");
+        }
+
+        MsgAttachmentStaging.stagePdfs(session, restaged, 101, "<PDF>A again</PDF>");
+        MsgAttachmentStaging.discard(session, cleared);
+
+        assertThat(MsgAttachmentStaging.claimDropped(session, restaged)).isFalse();
+        assertThat(MsgAttachmentStaging.peek(session, restaged).pdfAttachment()).isEqualTo("<PDF>A again</PDF>");
+        assertThat(MsgAttachmentStaging.claimDropped(session, cleared)).isFalse();
+    }
+
+    @Test
+    void shouldGiveEveryViewOfAMessageTheSameKey_whenForwardingIt() {
+        String forwardKey = MsgAttachmentStaging.forwardKey(session, 77);
+
+        assertThat(MsgAttachmentStaging.isKey(forwardKey)).isTrue();
+        // A second render of the same message (a reload, or linking a patient) keeps the key.
+        assertThat(MsgAttachmentStaging.forwardKey(session, 77)).isEqualTo(forwardKey);
+        assertThat(MsgAttachmentStaging.forwardKey(session, 78)).isNotEqualTo(forwardKey);
+        // Derived from the session's own secret: another login cannot predict it.
+        assertThat(MsgAttachmentStaging.forwardKey(new MockHttpSession(), 77)).isNotEqualTo(forwardKey);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void shouldRefuseMessageId_whenNotPositive(int messageId) {
+        assertThatThrownBy(() -> MsgAttachmentStaging.forwardKey(session, messageId))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void shouldReplaceTheSessionValue_whenStaging() {
         String window = MsgAttachmentStaging.newKey();

@@ -47,10 +47,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Base64-encoded XML, filters the attachment list to the user's selection,
  * stages it for forwarding and redirects to the demographic search page.
  * <p>
- * The selection is staged under the key of the message view the attachment
+ * The selection is staged under the forwarding key of the message the attachment
  * window was opened from ({@code attachmentKey}, see
- * {@link MsgAttachmentStaging}); that view's Compose link opens the compose page
- * that sends the items. It used to be kept on the login-wide
+ * {@link MsgAttachmentStaging#forwardKey}); the compose page that the message
+ * view's Compose link, Reply, Reply All or Forward opens sends the items. It used
+ * to be kept on the login-wide
  * {@link MsgSessionBean}, so the next message sent from any compose window, for
  * any patient, carried them (issue #4673).
  * <p>

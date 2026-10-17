@@ -22,13 +22,23 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -47,11 +57,18 @@ import org.springframework.web.util.WebUtils;
  * exactly that entry. A missing, malformed, already-sent or dropped key yields nothing, never
  * another window's attachments.</p>
  *
+ * <p>A message view forwards its message's chart items under a key of its own,
+ * {@link #forwardKey}: the same on every view of that message in the session, so the items saved
+ * from its Attachment window reach the compose page its Compose link, Reply, Reply All or Forward
+ * opens, even after the view is shown again.</p>
+ *
  * <p>Chart PDFs are staged with the patient they were rendered for, and the send refuses to put
  * them on a message linked to anyone else. The session holds at most {@value #MAX_ENTRIES}
- * entries, since they carry whole PDFs; staging for another window drops the oldest, whose window
- * then sends without attachments. As in {@code EmailAttachmentStaging}, the map in the session is
- * replaced, never changed in place, and every change happens under the session mutex.</p>
+ * entries, since they carry whole PDFs; staging for another window drops the oldest. The dropped
+ * key is remembered ({@link #claimDropped}), so that window's send is refused once with an
+ * explanation instead of going out without the attachments its page showed. As in
+ * {@code EmailAttachmentStaging}, the values in the session are replaced, never changed in place,
+ * and every change happens under the session mutex.</p>
  *
  * @since 2026-10-16
  */
@@ -68,7 +85,20 @@ public final class MsgAttachmentStaging {
 
     private static final String ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".entries";
 
-    /** 16 random bytes, URL-safe Base64 without padding. */
+    /** Keys whose entries the cap dropped, until their window is told or stages again. */
+    private static final String DROPPED_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".dropped";
+
+    /** Dropped keys remembered; past this, the oldest is forgotten. */
+    private static final int DROPPED_MEMORY = 4 * MAX_ENTRIES;
+
+    /** The session's random secret from which {@link #forwardKey} derives each message's key. */
+    private static final String FORWARD_SECRET_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".forwardSecret";
+
+    private static final String FORWARD_KEY_ALGORITHM = "HmacSHA256";
+
+    /** Key length in bytes: 16, URL-safe Base64 without padding. */
+    private static final int KEY_BYTES = 16;
+
     private static final Pattern KEY = Pattern.compile("[A-Za-z0-9_-]{22}");
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -100,9 +130,34 @@ public final class MsgAttachmentStaging {
 
     /** @return a new random key for a compose window */
     public static String newKey() {
-        byte[] bytes = new byte[16];
+        byte[] bytes = new byte[KEY_BYTES];
         RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * The key under which the views of message {@code messageId} stage its chart items for
+     * forwarding. It is the same on every view of that message in this session, so the items
+     * saved from a view's Attachment window reach the compose page that the view's Compose link,
+     * Reply, Reply All or Forward opens, and survive the view being shown again (linking a patient
+     * shows it again). It is derived from a random secret kept in the session, so it cannot be
+     * predicted from the message id and differs from one login to the next.
+     *
+     * @throws IllegalArgumentException if {@code messageId} is not positive
+     */
+    public static String forwardKey(HttpSession session, int messageId) {
+        if (messageId <= 0) {
+            throw new IllegalArgumentException("Invalid message id");
+        }
+        try {
+            Mac mac = Mac.getInstance(FORWARD_KEY_ALGORITHM);
+            mac.init(new SecretKeySpec(forwardSecret(session), FORWARD_KEY_ALGORITHM));
+            byte[] digest = mac.doFinal(("forward:" + messageId).getBytes(StandardCharsets.US_ASCII));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, KEY_BYTES));
+        } catch (GeneralSecurityException unavailable) {
+            // HmacSHA256 is one of the algorithms every Java platform must provide.
+            throw new IllegalStateException(FORWARD_KEY_ALGORITHM + " is unavailable", unavailable);
+        }
     }
 
     /** @return whether {@code key} has the shape of a compose key; says nothing about what is staged */
@@ -187,9 +242,34 @@ public final class MsgAttachmentStaging {
         }
     }
 
-    /** Drops what the window with {@code key} has attached; a malformed key changes nothing. */
+    /**
+     * Drops what the window with {@code key} has attached, and forgets that the cap dropped it
+     * earlier; a malformed key changes nothing.
+     */
     public static void discard(HttpSession session, String key) {
         take(session, key);
+        claimDropped(session, key);
+    }
+
+    /**
+     * Whether the cap ({@value #MAX_ENTRIES} windows) dropped what the window with {@code key}
+     * had attached, with nothing staged under the key since. Answers true once: the send that is
+     * refused for it tells the user, and the next send from that window goes out without them.
+     */
+    public static boolean claimDropped(HttpSession session, String key) {
+        if (session == null || !isKey(key)) {
+            return false;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Set<String> dropped = dropped(session);
+            if (!dropped.contains(key)) {
+                return false;
+            }
+            LinkedHashSet<String> next = new LinkedHashSet<>(dropped);
+            next.remove(key);
+            publishDropped(session, next);
+            return true;
+        }
     }
 
     private static void requireKey(String key) {
@@ -198,19 +278,44 @@ public final class MsgAttachmentStaging {
         }
     }
 
-    /** Stores {@code staged} as the newest entry, or removes the key when it holds nothing. */
+    /**
+     * Stores {@code staged} as the newest entry, or removes the key when it holds nothing, and
+     * remembers the keys the cap drops to make room.
+     */
     private static void put(HttpSession session, String key, Staged staged) {
         LinkedHashMap<String, Staged> next = new LinkedHashMap<>(entries(session));
         next.remove(key);
+        List<String> evicted = new ArrayList<>();
         if (!staged.isEmpty()) {
             next.put(key, staged);
             Iterator<String> oldest = next.keySet().iterator();
             while (next.size() > MAX_ENTRIES) {
-                oldest.next();
+                evicted.add(oldest.next());
                 oldest.remove();
             }
         }
         publish(session, next);
+        rememberDropped(session, key, evicted);
+    }
+
+    /**
+     * Adds the keys just {@code evicted} to the dropped ones, and forgets {@code restaged}, whose
+     * window has just staged (or cleared) its attachments itself.
+     */
+    private static void rememberDropped(HttpSession session, String restaged, List<String> evicted) {
+        Set<String> dropped = dropped(session);
+        if (evicted.isEmpty() && !dropped.contains(restaged)) {
+            return;
+        }
+        LinkedHashSet<String> next = new LinkedHashSet<>(dropped);
+        next.remove(restaged);
+        next.addAll(evicted);
+        Iterator<String> oldest = next.iterator();
+        while (next.size() > DROPPED_MEMORY) {
+            oldest.next();
+            oldest.remove();
+        }
+        publishDropped(session, next);
     }
 
     @SuppressWarnings("unchecked")
@@ -225,6 +330,33 @@ public final class MsgAttachmentStaging {
             session.removeAttribute(ATTRIBUTE);
         } else {
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Set<String> dropped(HttpSession session) {
+        Object value = session.getAttribute(DROPPED_ATTRIBUTE);
+        return value instanceof Set<?> set ? (Set<String>) set : Set.of();
+    }
+
+    private static void publishDropped(HttpSession session, LinkedHashSet<String> next) {
+        if (next.isEmpty()) {
+            session.removeAttribute(DROPPED_ATTRIBUTE);
+        } else {
+            session.setAttribute(DROPPED_ATTRIBUTE, Collections.unmodifiableSet(next));
+        }
+    }
+
+    /** The session's forwarding secret, made on first use. */
+    private static byte[] forwardSecret(HttpSession session) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (session.getAttribute(FORWARD_SECRET_ATTRIBUTE) instanceof String encoded) {
+                return Base64.getDecoder().decode(encoded);
+            }
+            byte[] secret = new byte[32];
+            RANDOM.nextBytes(secret);
+            session.setAttribute(FORWARD_SECRET_ATTRIBUTE, Base64.getEncoder().encodeToString(secret));
+            return secret;
         }
     }
 }
