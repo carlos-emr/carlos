@@ -15,7 +15,7 @@ patient's record or from that patient's own remembered entry (`findEncounter`/`e
 | `encounterPrint.jsp`, `echarthistoryprint.jsp` | printed the bean; the history print overwrote the bean | request-owned bean for the request's patient, patient-level access, encoded output |
 | `TimeOut.jsp`, `concurrencyError.jsp` | refresh decision and recovered text from the bean | from the save's own request |
 | Immunization schedule (`Schedule.jsp`, `ScheduleConfig.jsp`, `ScheduleEdit.jsp`, save/delete/template actions) | fell back to the bean's patient; delete/restore posted `demoNo`, which the redisplay never read; provider from the bean | request patient only (400 otherwise), access to the patient's record on the pages (`isAllowedAccessToPatientRecord`, as the prints check it) and patient-level write checks in the actions, logged-in provider |
-| `ChartNotesAjax.jsp` | provider, pending message and its clearing from the bean | only when the bean is this chart's |
+| `ChartNotes.jsp`, `ChartNotesAjax.jsp` | the entry provider (unsigned notes' edit warnings, the page's `providerNo`), the pending message and its clearing from the bean | the entry provider from this patient's own remembered entry, or the logged-in provider when this login has not entered the chart; the pending message only when the bean is this chart's |
 | Legacy navigation (`casemgmt/navigation.jsp`) | links from a session-wide copy of the bean; its messenger list named the session-wide `casemgmt_msgBeans` as a literal string, so every rendering stopped there with a 500 | links from the request's patient and entry; the messenger list shows that patient's own messages (with `_msg` read), encoded |
 | `messenger/generatePreviewPDF.jsp` (writer) | replaced the bean with a bare one | no longer touches it |
 
@@ -82,10 +82,11 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
   logged-in provider's own unsigned notes editable after the other chart was entered from another
   provider's day sheet. The notes list compares each unsigned note's author with this chart's own
   entry provider (the patient's remembered entry, or the logged-in provider when this login has not
-  entered the chart), which it used to take from the bean. The notes service has no browser step
-  (see 1 below).
-- **`legacy-encounter-editor-isolation`** drives the editor itself, opened from the day sheet in two
-  windows, with `caisi=on`: both Saves, Print, the stale editor's 409 concurrency page, Sign & Save
+  entered the chart), which it used to take from the bean. `chart-session-state-two-window-isolation`
+  drives the notes service's visit type (see 1 below).
+- **`legacy-encounter-editor-isolation`** drives the editor itself, with `caisi=on`, in two windows
+  that the day sheet's window opens at the editor's hand-built entry address (nothing links there;
+  opened from the day sheet's window, Sign & Save refreshes it): both Saves, Print, the stale editor's 409 concurrency page, Sign & Save
   (which closes the window and refreshes the day sheet), an editor that keeps its own visit through
   a Save after its patient was entered again from another visit, so that its Sign signs that visit,
   and a double-clicked Save, which posts the editor once (its buttons submit once per rendering)
@@ -217,23 +218,25 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   message without them; a BC bill window left open while eight other bills were opened answered
   Continue with a bare 400, and Go Back after changing the billing form showed the codes of the
   form the bill was opened with; Print PDF printed the dates in the fields rather than the
-  statement on screen, and answered a database failure with 400; a double click on the legacy
-  editor's Sign & Save ended on the concurrency page; the legacy save of an editor without an
+  statement on screen, and answered a database failure with 400; a double click on a legacy
+  editor button that saves (Save, Sign & Save) posted the editor twice, and the second post ended
+  on the concurrency page; the legacy save of an editor without an
   appointment kept the visit date of another window's entry, which Sign, Save and Bill put on the
   bill; Update Invoice accepted a bill number its receipt view refuses.
 - **Not driven in a browser:** see the coverage round below.
 
 ### Coverage round: every changed area driven in a browser
 
-After the final review, every behaviour this PR changes was mapped to a browser check. Each gap was
-then closed with a new check or step, run on this branch and, as a negative control, against
-`release/2026.08` or against this branch before the fix. Every run's cleanup asserted every owned
-row removed.
+After the final review, every behaviour this PR changes was mapped to a browser check. The gaps a
+page or its own request reaches were closed with a new check or step, run on this branch and, as a
+negative control, against `release/2026.08` or against this branch before the fix; the rest are
+listed at the end of this section with the reason. Every run's cleanup asserted every owned row
+removed.
 
 | Check (new or extended) | What it drives | Negative control |
 |---|---|---|
 | `chart-session-state-two-window-isolation` (new) | Chart note list and search requests with no patient, a malformed one or two different ones are refused (400); a Disease Registry add by GET is refused (405), naming a patient or not, and writes nothing. An issue filter applied in A's chart is not applied to B's note list, which loads first. A new note from the notes service (`POST ws/rs/notes/{patient}/getCurrentNote`) for A's chart, entered as a face-to-face visit, and for B's, entered after it as a telephone visit, carries its own chart's visit type. | On `release/2026.08`, `viewNotesOpt` with no patient answers 200; B's list consumes A's filter and lists none of B's notes; both new notes answer 500 (#4784), and with only that fixed, A's new note takes B's telephone visit type. |
-| `session-state-two-window-isolation` (three steps added) | Clear New Message in A's compose window leaves B's window's attachments in place. A transfer post (`PostItems`) adds its items to the compose window that posted them, not to another window opened before it. Reply, Forward and Compose opened from one message in three windows each start with the items saved for it, and the patient PDF attached in the reply goes out with the reply only. | On `release/2026.08`, clearing A's window leaves B's message with none of its PDFs, and B's message carries the transfer's items. On this branch before the last fix, the forward carries the PDF attached in the reply's window. |
+| `session-state-two-window-isolation` (three steps added) | Clear New Message in A's compose window leaves B's window's attachments in place. A transfer post (`PostItems`) opens a compose window of its own, under a new key, in the window that posted it, with the posted items; a compose window opened before it sends none of them. Reply, Forward and Compose opened from one message in three windows each start with the items saved for it, and the patient PDF attached in the reply goes out with the reply only. | On `release/2026.08`, clearing A's window leaves B's message with none of its PDFs, and B's message carries the transfer's items. On this branch before the last fix, the forward carries the PDF attached in the reply's window. |
 | `echart-two-patient-isolation` (step extended) | The immunization dose window, opened after the other chart was entered, names its own patient and the logged-in provider. | With the previous `ScheduleEdit.jsp`, A's dose window names the other patient. |
 | `pmm-attach-note-two-window-isolation` (new) | A's and B's charts each save a note and open the PMM Attach popup, B's last; each popup's client search for C attaches its own chart's note, so C gets one copy of each. | With only the popup's search form repaired, A's popup attaches B's note. |
 | `rx-drug-pick-patient-isolation` (new, DrugRef) | A drug picked from the Rx search box is staged and saved for the page's own patient, on `rx/choosePatient` and on `rx/prescribing`, after another window showed B's allergies. | The prescribing page stages the pick for B. |
@@ -289,10 +292,30 @@ duplicate guard).
   calls it; it now takes a POST with `_dxresearch` write for the patient and access to the record.
 - **The PMM attach popup** rendered its messages above the doctype, which put the page in quirks
   mode, and its result table's paging links repeated the search form's CSRF token in their URLs.
-- **Two compose windows' attachment choosers shared one window name,** so the second took over the
-  first one's window, which then refreshed the wrong compose window when its PDFs were attached.
+- **Two compose windows' attachment choosers shared one window name,** so opening the second took
+  over the first one's chooser window, and the first compose window's chooser was gone.
 - **A BC bill step checked that its bill was still open outside the session lock,** so a bill
   dropped in the meantime could come back.
+- **The PMM attach copied a note on a GET, as the source note's newest revision.** Reachable once
+  the popup's search worked, `IncomingEncounter?PEAttach=yes` wrote the copy on a GET, which
+  CSRFGuard does not check, with only `_demographic` read, into any chart named by `selectId`, and
+  kept the source note's uuid, appointment and issue links. The copy thus became the source note's
+  newest revision, and the source chart's next save of that note was refused (403). The attach now
+  takes a POST that names the chart it opens as its client, needs `_casemgmt.notes` read for the
+  note's patient and write for the client, and writes a new note of the client's (new uuid, no
+  appointment or issues). A GET copies nothing.
+- **Sending did not release the chart items saved for a message,** so every later reply or forward
+  of it in the login attached them again; a send now releases them. A reply or forward opened after
+  the session had released them is refused once with the reason, like a window whose own
+  attachments were released.
+- **The PMM attach popup's Status filter was never applied:** its select was named `active`, and the
+  search reads `criteria.active`, so discharged clients were listed whatever was chosen.
+- **A BC WCB Continue billed whatever WCB form was posted,** so a crafted post could bill another
+  patient's WCB report for this patient. It bills only the bill's own patient's WCB form now, and
+  answers anything else with 400.
+- **SonarCloud's reliability gate** failed on the attach popup, which this change made a whole page
+  (no `lang`, search fields without labels, `<font>` hints); it now has labels, the request's
+  language as its `lang`, and `<small>` hints.
 
 **Found, not fixed here (filed):**
 - The WCB form page cannot be opened at all (#4864). The WCB step therefore bills against a WCB
@@ -304,18 +327,56 @@ duplicate guard).
   `messenger/ViewMessageByPosition` forward hands the message view no message id, so it shows the
   inbox (on `release/2026.08` too).
 
+### Second coverage round
+
+An audit of the first round listed what was still driven only by unit tests, or not at all. Each
+item now has a browser step, run on this branch and, as a negative control, against
+`release/2026.08` or against this branch with only the fix in question undone. Every run's cleanup
+asserted every owned row removed.
+
+| Check | Steps added | Negative control |
+|---|---|---|
+| `session-state-two-window-isolation` (14 steps) | Each message's PDF list downloads its own message's PDF, byte for byte, after another message's list was opened (#4473); a malformed index answers 400, an index or a message without a PDF 404. A chart PDF goes out only on a message linked to its own patient: linked to B, then to no one, the send is refused and the page keeps the subject, body and attachment; linked to A again, it goes out. The inbox and both patients' message lists, opened between attaching and sending, leave the compose window's PDF; each list shows only its own patient's messages, and a list naming no patient shows none. Two compose windows' attachment choosers, open at once, are two windows, each attaching to its own compose window. A compose window whose PDF was released for eight newer windows is refused once with the notice, then sends without it. The day sheet's visit store refuses a request without one valid appointment (400) or by GET (405). | On `release/2026.08`: A's list downloads B's PDF; the message linked to B is sent with A's PDF; opening the lists leaves B's message without its PDF; B's chooser takes over A's window; the day sheet's visit store answers 200 to each request naming no valid appointment (it refuses a GET with 405 there too). On this branch without the release notice, the compose window sends silently. |
+| `chart-session-state-two-window-isolation` (6 steps) | A Disease Registry add by POST, with B's chart entered last: refused (400) without one valid patient, filed for the patient it names. A notes service save without a note body saves nothing. Write to Encounter from B's message, with B's new chart holding its note list back: A's note list, loaded meanwhile, does not carry the message, and B's new note does. | On `release/2026.08` a registry add without a patient answers 500, not 400, and the save without a note answers 500. B's message list there offers no Write to Encounter; opened from the inbox instead, A's note list carries B's message in its page's script. |
+| `echart-two-patient-isolation` (43 steps) | The immunization schedule's Save, after the other chart was entered, writes the patient's next version by the logged-in provider; a Save, template add or set restore without one valid patient is refused (400) and writes nothing. A template made after a chart was entered from another provider's day sheet is the logged-in provider's. The legacy navigation lists only its own patient's messages. The notes panel, rendered again by a note save, names its own chart's entry provider after a chart was entered from another provider's day sheet. | On `release/2026.08` the immunization step stops at its first template add, which is not A's by the logged-in provider; a probe of its refused requests there adds the template, named for no patient or for A and B, to B's schedule, the chart entered last. The administration's template is stored as made by the provider of the chart entered last, the legacy navigation stops at its messenger list, and each notes panel names the logged-in provider rather than its chart's entry provider. |
+| `legacy-encounter-editor-isolation` (11 steps; 12 on BC) | Verify & Sign verifies only A's own appointment; Split Chart stores A's whole encounter as the split revision and continues A's chart from its end; Exit closes the editor and saves neither chart; on a BC install with CAISI, Sign, Save & Bill opens a bill of A's own visit. All pass on an Ontario and a BC build. | `release/2026.08`'s editor saves nothing (it posts to an address that does not exist). With this branch's editor and the old save action, Verify & Sign and Split Chart fail, and on BC Sign, Save & Bill writes B's chart and opens no bill ("Billing session expired."); Exit writes nothing with either action. |
+| `rx-preview-visit-site-isolation` | The print window's address list shows a clinic name with markup as written. | On `release/2026.08` the list writes the name into the page unencoded, so the name shows without its markup. |
+
+**Found by this round and fixed:**
+- **A message opened from a patient's message list never offered Write to Encounter,** on
+  `release/2026.08` too: the view compared the message's linked patients with a `demographic_no`
+  attribute that nothing set. Its button also posted the message id from a `messageID` attribute
+  that nothing set, so the chart it would have opened was an error page. The view action now names
+  the listing patient (digits only, for a view opened from a patient's list), the button posts the
+  message shown, and the view reads its mode (`from`) from its own request rather than the session,
+  where another window's view could change it (`MsgViewMessage2ActionUnitTest`).
+- The CI `tests` job had failed since the message view's Compose link changed, on an assertion that
+  still expected the old link (`ScheduleNavigationAssetRegressionTest`), and the i18n check refused
+  the attach popup's hard-coded `lang="en"`, which now follows the request's locale. SpotBugs flagged
+  the attach's redirect to the client's chart; it is the application's own route with a validated
+  patient number, suppressed at that one method with the reason.
+- In the checks: the legacy editor check read the editor's script before a redisplayed editor had
+  run it, and the new notes-panel step left the chart page naming the other provider for the steps
+  after it, until it saved a note again under the logged-in provider's entry. The Write to Encounter
+  step searched A's note list for the message as written, but the list writes it into a script,
+  JavaScript-encoded, which escapes the run marker's hyphen, so the search could not find it even on
+  `release/2026.08`. It now searches for a part the encoding leaves as written, and checks that B's
+  own page carries that part.
+
+**Checked, not changed:** the compose page's patient search popup also has one window name for every
+compose window. In Chromium a second search takes over the first popup, and a pick fills the
+compose window that opened the search last, so nothing crosses windows.
+
 **Still not driven in a browser,** with the reason:
-- the legacy encounter's Sign, Save and Bill into a BC bill: the CAISI editor on a BC install; the
-  forward is unit-tested;
 - the eChart text replacement and the draft-restore signal, in the chart check's header;
-- the Disease Registry add by POST: no page calls it; its refusals are driven and its write is
-  unit-tested;
 - the PMM client view (#4561);
-- the legacy chart navigation's message list: the current chart never shows that layout (#4811);
+- the legacy chart navigation in a page: the current chart never shows that layout (#4811); its
+  route is requested, with its message list;
 - the Messenger transfer page itself: it cannot render on any install (#4811); its post is driven;
 - the Rx stash-delete, delete and clear-pending results, which only AJAX calls or unlinked forms
   reach;
-- the `rx-fax-*` checks, which need a fax document directory and a provider stamp.
+- the `rx-fax-*` checks, which need a fax account fixture, a provider stamp and a fax document
+  directory. A fax takes its clinic address from the same address list as a print, which is driven.
 
 Left out deliberately, with locations: #4811. The dashboard's per-provider state shared across
 windows and users is noted on #3947.
