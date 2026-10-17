@@ -61,6 +61,12 @@ test('shouldFillInADay_withoutPartialDates', () => {
   assert.equal(reparse(page, '2019-05'), '2019-05-01');
 });
 
+test('shouldKeepTheTextBoxOnPhones_onlyWithPartialDates', () => {
+  // flatpickr's mobile mode swaps in a native date input, which cannot hold 2019 or 2019-05.
+  assert.equal(setUp({ partialDates: true }).options.disableMobile, true, 'a partial-date box keeps the text box on phones');
+  assert.equal(setUp({}).options.disableMobile, undefined, 'other pages keep flatpickr\'s mobile default');
+});
+
 test('shouldKeepAYearAsTyped_withPartialDates', () => {
   assert.equal(reparse(setUp({ partialDates: true }), '2019'), '2019');
 });

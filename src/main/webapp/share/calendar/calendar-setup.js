@@ -205,6 +205,9 @@ Calendar._doSetup = function (params) {
      * key, or a screen reader's activate, which sends only the click) forgets the typed text, so a day
      * picked there, even the first of a month, is written in full. */
     if (params.partialDates) {
+        // On a phone flatpickr replaces the box with a native <input type="date">, which cannot hold a
+        // year or a year and month; keep the text box there too.
+        fpOpts.disableMobile = true;
         var typedPartial = null;
         fpOpts.parseDate = function (dateStr, format) {
             var text = String(dateStr).trim();
