@@ -144,6 +144,8 @@
                 if (limit == null) limit = "10";
                 if (lastname == null) lastname = "%";
                 List<Billingreferral> alist = billingReferralDao.getBillingreferralByLastName(lastname);
+                // The DAO answers a search that matches nobody with null, not an empty list.
+                if (alist == null) alist = Collections.emptyList();
                 for (int i = 0; i < alist.size(); i++) {
                     Billingreferral billingReferral = alist.get(i);
             %>
@@ -169,22 +171,26 @@
         </table>
     </div>
     <script>
-        registerFormSubmit('referralDocform', 'dynamic-content');
+        // The Administration panel this page opens in defines registerFormSubmit and jQuery; opened on its own, the
+        // search form and the links work as plain page loads.
+        if (typeof registerFormSubmit === 'function') {
+            registerFormSubmit('referralDocform', 'dynamic-content');
 
-        $(document).ready(function ($) {
-            $("a.contentLink").on("click", function (e) {
-                e.preventDefault();
-                $("#dynamic-content").load($(this).attr("href"),
-                    function (response, status, xhr) {
-                        if (status == "error") {
-                            var msg = "Sorry but there was an error: ";
-                            $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+            $(document).ready(function ($) {
+                $("a.contentLink").on("click", function (e) {
+                    e.preventDefault();
+                    $("#dynamic-content").load($(this).attr("href"),
+                        function (response, status, xhr) {
+                            if (status == "error") {
+                                var msg = "Sorry but there was an error: ";
+                                $("#dynamic-content").html(msg + xhr.status + " " + xhr.statusText);
+                            }
                         }
-                    }
-                );
-            });
+                    );
+                });
 
-        });
+            });
+        }
     </script>
     </body>
 </html>

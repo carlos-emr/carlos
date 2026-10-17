@@ -93,6 +93,12 @@ public class AddReferralDoc2Action extends ActionSupport {
         } else {
             Billingreferral billingReferral = billingReferralDao.getById(Integer.parseInt(id));
             if (billingReferral != null) {
+                // Same rule as adding: a billing number belongs to one doctor. Keeping the doctor's own number is fine.
+                List<Billingreferral> holders = billingReferralDao.getBillingreferral(referral_no);
+                if (holders != null && holders.stream().anyMatch(holder -> !billingReferral.getBillingreferralNo().equals(holder.getBillingreferralNo()))) {
+                    request.setAttribute("Error", "Billing # already in use");
+                    return ERROR;
+                }
                 billingReferral.setReferralNo(referral_no);
                 billingReferral.setLastName(last_name);
                 billingReferral.setFirstName(first_name);
@@ -103,6 +109,7 @@ public class AddReferralDoc2Action extends ActionSupport {
                 billingReferral.setPostal(postal);
                 billingReferral.setPhone(phone);
                 billingReferral.setFax(fax);
+                billingReferral.setSpecialty(specialty);
                 billingReferralDao.updateBillingreferral(billingReferral);
             }
         }
