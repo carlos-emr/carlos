@@ -67,7 +67,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <link rel="stylesheet" href="billing.css">
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/billing/billing.css">
     <title>Teleplan Reconcilliation</title>
     <script language="JavaScript">
 
