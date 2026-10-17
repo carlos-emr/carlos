@@ -22,9 +22,11 @@ appt_date      : left, 375, 161, 0, BaseFont.HELVETICA, 8
 appt_type      : left, 375, 175, 0, BaseFont.HELVETICA, 8
 appt_reason      : left, 375, 187, 0, BaseFont.HELVETICA, 8
 
-allergies      : left, 32, 225, 0, BaseFont.HELVETICA, 8
+# allergies and encounter_notes print in full: what does not fit continues on extra pages (see ColumnContinuation).
+# allergies: one 8 pt line under its label, else two 7 pt lines (fallback=size/leading/top); list: break only between allergies.
+allergies      : left, 36, 215, 0, BaseFont.HELVETICA, 8, _, 576, 233, 10, continue=Allergies (continued), marker=\u2026 (continued on page {page}), patient=Patient Encounter Worksheet   {demo_name}   Pat ID: {demo_id}   DoB: {demo_bday}, fallback=7/8/214, list
 
-encounter_notes      : left, 32, 261, 0, BaseFont.HELVETICA, 8, _, 580, 630, 10
+encounter_notes      : left, 36, 261, 0, BaseFont.HELVETICA, 8, _, 576, 630, 10, continue=Encounter Notes (continued), marker=\u2026 (continued on page {page}), patient=Patient Encounter Worksheet   {demo_name}   Pat ID: {demo_id}   DoB: {demo_bday}
 
 diagnosis      : left, 97, 645, 0, BaseFont.HELVETICA, 8
 signature      : left, 97, 670, 0, BaseFont.HELVETICA, 8
