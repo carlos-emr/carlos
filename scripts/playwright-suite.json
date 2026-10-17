@@ -3966,6 +3966,9 @@
         "core"
       ],
       "assertsDatabase": true,
+      "mutates": [
+        "default_issue"
+      ],
       "provinces": [
         "all"
       ],
@@ -3973,8 +3976,8 @@
       "env": [
         "WL_DEFAULT_ISSUE"
       ],
-      "fixtures": "The synthetic patient (no notes) for the first-encounter step. default_issue's clinic-wide row is recorded first and restored exactly afterwards (re-inserted with its id if Remove deleted it); rows this run created are deleted and the restored table is compared with the recorded one.",
-      "notes": "Skips on the packaged default (caisi=off hides the CAISI group and its Default Encounter Issue link). With caisi=on and wl_default_issue off it fails at its last step: a code matches as a substring of any issue's code or description, so ICSW100 also assigns ICSW1000. Run with WL_DEFAULT_ISSUE=true when the server has wl_default_issue=true: it then fails at the first encounter, which answers HTTP 500 unless the session holds a program the login is assigned to."
+      "fixtures": "The synthetic patient (no notes) for the first-encounter step. default_issue holds one clinic-wide row: it is recorded first and restored exactly afterwards (re-inserted with its id if Remove deleted it); a row the page creates during the run is captured by id after each change and only those ids are deleted; the restored table is compared with the recorded one. default_issue is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Skips on the packaged default (caisi=off hides the CAISI group and its Default Encounter Issue link). With caisi=on and wl_default_issue off, its first-encounter step passes and shows the saved defaults are never applied (pending finding 391), and it fails at its last step: a code matches as a substring of any issue's code or description, so ICSW100 also assigns ICSW1000 (pending finding 393). Run with WL_DEFAULT_ISSUE=true when the server has wl_default_issue=true: it then fails at the first encounter, which answers HTTP 500 unless the session holds a program the login is assigned to (pending finding 392). No expectedFailure pin until those findings are in the log."
     },
     {
       "name": "security-password-length",

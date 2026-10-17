@@ -31,8 +31,10 @@
  *
  * Fixtures: the runWorkflow FAKE patient (its chart rows go with it). default_issue holds one
  * clinic-wide row; it is recorded first and restored exactly afterwards (re-inserted with its id
- * when Remove deleted it), any row this run created is deleted, and the restored table is
- * compared with the recorded one.
+ * when Remove deleted it). A row the page creates during the run (after Remove deletes the last
+ * one) is captured by id after each change, and only those ids are deleted. The restored table
+ * is then compared with the recorded one. default_issue is clinic-wide, so the check needs an
+ * exclusive run.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -95,10 +97,18 @@ async function workflow(s) {
     FROM default_issue ORDER BY assigned_time DESC, id DESC`)
     .map(([id, issueIds, savedBy, assigned, updated, fresh]) => ({ id, issueIds, savedBy, assigned, updated, fresh }));
   const recorded = read();
-  const recordedMaxId = Number(sql.value('SELECT COALESCE(MAX(id),0) FROM default_issue'));
+  const recordedIds = new Set(recorded.map(row => row.id));
+  // Ids of rows this run's own changes created: taken after each change, so cleanup deletes
+  // exactly those and never a row it did not create.
+  const created = new Set();
+  const track = () => read().forEach(row => { if (!recordedIds.has(row.id)) created.add(row.id); });
+  /** Runs a page action that can change default_issue, then captures any row it created. */
+  async function change(action) {
+    try { await action(); } finally { track(); }
+  }
   s.cleanup(() => {
     // Rows this run created first, then the recorded rows exactly as they were.
-    sql.execute(`DELETE FROM default_issue WHERE id > ${recordedMaxId}`);
+    for (const id of created) sql.execute(`DELETE FROM default_issue WHERE id=${Number(id)}`);
     for (const row of recorded) {
       const values = `${h.sqlString(row.issueIds)},${h.sqlString(row.savedBy)},${h.sqlString(row.assigned)},${h.sqlString(row.updated)}`;
       if (sql.value(`SELECT COUNT(*) FROM default_issue WHERE id=${row.id}`) === '1') {
@@ -136,7 +146,7 @@ async function workflow(s) {
   await s.step(`Save stores exactly the issues of ${ASSIGNED.join(', ')}, in place of the earlier list, as the test login`, async () => {
     await navigate(() => frame.getByRole('button', { name: 'Assign default issues' }).click());
     await frame.locator('#issuesNames').fill(ASSIGNED.join(', '));
-    await navigate(() => frame.getByRole('button', { name: 'Save' }).click());
+    await change(() => navigate(() => frame.getByRole('button', { name: 'Save' }).click()));
     const row = latest();
     h.assert(row && JSON.stringify(sorted(row.issueIds.split(','))) === JSON.stringify(ids(ASSIGNED)),
       `Save did not store exactly the issues of ${ASSIGNED.join(', ')} (stored ${row && row.issueIds})`);
@@ -154,10 +164,10 @@ async function workflow(s) {
     const before = latest();
     await navigate(() => frame.getByRole('button', { name: 'Assign default issues' }).click());
     await frame.locator('#issuesNames').fill('   ');
-    const dialogs = await h.withExpectedDialogs(admin, async () => {
+    const dialogs = await h.withExpectedDialogs(admin, () => change(async () => {
       await frame.getByRole('button', { name: 'Save' }).click();
       await frame.locator('#issuesNames').waitFor();
-    });
+    }));
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text === "Issues can't be empty!",
       `The empty Save was not refused with "Issues can't be empty!" (${JSON.stringify(dialogs.map(d => d.text))})`);
     h.assert(JSON.stringify(latest()) === JSON.stringify(before), 'The refused Save changed the defaults');
@@ -167,7 +177,7 @@ async function workflow(s) {
   await s.step(`Remove takes off ${REMOVED} only`, async () => {
     await navigate(() => frame.getByRole('button', { name: 'Remove default issues' }).click());
     await frame.locator('input[name="issueNames"]').fill(REMOVED);
-    await navigate(() => frame.getByRole('button', { name: 'Remove' }).click());
+    await change(() => navigate(() => frame.getByRole('button', { name: 'Remove' }).click()));
     const kept = ASSIGNED.filter(code => code !== REMOVED);
     const row = latest();
     h.assert(row && JSON.stringify(sorted(row.issueIds.split(','))) === JSON.stringify(ids(kept)),
@@ -197,7 +207,7 @@ async function workflow(s) {
   await s.step(`a code assigns that issue only: ${PREFIX_CODE} does not also assign ${PREFIX_OF}`, async () => {
     await navigate(() => frame.getByRole('button', { name: 'Assign default issues' }).click());
     await frame.locator('#issuesNames').fill(PREFIX_CODE);
-    await navigate(() => frame.getByRole('button', { name: 'Save' }).click());
+    await change(() => navigate(() => frame.getByRole('button', { name: 'Save' }).click()));
     const row = latest();
     h.assert(row && JSON.stringify(sorted(row.issueIds.split(','))) === JSON.stringify(ids([PREFIX_CODE])),
       `Saving ${PREFIX_CODE} stored ${row && row.issueIds}, not the one issue ${issues.get(PREFIX_CODE).id}`);
