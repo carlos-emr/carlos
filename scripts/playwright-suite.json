@@ -3515,6 +3515,26 @@
       "env": []
     },
     {
+      "name": "billing-bc-settle-paid-claims",
+      "script": "scripts/billing-bc-settle-paid-claims-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "billingmaster",
+        "billing_history",
+        "teleplanS00"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Settle Paid Claims: Submit settles every MSP claim paid an amount different from what was billed (explanation BG) that is still waiting on its balance. First committed coverage of this page. Because the action is clinic-wide, the check SKIPs when the database already holds a BG payment line, and before each Submit it asserts that its own FAKE claim is the only bill line in status E with a BG payment.",
+      "fixtures": "The owned FAKE- patient and one MSP bill on it: a billing row, its bill line (status E, $33.70) and a BG payment line paying $20.00 (filename = the run marker). Cleanup deletes those rows by id and marker plus the billing-history rows the page writes for that FAKE bill line. Submit acts on every qualifying claim in the clinic, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
