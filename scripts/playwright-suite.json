@@ -7083,7 +7083,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Expected to FAIL at its last section's first step, '\"1 months\" is stored and the chart shortens the old note to one line, keeping the recent one in full', while held finding 317 (provisional, not yet in app-findings-log.md) stands. The eChart loads its notes through CaseManagementView method=viewNotesOpt, which never passes cme_note_date to ChartNotesAjax.jsp, so the chart always applies the one-year default. The schedule navigation steps run before it. Pin expectedFailure { finding: <317's logged number>, step: that label } once the row is in app-findings-log.md; the manifest test refuses a finding the log does not hold.",
+      "notes": "Expected to FAIL at its last section's first step, '\"1 months\" is stored and the chart shortens the old note to one line, keeping the recent one in full', until the fix for issue #4818 (held finding 317), release fix PR #4820, reaches develop in the forward merge. The step then turns green; drop this note then. The eChart loads its notes through CaseManagementView method=viewNotesOpt, which never passes cme_note_date to ChartNotesAjax.jsp, so the chart always applies the one-year default. The schedule navigation steps run before it.",
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with the test provider's program rows, plus an owned FAKE- patient with two signed notes (7 days and 3 months old); the shared test provider's preferences are never touched. Cleanup removes the notes and eChart row, the throwaway's default-program row, then the throwaway with its property rows."
     },
     {
