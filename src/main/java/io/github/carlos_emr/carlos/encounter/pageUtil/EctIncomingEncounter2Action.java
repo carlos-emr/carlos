@@ -275,37 +275,8 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
                     && CarlosProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
-                // assign default issues for a feature: WL: default issues assignment
-                String wlProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
-                DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
-                IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
-                CaseManagementIssueDAO cmiDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
-                Set<Long> issueIdSet = getIssueIdSet(bean.getCurProviderNo(), wlProgramId);
-                String[] issueIds = defaultIssueDao.findAllDefaultIssueIds();
-                for (String id : issueIds) {
-                    Issue issue = issueDao.getIssue(Long.valueOf(id));
-                    // judge current provider can access this issue
-                    if (!issueIdSet.contains(Long.parseLong(id))) {
-                        continue;
-                    }
-
-                    // judge this issue exists or not
-                    CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), id);
-                    if (cmi != null) { // this issue exists
-                        continue;
-                    }
-                    cmi = new CaseManagementIssue();
-                    cmi.setAcute(false);
-                    cmi.setCertain(false);
-                    cmi.setDemographic_no(Integer.valueOf(bean.getDemographicNo()));
-                    cmi.setIssue_id(Long.valueOf(id));
-                    cmi.setMajor(false);
-                    cmi.setProgram_id(Integer.valueOf(wlProgramId));
-                    cmi.setResolved(false);
-                    cmi.setType(issue.getRole());
-                    cmi.setUpdate_date(new Date());
-                    cmiDao.saveIssue(cmi);
-                }
+                assignDefaultIssues(bean,
+                        (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID));
             }
 
         }
@@ -473,17 +444,96 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         return sb.toString();
     }
 
-    private Set<Long> getIssueIdSet(String providerNo, String wlProgramId) {
+    /**
+     * WL default issues (wl_default_issue=true): gives a patient's first encounter the clinic's
+     * default issues (Administration ▸ CAISI ▸ Default Encounter Issue), limited to the issues
+     * the login's role in the session's CAISI program may write.
+     *
+     * <p>The program comes only from the schedule's CAISI program list (or the login location
+     * page), which many logins never use or cannot use: one without a bed program is offered
+     * only "-No assigned program-". Without a usable program, or with one the login has no role
+     * in, nothing is assigned and the encounter opens as usual, with one warning so a clinic can
+     * see why. Before #4838 both cases threw, and the encounter page failed with HTTP 500 for
+     * every patient who had no notes yet.
+     *
+     * @param bean             the encounter being opened
+     * @param sessionProgramId the session's {@link SessionConstants#CURRENT_PROGRAM_ID}, or null
+     */
+    void assignDefaultIssues(EctSessionBean bean, String sessionProgramId) {
+        Integer programId = usableProgramId(sessionProgramId);
+        if (programId == null) {
+            log.warn("Default encounter issues were not assigned: wl_default_issue is on, but this session has no CAISI program chosen");
+            return;
+        }
+        Set<Long> issueIdSet = getIssueIdSet(bean.getCurProviderNo(), programId);
+        if (issueIdSet == null) {
+            log.warn("Default encounter issues were not assigned: wl_default_issue is on, but the login has no role in the session's CAISI program");
+            return;
+        }
+        DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
+        IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
+        CaseManagementIssueDAO cmiDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
+        String[] issueIds = defaultIssueDao.findAllDefaultIssueIds();
+        for (String id : issueIds) {
+            Issue issue = issueDao.getIssue(Long.valueOf(id));
+            // judge current provider can access this issue
+            if (!issueIdSet.contains(Long.parseLong(id))) {
+                continue;
+            }
+
+            // judge this issue exists or not
+            CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), id);
+            if (cmi != null) { // this issue exists
+                continue;
+            }
+            cmi = new CaseManagementIssue();
+            cmi.setAcute(false);
+            cmi.setCertain(false);
+            cmi.setDemographic_no(Integer.valueOf(bean.getDemographicNo()));
+            cmi.setIssue_id(Long.valueOf(id));
+            cmi.setMajor(false);
+            cmi.setProgram_id(programId);
+            cmi.setResolved(false);
+            cmi.setType(issue.getRole());
+            cmi.setUpdate_date(new Date());
+            cmiDao.saveIssue(cmi);
+        }
+    }
+
+    /**
+     * The session's CAISI program id when it names a program, else null: absent, blank, not a
+     * number, or not positive ("-No assigned program-" is 0).
+     */
+    static Integer usableProgramId(String sessionProgramId) {
+        if (sessionProgramId == null) {
+            return null;
+        }
+        try {
+            int programId = Integer.parseInt(sessionProgramId.trim());
+            return programId > 0 ? programId : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The issues the login's role in {@code programId} may write, or null when the login has no
+     * role in that program.
+     */
+    private Set<Long> getIssueIdSet(String providerNo, Integer programId) {
         ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
         List<ProgramProvider> ppList = programProviderDao.getProgramProviderByProviderProgramId(providerNo,
-                Long.valueOf(wlProgramId));
+                Long.valueOf(programId));
+        if (ppList == null || ppList.isEmpty() || ppList.get(0).getRole() == null) {
+            return null;
+        }
         ProgramProvider pp = ppList.get(0);
         Secrole role = pp.getRole();
 
         // get program accesses... program allows either all roles or not all roles
         // (does this mean no roles?)
         ProgramAccessDAO programAccessDAO = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
-        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(wlProgramId));
+        List<ProgramAccess> paList = programAccessDAO.getAccessListByProgramId(Long.valueOf(programId));
         Map<String, ProgramAccess> paMap = new HashMap<String, ProgramAccess>();
         for (Iterator<ProgramAccess> iter = paList.iterator(); iter.hasNext(); ) {
             ProgramAccess pa = iter.next();
