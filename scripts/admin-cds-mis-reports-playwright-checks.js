@@ -32,7 +32,8 @@
  * refused by the shared _report gate (ViewReport2Action).
  *
  * Needs caisi=on: both menu entries are rendered only with the caisi module. Without it the check
- * SKIPs before creating anything, as report-age-sex-visit notes.
+ * SKIPs before creating its program and notes (the runWorkflow patient is removed as usual), as
+ * report-age-sex-visit notes.
  *
  * Fixtures: the program is inserted with SQL, because the CAISI Program editor
  * (PMmodule/ProgramManager) requires _pmm_management, which no role holds on a fresh install
