@@ -10113,6 +10113,23 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the labs are matched, as the Inbox name search needs), a throwaway provider login that is the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs with unique accessions (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload files under LAB_UPLOAD_DOCUMENT_STORE), and two owned PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting / providerLabRouting / queue_document_link rows. Everything is removed by key and asserted gone (the archived lab files stay, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). Posts ReportReassign as the test login, which rewrites that login's forwarding favourites from the dialog's list (snapshotted and asserted unchanged), so it must not run concurrently with detached-delete-forward-favourites or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
+      "name": "inbox-acknowledge-per-provider",
+      "script": "scripts/inbox-acknowledge-per-provider-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Acknowledging an HL7 lab that two providers hold is one provider's review. A synthetic CML lab uploaded through Inbox > HL7 Lab Upload is routed to the test provider (the patient's MRP) as New, and a throwaway second provider gets a New row too; each provider's Inbox, filtered to the owned patient, lists exactly that lab, and any other provider's rows (the demo clinic forwards the test provider's labs to another provider by a rule) are recorded. The test provider opens it from the Inbox (both providers shown Not Acknowledged), presses Acknowledge and answers the comment prompt, which offers their own empty comment: UpdateStatus posts status A with the comment for this lab, reports one routing row cleared from New, and the popup closes. The test provider's row is A with the comment and a fresh time; the second provider's row is unchanged (id, status, comment, time), and so is every other provider's. The answer's body is read on its way to the page (a pass-through route), because the popup closes as soon as it arrives. The lab leaves the test provider's New list (in place and on a fresh search) and stays in the second provider's. The second provider opens it (the test provider shown Acknowledged with a time and the comment, themselves Not Acknowledged), and their prompt offers their own empty comment, not the test provider's; answered empty, their row is A with no comment, the test provider's row is exactly as before, and every other provider's row is unchanged. Finally the second provider's New list is empty and the test provider's Acknowledged list shows the lab, whose page lists both reviews with their own comments (times in the page's dd-MMM-yy HH:mm). Skips when the test login's lab_ack_comment property turns the comment prompt off. Passes on develop (231f36a0e2, Ontario; no known defect). Not run on release/2026.08, and not yet on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the lab is matched, as the Inbox name search needs), a throwaway provider login that is the second provider (lib/throwaway-login-fixture.js), and one synthetic CML lab with a unique accession (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload file under LAB_UPLOAD_DOCUMENT_STORE); the second provider's New providerLabRouting row is inserted directly. Everything is removed by key and asserted gone, with the rows the application wrote for the throwaway login (the archived lab file stays, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). The audit rows the test login's acknowledgement and page views write stay, as every check's rows for the test login do. No clinic-wide state is changed."
+    },
+    {
       "name": "legacy-lab-display",
       "script": "scripts/legacy-lab-display-playwright-checks.js",
       "envSet": {

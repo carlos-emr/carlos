@@ -534,4 +534,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow(NAME, workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, uploadLab, openInbox, openSidebar, setMode, search };

@@ -328,6 +328,7 @@
     "test:antenatal-annual-review-planner-playwright": "node scripts/antenatal-annual-review-planner-playwright-checks.js",
     "test:lab-forwarding-rules-playwright": "node scripts/lab-forwarding-rules-playwright-checks.js",
     "test:inbox-file-forward-playwright": "node scripts/inbox-file-forward-playwright-checks.js",
+    "test:inbox-acknowledge-per-provider-playwright": "node scripts/inbox-acknowledge-per-provider-playwright-checks.js",
     "test:legacy-lab-display-playwright": "LEGACY_LAB_TYPE=cml node scripts/legacy-lab-display-playwright-checks.js",
     "test:legacy-lab-display-mds-playwright": "LEGACY_LAB_TYPE=mds node scripts/legacy-lab-display-playwright-checks.js",
     "test:legacy-lab-display-pathnet-playwright": "LEGACY_LAB_TYPE=pathnet node scripts/legacy-lab-display-playwright-checks.js",
