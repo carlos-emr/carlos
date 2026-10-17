@@ -26,6 +26,19 @@ test('shouldRefuseFragments_thatWouldBreakTheSelector', () => {
 });
 
 // #4468 moved the Master Record's navigation to hrefs; an onclick-only locator on the record finds nothing there.
+// The whole selector is one or more a[onclick*=...] conditions and nothing else (a list that also names the
+// href form is fine).
+const ONCLICK_ONLY = /[mM]aster[A-Za-z]*\.locator\(\s*(['"`])a(?:\[onclick\*=(["'])[^"'\\]+\2\])+\1\s*\)/;
+
+test('shouldFlagOnlyOnclickOnlyLocators_inTheGuard', () => {
+  assert.ok(ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/rx/choosePatient\"]').first()"));
+  assert.ok(ONCLICK_ONLY.test("master.locator('a[onclick*=\"/billing?\"][onclick*=\"apptProvider_no=none\"]')"));
+  assert.ok(ONCLICK_ONLY.test("s.master.locator(`a[onclick*=\"/demographic/AddRelation?demo=${patient}\"]`)"));
+  assert.ok(!ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/x\"], .patient-nav a[href*=\"/x\"]')"));
+  assert.ok(!ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/x\"],'"));
+  assert.ok(!ONCLICK_ONLY.test("chart.locator('a[onclick*=\"showAllergy\"]')"));
+});
+
 test('shouldNotMatchMasterRecordLinksByOnclickAlone_inAnyCheck', () => {
   const files = [
     ...fs.readdirSync(__dirname).filter(name => name.endsWith('-playwright-checks.js')).map(name => path.join(__dirname, name)),
@@ -35,7 +48,7 @@ test('shouldNotMatchMasterRecordLinksByOnclickAlone_inAnyCheck', () => {
   for (const file of files) {
     const lines = fs.readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, index) => {
-      if (/[mM]aster[A-Za-z]*\.locator\(\s*['"`]a\[onclick\*=/.test(line)) offenders.push(`${path.basename(file)}:${index + 1}`);
+      if (ONCLICK_ONLY.test(line)) offenders.push(`${path.basename(file)}:${index + 1}`);
     });
   }
   assert.deepEqual(offenders, [], 'Use masterRecordLink() (lib/master-record-link.js) for Master Record links');
