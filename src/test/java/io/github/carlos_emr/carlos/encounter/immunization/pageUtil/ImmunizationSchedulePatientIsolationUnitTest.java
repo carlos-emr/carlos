@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizatio
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.UtilMisc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.concurrent.Callable;
 import org.apache.struts2.ActionSupport;
@@ -68,7 +69,8 @@ import static org.mockito.Mockito.when;
  * {@code EctSessionBean}, whichever chart was entered last in any window, and record that entry's
  * provider; deleting or restoring a set ({@code deleteSchedule}) posted its patient under a name
  * the redisplayed schedule did not read, so the page fell back to that bean and showed the other
- * patient's schedule. Creating a template recorded the bean's provider as its author.
+ * patient's schedule. Creating a template recorded the bean's provider as its author. Saving the
+ * schedule ({@code saveSchedule}) now checks its patient as the other two writes do.
  *
  * @since 2026-10-16
  */
@@ -156,12 +158,13 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should refuse to add a template to a patient the user may not write")
-    void shouldRefuseSaveConfig_whenPatientWriteIsDenied() {
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"patient write privilege", "patient record access"})
+    @DisplayName("should refuse to add a template to a patient the user may not write or open")
+    void shouldRefuseSaveConfig_whenPatientAccessIsDenied(String deniedBy) {
         request.setParameter("demographic_no", A);
         request.setParameter("chkSet", "11");
-        when(security.hasPrivilege(login, "_demographic", "w", A)).thenReturn(false);
+        denyPatientAccess(deniedBy);
 
         try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
             assertThatThrownBy(() -> run(() -> new EctImmSaveConfig2Action().execute()))
@@ -219,14 +222,15 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should refuse to delete a set of a patient the user may not write")
-    void shouldRefuseDelete_whenPatientWriteIsDenied() {
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"patient write privilege", "patient record access"})
+    @DisplayName("should refuse to delete a set of a patient the user may not write or open")
+    void shouldRefuseDelete_whenPatientAccessIsDenied(String deniedBy) {
         request.setParameter("demographic_no", A);
         request.setParameter("method", "delete");
         request.setParameter("tblSet", "0");
         request.setParameter("scheduleVersion", "5");
-        when(security.isAllowedAccessToPatientRecord(login, Integer.parseInt(A))).thenReturn(false);
+        denyPatientAccess(deniedBy);
 
         try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
             assertThatThrownBy(() -> run(() -> new EctImmDeleteImmSchedule2Action().execute()))
@@ -234,6 +238,59 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
             for (EctImmImmunizationData data : schedules.constructed()) {
                 verify(data, never()).saveImmunizations(anyString(), anyString(), anyString(), anyInt());
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should save the schedule of the requested patient, by the logged-in provider")
+    void shouldSaveScheduleOfRequestedPatient_whenAnotherChartWasEnteredLast() throws Exception {
+        prepareScheduleSave();
+        request.setParameter("demographic_no", A);
+
+        try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class,
+                (data, context) -> when(data.saveImmunizations(anyString(), anyString(), anyString(), anyInt()))
+                        .thenReturn(true))) {
+            assertThat(run(() -> new EctImmSaveSchedule2Action().execute())).isEqualTo("reload");
+
+            EctImmImmunizationData data = schedules.constructed().getFirst();
+            verify(data).saveImmunizations(eq(A), eq("999998"), contains("lot=\"FAKE-LOT\""), eq(5));
+            verify(data, never()).saveImmunizations(eq(B), anyString(), anyString(), anyInt());
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"missing", "conflicting", "legacy demoNo only"})
+    @DisplayName("should refuse to save a schedule without one unambiguous patient")
+    void shouldRejectSaveSchedule_whenPatientIsMissingOrConflicting(String variant) throws Exception {
+        prepareScheduleSave();
+        switch (variant) {
+            case "conflicting" -> request.setParameter("demographic_no", A, B);
+            case "legacy demoNo only" -> request.setParameter("demoNo", A);
+            default -> {
+                // "missing": the request names no patient at all.
+            }
+        }
+
+        try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
+            assertThat(run(() -> new EctImmSaveSchedule2Action().execute())).isEqualTo(ActionSupport.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(schedules.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"patient write privilege", "patient record access"})
+    @DisplayName("should refuse to save the schedule of a patient the user may not write or open")
+    void shouldRefuseSaveSchedule_whenPatientAccessIsDenied(String deniedBy) {
+        prepareScheduleSave();
+        request.setParameter("demographic_no", A);
+        denyPatientAccess(deniedBy);
+
+        try (MockedConstruction<EctImmImmunizationData> schedules = mockConstruction(EctImmImmunizationData.class)) {
+            assertThatThrownBy(() -> run(() -> new EctImmSaveSchedule2Action().execute()))
+                    .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_demographic)");
+            assertThat(schedules.constructed()).isEmpty();
         }
     }
 
@@ -276,4 +333,22 @@ class ImmunizationSchedulePatientIsolationUnitTest extends CarlosUnitTestBase {
             return body.call();
         }
     }
+
+    /** Schedule.jsp's save post, but for its patient: one set, one row, one dose with a lot. */
+    private void prepareScheduleSave() {
+        request.setParameter("scheduleVersion", "5");
+        request.setParameter("xmlDoc", UtilMisc.encode64("<immunizations><immunizationSet name=\"Fixture set\">"
+                + "<row name=\"Fixture vaccine\"><cell index=\"0\"/></row></immunizationSet></immunizations>"));
+        request.setParameter("tdSet0_Row0_Col0_lot", "FAKE-LOT");
+    }
+
+    /** Each half of the actions' patient check refuses on its own. */
+    private void denyPatientAccess(String deniedBy) {
+        if ("patient write privilege".equals(deniedBy)) {
+            when(security.hasPrivilege(login, "_demographic", "w", A)).thenReturn(false);
+        } else {
+            when(security.isAllowedAccessToPatientRecord(login, Integer.parseInt(A))).thenReturn(false);
+        }
+    }
+
 }
