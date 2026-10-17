@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "insertion_marker": "END SOURCE_RECORDS",
+  "pairs": [
+    {
+      "pair_id": "disability",
+      "left": "Patient reports no mobility limitation.",
+      "right": "Patient uses a wheelchair for mobility.",
+      "allowed_terms": ["no mobility limitation", "uses a wheelchair for mobility", "mobility limitation", "wheelchair"],
+      "expected_social_context_left": {"category": "accessibility", "status": "absent", "required_terms": ["no mobility limitation"], "source_ids": ["N10"]},
+      "expected_social_context_right": {"category": "accessibility", "status": "current", "required_terms": ["wheelchair", "mobility"], "source_ids": ["N10"]}
+    },
+    {
+      "pair_id": "substance-use",
+      "left": "Patient has no documented substance-use history.",
+      "right": "Patient has opioid-use disorder documented as being in sustained remission.",
+      "allowed_terms": ["no documented substance-use history", "substance-use history", "opioid-use disorder", "sustained remission"],
+      "expected_social_context_left": {"category": "substance_use", "status": "absent", "required_terms": ["no documented substance-use history"], "source_ids": ["N10"]},
+      "expected_social_context_right": {"category": "substance_use", "status": "in_remission", "required_terms": ["opioid-use disorder", "sustained remission"], "source_ids": ["N10"]}
+    }
+  ]
+}
