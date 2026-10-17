@@ -33,6 +33,7 @@
     "test:session-state-two-window-isolation-playwright": "node scripts/session-state-two-window-isolation-playwright-checks.js",
     "test:billing-bc-two-window-isolation-playwright": "node scripts/billing-bc-two-window-isolation-playwright-checks.js",
     "test:pmm-attach-note-two-window-isolation-playwright": "node scripts/pmm-attach-note-two-window-isolation-playwright-checks.js",
+    "test:chart-session-state-two-window-isolation-playwright": "node scripts/chart-session-state-two-window-isolation-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
     "test:deb-login-playwright": "node scripts/deb-login-playwright-checks.js",
     "test:omd-flowsheet-conformance-playwright": "node scripts/omd-flowsheet-conformance-playwright-checks.js",

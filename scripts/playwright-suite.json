@@ -10061,6 +10061,21 @@
       ]
     },
     {
+      "name": "chart-session-state-two-window-isolation",
+      "script": "scripts/chart-session-state-two-window-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue #4673: two patients' charts in one login keep their own chart working state. A chart note list (viewNotesOpt, listNotes), note search or Disease Registry add (CaseManagementView) that names no patient, a malformed one or two different ones is refused with 400 and writes nothing; it fell back to the chart opened last in any window. An issue filter applied in A's chart is not applied to B's note list when B's list loads before A's own (the editor's filter handoff was login-wide, so B's list consumed it and showed none of B's notes; the overlap is held open by delaying A's note-list request). The per-patient eChart text and draft-restore signal are not driven (the current chart clears the first after every save and the old-style view that shows the second is unreachable and fails on a missing JSP); unit tests cover both.",
+      "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); the notes saved in their charts and a copy of A's note as A's second note, their legacy eChart rows and one casemgmt_issue linked to A's note; any registry row a refused request might write is asserted absent. Every owned row is removed by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
       "name": "echart-note-draft-recovery",
       "script": "scripts/echart-note-draft-recovery-playwright-checks.js",
       "tiers": [
