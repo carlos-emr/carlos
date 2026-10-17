@@ -55,11 +55,12 @@ test('shouldRenderEveryLayoutsDateBox_fromOneSharedFragment', () => {
   assert.equal(inputs.length, 1, 'the fragment holds the one Date box');
   assert.equal((FRAGMENT.match(/id="prevDate"/g) || []).length, 1);
   // The fragment is written out where it is included, so it must reproduce the two cells exactly: the label
-  // cell straight after the comment and the fmt declaration, then the box cell on the next line at the
+  // cell straight after the comment and the fmt declarations, then the box cell on the next line at the
   // include's indent, and nothing after it (a trailing newline would add a blank line to the page).
-  const row = `--%><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>${LABEL_CELL}\n${INDENT}<div class="col-sm-8">${inputs[0]}</div>`;
+  const row = `--%><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><fmt:setBundle basename="oscarResources"/>${LABEL_CELL}\n${INDENT}<div class="col-sm-8">${inputs[0]}</div>`;
   assert.ok(FRAGMENT.endsWith(row), 'the fragment is the Date row\'s two cells, exactly');
   assert.ok(JSP.includes('<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>'), 'the fragment declares the page\'s own fmt URI');
+  assert.ok(JSP.includes('<fmt:setBundle basename="oscarResources"/>'), 'and the page\'s own bundle');
 });
 
 test('shouldSwitchThePreventionDateBoxToText_forAPartialDate', () => {

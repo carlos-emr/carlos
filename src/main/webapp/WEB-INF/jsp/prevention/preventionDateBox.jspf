@@ -26,11 +26,11 @@
     A stored date of a year, or a year and month, only (partialPrevDate, set by the page) is edited in a
     text box that takes yyyy, yyyy-mm or yyyy-mm-dd; any other date keeps the browser's date input.
 
-    Uses the page's prevDate and partialPrevDate and its carlos taglib, and declares fmt itself (the same
-    URI as the page). The fragment's text is written out exactly where it is included: the include sits at
+    Uses the page's prevDate and partialPrevDate and its carlos taglib, and declares fmt and its bundle
+    itself (the same URI and the same oscarResources bundle as the page; setBundle writes nothing). The fragment's text is written out exactly where it is included: the include sits at
     the label cell's indent, so the box cell's line carries that indent here, and nothing may follow the
     closing tag, not even a newline.
---%><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
+--%><%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %><fmt:setBundle basename="oscarResources"/><div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
                                     <div class="col-sm-8"><input type="<%= partialPrevDate ? "text" : "date" %>" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
