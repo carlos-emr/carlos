@@ -256,13 +256,16 @@
                                         <script type="text/javascript"
                                                 src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
                                         <script type="text/javascript">
+                                            // Start Date takes yyyy, yyyy-mm or yyyy-mm-dd: partialDates keeps a
+                                            // typed year or year and month instead of filling in a day.
                                             Calendar.setup({
                                                 inputField: "startDate",
                                                 ifFormat: "%Y-%m-%d",
                                                 showsTime: false,
                                                 button: "startDateCal",
                                                 singleClick: true,
-                                                step: 1
+                                                step: 1,
+                                                partialDates: true
                                             });
                                         </script>
 
