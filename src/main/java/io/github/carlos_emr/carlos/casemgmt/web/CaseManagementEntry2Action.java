@@ -3139,16 +3139,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return edit();
     }
 
+    /**
+     * Releases what one patient's chart keeps in the session ({@code method=cleanup}): its entry
+     * form, its encounter entry, the text its last save wrote into the legacy eChart record and a
+     * pending draft restore. No page sends this method at present. A request that names no patient
+     * (or names two) releases nothing.
+     *
+     * @return null, always: the method has no view
+     */
     public String cleanup() {
-        String demoNo = this.getDemographicNo(request);
+        String demoNo;
+        try {
+            demoNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException noPatient) {
+            // No chart to release, and every key below needs its patient: this used to fail with
+            // a 500 when the encounter entry was forgotten.
+            return null;
+        }
         String sessionFrmName = "caseManagementEntryForm" + demoNo;
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         EncounterPatientContext.forgetEncounter(request, demoNo);
         // The text this chart's last save wrote into the legacy eChart record, and a pending draft
-        // restore: kept per patient (issue #4673), so they go with the chart instead of staying in
-        // the session for every patient charted in this login. Opening the editor again starts
-        // without them, as it always did.
+        // restore: kept per patient (issue #4673). Opening the editor again starts without them,
+        // as it always did.
         request.getSession().removeAttribute(ChartSessionKeys.lastSavedNoteText(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
         request.getSession().removeAttribute(ChartSessionKeys.draftRestoring(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 

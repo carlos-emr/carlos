@@ -259,6 +259,20 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReleaseNothing_whenTheCleanupNamesNoPatient() {
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText("101"), "101's last eChart text");
+        session.setAttribute(ChartSessionKeys.draftRestoring("101"), "true");
+
+        // Missing, blank, zero, not a number, too long: no chart to release, and no 500.
+        for (String patient : new String[]{null, "", "0", "abc", "99999999999"}) {
+            assertThat(action(request(patient)).cleanup()).isNull();
+        }
+
+        assertThat(session.getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("101's last eChart text");
+        assertThat(session.getAttribute(ChartSessionKeys.draftRestoring("101"))).isEqualTo("true");
+    }
+
+    @Test
     void shouldCleanupOnlyTheClosingPatientsFormAndCachedMetadata() {
         Object formA = new Object();
         Object formB = new Object();

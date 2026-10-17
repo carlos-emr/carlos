@@ -131,7 +131,7 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
 | Feature | Was | Now |
 |---|---|---|
 | Chart note list, search, Disease Registry add (`casemgmt_DemoNo`) | fell back to the chart opened last when the request named no patient | the request must name its patient (400 otherwise) |
-| Chart editor state: note-filter handoff, the text the last save wrote into the legacy eChart, the draft-restore signal, `readonly` | one session attribute per login | keyed by patient (`ChartSessionKeys`); `readonly` is a request attribute; closing a chart releases its saved-note text and restore signal |
+| Chart editor state: note-filter handoff, the text the last save wrote into the legacy eChart, the draft-restore signal, `readonly` | one session attribute per login | keyed by patient (`ChartSessionKeys`); `readonly` is a request attribute. As before, the editor drops the saved-note text when it opens again for that patient, and the chart view consumes the restore signal; until then each patient keeps its own (#4811) |
 | Disease Registry page and its refused-code re-render | patient and diagnoses from the session | request attributes for the request's own patient |
 | Waiting-list patient page, allergies page, Rx drug search, PMM client view | patient number or data copied into the session under generic names (`demographicNo`, …), which every page resolving that name through EL fell back to | request attributes or the page's own patient |
 | Day sheet's current visit (Health Tracker link, multisite tickler and prescription defaults) | the appointment last opened for any patient | filed per patient by `provider/ViewStoreApptInSession` (204); read back only if still that patient's |
