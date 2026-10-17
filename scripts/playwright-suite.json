@@ -10910,6 +10910,21 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "rx-represcribe-long-term",
+      "script": "scripts/rx-represcribe-long-term-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient and four marker-named custom drugs inserted for it: two current long-term drugs, one current acute drug and one discontinued long-term drug. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows, and asserts none remain. No clinic-wide state is changed.",
+      "notes": "The Rx page's \"Represcribe Long Term Meds\" link (rx/rePrescribe2 method=repcbAllLongTerm) stages one card per current long-term drug; Save Only stores the copies and archives each original as represcribed. Steps: the link stages exactly the two current long-term drugs; Save Only stores one long-term copy of each dated today, archives the originals as represcribed and leaves the acute and discontinued drugs alone; the profile then lists each long-term drug once, as its copy. The drugs table has no column linking a copy to its original, so copies are matched by name, instructions and long-term flag."
     }
   ]
 }
