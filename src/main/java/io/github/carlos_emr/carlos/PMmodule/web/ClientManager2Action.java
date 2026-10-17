@@ -355,10 +355,11 @@ public class ClientManager2Action extends ActionSupport {
         // fail on the null record instead.) Checked on the DAO's own answer: after setEditAttributes,
         // request.getAttribute("client") falls back through Struts to this action's request-bound
         // client property when the record is missing.
-        if (clientManager.getClientByDemographicNo(id) == null) {
+        Demographic client = clientManager.getClientByDemographicNo(id);
+        if (client == null) {
             return ERROR;
         }
-        setEditAttributes(request, id);
+        setEditAttributes(request, id, client);
 
         LogAction.log("read", "pmm client record", id, request);
 
@@ -760,6 +761,11 @@ public class ClientManager2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void setEditAttributes(HttpServletRequest request, String demographicNo) {
+        setEditAttributes(request, demographicNo, clientManager.getClientByDemographicNo(demographicNo));
+    }
+
+    /** As {@link #setEditAttributes(HttpServletRequest, String)}, with the client already loaded. */
+    private void setEditAttributes(HttpServletRequest request, String demographicNo, Demographic client) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -768,7 +774,7 @@ public class ClientManager2Action extends ActionSupport {
         Integer demographicId = Integer.valueOf(demographicNo);
 
         request.setAttribute("id", demographicNo);
-        request.setAttribute("client", clientManager.getClientByDemographicNo(demographicNo));
+        request.setAttribute("client", client);
 
         // program domain
         List<Program> programDomain = new ArrayList<Program>();
