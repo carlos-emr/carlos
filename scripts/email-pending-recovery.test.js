@@ -36,7 +36,8 @@ function fixture({ accepted = false, recorded = false, uncertain = false, pendin
     selectPatientChartOption() {}, showAdditionalParamOption() {}, toggleInternalTextArea() {},
   });
   vm.runInContext(handler('validateEmailForm') + handler('autoSendEmail')
-    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready.replace('${portalDeliveryNeedsRecovery}', String(portalPending)), context);
+    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready.replace('${portalDeliveryNeedsRecovery}', String(portalPending))
+    .replace('${windowCloseSeconds * 1000}', '8000'), context);
   return { context, calls };
 }
 
