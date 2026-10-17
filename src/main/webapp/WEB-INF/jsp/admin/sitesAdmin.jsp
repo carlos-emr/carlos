@@ -89,8 +89,9 @@
                                   style="border:1px solid #666666; width:99%;margin-top:2px;">
                     <display-el:column title="<fmt:message key='admin.sitesAdmin.col.active'/>"><c:choose><c:when
                             test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></display-el:column>
+                    <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
                     <display-el:column title="<fmt:message key='admin.sitesAdmin.col.siteName'/>">
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=update&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></display-el:column>
+                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=edit&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></display-el:column>
                     <display-el:column property="shortName" title="<fmt:message key='admin.sitesAdmin.col.shortName'/>"/>
                     <display-el:column property="bgColor" title="<fmt:message key='admin.sitesAdmin.col.color'/>" style="background-color:${site.bgColor}"/>
                     <display-el:column property="phone" title="<fmt:message key='admin.sitesAdmin.col.telephone'/>"/>
