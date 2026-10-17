@@ -3515,6 +3515,21 @@
       "env": []
     },
     {
+      "name": "billing-bc-private-codes",
+      "script": "scripts/billing-bc-private-codes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "BC Administration ▸ Billing ▸ Manage Private Bill: Add Code, the code's Edit (fee row save) and Delete. First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the price-check step fails on a held finding (Add's price check throws and never runs), and once that is fixed the Edit step fails on another (a code added through Add has no end date, so its fee row save never finishes). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "None seeded: the private code is created through Add (description = the run marker) and removed with the list's own Delete while the browser is open. No SQL delete; a code the page could not remove fails the run and is left for a look."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
