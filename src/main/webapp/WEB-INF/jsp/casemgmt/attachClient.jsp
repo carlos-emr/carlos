@@ -43,7 +43,6 @@
     }
 %>
 
-<%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="java.util.*" %>
@@ -123,6 +122,8 @@
 </script>
 </head>
 <body>
+<%-- Inside the body: included above the doctype, its markup put the page in quirks mode. --%>
+<%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <%-- Named for resetClientFields(). The criteria are text boxes: they were rendered as checkboxes,
      which post "on" or nothing, so the popup could not find a client to attach the note to. The two
      real checkboxes post "true": Struts cannot convert a bare checkbox's "on" to a boolean. --%>
@@ -227,9 +228,11 @@
 <br/>
 <c:if test="${requestScope.clients != null}">
     <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
+        <%-- The paging and sorting links repeat the search's parameters as a GET, which CSRFGuard
+             does not check; the search form's token is left out of them, and so out of URLs. --%>
         <display:table class="simple" cellspacing="2" cellpadding="3"
                        id="client" name="clients" export="false" pagesize="10"
-                       requestURI="/PMmodule/ClientSearch2">
+                       requestURI="/PMmodule/ClientSearch2" excludedParams="CSRF-TOKEN">
             <display:setProperty name="paging.banner.placement" value="bottom"/>
             <display:setProperty name="basic.msg.empty_list"
                                  value="No clients found."/>
