@@ -68,6 +68,11 @@ def main():
     # JSON escapes source-derived control characters instead of letting them become CI commands.
     print("Latest available Sonar PR reliability findings (not a quality-gate result):")
     print(text)
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # A notice is readable before the long analysis job completes. Keep the complete
+        # reliability list in one annotation rather than mixing it with 50 style findings.
+        compact = json.dumps(findings, ensure_ascii=True).replace("%", "%25")
+        print("::notice title=Latest available Sonar reliability findings::" + compact)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with Path(summary).open("a", encoding="utf-8") as output:
