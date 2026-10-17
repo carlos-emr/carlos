@@ -45,7 +45,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.daos.DefaultIssueDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -170,20 +169,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         } else {
             if ("yes".equals(request.getParameter("PEAttach"))) {
-                String selectClientmo = request.getParameter("selectId");
-                String lastId = request.getParameter("noteId");
-                if (selectClientmo == null || !selectClientmo.matches("\\d{1,9}")) {
-                    log.warn("Invalid selectId for PEAttach: {}", LogSafe.sanitize(selectClientmo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    return "failure";
-                }
-                if (lastId == null || !lastId.matches("\\d{1,9}")) {
-                    log.warn("Invalid noteId for PEAttach: {}", LogSafe.sanitize(lastId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    return "failure";
-                }
-                CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(lastId));
-                note.setId(null);
-                note.setDemographic_no(selectClientmo);
-                caseManagementNoteDao.saveNote(note);
+                return attachNoteToClient(request, response, loggedInInfo, demoNo);
             }
             bean = new EctSessionBean();
             bean.currentDate = UtilDateUtilities.StringToDate(request.getParameter("curDate"));
@@ -317,6 +303,60 @@ public class EctIncomingEncounter2Action extends ActionSupport {
     }
 
     /** Starts a legacy entry without borrowing another chart window's mutable bean. */
+    /**
+     * The PMM "attach note to client" popup's result (casemgmt/attachClient.jsp): copies the note
+     * it was opened for into the client's chart, then opens that chart. The client is this
+     * request's own patient ({@code selectId} must equal the validated {@code demographicNo}).
+     *
+     * <p>It used to copy on a GET, which CSRFGuard does not check, any note id into any chart with
+     * only {@code _demographic} read, and the copy kept the source note's uuid, appointment and
+     * issue links. The uuid made the copy the newest revision of the source note, so the source
+     * chart could no longer save or sign that note, and the issue links tied the client's note to
+     * the other patient's issues. It now takes the popup's POST only, needs {@code _casemgmt.notes}
+     * read and record access for the note's own patient and write and record access for the
+     * client, and writes the copy as a new note of the client's: a new uuid, no appointment, no
+     * issues, and only its current text as history. A successful copy redirects to the chart, so
+     * reloading the chart does not copy the note again.</p>
+     *
+     * @return {@link #NONE} after the redirect or a refusal
+     */
+    private String attachNoteToClient(HttpServletRequest request, HttpServletResponse response,
+            LoggedInInfo loggedInInfo, String client) throws IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String noteId = request.getParameter("noteId");
+        if (!client.equals(request.getParameter("selectId")) || noteId == null || !noteId.matches("\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementNote note = caseManagementNoteDao.getNote(Long.parseLong(noteId));
+        String source = note == null ? null : note.getDemographic_no();
+        if (source == null || !source.matches("[1-9]\\d{0,9}")) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", source)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(source))
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "w", client)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(client))) {
+            throw new SecurityException("missing required sec object (_casemgmt.notes)");
+        }
+        note.setId(null);
+        note.setUuid(null);
+        note.setDemographic_no(client);
+        note.setAppointmentNo(0);
+        note.setIssues(new HashSet<CaseManagementIssue>());
+        note.setHistory(note.getNote());
+        caseManagementNoteDao.saveNote(note);
+        // demographicNo is the validated, canonical patient number.
+        response.sendRedirect(request.getContextPath() + "/encounter/IncomingEncounter?demographicNo=" + client
+                + "&appointmentNo=0");
+        return NONE;
+    }
+
     private EctSessionBean newEntryBean(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         EctSessionBean bean = new EctSessionBean();
         bean.currentDate = new Date();

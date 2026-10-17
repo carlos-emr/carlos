@@ -44,6 +44,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
@@ -119,7 +120,27 @@
     function popupHelp(type) {
         alert('not yet implemented... will show term definitions');
     }
+
+    // A client number in the results attaches this popup's note to that client and opens the
+    // client's chart: a POST of the note, the client and the chart to open, with the session's
+    // CSRF token (carlosPostForm refuses to send without one, and says so).
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest ? event.target.closest('a.attach-note-to-client') : null;
+        if (!link) {
+            return;
+        }
+        event.preventDefault();
+        var client = link.getAttribute('data-client');
+        carlosPostForm('<%= SafeEncode.forJavaScript(request.getContextPath()) %>/encounter/IncomingEncounter', [
+            ['PEAttach', 'yes'],
+            ['noteId', link.getAttribute('data-note')],
+            ['selectId', client],
+            ['demographicNo', client],
+            ['appointmentNo', '0']
+        ]);
+    });
 </script>
+<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
 </head>
 <body>
 <%-- Inside the body: included above the doctype, its markup put the page in quirks mode. --%>
@@ -240,8 +261,11 @@
             <display:setProperty name="sort.amount" value="list"/>
 
                 <display:column sortable="true" title="Client No" sortProperty="demographicNo" defaultorder="ascending">
-                <a
-                        href="${pageContext.request.contextPath}/encounter/IncomingEncounter?selectId=${carlos:forUriComponent(client.demographicNo)}&demographicNo=${carlos:forUriComponent(client.demographicNo)}&PEAttach=yes&appointmentNo=0&noteId=<carlos:encode value='<%= noteId$ %>' context="uriComponent"/>">${carlos:forHtml(client.demographicNo)}</a>
+                <%-- Attaching writes a copy of the note into this client's chart, so it is a POST
+                     (the click handler in the head), which CSRFGuard checks; it used to be a link. --%>
+                <a href="#" class="attach-note-to-client"
+                   data-client="${carlos:forHtmlAttribute(client.demographicNo)}"
+                   data-note="<carlos:encode value='<%= noteId$ %>' context="htmlAttribute"/>">${carlos:forHtml(client.demographicNo)}</a>
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a

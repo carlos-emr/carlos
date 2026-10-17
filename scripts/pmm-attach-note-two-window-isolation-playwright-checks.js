@@ -13,7 +13,10 @@
  *
  * Also pins the popup's search form (fixed here): its criteria were rendered as checkboxes,
  * which post "on" or nothing, so it could not find a client, and it keeps the criteria it
- * searched with.
+ * searched with. And the attach itself: each copy is posted with a CSRF token (it was a link, so
+ * a GET copied the note), is a new note of C's own (a new uuid and no appointment: with the
+ * source's uuid the copy became the newest revision of the source note, which its chart could
+ * then no longer save), A's chart saves its note again afterwards, and a GET attach copies nothing.
  *
  * Not driven: the PMM client view (PMmodule/ClientManager?id=N). Its result names a Tiles page
  * (page.pmm.client) that does not exist in CARLOS, so it cannot render; ClientManager2ActionTest
@@ -125,6 +128,7 @@ async function settle(page, label) {
 async function saveNote(chart, sql, patient, text) {
   const editor = chart.locator(NOTE);
   await editor.waitFor({ state: 'visible', timeout: TIMEOUT });
+  const previousId = await chart.locator('#caseManagementEntryForm [name="noteId"]').inputValue();
   await editor.click();
   await editor.press('Control+End');
   await editor.pressSequentially(` ${text}`, { delay: 5 });
@@ -137,11 +141,11 @@ async function saveNote(chart, sql, patient, text) {
   ]);
   await saved.finished();
   h.assert(saved.status() === 200, `The note save answered HTTP ${saved.status()}`);
-  // The editor names the saved revision once the save has been applied to the page.
-  const handle = await chart.waitForFunction(() => {
+  // The editor names the saved revision, a new note id, once the save has been applied to the page.
+  const handle = await chart.waitForFunction(previous => {
     const id = document.forms.caseManagementEntryForm?.elements.noteId?.value;
-    return /^[1-9]\d*$/.test(id || '') && !window.autoSaveXhr && id;
-  }, undefined, { timeout: TIMEOUT });
+    return /^[1-9]\d*$/.test(id || '') && id !== previous && !window.autoSaveXhr && id;
+  }, previousId, { timeout: TIMEOUT });
   const noteId = key(await handle.jsonValue(), 'saved note');
   await handle.dispose();
   await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}
@@ -180,6 +184,7 @@ async function workflow(s) {
   context.on('page', page => h.wireStrictPage(page, 'pmm-login', s.recorder));
   await h.login(context, { ...config, testUser: login.username }, s.recorder);
 
+  const state = {};
   await s.step('each chart\'s attach popup attaches its own note to the chosen client', async () => {
     const charts = {};
     const notes = {};
@@ -223,7 +228,7 @@ async function workflow(s) {
       await ui.clickAndAwaitReload(popup, popup.locator('input[type="submit"][value="search"]'),
         { label: `${label}'s attach search`, timeout: TIMEOUT });
       await settle(popup, `${label}'s attach search`);
-      const links = popup.locator(`a[href*="PEAttach=yes"][href*="selectId=${C}&"]`);
+      const links = popup.locator(`a.attach-note-to-client[data-client="${C}"]`);
       h.assert(await links.count() >= 1, `${label}'s attach search did not find client C`);
       // A standards-mode page (its messages render inside the body, not above the doctype), whose
       // result table's sort links repeat the search but not the search form's CSRF token.
@@ -233,16 +238,23 @@ async function workflow(s) {
       h.assert(await sortLinks.count() > 0, `${label}'s attach results offer no sort links`);
       h.assert(await popup.locator('a[href*="CSRF-TOKEN"]').count() === 0,
         `${label}'s attach results put the CSRF token in a link's URL`);
-      const href = await links.first().getAttribute('href');
-      const attached = new URL(href, popup.url()).searchParams.get('noteId');
+      const attached = await links.first().getAttribute('data-note');
       h.assert(attached === notes[label], `${label}'s popup attaches ${attached === notes.A ? 'A\'s'
         : attached === notes.B ? 'B\'s' : 'another'} note, not ${label}'s own`);
       h.assert(await popup.locator('input[name="criteria.lastName"]').inputValue() === marker,
         `${label}'s attach search did not keep its criteria`);
-      await Promise.all([
+      // Attaching writes the copy, so the popup posts it (with its CSRF token) rather than
+      // following a link, and is redirected to C's chart.
+      const [posted] = await Promise.all([
+        popup.waitForRequest(r => r.method() === 'POST'
+          && new URL(r.url()).pathname.endsWith('/encounter/IncomingEncounter'), { timeout: TIMEOUT }),
         popup.waitForURL(/casemgmt|CaseManagement|IncomingEncounter/, { timeout: TIMEOUT }),
         links.first().click(),
       ]);
+      const sent = new URLSearchParams(posted.postData() || '');
+      h.assert(sent.get('PEAttach') === 'yes' && sent.get('noteId') === notes[label] && sent.get('selectId') === C
+        && sent.get('demographicNo') === C && /\S/.test(sent.get('CSRF-TOKEN') || ''),
+      `${label}'s attach did not post its own note for C with a CSRF token`);
       // The popup becomes C's chart. Wait for its note editor, as the user sees it load: a chart
       // closed before its editor arrives throws from its unload handler.
       await settle(popup, `C's chart after ${label}'s attach`);
@@ -256,7 +268,40 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${A},${B})
       AND note_id NOT IN (${notes.A},${notes.B}) AND LOCATE(${q(marker)}, note) > 0`) === '0',
     'Attaching wrote a note into A\'s or B\'s own chart');
-    for (const page of [...Object.values(popups), ...Object.values(charts)]) {
+    for (const page of Object.values(popups)) {
+      if (!page.isClosed()) await page.close().catch(() => {});
+    }
+    state.charts = charts;
+    state.notes = notes;
+  });
+
+  await s.step('a copy is a new note of the client\'s own, the source chart still saves its note, and a GET copies nothing', async () => {
+    const { charts, notes } = state;
+    for (const label of ['A', 'B']) {
+      const copy = sql.rows(`SELECT uuid, appointmentNo FROM casemgmt_note WHERE demographic_no=${C}
+        AND LOCATE(${q(`${marker}-${label}-note-to-attach`)}, note) > 0`);
+      const source = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${notes[label]}`);
+      h.assert(copy.length === 1 && copy[0][0] !== source,
+        `C's copy of ${label}'s note shares the source note's uuid, so it is the newest revision of ${label}'s note`);
+      h.assert(copy[0][1] === '0', `C's copy of ${label}'s note keeps ${label}'s appointment`);
+    }
+    // The source chart edits its note again after the attach: the copy is not a revision of it.
+    // With the copy's uuid the source's, this save was refused ("Note UUID belongs to a different
+    // demographic") and the note could no longer be saved or signed.
+    const resaved = await saveNote(charts.A, sql, A, `${marker}-A-saved-after-attach`);
+    h.assert(sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${resaved}`)
+      === sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${notes.A}`),
+    'A\'s save after the attach did not write a revision of A\'s own note');
+    // The attach used to be a link: a GET (which CSRFGuard does not check) copied the note.
+    const copies = () => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`);
+    const before = copies();
+    const response = await context.request.get(h.appUrl(config.baseUrl, `/encounter/IncomingEncounter?selectId=${C}`
+      + `&demographicNo=${C}&PEAttach=yes&appointmentNo=0&noteId=${notes.A}`), { maxRedirects: 0, failOnStatusCode: false });
+    try {
+      h.assert(response.status() === 405, `A GET attach answered HTTP ${response.status()}, not 405`);
+    } finally { await response.dispose(); }
+    h.assert(copies() === before, 'A GET attach copied the note into C\'s chart');
+    for (const page of Object.values(charts)) {
       if (!page.isClosed()) await page.close().catch(() => {});
     }
   });
