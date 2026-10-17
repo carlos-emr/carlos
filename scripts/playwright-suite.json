@@ -1901,6 +1901,25 @@
       ]
     },
     {
+      "name": "cds-export-patient-sections",
+      "script": "scripts/cds-export-patient-sections-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ],
+      "mutates": [
+        "appointment"
+      ],
+      "fixtures": "SQL-seeded on the check's own FAKE- patient: one allergy, drug, Td immunization (with its name), height and appointment, each found by the run marker or its own FAKE- text and deleted with the patient at the end. The appointment is today at 10:30 on the test login's provider, so it shows on that provider's day sheet while the check runs; it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "rest-roster-enrolled-to",
       "script": "scripts/rest-roster-enrolled-to-playwright-checks.js",
       "tiers": [

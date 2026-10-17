@@ -36,6 +36,7 @@
     "test:echart-consult-specialist-playwright": "node scripts/echart-consult-specialist-playwright-checks.js",
     "test:upstream-small-fixes-playwright": "node scripts/upstream-small-fixes-playwright-checks.js",
     "test:cds-export-lab-documents-playwright": "node scripts/cds-export-lab-documents-playwright-checks.js",
+    "test:cds-export-patient-sections-playwright": "node scripts/cds-export-patient-sections-playwright-checks.js",
     "test:lab-embedded-pdf-playwright": "node scripts/lab-embedded-pdf-playwright-checks.js",
     "test:lab-epsilon-playwright": "node scripts/lab-epsilon-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
