@@ -159,12 +159,13 @@ public class StaticScriptBean {
 
     /**
      * Whether a pick-up date-time carries a time of day. A pick-up date saved without a time is stored at
-     * midnight, so midnight counts as no time.
+     * midnight, so midnight counts as no time. The static script and the drug record view
+     * ({@code DisplayRxRecord.jsp}) both use it, so they agree.
      *
      * @param pickUp Date the stored pick-up date-time, or null
      * @return boolean true when there is a pick-up time other than midnight
      */
-    static boolean hasPickupTime(Date pickUp) {
+    public static boolean hasPickupTime(Date pickUp) {
         if (pickUp == null) {
             return false;
         }

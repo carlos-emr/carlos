@@ -28,6 +28,7 @@ class RxDeleteAndPickupTimeJspRegressionTest {
 
     private static final Path SEARCH_DRUG_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp");
     private static final Path STATIC_SCRIPT_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/StaticScript2.jsp");
+    private static final Path RX_RECORD_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp");
     private static final String KEY = "SearchDrug.js.deleteRefused";
 
     @Test
@@ -51,6 +52,16 @@ class RxDeleteAndPickupTimeJspRegressionTest {
 
         assertThat(source).doesNotContain("\"12:00 AM\"");
         assertThat(source).contains("if (!((drug.pickupTime).equals(\"\"))) {");
+    }
+
+    @Test
+    @DisplayName("should show a midnight pick-up on the drug record as the date alone, by the same rule")
+    void shouldShowMidnightPickupAsDateOnly_onDrugRecord() throws IOException {
+        String source = Files.readString(RX_RECORD_JSP, StandardCharsets.UTF_8);
+
+        assertThat(source).contains("SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat(\"yyyy-MM-dd\");");
+        assertThat(source).contains("(StaticScriptBean.hasPickupTime(drug.getPickUpDateTime()) ? dateTimeFormatter : dateOnlyFormatter)"
+                + ".format(drug.getPickUpDateTime())");
     }
 
     @ParameterizedTest
