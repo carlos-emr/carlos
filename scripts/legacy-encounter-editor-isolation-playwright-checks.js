@@ -29,11 +29,17 @@
  * own revision; an editor whose revision another A editor has superseded is refused with its own text
  * on the concurrency page and writes nothing; Sign & Save signs only A's own appointment; an editor
  * keeps its own visit through a Save after A was entered again from another visit, so its Sign signs
- * that visit; a double-clicked Save posts the editor once, writes one revision and shows the editor
- * again. Every step compares the other patient's complete clinical rows before and after.
+ * that visit; Verify & Sign verifies only A's own appointment; Split Chart (offered once the
+ * encounter fills half of what the editor holds) stores A's whole encounter as A's split revision and
+ * continues A's chart from its end in the next one; Exit closes the editor and saves neither chart; a
+ * double-clicked Save posts the editor once, writes one revision and shows the editor again. Every
+ * step compares the other patient's complete clinical rows before and after. On release/2026.08 the
+ * editor posted to an address that does not exist (it saved nothing); with that fixed but the old
+ * save action, each Save writes the other chart and Verify & Sign and Split Chart fail. Exit writes
+ * nothing with either action.
  *
  * Fixtures: the workflow's FAKE patient (A, first name LegacyAlpha), a second FAKE patient (B,
- * LegacyBravo, last name the run marker), one owned appointment each and two more of A's. Cleanup
+ * LegacyBravo, last name the run marker), one owned appointment each and three more of A's. Cleanup
  * removes both patients' eChart revisions, appointments, appointment archive rows, note locks and
  * drafts by key and asserts each is gone, and restores the provider's encounterWindow (editor
  * layout) row exactly.
@@ -169,6 +175,9 @@ async function run(s) {
     page.on('requestfinished', settle);
     page.on('requestfailed', settle);
     return async label => {
+      // A navigation is committed before the new editor's scripts have run; wait for its config.
+      await page.waitForFunction(() => typeof encounterConfig === 'object', undefined, {timeout: TIMEOUT})
+        .catch(() => {});
       const expected = await page.evaluate(() => (typeof encounterConfig === 'object'
         ? Object.keys(encounterConfig.urls.leftNavbar).length : 0));
       h.assert(expected > 0, `${label} is not the legacy editor: ${h.pathOnly(page.url())} "${norm(await page.title())}"`);
@@ -324,17 +333,17 @@ async function run(s) {
    * Sign & Save: the closing page closes the editor's window and, as a visit changed, refreshes the
    * day sheet that opened it.
    */
-  async function signAndSave(editor) {
+  async function signAndSave(editor, button = 'Sign & Save') {
     const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
     closed.catch(() => {});
     const refreshed = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(),
       timeout: TIMEOUT}).then(() => true, () => false);
     const response = editor.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
-    await editor.locator('form[name="encForm"] input[type="button"][value="Sign & Save"]').click();
-    h.assert((await response).status() === 200, 'Sign & Save did not answer its closing page');
+    await editor.locator(`form[name="encForm"] input[type="button"][value="${button}"]`).click();
+    h.assert((await response).status() === 200, `${button} did not answer its closing page`);
     await closed;
-    h.assert(await refreshed, 'Sign & Save did not refresh the day sheet that opened the editor');
+    h.assert(await refreshed, `${button} did not refresh the day sheet that opened the editor`);
     await schedule.waitForLoadState('load', {timeout: TIMEOUT});
   }
   const signedBy = patient => JSON.stringify([[String(patient), 'tS', provider]]);
@@ -370,6 +379,98 @@ async function run(s) {
     h.assert(visitRow(own) === signedBy(A), 'Sign & Save after a Save did not sign the editor\'s own visit');
     h.assert(visitRow(other) === untouched(A), 'Sign & Save after a Save signed A\'s other visit');
     assertPatientStateUnchanged(before, snapshot(B), 'A\'s own-visit Sign & Save');
+  });
+
+  await s.step('A\'s Verify & Sign, after B\'s editor was opened last, verifies only A\'s own appointment', async () => {
+    const visit = addVisit(A);
+    const editor = await openEditor(A, visit);
+    const other = await openEditor(B, appointmentOf.B);
+    const before = snapshot(B);
+    const text = `${marker}-A-legacy-verified`;
+    await editor.locator('textarea[name="enTextarea"]').fill(text);
+    await signAndSave(editor, 'Verify & Sign');
+    h.assert(visitRow(visit) === JSON.stringify([[String(A), 'tV', provider]]),
+      'Verify & Sign did not verify A\'s own appointment');
+    h.assert(visitRow(appointmentOf.B) === untouched(B), 'Verify & Sign changed B\'s appointment');
+    const revision = revisionsOf(A).at(-1);
+    h.assert(/^Verified and Signed on /.test((sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`) || '')
+      .slice(text.length + 2)) && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${revision}`).startsWith(`${text}\n[`),
+    'Verify & Sign did not write A\'s verified revision');
+    assertPatientStateUnchanged(before, snapshot(B), 'A\'s Verify & Sign');
+    await other.close();
+  });
+
+  await s.step('A\'s Split Chart, after B\'s editor was opened last, splits only A\'s chart', async () => {
+    // Split Chart is offered once the encounter text fills half of what the editor holds (16 KiB).
+    const writer = await openEditor(A);
+    const long = Array.from({length: 360}, (_, n) => `${marker}-A-split line ${String(n).padStart(3, '0')} FAKE-PW text`)
+      .join('\n');
+    await writer.locator('textarea[name="enTextarea"]').fill(long);
+    await press(writer, 'Save', 'A long legacy Save');
+    await writer.close();
+    const editor = await openEditor(A);
+    const split = editor.locator('form[name="encForm"] input[type="submit"][value="Split Chart"]');
+    h.assert(await split.count() === 1, 'A\'s editor with a long encounter does not offer Split Chart');
+    const other = await openEditor(B);
+    const before = snapshot(B);
+    const revisionsBefore = revisionsOf(A);
+    // Split Chart asks first; its page then saves the split chart's new revision by itself.
+    const dialogs = await h.withExpectedDialogs(editor, async () => {
+      const resaved = editor.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2')
+        && new URLSearchParams(r.request().postData() || '').get('btnPressed') === 'Save', {timeout: TIMEOUT});
+      await split.click();
+      h.assert((await resaved).status() === 200, 'The split chart\'s own Save did not redisplay the editor');
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Split Chart did not ask for confirmation once');
+    await editor.waitForLoadState('load', {timeout: TIMEOUT});
+    await editorLoaded(editor, 'A\'s editor after Split Chart');
+    assertPatientStateUnchanged(before, snapshot(B), 'A\'s Split Chart');
+    const written = revisionsOf(A).slice(revisionsBefore.length);
+    h.assert(written.length === 2, `Split Chart wrote ${written.length} revisions of A instead of the split and its successor`);
+    // A form post sends a textarea's line breaks as CRLF.
+    const stored = id => (sql.value(`SELECT encounter FROM eChart WHERE eChartId=${id}`) || '').replace(/\r\n/g, '\n');
+    const subject = sql.value(`SELECT subject FROM eChart WHERE eChartId=${written[0]}`);
+    h.assert(subject === 'SPLIT CHART' && stored(written[0]).startsWith(long),
+      `Split Chart did not store A's full encounter as A's split revision (subject "${subject}")`);
+    const successor = stored(written[1]);
+    h.assert(successor.includes('$$SPLIT CHART$$') && successor.length < long.length && successor.includes(`${marker}-A-split line 359`),
+      'The split chart\'s successor does not continue A\'s encounter from its end');
+    const owner = await editorOwner(editor);
+    assertOwnEditor(owner, A, 'A\'s editor after Split Chart');
+    h.assert(owner.revision === written[1], 'A\'s editor after Split Chart does not show the revision it saved');
+    await editor.close();
+    await other.close();
+  });
+
+  await s.step('A\'s Exit, after B\'s editor was opened last, closes the editor without saving either chart', async () => {
+    const editor = await openEditor(A);
+    const other = await openEditor(B);
+    const before = {A: snapshot(A), B: snapshot(B)};
+    await editor.locator('textarea[name="enTextarea"]').fill(`${marker}-A-legacy-exit`);
+    const closed = editor.waitForEvent('close', {timeout: TIMEOUT});
+    closed.catch(() => {});
+    const failureMark = recorder.requestFailures.length;
+    const dialogs = await h.withExpectedDialogs(editor, async () => {
+      const response = editor.waitForResponse(r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/encounter/SaveEncounter2'), {timeout: TIMEOUT});
+      await editor.locator('form[name="encForm"] input[type="button"][value="Exit"]').click();
+      h.assert((await response).status() === 200, 'Exit did not answer its closing page');
+      await closed;
+    });
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Exit did not ask for confirmation once');
+    // The closing page closes its window at once, so the CSRFGuard script the server adds to it is
+    // abandoned mid-load. That one aborted request is the window's own closing, not a finding.
+    for (let i = recorder.requestFailures.length - 1; i >= failureMark; i--) {
+      const entry = recorder.requestFailures[i];
+      if (entry.resourceType === 'script' && /ERR_ABORTED/.test(entry.errorText || '')
+          && new URL(entry.url).pathname.endsWith('/csrfguard')) {
+        recorder.requestFailures.splice(i, 1);
+      }
+    }
+    assertPatientStateUnchanged(before.A, snapshot(A), 'A\'s Exit (A\'s rows)');
+    assertPatientStateUnchanged(before.B, snapshot(B), 'A\'s Exit');
+    await other.close();
   });
 
   await s.step('a double-clicked Save writes one revision and shows the editor again, not the concurrency page', async () => {
