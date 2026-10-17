@@ -4,7 +4,8 @@
  * Satellite-site administration, entered the way an administrator enters it:
  *   Schedule ▸ Administration ▸ Satellite-sites Admin (admin/ManageSites, in the shell's iframe)
  *   ▸ Add New Site (POST method=add) ▸ Save (POST method=save) ▸ the site's name in the list
- *   (method=update&siteId=) ▸ change the telephone ▸ Save.
+ *   (method=update&siteId=, or method=edit once #4700's release fix is forward-merged)
+ *   ▸ change the telephone ▸ Save.
  * Asserts the owned `site` row after each save (name, short name, colour, active flag, telephone,
  * province), the list showing the new site, the edit page showing the stored values, the edit
  * updating that row rather than adding one, and that GET with a save flag is refused and stores
@@ -81,7 +82,10 @@ async function workflow(s) {
   }
   const addNew = () => frame.locator(`form[action$="${SECTION}"]:has(input[name="method"][value="add"]) input[type="submit"]`);
   const save = () => frame.locator(`form[action$="${SECTION}"] input[type="submit"]:not([onclick])`);
-  const siteLink = () => frame.locator(`a[href*="${SECTION}?method=update"]`, {hasText: marker});
+  // The name link is method=update today; #4700's release fix makes it method=edit. Match both so the check
+  // works before and after that fix reaches develop.
+  const siteLink = () => frame.locator(`a[href*="${SECTION}?method=update"], a[href*="${SECTION}?method=edit"]`,
+    {hasText: marker});
 
   await step('Administration ▸ Satellite-sites Admin opens the site list with Add New Site', async () => {
     await revealAuditLink(admin, menuEntry, TIMEOUT);
