@@ -43,6 +43,20 @@ public interface LabPatientPhysicianInfoDao extends AbstractDao<LabPatientPhysic
 
     List<Object[]> findByDemographic(Integer demographicNo, String labType);
 
+    /**
+     * Finds the reports that share a CML report's accession number, in print order.
+     *
+     * <p>Each row is {@code {Integer id, String serviceDate, String selectedServiceDate}}: the sibling's id,
+     * its {@code service_date}, and the selected report's {@code service_date}. Both dates are the
+     * {@code varchar(10)} column the vendor fills with {@code YYYYMMDD}, so they are {@code String}s, never
+     * {@code Date}s, and may be null or damaged. The selected report is one of its own rows unless it has no
+     * print header, which is joined to the sibling: then only its siblings come back. A report with a blank
+     * accession number yields no rows.
+     *
+     * @param labId the selected report's identifier
+     * @return the rows, oldest print first and, for reports of one print run, in import order; empty when the
+     *         report has no accession number to match on
+     */
     List<Object[]> findLabServiceDatesByLabId(Integer labId);
 
     List<Integer> getLabResultsSince(Integer demographicNo, Date updateDate);
