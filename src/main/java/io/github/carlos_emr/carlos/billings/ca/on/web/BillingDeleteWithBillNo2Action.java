@@ -129,13 +129,14 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
         CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
             List billStatus = correctionPrep.getBillingNoStatusByBillNo(billNo);
+            if (billStatus == null || billStatus.size() % 2 != 0) return ERROR;
             if (billStatus != null && ((billStatus.size() == 0) || (billStatus.size() > 1 && ((String) billStatus.get(billStatus.size() - 1)).startsWith("B")))) {
                 return "cannotDelete";
             } else if (billStatus != null) {
                 for (int idx = 0; idx < billStatus.size(); idx += 2) {
                     // idx = billing header ID, idx+1 = status; bounds check prevents IOOBE on odd-sized list
                     if (idx + 1 < billStatus.size() && !((String) billStatus.get(idx + 1)).equals("D")) {
-                        correctionPrep.deleteBilling((String) billStatus.get(idx), "D", curUserNo);
+                        if (!correctionPrep.deleteBilling((String) billStatus.get(idx), "D", curUserNo)) return ERROR;
                     }
                 }
             }
@@ -145,6 +146,8 @@ public class BillingDeleteWithBillNo2Action extends ActionSupport {
                 if (b != null) {
                     b.setStatus("D");
                     billingDao.merge(b);
+                } else {
+                    return ERROR;
                 }
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Invalid billNo: {}", LogSafe.sanitize(billNo), e);

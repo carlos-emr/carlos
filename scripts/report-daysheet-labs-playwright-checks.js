@@ -23,6 +23,9 @@
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
+const { sessionToken } = require('./lib/mutation-replay');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -75,6 +78,9 @@ async function submitInFrame(admin, frame, button) {
 }
 
 async function workflow(s) {
+  const roleFixture = authzReadFixture({ sql: s.sql, marker: s.marker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => roleFixture.cleanup());
+
   const { sql, marker, patient, provider } = s;
   const q = h.sqlString;
   const today = sql.value('SELECT CURDATE()');
@@ -217,6 +223,20 @@ async function workflow(s) {
     h.assert(roleRows() === otherRolesBefore, 'Updating one provider changed the test login\'s roles');
   });
 
+  await s.step('a report reader cannot change a provider role with a valid CSRF token', async () => {
+    const role = roleFixture.addRole({ _appointment: 'w', _report: 'r', '_admin.reporting': 'r' });
+    const restricted = await signIn(s, roleFixture.addLogin(role));
+    const token = await sessionToken(restricted.page, s.config.baseUrl);
+    const response = await restricted.context.request.post(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'), {
+      form: { buttonUpdate: 'Update', providerId: nurse, [`name${nurse}`]: 'doctor', 'CSRF-TOKEN': token }, maxRedirects: 0,
+    });
+    h.assert(response.status() === 403 && Object.hasOwn(response.headers(), 'x-permitted-cross-domain-policies'),
+      'The report reader was not refused by the application');
+    h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
+      'A report reader changed the stored role');
+    await restricted.context.close();
+  });
+
   let phcp;
   await s.step('PHCP Go without a code and dates raises the selection alert and submits nothing', async () => {
     phcp = await openAdminFrame(admin, '/report/ViewReportonbilledphcp', 'form[name="myform"]');
@@ -351,10 +371,11 @@ async function workflow(s) {
     await sheet.close();
   });
 
-  // ── Correct behaviour the application does not have yet (asserted last) ────────────────────
+  // ── Mutation refusal and the remaining report filter checks ────────────────────
   await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
     const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
       + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `Role-update GET answered HTTP ${response.status()}`);
     await response.dispose();
     h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
       'A tokenless GET changed a security role (report/ViewReportonbilledvisitprovider mutates on GET)');

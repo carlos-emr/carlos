@@ -53,6 +53,7 @@ import org.springframework.transaction.support.AbstractPlatformTransactionManage
 import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -164,12 +165,34 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
     // -- One claim per rendered review (issue #4225) ----------------------
 
     @Test
+    @Tag("release-review")
+    void shouldCompleteAppointmentUpdateOnRetry_whenFirstSubmissionFailsAfterClaimSave() {
+        reviewFor("42");
+        mockRequest.setParameter("appointment_no", "880");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
+        when(mockSaveService.getApptStatus("880")).thenReturn("t");
+        when(mockSaveService.updateApptStatus(eq("880"), any(), eq("999998"))).thenReturn(true);
+        when(mockSaveService.updateApptStatus(eq("880"), any(), eq("999998")))
+                .thenThrow(new IllegalStateException("Synthetic appointment write failure")).thenReturn(true);
+
+        assertThatThrownBy(() -> newAction().execute()).isInstanceOf(IllegalStateException.class);
+        repeatOf(mockRequest);
+
+        assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
+        // A retry can roll the whole submission back and save again, or resume its remaining
+        // steps. It must not return a success page while leaving the appointment unmodified.
+        verify(mockSaveService, times(2)).updateApptStatus(eq("880"), any(), eq("999998"));
+    }
+
+    @Test
     void shouldSaveOnce_whenOneReviewIsSubmittedTwice() {
         reviewFor("42");
         mockRequest.setParameter("appointment_no", "880");
         when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
                 any(), anyString(), any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true, 4321));
         when(mockSaveService.getApptStatus("880")).thenReturn("t");
+        when(mockSaveService.updateApptStatus(eq("880"), any(), eq("999998"))).thenReturn(true);
 
         String first = newAction().execute();
         MockHttpServletRequest repeat = repeatOf(mockRequest);
@@ -491,4 +514,22 @@ class BillingOnSave2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("addAnother");
         assertThat(mockRequest.getAttribute("addAnotherBill")).isEqualTo(Boolean.TRUE);
     }
+    @Test
+    void shouldRollbackAndRetry_whenCorrectedBillCleanupReturnsFalse() {
+        reviewFor("42");mockRequest.setParameter("billNo_old","9");mockRequest.setParameter("billStatus_old","O");
+        when(mockSaveService.saveBillingWithExtAndPayee(any(BillingClaimSubmissionService.BillingClaimSubmission.class),
+                any(),anyString(),any())).thenReturn(new BillingClaimSubmissionService.SaveResult(true,4321));
+        when(mockCorrectionRecordService.getBillingNoStatusByBillNo("9")).thenReturn(java.util.List.of("9","O"));
+        when(mockCorrectionRecordService.deleteBilling("9","D","999998")).thenReturn(false,true);
+        var props=org.mockito.Mockito.mock(io.github.carlos_emr.CarlosProperties.class);
+        when(props.getProperty("isNewONbilling","")).thenReturn("true");
+        try(var singleton=mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            singleton.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(props);
+            assertThat(newAction().execute()).isEqualTo("failure");assertThat(transactions.rollbacks).isEqualTo(1);
+            repeatOf(mockRequest);assertThat(newAction().execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(transactions.commits).isEqualTo(1);
+            verify(mockCorrectionRecordService,times(2)).deleteBilling("9","D","999998");
+        }
+    }
+
 }

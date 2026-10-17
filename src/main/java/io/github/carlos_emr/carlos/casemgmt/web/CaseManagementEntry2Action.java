@@ -161,6 +161,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             throw new SecurityException("missing required security object (_demographic)");
         }
 
+        String operation = request.getParameter("method") != null ? request.getParameter("method")
+                : (String) request.getAttribute("method");
+        if (Set.of("makeIssue", "issueAdd", "issueDelete", "issueChange",
+                "submitChangeDiagnosis", "ajaxChangeDiagnosis").contains(operation == null ? "" : operation)) {
+            if (!requireIssueWriteAccess()) return NONE;
+        }
         restoreFromSession();
 
         String result = dispatchRequest();
@@ -168,6 +174,46 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             prepareBillingUrl(getDemographicNo(request));
         }
         return result;
+    }
+
+    /** Match the issue editor's permission and enforce access before session or database writes. */
+    private boolean requireIssueWriteAccess() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return false;
+        }
+        LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo = getDemographicNo(request);
+        Integer patient;
+        try {
+            patient = Integer.valueOf(demographicNo);
+        } catch (NumberFormatException invalid) {
+            throw new SecurityException("missing required patient scope for issue write");
+        }
+        if (user == null || patient <= 0
+                || !securityInfoManager.hasPrivilege(user, "_demographic", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(user, "_casemgmt.issues", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(user, patient)) {
+            throw new SecurityException("missing required security object (_casemgmt.issues w)");
+        }
+        CaseManagementEntryFormBean form = (CaseManagementEntryFormBean) request.getSession()
+                .getAttribute("caseManagementEntryForm" + demographicNo);
+        if (form != null) {
+            if (form.getCaseNote() != null && form.getCaseNote().getDemographic_no() != null
+                    && !demographicNo.equals(form.getCaseNote().getDemographic_no())) {
+                throw new SecurityException("missing required patient scope for issue note");
+            }
+            if (form.getIssueCheckList() != null) {
+                for (CheckBoxBean entry : form.getIssueCheckList()) {
+                    if (entry == null || entry.getIssue() == null
+                            || !patient.equals(entry.getIssue().getDemographic_no())) {
+                        throw new SecurityException("missing required patient scope for clinical issue");
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private String dispatchRequest() throws Exception {
@@ -1536,6 +1582,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Date dateObserve;
         try {
             dateObserve = NoteObservationDate.parse(this.getObservation_date(), LocaleUtils.resolveBundleLocale(request));
+            if (rejectFutureObservationDate(dateObserve)) return -1L;
         } catch (ParseException unreadable) {
             rejectObservationDate();
             return -1L;
@@ -1713,10 +1760,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (dateObserve != null) {
-            if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
-                note.setObservation_date(now);
-            } else note.setObservation_date(dateObserve);
+            note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
@@ -1951,6 +1995,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute(OBSERVATION_DATE_REJECTED, Boolean.TRUE);
     }
 
+    /** A future clinical date is invalid; refuse before touching the draft or persistent state. */
+    private boolean rejectFutureObservationDate(Date date) {
+        if (date == null || !date.after(new Date())) return false;
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        request.setAttribute(OBSERVATION_DATE_REJECTED, Boolean.TRUE);
+        request.setAttribute("DateError", ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("encounter.observationDateFuture.msg"));
+        return true;
+    }
+
     /** Keep a rejected full-form draft available when the response replaces the editor page. */
     private String rejectedFullFormSave(String unsavedNoteText, String fallbackResult) {
         if (Boolean.TRUE.equals(request.getAttribute(OBSERVATION_DATE_REJECTED))) {
@@ -1992,6 +2046,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         Date dateObserve;
         try {
             dateObserve = NoteObservationDate.parse(request.getParameter("obsDate"), LocaleUtils.resolveBundleLocale(request));
+            if (rejectFutureObservationDate(dateObserve)) return null;
         } catch (ParseException unreadable) {
             rejectObservationDate();
             return null;
@@ -2023,10 +2078,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         bindNoteAppointment(note);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (dateObserve != null) {
-            if (dateObserve.getTime() > now.getTime()) {
-                request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
-                note.setObservation_date(now);
-            } else note.setObservation_date(dateObserve);
+            note.setObservation_date(dateObserve);
         } else if (note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
@@ -2489,6 +2541,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     // we need to convert single issue into checkbox array so we can play nicely with CaseManagementEntryFormBean
     public String makeIssue() throws Exception {
+        if (!requireIssueWriteAccess()) return NONE;
         HttpSession session = request.getSession();
         // grab the issue we want to add
         String issueId = request.getParameter("newIssueId");
@@ -2523,6 +2576,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueAdd() throws Exception {
+        if (!requireIssueWriteAccess()) return NONE;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -2532,6 +2586,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String changeDiagnosis = request.getParameter("change_diagnosis");
         if (changeDiagnosis != null && changeDiagnosis.equalsIgnoreCase("true")) {
             return submitChangeDiagnosis();
+        }
+        try {
+            if (rejectFutureObservationDate(NoteObservationDate.parse(this.getObservation_date(),
+                    LocaleUtils.resolveBundleLocale(request)))) {
+                return rejectedFullFormSave(this.getCaseNote_note(), "view");
+            }
+        } catch (ParseException unreadable) {
+            // IssueSearch sends no encounter date; keep the existing draft date in this path.
         }
         logger.debug("issueAdd");
         request.setAttribute("change_flag", "true");
@@ -2678,6 +2740,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String submitChangeDiagnosis() {
+        if (!requireIssueWriteAccess()) return NONE;
         logger.debug("submitChangeDiagnosis");
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
@@ -2740,6 +2803,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String ajaxChangeDiagnosis() {
+        if (!requireIssueWriteAccess()) return NONE;
         logger.debug("ajaxChangeDiagnosis");
 
         HttpSession session = request.getSession();
@@ -2782,6 +2846,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueDelete() throws Exception {
+        if (!requireIssueWriteAccess()) return NONE;
         logger.debug("issueDelete");
 
         HttpSession session = request.getSession();
@@ -2845,6 +2910,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueChange() throws Exception {
+        if (!requireIssueWriteAccess()) return NONE;
         logger.debug("issueChange");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

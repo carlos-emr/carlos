@@ -392,6 +392,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // PHCP provider settings: role mutations require POST; focused Alpha20RequestAuthorizationUnitTest.
+        "io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action",
         // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
         // Covered by Pregnancy2ActionUnitTest for both GET and HEAD.
         "io.github.carlos_emr.carlos.commn.web.Pregnancy2Action",

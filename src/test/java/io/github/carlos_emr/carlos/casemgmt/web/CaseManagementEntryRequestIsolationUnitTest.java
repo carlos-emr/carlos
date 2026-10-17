@@ -62,6 +62,11 @@ class CaseManagementEntryRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(login, "_demographic", "r", null)).thenReturn(true);
+        for (String patient : List.of("101", "202")) {
+            when(security.hasPrivilege(login, "_demographic", "r", patient)).thenReturn(true);
+            when(security.hasPrivilege(login, "_casemgmt.issues", "w", patient)).thenReturn(true);
+            when(security.isAllowedAccessToPatientRecord(login, Integer.valueOf(patient))).thenReturn(true);
+        }
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");

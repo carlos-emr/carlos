@@ -4297,7 +4297,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200).",
+      "notes": "Authorized POSTs reassign and archive only owned patients/extensions. GET and HEAD mutations and tokenless POSTs are refused. Administrative write and patient update/access are required.",
       "fixtures": "Two marker providers and three owned patients; hashes every non-owned demographic/demographicExt row before and after, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -4660,7 +4660,7 @@
       "env": [
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails after its positive steps on 2026.08: report/ViewReportonbilledvisitprovider changes security roles on a tokenless GET; later steps assert the ignored Non Rostered filter and the sort links that drop the time window.",
+      "notes": "PHCP role-administration controls and report-reader/GET mutation refusals now pass (#4905). Later Non Rostered Only and sort/time-window assertions remain separate report checks; the Non Rostered filter still fails (finding 277).",
       "fixtures": "Owned patient; two marker providers (800000-899999) with one secUserRole and one providersite row; one mygroup row; six appointments today; three legacy billing/billingdetail rows; all id/marker scoped and removed."
     },
     {
@@ -9497,9 +9497,9 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XP...) whose text columns, extension values, custom fields, contact, relationship and tickler carry inert markup, and three providers (doctor, nurse, midwife) with poisoned names. Inserts GLOBALLY VISIBLE poisoned rows while it runs (three active providers): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 118): the Master Record view prints official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type and the alert raw (demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810), the Edit form's doctor/nurse/midwife selects print provider names raw (demographic/edit-form-clinical.jsp:260,277,294), and Documents and Manage Contacts print the patient name raw through <oscar:nameage> (DemographicNameAgeTag.java:66 out.print without encoding; documentManager/documentReport.jsp:475, demographic/ManageContacts.jsp:362). Search results, Appointment/Billing/Enrollment History, Consultations, Prescriptions, Preventions, Tickler and eForms encode. Create Invoice is skipped: the WAF refuses its URL, which carries the patient name (CRS 949110). Tickler, Manage Contacts, Documents, Appointment History and Consultations must open a page of their own (an in-place change of the Master Record does not count) and show their seeded values. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "The shared DemographicNameAgeTag sink is fixed (#4905). Independent Master Record/Edit field encoding defects remain in finding 118. This broader walk has not been rerun for this fix; its final assertion remains required and the open finding is retained.",
       "expectedFailure": {
-        "finding": 117,
+        "finding": 118,
         "step": "the walk found no output-encoding defect"
       }
     },
@@ -9521,9 +9521,9 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XE...) with a progress note, seven CPP notes, allergy, drug, measurement, prevention, document, eForm instance, tickler and consultation request whose text carries inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 119, 120, 128): the E-Chart left navbar prints item titles raw (encounter/LeftNavBarDisplay.jsp:338) and the Rx, Tickler and eForm modules build those titles from stored text without encoding (EctDisplayRx2Action.java:112/123, EctDisplayTickler2Action.java:96/104, EctDisplayEForm2Action.java:123); Medications prints drug instructions raw (rx/ListDrugs.jsp:326); Disease Registry and the CDM Indicators flowsheet header print the patient name raw through <oscar:nameage> (oscarResearch/oscarDxResearch/dxResearch.jsp:247, TemplateFlowSheetPage.jspf:486, DemographicNameAgeTag.java:66); the chart's consultation entry opens the request form whose letterhead script breaks (finding 120); Allergies prints the patient name raw (rx/ShowAllergies2.jsp:514, finding 128). The Grid/Row Display cumulative lab views and a measurement's history (HT) print the patient name raw through <oscar:nameage> as well (lab/CumulativeLabValues3.jsp:249, lab/CumulativeLabValues.jsp:214, encounter/oscarMeasurements/DisplayHistory.jsp:130; finding 117). An entry's window is inspected even when the chart redraws itself before it appears, and a required module counts only when it opened a page of its own (the chart's own copy of a value never stands in for it). Notes, CPP, allergies, preventions, documents, eForm list and tickler list encode. Medications, Tickler, eForms and Disease Registry must open and show their seeded values; the seeded document (no file behind it), dated encounter entries and prevention-due entries the chart redraws are noted when they cannot be reopened. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "Live after #4905: six independent stored-markup defects remain outside the fixed DemographicNameAgeTag sink, including tickler/eForm navigation titles, the allergy patient-name header and the consultation letterhead script. Finding 278 records the live evidence. The final no-defect assertion remains required; this walk is not reported as passing.",
       "expectedFailure": {
-        "finding": 117,
+        "finding": 278,
         "step": "the walk found no output-encoding defect"
       }
     },
@@ -9589,11 +9589,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
-      "expectedFailure": {
-        "finding": 117,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required."
     },
     {
       "name": "xss-poison-note-history",
@@ -9661,9 +9657,9 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 120, 78, 124): the Msg inbox prints the linked patient's name raw through <oscar:nameage> (messenger/DisplayMessages.jsp:610; DemographicNameAgeTag.java:66); the consultation request form writes the saved letterhead name into a script string unescaped (encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:3525), a SyntaxError that stops the page script; Compose's Search Demographic popup closes itself on load (msgSearchDemo.jsp:219, finding 78), so its results cannot be inspected; Consultation Settings > the specialist answers 500 because the stored specialty type is text (AddSpecialist.jsp:527, finding 124). The message body is Markdown rendered through DOMPurify by design (ViewMessage.jsp), so markup there is noted, not counted. The message view, consultation list, the specialist list, Show All Services and Master Record > Consultations encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "The shared DemographicNameAgeTag sink is fixed (#4905). The consultation letterhead script defect remains in finding 120; other recorded messaging/consultation defects remain in findings 78 and 124. This broader walk has not been rerun for this fix; its final assertion remains required and the open findings are retained.",
       "expectedFailure": {
-        "finding": 117,
+        "finding": 120,
         "step": "the walk found no output-encoding defect"
       }
     },
@@ -10178,12 +10174,8 @@
       "env": [
         "ECHART_VERIFY_PIN"
       ],
-      "notes": "Verify & Sign on a chart note, the appointment status letters it sets, and the note's Encounter Date and encounter type, on an owned FAKE patient with two owned appointments on today's day sheet (To Do 't' and Here 'H', free slots in the provider's hours) opened through the day sheet's E link. Steps: the day sheet shows both with the icons of their stored statuses (the icon the application draws is '<second letter><icon of the first letter>', read from appointment_status) and an E link each; a chart opened from the Master Record carries appointmentNo 0 and Sign & Save there signs the note (signature line, signing provider, no appointment) and leaves both appointments and their archive rows byte-for-byte (a digest taken before and after; a control in the next step proves the digest moves when an appointment is signed); Sign & Save from the To Do appointment's chart signs the note for it and the status becomes tS, and the day sheet shows Sstarbill.gif titled 'To Do/Signed' with the status link carrying currentstatus=tS; Verify & Sign (#signVerifyImg) from the same chart writes a signed note ending with the 'Verified and Signed on' line (not the plain Signed line) and the status becomes tV (V takes S's place), with Vstarbill.gif and 'To Do/Verified' on the day sheet; Verify & Sign from the Here appointment (never signed) makes HV with Vhere.gif and 'Here/Verified'; after those charts a chart from the Master Record again carries no appointment and signs without touching either; a back-dated Encounter Date picked in the calendar (flatpickr) and saved with Save is stored exactly as shown, as is one on a note signed with Sign & Save, and reopening the chart lists every note in Encounter Date order, oldest first, with the two back-dated notes (written last) first and each showing its date; a future day picked in the calendar is stopped in the browser with the alert 'Observation date must be in the past', posts no save and writes no note; a future Encounter Date that reaches the server (the posted date is rewritten in flight to tomorrow, because the browser only refuses days after today; picking today before noon posts a time later today) is stored as the current time; the encounter type picked in the combo box (email encounter with client) is stored and shown when the chart is reopened. LAST and pinned to finding 223: Save rolls the future date back and shows the clinician nothing, where encounter.futureDate.Msg ('Observation Date set in future, rolled back to current time') is meant to be shown (no alert, not in the save response, not on the chart page); it is the last step because a script stops at its first failing step. Expected: every step above passes and this one fails. Finding 224 has its own entry running the same script with ECHART_VERIFY_PIN=archive (echart-note-verify-appointment-status-archive), so no pin hides another. The packaged default ENABLE_EDIT_APPT_STATUS=yes is assumed: if the day sheet draws the legacy icon of a signed or verified status (lts.gif, ltv.gif, hv.gif) the check SKIPs with that reason; appointment-status-editing pins the default. Not covered: Sign Save & Bill (echart-note-sign-bill), the group-note encounter types (they need group notes enabled), and a time later today picked through the calendar (the posted date is rewritten instead so the step is the same at any hour).",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 223,
-        "step": "the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back"
-      }
+      "notes": "Verify/sign appointment statuses, back-dated notes, encounter types and future-date refusal with retained draft. Future dates reaching the server must not be silently substituted. Dedicated echart-future-date-rejection also covers Save, Sign & Save and Verify & Sign refusals.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed."
     },
     {
       "name": "echart-note-verify-appointment-status-archive",
@@ -10557,11 +10549,7 @@
       "env": [
         "AUTHZ_WRITE_MODE"
       ],
-      "notes": "May a role with chart read and no note or issue right change the state of a chart issue? The authz-write-role-matrix role (_demographic r, _appointment w, _eChart r; in the test login's programs) signs in through the login form. The owned patient has one casemgmt_issue row seeded by SQL in a known state (catalog issue CTCMM1000, all four flags 0, update_date 2020-01-01). The full login resolves it from the note editor's issue checklist (revealed by a script: nothing reveals it, finding 227) and the captured CaseManagementEntry issueChange is replayed by the full login with a second flag (major) added, which must write both; the row is then put back. The restricted login opens the patient's chart (Master Record at its address, then its E-Chart link; that is what builds the session's form bean issueChange reads), sends the same request with its own valid CSRF token, and h.assertRefused judges it: the application's 403/405/securityError AND the row still in its seeded state. Fails at \"chart issue change: the restricted login's issueChange with its own valid token is refused and the issue row is unchanged\": CaseManagementEntry2Action.execute checks only _demographic r (:154) and issueChange (:2737) checks only that a role is in the session (:2744) before saving the flags it is sent (:2790), so the issue is resolved and flagged major and only then does the result view (noteIssueList.jsp) redirect to securityError?type=_casemgmt.notes; the same shape as finding 198 (finding 229). The fixture, the control, the chart open and the POST are earlier steps; the pinned step holds only the refusal assertion. Ontario only, like authz-write-role-matrix, whose script it shares.",
-      "expectedFailure": {
-        "finding": 229,
-        "step": "chart issue change: the restricted login's issueChange with its own valid token is refused and the issue row is unchanged"
-      },
+      "notes": "An authorized clinician resolves an owned clinical issue through the editor. Replaying the same mutation with a valid CSRF token from a chart reader lacking issue-write rights must return the application refusal and preserve every issue flag. Owned patient, login, role and program fixtures are cleaned up.",
       "fixtures": "Owned FAKE patient (runWorkflow), a custom secRole FAKEPW<hex>R1 (described by the run marker) with exactly its three secObjPrivilege rows, one throwaway login from lib/authz-read-fixture.js given program_provider rows copying the test login's, and one casemgmt_issue row for the owned patient (the patient is its label; there is no text column). Opening the two charts leaves note locks for the owned patient. Cleanup removes the login, the role and its privileges, the issue row, the patient and its locks, and asserts them gone. No clinic-wide state is changed."
     },
     {
@@ -11227,6 +11215,21 @@
       ],
       "notes": "Clicks BC master-record navigation at 1280x720 and 1600x1000; eligibility opens only on activation in a dialog. Browser intercepts eligibility responses before reaching the app, so no external Teleplan request occurs.",
       "fixtures": "Uses an existing synthetic patient and releases only its own chart locks; no clinical writes."
+    },
+    {
+      "name": "echart-future-date-rejection",
+      "script": "scripts/echart-future-date-rejection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Real toolbar submissions with a future date rewritten in flight. Save, Sign & Save and Verify & Sign must refuse before persistence, show a useful message and retain the draft; retry with a valid date saves exactly once.",
+      "fixtures": "One owned FAKE patient and its notes/locks/drafts; runWorkflow removes all owned rows. No clinic-wide state is changed."
     }
   ]
 }

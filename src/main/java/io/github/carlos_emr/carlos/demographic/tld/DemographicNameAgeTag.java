@@ -63,7 +63,7 @@ public class DemographicNameAgeTag extends TagSupport {
         String nameage = demoNameAge.getNameAgeString(LoggedInInfo.getLoggedInInfoFromSession(this.pageContext.getSession()), intDemoNo);
         try {
             JspWriter out = super.pageContext.getOut();
-            out.print(nameage);
+            out.print(io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(nameage));
         } catch (Exception p) {
             MiscUtils.getLogger().error("Error", p);
         }

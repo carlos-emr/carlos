@@ -100,6 +100,10 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         LoggedInInfo user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
+        var permissions = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(permissions.hasPrivilege(eq(user), anyString(), anyString(), any())).thenReturn(true);
+        when(permissions.isAllowedAccessToPatientRecord(user, 101)).thenReturn(true);
+        injectDependency(action, "securityInfoManager", permissions);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
         locks = mock(CasemgmtNoteLockDao.class);
@@ -189,6 +193,19 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         assertThat(action.save()).isEqualTo("windowCloseError");
 
         assertRefusedWithoutChange("Edited FAKE note");
+    }
+
+    @Test
+    @Tag("release-review")
+    void shouldRefuseFutureDateBeforeWriting_whenSavingWithoutExit() throws Exception {
+        stubFullFormSave();
+        request.setParameter("caseNote_note", "Edited FAKE note");
+        action.setObservation_date("01-Jan-2099 10:00");
+
+        assertThat(action.save()).isEqualTo("windowCloseError");
+        verify(manager, never()).saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any());
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
     }
 
     @Test
@@ -284,4 +301,31 @@ class CaseManagementObservationDateUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getObservation_date()).isEqualTo(at(2026, 10, 15, 19, 14));
         assertThat(response.getStatus()).isEqualTo(200);
     }
+    @ParameterizedTest
+    @ValueSource(strings={"save","sign","verify"})
+    void shouldRefuseFutureDateWithDraftBeforePersistence(String operation) throws Exception {
+        String draft="FAKE future visit draft\r\nretained";request.setParameter("caseNote_note",draft);
+        action.setObservation_date("01-Jan-2099 10:00");
+        if ("verify".equals(operation)) request.setParameter("verify","on");
+        String result="save".equals(operation)?action.save():action.saveAndExit();
+        assertThat(result).isEqualTo("windowCloseError");assertRefusedWithoutChange(draft);
+        assertThat(request.getAttribute("DateError")).isNotNull();
+    }
+
+    @Test
+    void shouldRefuseFutureNoteSwitchDate_beforeLoadingOrChangingNote() throws Exception {
+        request.setParameter("obsDate","01-Jan-2099 10:00");
+        assertThat(action.ajaxsave()).isNull();assertThat(response.getStatus()).isEqualTo(400);
+        verify(manager,never()).getNote(any());verify(manager,never()).saveNoteRevisionSimple(any());
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);assertThat(note.isSigned()).isFalse();
+    }
+
+    @Test
+    void shouldKeepDraftDate_whenIssueAddPostsFutureDate() throws Exception {
+        action.setObservation_date("01-Jan-2099 10:00");
+        assertThat(addIssue()).isEqualTo("windowCloseError");assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(note.getObservation_date()).isEqualTo(STORED_DATE);
+        verify(manager,never()).saveAndUpdateCaseIssues(any());
+    }
+
 }
