@@ -6,19 +6,20 @@
  *       type ▸ Sign & Save  -> POST CaseManagementEntry?method=issueNoteSave
  *   (b) Master Record ▸ Tickler (tickler/ViewTicklerMain for the patient) ▸ row note icon ▸
  *       type ▸ Save         -> CaseManagementEntry?method=ticklerSaveNote
+ *   (c) the patient's tickler list (tickler/ViewTicklerDemoMain, the popup the document
+ *       viewer's and the lab display's "open ticklers" alert opens) ▸ row note icon ▸ type ▸
+ *       Save                -> CaseManagementEntry?method=ticklerSaveNote
  *
- * CaseManagementEntry2Action has no POST check for any of its ~30 `method=` branches and
- * checks only _demographic READ before dispatching; HttpMethodGuardFilter recognises only
- * method=save/cancel there (exact match), so issueNoteSave, ticklerSaveNote, ajaxsave,
- * saveAndExit, autosave, issueAdd/issueDelete etc. all run on a GET. (b) is worse: the page's
- * own saveNoteDialog() calls jQuery.ajax without `type`, i.e. the UI itself writes the signed
- * note with a GET. Each positive save is driven by the page and asserted in casemgmt_note;
- * the captured request is replayed as GET/HEAD with a new stamped text and must answer 405
- * and write nothing. The UI's own verb for (b) and every probe are asserted in the LAST step.
+ * The CaseManagementEntry methods that change a note, an issue, a draft or a note lock accept
+ * only POST (CaseManagementEntry2Action.POST_ONLY_METHODS); opening, reading, printing and
+ * restoring the chart stay GET. Each positive save is driven by the page and asserted in
+ * casemgmt_note; the captured request is replayed as GET/HEAD with a new stamped text and must
+ * answer 405 and write nothing. The other save method names are probed by GET/HEAD too. The
+ * dialogs' own verb for (b) and (c) and every probe are asserted in the LAST step.
  *
  * Fixtures: the owned synthetic patient (its chart lock is taken by opening the E-Chart) and
- * one marker tickler; cleanup deletes the patient's notes, note links/exts/issue rows, CPP and
- * legacy eChart rows and the tickler, and asserts they are gone.
+ * two marker ticklers; cleanup deletes the patient's notes, note links/exts/issue rows, drafts,
+ * CPP and legacy eChart rows and the ticklers, and asserts they are gone.
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
 const h = require('./lib/playwright-harness');
@@ -40,6 +41,7 @@ async function workflow(s) {
   const ledger = createLedger(NAME);
   const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
   const message = `${marker} get-reject tickler`;
+  const demoMessage = `${marker} get-reject patient list tickler`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
       DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
@@ -47,15 +49,18 @@ async function workflow(s) {
       DELETE FROM casemgmt_note WHERE demographic_no=${patient};
       DELETE FROM casemgmt_issue WHERE demographic_no=${patient};
       DELETE FROM casemgmt_cpp WHERE demographic_no=${patient};
+      DELETE FROM casemgmt_tmpsave WHERE demographic_no=${patient};
       DELETE FROM eChart WHERE demographicNo=${patient};
-      DELETE FROM tickler WHERE demographic_no=${patient} AND message=${q(message)}`);
+      DELETE FROM tickler WHERE demographic_no=${patient} AND message IN (${q(message)}, ${q(demoMessage)})`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient})`) === '0', 'Owned notes/issues/tickler were not removed');
+      + (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient})
+      + (SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient})`) === '0', 'Owned notes/issues/drafts/ticklers were not removed');
   });
   const stamped = text => `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND LOCATE(${q(text)}, note) > 0`;
   let cpp;
   let tickler;
+  let demoTickler;
   const cppText = `${marker} CPP social history item`;
 
   await s.step('E-Chart ▸ Social History ▸ Add Item ▸ Sign & Save stores the item (POST method=issueNoteSave)', async () => {
@@ -100,9 +105,10 @@ async function workflow(s) {
     await row.locator('a.noteDialogLink').click();
     await list.locator('#tickler_note').waitFor({ state: 'visible' });
     await list.locator('#tickler_note').fill(ticklerText);
-    tickler = await captureRequest(list, url => url.pathname.endsWith('/CaseManagementEntry')
-      && url.searchParams.get('method') === 'ticklerSaveNote', () => list.locator('#note-form button.btn-primary').click(),
-    { method: null });
+    // The dialog posts, so `method` is in the body: match the route, then check the captured params.
+    tickler = await captureRequest(list, url => url.pathname.endsWith('/CaseManagementEntry'),
+      () => list.locator('#note-form button.btn-primary').click(), { method: null });
+    h.assert(tickler.params.get('method') === 'ticklerSaveNote', `The dialog sent method=${tickler.params.get('method')}`);
     await expectValue(sql, stamped(ticklerText), '1', 'The note dialog did not store the tickler note');
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id=l.note_id
       WHERE l.table_id=${ticklerNo} AND LOCATE(${q(ticklerText)}, n.note) > 0`) === '1', 'The tickler note is not linked to the tickler');
@@ -115,12 +121,54 @@ async function workflow(s) {
       params: replayParams(substitute(tickler.params, ticklerText, probeText)), snapshot: () => sql.value(stamped(probeText)) });
   });
 
-  await s.step('chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST', async () => {
+  const demoTicklerNo = sql.value(`INSERT INTO tickler(demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
+    VALUES(${patient},${q(demoMessage)},'A',NOW(),DATE_SUB(CURDATE(),INTERVAL 1 DAY),${q(provider)},'Normal',${q(provider)});
+    SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(demoTicklerNo), 'The second owned tickler was not created');
+  const demoText = `${marker} patient list tickler note`;
+
+  await s.step('patient tickler list (tickler/ViewTicklerDemoMain) ▸ note icon ▸ Save stores a note linked to its tickler', async () => {
+    // The document viewer's and the lab display's "open ticklers" alert opens this URL in a popup.
+    const list = await s.context.newPage();
+    await list.goto(h.appUrl(s.config.baseUrl, `/tickler/ViewTicklerDemoMain?demoview=${patient}`));
+    // Both dialog requests are synchronous XHRs; start only once the page's scripts (CSRFGuard
+    // included) have finished loading, or a click can stall behind them.
+    await list.waitForLoadState('networkidle');
+    await list.locator(`a[onclick*="openNoteDialog('${patient}','${demoTicklerNo}')"]`).click();
+    await list.locator('#note-form').waitFor({ state: 'visible' });
+    await list.locator('#tickler_note').waitFor({ state: 'visible' });
+    await list.locator('#tickler_note').fill(demoText);
+    demoTickler = await captureRequest(list, url => url.pathname.endsWith('/CaseManagementEntry'),
+      () => list.locator('#note-form a[onclick^="saveNoteDialog"]').click(), { method: null });
+    h.assert(demoTickler.params.get('method') === 'ticklerSaveNote', `The dialog sent method=${demoTickler.params.get('method')}`);
+    await expectValue(sql, stamped(demoText), '1', 'The patient tickler list note dialog did not store the note');
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_link l JOIN casemgmt_note n ON n.note_id=l.note_id
+      WHERE l.table_id=${demoTicklerNo} AND LOCATE(${q(demoText)}, n.note) > 0`) === '1', 'The note is not linked to its tickler');
+    await list.close();
+  });
+
+  await s.step('the other note, issue, draft and lock saves are probed by GET/HEAD', async () => {
+    // Owned rows only: the patient's notes, issues, drafts and note locks.
+    const owned = () => sql.value(`SELECT CONCAT_WS('/',
+      (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}),
+      (SELECT COUNT(*) FROM casemgmt_issue WHERE demographic_no=${patient}),
+      (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient}),
+      (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient}))`);
+    for (const method of ['save', 'saveAndExit', 'autosave', 'cancel', 'ajaxsave', 'issueNoteSaveJson',
+      'isNoteEdited', 'updateNoteLock', 'releaseNoteLock', 'makeIssue', 'issueAdd',
+      'submitChangeDiagnosis', 'ajaxChangeDiagnosis', 'issueChange', 'issueDelete']) {
+      await ledger.probe(s, { label: `CaseManagementEntry?method=${method}`, path: cpp.path,
+        params: new URLSearchParams({ method, demographicNo: patient, noteId: '0', ticklerNo: ticklerNo,
+          value: `${marker} ${method} by GET`, caseNote_note: `${marker} ${method} by GET` }),
+        snapshot: owned });
+    }
+  });
+
+  await s.step('chart-note writes refuse GET/HEAD, and both tickler note dialogs save by POST', async () => {
     const problems = [];
     try { ledger.assertAllRefused(); } catch (error) { problems.push(error.message); }
-    if (tickler.method !== 'POST') {
-      problems.push(`the tickler note dialog itself saved the note with a ${tickler.method} (ticklerMain.jsp saveNoteDialog() `
-        + 'jQuery.ajax has no type), so the write cannot be made POST-only without fixing the page');
+    for (const [page, sent] of [['ticklerMain.jsp', tickler], ['ticklerDemoMain.jsp', demoTickler]]) {
+      if (sent.method !== 'POST') problems.push(`the ${page} note dialog saved the note with a ${sent.method}`);
     }
     h.assert(!problems.length, problems.join(' || '));
   });

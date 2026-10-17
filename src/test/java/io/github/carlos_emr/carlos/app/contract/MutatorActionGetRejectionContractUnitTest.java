@@ -513,7 +513,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // Facility admin: list/edit/add render on a GET (method=add only builds a transient
         // Facility for the form); only method=delete and method=save are POST-only
         // (see FacilityManager2ActionUnitTest).
-        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action",
+        // Chart notes: opening, reading, printing and restoring the chart permit GET; the method
+        // values that change a note, an issue, a draft or a note lock are POST-only
+        // (see CaseManagementEntry2ActionPostOnlyUnitTest).
+        "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action"
     );
 
     /**
@@ -682,7 +686,10 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
-        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action"
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+        // casemgmt slice: CaseManagementEntry2Action's save methods are POST-only; the casemgmt
+        // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
