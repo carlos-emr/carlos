@@ -4490,6 +4490,49 @@
       "fixtures": "Owned patients in a 1951-1953 window, a provider group, one appointment, three billing headers and four notes; snapshots and restores the clinic-wide visitreport provider list and regenerates the reportagesex cache, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "admin-caisi-activity-report",
+      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
+      "envSet": {
+        "CAISI_REPORT": "activity"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CAISI_REPORT"
+      ],
+      "fixtures": "The runWorkflow FAKE patient only (unused by this entry).",
+      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step: the entry points at PMmodule/Reports/ProgramActivityReport, which has no route, so the frame shows a 404 (pending finding 397). No expectedFailure pin until the finding is in the log."
+    },
+    {
+      "name": "admin-caisi-population-report",
+      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
+      "envSet": {
+        "CAISI_REPORT": "population"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "program"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CAISI_REPORT"
+      ],
+      "fixtures": "One FAKE Service program named with the run marker (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install) and one admission of the runWorkflow FAKE patient to it, so the report's current population is not 0; both are deleted by their captured ids. The program shows in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The report keeps its figures for an hour in static fields, so it can count the deleted admission for up to an hour after the run.",
+      "notes": "Administration > Reports > Population Report; see admin-caisi-activity-report for the shared script. Skips on the packaged default (caisi=off); needs caisi=on with ModuleNames including Caisi. Opening the report from the legacy Administration page (admin/ViewAdmin) renders every section (render only: the report caches its figures for an hour in static fields shared by every user). It then fails at its menu step: the current shell's Population Report entry has a page attribute and no href, so clicking it does nothing (pending finding 396). With nobody counted in the population the report itself answers 500 (pending finding 398); the check seeds one admission so that does not mask the menu result. No expectedFailure pin until the findings are in the log."
+    },
+    {
       "name": "rx-edit-discontinue",
       "script": "scripts/rx-edit-discontinue-playwright-checks.js",
       "tiers": [
