@@ -342,7 +342,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         prepareBillingUrl(demono);
 
         /* remove this patient's remembered echart string; other open charts keep theirs */
-        session.removeAttribute(ChartSessionKeys.lastSavedNoteText(demono));
+        session.removeAttribute(ChartSessionKeys.lastSavedNoteText(demono)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         logger.debug("Get Issues and filter them");
         current = System.currentTimeMillis();
@@ -1355,7 +1355,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* save note including add signature */
         // This patient's own last eChart text: another chart's would be looked for, and removed,
         // in this patient's eChart record (issue #4673).
-        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo));
+        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
         List<CaseManagementNoteExt> submittedExtensions = readSubmittedCppExtensions(extNames, extKeys);
         String savedStr;
         try {
@@ -1552,7 +1552,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo));
+        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         // bug fix - encounter type was not being updated.
         String encounterType = request.getParameter("caseNote.encounter_type");
@@ -3149,8 +3149,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // restore: kept per patient (issue #4673), so they go with the chart instead of staying in
         // the session for every patient charted in this login. Opening the editor again starts
         // without them, as it always did.
-        request.getSession().removeAttribute(ChartSessionKeys.lastSavedNoteText(demoNo));
-        request.getSession().removeAttribute(ChartSessionKeys.draftRestoring(demoNo));
+        request.getSession().removeAttribute(ChartSessionKeys.lastSavedNoteText(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
+        request.getSession().removeAttribute(ChartSessionKeys.draftRestoring(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         return null;
     }
