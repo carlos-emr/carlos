@@ -9,7 +9,9 @@
  * stops at its first failing step). Unset, it runs both, Activity first.
  *
  * Activity: Schedule ▸ Administration ▸ Reports ▸ "Activity Report" (an .xlink into the shell's
- * frame) shows the report, not an error page.
+ * frame) shows the report, not an error page: the per-program summary of admissions and referrals
+ * the report showed when last shipped (its JSPs were removed in ee972fcfd2; ActivityReport2Action
+ * remains, with no route).
  *
  * Population: with the owned FAKE patient admitted to an owned FAKE active Service program, so
  * the report's current population is not 0, the legacy Administration page (admin/ViewAdmin,
@@ -42,6 +44,7 @@ const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 20000;
 const ACTIVITY_LINK = 'a[rel$="/PMmodule/Reports/ProgramActivityReport"]';
+const ACTIVITY_COLUMNS = ['Program', 'Total Admissions', 'Total Referrals'];
 const POPULATION_SECTIONS = ['Homeless Shelter Population', 'Intensity of Shelter Use', 'Major Medical Condition',
   'Major Mental Illness', 'Incidence in the past year of Serious Medical Conditions', 'Notes on the Data'];
 const REPORT = process.env.CAISI_REPORT || '';
@@ -56,12 +59,31 @@ async function openAdmin(s) {
   return page;
 }
 
-/** Asserts a page or frame shows the Population Report with every section. */
-async function assertPopulationReport(scope, how) {
-  const text = (await scope.locator('body').innerText()).replace(/\s+/g, ' ');
+/** Asserts the text of a page body, frame body or panel shows the Population Report with every section. */
+async function assertPopulationReport(container, how) {
+  const text = (await container.innerText()).replace(/\s+/g, ' ');
   h.assert(!h.isApplicationErrorPage(text), `${how} showed an error page instead of the Population Report`);
   for (const section of POPULATION_SECTIONS) {
     h.assert(text.includes(section), `${how} did not show the "${section}" section of the Population Report`);
+  }
+}
+
+/**
+ * Waits for a shell entry's page to arrive: in a frame whose URL names the route (an .xlink entry)
+ * or, failing that, in the #dynamic-content panel (a contentLink load), until `ready` holds for its
+ * text. Returns the container that matched; asserts if none did in time.
+ */
+async function landedContent(admin, route, ready, how) {
+  const deadline = Date.now() + TIMEOUT;
+  for (;;) {
+    const frame = admin.frames().find(candidate => candidate !== admin.mainFrame() && candidate.url().includes(route));
+    const containers = [frame && frame.locator('body'), admin.locator('#dynamic-content')].filter(Boolean);
+    for (const container of containers) {
+      const text = await container.innerText().catch(() => '');
+      if (ready(text)) return container;
+    }
+    h.assert(Date.now() < deadline, `${how} did not show its page within ${TIMEOUT / 1000} s`);
+    await admin.waitForTimeout(250);
   }
 }
 
@@ -82,12 +104,17 @@ async function workflow(s) {
       { timeout: TIMEOUT });
     await link.click();
     const response = await answered;
-    const frame = admin.frame({ name: 'myFrame' });
-    h.assert(frame, 'Activity Report did not open in the administration frame');
-    await frame.waitForLoadState('load', { timeout: TIMEOUT });
-    const text = (await frame.locator('body').innerText()).replace(/\s+/g, ' ');
+    // The frame starts as about:blank; read it only once it holds the report's document.
+    const container = await landedContent(admin, '/PMmodule/Reports/ProgramActivityReport', text => text.trim().length > 0,
+      'Activity Report');
+    const text = (await container.innerText()).replace(/\s+/g, ' ').trim();
     h.assert(response.status() < 400 && !h.isApplicationErrorPage(text),
       `Activity Report answered HTTP ${response.status()} and showed ${JSON.stringify(text.slice(0, 80))} instead of the report`);
+    // The report as last shipped (PMmodule/reports/ActivityReport.jsp, removed in ee972fcfd2) is a
+    // per-program summary of admissions and referrals.
+    for (const column of ACTIVITY_COLUMNS) {
+      h.assert(text.includes(column), `Activity Report has no "${column}" column`);
+    }
   });
 
   if (!runs('population')) return;
@@ -126,20 +153,26 @@ async function workflow(s) {
     ]);
     h.assert(response.status() === 200, `Population Report answered HTTP ${response.status()}`);
     await legacy.waitForLoadState('load', { timeout: TIMEOUT });
-    await assertPopulationReport(legacy, 'Population Report from the legacy Administration page');
+    await assertPopulationReport(legacy.locator('body'), 'Population Report from the legacy Administration page');
     await legacy.close();
   });
 
   await s.step('Administration ▸ Reports ▸ Population Report opens the report', async () => {
-    const link = admin.locator('#adminNav a.contentLink', { hasText: 'Population Report' }).first();
+    // Any <a> of that name, with or without an href (today's entry has none, so it has no link role):
+    // a fix may load the report in the panel (contentLink) or the frame (xlink).
+    const link = admin.locator('#adminNav a').filter({ hasText: /^\s*Population Report\s*$/ }).first();
     h.assert(await link.count() === 1, 'Administration ▸ Reports offers no Population Report entry');
     await revealAuditLink(admin, link, TIMEOUT);
-    const requested = admin.waitForRequest(request => new URL(request.url()).pathname.endsWith('/PopulationReport'), { timeout: 10000 })
-      .then(() => true, () => false);
+    const answered = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/PopulationReport'), { timeout: 10000 })
+      .then(response => response, () => null);
     await link.click();
-    h.assert(await requested, 'Clicking Population Report sent no request: the entry has no href, so the panel stays as it was');
-    const frame = admin.frame({ name: 'myFrame' });
-    await assertPopulationReport(frame || admin.locator('#dynamic-content'), 'Administration ▸ Reports ▸ Population Report');
+    const response = await answered;
+    h.assert(response, 'Clicking Population Report sent no request: the entry has no href, so the panel stays as it was');
+    h.assert(response.status() === 200, `Population Report answered HTTP ${response.status()}`);
+    // Wherever the fixed entry puts the report (a frame or the panel), wait for its first section.
+    const container = await landedContent(admin, '/PopulationReport', text => text.includes(POPULATION_SECTIONS[0]),
+      'Administration ▸ Reports ▸ Population Report');
+    await assertPopulationReport(container, 'Administration ▸ Reports ▸ Population Report');
   });
 }
 
