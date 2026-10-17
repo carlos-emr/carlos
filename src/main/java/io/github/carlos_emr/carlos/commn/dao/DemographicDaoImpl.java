@@ -613,6 +613,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                     yield null;
                 }
             }
+            case "search_band_number" -> {
+                // First Nations band (status) number, kept in the statusNum extension: every record that
+                // carries the number matches, as in the other modes (a patient registered twice shows twice).
+                if (keyword.isEmpty()) yield null;
+                parameters.put("bandNumber", keyword);
+                yield "EXISTS (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
+                        + " AND e.key='statusNum' AND e.value=:bandNumber)";
+            }
             default -> null;
         };
     }
