@@ -70,6 +70,20 @@ class BcBillStagingUnitTest {
     }
 
     @Test
+    void shouldHandTheBillToThePageWithoutStagingIt_whenRendering() {
+        String key = open(bill("101"));
+        MockHttpServletRequest reRender = request();
+        reRender.setAttribute(BcBillStaging.KEY_ATTRIBUTE, key);
+        BillingSessionBean shown = bill("101");
+
+        BcBillStaging.render(reRender, shown);
+
+        assertThat(reRender.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isSameAs(shown);
+        assertThat(reRender.getAttribute(BcBillStaging.KEY_ATTRIBUTE)).isNull();
+        assertThat(resume(key)).isNotSameAs(shown);
+    }
+
+    @Test
     void shouldStoreTheUpdatedBill_whenAStepSavesIt() {
         String key = open(bill("101"));
         MockHttpServletRequest step = request();

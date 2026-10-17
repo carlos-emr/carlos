@@ -90,6 +90,17 @@ public final class BcBillStaging {
     }
 
     /**
+     * Hands a bill to this request's page without staging it, for a request that only re-renders
+     * part of an open bill form. The form reloads its patient bar and code table in place when the
+     * provider, bill type or form changes; it keeps posting the key of the bill it opened with, so
+     * staging each reload would only push that bill, and other windows' bills, out of the session.
+     */
+    public static void render(HttpServletRequest request, BillingSessionBean bill) {
+        request.removeAttribute(KEY_ATTRIBUTE);
+        request.setAttribute(BEAN_ATTRIBUTE, bill);
+    }
+
+    /**
      * The bill this request continues, named by its {@value #KEY_PARAMETER} parameter or, after a
      * forward, its {@value #KEY_ATTRIBUTE} request attribute. When found, it is also handed to
      * this request's page.

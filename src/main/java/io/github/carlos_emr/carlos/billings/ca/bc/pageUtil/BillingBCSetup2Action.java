@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -54,7 +55,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Each bill is staged under its own key ({@link BcBillStaging}). It used to be
  * the single session attribute {@code billingSessionBean}, so a bill opened in a
  * second window replaced the first window's, and a request that opened no bill
- * showed whichever bill was opened last (issue #4673).</p>
+ * showed whichever bill was opened last (issue #4673). An XMLHttpRequest, the
+ * bill form reloading part of itself in place, is rendered without being staged.</p>
  *
  * <p>Lifted out of the former {@code ca.bc.pageUtil.Billing2Action}, which
  * conflated cross-province routing with BC bean fill. The cross-province
@@ -133,8 +135,16 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 bean.setApptDate((String) request.getAttribute("serviceDate"));
             }
 
-            // This window's own bill; its pages carry the key through review and save.
-            BcBillStaging.open(request, bean);
+            if (RequestNegotiation.isAjax(request)) {
+                // The open bill form reloading its patient bar or code table in place after a
+                // provider, bill type or form change. It keeps posting the bill it opened with, so
+                // this one is only rendered: staging every reload would push that bill, and other
+                // windows' bills, out of the session.
+                BcBillStaging.render(request, bean);
+            } else {
+                // This window's own bill; its pages carry the key through review and save.
+                BcBillStaging.open(request, bean);
+            }
 
             try {
                 _log.debug("Start of billing rules");

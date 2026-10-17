@@ -133,6 +133,27 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepTheWindowsBill_whenTheFormReRendersInPlaceRepeatedly() throws Exception {
+        String key = openBill("101", "11");
+        // Changing the provider, bill type or form reloads the form's patient bar and code table in
+        // place (a jQuery load of the same page, an XMLHttpRequest), more often than bills are kept.
+        for (int i = 0; i <= BcBillStaging.MAX_ENTRIES; i++) {
+            newRequest();
+            request.addHeader("X-Requested-With", "XMLHttpRequest");
+            assertThat(openBill("101", "11")).isNull();
+            assertThat(((BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).getPatientNo())
+                    .isEqualTo("101");
+        }
+
+        // Continue, a validation failure or Go Back still finds the bill the form opened with.
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(BcBillStaging.KEY_ATTRIBUTE)).isEqualTo(key);
+    }
+
+    @Test
     void shouldResumeTheForwardedBill_whenTheEncounterSaveAndBillForwardsHere() throws Exception {
         BillingSessionBean fromEncounter = new BillingSessionBean();
         fromEncounter.setPatientNo("303");
