@@ -89,6 +89,33 @@
             <result name="private">/WEB-INF/jsp/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
         </action>
 
+        <!-- Read-only gates for the BC billing administration pages (#4767). The menu and the pages'
+             own links open the pages through these; the writer actions below are unchanged. -->
+        <action name="billing/CA/BC/ViewBillingCodeAdjust" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingCodeAdjust2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCodeAdjust.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingPrivateCodeAdjust" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingPrivateCodeAdjust2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddPrivateCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddPrivateCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddPrivateCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingEditCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingEditCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingEditCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingManageReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingManageReferralDoc2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingManageReferralDoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddReferralDoc2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddReferralDoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewReconcileReports" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReconcileReports2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/viewReconcileReports.jsp</result>
+        </action>
+
         <action name="billing/CA/BC/billingAddCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCodeAdjust.jsp</result>
             <result name="normalCodeError">/WEB-INF/jsp/billing/CA/BC/billingAddCode.jsp</result>
@@ -215,7 +242,7 @@
 
         <action name="billing/CA/BC/DeletePrivateCode"
                 class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action">
-            <result name="success" type="redirect">/billing/CA/BC/billingAddCode?whereTo=private</result>
+            <result name="success" type="redirect">/billing/CA/BC/ViewBillingPrivateCodeAdjust</result>
         </action>
 
 

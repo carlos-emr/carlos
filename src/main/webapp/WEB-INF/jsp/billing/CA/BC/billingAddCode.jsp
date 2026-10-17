@@ -145,7 +145,7 @@
                         <td>&nbsp;</td>
                         <td>
                             <input type="submit" value="Add" />
-                            <button type="button" onclick="document.location = '<%= request.getContextPath() %>/billing/CA/BC/billingAddCode'">Back</button>
+                            <button type="button" onclick="document.location = '<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust'">Back</button>
                     </tr>
                 </table>
             </form></td>
