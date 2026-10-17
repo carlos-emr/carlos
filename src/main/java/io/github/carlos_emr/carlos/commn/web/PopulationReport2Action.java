@@ -88,17 +88,27 @@ public class PopulationReport2Action extends ActionSupport {
 
         // simple caching mechanism (because this report is open to the public and we don't want the public smacking our server around)
         if (System.currentTimeMillis() - lastDataRetrievedTime > DateUtils.MILLIS_PER_HOUR) {
-            lastDataRetrievedTime = System.currentTimeMillis();
+            // Compute every figure first and publish them, with the cache time, only once all have
+            // been computed. Stamping the time first let one failed compute serve an hour of
+            // partial figures to everyone (issue #4855).
+            Date computedAt = Calendar.getInstance().getTime();
+            ShelterPopulation newShelterPopulation = populationReportManager.getShelterPopulation();
+            ShelterUsage newShelterUsage = populationReportManager.getShelterUsage();
+            Mortalities newMortalities = populationReportManager.getMortalities();
+            Map<String, ReportStatistic> newMajorMedicalConditions = populationReportManager.getMajorMedicalConditions();
+            Map<String, ReportStatistic> newMajorMentalIllnesses = populationReportManager.getMajorMentalIllnesses();
+            Map<String, ReportStatistic> newSeriousMedicalConditions = populationReportManager.getSeriousMedicalConditions();
+            Map<String, Map<String, String>> newCategoryCodeDescriptions = populationReportManager.getCategoryCodeDescriptions();
 
-            // get attributes
-            currentDateTime = Calendar.getInstance().getTime();
-            shelterPopulation = populationReportManager.getShelterPopulation();
-            shelterUsage = populationReportManager.getShelterUsage();
-            mortalities = populationReportManager.getMortalities();
-            majorMedicalConditions = populationReportManager.getMajorMedicalConditions();
-            majorMentalIllnesses = populationReportManager.getMajorMentalIllnesses();
-            seriousMedicalConditions = populationReportManager.getSeriousMedicalConditions();
-            categoryCodeDescriptions = populationReportManager.getCategoryCodeDescriptions();
+            currentDateTime = computedAt;
+            shelterPopulation = newShelterPopulation;
+            shelterUsage = newShelterUsage;
+            mortalities = newMortalities;
+            majorMedicalConditions = newMajorMedicalConditions;
+            majorMentalIllnesses = newMajorMentalIllnesses;
+            seriousMedicalConditions = newSeriousMedicalConditions;
+            categoryCodeDescriptions = newCategoryCodeDescriptions;
+            lastDataRetrievedTime = System.currentTimeMillis();
         }
 
         // set attributes

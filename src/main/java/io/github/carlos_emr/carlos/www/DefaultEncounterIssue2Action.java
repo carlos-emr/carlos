@@ -121,6 +121,16 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         return "editRemove";
     }
 
+    /**
+     * The issue whose code is exactly the entered text (trimmed), or null. The page asks for issue
+     * codes; the earlier search matched the text anywhere in any code or description, so
+     * "ICSW100" also assigned ICSW1000 (issue #4855).
+     */
+    private static Issue findIssueByCode(IssueDAO issueDao, String enteredCode) {
+        String code = enteredCode == null ? "" : enteredCode.trim();
+        return code.isEmpty() ? null : issueDao.findIssueByCode(code);
+    }
+
     public String save() {
         String issueNames = request.getParameter("issueNames");
         if (issueNames == null || issueNames.length() == 0) {
@@ -134,11 +144,8 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         Set<Long> issueIdSet = new HashSet<Long>();
         String[] issueNamesArr = issueNames.split(",");
         for (String issueName : issueNamesArr) {
-            List<Issue> issueList = issueDao.findIssueBySearch(issueName.trim());
-            if (issueList == null || issueList.size() == 0) {
-                continue;
-            }
-            for (Issue issue : issueList) {
+            Issue issue = findIssueByCode(issueDao, issueName);
+            if (issue != null) {
                 issueIdSet.add(issue.getId());
             }
         }
@@ -206,12 +213,8 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         String[] issueNamesArr = issueNames.split(",");
         StringBuilder idSb = new StringBuilder();
         for (String issueName : issueNamesArr) {
-            List<Issue> issueList = issueDao.findIssueBySearch(issueName.trim());
-            if (issueList == null || issueList.size() == 0) {
-                continue;
-            }
-            for (Issue issue : issueList) {
-                issueIdSet.add(issue.getId());
+            Issue issue = findIssueByCode(issueDao, issueName);
+            if (issue != null && issueIdSet.add(issue.getId())) {
                 idSb.append(issue.getId().toString() + ",");
             }
         }
