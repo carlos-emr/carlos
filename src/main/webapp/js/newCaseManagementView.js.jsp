@@ -2083,8 +2083,14 @@ function updateCPPNote() {
 
 // this func fires only if maximize button is clicked after fullView
     function xpandView(e) {
-        var id = Event.element(e).id;
-        xpandViewById(id);
+        // Expand the note whose div (n<id>) holds the click. The click can land on a child with no id of its
+        // own, such as the bold date of a folded note, whose id would name no note.
+        var note = Event.element(e);
+        while (note != null && !(note.id && /^n\d+$/.test(note.id))) {
+            note = note.parentNode;
+        }
+        if (note == null) return;
+        xpandViewById(note.id);
         Event.stop(e);
     }
 
