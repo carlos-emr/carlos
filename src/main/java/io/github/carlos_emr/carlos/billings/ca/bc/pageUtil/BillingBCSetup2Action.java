@@ -164,9 +164,9 @@ public final class BillingBCSetup2Action extends ActionSupport {
             }
         } else if (BcBillStaging.resume(request) == null) {
             // No new bill and no open bill named by this request (a validation return, Go Back, or
-            // the encounter's save-and-bill forward name theirs). Never another window's bill.
-            _log.warn("BC billing setup refused: the request names no open bill");
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            // the encounter's save-and-bill forward name theirs). Never another window's bill: the
+            // window is told its billing session expired, as the save step tells it.
+            BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
             return NONE;
         }
         return SUCCESS;

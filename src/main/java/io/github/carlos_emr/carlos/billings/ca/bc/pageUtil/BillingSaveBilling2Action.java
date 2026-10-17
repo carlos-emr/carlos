@@ -219,7 +219,11 @@ public class BillingSaveBilling2Action extends ActionSupport {
             // The same bill stays open for the next one; store its updated state again.
             BcBillStaging.save(request, bean);
             return "anotherBill";
-        } else if ("Save & Print Receipt".equals(submit)) {
+        }
+        // Saved and finished with: a repeated submit still finds the bill, but it is the first to
+        // go when room is needed, before bills still open in other windows.
+        BcBillStaging.release(request);
+        if ("Save & Print Receipt".equals(submit)) {
             String redirectUrl = receiptRedirectUrl(request.getContextPath(), billingIds);
             sendReceiptRedirect(response, redirectUrl);
             return NONE;
@@ -253,14 +257,16 @@ public class BillingSaveBilling2Action extends ActionSupport {
     }
 
     /**
-     * Sends a bad-request response for expired or replayed billing submits.
+     * Sends a bad-request response for a BC billing request whose bill is no longer open: an
+     * expired session, a replayed submit, or a window whose bill was dropped for newer ones
+     * ({@link BcBillStaging}). The bill form and its review answer the same way.
      *
      * <p>The response body is written directly instead of using {@code sendError}; otherwise the
      * servlet error-page mapping replaces the localized operator guidance.</p>
      */
-    private void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
+    static void rejectExpiredBillingSession(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        log.warn("Rejected BC billing save because billingSessionBean is missing: method={}, uri={}, remote={}",
+        log.warn("Rejected a BC billing request because its bill is no longer open: method={}, uri={}, remote={}",
                 LogSafe.sanitize(request.getMethod()),
                 LogSafe.sanitizeUri(request.getRequestURI()),
                 LogSafe.sanitize(request.getRemoteAddr()));
@@ -486,7 +492,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
      * <p>The request is used only for sanitized diagnostics if an upstream wrapper has already
      * obtained the servlet output stream and the writer path is unavailable.</p>
      */
-    private void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
+    private static void writeBody(HttpServletRequest request, HttpServletResponse response, String body) throws IOException {
         try {
             response.getWriter().write(body);
         } catch (IllegalStateException writerUnavailable) {

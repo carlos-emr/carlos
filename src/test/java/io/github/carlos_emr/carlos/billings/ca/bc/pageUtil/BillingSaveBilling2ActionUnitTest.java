@@ -639,6 +639,7 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         BillingSessionBean windowB = populatedBillingSessionBean("0");
         windowB.setPatientNo("33");
         stageBill(windowB);
+        String windowBKey = request.getParameter(BcBillStaging.KEY_PARAMETER);
         request.setParameter(BcBillStaging.KEY_PARAMETER, windowAKey);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("100");
@@ -664,6 +665,23 @@ class BillingSaveBilling2ActionUnitTest extends CarlosUnitTestBase {
         }
         assertThat(billingCaptor.getValue().getDemographicNo()).isEqualTo(22);
         assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isSameAs(windowA);
+
+        // Saved, the bill is the first to go when other windows open bills, before window B's,
+        // which is still being written.
+        for (int i = 2; i <= BcBillStaging.MAX_ENTRIES; i++) {
+            MockHttpServletRequest opener = new MockHttpServletRequest();
+            opener.setSession(request.getSession());
+            BcBillStaging.open(opener, populatedBillingSessionBean("0"));
+        }
+        assertThat(resumeBill(windowAKey)).isNull();
+        assertThat(resumeBill(windowBKey)).isSameAs(windowB);
+    }
+
+    private BillingSessionBean resumeBill(String key) {
+        MockHttpServletRequest step = new MockHttpServletRequest();
+        step.setSession(request.getSession());
+        step.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        return BcBillStaging.resume(step);
     }
 
     @Test

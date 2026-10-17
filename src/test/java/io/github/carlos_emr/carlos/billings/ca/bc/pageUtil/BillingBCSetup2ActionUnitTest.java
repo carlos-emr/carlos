@@ -128,6 +128,9 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        // Told why, as the save step tells it, rather than a bare status.
+        assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(response.getContentAsString()).isEqualTo("Billing session expired.");
         assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isNull();
     }
 

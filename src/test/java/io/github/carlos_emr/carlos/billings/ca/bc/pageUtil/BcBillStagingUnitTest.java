@@ -70,6 +70,58 @@ class BcBillStagingUnitTest {
     }
 
     @Test
+    void shouldKeepABillStillInUse_whenOtherBillsNeedRoom() {
+        String inUse = open(bill("100"));
+        List<String> others = new ArrayList<>();
+        for (int i = 1; i < BcBillStaging.MAX_ENTRIES; i++) {
+            others.add(open(bill(Integer.toString(100 + i))));
+        }
+        // The first window continues its bill (Continue, Go Back, Save) after the others opened.
+        assertThat(resume(inUse)).isNotNull();
+
+        open(bill("999"));
+
+        assertThat(resume(inUse).getPatientNo()).isEqualTo("100");
+        assertThat(resume(others.get(0))).isNull();
+    }
+
+    @Test
+    void shouldDropASavedBillFirst_whenRoomIsNeeded() {
+        String waiting = open(bill("100"));
+        String saved = null;
+        for (int i = 1; i < BcBillStaging.MAX_ENTRIES; i++) {
+            saved = open(bill(Integer.toString(100 + i)));
+        }
+        release(saved);
+
+        open(bill("999"));
+
+        // The saved bill goes before a bill still waiting in another window.
+        assertThat(resume(saved)).isNull();
+        assertThat(resume(waiting).getPatientNo()).isEqualTo("100");
+    }
+
+    @Test
+    void shouldStillFindASavedBill_whenTheSameReviewIsSubmittedAgain() {
+        String saved = open(bill("101"));
+
+        release(saved);
+
+        assertThat(resume(saved).getPatientNo()).isEqualTo("101");
+    }
+
+    @Test
+    void shouldChangeNothing_whenReleasingARequestThatNamesNoBill() {
+        String key = open(bill("101"));
+        Object before = session.getAttribute(session.getAttributeNames().nextElement());
+
+        BcBillStaging.release(request());
+
+        assertThat(session.getAttribute(session.getAttributeNames().nextElement())).isSameAs(before);
+        assertThat(resume(key)).isNotNull();
+    }
+
+    @Test
     void shouldHandTheBillToThePageWithoutStagingIt_whenRendering() {
         String key = open(bill("101"));
         MockHttpServletRequest reRender = request();
@@ -101,6 +153,13 @@ class BcBillStagingUnitTest {
 
     private String open(BillingSessionBean bill) {
         return BcBillStaging.open(request(), bill);
+    }
+
+    private void release(String key) {
+        MockHttpServletRequest save = request();
+        save.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        assertThat(BcBillStaging.resume(save)).isNotNull();
+        BcBillStaging.release(save);
     }
 
     private BillingSessionBean resume(String key) {

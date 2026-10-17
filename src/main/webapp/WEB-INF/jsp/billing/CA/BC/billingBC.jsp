@@ -1440,7 +1440,10 @@
 
                                             <label for="selectBillingForm"><fmt:message key="billing.billingform"/></label>
 
-                                            <select class="form-select" id="selectBillingForm">
+                                            <%-- Posted with Continue (billForm), so a validation return or Go Back
+                                                 shows the code table of the form chosen here: choosing reloads the
+                                                 table in place without changing the window's staged bill (#4673). --%>
+                                            <select class="form-select" id="selectBillingForm" name="billForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
                                                 <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
                                                         selected

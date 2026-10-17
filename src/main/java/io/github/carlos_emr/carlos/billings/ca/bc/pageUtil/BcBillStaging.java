@@ -47,9 +47,12 @@ import org.springframework.web.util.WebUtils;
  *
  * <p>The steps hand the bill to their JSP as the request attribute {@value #BEAN_ATTRIBUTE},
  * the name the pages have always looked up, together with the key as {@value #KEY_ATTRIBUTE}.
- * The session holds at most {@value #MAX_ENTRIES} bills; opening another drops the oldest, whose
- * window then refuses to continue. As in {@code EmailAttachmentStaging}, the map in the session is
- * replaced, never changed in place, and every change happens under the session mutex.</p>
+ * The session holds at most {@value #MAX_ENTRIES} bills; opening another drops the one that has
+ * gone longest unused. Every step that finds a bill counts as use, and a saved bill
+ * ({@link #release}) is the first to go, so the bills dropped are the ones finished with or left
+ * idle longest. A window whose bill was dropped is told its billing session expired. As in
+ * {@code EmailAttachmentStaging}, the map in the session is replaced, never changed in place, and
+ * every change happens under the session mutex.</p>
  *
  * @since 2026-10-16
  */
@@ -64,7 +67,7 @@ public final class BcBillStaging {
     /** Request attribute under which the pages find the bill. */
     public static final String BEAN_ATTRIBUTE = "billingSessionBean";
 
-    /** Open bills per session; opening another drops the oldest. */
+    /** Open bills per session; opening another drops the one unused longest. */
     public static final int MAX_ENTRIES = 8;
 
     private static final String ATTRIBUTE = BcBillStaging.class.getName() + ".bills";
@@ -103,7 +106,7 @@ public final class BcBillStaging {
     /**
      * The bill this request continues, named by its {@value #KEY_PARAMETER} parameter or, after a
      * forward, its {@value #KEY_ATTRIBUTE} request attribute. When found, it is also handed to
-     * this request's page.
+     * this request's page, and counts as in use: it becomes the last bill to be dropped.
      *
      * @return the bill, or null when the request names none that is still open
      */
@@ -118,6 +121,7 @@ public final class BcBillStaging {
         HttpSession session = request.getSession(false);
         BillingSessionBean bill = session == null ? null : bills(session).get(key);
         if (bill != null) {
+            moveToNewest(session, key);
             publish(request, key, bill);
         }
         return bill;
@@ -133,6 +137,31 @@ public final class BcBillStaging {
         HttpSession session = request.getSession(false);
         if (session != null && key instanceof String k && isKey(k) && bills(session).containsKey(k)) {
             store(session, k, bill);
+        }
+    }
+
+    /**
+     * Marks the bill this request carries as saved. It stays open, so a repeated submit of the
+     * same review still finds it, but it becomes the first to be dropped when another bill needs
+     * room, ahead of bills still open in other windows. Does nothing when the request carries no
+     * open bill's key.
+     */
+    public static void release(HttpServletRequest request) {
+        Object key = request.getAttribute(KEY_ATTRIBUTE);
+        HttpSession session = request.getSession(false);
+        if (session == null || !(key instanceof String k) || !isKey(k)) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Map<String, BillingSessionBean> current = bills(session);
+            BillingSessionBean bill = current.get(k);
+            if (bill == null) {
+                return;
+            }
+            LinkedHashMap<String, BillingSessionBean> next = new LinkedHashMap<>();
+            next.put(k, bill);
+            current.forEach(next::putIfAbsent);
+            session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
         }
     }
 
@@ -156,6 +185,25 @@ public final class BcBillStaging {
                 oldest.next();
                 oldest.remove();
             }
+            session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
+        }
+    }
+
+    /** Moves {@code key}, keeping its bill, to the end that is dropped last. */
+    private static void moveToNewest(HttpSession session, String key) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Map<String, BillingSessionBean> current = bills(session);
+            BillingSessionBean bill = current.get(key);
+            String newest = null;
+            for (String k : current.keySet()) {
+                newest = k;
+            }
+            if (bill == null || key.equals(newest)) {
+                return;
+            }
+            LinkedHashMap<String, BillingSessionBean> next = new LinkedHashMap<>(current);
+            next.remove(key);
+            next.put(key, bill);
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
         }
     }

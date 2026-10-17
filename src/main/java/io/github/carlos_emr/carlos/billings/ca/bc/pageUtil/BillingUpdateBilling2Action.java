@@ -88,7 +88,8 @@ public final class BillingUpdateBilling2Action
 
         // The bill's number comes from the receipt's hidden field; without it there is nothing to
         // update, so refuse the request plainly instead of failing on the number (issue #4717).
-        if (this.getBillingNo() == null || !this.getBillingNo().matches("\\d+")) {
+        // The same shape the receipt view takes, so an accepted update never ends on a refused view.
+        if (this.getBillingNo() == null || !this.getBillingNo().matches("\\d{1,9}")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }

@@ -55,6 +55,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -71,6 +72,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
     /** Validation-failure redirect target — the Struts entry for the billing form. */
     private static final String BILLING_REDIRECT = "/billing";
+
+    /** A billing form (service type) code as the bill form posts it. */
+    private static final Pattern BILL_FORM_CODE = Pattern.compile("[A-Za-z0-9_-]{1,20}");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -108,8 +112,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
         // login-wide session bill, i.e. whichever bill another window opened last.
         BillingSessionBean bean = BcBillStaging.resume(request);
         if (bean == null) {
-            log.warn("BC billing review refused: the form names no open bill");
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            // Its bill was dropped for newer ones, or the form names none: told, as the save step
+            // tells it, that its billing session expired.
+            BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
             return NONE;
         }
         Demographic demo = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
@@ -120,6 +125,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                 other_service2_unit,
                 other_service3_unit);
         BillingFormData billform = new BillingFormData();
+        keepChosenBillForm(bean, billform);
         String payMeth = this.getXml_encounter();
         bean.setGrandtotal(bmanager.getGrandTotal(billItem));
         bean.setPatientLastName(demo.getLastName());
@@ -271,6 +277,18 @@ public class BillingCreateBilling2Action extends ActionSupport {
 ////      }
 ////    }
         return SUCCESS;
+    }
+
+    /**
+     * Records on the bill the billing form the window shows now. Choosing another form reloads the
+     * code table in place without changing the staged bill, so without this a validation return
+     * or Go Back would show the code table of the form the bill was opened with. Only a known
+     * billing form is taken; anything else leaves the bill's form as it was.
+     */
+    void keepChosenBillForm(BillingSessionBean bean, BillingFormData billform) {
+        if (billForm != null && BILL_FORM_CODE.matcher(billForm).matches() && billform.serviceExists(billForm)) {
+            bean.setBillForm(billForm);
+        }
     }
 
     /**
@@ -545,6 +563,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
 
     private String[] service;
+    private String billForm;
     private String xml_provider, xml_location, xml_billtype;
     private String xml_appointment_date;
     private String xml_visittype, xml_vdate;
@@ -580,6 +599,17 @@ public class BillingCreateBilling2Action extends ActionSupport {
     @StrutsParameter
     public void setService(String[] service) {
         this.service = service;
+    }
+
+    /** @return the billing form (service type) the bill form showed when it was submitted */
+    public String getBillForm() {
+        return billForm;
+    }
+
+    /** @param billForm the billing form (service type) the bill form shows, as posted */
+    @StrutsParameter
+    public void setBillForm(String billForm) {
+        this.billForm = billForm;
     }
 
     public String getXml_provider() {
