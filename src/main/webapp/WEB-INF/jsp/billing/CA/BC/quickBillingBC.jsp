@@ -281,6 +281,11 @@
         ${carlos:forHtml(requestScope.saved)} Invoice(s) Saved
     </div>
 
+    <c:if test="${requestScope.patientNotFound}">
+        <fmt:message key="billing.bc.quickBilling.msgPatientNotFound" var="patientNotFoundMessage"/>
+        <div id="patientNotFound" role="alert">${carlos:forHtml(patientNotFoundMessage)}</div>
+    </c:if>
+
     <div id="header" class="bgLilac">
         <ul>
             <li>

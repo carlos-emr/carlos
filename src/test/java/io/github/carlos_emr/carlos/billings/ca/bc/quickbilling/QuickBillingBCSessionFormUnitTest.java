@@ -110,6 +110,7 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response = new MockHttpServletResponse();
     private ProviderDataDao providerDao;
     private BillingmasterDAO billingmasterDao;
+    private DemographicManager demographicManager;
     private final List<ProviderData> activeProviders = new ArrayList<>();
     private final List<BillingVisit> visitTypes = new ArrayList<>();
 
@@ -119,7 +120,7 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull())).thenReturn(true);
         providerDao = createAndRegisterMock(ProviderDataDao.class);
         billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
-        DemographicManager demographicManager = createAndRegisterMock(DemographicManager.class);
+        demographicManager = createAndRegisterMock(DemographicManager.class);
         registerMock(GstSettingsService.class, mock(GstSettingsService.class));
 
         ProviderData provider = new ProviderData();
@@ -241,6 +242,43 @@ class QuickBillingBCSessionFormUnitTest extends CarlosUnitTestBase {
         assertThat(form.getCreator()).isEqualTo(PROVIDER_NO);
         assertThat(form.getBillingData()).extracting("patientNo").containsExactly("1", "2");
         assertThat(form.getBillingData()).extracting("grandtotal").containsExactly("33.70", "33.70");
+    }
+
+    /**
+     * Finding 351: an add whose patient number is empty, or matches no patient (removed since the name
+     * search, or typed by hand), used to fail with a NullPointerException. It now adds nothing and the page
+     * says so; a known number still adds.
+     */
+    @Test
+    @DisplayName("should add no bill and flag the page when the patient number is empty or unknown, and still add a known one")
+    void shouldRefuseAdd_whenPatientNumberEmptyOrUnknown() throws Exception {
+        when(demographicManager.getDemographic(any(LoggedInInfo.class), eq("424242"))).thenReturn(null);
+        openOrPost(null, null);
+
+        assertThat(add("", PROVIDER_NO)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(QuickBillingBC2Action.PATIENT_NOT_FOUND)).isEqualTo(Boolean.TRUE);
+        assertThat(form().getBillingData()).isEmpty();
+
+        assertThat(add("424242", PROVIDER_NO)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(QuickBillingBC2Action.PATIENT_NOT_FOUND)).isEqualTo(Boolean.TRUE);
+        assertThat(form().getBillingData()).isEmpty();
+
+        assertThat(add("1", PROVIDER_NO)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(QuickBillingBC2Action.PATIENT_NOT_FOUND)).isNull();
+        assertThat(form().getBillingData()).extracting("patientNo").containsExactly("1");
+    }
+
+    @Test
+    @DisplayName("should show the page's patient-not-found message, encoded, only when the add flagged it")
+    void shouldShowPatientNotFoundMessage_onlyWhenFlagged() throws IOException {
+        String page = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/quickBillingBC.jsp"),
+                StandardCharsets.UTF_8);
+
+        assertThat(page).containsSubsequence(
+                "<c:if test=\"${requestScope." + QuickBillingBC2Action.PATIENT_NOT_FOUND + "}\">",
+                "<fmt:message key=\"billing.bc.quickBilling.msgPatientNotFound\" var=\"patientNotFoundMessage\"/>",
+                "${carlos:forHtml(patientNotFoundMessage)}",
+                "</c:if>");
     }
 
     @Test

@@ -245,6 +245,9 @@ public class QuickBillingBCHandler {
      * Create a new billing object to be stored into an array 
      * for later processing.
      * Lots of data here is hard coded.
+     *
+     * @return {@code true} when the bill was added; {@code false}, with nothing added, when the patient
+     *         number is empty or matches no patient
      */
     public boolean addBill(LoggedInInfo loggedInInfo, ObjectNode billingEntry) {
 
@@ -271,6 +274,11 @@ public class QuickBillingBCHandler {
 
         if (!demographicNo.isEmpty()) {
             demographic = this.demographicManager.getDemographic(loggedInInfo, demographicNo);
+        }
+        if (demographic == null) {
+            // An empty patient number, or one that matches no patient (removed since the name search,
+            // or typed by hand): add nothing, and let the page say so instead of failing on the bill.
+            return false;
         }
 
         if (!providerNo.isEmpty()) {

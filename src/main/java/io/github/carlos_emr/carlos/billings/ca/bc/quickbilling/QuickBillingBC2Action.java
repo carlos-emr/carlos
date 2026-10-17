@@ -81,6 +81,9 @@ public class QuickBillingBC2Action extends ActionSupport {
     /** Request parameter that removes the bill at the given row. */
     private static final String REMOVE_PARAM = "remove";
 
+    /** Request attribute set when an add named no patient; the page then shows that the bill was not added. */
+    static final String PATIENT_NOT_FOUND = "patientNotFound";
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
@@ -118,8 +121,11 @@ public class QuickBillingBC2Action extends ActionSupport {
                 quickBillingBCFormBean.setIsHeaderSet(true);
             }
 
-            // add data to the quick billing session form bean
-            quickBillingHandler.addBill(LoggedInInfo.getLoggedInInfoFromSession(request), this.billingEntry);
+            // add data to the quick billing session form bean; an add whose patient number matches no
+            // patient adds nothing, and the page says so
+            if (!quickBillingHandler.addBill(LoggedInInfo.getLoggedInInfoFromSession(request), this.billingEntry)) {
+                request.setAttribute(PATIENT_NOT_FOUND, Boolean.TRUE);
+            }
 
             return SUCCESS;
 
