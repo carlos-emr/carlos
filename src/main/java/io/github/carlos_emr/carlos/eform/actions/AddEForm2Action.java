@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.EFormOpenerLinks;
 import io.github.carlos_emr.carlos.eform.EFormSubmissionGuard;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -107,8 +108,7 @@ public class AddEForm2Action extends ActionSupport {
      * <p>Demographic number allows {@code -1} for admin-view eform linking
      * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
      */
-    static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9]{1,6}_(-1|\\d{1,10})_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+    static final Pattern EFORM_LINK_PATTERN = EFormOpenerLinks.LINK_PATTERN;
 
     /**
      * Validates an eform_link value against the expected key format.
@@ -366,11 +366,11 @@ public class AddEForm2Action extends ActionSupport {
 
         //post fdid to {eform_link} attribute
         if (eform_link != null) {
-            // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
-            // The expected key format is: providerNo_demographicNo_fid_openerName
-            String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
-            if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
-                se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
+            // The link names the opener (providerNo_demographicNo_openerFid_buttonName), not this eForm,
+            // so it is matched against the links this session issued to opener buttons that open this
+            // eForm, for this provider and patient.
+            if (EFormOpenerLinks.wasIssued(se, eform_link, providerNo, demographic_no, fid)) {
+                se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink() and EFormOpenerLinks.wasIssued()
             } else {
                 logger.warn("Invalid eform_link rejected");
             }
