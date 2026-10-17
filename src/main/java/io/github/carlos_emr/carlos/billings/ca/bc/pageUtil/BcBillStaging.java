@@ -154,12 +154,12 @@ public final class BcBillStaging {
         }
         synchronized (WebUtils.getSessionMutex(session)) {
             Map<String, BillingSessionBean> current = bills(session);
-            BillingSessionBean bill = current.get(k);
-            if (bill == null) {
+            String held = heldKey(current, k);
+            if (held == null) {
                 return;
             }
             LinkedHashMap<String, BillingSessionBean> next = new LinkedHashMap<>();
-            next.put(k, bill);
+            next.put(held, current.get(held));
             current.forEach(next::putIfAbsent);
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
         }
@@ -189,23 +189,36 @@ public final class BcBillStaging {
         }
     }
 
-    /** Moves {@code key}, keeping its bill, to the end that is dropped last. */
+    /** Moves the bill held under {@code key} to the end that is dropped last. */
     private static void moveToNewest(HttpSession session, String key) {
         synchronized (WebUtils.getSessionMutex(session)) {
             Map<String, BillingSessionBean> current = bills(session);
-            BillingSessionBean bill = current.get(key);
+            String held = heldKey(current, key);
             String newest = null;
             for (String k : current.keySet()) {
                 newest = k;
             }
-            if (bill == null || key.equals(newest)) {
+            if (held == null || held.equals(newest)) {
                 return;
             }
             LinkedHashMap<String, BillingSessionBean> next = new LinkedHashMap<>(current);
-            next.remove(key);
-            next.put(key, bill);
+            BillingSessionBean bill = next.remove(held);
+            next.put(held, bill);
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
         }
+    }
+
+    /**
+     * The session's own copy of {@code key}, or null when no bill is held under it. The session
+     * is rewritten with the key it issued, never with the request's copy, which only selects it.
+     */
+    private static String heldKey(Map<String, BillingSessionBean> bills, String key) {
+        for (String held : bills.keySet()) {
+            if (held.equals(key)) {
+                return held;
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings("unchecked")
