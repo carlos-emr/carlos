@@ -9993,6 +9993,21 @@
       ]
     },
     {
+      "name": "session-state-two-window-isolation",
+      "script": "scripts/session-state-two-window-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #4673: windows of two patients in one login keep their own working state, each driven right after the other patient's window wrote its own. Schedule M for A's then B's appointment, then Health Tracker Save All in each patient's window (and again after A's appointment is opened last): every measurement and progress note names its own patient's appointment. Two compose windows each attach their own patient's information PDF and each sent message carries only that PDF, linked to its own patient. Two message views each Save Attachments and Compose: each new message forwards only its own message's chart items. Two year-end statement windows each print their own patient and invoice. After the waiting-list page shows a list, booking a patient on no list raises no removal prompt while booking a patient on the list still does. A refused Disease Registry code re-renders the window's own diagnoses and its next code is filed for its own patient only.",
+      "fixtures": "Owned FAKE patients A/B (B removed by the check, A by the harness); one appointment per patient today plus the two bookings it makes tomorrow; a Health Tracker item, measurements and notes per patient; an owned messenger group holding the test provider, two delivered messages with chart items and the messages it sends; one PAT bill per patient; an owned waiting list holding B; one registry code per patient. Every owned row is removed by key and asserted gone. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "legacy-encounter-editor-isolation",
       "script": "scripts/legacy-encounter-editor-isolation-playwright-checks.js",
       "tiers": [
