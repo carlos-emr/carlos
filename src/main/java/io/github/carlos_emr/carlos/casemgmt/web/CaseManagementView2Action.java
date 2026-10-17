@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -116,6 +117,7 @@ public class CaseManagementView2Action extends ActionSupport {
     protected RolesManager roleMgr = SpringUtils.getBean(RolesManager.class);
     protected ProgramManager programMgr = SpringUtils.getBean(ProgramManager.class);
     protected AdmissionManager admissionMgr = SpringUtils.getBean(AdmissionManager.class);
+    protected SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     static {
         // Initialize CPP 
@@ -1337,10 +1339,23 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     public String addToDx() throws Exception {
+        // This writes a Disease Registry code, so it takes a POST from someone who may write the
+        // patient's registry and open the patient's record. No page calls it any more; it answered
+        // a GET, with no privilege check at all.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         // Resolved before anything is written: this adds a Disease Registry code to the patient.
         String demoNo = requestPatientOrBadRequest();
         if (demoNo == null) {
             return NONE;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.WRITE, demoNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
         String codingSystem = null;
         Properties dxProps = new Properties();
@@ -1352,7 +1367,7 @@ public class CaseManagementView2Action extends ActionSupport {
             logger.warn("Unable to load Dx properties file");
         }
 
-        this.caseManagementMgr.saveToDx(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, request.getParameter("issue_code"), codingSystem, false);
+        this.caseManagementMgr.saveToDx(loggedInInfo, demoNo, request.getParameter("issue_code"), codingSystem, false);
 
         return view();
     }

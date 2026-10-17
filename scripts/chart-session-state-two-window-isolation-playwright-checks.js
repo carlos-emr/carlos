@@ -8,9 +8,11 @@
  * by patient (ChartSessionKeys), and the chart's patient comes from the request alone. Driven here,
  * each right after the other chart wrote its own state:
  *
- *   1. A chart note list, note search or Disease Registry add that names no patient, a malformed
- *      one or two different ones is refused (400) without reading or writing either chart; a list
- *      that names A lists A's notes. They fell back to the chart opened last in any window.
+ *   1. A chart note list or note search that names no patient, a malformed one or two different
+ *      ones is refused (400) without reading either chart; a list that names A lists A's notes.
+ *      They fell back to the chart opened last in any window. A Disease Registry add by GET is
+ *      refused (405), naming a patient or not, and writes nothing: it fell back the same way, and
+ *      wrote with no privilege check.
  *   2. A's notes filtered by an issue (Filter ▸ the issue ▸ Hide) while B's chart reloads its notes
  *      before A's own list has loaded: B lists its own notes and A's list is filtered. The editor
  *      hands the filters to the next note list through the session; that handoff was login-wide,
@@ -267,21 +269,24 @@ async function patientlessRequests(s, A, B) {
     const dxBefore = sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${A},${B})`);
     const notesBefore = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${A},${B})`);
     const cases = [['no', ''], ['a malformed', 'demographicNo=12x'], ['two different', `demographicNo=${A}&demographic_no=${B}`]];
+    // The Disease Registry add writes, so a GET is refused (405) before its patient is even read,
+    // also when it names a patient; the reads refuse a request without one valid patient (400).
     const methods = [
-      ['viewNotesOpt', 'offset=0&numToReturn=20'],
-      ['listNotes', ''],
-      ['search', `searchText=${encodeURIComponent(marker)}`],
-      ['addToDx', `issue_code=${DX_CODE}`],
+      ['viewNotesOpt', 'offset=0&numToReturn=20', 400],
+      ['listNotes', '', 400],
+      ['search', `searchText=${encodeURIComponent(marker)}`, 400],
+      ['addToDx', `issue_code=${DX_CODE}`, 405],
     ];
-    for (const [method, extra] of methods) {
-      for (const [label, patient] of cases) {
+    for (const [method, extra, refusal] of methods) {
+      const named = method === 'addToDx' ? [...cases, ['A\'s', `demographicNo=${A}`]] : cases;
+      for (const [label, patient] of named) {
         const query = [`method=${method}`, extra, patient].filter(Boolean).join('&');
         const response = await context.request.get(h.appUrl(config.baseUrl, `/CaseManagementView?${query}`),
           { maxRedirects: 0, failOnStatusCode: false });
         try {
           const body = await response.text();
-          h.assert(response.status() === 400,
-            `CaseManagementView ${method} with ${label} patient answered HTTP ${response.status()}, not 400`);
+          h.assert(response.status() === refusal,
+            `CaseManagementView ${method} with ${label} patient answered HTTP ${response.status()}, not ${refusal}`);
           h.assert(!body.includes(`${marker}-A-`) && !body.includes(`${marker}-B-`),
             `CaseManagementView ${method} with ${label} patient exposed a chart note`);
         } finally { await response.dispose(); }

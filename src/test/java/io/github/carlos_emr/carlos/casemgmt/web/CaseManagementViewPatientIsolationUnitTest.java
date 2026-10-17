@@ -23,20 +23,29 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,7 +57,8 @@ import static org.mockito.Mockito.when;
  * back to a session attribute holding the chart opened last in any window of the login whenever a
  * request named no patient or an invalid one, so a CPP note list or a note search from one window
  * read the other window's patient and a Disease Registry add wrote to it. It also kept a patient's
- * draft-restore signal under one name per login, so opening another chart consumed it.
+ * draft-restore signal under one name per login, so opening another chart consumed it. The
+ * Disease Registry add, which no page calls, also answered a GET with no privilege check.
  *
  * @since 2026-10-16
  */
@@ -61,6 +71,8 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private MockHttpSession session;
     private CaseManagementManager manager;
+    private SecurityInfoManager security;
+    private LoggedInInfo user;
 
     @BeforeEach
     void prepare() {
@@ -73,17 +85,23 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         action.response = response;
         session.setAttribute("userrole", "doctor");
         session.setAttribute("user", "4249");
-        LoggedInInfo user = mock(LoggedInInfo.class);
+        user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn("4249");
         LoggedInInfo.setLoggedInInfoIntoSession(session, user);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
+        security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), nullable(String.class)))
+                .thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt())).thenReturn(true);
+        action.securityInfoManager = security;
         // What the action used to fall back to: the other window's chart, opened last.
         session.setAttribute("casemgmt_DemoNo", "202");
     }
 
     @Test
     void shouldRefuseWithoutWritingAnyPatient_whenADiseaseRegistryAddNamesNoPatient() throws Exception {
+        request.setMethod("POST");
         request.setParameter("issue_code", "73");
 
         assertThat(action.addToDx()).isEqualTo("none");
@@ -95,6 +113,7 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseWithoutWritingAnyPatient_whenADiseaseRegistryAddNamesAnInvalidPatient() throws Exception {
+        request.setMethod("POST");
         request.setParameter("demographicNo", "202abc");
         request.setParameter("issue_code", "73");
 
@@ -102,6 +121,51 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(400);
         verify(manager, never()).saveToDx(any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void shouldRefuseWithoutWriting_whenADiseaseRegistryAddIsNotPosted() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", "73");
+
+        assertThat(action.addToDx()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verify(manager, never()).saveToDx(any(), any(), any(), any(), anyBoolean());
+        verifyNoInteractions(security);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"registry write privilege", "patient record access"})
+    void shouldRefuseWithoutWriting_whenTheUserMayNotWriteThePatientsRegistry(String deniedBy) {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", "73");
+        if ("registry write privilege".equals(deniedBy)) {
+            when(security.hasPrivilege(user, "_dxresearch", "w", "101")).thenReturn(false);
+        } else {
+            when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
+        }
+
+        assertThatThrownBy(action::addToDx)
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_dxresearch)");
+
+        verify(manager, never()).saveToDx(any(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    void shouldAddToTheNamedPatientsRegistry_whenPostedByAUserWhoMayWriteIt() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", "73");
+        doReturn("view").when(action).view();
+
+        assertThat(action.addToDx()).isEqualTo("view");
+
+        verify(manager).saveToDx(eq(user), eq("101"), eq("73"), nullable(String.class), eq(false));
+        verify(manager, never()).saveToDx(any(), eq("202"), any(), any(), anyBoolean());
     }
 
     @Test
