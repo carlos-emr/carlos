@@ -84,14 +84,19 @@ public final class Rourke2020PdfReport {
         public enum Reason { FONT_UNAVAILABLE, UNSUPPORTED_CHARACTER, TEXT_OVERFLOW }
 
         public RenderingException(Reason reason) {
-            super(switch (reason) {
+            super(messageFor(reason));
+        }
+
+        // PMD 7.13 cannot parse a switch expression directly inside super(...).
+        private static String messageFor(Reason reason) {
+            return switch (reason) {
                 case FONT_UNAVAILABLE -> "Rourke 2020 PDF font unavailable. Ask your administrator to restore "
                         + "the bundled DejaVu report fonts and retry.";
                 case UNSUPPORTED_CHARACTER -> "Rourke 2020 PDF cannot display one or more entered characters with DejaVu. "
                         + "Ask your administrator for assistance; no PDF was generated.";
                 case TEXT_OVERFLOW -> "Rourke 2020 PDF text does not fit a form field. "
                         + "Ask your administrator to review the report layout; no PDF was generated.";
-            });
+            };
         }
     }
 
