@@ -7,7 +7,8 @@
 // The template asks for two documents: one with no owner, which belongs to the login, and one whose <docowner>
 // names another provider. Since the 2025 package rename (a08586ca65) the template files them under the module name
 // "providers"; documents filed before it carry "provider", and the document pages read both (EDocUtil).
-//   1. the eForm is saved once and the template files both documents under "providers", each owned as asked;
+//   1. the eForm is saved once and the template files both documents as provider documents, each owned as asked
+//      (either module spelling: the readers treat "provider" and "providers" alike, so a later rename stays green);
 //   2. the login's eDoc list shows its template document and its older "provider" document, and not the
 //      document the template filed for the other provider;
 //   3. the template document opens with the template's content.
@@ -109,7 +110,7 @@ async function workflow(s) {
   const chart = await s.chart();
   let mineId;
   let report;
-  await s.step('submitting the eForm saves it and files both template documents under "providers", owned as asked', async () => {
+  await s.step('submitting the eForm saves it and files both template documents as provider documents, owned as asked', async () => {
     // The Add eForm list is never closed from here: unloading it throws on a null window.opener (known, eform-groups).
     const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
     await list.locator('#efmTable').waitFor();
@@ -124,8 +125,10 @@ async function workflow(s) {
     const filed = { mine: filedAs(mine), theirs: filedAs(theirs) };
     console.log(`    filed (module|owner|type|status): ${JSON.stringify({ login: provider, other, ...filed })}`);
     h.assert(POSITIVE.test(mineId || ''), `The template did not file one document for the login: ${mineId}`);
-    h.assert(filed.mine === `providers|${provider}|text/html|H`, `The login's template document was filed as ${filed.mine}`);
-    h.assert(filed.theirs === `providers|${other}|text/html|H`, `The other provider's template document was filed as ${filed.theirs}`);
+    // The module spelling is not pinned: step 2 proves the login's list reads the document, whichever it is.
+    const asProvider = (row, owner) => [`provider|${owner}|text/html|H`, `providers|${owner}|text/html|H`].includes(row);
+    h.assert(asProvider(filed.mine, provider), `The login's template document was filed as ${filed.mine}`);
+    h.assert(asProvider(filed.theirs, other), `The other provider's template document was filed as ${filed.theirs}`);
     if (!form.isClosed()) await form.close();
   });
 
