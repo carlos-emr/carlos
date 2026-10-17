@@ -211,7 +211,12 @@ async function workflow(s) {
       h.assert(closed, 'The referral doctor picker filled the fields but did not close itself');
       await clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(),
         { timeout: TIMEOUT, label: 'Update Record' });
-      await expectValue(sql, `SELECT family_doctor LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
+      // family_doctor is an XML fragment. Since 0369b05d5b its text is XML-escaped (the referrer's "& Co" is stored
+      // as &amp;); decode it once, &amp; last, so the raw picked name matches on builds that escape and on those that
+      // do not.
+      const decodedFamilyDoctor = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(family_doctor, '&lt;', '<'), '&gt;', '>'), "
+        + "'&quot;', '\"'), '&apos;', ''''), '&amp;', '&')";
+      await expectValue(sql, `SELECT ${decodedFamilyDoctor} LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
         FROM demographic WHERE demographic_no=${s.patient}`, '1', 'The saved record does not carry the picked referral doctor');
     }
     const broken = failures.filter(Boolean);
