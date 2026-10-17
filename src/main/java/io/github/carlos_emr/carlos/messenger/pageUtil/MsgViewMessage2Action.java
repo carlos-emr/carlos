@@ -207,6 +207,15 @@ public class MsgViewMessage2Action extends ActionSupport {
         } else {
             from = "messenger";
         }
+        // This request's own view mode and, when it was opened from a patient's message list, that
+        // patient. The page offers Write to Encounter for that patient among the message's linked
+        // patients; it compared them with a demographic_no attribute nothing set, so the button never
+        // showed, and it read the mode from the session, which another window's view could change.
+        request.setAttribute("from", from);
+        int listedPatient = ConversionUtils.fromIntString(demographic_no);
+        if ("encounter".equals(from) && listedPatient > 0) {
+            request.setAttribute("demographic_no", Integer.toString(listedPatient));
+        }
 
         // Whitelist 'orderBy' to allowed column names to prevent trust boundary violation
         String rawOrderBy = request.getParameter("orderBy");

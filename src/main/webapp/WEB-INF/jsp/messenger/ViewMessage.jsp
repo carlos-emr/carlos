@@ -522,9 +522,12 @@ function fmtOscarMsg() {
 
 											${carlos:forHtml(demoattached.value)} <br />
 
+											<%-- demographic_no: the patient whose message list opened this view
+											     (MsgViewMessage2Action). The message is viewMessageId; nothing set
+											     messageID, so Write to Encounter opened the chart with no message. --%>
 											<c:if test="${ demoattached.key eq demographic_no }">
 												<input
-													onclick="popup('${carlos:forJavaScriptAttribute(demographic_no)}', '${carlos:forJavaScriptAttribute(messageID)}', '${carlos:forJavaScriptAttribute(providerNo)}', 'writeToEncounter');"
+													onclick="popup('${carlos:forJavaScriptAttribute(demographic_no)}', '${carlos:forJavaScriptAttribute(viewMessageId)}', '${carlos:forJavaScriptAttribute(providerNo)}', 'writeToEncounter');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
 													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>
