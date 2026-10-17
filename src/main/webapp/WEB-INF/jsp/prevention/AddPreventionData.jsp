@@ -132,6 +132,7 @@
     String provider = (String) session.getAttribute("user");
     String dateFmt = "yyyy-MM-dd HH:mm";
     String prevDate = UtilDateUtilities.getToday(dateFmt);
+    boolean partialPrevDate = false;
     String completed = "0";
     String nextDate = "";
     String summary = "";
@@ -154,6 +155,10 @@
 
         prevDate = (String) existingPrevention.get("preventionDate");
         prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);
+        // A prevention can be dated to the year or the year and month only (a CDS import, a partial_date
+        // row). A date input cannot hold "2019" and would open empty, so such a date is edited in a text
+        // box that takes yyyy, yyyy-mm or yyyy-mm-dd, the forms PreventionData.setPreventionDate saves.
+        partialPrevDate = prevDate != null && prevDate.matches("\\d{4}(-\\d{2})?");
 
         providerName = (String) existingPrevention.get("providerName");
         provider = (String) existingPrevention.get("provider_no");
@@ -778,10 +783,10 @@
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
+                                    <div class="col-sm-8"><input type="<%= partialPrevDate ? "text" : "date" %>" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required<% if (partialPrevDate) { %> pattern="\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?" title="yyyy | yyyy-mm | yyyy-mm-dd"<% } %>></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1120,10 +1125,10 @@
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
+                                    <div class="col-sm-8"><input type="<%= partialPrevDate ? "text" : "date" %>" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required<% if (partialPrevDate) { %> pattern="\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?" title="yyyy | yyyy-mm | yyyy-mm-dd"<% } %>></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1373,10 +1378,10 @@
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
+                                    <div class="col-sm-8"><input type="<%= partialPrevDate ? "text" : "date" %>" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
                                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                                          required></div>
+                                                                                                          required<% if (partialPrevDate) { %> pattern="\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?" title="yyyy | yyyy-mm | yyyy-mm-dd"<% } %>></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1456,10 +1461,10 @@
                             <div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="prevDate" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.date"/></label></div>
-                                    <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
+                                    <div class="col-sm-8"><input type="<%= partialPrevDate ? "text" : "date" %>" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required<% if (partialPrevDate) { %> pattern="\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?" title="yyyy | yyyy-mm | yyyy-mm-dd"<% } %>></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
