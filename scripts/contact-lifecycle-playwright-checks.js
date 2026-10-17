@@ -5,6 +5,7 @@
 const { assert, sqlString } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
@@ -18,7 +19,7 @@ async function workflow(s) {
   assert(/^[1-9]\d*$/.test(contact), 'Contact directory fixture was not created');
   let editor;
   const open = async () => {
-    editor = await s.popup(s.master, s.master.locator('[onclick*="Contact?method=manage"]').first(), 'contacts');
+    editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
   };
   const field = name => editor.locator(`[name="contact_1.${name}"]`);
   const row = () => `SELECT CONCAT(role,'|',sdm,'|',ec,'|',consentToContact,'|',active,'|',note)

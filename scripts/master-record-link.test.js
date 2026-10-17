@@ -26,14 +26,15 @@ test('shouldRefuseFragments_thatWouldBreakTheSelector', () => {
 });
 
 // #4468 moved the Master Record's navigation to hrefs; an onclick-only locator on the record finds nothing there.
-// The whole selector is one or more a[onclick*=...] conditions and nothing else (a list that also names the
-// href form is fine).
-const ONCLICK_ONLY = /[mM]aster[A-Za-z]*\.locator\(\s*(['"`])a(?:\[onclick\*=(["'])[^"'\\]+\2\])+\1\s*\)/;
+// The whole selector is one or more [onclick*=...] conditions, with or without the a, and nothing else (a list
+// that also names the href form is fine).
+const ONCLICK_ONLY = /[mM]aster[A-Za-z]*\.locator\(\s*(['"`])a?(?:\[onclick\*=(["'])[^"'\\]+\2\])+\1\s*\)/;
 
 test('shouldFlagOnlyOnclickOnlyLocators_inTheGuard', () => {
   assert.ok(ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/rx/choosePatient\"]').first()"));
   assert.ok(ONCLICK_ONLY.test("master.locator('a[onclick*=\"/billing?\"][onclick*=\"apptProvider_no=none\"]')"));
   assert.ok(ONCLICK_ONLY.test("s.master.locator(`a[onclick*=\"/demographic/AddRelation?demo=${patient}\"]`)"));
+  assert.ok(ONCLICK_ONLY.test("s.master.locator('[onclick*=\"Contact?method=manage\"]').first()"));
   assert.ok(!ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/x\"], .patient-nav a[href*=\"/x\"]')"));
   assert.ok(!ONCLICK_ONLY.test("s.master.locator('a[onclick*=\"/x\"],'"));
   assert.ok(!ONCLICK_ONLY.test("chart.locator('a[onclick*=\"showAllergy\"]')"));
