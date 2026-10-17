@@ -24,11 +24,13 @@ package io.github.carlos_emr.carlos.billings.ca.bc.data;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -90,5 +92,18 @@ class BillingCodeDataUnitTest extends CarlosUnitTestBase {
         assertThat(billingCodeData.deleteBillingCode("123")).isTrue();
         verify(mockBillingServiceDao).find(123);
         verify(mockBillingServiceDao).remove(123);
+    }
+
+    @Test
+    @DisplayName("should store a newly added code as open-ended, as the Edit page needs an end date")
+    void shouldStoreOpenEndedTerminationDate_whenAddingCode() {
+        billingCodeData.addBillingCode("AFAKE01", "FAKE private code", "12.34");
+
+        ArgumentCaptor<BillingService> added = ArgumentCaptor.forClass(BillingService.class);
+        verify(mockBillingServiceDao).persist(added.capture());
+        assertThat(added.getValue().getServiceCode()).isEqualTo("AFAKE01");
+        assertThat(added.getValue().getRegion()).isEqualTo("BC");
+        assertThat(ConversionUtils.toDateString(added.getValue().getTerminationDate())).isEqualTo("9999-12-31");
+        assertThat(added.getValue().getBillingserviceDate()).isNotNull();
     }
 }

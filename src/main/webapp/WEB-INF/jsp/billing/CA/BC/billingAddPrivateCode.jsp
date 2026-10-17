@@ -87,7 +87,7 @@
     <h3>Add Private Billing Code</h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
+        <form name="BillingAddCodeForm" action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
             <%
                 if (request.getAttribute("returnMessage") != null) {
             %>

@@ -83,7 +83,7 @@
             }
         </script>
     </head>
-    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
