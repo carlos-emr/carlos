@@ -1212,6 +1212,14 @@ public class EFormUtil {
 
             ConsultationRequest consult = new ConsultationRequest();
 
+            // A request without a specialist id is skipped like one whose specialist is not found; parsing it
+            // would throw and stop the eForm's submission after the eForm and its other outputs were saved.
+            // The warning names only the eForm's form id, so a clinic can find the template to correct.
+            if (!NumberUtils.isDigits(referredToSpecialist)) {
+                logger.warn("eForm template consultRequest skipped: specialist missing or not a number (eForm fid {})",
+                        NumberUtils.toInt(eForm.getFid()));
+                continue;
+            }
             ProfessionalSpecialist ps = professionalSpecialistDao().find(Integer.parseInt(referredToSpecialist));
             if (ps == null) continue;
             if (referredToService == null || referredBy == null) continue;
