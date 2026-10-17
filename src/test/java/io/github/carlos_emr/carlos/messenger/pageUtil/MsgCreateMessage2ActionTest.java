@@ -260,6 +260,22 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should release the items saved for a message once a reply carrying them is sent")
+        void shouldReleaseTheMessagesSavedItems_whenAReplyCarryingThemIsSent() throws Exception {
+            String saved = MsgAttachmentStaging.forwardKey(getMockSession(), 55);
+            MsgAttachmentStaging.stageItems(getMockSession(), saved, "<root>FAKE saved item</root>");
+            String reply = MsgAttachmentStaging.composeKey(getMockSession(), 55);
+            action.setAttachmentKey(reply);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentItems.get()).isEqualTo("<root>FAKE saved item</root>");
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), saved)).isNull();
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), MsgAttachmentStaging.composeKey(getMockSession(), 55)))
+                    .isNull();
+        }
+
+        @Test
         @DisplayName("should send no attachments when the form names no compose window")
         void shouldSendNoAttachments_whenComposeKeyMissing() throws Exception {
             action.setDemographic_no("101");

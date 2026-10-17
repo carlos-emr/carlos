@@ -223,6 +223,10 @@ public class MsgCreateMessage2Action extends ActionSupport {
             }
 
             request.setAttribute("SentMessageProvs", sentToWho);
+            // A reply or forward of a message whose chart items were saved has sent them; the next
+            // reply or forward of that message starts without them, as it did when sending cleared
+            // the messenger bean (issue #4673).
+            MsgAttachmentStaging.releaseSource(session, attachmentKey);
 
             return SUCCESS;
         } catch (RuntimeException e) {

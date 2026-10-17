@@ -62,7 +62,9 @@ import org.springframework.web.util.WebUtils;
  * from its Attachment window survive the view being shown again. That key is only a source: each
  * compose page its Compose link, Reply, Reply All or Forward opens gets a key of its own with a
  * copy of those items ({@link #composeKey}), so two compose windows opened from one message keep
- * their own attachments too.</p>
+ * their own attachments too. A send from such a window releases the message's saved items
+ * ({@link #releaseSource}), as sending cleared them from the messenger bean, so a later reply or
+ * forward of that message does not attach them again; windows already open keep their copies.</p>
  *
  * <p>Chart PDFs are staged with the patient they were rendered for, and the send refuses to put
  * them on a message linked to anyone else. The session holds at most {@value #MAX_ENTRIES}
@@ -92,6 +94,9 @@ public final class MsgAttachmentStaging {
 
     /** Dropped keys remembered; past this, the oldest is forgotten. */
     private static final int DROPPED_MEMORY = 4 * MAX_ENTRIES;
+
+    /** Compose keys that started with a message's saved items, each with its message's forwarding key. */
+    private static final String SOURCES_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".sources";
 
     /** The session's random secret from which {@link #forwardKey} derives each message's key. */
     private static final String FORWARD_SECRET_ATTRIBUTE = MsgAttachmentStaging.class.getName() + ".forwardSecret";
@@ -184,9 +189,37 @@ public final class MsgAttachmentStaging {
                 // message's own, whose loss no send would report.
                 put(session, source, saved);
                 put(session, key, new Staged(0, null, saved.itemAttachment()));
+                rememberSource(session, key, source);
+            } else if (claimDropped(session, source)) {
+                // The cap released the items saved for this message before this window opened:
+                // its first send is refused with the reason, as the message's own key's would be.
+                rememberDropped(session, source, List.of(key));
             }
         }
         return key;
+    }
+
+    /**
+     * After a message was sent from the compose window with {@code key}: when that window was
+     * opened from a message whose chart items were saved ({@link #composeKey}), drops those saved
+     * items, as sending used to clear them from the messenger bean, so a later reply or forward of
+     * that message does not attach them again. Compose windows already open keep their own copies.
+     */
+    public static void releaseSource(HttpSession session, String key) {
+        if (session == null || !isKey(key)) {
+            return;
+        }
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Map<String, String> sources = sources(session);
+            String source = sources.get(key);
+            if (source == null) {
+                return;
+            }
+            LinkedHashMap<String, String> next = new LinkedHashMap<>(sources);
+            next.remove(key);
+            publishSources(session, next);
+            take(session, source);
+        }
     }
 
     /** @return whether {@code key} has the shape of a compose key; says nothing about what is staged */
@@ -359,6 +392,32 @@ public final class MsgAttachmentStaging {
             session.removeAttribute(ATTRIBUTE);
         } else {
             session.setAttribute(ATTRIBUTE, Collections.unmodifiableMap(next));
+        }
+    }
+
+    /** Remembers which message's saved items {@code key} started with; the oldest are forgotten. */
+    private static void rememberSource(HttpSession session, String key, String source) {
+        LinkedHashMap<String, String> next = new LinkedHashMap<>(sources(session));
+        next.put(key, source);
+        Iterator<String> oldest = next.keySet().iterator();
+        while (next.size() > DROPPED_MEMORY) {
+            oldest.next();
+            oldest.remove();
+        }
+        publishSources(session, next);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> sources(HttpSession session) {
+        Object value = session.getAttribute(SOURCES_ATTRIBUTE);
+        return value instanceof Map<?, ?> map ? (Map<String, String>) map : Map.of();
+    }
+
+    private static void publishSources(HttpSession session, LinkedHashMap<String, String> next) {
+        if (next.isEmpty()) {
+            session.removeAttribute(SOURCES_ATTRIBUTE);
+        } else {
+            session.setAttribute(SOURCES_ATTRIBUTE, Collections.unmodifiableMap(next));
         }
     }
 

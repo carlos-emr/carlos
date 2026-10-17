@@ -42,8 +42,9 @@
  *   9. A received message linked to A ▸ Attachment ▸ Save Attachments ▸ Reply in its view,
  *      Forward in a second view of it and Compose in a third ▸ Attach Patient in the reply only ▸
  *      Send Message from the forward, the new message, then the reply: all three carry the saved
- *      items, and only the reply carries A's PDF. Every compose window opened from one message
- *      shared that message's key, so the forward sent the chart PDF attached in the reply.
+ *      items, and only the reply carries A's PDF; a reply opened afterwards starts without the
+ *      items, as sending cleared them before. Every compose window opened from one message shared
+ *      that message's key, so the forward sent the chart PDF attached in the reply.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name); one appointment today per patient and the bookings
@@ -633,6 +634,13 @@ async function repliesFromOneMessage(s, A, messenger) {
       `The reply stored ${repliedPdfs.count} chart PDFs instead of the one of A attached in its window`);
     h.assert(storedItems(s, replied).includes(`name="${shared.item}"`),
       'The reply does not carry the items saved for its message');
+    // Sending released the items saved for the message, as sending cleared the messenger bean:
+    // a reply opened now starts without them instead of attaching them again.
+    const later = await openPage(s, path, 'message view after its replies were sent');
+    await composeFromView(later, 'shared', 'reply');
+    h.assert(!(await later.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+      'A reply opened after the message\'s saved items were sent attaches them again');
+    await later.close();
     await replyWindow.close();
     await forwardWindow.close();
     await composeWindow.close();

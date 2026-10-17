@@ -271,6 +271,57 @@ class MsgAttachmentStagingUnitTest {
     }
 
     @Test
+    void shouldReleaseTheMessagesSavedItems_whenAWindowOpenedFromItSends() {
+        String saved = MsgAttachmentStaging.forwardKey(session, 77);
+        MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
+        String reply = MsgAttachmentStaging.composeKey(session, 77);
+        String forward = MsgAttachmentStaging.composeKey(session, 77);
+
+        // The reply is sent: the send takes its own entry, then releases the message's saved items.
+        assertThat(MsgAttachmentStaging.take(session, reply).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        MsgAttachmentStaging.releaseSource(session, reply);
+
+        assertThat(MsgAttachmentStaging.peek(session, saved)).isNull();
+        assertThat(MsgAttachmentStaging.peek(session, forward).itemAttachment())
+                .as("a window already open keeps its own copy")
+                .isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, MsgAttachmentStaging.composeKey(session, 77)))
+                .as("a reply opened afterwards does not attach them again")
+                .isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, forward)).isFalse();
+    }
+
+    @Test
+    void shouldReleaseNothing_whenTheWindowWasNotOpenedFromSavedItems() {
+        String saved = MsgAttachmentStaging.forwardKey(session, 77);
+        MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
+        String plain = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(session, plain, 101, "<PDF>A</PDF>");
+
+        MsgAttachmentStaging.take(session, plain);
+        MsgAttachmentStaging.releaseSource(session, plain);
+        MsgAttachmentStaging.releaseSource(session, "malformed");
+
+        assertThat(MsgAttachmentStaging.peek(session, saved).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+    }
+
+    @Test
+    void shouldTellTheWindowOnce_whenTheMessagesSavedItemsWereReleasedBeforeItOpened() {
+        String saved = MsgAttachmentStaging.forwardKey(session, 77);
+        MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
+        for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            MsgAttachmentStaging.stagePdfs(session, MsgAttachmentStaging.newKey(), 100 + i, "<PDF>" + i + "</PDF>");
+        }
+
+        String reply = MsgAttachmentStaging.composeKey(session, 77);
+
+        assertThat(MsgAttachmentStaging.peek(session, reply)).isNull();
+        // Its send is refused once with the reason, as a window whose own attachments were released.
+        assertThat(MsgAttachmentStaging.claimDropped(session, reply)).isTrue();
+        assertThat(MsgAttachmentStaging.claimDropped(session, reply)).isFalse();
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void shouldReplaceTheSessionValue_whenStaging() {
         String window = MsgAttachmentStaging.newKey();

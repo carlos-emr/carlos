@@ -40,8 +40,11 @@ import org.apache.struts2.ServletActionContext;
  * privilege-checked URL from other pages (inbox "Compose" button, reply
  * shortcuts, admin popup) without making the JSP publicly reachable.
  * <p>
- * The HTTP method is not enforced here because the gate performs no state
- * mutation; only {@code _msg} read is required.
+ * The HTTP method is not enforced here: the gate writes nothing to the
+ * database. A message view's Compose link names its message
+ * ({@code forwardMessage}), and the gate then stages, in the session, a copy of
+ * the chart items saved for that message under the new window's own key
+ * ({@link MsgAttachmentStaging#composeKey}). Only {@code _msg} read is required.
  *
  * @since 2026-04-13
  */
