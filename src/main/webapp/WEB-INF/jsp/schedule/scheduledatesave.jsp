@@ -120,7 +120,11 @@
 
     <script language="JavaScript">
         <!--
-        opener.location.reload();
+        // Redisplay the calendar (the only page that opens this popup) without posting: reloading it
+        // would resubmit the week setting and regenerate every rule-made day in the range (issue #4880).
+        if (opener && !opener.closed && typeof opener.showCalendarMonth === 'function') {
+            opener.showCalendarMonth();
+        }
         self.close();
         //-->
     </script>
