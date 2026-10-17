@@ -25,14 +25,26 @@ on:
       - 'scripts/check-i18n-properties.sh'
       - 'scripts/audit-i18n-coverage.sh'
 
+# Superseded pushes to the same PR cancel the in-progress run. This workflow
+# only runs on pull_request today; the run_id fallback keeps any trigger added
+# later (push, schedule, dispatch) in its own group, never queued behind or
+# cancelled by another run. The final head of a PR always gets its own
+# complete run, so no check outcome changes.
+concurrency:
+  group: i18n-validation-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   i18n-key-parity:
     name: Properties Key Parity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Make scripts executable
         run: chmod +x scripts/check-i18n-properties.sh scripts/audit-i18n-coverage.sh
@@ -58,11 +70,13 @@ jobs:
   i18n-new-key-parity:
     name: New Key Parity (PR diff only)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Extract keys added to English in this PR
@@ -118,10 +132,13 @@ jobs:
   i18n-encoding:
     name: UTF-8 Encoding Compliance
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Check properties files are valid UTF-8
         run: |
@@ -143,11 +160,13 @@ jobs:
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Check new/modified JSPs for missing fmt:setBundle

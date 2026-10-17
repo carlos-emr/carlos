@@ -32,17 +32,30 @@ on:
       - community/*/develop
       - community/*/staging/*
 
+# Superseded pushes to the same PR cancel the in-progress run. This workflow
+# only runs on pull_request today; the run_id fallback keeps any trigger added
+# later (push, schedule, dispatch) in its own group, never queued behind or
+# cancelled by another run. The final head of a PR always gets its own
+# complete run, so no check outcome changes.
+concurrency:
+  group: conventional-commits-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   conventional-commits:
     name: Commit Message Format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          persist-credentials: false
           fetch-depth: 0
+          # Commit metadata only: the check reads subjects, never trees or blobs.
+          filter: tree:0
 
       - name: Check commit message format
         env:
