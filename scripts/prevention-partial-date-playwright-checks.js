@@ -9,10 +9,14 @@
 //   3. the year-and-month prevention ▸ type the full date 2019-05-20 ▸ Save: it is saved as that day;
 //   4. the year-only prevention ▸ change only its comment ▸ Save: the change is saved and the
 //      prevention keeps its year-only date;
-//   5. the year-only prevention ▸ type 2019-13 ▸ Save: the form refuses it and nothing is saved.
+//   5. the year-only prevention ▸ type 2019-13 ▸ Save: the form refuses it and nothing is saved;
+//   6. the year-only prevention ▸ type the impossible day 2019-02-31 ▸ Save: the form refuses it and nothing
+//      is saved; then 2019-02-28 in the same editor ▸ Save: that day is saved.
 // Step 4 fails on develop: the edit form's Date is an <input type="date"> (AddPreventionData.jsp),
 // which cannot hold "2019", so the box opens empty and, being required, refuses the save until a full
-// date is typed (finding 295). Step 5 needs the year-only box, so it runs after step 4. The server side is fine: echart-prevention-row-links
+// date is typed (finding 295). Steps 5 and 6 need the year-only box, so they run after step 4. Step 6 also needs
+// #4815's calendar check: the box's pattern alone lets 2019-02-31 through, and the server refuses it with HTTP 400.
+// The server side is fine: echart-prevention-row-links
 // posts the edit form's fields with prevDate=2026-09 directly and asserts the replacement keeps
 // YYYY-MM; this check covers the form path. prevention-lifecycle covers edits with full dates.
 // Fixtures: the owned FAKE- patient, two Inf preventions seeded by SQL with their partial_date rows and
@@ -133,6 +137,25 @@ async function workflow(s) {
       && sql.value(`SELECT deleted FROM preventions WHERE id=${yearOnlyNow}`) === '0',
       `2019-13 was ${saved ? 'saved' : `refused with ${JSON.stringify(why)}`}, and the active count went from ${before} to ${activeCount()}`);
     await editor.close();
+  });
+
+  await s.step('a year-only prevention\'s Date box refuses an impossible day, then saves the corrected day', async () => {
+    const editor = await edit(yearOnlyNow, 'prevention-editor-impossible-day');
+    const before = activeCount();
+    const box = editor.locator('#prevDate');
+    await box.fill('2019-02-31');
+    const saved = await save(editor);
+    const why = saved ? '' : await box.evaluate(el => el.validationMessage || '');
+    assert(!saved && why !== '' && activeCount() === before
+      && sql.value(`SELECT deleted FROM preventions WHERE id=${yearOnlyNow}`) === '0',
+      `2019-02-31 was ${saved ? 'saved' : `refused with ${JSON.stringify(why)}`}, and the active count went from ${before} to ${activeCount()}`);
+    // The same editor, corrected: the refusal must not block the next submit. An edit replaces the
+    // prevention: the old row is marked deleted and a new one is added.
+    await box.fill('2019-02-28');
+    assert(await save(editor), 'The corrected 2019-02-28 was not saved');
+    await expectValue(sql, `SELECT COUNT(*) FROM preventions WHERE id=${yearOnlyNow} AND deleted='1'`, '1', 'The corrected edit did not replace the prevention');
+    const rows = active();
+    assert(rows.some(row => row.startsWith('2019-02-28|full|')), `After the corrected edit the active preventions are ${JSON.stringify(rows)}`);
   });
 }
 
