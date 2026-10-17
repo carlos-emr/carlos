@@ -89,12 +89,16 @@ async function workflow(s) {
     await s.step(STEP.refuse, async () => {
       await openAdd();
       await fill('twelve');
+      let posted = false;
       const dialogs = await h.withExpectedDialogs(admin, async () => {
+        // A refused price stays on the page; give a wrongful post time to start before calling it refused.
+        const navigated = frame.waitForNavigation({ timeout: 5000 }).then(() => true, () => false);
         await frame.locator('form input[type="submit"][value="Add"]').click();
-        await frame.waitForTimeout(1000);
+        posted = await navigated;
       }, { accept: true });
       h.assert(dialogs.some(d => /numeric/i.test(d.text || '')), 'Add did not say the price has to be a number');
-      h.assert(owned().length === 0, 'Add posted a code whose price is not a number');
+      h.assert(!posted, 'Add posted the form although its price is not a number');
+      h.assert(owned().length === 0, 'Add stored a code whose price is not a number');
       await frame.locator('form input[name="code"]').waitFor({ timeout: TIMEOUT });
     });
 
