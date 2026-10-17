@@ -3124,6 +3124,21 @@
       "fixtures": "Owns and removes one synthetic lot catalogue row; exercises initial and repeated search from Administration."
     },
     {
+      "name": "admin-lot-number-delete",
+      "script": "scripts/admin-lot-number-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Administration > Search lot number by prevention > a lot > Delete (admin/ViewLotNrDeleteRecordHtm, then a POST to admin/LotNrDeleteRecord). Two lots of an owned prevention type are seeded, one carrying an apostrophe, double quotes and an ampersand. The search for that type lists exactly both, each linking to its own delete page; the target's link opens the delete page filled in with exactly its type and lot; Delete posts exactly those, the result page says the record was deleted, the target row is soft-deleted (deleted=1, nothing else changed but the update time the entity stamps) and the control row is unchanged; a new search lists the control only; with the lot number cleared, Delete raises the page's \"must be entered\" alert and posts nothing; a GET and HEAD replay of the real delete POST aimed at the control lot passes h.assertRefused and leaves it undeleted. No known defect. The replay goes through the browser context's request client, which sends the session cookie only over HTTPS (the cookie is Secure; issue #4718), so run it against an HTTPS base URL. Passes on develop (231f36a0e2, Ontario) over HTTPS, 2 of 2 runs. Run on Ontario only; not yet run on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
+      "fixtures": "Two PreventionsLotNrs rows of an owned prevention type ('PW' plus the run marker's tail), inserted directly as the test login. Cleanup removes both by id and asserts no row of the owned type is left. No clinic-wide state is changed."
+    },
+    {
       "name": "consultation-signature-fallback",
       "script": "scripts/consultation-signature-fallback-playwright-checks.js",
       "tiers": [

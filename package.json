@@ -216,6 +216,7 @@
     "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js",
     "test:provider-preferences-playwright": "node scripts/provider-preferences-playwright-checks.js",
     "test:lot-number-search-playwright": "node scripts/lot-number-search-playwright-checks.js",
+    "test:admin-lot-number-delete-playwright": "node scripts/admin-lot-number-delete-playwright-checks.js",
     "test:health-tracker-playwright": "node scripts/health-tracker-playwright-checks.js",
     "test:consultation-signature-fallback-playwright": "node scripts/consultation-signature-fallback-playwright-checks.js",
     "test:echart-note-editor-playwright": "node scripts/echart-note-editor-playwright-checks.js",
