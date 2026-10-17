@@ -10,11 +10,14 @@
 //   1. the eForm is saved once and the template writes one request for the patient, tied to the saved eForm;
 //   2. the request has the service, specialist, referring provider, reason and urgency the template names, and the
 //      Consultations list and the request screen show them;
-//   3. LAST: the request has the status the template names.
+//   3. the request has the status the template names;
+//   4. LAST: a second eForm, whose template has an encounter note and a consultation request with no specialist,
+//      is saved with its note and Submit does not fail; no request is made for it.
 // No other check submits an eForm with a consultation request template.
-// Fixtures: the owned FAKE- patient, a marker-named consultation service and specialist (linked), and a marker-named
-// eForm in the clinic's eForm library (status 1). Cleanup deletes the eForm and its saved copy, the request the
-// submission wrote, and the service and specialist, and asserts none remain. The eForm library is clinic-wide
+// Fixtures: the owned FAKE- patient, a marker-named consultation service and specialist (linked), and two marker-named
+// eForms in the clinic's eForm library (status 1). Cleanup deletes the eForms and their saved copies, the request the
+// submission wrote, the owned patient's notes with their links, and the service and specialist, and asserts none
+// remain. The eForm library is clinic-wide
 // (EXCLUSIVE), and so are the consultation service and specialist lists.
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -45,29 +48,45 @@ async function workflow(s) {
   const serviceDesc = `FAKE-Svc ${tag}`;
   const lastName = `FAKE-Spec ${tag}`;
   const reason = `${marker} reason for referral`;
+  const formNameNoSpecialist = `${marker} consult without specialist`;
+  const reasonNoSpecialist = `${marker} referral without specialist`;
+  const noteText = `${marker} template note`;
+  const formNames = `${q(formName)},${q(formNameNoSpecialist)}`;
   let fid;
+  let fidNoSpecialist;
   let serviceId;
   let specId;
 
   const ownedRequests = () => `demographicNo=${patient} AND reason=${q(reason)}`;
+  const anyOwnedRequest = `demographicNo=${patient} AND reason IN (${q(reason)},${q(reasonNoSpecialist)})`;
   s.cleanup(() => {
-    const requests = sql.rows(`SELECT requestId FROM consultationRequests WHERE ${ownedRequests()}`).map(([id]) => id);
+    const requests = sql.rows(`SELECT requestId FROM consultationRequests WHERE ${anyOwnedRequest}`).map(([id]) => id);
     h.assert(requests.every(id => POSITIVE.test(id)), 'Owned consultation request id is invalid');
     if (requests.length) {
-      sql.execute(`DELETE FROM consultationRequests WHERE requestId IN (${requests.join(',')}) AND ${ownedRequests()}`);
+      sql.execute(`DELETE FROM consultationRequests WHERE requestId IN (${requests.join(',')}) AND ${anyOwnedRequest}`);
     }
-    sql.execute(`DELETE FROM eform_values WHERE fdid IN (SELECT fdid FROM eform_data WHERE form_name=${q(formName)} AND demographic_no=${patient});
-      DELETE FROM eform_data WHERE form_name=${q(formName)} AND demographic_no=${patient}`);
+    // The second eForm's template writes an encounter note for the owned patient.
+    const notes = sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`).map(([id]) => id);
+    h.assert(notes.every(id => POSITIVE.test(id)), 'Owned note id is invalid');
+    if (notes.length) {
+      sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes.join(',')});
+        DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
+        DELETE FROM casemgmt_note WHERE demographic_no=${patient} AND note_id IN (${notes.join(',')})`);
+    }
+    sql.execute(`DELETE FROM eform_values WHERE fdid IN (SELECT fdid FROM eform_data WHERE form_name IN (${formNames}) AND demographic_no=${patient});
+      DELETE FROM eform_data WHERE form_name IN (${formNames}) AND demographic_no=${patient}`);
     if (fid) sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name=${q(formName)}`);
+    if (fidNoSpecialist) sql.execute(`DELETE FROM eform WHERE fid=${fidNoSpecialist} AND form_name=${q(formNameNoSpecialist)}`);
     if (serviceId && specId) sql.execute(`DELETE FROM serviceSpecialists WHERE serviceId=${serviceId} AND specId=${specId}`);
     if (specId) sql.execute(`DELETE FROM professionalSpecialists WHERE specId=${specId} AND lName=${q(lastName)}`);
     if (serviceId) sql.execute(`DELETE FROM consultationServices WHERE serviceId=${serviceId} AND serviceDesc=${q(serviceDesc)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
-      + (SELECT COUNT(*) FROM eform_data WHERE form_name=${q(formName)})
-      + (SELECT COUNT(*) FROM consultationRequests WHERE reason=${q(reason)})
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name IN (${formNames}))
+      + (SELECT COUNT(*) FROM eform_data WHERE form_name IN (${formNames}))
+      + (SELECT COUNT(*) FROM consultationRequests WHERE reason IN (${q(reason)},${q(reasonNoSpecialist)}))
+      + (SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM professionalSpecialists WHERE lName=${q(lastName)})
       + (SELECT COUNT(*) FROM consultationServices WHERE serviceDesc=${q(serviceDesc)})`) === '0',
-    'Owned eForm, consultation request, specialist or service rows remain');
+    'Owned eForm, consultation request, note, specialist or service rows remain');
   });
 
   // Own service and specialist: never borrowed from the install (echart-consult-specialist explains why).
@@ -89,6 +108,18 @@ async function workflow(s) {
     showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
     VALUES(${q(formName)},'',${q(formName)},CURDATE(),CURTIME(),${q(provider)},1,${q(html)},0,0,'',0,1); SELECT LAST_INSERT_ID()`);
   h.assert(POSITIVE.test(fid || ''), 'The template eForm was not created');
+  const templateNoSpecialist = '<!-- <template>'
+    + `<EncounterNote>${noteText}</EncounterNote>`
+    + `<consultRequest><referredToService>${serviceId}</referredToService><referredBy>${provider}</referredBy>`
+    + `<reason>${reasonNoSpecialist}</reason></consultRequest></template> -->`;
+  const htmlNoSpecialist = `<html><head><title>${formNameNoSpecialist}</title></head><body>`
+    + '<form method="post" action="" name="FormName" id="FormName"><input type="text" name="note" id="note">'
+    + `<input type="submit" value="Submit" id="SubmitButton"></form>${templateNoSpecialist}</body></html>`;
+  fidNoSpecialist = sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,status,form_html,
+    showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
+    VALUES(${q(formNameNoSpecialist)},'',${q(formNameNoSpecialist)},CURDATE(),CURTIME(),${q(provider)},1,${q(htmlNoSpecialist)},0,0,'',0,1);
+    SELECT LAST_INSERT_ID()`);
+  h.assert(POSITIVE.test(fidNoSpecialist || ''), 'The template eForm without a specialist was not created');
   // Same guard as double-submit-eform: the demo data ships EFormDocs rows for eForm instance ids that no
   // eform_data row owns any more. A new instance saved at one of those ids inherits their attachments and the
   // save is refused with 403 before the template runs. Move the id counter past them with an owned row.
@@ -108,9 +139,10 @@ async function workflow(s) {
   let requestId;
   let request;
   let listRow;
+  let list;
   await s.step('submitting the eForm saves it and runs its consultation request template', async () => {
     // The Add eForm list is never closed from here: unloading it throws on a null window.opener (known, eform-groups).
-    const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
+    list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
     await list.locator('#efmTable').waitFor();
     const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-template');
     await form.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
@@ -156,6 +188,26 @@ async function workflow(s) {
       && listed === `consult-status-${PENDING_SPECIALIST_CALLBACK}`,
       `The request has status ${status} saved, ${shown} on the request screen and ${listed} in the Consultations list, `
       + `not ${PENDING_SPECIALIST_CALLBACK} (Pending specialist callback)`);
+  });
+
+  await s.step('an eForm whose consultation template names no specialist is saved with its note, and Submit does not fail', async () => {
+    const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formNameNoSpecialist }).first(),
+      'eform-template-no-specialist');
+    await form.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
+    await form.locator('#note').fill(`${marker} submitted without a specialist`);
+    const answered = form.waitForResponse(r => r.url().includes('/eform/addEForm') && r.request().method() === 'POST',
+      { timeout: 30000 });
+    await form.locator('#remoteSubmitButton').click();
+    const status = (await answered).status();
+    const saved = await waitForValue(sql, `SELECT COUNT(*) FROM eform_data WHERE form_name=${q(formNameNoSpecialist)}
+      AND demographic_no=${patient}`, v => v === '1');
+    const note = await waitForValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
+      AND note LIKE ${q(`%${noteText}%`)}`, v => v !== '0');
+    const requests = sql.value(`SELECT COUNT(*) FROM consultationRequests WHERE demographicNo=${patient} AND reason=${q(reasonNoSpecialist)}`);
+    h.assert(status === 200 && saved === '1' && note === '1' && requests === '0',
+      `Submit answered ${status}; the eForm was saved ${saved} time(s), its template note ${note} time(s), and ${requests} `
+      + 'consultation request(s) were made (expected 200, 1, 1, 0)');
+    if (!form.isClosed()) await form.close();
   });
 }
 
