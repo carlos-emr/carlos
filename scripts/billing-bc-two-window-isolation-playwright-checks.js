@@ -25,9 +25,13 @@
  *   3. A private bill of two service lines for A ▸ Save & Print Receipt ▸ a private bill for B in
  *      the other window ▸ Save & Print Receipt ▸ Update Invoice on A's receipt: the receipt shown
  *      again is A's, with both lines.
+ *   4. Schedule ▸ B on A's fourth appointment ▸ another billing form ▸ Continue with a service code
+ *      that does not exist: the bill form comes back with the chosen form's code table. Then eight
+ *      more bills opened in the same login push this bill out of the session: the window's next
+ *      Continue is told that its billing session expired, rather than a bare error.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
- * PatientBravo, the same marker last name), both with a synthetic BC PHN; three appointments today
+ * PatientBravo, the same marker last name), both with a synthetic BC PHN; four appointments today
  * for A and two for B; an owned billing physician created through Administration ▸ Add Provider
  * (so the application's provider caches see it) and deactivated through Update Provider at the
  * end. Cleanup removes every claim, note, history and recipient row of the two patients, their
@@ -311,7 +315,7 @@ async function billInTwoWindows(s, A, B, physician) {
   for (const [label, patient, first, start, end] of [
     ['A1', A, A_FIRST_NAME, '09:00:00', '09:14:00'], ['B1', B, B_FIRST_NAME, '09:15:00', '09:29:00'],
     ['A2', A, A_FIRST_NAME, '09:30:00', '09:44:00'], ['A3', A, A_FIRST_NAME, '09:45:00', '09:59:00'],
-    ['B3', B, B_FIRST_NAME, '10:00:00', '10:14:00']]) {
+    ['B3', B, B_FIRST_NAME, '10:00:00', '10:14:00'], ['A4', A, A_FIRST_NAME, '10:15:00', '10:29:00']]) {
     appointment[label] = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time,
         end_time, name, demographic_no, notes, reason, status, createdatetime, updatedatetime, creator,
         lastupdateuser)
@@ -473,6 +477,79 @@ async function billInTwoWindows(s, A, B, physician) {
       && new URL(receiptA.url()).searchParams.getAll('billing_no').join(',') === billsA.join(','),
     `Update Invoice did not show the view of A's bills ${billsA} (HTTP ${updated.status()}, ${receiptA.url()})`);
     await receiptA.close();
+  });
+
+  /** The service codes of the bill form's code table, as its checkboxes list them. */
+  function serviceCodes(form) {
+    return form.locator('#billingFormTable input[name="service"]').evaluateAll(boxes => boxes.map(box => box.value));
+  }
+
+  // Last: the eight bills it opens push every earlier bill of this login out of the session.
+  await s.step('a bill window comes back to the billing form it shows, and one whose bill was dropped is told so', async () => {
+    const form = await openBillForm(sheets[0], 'A4');
+    const billKey = await form.locator('#bcBillingForm input[name="billKey"]').inputValue();
+    await chooseBillingPhysician(form, physician.providerNo);
+    const openedWith = await form.locator('#selectBillingForm').inputValue();
+    const openedCodes = await serviceCodes(form);
+    const chosen = (await form.locator('#selectBillingForm option').evaluateAll(options => options.map(o => o.value)))
+      .find(value => value && value !== openedWith && value !== 'PRI');
+    h.assert(chosen, 'The bill form offers no other billing form to choose');
+    await changeAndAwaitReloads(form, '#selectBillingForm', chosen, 1, 'choosing another billing form');
+    const chosenCodes = await serviceCodes(form);
+    h.assert(chosenCodes.length && JSON.stringify(chosenCodes) !== JSON.stringify(openedCodes),
+      `The ${chosen} billing form shows the same code table as ${openedWith}`);
+
+    // A Continue the validation refuses comes back to this window's bill, with the form it showed.
+    const unknownCode = unusedValue(sql, 'billingservice', 'service_code', '9', 4);
+    const refused = await fillAndContinue(form, { physician: physician.providerNo, codes: [unknownCode], dx: '780',
+      ignoreWarnings: false });
+    h.assert(refused.status() === 302, `A Continue with an unknown service code answered HTTP ${refused.status()}`);
+    await form.waitForURL(url => url.pathname.endsWith('/billing') && url.searchParams.get('billKey') === billKey,
+      { timeout: TIMEOUT });
+    await expectOwnBillForm(form, 'The bill form after a refused Continue', billKey);
+    h.assert(await form.locator('#selectBillingForm').inputValue() === chosen,
+      `The refused Continue came back to the ${openedWith} billing form the bill was opened with, not ${chosen}`);
+    h.assert(JSON.stringify(await serviceCodes(form)) === JSON.stringify(chosenCodes),
+      `The refused Continue came back with another code table than the ${chosen} form's`);
+
+    // Eight bills opened since, from the day sheet's own link, are more than the session keeps.
+    const onclick = await sheets[1].locator(`a[onclick*="/billing?billRegion="][onclick*="appointment_no=${appointment.A4}&"]`)
+      .first().getAttribute('onclick');
+    const link = (onclick.match(/["']([^"']*\/billing\?billRegion=[^"']*)["']/) || [])[1];
+    h.assert(link, 'The day sheet\'s bill link names no bill form address');
+    for (let i = 0; i < 8; i++) {
+      const opened = await context.request.get(new URL(link, sheets[1].url()).toString());
+      h.assert(opened.status() === 200, `Opening another bill answered HTTP ${opened.status()}`);
+    }
+    const badMark = s.recorder.badResponses.length;
+    const consoleMark = s.recorder.consoleIssues.length;
+    const expired = await fillAndContinue(form, { physician: physician.providerNo, codes: ['00100'], dx: '780',
+      ignoreWarnings: true });
+    h.assert(expired.status() === 400, `The dropped bill's Continue answered HTTP ${expired.status()}, not 400`);
+    await form.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
+    // Settled, so the browser's own requests for this plain-text document are in before they are judged.
+    await form.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+    h.assert((await form.locator('body').innerText()).includes('Billing session expired.'),
+      'The dropped bill\'s Continue did not say that its billing session expired');
+    // The refusal is this step's expected outcome, not a page failure: excuse its response and
+    // Chromium's console line for that same document load, and the site icon Chromium asks the
+    // server root for on a page that names none (an install without a root application answers
+    // 404), and nothing else.
+    const bad = s.recorder.badResponses.slice(badMark);
+    h.assert(bad.length === 1 && bad[0].status === 400 && new URL(bad[0].url).pathname.endsWith('/billing/CA/BC/CreateBilling'),
+      'The dropped bill\'s refusal was not the one bad response');
+    s.recorder.badResponses.splice(badMark, 1);
+    for (let i = s.recorder.consoleIssues.length - 1; i >= consoleMark; i--) {
+      const entry = s.recorder.consoleIssues[i];
+      const where = entry.location && entry.location.url ? new URL(entry.location.url).pathname : '';
+      if (entry.type === 'error' && ((/status of 400\b/.test(entry.text) && where.endsWith('/billing/CA/BC/CreateBilling'))
+          || (/status of 404\b/.test(entry.text) && where === '/favicon.ico'))) {
+        s.recorder.consoleIssues.splice(i, 1);
+      }
+    }
+    await expectValue(sql, `SELECT COUNT(*) FROM billing WHERE appointment_no=${appointment.A4}`, '0',
+      'A bill was saved for the appointment whose bill window only continued');
+    await form.close();
   });
 }
 

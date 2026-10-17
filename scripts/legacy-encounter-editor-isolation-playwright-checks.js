@@ -29,7 +29,8 @@
  * own revision; an editor whose revision another A editor has superseded is refused with its own text
  * on the concurrency page and writes nothing; Sign & Save signs only A's own appointment; an editor
  * keeps its own visit through a Save after A was entered again from another visit, so its Sign signs
- * that visit. Every step compares the other patient's complete clinical rows before and after.
+ * that visit; a double-clicked Save posts the editor once, writes one revision and shows the editor
+ * again. Every step compares the other patient's complete clinical rows before and after.
  *
  * Fixtures: the workflow's FAKE patient (A, first name LegacyAlpha), a second FAKE patient (B,
  * LegacyBravo, last name the run marker), one owned appointment each and two more of A's. Cleanup
@@ -363,6 +364,37 @@ async function run(s) {
     h.assert(visitRow(own) === signedBy(A), 'Sign & Save after a Save did not sign the editor\'s own visit');
     h.assert(visitRow(other) === untouched(A), 'Sign & Save after a Save signed A\'s other visit');
     assertPatientStateUnchanged(before, snapshot(B), 'A\'s own-visit Sign & Save');
+  });
+
+  await s.step('a double-clicked Save writes one revision and shows the editor again, not the concurrency page', async () => {
+    // B's first editor still shows B's latest revision. Its second post, made from the revision the
+    // first post replaced, used to be refused as a conflicting edit.
+    const before = revisionsOf(B);
+    const text = `${marker}-B-legacy-double-click`;
+    await editorB.locator('textarea[name="enTextarea"]').fill(text);
+    const badMark = recorder.badResponses.length;
+    const posts = [];
+    const onRequest = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/encounter/SaveEncounter2')) posts.push(request);
+    };
+    editorB.on('request', onRequest);
+    try {
+      const navigated = editorB.waitForEvent('framenavigated', {
+        predicate: frame => frame === editorB.mainFrame(), timeout: TIMEOUT}).then(() => true, () => false);
+      await editorB.locator('form[name="encForm"] input[type="button"][value="Save"]').dblclick();
+      h.assert(await navigated, 'A double-clicked Save did not leave the editor');
+      await editorLoaded(editorB, 'B\'s editor after a double-clicked Save');
+    } finally {
+      editorB.off('request', onRequest);
+    }
+    h.assert(posts.length === 1, `A double-clicked Save posted the editor ${posts.length} times`);
+    h.assert(recorder.badResponses.length === badMark, 'A double-clicked Save was answered with an error page');
+    const after = revisionsOf(B);
+    h.assert(after.length === before.length + 1 && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${after.at(-1)}`) === text,
+      'A double-clicked Save did not write exactly one revision of B');
+    const owner = await editorOwner(editorB);
+    assertOwnEditor(owner, B, 'B\'s editor after a double-clicked Save');
+    h.assert(owner.revision === after.at(-1), 'B\'s editor after a double-clicked Save does not show the revision it saved');
   });
 }
 

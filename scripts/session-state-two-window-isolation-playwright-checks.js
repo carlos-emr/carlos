@@ -18,11 +18,13 @@
  *      rendered for its own patient. Compose attachments lived on the login's messenger bean;
  *      each compose window now stages its own (MsgAttachmentStaging).
  *   3. Two received messages with chart items, each in its own message view ▸ Attachment ▸ Save
- *      Attachments, then Compose ▸ Send Message from each view: each new message forwards only
- *      its own view's items.
+ *      Attachments; then the first view ▸ Search Patient ▸ pick A ▸ Link to Patient (which shows
+ *      the view again) ▸ Forward, and the second view ▸ Reply, each ▸ Send Message: each new
+ *      message forwards only its own view's items, and the forward is linked to A.
  *   4. Administration ▸ Billing ▸ End Year Statement for A and for B in two windows ▸ Print PDF
- *      in each: each PDF names its own patient and invoice. The PDF printed the statement the last
- *      search in any window had left in the session.
+ *      in each, A's after its start date was changed without creating the statement again: each
+ *      PDF is the statement on screen, with its own patient and invoice. The PDF printed the
+ *      statement the last search in any window had left in the session.
  *   5. Report ▸ Waiting List showing a list that holds B, then a booking for A, who is on no list:
  *      the booked page must not offer to take A off that list; a booking for B still offers it.
  *      The booked page read the list name through EL, which fell back to the name the
@@ -365,7 +367,7 @@ async function composeAttachments(s, A, B, messenger) {
   return chartOf;
 }
 
-async function forwardedItems(s, messenger) {
+async function forwardedItems(s, A, messenger) {
   const { sql, marker, provider, context } = s;
   const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
   h.assert(/^\d+$/.test(location), 'No current messenger location is configured');
@@ -416,26 +418,63 @@ async function forwardedItems(s, messenger) {
     if (!items.isClosed()) await items.close();
   }
 
-  await step(s, 'each message view forwards only its own message\'s chart items', async () => {
+  /**
+   * Search Patient ▸ pick ▸ Link to Patient, which posts the view and shows it again: the view's
+   * saved items must survive being shown again.
+   */
+  async function linkPatient(label, patient) {
+    const view = viewOf[label];
+    await view.locator('#keyword').fill(marker);
+    const search = await s.popup(view, view.locator('input[name="searchDemo"]'), `patient-search-${label}`);
+    const closed = search.waitForEvent('close', { timeout: TIMEOUT }).then(() => true, () => false);
+    const pick = search.locator(`#patientResults a[onclick*="selectForMessenger"][onclick*="'${patient}'"]`);
+    await pick.waitFor({ timeout: TIMEOUT });
+    await pick.click();
+    h.assert(await closed, `Picking the patient for the ${label} message did not close the search popup`);
+    h.assert(await view.locator('input[name="demographic_no"]').inputValue() === String(patient),
+      `Picking the patient did not fill the ${label} message view's link form`);
+    await Promise.all([
+      view.waitForResponse(r => r.request().isNavigationRequest() && r.frame() === view.mainFrame()
+        && new URL(r.url()).pathname.endsWith('/messenger/ViewMessage'), { timeout: TIMEOUT }),
+      view.locator('input[name="linkDemo"]').click(),
+    ]);
+    await settle(view, `${label} message view after Link to Patient`);
+    await expectValue(sql, `SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${received[label].id}
+      AND demographic_no=${patient}`, '1', `Link to Patient did not link the ${label} message`);
+  }
+
+  /** Reply, Reply All or Forward: the view's own form opens the compose page in its window. */
+  async function composeBy(label, button) {
+    const view = viewOf[label];
+    const [opened] = await Promise.all([
+      view.waitForResponse(r => r.request().isNavigationRequest()
+        && new URL(r.url()).pathname.endsWith('/messenger/HandleMessages'), { timeout: TIMEOUT }),
+      view.locator(`button[name="${button}"]`).click(),
+    ]);
+    h.assert(opened.status() === 200, `${button} in the ${label} message view answered HTTP ${opened.status()}`);
+    await settle(view, `${button} from the ${label} message view`);
+  }
+
+  await step(s, 'each message view forwards only its own message\'s chart items, by Forward or Reply', async () => {
     await openViews();
     await saveAttachments('first');
     // The second view saves its items after the first one did.
     await saveAttachments('second');
-    for (const [label, other] of [['first', 'second'], ['second', 'first']]) {
+    // The first view is shown again for its linked patient before it forwards.
+    await linkPatient('first', A);
+    for (const [label, other, button] of [['first', 'second', 'forward'], ['second', 'first', 'reply']]) {
       const view = viewOf[label];
-      const [opened] = await Promise.all([
-        view.waitForResponse(r => r.request().isNavigationRequest()
-          && new URL(r.url()).pathname.endsWith('/messenger/ViewCreateMessage'), { timeout: TIMEOUT }),
-        view.locator('a[href*="/messenger/ViewCreateMessage"]:visible').first().click(),
-      ]);
-      h.assert(opened.status() === 200, `Compose from the ${label} message view answered HTTP ${opened.status()}`);
-      await settle(view, `compose from the ${label} message view`);
+      await composeBy(label, button);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
-        `Compose from the ${label} message view does not show the items saved in it`);
+        `${button} from the ${label} message view does not show the items saved in it`);
       const id = await sendToSelf(s, view, messenger.groupId, `${marker} forwarded ${label}`);
       const stored = sql.value(`SELECT attachment FROM messagetbl WHERE messageid=${id}`) || '';
       h.assert(stored.includes(`name="${received[label].item}"`) && !stored.includes(`name="${received[other].item}"`),
-        `The message composed from the ${label} message view does not forward exactly its own items`);
+        `The message sent by ${button} from the ${label} message view does not forward exactly its own items`);
+      if (label === 'first') {
+        await expectValue(sql, `SELECT COUNT(*) FROM msgDemoMap WHERE messageID=${id} AND demographic_no=${A}`, '1',
+          'The forward of the linked message is not linked to its patient');
+      }
       await view.close();
     }
     await inbox.close();
@@ -493,10 +532,14 @@ async function yearEndStatements(s, A, B) {
     return pdfTextBuffer(fs.readFileSync(file));
   }
 
-  await step(s, 'each year-end statement window prints its own patient after the other window searched', async () => {
+  await step(s, 'each year-end statement window prints its own statement on screen after the other window searched', async () => {
     const pageOf = { A: await statementFor('A', A) };
     // B's statement is created in a second window after A's.
     pageOf.B = await statementFor('B', B);
+    // A's start date changed after its statement was created, past A's March invoice: the PDF is
+    // still the statement on screen, January to December.
+    await pageOf.A.locator('#fromDateParam').fill('2025-06-01');
+    await pageOf.A.locator('h3').first().click();
     for (const [label, own, other] of [['A', A_FIRST_NAME, B_FIRST_NAME], ['B', B_FIRST_NAME, A_FIRST_NAME]]) {
       const otherLabel = label === 'A' ? 'B' : 'A';
       const words = (await printPdf(label, pageOf[label])).split(/\s+/);
@@ -637,7 +680,7 @@ async function workflow(s) {
 
   await healthTrackerVisits(s, A, B);
   await composeAttachments(s, A, B, messenger);
-  await forwardedItems(s, messenger);
+  await forwardedItems(s, A, messenger);
   await yearEndStatements(s, A, B);
   await waitingListPrompt(s, A, B);
   await diseaseRegistry(s, A, B);
