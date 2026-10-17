@@ -111,8 +111,8 @@
     for (MeasurementGroupStyle groupStyle : SpringUtils.getBean(MeasurementGroupStyleDao.class).findAll()) {
         bean.measurementGroupNames.add(groupStyle.getGroupName());
     }
-    // The page's EL links (forms, labs) read this request's own entry; they used to name no
-    // scoped bean at all and so carried no patient or provider.
+    // The page's EL links (the current and new forms lists) read this request's own entry; they
+    // used to name no scoped bean at all and so carried no patient or provider.
     pageContext.setAttribute("bean", bean);
     // This patient's own messages, for a user who may read messages. The select used to name the
     // session-wide casemgmt_msgBeans (whichever chart's view loaded last) as a literal string, so
