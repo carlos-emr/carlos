@@ -3515,6 +3515,25 @@
       "env": []
     },
     {
+      "name": "billing-bc-account-reports",
+      "script": "scripts/billing-bc-account-reports-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "provider",
+        "reportprovider"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Write-Off, Payments and Refunds and Payments and Refunds summary PDFs, and the summary as a spreadsheet, for one FAKE provider and payee. First committed coverage of this page; it pins #4801 (finding 332: the PDFs printed \"Provider:null\"). On develop the Write-Off step fails with HTTP 404 until #4805 (release) is forward-merged: the form posts to an address that is not mapped. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "The owned FAKE- patient; two FAKE providers inserted by SQL (provider and payee, last name = the run marker, each with a billing-report row); and one MSP bill on the patient for them, with a written-off line and its payment line dated today. Cleanup deletes exactly those rows by id and marker. The providers appear in the clinic's provider lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
