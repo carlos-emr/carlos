@@ -45,13 +45,35 @@
  *      items, and only the reply carries A's PDF; a reply opened afterwards starts without the
  *      items, as sending cleared them before. Every compose window opened from one message shared
  *      that message's key, so the forward sent the chart PDF attached in the reply.
+ *  10. The PDF list (messenger/ViewPDFAttach) of A's sent message, then of B's, each from its own
+ *      message view ▸ download in A's list, then in B's: each downloads its own message's PDF, byte
+ *      for byte. A malformed index is refused (400); an index the message does not have, or no
+ *      message, finds nothing (404). The download read the list that the last list opened in any
+ *      window had left in the session (#4473).
+ *  11. A's compose window with A's PDF attached ▸ Search Patient ▸ pick B ▸ Send Message, then
+ *      Clear Selected Patient ▸ Send Message: each send is refused with its reason, and the page
+ *      keeps the subject, the body and the attachment; linked to A again, the message goes out
+ *      with A's PDF, linked to A. The PDF went out on whichever patient the message was linked to.
+ *  12. B's compose window with B's PDF attached ▸ the inbox, A's message list and B's message list
+ *      (messenger/DisplayDemographicMessages), each in a window of its own ▸ Send Message: B's
+ *      message carries B's PDF. Each list shows only its own patient's messages, and a list that
+ *      names no patient shows none. Opening the inbox or a message list emptied the login's
+ *      messenger bean, so a compose window open meanwhile sent nothing.
+ *  13. A's compose window (E-Chart ▸ Messenger +) and a second one in the same group of windows
+ *      (Msg ▸ Compose, linked to B) ▸ Attach Patient in both before either attaches ▸ Attach in B's
+ *      chooser, then in A's: each chooser is a window of its own, and each message carries only its
+ *      own patient's PDF. The choosers shared one window name, so the second took over the first.
+ *  14. A's compose window with A's PDF attached ▸ eight transfer posts, each opening a compose window
+ *      of its own (the session keeps eight compose windows' attachments) ▸ Send Message in A's: it
+ *      is refused once, saying its attachment was released, and sending again goes out without it.
+ *      Without the notice, it went out without its attachment, unannounced.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name); one appointment today per patient and the bookings
  * this check makes; a Health Tracker item per patient; an owned messenger group holding the test
- * provider and three delivered messages with chart items, one linked to A; one PAT bill per patient; an owned
- * waiting list holding B; one registry code per patient. Cleanup removes every owned row by key
- * and asserts it gone.
+ * provider, the messages sent to it and three delivered messages with chart items, one linked to
+ * A; one PAT bill per patient; an owned waiting list holding B; one registry code per patient.
+ * Cleanup removes every owned row by key and asserts it gone.
  *
  * Not driven here: the BC bill and invoice receipt (BC installs only; billing-bc-two-window-isolation
  * drives them), the PMM "attach note to client" popup (pmm-attach-note-two-window-isolation drives
@@ -60,6 +82,7 @@
  */
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -300,35 +323,35 @@ async function sendToSelf(s, page, groupId, subject) {
   return key(s.sql.value(`SELECT messageid FROM messagetbl WHERE thesubject=${q(subject)}`), 'message');
 }
 
-/** The text of every chart PDF stored on one message, and how many there are. */
+/** The text of every chart PDF stored on one message, how many there are, and their bytes. */
 function storedPdfs(s, messageId) {
   const stored = s.sql.value(`SELECT CAST(pdfattachment AS CHAR) FROM messagetbl WHERE messageid=${messageId}`) || '';
   const entries = stored.match(/<PDF>.*?<\/PDF>/gs) || [];
-  const text = entries.map(entry => {
-    const content = (entry.match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '';
-    return pdfTextBuffer(Buffer.from(content, 'base64'));
-  }).join('\n');
-  return { count: entries.length, text };
+  const bytes = entries.map(entry => Buffer.from((entry.match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '', 'base64'));
+  return { count: entries.length, text: bytes.map(pdf => pdfTextBuffer(pdf)).join('\n'), bytes };
 }
 
 /** E-Chart ▸ Messenger + ▸ Attach Patient ▸ patient information ▸ Attach, in the patient's own chart. */
 async function composeWithPatientPdf(s, chart, label, patient) {
-  const compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
-    `compose-${label}`);
-  await compose.locator('#subject').waitFor({ timeout: TIMEOUT });
+  const compose = await openCompose(s, chart, label);
   await attachPatientPdf(s, compose, label, patient);
   return compose;
 }
 
 /** Attach Patient ▸ patient information ▸ Attach, in a compose window linked to the patient. */
 async function attachPatientPdf(s, compose, label, patient) {
-  const { context } = s;
+  await attachInChooser(await openChooser(s, compose, label, patient), compose);
+}
+
+/** Attach Patient, in a compose window linked to the patient: the chooser window it opens. */
+async function openChooser(s, compose, label, patient) {
   h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(patient),
     `${label}'s compose window is not linked to its patient`);
   const [chooser] = await Promise.all([
-    context.waitForEvent('page', { timeout: TIMEOUT }),
+    s.context.waitForEvent('page', { timeout: TIMEOUT }).catch(() => null),
     compose.locator('input[name="attachDemo"]').click(),
   ]);
+  h.assert(chooser, `${label}'s Attach Patient opened no attachment chooser window of its own`);
   await chooser.waitForURL(url => url.pathname.endsWith('/messenger/attachmentFrameset'),
     { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
   let main;
@@ -338,8 +361,13 @@ async function attachPatientPdf(s, compose, label, patient) {
   }
   h.assert(main, `${label}'s attachment chooser has no main frame`);
   await main.locator('form[action$="/messenger/Doc2PDF"]').waitFor({ timeout: TIMEOUT });
-  h.assert(await main.locator('input[name="demographic_no"]').inputValue() === patient,
+  h.assert(await main.locator('input[name="demographic_no"]').inputValue() === String(patient),
     `${label}'s attachment chooser is for another patient`);
+  return { chooser, main };
+}
+
+/** Patient information ▸ Attach, in an open chooser; the compose window that opened it says so. */
+async function attachInChooser({ chooser, main }, compose) {
   await main.locator('input[name="item"][value="demographic"]').check();
   // The chooser closes itself once the PDF is attached (its own late loads are abandoned).
   await Promise.all([
@@ -347,6 +375,88 @@ async function attachPatientPdf(s, compose, label, patient) {
     main.locator('button[name="Attach"]').click(),
   ]);
   await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
+}
+
+/** Search Patient ▸ pick, in a compose window: links the message it sends to `patient`. */
+async function linkComposeTo(s, compose, label, patient) {
+  // Typing a name clears the patient picked before, as the page's own name lookup does.
+  await compose.locator('#keyword').fill(s.marker);
+  const search = await s.popup(compose, compose.locator('input[name="searchDemo"]'), `compose-search-${label}`);
+  const closed = search.waitForEvent('close', { timeout: TIMEOUT }).then(() => true, () => false);
+  const pick = search.locator(`#patientResults a[onclick*="selectForMessenger"][onclick*="'${patient}'"]`);
+  await pick.waitFor({ timeout: TIMEOUT });
+  await pick.click();
+  h.assert(await closed, `Picking the patient for ${label} did not close the search popup`);
+  h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(patient),
+    `Picking the patient did not link ${label}'s compose window to it`);
+}
+
+/** What the compose page's alert says when Send Message was refused (CreateMessage.jsp showAlert). */
+async function refusalOf(page) {
+  const alert = page.locator('#msg-alert-container .alert-danger').first();
+  await alert.waitFor({ timeout: TIMEOUT });
+  return (await alert.innerText()).trim();
+}
+
+/**
+ * Send Message that must be refused: the compose page comes back saying why, with the subject and
+ * the body typed in it, and nothing is stored.
+ */
+async function sendRefused(s, page, groupId, subject, reason, label) {
+  const body = `${s.marker} ${label} body`;
+  await page.locator(`#member_group_${groupId}`).check();
+  await page.locator('#subject').fill(subject);
+  await page.locator('.toastui-editor-ww-container .ProseMirror').first().click();
+  await page.keyboard.type(body);
+  const [answer] = await Promise.all([
+    page.waitForResponse(r => r.request().method() === 'POST'
+      && new URL(r.url()).pathname.endsWith('/messenger/CreateMessage'), { timeout: TIMEOUT }),
+    page.locator('button[type="submit"]', { hasText: /Send Message/i }).click(),
+  ]);
+  h.assert(answer.status() === 200, `${label}: Send Message answered HTTP ${answer.status()}, not the compose page`);
+  await settle(page, `${label}'s refused compose page`);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject=${q(subject)}`) === '0',
+    `${label}: the message was sent instead of refused`);
+  h.assert(reason.test(await refusalOf(page)),
+    `${label}: the compose page came back without saying why the message was not sent`);
+  h.assert(await page.locator('#subject').inputValue() === subject, `${label}: the refused message lost its subject`);
+  h.assert((await page.locator('textarea[name="message"]').inputValue()).includes(body),
+    `${label}: the refused message lost its body`);
+}
+
+/**
+ * The transfer page's post (messenger/Transfer/PostItems) with one item, from `page`. The transfer
+ * page itself (messenger/Transfer/SelectItems) cannot render: it reads /DocXferConfig.xml from the
+ * server's filesystem root, which no install has, so it fails for every patient. Its form posts
+ * xmlDoc (the patient's document, Base64) and item<N>=on for each ticked item to PostItems, which
+ * is live. The same form is built and submitted here, from a messenger page, so CSRFGuard adds its
+ * token as it does for the page's own form. The post opens a compose window of its own in `page`.
+ */
+async function postTransfer(page, content) {
+  const previous = new URL(page.url()).searchParams.get('attachmentKey');
+  const xmlDoc = Buffer.from(`<root><table name="Demographics"><item itemId="1" removable="true">`
+    + `<content>${content}</content></item></table></root>`).toString('base64');
+  await Promise.all([
+    page.waitForURL(url => url.pathname.endsWith('/messenger/ViewCreateMessage')
+      && url.searchParams.get('attachmentKey') !== previous, { timeout: TIMEOUT }),
+    page.evaluate(({ action, xmlDoc }) => {
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = action;
+      for (const [name, value] of [['xmlDoc', xmlDoc], ['item1', 'on']]) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    }, { action: `${new URL(page.url()).pathname.replace(/\/messenger\/.*$/, '')}/messenger/Transfer/PostItems`, xmlDoc }),
+  ]);
+  await settle(page, 'the compose window the transfer opened');
+  h.assert(/^[A-Za-z0-9_-]{16,}$/.test(new URL(page.url()).searchParams.get('attachmentKey') || ''),
+    'The transfer did not open a compose window of its own (no attachment key)');
 }
 
 async function composeAttachments(s, A, B, messenger) {
@@ -429,37 +539,11 @@ async function transferredItems(s, A, B, messenger, chartOf) {
     const composeB = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
       'compose-B-beside-transfer');
     await composeB.locator('#subject').waitFor({ timeout: TIMEOUT });
-    // The transfer page (messenger/Transfer/SelectItems) cannot render: it reads /DocXferConfig.xml
-    // from the server's filesystem root, which no install has, so it fails for every patient. Its
-    // form posts xmlDoc (the patient's document, Base64) and item<N>=on for each ticked item to
-    // messenger/Transfer/PostItems, which is live. The same form is built and submitted here, from a
-    // messenger page, so CSRFGuard adds its token as it does for the page's own form.
     const transfer = await context.newPage();
     await h.gotoApp(transfer, s.config.baseUrl, '/messenger/DisplayMessages');
     await settle(transfer, 'the inbox the transfer is posted from');
     const content = `${marker} ${A_FIRST_NAME} transferred eDoc`;
-    const xmlDoc = Buffer.from(`<root><table name="Demographics"><item itemId="1" removable="true">`
-      + `<content>${content}</content></item></table></root>`).toString('base64');
-    await Promise.all([
-      transfer.waitForURL(url => url.pathname.endsWith('/messenger/ViewCreateMessage'), { timeout: TIMEOUT }),
-      transfer.evaluate(({ action, xmlDoc }) => {
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = action;
-        for (const [name, value] of [['xmlDoc', xmlDoc], ['item1', 'on']]) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-        }
-        document.body.appendChild(form);
-        form.submit();
-      }, { action: `${new URL(transfer.url()).pathname.replace(/\/messenger\/.*$/, '')}/messenger/Transfer/PostItems`, xmlDoc }),
-    ]);
-    await settle(transfer, 'the compose window the transfer opened');
-    h.assert(/^[A-Za-z0-9_-]{16,}$/.test(new URL(transfer.url()).searchParams.get('attachmentKey') || ''),
-      'The transfer did not open a compose window of its own (no attachment key)');
+    await postTransfer(transfer, content);
     h.assert((await transfer.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
       'The compose window the transfer opened shows no attachment');
     const idB = await sendToSelf(s, composeB, messenger.groupId, `${marker} B beside a transfer`);
@@ -470,6 +554,219 @@ async function transferredItems(s, A, B, messenger, chartOf) {
       'The transfer\'s own message does not carry the items it posted');
     await transfer.close();
     await composeB.close();
+  });
+}
+
+/** E-Chart ▸ Messenger +, in the patient's own chart: a compose window linked to the patient. */
+async function openCompose(s, chart, label) {
+  const compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
+    `compose-${label}`);
+  await compose.locator('#subject').waitFor({ timeout: TIMEOUT });
+  return compose;
+}
+
+async function sendRefusals(s, A, B, messenger, chartOf) {
+  const { marker } = s;
+  await step(s, 'a chart PDF goes out only on a message linked to its own patient; a refused send keeps the message', async () => {
+    const compose = await composeWithPatientPdf(s, chartOf.A, 'A (relinked)', A);
+    const subject = `${marker} A's PDF relinked`;
+    const refused = /prepared for a different patient/i;
+    // The message is linked to B after A's chart was attached, then to no patient.
+    await linkComposeTo(s, compose, 'A\'s compose window', B);
+    await sendRefused(s, compose, messenger.groupId, subject, refused, 'The message linked to B');
+    h.assert((await compose.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+      'The refused compose page no longer shows the PDF attached in it');
+    h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(B),
+      'The refused compose page dropped the patient its message was linked to');
+    await compose.locator('input[name="clearDemographic"]').click();
+    await sendRefused(s, compose, messenger.groupId, subject, refused, 'The message linked to no patient');
+    // Linked to A again, it goes out with A's PDF, linked to A.
+    await linkComposeTo(s, compose, 'A\'s compose window', A);
+    const id = await sendToSelf(s, compose, messenger.groupId, subject);
+    const pdfs = storedPdfs(s, id);
+    h.assert(pdfs.count === 1 && pdfs.text.includes(A_FIRST_NAME),
+      `The message linked to A again stored ${pdfs.count} chart PDFs instead of A's one`);
+    h.assert(s.sql.value(`SELECT GROUP_CONCAT(demographic_no) FROM msgDemoMap WHERE messageID=${id}
+      AND id > ${messenger.demoMapMark}`) === String(A), 'The message linked to A again is not linked to A alone');
+    await compose.close();
+  });
+}
+
+async function listsKeepAttachments(s, A, B, messenger, chartOf) {
+  const { marker } = s;
+  await step(s, 'the inbox and each patient\'s message list, opened before a send, leave the compose window\'s attachment', async () => {
+    const compose = await composeWithPatientPdf(s, chartOf.B, 'B (lists open)', B);
+    const inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
+    const listOf = {};
+    for (const [label, patient] of [['A', A], ['B', B]]) {
+      listOf[label] = await openPage(s, `/messenger/DisplayDemographicMessages?demographic_no=${patient}`,
+        `${label}'s message list`);
+    }
+    // Each list shows the messages linked to its own patient (sent by the first compose step).
+    for (const [label, other] of [['A', 'B'], ['B', 'A']]) {
+      const text = await listOf[label].locator('body').innerText();
+      h.assert(text.includes(`${marker} ${label} chart PDF`) && !text.includes(`${marker} ${other} chart PDF`),
+        `${label}'s message list does not list exactly the messages linked to ${label}`);
+    }
+    // Without a patient the list names none, rather than the patient of another window's list.
+    const unnamed = await openPage(s, '/messenger/DisplayDemographicMessages', 'message list without a patient');
+    const unnamedText = await unnamed.locator('body').innerText();
+    h.assert(!unnamedText.includes(`${marker} A chart PDF`) && !unnamedText.includes(`${marker} B chart PDF`),
+      'The message list opened without a patient lists another window\'s patient\'s messages');
+    const id = await sendToSelf(s, compose, messenger.groupId, `${marker} B after the lists`);
+    const pdfs = storedPdfs(s, id);
+    h.assert(pdfs.count === 1 && pdfs.text.includes(B_FIRST_NAME),
+      `Opening the inbox and the message lists left B's message with ${pdfs.count} chart PDFs instead of B's one`);
+    for (const page of [unnamed, listOf.B, listOf.A, inbox, compose]) await page.close();
+  });
+}
+
+async function twoChoosers(s, A, B, messenger, chartOf) {
+  const { marker, context, recorder } = s;
+  await step(s, 'two compose windows\' attachment choosers, open at once, each attach to their own compose window', async () => {
+    const composeA = await openCompose(s, chartOf.A, 'A (two choosers)');
+    // A second compose window in the same group of windows as A's chart, as a clinician opens one
+    // from the day sheet: Msg ▸ Compose, linked to B. (The schedule's own tab shows the messenger
+    // by default; it is put back afterwards.)
+    const schedule = new URL(s.schedule.url());
+    const { page: composeB, isPopup } = await ui.clickOpensPopupOrNavigates(s.schedule,
+      s.schedule.locator('a:has(#oscar_new_msg)').first(), { context, recorder, label: 'messenger-inbox', timeout: TIMEOUT });
+    try {
+      await settle(composeB, 'the messenger opened from the schedule');
+      await Promise.all([
+        composeB.waitForURL(url => url.pathname.endsWith('/messenger/ViewCreateMessage'), { timeout: TIMEOUT }),
+        composeB.locator('a.nav-link[href*="/messenger/ViewCreateMessage"]').first().click(),
+      ]);
+      await settle(composeB, 'Compose from the messenger');
+      await linkComposeTo(s, composeB, 'the second compose window', B);
+      // Both choosers are open before either attaches.
+      const chooserA = await openChooser(s, composeA, 'A', A);
+      const chooserB = await openChooser(s, composeB, 'B', B);
+      h.assert(!chooserA.chooser.isClosed() && chooserA.chooser !== chooserB.chooser,
+        'B\'s attachment chooser took over A\'s chooser window');
+      await attachInChooser(chooserB, composeB);
+      h.assert(!(await composeA.locator('#pdf-attachment-indicator').isVisible())
+          && !(await composeA.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+        'Attaching in B\'s chooser marked A\'s compose window as having attachments');
+      await attachInChooser(chooserA, composeA);
+      for (const [label, patient, compose, own, other] of [
+        ['B', B, composeB, B_FIRST_NAME, A_FIRST_NAME], ['A', A, composeA, A_FIRST_NAME, B_FIRST_NAME]]) {
+        const id = await sendToSelf(s, compose, messenger.groupId, `${marker} ${label} from its own chooser`);
+        const pdfs = storedPdfs(s, id);
+        h.assert(pdfs.count === 1 && pdfs.text.includes(own) && !pdfs.text.includes(other),
+          `${label}'s message, attached from its own chooser, stored ${pdfs.count} chart PDFs instead of ${label}'s one`);
+        h.assert(s.sql.value(`SELECT GROUP_CONCAT(demographic_no) FROM msgDemoMap WHERE messageID=${id}
+          AND id > ${messenger.demoMapMark}`) === String(patient), `${label}'s message is not linked to ${label} alone`);
+      }
+      await composeA.close();
+    } finally {
+      if (isPopup) {
+        if (!composeB.isClosed()) await composeB.close();
+      } else {
+        await h.gotoApp(s.schedule, s.config.baseUrl, schedule.pathname.replace(/^\/[^/]+/, '') + schedule.search);
+        await settle(s.schedule, 'the schedule, shown again');
+      }
+    }
+  });
+}
+
+/** How many compose windows' attachments the session keeps (MsgAttachmentStaging.MAX_ENTRIES). */
+const STAGED_WINDOWS = 8;
+
+async function releasedAttachments(s, A, messenger, chartOf) {
+  const { marker, context } = s;
+  await step(s, 'a compose window whose attachment was released for newer windows says so once, then sends without it', async () => {
+    const compose = await composeWithPatientPdf(s, chartOf.A, 'A (released)', A);
+    // As many compose windows as the session keeps stage attachments after it: the transfer
+    // page's post, each opening a compose window of its own.
+    const transfer = await context.newPage();
+    await h.gotoApp(transfer, s.config.baseUrl, '/messenger/DisplayMessages');
+    await settle(transfer, 'the inbox the transfers are posted from');
+    for (let n = 1; n <= STAGED_WINDOWS; n++) await postTransfer(transfer, `${marker} transfer ${n}`);
+    await transfer.close();
+    const subject = `${marker} A after its PDF was released`;
+    await sendRefused(s, compose, messenger.groupId, subject, /attachments were released/i, 'The released compose window');
+    h.assert(!(await compose.locator('body').innerText()).includes(ATTACHMENTS_LABEL),
+      'The compose page still shows the attachment that was released');
+    const id = await sendToSelf(s, compose, messenger.groupId, subject);
+    h.assert(storedPdfs(s, id).count === 0 && storedItems(s, id) === '',
+      'The message sent after the notice carries an attachment, or another window\'s');
+    await compose.close();
+  });
+}
+
+/** Observes the response to a request `trigger` makes, without changing what the browser gets. */
+async function captureResponse(page, pathname, trigger) {
+  let captured;
+  const handler = async route => {
+    const response = await route.fetch();
+    captured = { status: response.status(), body: await response.body(), post: route.request().postData() || '' };
+    await route.fulfill({ response });
+  };
+  const pattern = `**${pathname}`;
+  await page.context().route(pattern, handler);
+  try {
+    await trigger();
+    const deadline = Date.now() + TIMEOUT;
+    while (!captured && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+  } finally {
+    await page.context().unroute(pattern, handler);
+  }
+  h.assert(captured, `${pathname} was not requested`);
+  return captured;
+}
+
+async function pdfDownloads(s) {
+  const { sql, marker, context } = s;
+  await step(s, 'each message\'s PDF list downloads its own message\'s PDF after another message\'s list was opened', async () => {
+    const idOf = {};
+    for (const label of ['A', 'B']) {
+      idOf[label] = key(sql.value(`SELECT messageid FROM messagetbl WHERE thesubject=${q(`${marker} ${label} chart PDF`)}`),
+        `${label}'s sent message`);
+    }
+    const inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
+    const viewOf = {};
+    const listOf = {};
+    // A's list, then B's, each from its own message view.
+    for (const label of ['A', 'B']) {
+      viewOf[label] = await openPage(s, await messageViewPath(inbox, { id: idOf[label] }, label), `${label}'s message view`);
+      listOf[label] = await s.popup(viewOf[label], viewOf[label].locator('a[href*="ViewPDFAttach?attachId="]').first(),
+        `pdf-list-${label}`);
+      await settle(listOf[label], `${label}'s PDF list`);
+    }
+    let csrf;
+    for (const [label, own, other] of [['A', A_FIRST_NAME, B_FIRST_NAME], ['B', B_FIRST_NAME, A_FIRST_NAME]]) {
+      const list = listOf[label];
+      const download = await captureResponse(list, '/messenger/ViewPDFFile',
+        () => list.locator('form[action$="/messenger/ViewPDFFile"] button[type="submit"]').first().click());
+      h.assert(download.status === 200 && download.body.subarray(0, 5).toString('latin1') === '%PDF-',
+        `The download from ${label}'s PDF list answered HTTP ${download.status} without a PDF`);
+      const text = pdfTextBuffer(download.body);
+      h.assert(text.includes(own) && !text.includes(other),
+        `The download from ${label}'s PDF list is ${text.includes(other) ? 'the other message\'s' : 'not its message\'s'} PDF`);
+      h.assert(download.body.equals(storedPdfs(s, idOf[label]).bytes[0]),
+        `The download from ${label}'s PDF list is not the PDF stored on its message, byte for byte`);
+      h.assert(new URLSearchParams(download.post).get('attId') === idOf[label],
+        `The download from ${label}'s PDF list does not name its message`);
+      // CSRFGuard's client adds the token to the form as it is submitted.
+      csrf = new URLSearchParams(download.post).get('CSRF-TOKEN');
+    }
+    h.assert(csrf, 'The PDF list\'s download carried no CSRF token');
+    // A malformed index is refused; an index the message does not have, or no message, finds nothing.
+    const url = h.appUrl(s.config.baseUrl, '/messenger/ViewPDFFile');
+    for (const [form, status, what] of [
+      [{ file_id: 'x', attId: idOf.A }, 400, 'a malformed file index'],
+      [{ file_id: '1', attId: idOf.A }, 404, 'an index past the message\'s PDFs'],
+      [{ file_id: '0' }, 404, 'no message']]) {
+      const answer = await context.request.post(url, { headers: { 'CSRF-TOKEN': csrf },
+        form: { ...form, 'CSRF-TOKEN': csrf }, maxRedirects: 0 });
+      h.assert(answer.status() === status, `A download for ${what} answered HTTP ${answer.status()}, not ${status}`);
+    }
+    for (const label of ['A', 'B']) {
+      await listOf[label].close();
+      await viewOf[label].close();
+    }
+    await inbox.close();
   });
 }
 
@@ -847,8 +1144,13 @@ async function workflow(s) {
 
   await healthTrackerVisits(s, A, B);
   const charts = await composeAttachments(s, A, B, messenger);
+  await pdfDownloads(s);
+  await sendRefusals(s, A, B, messenger, charts);
+  await listsKeepAttachments(s, A, B, messenger, charts);
+  await twoChoosers(s, A, B, messenger, charts);
   await clearNewMessage(s, A, B, messenger, charts);
   await transferredItems(s, A, B, messenger, charts);
+  await releasedAttachments(s, A, messenger, charts);
   await forwardedItems(s, A, messenger);
   await repliesFromOneMessage(s, A, messenger);
   await yearEndStatements(s, A, B);
