@@ -44,18 +44,20 @@ class SonarReliabilityReportTest(unittest.TestCase):
         self.assertEqual([], sonar.reliability_issues(lambda _: {"issues": [], "total": 0}, 4902))
 
     def test_summary_escapes_markup_and_logs_escape_workflow_commands(self):
-        payload = "</pre><script>unsafe</script>\n::error::forged"
+        payload = "</pre><script>unsafe</script>\n::error::forged %0A"
         with tempfile.TemporaryDirectory() as directory:
             summary = Path(directory) / "summary.md"
             body = io.StringIO('{"issues": ' + json.dumps([
                 {"key": "bug", "type": "BUG", "message": payload}]) + ', "total": 1}')
             output = io.StringIO()
             with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "4902",
-                                         "GITHUB_STEP_SUMMARY": str(summary)}), \
+                                         "GITHUB_STEP_SUMMARY": str(summary), "GITHUB_ACTIONS": "true"}), \
                     patch.object(sonar, "urlopen", return_value=body), contextlib.redirect_stdout(output):
                 sonar.main()
             self.assertNotIn("\n::error::forged", output.getvalue())
             self.assertNotIn("synthetic-secret", output.getvalue())
+            self.assertIn("::notice title=Latest available Sonar reliability findings::", output.getvalue())
+            self.assertIn("%250A", output.getvalue())
             self.assertNotIn("<script>", summary.read_text())
             self.assertIn("&lt;script&gt;", summary.read_text())
 
