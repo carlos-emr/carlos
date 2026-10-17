@@ -66,13 +66,13 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
   `ChartNotesAjax.jsp` (3) and the legacy navigation (`LegacyNavigationPatientIsolationUnitTest`, 6).
   The GET-rejection contract registers the legacy save action, and `EncounterPatientContextUnitTest`
   covers the remembered entry's appointment status. 361 focused encounter, notes, immunization and
-  print tests pass (JDK 25, Ubuntu 26.04 builder), and the jspc profile compiles all 992 JSPs.
+  print tests pass (JDK 25, Ubuntu 26.04 builder), and the jspc profile compiles every JSP, as the CI `jspc` job does on each push.
 - **Packages.** `carlos-emr` and `carlos-emr-drugref` were built from this branch with
   `dpkg-buildpackage` in an Ubuntu 26.04 / JDK 25 builder and installed into a fresh Ubuntu 26.04
   container (MariaDB 11.8, Ontario demonstration data) with `scripts/deb-docker-validation.sh`; the
   browser checks ran through the packaged front door. See the record in
   [deb-install-validation.md](deb-install-validation.md).
-- **`echart-two-patient-isolation`** passes all 40 steps (the 24 existing and 16 new). With the other
+- **`echart-two-patient-isolation`** passes all 43 steps (the 24 existing and 19 new, three of them from the second coverage round). With the other
   chart entered last, in each direction: the chart print's MRP line; the legacy save, its Sign, Save
   and Exit of the chart's own appointment (archived, then signed `tS`), and its refusals (stale,
   missing or foreign revision, another patient's appointment, malformed values, missing or
@@ -162,8 +162,10 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   statement windows (A's printed after its start date was changed without creating the statement
   again), a booking after the waiting-list page showed a list, and a refused registry code. All six
   pass on this branch; the coverage round below added three more.
-- **Negative control.** The same check, made to continue past a failing step, against
-  `release/2026.08`: every step fails on the crossover it pins. A's tracker save is linked to B's
+- **Negative control.** A scratch copy of the check that continues past a failing step, with any
+  assertion on what only this branch has (such as the visit store's 204 answer or a compose
+  window's attachment key) relaxed, run against `release/2026.08`: every step fails on the crossover
+  it pins. A's tracker save is linked to B's
   visit, A's message carries B's PDF, the first view forwards the second view's items, A's
   statement names B, the booking offers to take A off B's list, and A's re-rendered registry lists
   B's diagnoses. Against this branch before the final review's fixes, the forwarding step fails
@@ -196,7 +198,7 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   `echart-group-note-history`, `echart-notes-pagination-retry`, `gap-clinical-chart-notes-pagination`,
   `search-sort-messenger-inbox` and the year-end steps of `billing-on-reports-inr-eoy` (one
   `echart-two-patient-isolation` run stopped at its Vascular Tracker popup step with "Target page,
-  context or browser has been closed"; the rerun passed all 40 steps). Three need the
+  context or browser has been closed"; the rerun passed all its steps, 40 then). Three need the
   packaged defaults rather than the devcontainer's overrides (`DEMOGRAPHIC_WAITING_LIST=true`,
   `dxResearch_coding_sys=icd9,ichppccode`, `AbandonOldChart` unset; see #4793), and the two-patient
   check the packaged form registry (#4792). Not run green here, for reasons outside this change:
@@ -230,8 +232,10 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
 After the final review, every behaviour this PR changes was mapped to a browser check. The gaps a
 page or its own request reaches were closed with a new check or step, run on this branch and, as a
 negative control, against `release/2026.08` or against this branch before the fix; the rest are
-listed at the end of this section with the reason. Every run's cleanup asserted every owned row
-removed.
+listed at the end of this section with the reason. Against `release/2026.08` the controls ran
+scratch copies of the checks that continue past a failing step, with any assertion on what only this
+branch has relaxed. Every run's cleanup removed the owned rows by key and asserted the owned records
+gone (each child row too, since the final review).
 
 | Check (new or extended) | What it drives | Negative control |
 |---|---|---|
@@ -331,15 +335,18 @@ duplicate guard).
 
 An audit of the first round listed what was still driven only by unit tests, or not at all. Each
 item now has a browser step, run on this branch and, as a negative control, against
-`release/2026.08` or against this branch with only the fix in question undone. Every run's cleanup
-asserted every owned row removed.
+`release/2026.08` or against this branch with only the fix in question undone. As in the first
+round, the controls against `release/2026.08` ran scratch copies of the checks that continue past a
+failing step; where a step still stopped there before its crossover, a probe drove the requests in
+question directly, as the table says. Every run's cleanup removed the owned rows by key and asserted
+them gone.
 
 | Check | Steps added | Negative control |
 |---|---|---|
-| `session-state-two-window-isolation` (14 steps) | Each message's PDF list downloads its own message's PDF, byte for byte, after another message's list was opened (#4473); a malformed index answers 400, an index or a message without a PDF 404. A chart PDF goes out only on a message linked to its own patient: linked to B, then to no one, the send is refused and the page keeps the subject, body and attachment; linked to A again, it goes out. The inbox and both patients' message lists, opened between attaching and sending, leave the compose window's PDF; each list shows only its own patient's messages, and a list naming no patient shows none. Two compose windows' attachment choosers, open at once, are two windows, each attaching to its own compose window. A compose window whose PDF was released for eight newer windows is refused once with the notice, then sends without it. The day sheet's visit store refuses a request without one valid appointment (400) or by GET (405). | On `release/2026.08`: A's list downloads B's PDF; the message linked to B is sent with A's PDF; opening the lists leaves B's message without its PDF; B's chooser takes over A's window; the day sheet's visit store answers 200 to each request naming no valid appointment (it refuses a GET with 405 there too). On this branch without the release notice, the compose window sends silently. |
-| `chart-session-state-two-window-isolation` (6 steps) | A Disease Registry add by POST, with B's chart entered last: refused (400) without one valid patient, filed for the patient it names. A notes service save without a note body saves nothing. Write to Encounter from B's message, with B's new chart holding its note list back: A's note list, loaded meanwhile, does not carry the message, and B's new note does. | On `release/2026.08` a registry add without a patient answers 500, not 400, and the save without a note answers 500. B's message list there offers no Write to Encounter; opened from the inbox instead, A's note list carries B's message in its page's script. |
-| `echart-two-patient-isolation` (43 steps) | The immunization schedule's Save, after the other chart was entered, writes the patient's next version by the logged-in provider; a Save, template add or set restore without one valid patient is refused (400) and writes nothing. A template made after a chart was entered from another provider's day sheet is the logged-in provider's. The legacy navigation lists only its own patient's messages. The notes panel, rendered again by a note save, names its own chart's entry provider after a chart was entered from another provider's day sheet. | On `release/2026.08` the immunization step stops at its first template add, which is not A's by the logged-in provider; a probe of its refused requests there adds the template, named for no patient or for A and B, to B's schedule, the chart entered last. The administration's template is stored as made by the provider of the chart entered last, the legacy navigation stops at its messenger list, and each notes panel names the logged-in provider rather than its chart's entry provider. |
-| `legacy-encounter-editor-isolation` (11 steps; 12 on BC) | Verify & Sign verifies only A's own appointment; Split Chart stores A's whole encounter as the split revision and continues A's chart from its end; Exit closes the editor and saves neither chart; on a BC install with CAISI, Sign, Save & Bill opens a bill of A's own visit. All pass on an Ontario and a BC build. | `release/2026.08`'s editor saves nothing (it posts to an address that does not exist). With this branch's editor and the old save action, Verify & Sign and Split Chart fail, and on BC Sign, Save & Bill writes B's chart and opens no bill ("Billing session expired."); Exit writes nothing with either action. |
+| `session-state-two-window-isolation` (14 steps in all) | Each message's PDF list downloads its own message's PDF, byte for byte, after another message's list was opened (#4473); a malformed index answers 400, and an index the message does not have, or a request naming no message, 404. A chart PDF goes out only on a message linked to its own patient: linked to B, then to no one, the send is refused and the page keeps the subject, body and attachment; linked to A again, it goes out. The inbox and both patients' message lists, opened between attaching and sending, leave the compose window's PDF; each list shows only its own patient's messages, and a list naming no patient shows none. Two compose windows' attachment choosers, open at once, are two windows, each attaching to its own compose window. A compose window whose PDF was released for eight newer windows is refused once with the notice, then sends without it. The day sheet's visit store refuses a request without one valid appointment (400) or by GET (405). | On `release/2026.08`: A's list downloads B's PDF; the message linked to B is sent with A's PDF; opening the lists leaves B's message without its PDF; B's chooser takes over A's window. A probe finds the day sheet's visit store there answering 200 to each request naming no valid appointment (it refuses a GET with 405 there too). On this branch without the release notice, the compose window sends silently. |
+| `chart-session-state-two-window-isolation` (6 steps in all) | A Disease Registry add by POST, with B's chart entered last: refused (400) without one valid patient, filed for the patient it names. A notes service save without a note body saves nothing. Write to Encounter from B's message, with B's new chart holding its note list back: A's note list, loaded meanwhile, does not carry the message, and B's new note does. | On `release/2026.08` a registry add without a patient answers 500, not 400, and the save without a note answers 500. B's message list there offers no Write to Encounter; opened from the inbox instead, A's note list carries B's message in its page's script. |
+| `echart-two-patient-isolation` (43 steps in all) | The immunization schedule's Save, after the other chart was entered, writes the patient's next version by the logged-in provider; a Save, template add or set restore without one valid patient is refused (400) and writes nothing. A template made after a chart was entered from another provider's day sheet is the logged-in provider's. The legacy navigation lists only its own patient's messages. The notes panel, rendered again by a note save, names its own chart's entry provider after a chart was entered from another provider's day sheet. | On `release/2026.08` the immunization step stops at its first template add, which is not A's by the logged-in provider; a probe of its refused requests there adds the template, named for no patient or for A and B, to B's schedule, the chart entered last. The administration's template is stored as made by the provider of the chart entered last, the legacy navigation stops at its messenger list, and each notes panel names the logged-in provider rather than its chart's entry provider. The Save itself is a regression guard: `release/2026.08` also saved the patient posted, by the logged-in provider. |
+| `legacy-encounter-editor-isolation` (11 steps in all; 12 on BC) | Verify & Sign verifies only A's own appointment; Split Chart stores A's whole encounter as the split revision and continues A's chart from its end; Exit closes the editor and saves neither chart; on a BC install with CAISI, Sign, Save & Bill opens a bill of A's own visit. All pass on an Ontario and a BC build. | `release/2026.08`'s editor saves nothing (it posts to an address that does not exist). With this branch's editor and the old save action, Verify & Sign and Split Chart fail, and on BC Sign, Save & Bill writes B's chart and opens no bill ("Billing session expired."); Exit writes nothing with either action. |
 | `rx-preview-visit-site-isolation` | The print window's address list shows a clinic name with markup as written. | On `release/2026.08` the list writes the name into the page unencoded, so the name shows without its markup. |
 
 **Found by this round and fixed:**
@@ -366,6 +373,49 @@ asserted every owned row removed.
 **Checked, not changed:** the compose page's patient search popup also has one window name for every
 compose window. In Chromium a second search takes over the first popup, and a pick fills the
 compose window that opened the search last, so nothing crosses windows.
+
+### Final review
+
+Two independent reviews of the finished branch, one of the product code and one of the checks and
+this record, found the following; each was fixed here.
+
+- **A second compose window opened from a message could still send without its saved items,
+  unannounced.** Once the session's cap had released the items saved for a message, the first
+  Reply, Forward or Compose opened from it was refused once with the reason, but it also cleared
+  the message's mark, so a second window opened from the same message sent without them, with no
+  notice. Every window opened from that message is now told once
+  (`MsgAttachmentStagingUnitTest`).
+- **A refused send came back without its recipients.** The new refusals (chart documents prepared
+  for another patient, attachments released) showed the compose page again with its subject, body,
+  patient and attachments, but no recipient ticked, so sending again, as the notices say, answered
+  "No valid recipients selected." The recipients ticked on the refused message are ticked again
+  (`MsgCreateMessage2ActionTest`). Both tests fail without their fix.
+- **Assertions that could not fail, in the checks:**
+  - `pmm-attach-note-two-window-isolation` asserted that C's copy has no appointment, but the
+    source charts were opened without one. Each source chart is now entered for a visit of its
+    own, the source note is asserted to carry it, and with an attach that keeps the source's
+    appointment the check fails there ("C's copy of A's note keeps A's appointment").
+  - The chooser step's assertion that B's chooser had not taken over A's compared two distinct
+    page objects. It now reads A's chooser, which must still be A's own.
+  - The Write to Encounter step's check of A's note editor read an editor that the step never
+    reloads, and the BC step's check that a bill window which only continued saved no bill
+    checked a request that never saves one. Both are removed; the step's other assertions pin
+    what they claimed.
+- **Cleanup assertions.** Some child rows were deleted by key without being asserted gone: note
+  links and extensions, note locks and drafts, message deliveries and patient links, admissions,
+  prescription signatures and the BC physician's memberships. Each check now asserts them gone.
+- **This record:** the controls against `release/2026.08` ran scratch copies of the checks, as now
+  stated; the visit store's answers there came from a probe; a PDF download that names no message,
+  not one without a PDF, is the browser's 404 case; and the step counts and the JSP count were
+  updated.
+- **A flaky step.** `echart-two-patient-isolation`'s last step sometimes failed on the note-lock
+  release beacon that its own navigation aborts, because the browser reported the abort after the
+  step had excused its releases. The step now waits for each release to settle first.
+
+Checked, not changed: the legacy editor's provider fields come from the patient's latest entry,
+but every entry of one login names the logged-in provider (the day sheet's link sends it), so
+two windows cannot differ there. The current chart's Write to Encounter message comes from the
+chart's own page, so another chart entered meanwhile cannot lose it.
 
 **Still not driven in a browser,** with the reason:
 - the eChart text replacement and the draft-restore signal, in the chart check's header;
