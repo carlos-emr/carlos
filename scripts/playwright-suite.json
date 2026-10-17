@@ -10910,6 +10910,21 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "rx-rerx-cancel",
+      "script": "scripts/rx-rerx-cancel-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient and three marker-named current custom drugs inserted for it (A, B, C). Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows, and asserts none remain. No clinic-wide state is changed.",
+      "notes": "The Rx page's ReRx confirmation box: Cancel takes every ticked drug off the session's ReRx list (rx/WriteScript updateReRxDrug removeFromReRxDrugIdList), and Save Only does the same, after a warning, for ticks left unstaged. Steps: ticking A and B adds each to the list and shows the box with 2 selected; Cancel takes both off the list, unticks them, hides the box and stages nothing, and the reloaded profile ticks neither; ticking only C, Stage medication and Save Only re-prescribe C alone; with A staged and B ticked but unstaged, Save Only warns, saves A's copy and leaves B current and off the list."
     }
   ]
 }
