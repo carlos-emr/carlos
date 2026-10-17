@@ -114,7 +114,12 @@ async function workflow(s) {
 
   await s.step('the document viewer offers the replacement\'s pages: a count of 3, Remove first page, a 3-page Split and page links', async () => {
     // The viewer and Split draw their pages from the stored page count, so these follow the step above.
+    const manageDocument = new URL('documentManager/ManageDocument', String(s.config.baseUrl).replace(/\/?$/, '/')).href;
     const viewer = await s.context.newPage();
+    // Page images load through CarlosDocumentImages, which may meet the server's render-capacity 503 (Retry-After:
+    // 1) and retry; the shared observer accepts only refusals that recover to a decoded image of the same page.
+    const viewerPreviews = observeStoredPreviewCapacity({ page: viewer, label: 'document-edit-replace-file',
+      recorder: s.recorder, documentId: doc.id, endpoint: manageDocument });
     try {
       await h.gotoApp(viewer, s.config.baseUrl, `/documentManager/ViewShowDocument?segmentID=${doc.id}&inWindow=true`);
       await viewer.locator(`#numPages_${doc.id}`).waitFor({ state: 'attached' });
@@ -124,14 +129,26 @@ async function workflow(s) {
       const mode = await viewer.locator(`#displayDocumentAs_${doc.id}`).inputValue();
       console.log(`    viewer display: ${mode}`);
       if (mode === 'Image') {
+        // The image's page is in data-document-image-src; CarlosDocumentImages fetches it and fills src itself.
+        const pageShown = page => viewer.waitForFunction(({ id, page }) => {
+          const image = document.getElementById(`docImg_${id}`);
+          const source = image && image.getAttribute('data-document-image-src');
+          return !!source && new URL(source, location.href).searchParams.get('curPage') === String(page)
+            && image.complete && image.naturalWidth > 0 && image.getAttribute('data-document-image-state') === 'loaded';
+        }, { id: doc.id, page });
+        const decoded = [];
+        const source = async () => viewer.locator(`#docImg_${doc.id}`).getAttribute('data-document-image-src');
+        await pageShown(1);
+        decoded.push(await source());
         h.assert(await viewer.locator(`#nextP_${doc.id}`).count() === 1, 'The viewer offers no page links');
         for (let page = 2; page <= 3; page++) {
           await viewer.locator(`#nextP_${doc.id}`).click();
           await viewer.waitForFunction(({ id, page }) => document.getElementById(`viewedPage_${id}`)?.textContent.trim() === String(page),
             { id: doc.id, page });
+          await pageShown(page);
+          decoded.push(await source());
         }
-        const shown = await viewer.locator(`#docImg_${doc.id}`).getAttribute('src');
-        h.assert(new URL(shown, viewer.url()).searchParams.get('curPage') === '3', `Page 3 of the viewer shows ${shown}`);
+        await viewerPreviews.finish(decoded);
       }
       const remove = viewer.locator(`#removeFirstPagebtn_${doc.id}`);
       h.assert(await remove.count() === 1 && await remove.isVisible(), 'The viewer does not offer Remove first page');
@@ -162,6 +179,7 @@ async function workflow(s) {
         await splitter.close().catch(() => {});
       }
     } finally {
+      viewerPreviews.close();
       await viewer.close().catch(() => {});
     }
   });
