@@ -22,6 +22,8 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const q = h.sqlString;
 const POSITIVE = /^[1-9]\d*$/;
 const CHOOSE_PATIENT = 'No patient was filled in from this document. Choose the patient this tickler is for.';
+// tickler.ticklerAdd.msgInvalidDemographic: the form's own refusal of a Save without a patient.
+const NO_PATIENT_REFUSAL = 'Invalid demographic information, please verify!';
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
@@ -143,21 +145,26 @@ async function workflow(s) {
     await report.getByText(providerDocDesc).first().waitFor({ state: 'attached', timeout: 20000 });
     const offered = (await ticklerLinks(report, providerDoc)).length;
     if (report !== s.schedule) await report.close().catch(() => {});
+    h.assert(offered === 0, `The login's eDoc list offers ${offered} Tickler link(s) on the login's own document`);
     // The URL the list built, a bookmark or an open window may still hold: the provider number as the patient.
     const form = await s.context.newPage();
     await h.gotoApp(form, s.config.baseUrl, `/tickler/ForwardDemographicTickler?docType=DOC&docId=${providerDoc}`
       + `&demographic_no=${encodeURIComponent(provider)}`);
     const shown = await readForm(form);
-    await form.locator('textarea[name="ticklerMessage"]').fill(`${marker} from the login document`);
-    const dialogs = await h.withExpectedDialogs(form, async () => {
-      await form.locator('input.btn-primary[name="Button"]').first().click();
-      await form.locator('#error').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
-    });
-    const stored = sql.value(`SELECT COUNT(*) FROM tickler WHERE message=${q(`${marker} from the login document`)}`);
-    await form.close().catch(() => {});
-    h.assert(offered === 0, `The login's eDoc list offers ${offered} Tickler link(s) on the login's own document`);
+    // Everything is asserted before Save: a form still naming a patient (one numbered like the provider, which
+    // this check did not create) must fail the step without filing anything on that patient's chart.
     h.assert(shown.demographicNo === '' && shown.patientName === '', `The form names patient ${shown.demographicNo} ${JSON.stringify(shown.patientName)}`);
     h.assert(shown.notice === CHOOSE_PATIENT, `The form does not say a patient must be chosen (${JSON.stringify(shown.notice)})`);
+    const loginMessage = `${marker} from the login document`;
+    await form.locator('textarea[name="ticklerMessage"]').fill(loginMessage);
+    const dialogs = await h.withExpectedDialogs(form, async () => {
+      await form.locator('input.btn-primary[name="Button"]').first().click();
+      await form.locator('#error').waitFor({ state: 'visible', timeout: 10000 });
+    });
+    const refusal = (await form.locator('#error').innerText()).trim();
+    const stored = sql.value(`SELECT COUNT(*) FROM tickler WHERE message=${q(loginMessage)}`);
+    await form.close().catch(() => {});
+    h.assert(refusal.includes(NO_PATIENT_REFUSAL), `Save without a patient was not refused by the form (${JSON.stringify(refusal)})`);
     h.assert(stored === '0' && dialogs.length === 0, `Save without a patient stored ${stored} tickler(s) and asked ${JSON.stringify(dialogs)}`);
   });
 }
