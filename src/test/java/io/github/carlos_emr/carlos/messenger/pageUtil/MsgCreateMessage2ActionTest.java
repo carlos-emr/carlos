@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
@@ -304,6 +305,20 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
             assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
             assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("202");
+        }
+
+        @Test
+        @DisplayName("should tick the refused message's recipients again, leaving out an id that is not a contact's")
+        void shouldTickTheRecipientsAgain_whenASendIsRefused() throws Exception {
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("202");
+            action.setProvider(new String[]{"999998-0-1", "FAKE-recipient", "5-"});
+
+            assertThat(send()).isEqualTo("error");
+
+            @SuppressWarnings("unchecked")
+            List<ContactIdentifier> ticked = (List<ContactIdentifier>) getMockRequest().getAttribute("replyList");
+            assertThat(ticked).extracting(ContactIdentifier::getCompositeId).containsExactly("999998-0-1");
         }
 
         @Test

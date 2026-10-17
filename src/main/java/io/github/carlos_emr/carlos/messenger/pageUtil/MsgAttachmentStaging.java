@@ -190,10 +190,12 @@ public final class MsgAttachmentStaging {
                 put(session, source, saved);
                 put(session, key, new Staged(0, null, saved.itemAttachment()));
                 rememberSource(session, key, source);
-            } else if (claimDropped(session, source)) {
+            } else if (dropped(session).contains(source)) {
                 // The cap released the items saved for this message before this window opened:
                 // its first send is refused with the reason, as the message's own key's would be.
-                rememberDropped(session, source, List.of(key));
+                // The message stays marked, so every later window opened from it is told too
+                // rather than sending without them unannounced.
+                rememberDropped(session, key, List.of(key));
             }
         }
         return key;

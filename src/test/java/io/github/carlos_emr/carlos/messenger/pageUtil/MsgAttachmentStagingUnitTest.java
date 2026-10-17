@@ -306,7 +306,7 @@ class MsgAttachmentStagingUnitTest {
     }
 
     @Test
-    void shouldTellTheWindowOnce_whenTheMessagesSavedItemsWereReleasedBeforeItOpened() {
+    void shouldTellEachWindowOnce_whenTheMessagesSavedItemsWereReleasedBeforeItOpened() {
         String saved = MsgAttachmentStaging.forwardKey(session, 77);
         MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
         for (int i = 0; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
@@ -319,6 +319,11 @@ class MsgAttachmentStagingUnitTest {
         // Its send is refused once with the reason, as a window whose own attachments were released.
         assertThat(MsgAttachmentStaging.claimDropped(session, reply)).isTrue();
         assertThat(MsgAttachmentStaging.claimDropped(session, reply)).isFalse();
+        // A forward opened from the same message afterwards is told too, not sent without them.
+        String forward = MsgAttachmentStaging.composeKey(session, 77);
+        assertThat(MsgAttachmentStaging.peek(session, forward)).isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, forward)).isTrue();
+        assertThat(MsgAttachmentStaging.claimDropped(session, forward)).isFalse();
     }
 
     @Test

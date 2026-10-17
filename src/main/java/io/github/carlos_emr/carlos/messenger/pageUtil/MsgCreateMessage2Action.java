@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
@@ -45,7 +46,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -239,8 +242,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
     /**
      * Shows this window's compose page again with {@code error}: its attachments are put back
-     * under the same key, and the subject, body and linked patient are kept. (The page used to
-     * come back empty, and the attachments were already gone.)
+     * under the same key, and the subject, body, linked patient and ticked recipients are kept, so
+     * sending again, as the refusals say, reaches the same people. (The page used to come back
+     * empty, and the attachments were already gone.)
      */
     private String redisplay(HttpSession session, MsgAttachmentStaging.Staged staged, String error,
                              int demographicNo) {
@@ -251,10 +255,33 @@ public class MsgCreateMessage2Action extends ActionSupport {
         request.setAttribute("createMessageError", error);
         request.setAttribute("ReSubject", subject);
         request.setAttribute("ReText", message);
+        request.setAttribute("replyList", tickedRecipients(provider));
         if (demographicNo > 0) {
             request.setAttribute("demographic_no", Integer.toString(demographicNo));
         }
         return ERROR;
+    }
+
+    /**
+     * The recipients ticked on a refused message, as the compose page's {@code replyList}, which
+     * it ticks again. An id that is not a contact's composite id is left out.
+     */
+    static List<ContactIdentifier> tickedRecipients(String[] providers) {
+        List<ContactIdentifier> ticked = new ArrayList<>();
+        if (providers == null) {
+            return ticked;
+        }
+        for (String id : providers) {
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            try {
+                ticked.add(new ContactIdentifier(id.trim()));
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException notAContact) {
+                // Not a recipient the page offers, so there is nothing to tick for it.
+            }
+        }
+        return ticked;
     }
 
     private String[] provider = new String[0];
