@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.form.util.JasperReportPdfPrint;
+import io.github.carlos_emr.carlos.form.util.Rourke2020PdfReport.RenderingException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -77,6 +79,20 @@ class Frm2ActionPdfResponseUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getErrorMessage()).isEqualTo("Could not generate form PDF");
+    }
+
+    @ParameterizedTest
+    @EnumSource(RenderingException.Reason.class)
+    void shouldExplainRenderingFailure_withoutReturningAPdf(RenderingException.Reason reason) throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        RenderingException failure = new RenderingException(reason);
+        String result = execute(response, (output, info, demographic, form, pages) -> { throw failure; });
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsString(StandardCharsets.UTF_8)).isEqualTo(failure.getMessage()).contains("administrator");
+        assertThat(response.getErrorMessage()).isNull();
     }
 
     @Test

@@ -356,6 +356,20 @@ jobs:
               -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest
           done
 
+      - name: Verify Rourke PDFs with alternate fonts and cache permissions
+        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
+
+      - name: Preserve synthetic Rourke rendering evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rourke-font-rendering
+          path: |
+            target/rourke-font-matrix/
+            target/rourke-pdf/
+          if-no-files-found: ignore
+          retention-days: 14
+
   encode-lint:
     # Encoder null-safety lint — catches two silent-failure classes:
     #   A) <e:forXxx> tags used without the owasp.encoder.jakarta taglib
