@@ -31,12 +31,11 @@ jobs:
                   connection.request('GET', path + '?' + urlencode(params), headers={'Authorization': 'Basic ' + auth})
                   response = connection.getresponse()
                   if response.status != 200:
-                      raise RuntimeError('Sonar HTTP ' + str(response.status))
+                      raise RuntimeError('Sonar HTTP ' + str(response.status) + ': ' + json.dumps(json.load(response).get('errors', []), ensure_ascii=True))
                   return json.load(response)
               finally:
                   connection.close()
           project = 'carlos-emr_carlos'
-          print('LATEST_MAIN_ANALYSIS ' + json.dumps(fetch('/api/project_analyses/search', {'project': project, 'branch': 'main', 'ps': 1}), ensure_ascii=True))
           print('MAIN_QUALITY_GATE ' + json.dumps(fetch('/api/qualitygates/project_status', {'projectKey': project, 'branch': 'main'}), ensure_ascii=True))
           def page(params):
               params.pop('pullRequest', None)
