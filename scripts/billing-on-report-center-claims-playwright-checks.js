@@ -4,18 +4,20 @@
  * The Ontario Billing Report Center as a user who is neither an administrator nor a doctor sees it.
  * Those two roles skip it for the new-report dashboard (ViewBillingReportCenter2Action), which is
  * what billing-on-reports-inr-eoy drives; anyone else with report rights (a clinic's own billing-clerk
- * role, for instance) gets the Report Center, whose Billed and Unsettled reports no check ran.
+ * role, for instance) gets the Report Center, whose Billed, Unsettled, OB and Flu reports no check ran.
  *
  * User path (throwaway login holding one owned role with report, billing, schedule, messenger, patient and search read rights):
  * Schedule ▸ Report ▸ Generate a billing report (billing/CA/ON/ViewBillingReportCenter) ▸ Billed ▸
- * provider ▸ dates ▸ Create Report (billing/CA/ON/ViewBillingReportControl); the same form ▸ Unsettled ▸
- * Create Report.
+ * provider ▸ dates ▸ Create Report (billing/CA/ON/ViewBillingReportControl); the same form ▸ Unsettled, then
+ * OB, then Flu ▸ Create Report.
  * Asserted: the login gets the Report Center (not the dashboard), which offers the owned report provider;
  * the Billed report lists the provider's open claim in the range and the Unsettled report its submitted
- * (billed, not yet paid) claim, as the dashboard lists them for administrators and doctors.
+ * (billed, not yet paid) claim, as the dashboard lists them for administrators and doctors; the OB report
+ * lists its obstetric claim (P006A) and the Flu report its flu-shot claim (G590A), each with its total.
  * Fixtures: the owned FAKE- patient, a FAKE- billable provider with its "billingreport" reportprovider
- * row, an open and a submitted Ontario claim (billing_on_cheader1 + billing_on_item) for them, an owned
- * role and the throwaway login. Cleanup removes them all and asserts they are gone.
+ * row, an open and a submitted Ontario claim plus an obstetric and a flu-shot claim (billing_on_cheader1 +
+ * billing_on_item) for them, an owned role and the throwaway login. Claims are written under STRICT_ALL_TABLES,
+ * so a value wider than its column fails instead of being cut. Cleanup removes them all and asserts they are gone.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -26,6 +28,17 @@ const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const TIMEOUT = 30000;
 const WINDOW = { from: '2025-02-01', to: '2025-02-28' };
 // What a clinic's billing clerk needs to reach the schedule and its menus, plus report and billing read rights.
+// Claims are written in strict mode for this session only: under the clinic's empty sql_mode a value wider than its
+// column is cut without an error, and the reports would then be checked against something other than the seed.
+const STRICT = "SET SESSION sql_mode = CONCAT_WS(',', NULLIF(@@sql_mode, ''), 'STRICT_ALL_TABLES');";
+// One claim per report: the code it is filed under, its status, date and amount (each amount distinct). Billed and
+// Unsettled list a claim by patient and bill number only; OB and Flu also print its total, which is checked too.
+const CLAIMS = [
+  { report: 'billed', status: 'O', date: '2025-02-10', code: 'A007A', dx: '250', amount: '33.70', amountShown: false },
+  { report: 'unsettled', status: 'B', date: '2025-02-17', code: 'A007A', dx: '250', amount: '28.40', amountShown: false },
+  { report: 'billob', status: 'O', date: '2025-02-12', code: 'P006A', dx: '650', amount: '41.20', amountShown: true },
+  { report: 'flu', status: 'O', date: '2025-02-14', code: 'G590A', dx: '896', amount: '12.30', amountShown: true },
+];
 const GRANTS = [['_report', 'r'], ['_billing', 'r'], ['_appointment', 'r'], ['_msg', 'r'], ['_demographic', 'r'], ['_search', 'r']];
 
 function unusedProviderNo(sql) {
@@ -86,19 +99,20 @@ async function workflow(s) {
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(ids.report), 'The report-provider fixture was not created');
   const demoName = `${marker},Workflow`;
-  // An open claim (O) for Billed, and a claim submitted to OHIP but not yet paid (B) for Unsettled.
-  for (const [status, date] of [['O', '2025-02-10'], ['B', '2025-02-17']]) {
-    const id = sql.value(`INSERT INTO billing_on_cheader1 (header_id,transc_id,rec_id,hin,ver,dob,pay_program,payee,ref_num,
+  // An open claim (O) for Billed, a claim submitted to OHIP but not yet paid (B) for Unsettled, and open
+  // obstetric and flu-shot claims for OB and Flu.
+  for (const { report, status, date, code, dx, amount } of CLAIMS) {
+    const id = sql.value(`${STRICT} INSERT INTO billing_on_cheader1 (header_id,transc_id,rec_id,hin,ver,dob,pay_program,payee,ref_num,
         facilty_num,admission_date,ref_lab_num,man_review,location,demographic_no,provider_no,appointment_no,demographic_name,
         sex,province,billing_date,billing_time,total,paid,status,comment1,visittype,provider_ohip_no,provider_rma_no,
         apptProvider_no,asstProvider_no,creator,clinic)
       VALUES (0,'HE','H','','','19800102','HCP','P','','','','','','',${patient},${p},0,${q(demoName)},'2','ON',
-        ${q(date)},'10:00:00','33.70','0.00',${q(status)},${q(marker)},'00',${q(ohip)},'','','',${q(provider)},NULL);
+        ${q(date)},'10:00:00',${q(amount)},'0.00',${q(status)},${q(marker)},'00',${q(ohip)},'','','',${q(provider)},NULL);
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'A claim fixture was not created');
-    sql.execute(`INSERT INTO billing_on_item (ch1_id,transc_id,rec_id,service_code,fee,ser_num,service_date,dx,dx1,dx2,status)
-      VALUES (${id},'HE','T','A007A','33.70','1',${q(date)},'250','','',${q(status)})`);
-    ids.claims.push({ id, status, date });
+    sql.execute(`${STRICT} INSERT INTO billing_on_item (ch1_id,transc_id,rec_id,service_code,fee,ser_num,service_date,dx,dx1,dx2,status)
+      VALUES (${id},'HE','T',${q(code)},${q(amount)},'1',${q(date)},${q(dx)},'','',${q(status)})`);
+    ids.claims.push({ id, report, status, date });
   }
 
   const context = await h.newContext(s.context.browser(), config);
@@ -134,13 +148,18 @@ async function workflow(s) {
     await ui.clickAndAwaitReload(center, form.locator('input[type="submit"][value="Create Report"]'), { timeout: TIMEOUT, label: `the ${action} report` });
     await h.assertNotErrorPage(center, `${action} report`);
     h.assert(new URL(center.url()).pathname.endsWith('/billing/CA/ON/ViewBillingReportControl'), `The ${action} report did not open`);
-    return (await center.locator('body').innerText()).includes(demoName);
+    return center.locator('body').innerText();
   };
 
-  await s.step('the Billed and Unsettled reports list the provider\'s Ontario claims in the range', async () => {
+  await s.step('the Billed, Unsettled, OB and Flu reports list the provider\'s Ontario claims in the range', async () => {
+    const what = { billed: 'Billed: the open claim', unsettled: 'Unsettled: the submitted, unpaid claim',
+      billob: 'OB: the obstetric claim', flu: 'Flu: the flu-shot claim' };
     const missing = [];
-    if (!await run('billed')) missing.push('Billed does not list the open claim');
-    if (!await run('unsettled')) missing.push('Unsettled does not list the submitted, unpaid claim');
+    for (const { report, amount, amountShown } of CLAIMS) {
+      const text = await run(report);
+      if (!text.includes(demoName)) missing.push(`${what[report]} is not listed`);
+      else if (amountShown && !text.includes(amount)) missing.push(`${what[report]} is listed without its ${amount} total`);
+    }
     h.assert(missing.length === 0, missing.join('; '));
   });
 }

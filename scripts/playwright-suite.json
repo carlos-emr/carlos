@@ -5211,8 +5211,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The Ontario Billing Report Center (Billed, Unsettled) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: both reports read the retired billing table, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open and a submitted Ontario claim, an owned role and a throwaway login; all removed in cleanup."
+      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: the four reports read the retired billing tables, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open, a submitted, an obstetric and a flu-shot Ontario claim (written in strict SQL mode), an owned role and a throwaway login; all removed in cleanup."
     },
     {
       "name": "billing-on-year-end-statement",
