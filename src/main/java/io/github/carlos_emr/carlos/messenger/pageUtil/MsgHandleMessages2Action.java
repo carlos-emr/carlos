@@ -251,15 +251,16 @@ public class MsgHandleMessages2Action extends ActionSupport {
     }
 
     /**
-     * Hands the compose page the key under which this message's views stage its chart items
-     * ("Save Attachments" in the view's Attachment window), so the reply or forward sends what
-     * was saved for this message. The items used to wait on the login-wide messenger bean, where
-     * a compose page opened anywhere, for any patient, took them (issue #4673).
+     * Hands the compose page a key of its own that starts with the chart items saved for this
+     * message ("Save Attachments" in the view's Attachment window), so the reply or forward sends
+     * what was saved for this message and whatever is attached in this window only. The items
+     * used to wait on the login-wide messenger bean, where a compose page opened anywhere, for any
+     * patient, took them (issue #4673).
      */
     private void keepForwardedAttachments(Integer messageId) {
         if (messageId != null && messageId > 0) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
-                    MsgAttachmentStaging.forwardKey(request.getSession(), messageId));
+                    MsgAttachmentStaging.composeKey(request.getSession(), messageId));
         }
     }
 

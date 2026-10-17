@@ -56,9 +56,10 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
- * Reply, Reply All and Forward on a message view open the compose page with that message's
- * forwarding key, so chart items saved from the message's Attachment window go out with the
- * reply or forward, and with no other message (issue #4673).
+ * Reply, Reply All and Forward on a message view open the compose page with a key of its own
+ * that starts with the chart items saved from the message's Attachment window, so they go out
+ * with the reply or forward and with no other message, and what one compose window attaches
+ * stays out of another opened from the same message (issue #4673).
  *
  * @since 2026-10-17
  */
@@ -112,8 +113,8 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"reply", "replyAll", "forward"})
-    @DisplayName("should open the compose page with the items saved for this message")
-    void shouldHandTheComposePageThisMessagesForwardKey_whenReplyingOrForwarding(String button) throws Exception {
+    @DisplayName("should open the compose page with its own key holding the items saved for this message")
+    void shouldHandTheComposePageCopyOfSavedItems_whenReplyingOrForwarding(String button) throws Exception {
         String forwardKey = MsgAttachmentStaging.forwardKey(session, MESSAGE_ID);
         MsgAttachmentStaging.stageItems(session, forwardKey, "<root>FAKE chart item</root>");
         request.addParameter(button, "pressed");
@@ -121,9 +122,47 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(execute()).isEqualTo("reply");
 
         String handedOver = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
-        assertThat(handedOver).isEqualTo(forwardKey);
+        assertThat(MsgAttachmentStaging.isKey(handedOver)).isTrue();
+        assertThat(handedOver).isNotEqualTo(forwardKey);
         assertThat(MsgAttachmentStaging.peek(session, handedOver).itemAttachment())
                 .isEqualTo("<root>FAKE chart item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, forwardKey).itemAttachment())
+                .as("the saved items stay for the message's other compose windows")
+                .isEqualTo("<root>FAKE chart item</root>");
+    }
+
+    @Test
+    @DisplayName("should keep each reply's chart PDFs to its own window when two replies are opened from one message")
+    void shouldKeepPdfsToTheirOwnReply_whenTwoRepliesAreOpenedFromOneMessage() throws Exception {
+        String forwardKey = MsgAttachmentStaging.forwardKey(session, MESSAGE_ID);
+        MsgAttachmentStaging.stageItems(session, forwardKey, "<root>FAKE chart item</root>");
+        request.addParameter("reply", "pressed");
+        execute();
+        String first = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+        request.removeAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+        execute();
+        String second = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+
+        MsgAttachmentStaging.stagePdfs(session, first, 900001, "FAKE pdf record");
+
+        assertThat(second).isNotEqualTo(first);
+        assertThat(MsgAttachmentStaging.peek(session, first).pdfAttachment()).isEqualTo("FAKE pdf record");
+        assertThat(MsgAttachmentStaging.peek(session, second).pdfAttachment()).isNull();
+        assertThat(MsgAttachmentStaging.peek(session, forwardKey).pdfAttachment()).isNull();
+        assertThat(MsgAttachmentStaging.peek(session, second).itemAttachment())
+                .isEqualTo("<root>FAKE chart item</root>");
+    }
+
+    @Test
+    @DisplayName("should open the compose page with nothing staged when nothing was saved for this message")
+    void shouldHandOverEmptyKey_whenNothingWasSavedForThisMessage() throws Exception {
+        request.addParameter("forward", "pressed");
+
+        assertThat(execute()).isEqualTo("reply");
+
+        String handedOver = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+        assertThat(MsgAttachmentStaging.isKey(handedOver)).isTrue();
+        assertThat(MsgAttachmentStaging.peek(session, handedOver)).isNull();
     }
 
     @Test

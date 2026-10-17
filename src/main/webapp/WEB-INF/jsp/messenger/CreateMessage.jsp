@@ -81,10 +81,10 @@
       and in its Clear link; the chooser stages chart PDFs under that key with the patient they
       were rendered for (MsgAttachmentStaging), and the send takes exactly that entry. A failed
       send hands the key back as a request attribute so the page keeps its attachments. A reply
-      or forward, and a message view's Compose link, hand over that message's forwarding key, so
-      the chart items saved from the message's Attachment window go with it. Any other render
-      gets a new random key. Another compose window, for the same or another patient, never sees
-      this one's attachments.
+      or forward, and a message view's Compose link, hand over a new key that starts with a copy
+      of the chart items saved from that message's Attachment window. Any other render gets a new
+      random key. Another compose window, opened from the same message or not, for the same or
+      another patient, never sees this one's attachments.
 
     @since 2002-11-08
 --%>
@@ -175,8 +175,8 @@
     // This compose window's own key: its form, its attachment chooser and its Clear link carry it,
     // and the send takes exactly the attachments staged under it (issue #4673). A send that failed
     // hands its key back so the attachments stay with this window, and a reply, forward or a
-    // message view's Compose link hands over that message's forwarding key; every other render
-    // starts a new message with a new key.
+    // message view's Compose link hands over a new key holding a copy of the items saved for that
+    // message; every other render starts a new message with a new key.
     String attachmentKey = (String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
     if (!MsgAttachmentStaging.isKey(attachmentKey)) {
         attachmentKey = MsgAttachmentStaging.newKey();
@@ -409,7 +409,10 @@ function validateFields() {
 	        showAlert(msgSelectDemographic, 'warning');
 	    }
 	    else {
-	        var popUp=window.open(page, "msgAttachDemo", windowprops);
+	        // A window of this compose window's own: under one shared name, a second compose
+	        // window's chooser took over the first one's, whose opener (the window it refreshes once
+	        // the PDFs are attached) stayed the first compose window.
+	        var popUp=window.open(page, "msgAttachDemo_<%= SafeEncode.forJavaScript(attachmentKey) %>", windowprops);
 	        if (popUp != null) {
 	            if (popUp.opener == null) {
 	              popUp.opener = self;

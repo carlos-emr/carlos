@@ -213,6 +213,61 @@ class MsgAttachmentStagingUnitTest {
     void shouldRefuseMessageId_whenNotPositive(int messageId) {
         assertThatThrownBy(() -> MsgAttachmentStaging.forwardKey(session, messageId))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> MsgAttachmentStaging.composeKey(session, messageId))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldGiveEachComposeWindowItsOwnCopy_whenOpenedFromOneMessage() {
+        String saved = MsgAttachmentStaging.forwardKey(session, 77);
+        MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
+
+        String reply = MsgAttachmentStaging.composeKey(session, 77);
+        String forward = MsgAttachmentStaging.composeKey(session, 77);
+        MsgAttachmentStaging.stagePdfs(session, reply, 101, "<PDF>A</PDF>");
+
+        assertThat(reply).isNotEqualTo(forward).isNotEqualTo(saved);
+        assertThat(MsgAttachmentStaging.isKey(reply)).isTrue();
+        assertThat(MsgAttachmentStaging.peek(session, forward).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, forward).pdfAttachment()).isNull();
+        // Sending the reply takes its copy only: the forward and the saved items keep theirs.
+        assertThat(MsgAttachmentStaging.take(session, reply).pdfAttachment()).isEqualTo("<PDF>A</PDF>");
+        assertThat(MsgAttachmentStaging.peek(session, forward).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, saved).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, saved).pdfAttachment()).isNull();
+    }
+
+    @Test
+    void shouldStageNothing_whenNothingWasSavedForTheMessage() {
+        String window = MsgAttachmentStaging.composeKey(session, 77);
+
+        assertThat(MsgAttachmentStaging.isKey(window)).isTrue();
+        assertThat(MsgAttachmentStaging.peek(session, window)).isNull();
+        assertThat(Collections.list(session.getAttributeNames()))
+                .as("nothing is staged: only the forwarding secret is in the session")
+                .hasSize(1);
+    }
+
+    @Test
+    void shouldDropAnotherWindowNotTheSavedItems_whenACopyOverfillsTheCap() {
+        String saved = MsgAttachmentStaging.forwardKey(session, 77);
+        MsgAttachmentStaging.stageItems(session, saved, "<root>FAKE item</root>");
+        List<String> windows = new ArrayList<>();
+        for (int i = 1; i < MsgAttachmentStaging.MAX_ENTRIES; i++) {
+            String window = MsgAttachmentStaging.newKey();
+            windows.add(window);
+            MsgAttachmentStaging.stagePdfs(session, window, 100 + i, "<PDF>" + i + "</PDF>");
+        }
+
+        String reply = MsgAttachmentStaging.composeKey(session, 77);
+
+        // The saved items were the oldest entry; the oldest other window is dropped instead, and
+        // its send is told so.
+        assertThat(MsgAttachmentStaging.peek(session, saved).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, reply).itemAttachment()).isEqualTo("<root>FAKE item</root>");
+        assertThat(MsgAttachmentStaging.peek(session, windows.get(0))).isNull();
+        assertThat(MsgAttachmentStaging.claimDropped(session, windows.get(0))).isTrue();
+        assertThat(MsgAttachmentStaging.claimDropped(session, saved)).isFalse();
     }
 
     @Test

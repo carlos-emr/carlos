@@ -57,10 +57,12 @@ import org.springframework.web.util.WebUtils;
  * exactly that entry. A missing, malformed, already-sent or dropped key yields nothing, never
  * another window's attachments.</p>
  *
- * <p>A message view forwards its message's chart items under a key of its own,
+ * <p>A message view saves its message's chart items for forwarding under a key of the message,
  * {@link #forwardKey}: the same on every view of that message in the session, so the items saved
- * from its Attachment window reach the compose page its Compose link, Reply, Reply All or Forward
- * opens, even after the view is shown again.</p>
+ * from its Attachment window survive the view being shown again. That key is only a source: each
+ * compose page its Compose link, Reply, Reply All or Forward opens gets a key of its own with a
+ * copy of those items ({@link #composeKey}), so two compose windows opened from one message keep
+ * their own attachments too.</p>
  *
  * <p>Chart PDFs are staged with the patient they were rendered for, and the send refuses to put
  * them on a message linked to anyone else. The session holds at most {@value #MAX_ENTRIES}
@@ -136,12 +138,13 @@ public final class MsgAttachmentStaging {
     }
 
     /**
-     * The key under which the views of message {@code messageId} stage its chart items for
+     * The key under which the views of message {@code messageId} save its chart items for
      * forwarding. It is the same on every view of that message in this session, so the items
-     * saved from a view's Attachment window reach the compose page that the view's Compose link,
-     * Reply, Reply All or Forward opens, and survive the view being shown again (linking a patient
-     * shows it again). It is derived from a random secret kept in the session, so it cannot be
-     * predicted from the message id and differs from one login to the next.
+     * saved from a view's Attachment window survive the view being shown again (linking a patient
+     * shows it again), and every compose page opened from the message starts with a copy of them
+     * ({@link #composeKey}). No compose window sends under it. It is derived from a random secret
+     * kept in the session, so it cannot be predicted from the message id and differs from one
+     * login to the next.
      *
      * @throws IllegalArgumentException if {@code messageId} is not positive
      */
@@ -158,6 +161,32 @@ public final class MsgAttachmentStaging {
             // HmacSHA256 is one of the algorithms every Java platform must provide.
             throw new IllegalStateException(FORWARD_KEY_ALGORITHM + " is unavailable", unavailable);
         }
+    }
+
+    /**
+     * A new compose window's key for a reply, forward or new message opened from message
+     * {@code messageId}: a new random key that starts with a copy of the chart items saved for
+     * that message ({@link #forwardKey}). The saved items stay where they are, for the message's
+     * other windows, and what this window attaches and sends stays its own. Compose windows opened
+     * from one message used to share the message's key, so the chart PDFs attached in one went
+     * out with the message sent from another, to its recipients.
+     *
+     * @throws IllegalArgumentException if {@code messageId} is not positive
+     */
+    public static String composeKey(HttpSession session, int messageId) {
+        String key = newKey();
+        String source = forwardKey(session, messageId);
+        synchronized (WebUtils.getSessionMutex(session)) {
+            Staged saved = entries(session).get(source);
+            if (saved != null && saved.itemAttachment() != null) {
+                // The saved items are made the newest entry first, so a copy that overfills the
+                // cap drops another window's entry, whose send then says so, and not the
+                // message's own, whose loss no send would report.
+                put(session, source, saved);
+                put(session, key, new Staged(0, null, saved.itemAttachment()));
+            }
+        }
+        return key;
     }
 
     /** @return whether {@code key} has the shape of a compose key; says nothing about what is staged */

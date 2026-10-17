@@ -114,12 +114,13 @@
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
     }
-    // This message's key for forwarding its chart items: its Attachment window stages the items
-    // ticked under "Save Attachments" under it, and the compose page that its Compose link, Reply,
-    // Reply All or Forward opens sends them. The key is the same on every view of this message in
-    // this login, so showing the view again (linking a patient does) keeps what was saved. The
-    // items used to wait on the login-wide messenger bean, where the next message sent from any
-    // compose window, for any patient, took them (issue #4673).
+    // This message's key for forwarding its chart items: its Attachment window saves the items
+    // ticked under "Save Attachments" under it, and every compose page that its Compose link,
+    // Reply, Reply All or Forward opens starts with a copy of them under a key of its own. The key
+    // is the same on every view of this message in this login, so showing the view again (linking
+    // a patient does) keeps what was saved. The items used to wait on the login-wide messenger
+    // bean, where the next message sent from any compose window, for any patient, took them
+    // (issue #4673).
     int viewedMessageId = ConversionUtils.fromIntString((String) request.getAttribute("viewMessageId"));
     String forwardKey = viewedMessageId > 0
             ? MsgAttachmentStaging.forwardKey(session, viewedMessageId)
@@ -389,7 +390,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(forwardKey)) %><%=scheduleNavQuerySuffix%>"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%= viewedMessageId > 0 ? "?forwardMessage=" + viewedMessageId + scheduleNavQuerySuffix : scheduleNavFirstQuerySuffix %>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>

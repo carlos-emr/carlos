@@ -39,18 +39,23 @@
  *      A's items): the compose window the transfer opens carries them, and B's message carries none.
  *      The transfer left its items on the login's messenger bean for whichever window sent next.
  *      (The transfer page itself cannot render on any install; the step posts its form.)
+ *   9. A received message linked to A ▸ Attachment ▸ Save Attachments ▸ Reply in its view,
+ *      Forward in a second view of it and Compose in a third ▸ Attach Patient in the reply only ▸
+ *      Send Message from the forward, the new message, then the reply: all three carry the saved
+ *      items, and only the reply carries A's PDF. Every compose window opened from one message
+ *      shared that message's key, so the forward sent the chart PDF attached in the reply.
  *
  * Fixtures: the workflow's FAKE patient (A, first name PatientAlpha) and a second FAKE patient (B,
  * PatientBravo, the same marker last name); one appointment today per patient and the bookings
  * this check makes; a Health Tracker item per patient; an owned messenger group holding the test
- * provider and two delivered messages with chart items; one PAT bill per patient; an owned
+ * provider and three delivered messages with chart items, one linked to A; one PAT bill per patient; an owned
  * waiting list holding B; one registry code per patient. Cleanup removes every owned row by key
  * and asserts it gone.
  *
  * Not driven here: the BC bill and invoice receipt (BC installs only; billing-bc-two-window-isolation
  * drives them), the PMM "attach note to client" popup (pmm-attach-note-two-window-isolation drives
- * it) and the prescription pages (they need DrugRef; rx-stash-patient-isolation and the Rx checks
- * drive them against it).
+ * it) and the prescription pages (rx-drug-pick-patient-isolation, rx-stash-patient-isolation and the
+ * other Rx checks with DrugRef; rx-preview-visit-site-isolation, the multisite print window, without).
  */
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
@@ -307,12 +312,18 @@ function storedPdfs(s, messageId) {
 
 /** E-Chart ▸ Messenger + ▸ Attach Patient ▸ patient information ▸ Attach, in the patient's own chart. */
 async function composeWithPatientPdf(s, chart, label, patient) {
-  const { context } = s;
   const compose = await s.popup(chart, chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first(),
     `compose-${label}`);
   await compose.locator('#subject').waitFor({ timeout: TIMEOUT });
-  h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === patient,
-    `${label}'s compose window is not linked to ${label}`);
+  await attachPatientPdf(s, compose, label, patient);
+  return compose;
+}
+
+/** Attach Patient ▸ patient information ▸ Attach, in a compose window linked to the patient. */
+async function attachPatientPdf(s, compose, label, patient) {
+  const { context } = s;
+  h.assert(await compose.locator('input[name="demographic_no"]').inputValue() === String(patient),
+    `${label}'s compose window is not linked to its patient`);
   const [chooser] = await Promise.all([
     context.waitForEvent('page', { timeout: TIMEOUT }),
     compose.locator('input[name="attachDemo"]').click(),
@@ -335,7 +346,6 @@ async function composeWithPatientPdf(s, chart, label, patient) {
     main.locator('button[name="Attach"]').click(),
   ]);
   await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
-  return compose;
 }
 
 async function composeAttachments(s, A, B, messenger) {
@@ -462,24 +472,64 @@ async function transferredItems(s, A, B, messenger, chartOf) {
   });
 }
 
-async function forwardedItems(s, A, messenger) {
-  const { sql, marker, provider, context } = s;
+/** A delivered message to the test provider carrying one chart item, as a received message. */
+function receiveMessageWithItem(s, label) {
+  const { sql, marker, provider } = s;
   const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1');
   h.assert(/^\d+$/.test(location), 'No current messenger location is configured');
-  const received = {};
-  for (const label of ['first', 'second']) {
-    const item = `${marker} ${label} item`;
-    const xml = `<root><table name="${marker} ${label} table"><item itemId="0" name="${item}" value="FAKE-PW value"`
-      + ` removable="false"><content><fld name="FAKE-PW field" value="FAKE-PW ${label} detail"/></content><data/></item>`
-      + '</table></root>';
-    const id = h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
-        sentbyNo, sentByLocation, type, attachment)
-      VALUES(CURDATE(), CURTIME(), 'FAKE-PW received', ${q(`${marker} received ${label}`)}, 'FAKE-PW sender',
-        'FAKE-PW recipient', ${q(provider)}, ${location}, 0, ${q(xml)})`, 'received message');
-    sql.execute(`INSERT INTO messagelisttbl(message, provider_no, status, remoteLocation, destinationFacilityId,
-        sourceFacilityId) VALUES(${id}, ${q(provider)}, 'new', ${location}, 0, 0)`);
-    received[label] = { id, item };
-  }
+  const item = `${marker} ${label} item`;
+  const xml = `<root><table name="${marker} ${label} table"><item itemId="0" name="${item}" value="FAKE-PW value"`
+    + ` removable="false"><content><fld name="FAKE-PW field" value="FAKE-PW ${label} detail"/></content><data/></item>`
+    + '</table></root>';
+  const id = h.insertId(sql, `INSERT INTO messagetbl(thedate, theime, themessage, thesubject, sentby, sentto,
+      sentbyNo, sentByLocation, type, attachment)
+    VALUES(CURDATE(), CURTIME(), 'FAKE-PW received', ${q(`${marker} received ${label}`)}, 'FAKE-PW sender',
+      'FAKE-PW recipient', ${q(provider)}, ${location}, 0, ${q(xml)})`, 'received message');
+  sql.execute(`INSERT INTO messagelisttbl(message, provider_no, status, remoteLocation, destinationFacilityId,
+      sourceFacilityId) VALUES(${id}, ${q(provider)}, 'new', ${location}, 0, 0)`);
+  return { id, item };
+}
+
+/** The app path of a received message's view, as the inbox links it. */
+async function messageViewPath(inbox, message, label) {
+  const href = await inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${message.id}&"]`).first()
+    .getAttribute('href');
+  h.assert(href, `The inbox does not list the ${label} received message`);
+  const target = new URL(href, inbox.url());
+  return target.pathname.replace(/^\/[^/]+/, '') + target.search;
+}
+
+/** Attachment ▸ Save Attachments, in the view's own attachment window. */
+async function saveViewAttachments(s, view, label) {
+  const items = await s.popup(view, view.locator('a[href*="ViewAttach?attachId="]').first(), `items-${label}`);
+  await settle(items, `${label} message's attachment window`);
+  const [saved] = await Promise.all([
+    items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
+    items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
+  ]);
+  h.assert(saved.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(saved.headers().location || ''),
+    `Save Attachments in the ${label} message's window did not hand over to the patient search`);
+  await Promise.race([
+    items.waitForEvent('close', { timeout: TIMEOUT }),
+    items.waitForURL(/\/demographic\/DemographicLinkMsg/, { timeout: TIMEOUT, waitUntil: 'load' }),
+  ]).catch(() => {});
+  if (!items.isClosed()) await items.close();
+}
+
+/** Reply, Reply All or Forward: the view's own form opens the compose page in its window. */
+async function composeFromView(view, label, button) {
+  const [opened] = await Promise.all([
+    view.waitForResponse(r => r.request().isNavigationRequest()
+      && new URL(r.url()).pathname.endsWith('/messenger/HandleMessages'), { timeout: TIMEOUT }),
+    view.locator(`button[name="${button}"]`).click(),
+  ]);
+  h.assert(opened.status() === 200, `${button} in the ${label} message view answered HTTP ${opened.status()}`);
+  await settle(view, `${button} from the ${label} message view`);
+}
+
+async function forwardedItems(s, A, messenger) {
+  const { sql, marker } = s;
+  const received = { first: receiveMessageWithItem(s, 'first'), second: receiveMessageWithItem(s, 'second') };
 
   const viewOf = {};
   let inbox;
@@ -487,30 +537,8 @@ async function forwardedItems(s, A, messenger) {
   async function openViews() {
     inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
     for (const label of ['first', 'second']) {
-      const href = await inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${received[label].id}&"]`).first()
-        .getAttribute('href');
-      h.assert(href, `The inbox does not list the ${label} received message`);
-      const target = new URL(href, inbox.url());
-      viewOf[label] = await openPage(s, target.pathname.replace(/^\/[^/]+/, '') + target.search, `${label} message view`);
+      viewOf[label] = await openPage(s, await messageViewPath(inbox, received[label], label), `${label} message view`);
     }
-  }
-
-  /** Attachment ▸ Save Attachments, in the view's own attachment window. */
-  async function saveAttachments(label) {
-    const view = viewOf[label];
-    const items = await s.popup(view, view.locator('a[href*="ViewAttach?attachId="]').first(), `items-${label}`);
-    await settle(items, `${label} message's attachment window`);
-    const [saved] = await Promise.all([
-      items.waitForResponse(r => new URL(r.url()).pathname.endsWith('/messenger/AdjustAttachments'), { timeout: TIMEOUT }),
-      items.locator('form[action$="/messenger/AdjustAttachments"] input[type="submit"]').click(),
-    ]);
-    h.assert(saved.status() === 302 && /\/demographic\/DemographicLinkMsg$/.test(saved.headers().location || ''),
-      `Save Attachments in the ${label} message's window did not hand over to the patient search`);
-    await Promise.race([
-      items.waitForEvent('close', { timeout: TIMEOUT }),
-      items.waitForURL(/\/demographic\/DemographicLinkMsg/, { timeout: TIMEOUT, waitUntil: 'load' }),
-    ]).catch(() => {});
-    if (!items.isClosed()) await items.close();
   }
 
   /**
@@ -538,28 +566,16 @@ async function forwardedItems(s, A, messenger) {
       AND demographic_no=${patient}`, '1', `Link to Patient did not link the ${label} message`);
   }
 
-  /** Reply, Reply All or Forward: the view's own form opens the compose page in its window. */
-  async function composeBy(label, button) {
-    const view = viewOf[label];
-    const [opened] = await Promise.all([
-      view.waitForResponse(r => r.request().isNavigationRequest()
-        && new URL(r.url()).pathname.endsWith('/messenger/HandleMessages'), { timeout: TIMEOUT }),
-      view.locator(`button[name="${button}"]`).click(),
-    ]);
-    h.assert(opened.status() === 200, `${button} in the ${label} message view answered HTTP ${opened.status()}`);
-    await settle(view, `${button} from the ${label} message view`);
-  }
-
   await step(s, 'each message view forwards only its own message\'s chart items, by Forward or Reply', async () => {
     await openViews();
-    await saveAttachments('first');
+    await saveViewAttachments(s, viewOf.first, 'first');
     // The second view saves its items after the first one did.
-    await saveAttachments('second');
+    await saveViewAttachments(s, viewOf.second, 'second');
     // The first view is shown again for its linked patient before it forwards.
     await linkPatient('first', A);
     for (const [label, other, button] of [['first', 'second', 'forward'], ['second', 'first', 'reply']]) {
       const view = viewOf[label];
-      await composeBy(label, button);
+      await composeFromView(view, label, button);
       h.assert(/Attachments/i.test(await view.locator('#scrollNumber1').innerText()),
         `${button} from the ${label} message view does not show the items saved in it`);
       const id = await sendToSelf(s, view, messenger.groupId, `${marker} forwarded ${label}`);
@@ -572,6 +588,54 @@ async function forwardedItems(s, A, messenger) {
       }
       await view.close();
     }
+    await inbox.close();
+  });
+}
+
+async function repliesFromOneMessage(s, A, messenger) {
+  const { sql, marker } = s;
+  const shared = receiveMessageWithItem(s, 'shared');
+  // Linked to A, as Link to Patient does: its reply and forward are linked to A and can attach A's chart.
+  sql.execute(`INSERT INTO msgDemoMap(messageID, demographic_no) VALUES(${shared.id}, ${A})`);
+
+  await step(s, 'a reply, a forward and a new message opened from one message each send only their own attachments', async () => {
+    const inbox = await openPage(s, '/messenger/DisplayMessages', 'messenger inbox');
+    const path = await messageViewPath(inbox, shared, 'shared');
+    const replyWindow = await openPage(s, path, 'message view for the reply');
+    await saveViewAttachments(s, replyWindow, 'shared');
+    const forwardWindow = await openPage(s, path, 'message view for the forward');
+    const composeWindow = await openPage(s, path, 'message view for its Compose link');
+    await composeFromView(replyWindow, 'shared', 'reply');
+    await composeFromView(forwardWindow, 'shared', 'forward');
+    await Promise.all([
+      composeWindow.waitForURL(url => url.pathname.endsWith('/messenger/ViewCreateMessage'), { timeout: TIMEOUT }),
+      composeWindow.locator('a[href*="/messenger/ViewCreateMessage"]').first().click(),
+    ]);
+    await settle(composeWindow, 'Compose from the shared message view');
+    for (const [label, page] of [['reply', replyWindow], ['forward', forwardWindow], ['new message', composeWindow]]) {
+      h.assert(/Attachments/i.test(await page.locator('#scrollNumber1').innerText()),
+        `The ${label} does not show the items saved for its message`);
+    }
+    // The reply's window attaches A's chart; the forward and the new message, opened from the
+    // same message, send first.
+    await attachPatientPdf(s, replyWindow, 'The reply', A);
+    for (const [label, page] of [['forward', forwardWindow], ['new message', composeWindow]]) {
+      const sent = await sendToSelf(s, page, messenger.groupId, `${marker} shared ${label}`);
+      const pdfs = storedPdfs(s, sent);
+      h.assert(pdfs.count === 0, `The ${label} carries ${pdfs.count} chart PDF(s): the one attached in the reply's`
+        + ' window, opened from the same message');
+      h.assert(storedItems(s, sent).includes(`name="${shared.item}"`),
+        `The ${label} does not carry the items saved for its message`);
+    }
+    const replied = await sendToSelf(s, replyWindow, messenger.groupId, `${marker} shared reply`);
+    const repliedPdfs = storedPdfs(s, replied);
+    h.assert(repliedPdfs.count === 1 && repliedPdfs.text.includes(A_FIRST_NAME),
+      `The reply stored ${repliedPdfs.count} chart PDFs instead of the one of A attached in its window`);
+    h.assert(storedItems(s, replied).includes(`name="${shared.item}"`),
+      'The reply does not carry the items saved for its message');
+    await replyWindow.close();
+    await forwardWindow.close();
+    await composeWindow.close();
     await inbox.close();
   });
 }
@@ -778,6 +842,7 @@ async function workflow(s) {
   await clearNewMessage(s, A, B, messenger, charts);
   await transferredItems(s, A, B, messenger, charts);
   await forwardedItems(s, A, messenger);
+  await repliesFromOneMessage(s, A, messenger);
   await yearEndStatements(s, A, B);
   await waitingListPrompt(s, A, B);
   await diseaseRegistry(s, A, B);

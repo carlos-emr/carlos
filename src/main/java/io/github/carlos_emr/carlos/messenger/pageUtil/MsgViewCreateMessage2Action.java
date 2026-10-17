@@ -47,6 +47,9 @@ import org.apache.struts2.ServletActionContext;
  */
 public final class MsgViewCreateMessage2Action extends ActionSupport {
 
+    /** The message a view's Compose link opens a new message from. */
+    static final String FORWARD_MESSAGE_PARAMETER = "forwardMessage";
+
     private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -71,11 +74,17 @@ public final class MsgViewCreateMessage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // The document-transfer step redirects here, and a message view's Compose link points
-        // here, with the key the items to send are staged under, so this compose window sends them
-        // (issue #4673). Any other visit starts a new message.
+        // A message view's Compose link names its message: this compose window gets a key of its
+        // own that starts with the items saved for that message. The document-transfer step
+        // redirects here with the new key it staged its items under. Either way this window sends
+        // those items and nothing another window attached (issue #4673). Any other visit starts
+        // a new message.
+        String forwardMessage = request.getParameter(FORWARD_MESSAGE_PARAMETER);
         String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
-        if (MsgAttachmentStaging.isKey(attachmentKey)) {
+        if (forwardMessage != null && forwardMessage.matches("[1-9][0-9]{0,8}")) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
+                    MsgAttachmentStaging.composeKey(request.getSession(), Integer.parseInt(forwardMessage)));
+        } else if (MsgAttachmentStaging.isKey(attachmentKey)) {
             request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, attachmentKey);
         }
 
