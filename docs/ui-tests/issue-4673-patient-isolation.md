@@ -54,8 +54,8 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
 ## Verification
 
 - **Java tests.** Each new pin was run red before its fix: the legacy save action
-  (`EctSaveEncounterPatientIsolationUnitTest`, 32 cases, including the `_eChart` privileges and the
-  editor's own visit after a save), the revision persister against H2 with real commits and
+  (`EctSaveEncounterPatientIsolationUnitTest`, 33 cases, including the `_eChart` privileges and the
+  editor's own visit after a save, dated today when it has no appointment), the revision persister against H2 with real commits and
   rollbacks (`EChartRevisionPersisterIntegrationTest`, 17, including a visit without a status, which
   used to throw `StringIndexOutOfBoundsException` or be blanked), the immunization schedule actions
   and pages (`ImmunizationSchedulePatientIsolationUnitTest`, 12;
@@ -80,14 +80,17 @@ and Sign & Save answered 404. It now posts to `/encounter/SaveEncounter2`.
   immunization schedule's template add and set delete; the legacy navigation, which must render
   past its messenger list and link only to its own patient; and the notes list, which must keep the
   logged-in provider's own unsigned notes editable after the other chart was entered from another
-  provider's day sheet. The notes list compares each unsigned note's author with the chart entry's
-  provider, which it used to take from the bean. The notes service has no browser step (see 1
-  below).
+  provider's day sheet. The notes list compares each unsigned note's author with this chart's own
+  entry provider (the patient's remembered entry, or the logged-in provider when this login has not
+  entered the chart), which it used to take from the bean. The notes service has no browser step
+  (see 1 below).
 - **`legacy-encounter-editor-isolation`** drives the editor itself, opened from the day sheet in two
   windows, with `caisi=on`: both Saves, Print, the stale editor's 409 concurrency page, Sign & Save
-  (which closes the window and refreshes the day sheet), and an editor that keeps its own visit
-  through a Save after its patient was entered again from another visit, so that its Sign signs that
-  visit: all 7 steps pass. With `caisi=off` it reports SKIP. `encounter-legacy-note-soft-wrap`
+  (which closes the window and refreshes the day sheet), an editor that keeps its own visit through
+  a Save after its patient was entered again from another visit, so that its Sign signs that visit,
+  and a double-clicked Save, which posts the editor once (its buttons submit once per rendering)
+  and shows it again: all 8 steps pass. With the previous button row the double click ends on the
+  concurrency page. With `caisi=off` it reports SKIP. `encounter-legacy-note-soft-wrap`
   reached the recovery page by a bare GET and expected it to show the login-wide bean's text; it now
   reaches it through a refused stale save, as a user does, and passes with `caisi=on`.
 - **Negative controls.** With the previous classes and pages swapped into the same installation,
@@ -135,12 +138,12 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
 | Disease Registry page and its refused-code re-render | patient and diagnoses from the session | request attributes for the request's own patient |
 | Waiting-list patient page, allergies page, Rx drug search, PMM client view | patient number or data copied into the session under generic names (`demographicNo`, …), which every page resolving that name through EL fell back to | request attributes or the page's own patient |
 | Day sheet's current visit (Health Tracker link, multisite tickler and prescription defaults) | the appointment last opened for any patient | filed per patient by `provider/ViewStoreApptInSession` (204); read back only if still that patient's |
-| Messenger compose attachments | on the login's messenger bean: another compose window's PDFs went out with this message, linked to the other patient | staged per compose window (`MsgAttachmentStaging`), bound to the patient they were rendered for |
-| Messenger forward ("Save Attachments" ▸ Compose) | the selection waited on the bean for the next message from any window | staged under the message view's own key; only that view's Compose sends it |
+| Messenger compose attachments | on the login's messenger bean: another compose window's PDFs went out with this message, linked to the other patient | staged per compose window (`MsgAttachmentStaging`), bound to the patient they were rendered for; a send whose attachments were released to make room for other windows' is refused once with the reason, never sent without them unannounced |
+| Messenger forward ("Save Attachments" ▸ Forward, Reply or Compose) | the selection waited on the bean for the next message from any window | staged under the message's own forwarding key, the same on every view of that message in the login; that view's Forward, Reply, Reply All and Compose send it, and showing the view again (linking a patient does) keeps it |
 | Messenger viewer and PDF download | message, linked patients and PDF list in the session; the download served another message's PDF (#4473) | request attributes; the download names its message, streams and returns `NONE` |
-| BC bill create ▸ review ▸ save | one session bill: a second billing window replaced it, so the first billed the other patient and appointment | staged per bill (`BcBillStaging`, `billKey`); the form's in-place reloads (physician, bill type or billing form changed) are rendered without being staged |
+| BC bill create ▸ review ▸ save | one session bill: a second billing window replaced it, so the first billed the other patient and appointment | staged per bill (`BcBillStaging`, `billKey`); the form's in-place reloads (physician, bill type or billing form changed) are rendered without being staged, and Continue records the billing form shown. Every step that finds a bill keeps it longest; a saved bill is dropped first; a window whose bill was dropped is told its billing session expired |
 | BC receipt after "Update Invoice" | the invoice viewed last in any window | redirect to the view of the receipt it came from, every bill of it |
-| Ontario year-end "Print PDF" | the statement the last search in any window left in the session | recomputed from the form's own patient and dates |
+| Ontario year-end "Print PDF" | the statement the last search in any window left in the session | the statement on screen, recomputed: Create Statement renders its patient and dates into the form, so dates changed afterwards without creating it again do not change the PDF |
 | PMM "attach note to client" popup | the note to attach from the session | carried by the popup's own form and links |
 | Appointment booked page | fell back through EL to the list the waiting-list page last showed, offering to remove a patient who is on no list | only the booked patient's own waiting-list entry |
 
@@ -152,24 +155,32 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   pushing.
 - **`session-state-two-window-isolation`** (new) drives six of these in two windows of one login,
   each right after the other patient's window wrote its own state: Health Tracker saves after the
-  day sheet opened both patients' visits, two compose windows, two forwarding message views, two
-  year-end statement windows, a booking after the waiting-list page showed a list, and a refused
-  registry code. All six pass on this branch.
+  day sheet opened both patients' visits, two compose windows, two forwarding message views (the
+  first linked to a patient, which shows it again, then Forward; the second Reply), two year-end
+  statement windows (A's printed after its start date was changed without creating the statement
+  again), a booking after the waiting-list page showed a list, and a refused registry code. All six
+  pass on this branch.
 - **Negative control.** The same check, made to continue past a failing step, against
   `release/2026.08`: every step fails on the crossover it pins. A's tracker save is linked to B's
   visit, A's message carries B's PDF, the first view forwards the second view's items, A's
   statement names B, the booking offers to take A off B's list, and A's re-rendered registry lists
-  B's diagnoses. Both runs left no owned row behind.
+  B's diagnoses. Against this branch before the final review's fixes, the forwarding step fails
+  ("forward from the first message view does not show the items saved in it") and the year-end step
+  fails ("A's year-end PDF does not list exactly A's own invoice"); the other four pass. The runs
+  left no owned row behind.
 - **`billing-bc-two-window-isolation`** (new, BC installs) drives the BC bill in two windows: two
   bill forms opened from the day sheet each review and save their own patient, appointment and
   codes; one bill window keeps its own bill through ten in-place reloads, a Continue the validation
   refuses, Go Back and Another Bill, and both its claims are saved for its own patient and
   appointment; Update Invoice on a two-line private receipt shows that receipt again after another
-  window saved and viewed its own. All three steps pass on this branch, run against a BC database
-  built from the Flyway set (common + bc) with `billregion=BC`. Negative controls: against
-  `release/2026.08`, A's review names B and A's receipt after Update Invoice is B's invoice; against
-  this branch before the reload fix, the reloaded window's Continue answers 400. No run left an
-  owned row behind. The existing BC checks pass on this branch too (`billing-bc-associations`,
+  window saved and viewed its own; a bill window whose billing form was changed comes back from a
+  refused Continue with that form's code table, and, once eight more bills were opened in the same
+  login, its Continue is told that its billing session expired. All four steps pass on this branch,
+  run against a BC database built from the Flyway set (common + bc) with `billregion=BC`. Negative
+  controls: against `release/2026.08`, A's review names B and A's receipt after Update Invoice is
+  B's invoice; against this branch before the reload fix, the reloaded window's Continue answers
+  400; before the final review's fixes, the fourth step fails ("The refused Continue came back to
+  the GP billing form the bill was opened with, not ER"). No run left an owned row behind. The existing BC checks pass on this branch too (`billing-bc-associations`,
   `billing-bc-simulation-encoding`, `billing-bc-receive-payment`, which views the invoice;
   `billing-bc-reprocess-bill` stops at its known finding 145).
 - **Existing checks for every touched flow**, re-run on this branch: `messenger`,
@@ -177,13 +188,20 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   `messenger-demographic-link`, `gap-provider-messenger-write-to-encounter`, `health-tracker`,
   `waiting-list`, `dx-registry-quicklist`, `dx-registry-status-update`, `billing-on-year-end-statement`,
   `popup-opener-day-sheet`, `appointment-lifecycle`, `tickler-crud`, `tickler-attachments`,
-  `echart-print`, `echart-note-soft-wrap` and `echart-two-patient-isolation` pass. Three need the
+  `echart-print`, `echart-note-soft-wrap` and `echart-two-patient-isolation` pass, and after the final
+  review's fixes also `echart`, `echart-note-editor`, `echart-note-signed-edit`,
+  `echart-group-note-history`, `echart-notes-pagination-retry`, `gap-clinical-chart-notes-pagination`,
+  `search-sort-messenger-inbox` and the year-end steps of `billing-on-reports-inr-eoy` (one
+  `echart-two-patient-isolation` run stopped at its Vascular Tracker popup step with "Target page,
+  context or browser has been closed"; the rerun passed all 40 steps). Three need the
   packaged defaults rather than the devcontainer's overrides (`DEMOGRAPHIC_WAITING_LIST=true`,
   `dxResearch_coding_sys=icd9,ichppccode`, `AbandonOldChart` unset; see #4793), and the two-patient
   check the packaged form registry (#4792). Not run green here, for reasons outside this change:
   the Rx checks need DrugRef, `patient-messenger-context` trips over note locks the devcontainer's
-  demo data ships for patients 1 and 2, and `double-submit-messenger` fails as its manifest entry
-  documents for 2026.08.
+  demo data ships for patients 1 and 2, `double-submit-messenger` and `get-reject-chart-notes` fail
+  as their manifest entries document for 2026.08, and `xss-poison-messenger-consult` stops before
+  its documented step because the Msg inbox answers 500 for its seeded patient, on
+  `release/2026.08` too (#4835).
 - **Regressions this verification caught and fixed:** "Save Attachments" no longer reached the
   compose page (the forward key above); "Update Invoice" showed only the first line of a
   multi-line BC receipt; the legacy editor's Sign, Save and Bill handed the BC bill no appointment
@@ -191,6 +209,16 @@ and JSP (comments removed) for the replaced names, so a reintroduction fails the
   fire-and-forget store request, answered with 204 and never read, was reported as aborted by the
   browser; the BC bill form's in-place reloads each staged a bill, so a window whose physician was
   changed a few times lost its own bill and its Continue answered 400.
+- **Found by the final review and fixed:** Forward and Reply did not carry the items saved from the
+  message's Attachment window, and showing the view again (linking a patient) lost them, as its key
+  changed on every render; a compose window whose attachments the session had released sent the
+  message without them; a BC bill window left open while eight other bills were opened answered
+  Continue with a bare 400, and Go Back after changing the billing form showed the codes of the
+  form the bill was opened with; Print PDF printed the dates in the fields rather than the
+  statement on screen, and answered a database failure with 400; a double click on the legacy
+  editor's Sign & Save ended on the concurrency page; the legacy save of an editor without an
+  appointment kept the visit date of another window's entry, which Sign, Save and Bill put on the
+  bill; Update Invoice accepted a bill number its receipt view refuses.
 - **Not driven in a browser:** the legacy encounter's Sign, Save and Bill into a BC bill (CAISI
   editor on a BC install; the forward is unit-tested), the PMM attach popup (its search form cannot
   find a client, #4811) and the prescription pages (DrugRef).
