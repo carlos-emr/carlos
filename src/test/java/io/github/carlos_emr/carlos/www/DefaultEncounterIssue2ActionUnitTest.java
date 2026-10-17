@@ -41,10 +41,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -76,9 +78,9 @@ class DefaultEncounterIssue2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
         issues = createAndRegisterMock(IssueDAO.class);
         defaults = createAndRegisterMock(DefaultIssueDao.class);
-        when(issues.findIssueByCode("ICSW100")).thenReturn(issue(ICSW100));
-        when(issues.findIssueByCode("ICSW1000")).thenReturn(issue(ICSW1000));
-        when(issues.findIssueByCode("OMeds")).thenReturn(issue(OMEDS));
+        when(issues.findIssueByCode(aryEq(new String[]{"ICSW100"}))).thenReturn(List.of(issue(ICSW100)));
+        when(issues.findIssueByCode(aryEq(new String[]{"ICSW1000"}))).thenReturn(List.of(issue(ICSW1000)));
+        when(issues.findIssueByCode(aryEq(new String[]{"OMeds"}))).thenReturn(List.of(issue(OMEDS)));
 
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
@@ -127,6 +129,18 @@ class DefaultEncounterIssue2ActionUnitTest extends CarlosUnitTestBase {
         verify(defaults).saveDefaultIssue(saved.capture());
         assertThat(sortedIds(saved.getValue().getIssueIds())).containsExactly("12", "47");
         verify(issues, never()).findIssueBySearch(anyString());
+    }
+
+    @Test
+    void shouldAssignEveryIssueWithTheCode_whenTwoIssueTypesShareIt() {
+        // issue.code is not unique: an exact code can name issues of more than one type.
+        when(issues.findIssueByCode(aryEq(new String[]{"SHARED"}))).thenReturn(List.of(issue(101L), issue(102L)));
+
+        actionFor("save", "SHARED").execute();
+
+        ArgumentCaptor<DefaultIssue> saved = ArgumentCaptor.forClass(DefaultIssue.class);
+        verify(defaults).saveDefaultIssue(saved.capture());
+        assertThat(sortedIds(saved.getValue().getIssueIds())).containsExactly("101", "102");
     }
 
     @Test
