@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import java.util.Collections;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -163,7 +162,7 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isSameAs(fromEncounter);
-        assertThat(Collections.list(session.getAttributeNames())).doesNotContain("billingSessionBean");
+        assertThat(session.getAttribute("billingSessionBean")).isNull();
     }
 
     private String openBill(String demographicNo, String appointmentNo) throws Exception {

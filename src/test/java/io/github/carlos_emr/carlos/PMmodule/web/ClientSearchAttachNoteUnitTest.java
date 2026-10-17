@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.web;
 
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.struts2.ServletActionContext;
@@ -102,7 +101,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         search.attachSearch();
 
         assertThat(request.getAttribute("noteId")).isEqualTo("11");
-        assertThat(Collections.list(session.getAttributeNames())).doesNotContain("noteId");
+        assertThat(session.getAttribute("noteId")).isNull();
     }
 
     @Test

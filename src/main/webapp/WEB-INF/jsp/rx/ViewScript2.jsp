@@ -1566,7 +1566,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><fmt:message key="ViewScript.msgAddress"/>
+                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
                                                 <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
                                                     <% String rxAddr = appointmentAddressIndex != null
