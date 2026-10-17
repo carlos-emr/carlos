@@ -21,24 +21,29 @@ const JSP = fs.readFileSync(
 /** Every <input ... name="prevDate" ...> tag, up to the "></div>" that closes it (its attributes hold JSP "%>"). */
 const inputs = [...JSP.matchAll(/<input type="(?:(?!<input )[\s\S])*?name="prevDate"[\s\S]*?><\/div>/g)].map((m) => m[0]);
 
-/** The pattern attribute the partial-date box carries, as the browser reads it (anchored, v flag). */
-function patternOf(tag) {
-  const m = /pattern="([^"]+)"/.exec(tag);
-  assert.ok(m, `no pattern on ${tag.slice(0, 80)}`);
-  return new RegExp(`^(?:${m[1]})$`, 'v');
-}
+// The partial-date box's pattern attribute, as the JSP must spell it, and the same text as the regex a
+// browser makes of it (anchored, v flag). The test pins the JSP to the text and checks dates with the
+// literal, so no regex is built from file content.
+const PATTERN = String.raw`\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?`;
+const PATTERN_AS_BROWSER = /^(?:\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?)$/v;
+
+// The scriptlet's test for a partial stored date: the Java literal, and the same regex (String.matches
+// is anchored) as a literal.
+const PARTIAL_JAVA_LITERAL = String.raw`"\\d{4}(-\\d{2})?"`;
+const PARTIAL = /^(?:\d{4}(-\d{2})?)$/;
 
 test('shouldSwitchEveryPreventionDateBoxToText_forAPartialDate', () => {
   assert.equal(inputs.length, 4, 'the page has four prevention layouts, each with a Date box');
   for (const tag of inputs) {
     assert.match(tag, /^<input type="<%= partialPrevDate \? "text" : "date" %>"/);
     assert.match(tag, /required<% if \(partialPrevDate\) \{ %> pattern="[^"]+" title="yyyy \| yyyy-mm \| yyyy-mm-dd"<% \} %>><\/div>$/);
+    assert.equal(/pattern="([^"]+)"/.exec(tag)[1], PATTERN, 'every box carries the same pattern text');
   }
-  assert.equal(new Set(inputs.map((tag) => /pattern="([^"]+)"/.exec(tag)[1])).size, 1, 'the four boxes share one pattern');
+  assert.equal(PATTERN_AS_BROWSER.source, `^(?:${PATTERN})$`, 'the literal checked below is the pattern text');
 });
 
 test('shouldAcceptTheDatesThePreventionSaveTakes_inThePartialDateBox', () => {
-  const pattern = patternOf(inputs[0]);
+  const pattern = PATTERN_AS_BROWSER;
   for (const ok of ['2019', '2019-05', '2019-12', '2019-05-14', '2019-01-31', '2020-02-29']) {
     assert.ok(pattern.test(ok), `${ok} should be accepted`);
   }
@@ -48,10 +53,10 @@ test('shouldAcceptTheDatesThePreventionSaveTakes_inThePartialDateBox', () => {
 });
 
 test('shouldTreatOnlyAYearOrAYearAndMonth_asAPartialDate', () => {
-  const m = /partialPrevDate = prevDate != null && prevDate\.matches\("([^"]+)"\);/.exec(JSP);
-  assert.ok(m, 'the page decides partialPrevDate from the stored date');
-  // Java String.matches is anchored; the literal's "\\" is one backslash in the regex.
-  const partial = new RegExp(`^(?:${m[1].replace(/\\\\/g, '\\')})$`);
-  for (const yes of ['2019', '2019-05']) assert.ok(partial.test(yes), `${yes} is partial`);
-  for (const no of ['2019-05-14', '2019-05-14 10:00', '', '201']) assert.ok(!partial.test(no), `${no} is not partial`);
+  assert.ok(JSP.includes(`partialPrevDate = prevDate != null && prevDate.matches(${PARTIAL_JAVA_LITERAL});`),
+    'the page decides partialPrevDate from the stored date with that literal');
+  // The Java literal's "\\" is one backslash in the regex.
+  assert.equal(`^(?:${PARTIAL_JAVA_LITERAL.slice(1, -1).replaceAll('\\\\', '\\')})$`, PARTIAL.source);
+  for (const yes of ['2019', '2019-05']) assert.ok(PARTIAL.test(yes), `${yes} is partial`);
+  for (const no of ['2019-05-14', '2019-05-14 10:00', '', '201']) assert.ok(!PARTIAL.test(no), `${no} is not partial`);
 });
