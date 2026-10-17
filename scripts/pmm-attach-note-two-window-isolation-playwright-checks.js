@@ -225,6 +225,14 @@ async function workflow(s) {
       await settle(popup, `${label}'s attach search`);
       const links = popup.locator(`a[href*="PEAttach=yes"][href*="selectId=${C}&"]`);
       h.assert(await links.count() >= 1, `${label}'s attach search did not find client C`);
+      // A standards-mode page (its messages render inside the body, not above the doctype), whose
+      // result table's sort links repeat the search but not the search form's CSRF token.
+      h.assert(await popup.evaluate(() => document.compatMode) === 'CSS1Compat',
+        `${label}'s attach popup renders in quirks mode`);
+      const sortLinks = popup.locator('a[href*="/PMmodule/ClientSearch2"]');
+      h.assert(await sortLinks.count() > 0, `${label}'s attach results offer no sort links`);
+      h.assert(await popup.locator('a[href*="CSRF-TOKEN"]').count() === 0,
+        `${label}'s attach results put the CSRF token in a link's URL`);
       const href = await links.first().getAttribute('href');
       const attached = new URL(href, popup.url()).searchParams.get('noteId');
       h.assert(attached === notes[label], `${label}'s popup attaches ${attached === notes.A ? 'A\'s'

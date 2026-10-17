@@ -57,7 +57,7 @@
      no script, so every search POST was refused as a CSRF violation (403). The stylesheets named
      ${request.contextPath}, which is not an EL object, and so loaded from outside the application. --%>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <title>Attach note to client</title>
 <link rel="stylesheet" type="text/css"
@@ -138,35 +138,36 @@
         <div class="axial">
             <table border="0" cellspacing="2" cellpadding="3">
                 <tr>
-                    <th>Client No</th>
-                    <td><input type="text" name="criteria.demographicNo" value="${carlos:forHtmlAttribute(criteria.demographicNo)}" size="15" /></td>
+                    <th><label for="attachClientNo">Client No</label></th>
+                    <td><input type="text" id="attachClientNo" name="criteria.demographicNo" value="${carlos:forHtmlAttribute(criteria.demographicNo)}" size="15" /></td>
                 </tr>
                 <tr>
-                    <th>First Name</th>
-                    <td><input type="text" name="criteria.firstName" value="${carlos:forHtmlAttribute(criteria.firstName)}" size="15" /></td>
-                </tr>
-
-                <tr>
-                    <th>Last Name</th>
-                    <td><input type="text" name="criteria.lastName" value="${carlos:forHtmlAttribute(criteria.lastName)}" size="15" /></td>
+                    <th><label for="attachFirstName">First Name</label></th>
+                    <td><input type="text" id="attachFirstName" name="criteria.firstName" value="${carlos:forHtmlAttribute(criteria.firstName)}" size="15" /></td>
                 </tr>
 
                 <tr>
-                    <th>Date of Birth</th>
-                    <td><input type="text" name="criteria.dob" value="${carlos:forHtmlAttribute(criteria.dob)}" size="15" /><br/><font size="1">yyyy/mm/dd</font></td>
+                    <th><label for="attachLastName">Last Name</label></th>
+                    <td><input type="text" id="attachLastName" name="criteria.lastName" value="${carlos:forHtmlAttribute(criteria.lastName)}" size="15" /></td>
+                </tr>
+
+                <tr>
+                    <th><label for="attachDob">Date of Birth</label></th>
+                    <td><input type="text" id="attachDob" name="criteria.dob" value="${carlos:forHtmlAttribute(criteria.dob)}" size="15" /><br/><small>yyyy/mm/dd</small></td>
                 </tr>
                 <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <caisi:isModuleLoad moduleName="GET_OHIP_INFO" reverse="false">
                         <tr>
-                            <th>Health Card Number</th>
-                            <td><input type="text" name="criteria.healthCardNumber" value="${carlos:forHtmlAttribute(criteria.healthCardNumber)}" size="15" />
-                                <input type="text" name="criteria.healthCardVersion" value="${carlos:forHtmlAttribute(criteria.healthCardVersion)}" size="2" /></td>
+                            <th><label for="attachHealthCard">Health Card Number</label></th>
+                            <td><input type="text" id="attachHealthCard" name="criteria.healthCardNumber" value="${carlos:forHtmlAttribute(criteria.healthCardNumber)}" size="15" />
+                                <label for="attachHealthCardVersion">Version</label>
+                                <input type="text" id="attachHealthCardVersion" name="criteria.healthCardVersion" value="${carlos:forHtmlAttribute(criteria.healthCardVersion)}" size="2" /></td>
                         </tr>
                     </caisi:isModuleLoad>
 
                     <tr>
-                        <th>Chart No (MRN)</th>
-                        <td><input type="text" name="criteria.chartNo" value="${carlos:forHtmlAttribute(criteria.chartNo)}" size="15" /></td>
+                        <th><label for="attachChartNo">Chart No (MRN)</label></th>
+                        <td><input type="text" id="attachChartNo" name="criteria.chartNo" value="${carlos:forHtmlAttribute(criteria.chartNo)}" size="15" /></td>
                     </tr>
 
                     <!-- <th>Search outside of domain <a href="javascript:void(0)" onclick="popupHelp('domain')">?</a></th>
@@ -174,38 +175,38 @@
                     <tr>
                         <caisi:isModuleLoad
                                 moduleName="pmm.client.search.outside.of.domain.enabled">
-                            <th>Search all clients <a href="javascript:void(0)"
+                            <th><label for="attachSearchOutsideDomain">Search all clients</label> <a href="javascript:void(0)"
                                                       onclick="popupHelp('domain')">?</a></th>
-                            <td><input type="checkbox" name="criteria.searchOutsideDomain" value="true" ${criteria.searchOutsideDomain ? 'checked' : ''}/></td>
+                            <td><input type="checkbox" id="attachSearchOutsideDomain" name="criteria.searchOutsideDomain" value="true" ${criteria.searchOutsideDomain ? 'checked' : ''}/></td>
                         </caisi:isModuleLoad>
                     </tr>
 
                     <tr>
-                        <th>Soundex on names <a href="javascript:void(0)"
+                        <th><label for="attachSoundex">Soundex on names</label> <a href="javascript:void(0)"
                                                 onclick="popupHelp('soundex')">?</a></th>
-                        <td><input type="checkbox" name="criteria.searchUsingSoundex" value="true" ${criteria.searchUsingSoundex ? 'checked' : ''}/></td>
+                        <td><input type="checkbox" id="attachSoundex" name="criteria.searchUsingSoundex" value="true" ${criteria.searchUsingSoundex ? 'checked' : ''}/></td>
                     </tr>
                     <tr>
-                        <th>Admission Date From</th>
-                        <td><input type="text" name="criteria.dateFrom" value="${carlos:forHtmlAttribute(criteria.dateFrom)}" size="12" /><br/><font size="1">yyyy/mm/dd</font>
+                        <th><label for="attachDateFrom">Admission Date From</label></th>
+                        <td><input type="text" id="attachDateFrom" name="criteria.dateFrom" value="${carlos:forHtmlAttribute(criteria.dateFrom)}" size="12" /><br/><small>yyyy/mm/dd</small>
                         </td>
                     </tr>
                     <tr>
-                        <th>Admission Date To</th>
-                        <td><input type="text" name="criteria.dateTo" value="${carlos:forHtmlAttribute(criteria.dateTo)}" size="12" /><br/><font size="1">yyyy/mm/dd</font></td>
+                        <th><label for="attachDateTo">Admission Date To</label></th>
+                        <td><input type="text" id="attachDateTo" name="criteria.dateTo" value="${carlos:forHtmlAttribute(criteria.dateTo)}" size="12" /><br/><small>yyyy/mm/dd</small></td>
                     </tr>
                 </caisi:isModuleLoad>
                 <tr>
-                    <th>Status</th>
-                    <td><select name="active">
+                    <th><label for="attachStatus">Status</label></th>
+                    <td><select id="attachStatus" name="active">
                         <option value="1">Admitted</option>
                         <option value="0">Discharged</option>
                         <option value="">ALL</option>
                     </select></td>
                 </tr>
                 <tr>
-                    <th>Gender</th>
-                    <td><select name="criteria.gender">
+                    <th><label for="attachGender">Gender</label></th>
+                    <td><select id="attachGender" name="criteria.gender">
                         <option value="">Any</option>
                         <c:forEach var="gen" items="${genders}">
                             <option value="${gen.code}">
