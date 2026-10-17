@@ -3960,6 +3960,23 @@
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
+      "name": "admin-default-encounter-issues",
+      "script": "scripts/admin-default-encounter-issues-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "WL_DEFAULT_ISSUE"
+      ],
+      "fixtures": "The synthetic patient (no notes) for the first-encounter step. default_issue's clinic-wide row is recorded first and restored exactly afterwards (re-inserted with its id if Remove deleted it); rows this run created are deleted and the restored table is compared with the recorded one.",
+      "notes": "Skips on the packaged default (caisi=off hides the CAISI group and its Default Encounter Issue link). With caisi=on and wl_default_issue off it fails at its last step: a code matches as a substring of any issue's code or description, so ICSW100 also assigns ICSW1000. Run with WL_DEFAULT_ISSUE=true when the server has wl_default_issue=true: it then fails at the first encounter, which answers HTTP 500 unless the session holds a program the login is assigned to."
+    },
+    {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
       "tiers": [
