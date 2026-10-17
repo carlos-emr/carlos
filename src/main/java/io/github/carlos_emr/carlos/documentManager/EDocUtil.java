@@ -433,6 +433,9 @@ public final class EDocUtil {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
                 doc.setContentdatetime(newDocument.getContentDateTime());
+                // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
+                // the inbox view, the document display and Split read it.
+                doc.setNumberofpages(newDocument.getNumberOfPages());
             }
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
