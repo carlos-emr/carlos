@@ -10910,6 +10910,21 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "rx-profile-reorder",
+      "script": "scripts/rx-profile-reorder-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The owned FAKE- patient and three marker-named current custom drugs inserted for it with positions 1, 2 and 3. Cleanup removes the patient's drugs and asserts none remain. No clinic-wide state is changed.",
+      "notes": "The drug profile's up and down arrows (rx/reorderDrug method=update) swap the position of two of the patient's drugs; the profile lists drugs highest position first. Steps: the profile shows the three drugs highest position first, with only Down on the top row, both arrows on the middle row and only Up on the bottom row; Down on the top drug swaps its position with the drug below it in the database and the profile order, leaving the third drug alone; Up on it swaps them back and the order holds after a reload."
     }
   ]
 }
