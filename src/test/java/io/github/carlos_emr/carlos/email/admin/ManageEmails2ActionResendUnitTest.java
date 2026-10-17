@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -79,6 +80,7 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
     private DocumentAttachmentManager documentAttachmentManager;
     private SecurityInfoManager securityInfoManager;
     private MockHttpServletRequest request;
+    private EmailLog emailLog;
 
     /** A resend of email log 5, for FAKE patient 10001, whose one eForm attachment is 7. */
     private void prepareResend(boolean allowed) {
@@ -96,7 +98,7 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
 
         Demographic patient = new Demographic();
         patient.setDemographicNo(10001);
-        EmailLog emailLog = mock(EmailLog.class);
+        emailLog = mock(EmailLog.class);
         when(emailLog.getEmailAttachments())
                 .thenReturn(List.of(new EmailAttachment("FAKE-letter.pdf", null, DocumentType.EFORM, 7)));
         when(emailLog.getDemographic()).thenReturn(patient);
@@ -125,6 +127,24 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
                 anyThrowableLogged[0] = capture.events().stream().map(LogEvent::getThrown).anyMatch(thrown -> thrown != null);
             }
         }
+    }
+
+    @Test
+    @DisplayName("should resend a PDF document from its application temp copy, not from the stored file")
+    void shouldAttachApplicationTempCopy_whenResendingPdfDocument() throws Exception {
+        prepareResend(true);
+        EmailAttachment document = new EmailAttachment("FAKE-scan.pdf", null, DocumentType.DOC, 9);
+        when(emailLog.getEmailAttachments()).thenReturn(List.of(document));
+        Path stored = Path.of("/FAKE-documents/FAKE-scan.pdf");
+        Path copy = Path.of("/FAKE-temp/carlos-temp/FAKE-scan.pdf");
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.DOC), eq(9))).thenReturn(stored);
+        when(emailComposeManager.applicationTempFile(stored)).thenReturn(copy);
+
+        String result = resend(new ArrayList<>(), new boolean[1]);
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isNull();
+        assertThat(document.getFilePath()).as("the preview and the send read the temp copy").isEqualTo(copy.toString());
     }
 
     private void assertGenericMessageAndQuietLog(String result, List<String> log, boolean anyThrowableLogged,
