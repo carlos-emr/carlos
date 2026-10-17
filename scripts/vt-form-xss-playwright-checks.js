@@ -112,6 +112,11 @@ async function workflow(s) {
         }
       }
     }
+    const diabetes = page.locator('[name="value(DMValue)"]');
+    h.assert(!await diabetes.isChecked() && await page.locator('#vt-HbA1-date').isDisabled(),
+      'The non-diabetic fixture must retain disabled HbA1 entry');
+    await diabetes.check();
+    h.assert(await page.locator('#vt-HbA1-date').isEnabled(), 'Selecting Diabetes did not enable HbA1 entry');
     for (const type of ['Exer', 'HbA1']) {
       await page.locator(`#vt-${type}-value`).focus();
       await page.keyboard.press('Tab');
@@ -119,6 +124,8 @@ async function workflow(s) {
       h.assert(await page.locator(`#vt-${type}-${next}`).evaluate(element => element === document.activeElement),
         `Tab skipped the ${type} ${next} field`);
     }
+    await diabetes.uncheck();
+    h.assert(await page.locator('#vt-HbA1-date').isDisabled(), 'Clearing Diabetes did not disable HbA1 entry');
   });
   await step('the page printed none of the stored markup as elements', async () => {
     h.assert(await page.locator('[data-xp]').count() === 0, 'Stored markup became an element on the Vascular Tracker form');
