@@ -53,7 +53,7 @@ class BcReferralDoctorPagesRegressionTest {
     }
 
     @Test
-    @DisplayName("should open a doctor's Update form filled from that doctor and post its id back")
+    @DisplayName("should open a doctor's Update form filled from that doctor, each field labelled, and post its id back")
     void shouldFillUpdateForm_fromDoctorWithItsId() throws IOException {
         String jsp = read("billingAddReferralDoc.jsp");
 
@@ -67,7 +67,8 @@ class BcReferralDoctorPagesRegressionTest {
                 {"specialty", "getSpecialty"}, {"address1", "getAddress1"}, {"address2", "getAddress2"},
                 {"city", "getCity"}, {"province", "getProvince"}, {"postal", "getPostal"},
                 {"phone", "getPhone"}, {"fax", "getFax"}}) {
-            assertThat(jsp).contains("name=\"" + field[0] + "\" id=\"" + field[0] + "\"")
+            assertThat(jsp).contains("<label for=\"" + field[0] + "\">")
+                    .contains("name=\"" + field[0] + "\" id=\"" + field[0] + "\"")
                     .contains("value=\"<carlos:encode value='<%= doctor == null ? null : doctor." + field[1] + "() %>' context=\"htmlAttribute\"/>\"");
         }
     }
@@ -79,8 +80,8 @@ class BcReferralDoctorPagesRegressionTest {
 
         // As checkboxes the fields could only ever send "on", never the address typed for them.
         assertThat(jsp)
-                .contains("Address 1:<input type=\"text\" name=\"address1\"")
-                .contains("Address 2:<input type=\"text\" name=\"address2\"")
+                .contains("<label for=\"address1\">Address 1:</label><input type=\"text\" name=\"address1\"")
+                .contains("<label for=\"address2\">Address 2:</label><input type=\"text\" name=\"address2\"")
                 .doesNotContain("type=\"checkbox\"");
     }
 
@@ -89,8 +90,9 @@ class BcReferralDoctorPagesRegressionTest {
     void shouldNameForm_forItsCheckAndThePanel() throws IOException {
         String jsp = read("billingAddReferralDoc.jsp");
 
-        // checkBillingNumber() reads document.AddReferralDocForm and registerFormSubmit finds #addReferralDocform;
-        // with neither the check threw, the form posted unchecked, and Save left the Administration panel.
+        // The billing-number check reads the form by its name, AddReferralDocForm, and the panel's submit binding finds
+        // it by its id, addReferralDocform. Without either, the check threw, the form posted unchecked, and Save left
+        // the Administration panel.
         assertThat(jsp)
                 .contains("document.AddReferralDocForm.referral_no")
                 .contains("<form name=\"AddReferralDocForm\" id=\"addReferralDocform\" action=\"${pageContext.request.contextPath}/billing/CA/BC/AddReferralDoc\" method=\"post\"")

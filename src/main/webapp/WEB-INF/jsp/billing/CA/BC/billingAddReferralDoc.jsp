@@ -156,16 +156,16 @@
             <% } %>
             <fieldset>
                 <legend><%=(doctor == null) ? "Add" : "Update"%> Referral Doctor</legend>
-                Billing #:<input type="text" name="referral_no" id="referral_no" value="<carlos:encode value='<%= doctor == null ? null : doctor.getReferralNo() %>' context="htmlAttribute"/>" /><br>
-                Last Name:<input type="text" name="last_name" id="last_name" value="<carlos:encode value='<%= doctor == null ? null : doctor.getLastName() %>' context="htmlAttribute"/>" /> First Name:<input type="text" name="first_name" id="first_name" value="<carlos:encode value='<%= doctor == null ? null : doctor.getFirstName() %>' context="htmlAttribute"/>" /><br/>
-                Specialty:<input type="text" name="specialty" id="specialty" value="<carlos:encode value='<%= doctor == null ? null : doctor.getSpecialty() %>' context="htmlAttribute"/>" /></br>
-                Address 1:<input type="text" name="address1" id="address1" size="30" value="<carlos:encode value='<%= doctor == null ? null : doctor.getAddress1() %>' context="htmlAttribute"/>" /><br/>
-                Address 2:<input type="text" name="address2" id="address2" size="30" value="<carlos:encode value='<%= doctor == null ? null : doctor.getAddress2() %>' context="htmlAttribute"/>" /><br/>
-                City:<input type="text" name="city" id="city" value="<carlos:encode value='<%= doctor == null ? null : doctor.getCity() %>' context="htmlAttribute"/>" />
-                Province:<input type="text" name="province" id="province" value="<carlos:encode value='<%= doctor == null ? null : doctor.getProvince() %>' context="htmlAttribute"/>" /><br/>
-                Postal:<input type="text" name="postal" id="postal" value="<carlos:encode value='<%= doctor == null ? null : doctor.getPostal() %>' context="htmlAttribute"/>" /><br/>
-                Phone:<input type="text" name="phone" id="phone" value="<carlos:encode value='<%= doctor == null ? null : doctor.getPhone() %>' context="htmlAttribute"/>" />
-                Fax:<input type="text" name="fax" id="fax" value="<carlos:encode value='<%= doctor == null ? null : doctor.getFax() %>' context="htmlAttribute"/>" /><br/>
+                <label for="referral_no">Billing #:</label><input type="text" name="referral_no" id="referral_no" value="<carlos:encode value='<%= doctor == null ? null : doctor.getReferralNo() %>' context="htmlAttribute"/>" /><br>
+                <label for="last_name">Last Name:</label><input type="text" name="last_name" id="last_name" value="<carlos:encode value='<%= doctor == null ? null : doctor.getLastName() %>' context="htmlAttribute"/>" /> <label for="first_name">First Name:</label><input type="text" name="first_name" id="first_name" value="<carlos:encode value='<%= doctor == null ? null : doctor.getFirstName() %>' context="htmlAttribute"/>" /><br/>
+                <label for="specialty">Specialty:</label><input type="text" name="specialty" id="specialty" value="<carlos:encode value='<%= doctor == null ? null : doctor.getSpecialty() %>' context="htmlAttribute"/>" /></br>
+                <label for="address1">Address 1:</label><input type="text" name="address1" id="address1" size="30" value="<carlos:encode value='<%= doctor == null ? null : doctor.getAddress1() %>' context="htmlAttribute"/>" /><br/>
+                <label for="address2">Address 2:</label><input type="text" name="address2" id="address2" size="30" value="<carlos:encode value='<%= doctor == null ? null : doctor.getAddress2() %>' context="htmlAttribute"/>" /><br/>
+                <label for="city">City:</label><input type="text" name="city" id="city" value="<carlos:encode value='<%= doctor == null ? null : doctor.getCity() %>' context="htmlAttribute"/>" />
+                <label for="province">Province:</label><input type="text" name="province" id="province" value="<carlos:encode value='<%= doctor == null ? null : doctor.getProvince() %>' context="htmlAttribute"/>" /><br/>
+                <label for="postal">Postal:</label><input type="text" name="postal" id="postal" value="<carlos:encode value='<%= doctor == null ? null : doctor.getPostal() %>' context="htmlAttribute"/>" /><br/>
+                <label for="phone">Phone:</label><input type="text" name="phone" id="phone" value="<carlos:encode value='<%= doctor == null ? null : doctor.getPhone() %>' context="htmlAttribute"/>" />
+                <label for="fax">Fax:</label><input type="text" name="fax" id="fax" value="<carlos:encode value='<%= doctor == null ? null : doctor.getFax() %>' context="htmlAttribute"/>" /><br/>
                 <input class="btn btn-primary" type="submit" value="Save"/>
             </fieldset>
         </form>
