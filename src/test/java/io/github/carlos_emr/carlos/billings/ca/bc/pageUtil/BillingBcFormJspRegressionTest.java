@@ -117,6 +117,23 @@ class BillingBcFormJspRegressionTest {
     }
 
     /**
+     * "Bill WCB" lists the patient's WCB forms through their gate action: the page fetched the bare
+     * JSP name, which answered 404 once the JSPs moved under WEB-INF. The list is loaded once, since
+     * submitting runs the same function again, and reloading the list then cleared the chosen WCB
+     * form while the diagnosis was still being checked, so Continue was refused.
+     */
+    @Test
+    @DisplayName("should list the patient's WCB forms through their action, once")
+    void shouldListWcbForms_throughTheirActionOnce() throws IOException {
+        assertThat(read(BILLING_BC_JSP)).doesNotContain("\"wcbForms.jsp")
+                .containsSubsequence(
+                        "function toggleWCB() {",
+                        "if (jQuery(\"#wcbForms\").children().length === 0) {",
+                        "callReplacementWebService(\"<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms<%=wcb%>\", 'wcbForms');");
+        assertThat(read(STRUTS_BILLING_XML)).contains("<action name=\"billing/CA/BC/ViewWcbForms\"");
+    }
+
+    /**
      * library/bootstrap-datetimepicker.min.js was removed with the Bootstrap 5 migration (#635) and
      * nothing on the page calls it; once the form rendered again, its include answered 404.
      */

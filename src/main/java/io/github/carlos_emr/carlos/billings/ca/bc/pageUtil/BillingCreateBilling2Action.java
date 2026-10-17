@@ -35,8 +35,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.entities.WCB;
@@ -228,8 +226,10 @@ public class BillingCreateBilling2Action extends ActionSupport {
         if (request.getParameter("WCBid") != null) {
             MiscUtils.getLogger().debug("WCB id is not null {}", LogSafe.sanitize(request.getParameter("WCBid")));
             List<String> errs = null;
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-            BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
+            // By its bean name, as every other caller finds it: the context holds two beans of this
+            // type (the scanned billingmasterDAO and applicationContext.xml's BillingmasterDAO), so a
+            // lookup by type alone failed and every WCB Continue answered HTTP 500.
+            BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
             WCB wcbForm = billingmasterDAO.getWCBForm(request.getParameter("WCBid"));
 
             for (Iterator<BillingItem> iter = billItem.iterator(); iter.hasNext(); ) {

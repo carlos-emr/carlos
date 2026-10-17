@@ -721,7 +721,13 @@
             %>
 
             if (document.BillingCreateBillingForm.xml_billtype.value == "WCB") {
-                callReplacementWebService("wcbForms.jsp<%=wcb%>", 'wcbForms');
+                // The patient's WCB forms, through their gate action: the JSP itself is not public.
+                // Loaded once: submitting runs this again, and a reload then cleared the form the
+                // prescriber had picked while the diagnosis was still being checked, so Continue
+                // was refused with "A WCB Form must be selected."
+                if (jQuery("#wcbForms").children().length === 0) {
+                    callReplacementWebService("<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms<%=wcb%>", 'wcbForms');
+                }
             } else {
                 jQuery("#wcbForms").empty();
             }
