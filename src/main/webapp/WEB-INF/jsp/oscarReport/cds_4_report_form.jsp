@@ -61,9 +61,9 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"
        scope="request"/>
 <link rel="stylesheet" href="${ctx}/library/flatpickr/flatpickr.min.css" type="text/css"/>
-<script src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
-<script src="${ctx}/library/jquery/jquery-compat.js"></script>
-<script src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
+<%-- This panel is loaded into the administration page, which already provides jQuery, jquery-compat,
+     flatpickr and the jQuery Validation plugin. Loading jQuery again here replaced the page's copy and
+     dropped the plugin, so validate() below threw and the functional-centre rule never applied (#4885). --%>
 
 <%
     FunctionalCentreDao functionalCentreDao = (FunctionalCentreDao) SpringUtils.getBean(FunctionalCentreDao.class);
@@ -219,6 +219,9 @@
 <script type="text/javascript">
     $(document).ready(function () {
         $('#cdsForm').validate({
+            // The filter chooser only switches which list is shown; it has no name, is not sent, and the
+            // plugin logs an error for every unnamed field it is asked to check.
+            ignore: ':hidden, #filterCriteriaSelection',
             rules: {
                 functionalCentreId: {
                     required: true
