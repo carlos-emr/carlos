@@ -87,7 +87,7 @@ test('shouldOpenTheCalendarOnTheFirstDayOfThePeriod_withPartialDates', () => {
 });
 
 test('shouldWriteAPickedDayInFull_whenTheCalendarIsPressed', () => {
-  for (const type of ['mousedown', 'touchstart', 'keydown']) {
+  for (const type of ['mousedown', 'touchstart', 'keydown', 'click']) {
     const { options, press } = setUp({ partialDates: true });
     const typed = options.parseDate('2019', options.dateFormat);
     press(type);
@@ -98,7 +98,7 @@ test('shouldWriteAPickedDayInFull_whenTheCalendarIsPressed', () => {
 
 test('shouldListenToTheCalendarOnlyWithPartialDates', () => {
   assert.deepEqual(Object.keys(setUp({}).calendarListeners), []);
-  assert.deepEqual(Object.keys(setUp({ partialDates: true }).calendarListeners).sort(), ['keydown', 'mousedown', 'touchstart']);
+  assert.deepEqual(Object.keys(setUp({ partialDates: true }).calendarListeners).sort(), ['click', 'keydown', 'mousedown', 'touchstart']);
 });
 
 test('shouldNotKeepAnInvalidMonthAsTyped_withPartialDates', () => {

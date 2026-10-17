@@ -201,8 +201,9 @@ Calendar._doSetup = function (params) {
      * on Enter and on a click outside, and writes the date back in full: 2019 became 2019-01-01,
      * and the server then stored a known day instead of a known year. A year, or a year and month,
      * is parsed to the first day of that period so the calendar opens there, and that date is
-     * printed back as the text that was typed. Any press inside the calendar (mouse, touch or key)
-     * forgets the typed text, so a day picked there, even the first of a month, is written in full. */
+     * printed back as the text that was typed. Any press or click inside the calendar (mouse, touch,
+     * key, or a screen reader's activate, which sends only the click) forgets the typed text, so a day
+     * picked there, even the first of a month, is written in full. */
     if (params.partialDates) {
         var typedPartial = null;
         fpOpts.parseDate = function (dateStr, format) {
@@ -279,7 +280,7 @@ Calendar._doSetup = function (params) {
     var fp = flatpickr(target, fpOpts);
     if (inputEl && !params.multiple) inputEl.value = initialValue;
     if (params.partialDates && fp && fp.calendarContainer) {
-        ["mousedown", "touchstart", "keydown"].forEach(function (type) {
+        ["mousedown", "touchstart", "keydown", "click"].forEach(function (type) {
             fp.calendarContainer.addEventListener(type, function () { typedPartial = null; }, true);
         });
     }
