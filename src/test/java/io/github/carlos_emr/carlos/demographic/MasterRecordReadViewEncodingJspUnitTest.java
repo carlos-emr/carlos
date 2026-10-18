@@ -26,14 +26,18 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,6 +71,7 @@ class MasterRecordReadViewEncodingJspUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
+            "demographic.getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request))",
             "StringUtils.trimToEmpty(demographic.getTitle())",
             "StringUtils.trimToEmpty(demographic.getOfficialLanguage())",
             "countryCode.getCountryName()",
@@ -113,6 +118,14 @@ class MasterRecordReadViewEncodingJspUnitTest {
         assertThat(jsp).doesNotContain("<%=" + value + "%>");
         assertThat(occurrences(jsp, "<%= " + value + " %>")).as("printed outside the encode tag")
                 .isEqualTo(occurrences(jsp, "value='<%= " + value + " %>'"));
+    }
+
+    @Test
+    void shouldReturnAnUnknownRosterCodeAsStored_forThePageToEncode() {
+        Demographic demographic = new Demographic();
+        demographic.setRosterStatus("FAKE<b>XX</b>");
+
+        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isEqualTo("FAKE<b>XX</b>");
     }
 
     static Stream<Arguments> safeEncodedValues() {

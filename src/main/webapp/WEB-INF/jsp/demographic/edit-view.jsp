@@ -435,7 +435,7 @@
                                                                 </h3>
                                                                 <ul>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRosterStatus"/>:</span>
-                                                                        <span class="info"><%=demographic.getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request))%></span>
+                                                                        <span class="info"><carlos:encode value='<%= demographic.getRosterStatusDisplay(LocaleUtils.resolveBundleLocale(request)) %>' context="html"/></span>
                                                                     </li>
                                                                     <%if ("RO".equals(demographic.getRosterStatus()) || "TE".equals(demographic.getRosterStatus())) { %>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.DateJoined"/>:</span>
