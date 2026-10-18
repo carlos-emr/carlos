@@ -1588,6 +1588,24 @@
       "timeoutSec": 300
     },
     {
+      "name": "billing-bc-report-center",
+      "script": "scripts/billing-bc-report-center-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "reportprovider"
+      ],
+      "notes": "BC billing report centre (Schedule ▸ Report ▸ Generate a billing report), Billed mode: the Report index link opens the centre, which offers Billed and the test provider; Billed lists exactly the bills SQL selects (BillingDao.search_bill_history_daterange: the provider's bills in the range, not deleted, submitted or settled), each with its patient and status description; each listed bill's account number opens that bill (patient, PHN, total); LAST, a login without report read is refused by the centre and the report. billing-unbilled-report covers the Unbilled mode by typed URL. The OB and Flu modes are not checked: neither page offers them (their radio buttons are inside an HTML comment). On release/2026.08 the refusal step fails until pending finding 453 (#4940) is fixed (the billing package maps no SecurityException, so the refusal is a 500 error page).",
+      "fixtures": "The owned FAKE- patient made a BC patient, and nine bills on it billed to the test provider on one 1990s service day picked per run: one each in billing status O, W, P, N and H (listed, totals 21.00 to 25.00) and B, S and D (not listed), and one O bill on the next day. A report-provider row ('billingreport') for the test provider only when it has none, so the provider appears in the centre's list. That row shows in every user's report-provider lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). An owned role (schedule read, no report read) and a throwaway login for the refusal step. Cleanup deletes the bills, the report-provider row it added, the role and the login, and asserts they are gone."
+    },
+    {
       "name": "flu-billing-report",
       "script": "scripts/flu-billing-report-playwright-checks.js",
       "tiers": [
