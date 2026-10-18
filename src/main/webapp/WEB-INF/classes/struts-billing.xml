@@ -27,6 +27,15 @@
 -->
 <struts>
     <package name="billing" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <!-- A refused request (SecurityException) renders the shared refusal page with HTTP 403 and an incident id, as in
+             the other modules; without this mapping it fell through to the container's error page as HTTP 500. -->
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/quickBillingBC.jsp</result>
             <result name="searchdx">/WEB-INF/jsp/billing/CA/BC/billingDigNewSearch.jsp</result>
@@ -409,6 +418,8 @@
               "operation failed; do not trust the displayed list".
             -->
             <result name="billingDataLoadError">/WEB-INF/jsp/billing/CA/ON/billingFileWriteError.jsp</result>
+            <!-- A refused request renders the shared refusal page (HTTP 403, incident id), as in the other modules. -->
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
         </global-results>
         <global-exception-mappings>
             <exception-mapping result="billingValidationError"
@@ -417,6 +428,7 @@
                 exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException"/>
             <exception-mapping result="billingDataLoadError"
                 exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException"/>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
         </global-exception-mappings>
 
 
