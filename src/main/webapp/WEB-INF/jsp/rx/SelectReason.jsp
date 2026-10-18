@@ -28,6 +28,26 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Rx Indication (drug reason) popup
+
+    Purpose:
+    Files and archives the indications (ICD9 reasons) of one prescribed medication. Opened from the
+    Reason link of a drug in the Rx profile (ListDrugs.jsp, popupRxReasonWindow) through the
+    rx/RxReason action (RxReason2Action), which renders this page and handles its posts.
+
+    Features:
+    - Patient Dx Registry: the patient's diagnoses; a link puts its ICD9 code in the indication box
+      Save validates, and shows the description beside the box (#5000)
+    - Indication search (dxJSONCodeSearch.jsp) with comments and a primary-indication flag
+    - The drug's current indications, each with an Archive form and reason
+
+    Parameters:
+    - demographicNo: the patient (request parameter or the demoNo attribute after a post)
+    - drugId: the medication whose indications are shown and filed
+
+    @since 2026-08-04
+--%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

@@ -5,7 +5,8 @@
 // User path: Schedule ▸ Search ▸ Master Record ▸ Prescriptions ▸ the medication's Hide from CPP
 // checkbox (ListDrugs.jsp ▸ RxHideCpp.save ▸ POST rx/hideCpp method=update).
 //   1. a refused save (the check answers exactly that one POST with 403, so nothing reaches the
-//      server) is reported to the user and the box shows the stored, unchecked state again;
+//      server) is reported to the user, and the box shows the stored, unchecked state again, also
+//      after the profile is re-read from the database;
 //   2. a real save stores hide_cpp=1 and keeps the box checked, with no message;
 //   3. unchecking stores hide_cpp=0 again.
 // A second medication's flag is the control and never changes.
@@ -62,6 +63,9 @@ async function workflow(s) {
       await rx.unroute('**/rx/hideCpp');
     }
     consumeExpectedFailure(s.recorder, mark, { status: 403, path: /\/rx\/hideCpp$/ });
+    // After a failure the profile is re-read from the database, which shows the stored flag.
+    await rx.locator('#drugProfile[aria-busy="false"]').waitFor({ state: 'attached' });
+    await box.waitFor({ state: 'visible' });
     h.assert(!(await box.isChecked()), 'The box claims the refused change');
     h.assert(flag(drug) === '0' && flag(control) === '0', 'A refused save changed a stored flag');
   });

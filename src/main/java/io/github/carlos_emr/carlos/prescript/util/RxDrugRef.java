@@ -118,7 +118,7 @@ public class RxDrugRef {
             return null;
         }
         if (!(answer instanceof Vector)) {
-            throw new Exception("DrugRef: unexpected get_drug_by_DIN answer (" + answer.getClass().getSimpleName() + ")");
+            throw new IllegalStateException("DrugRef: unexpected get_drug_by_DIN answer (" + answer.getClass().getSimpleName() + ")");
         }
         Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) answer;
         if (vec.isEmpty()) {

@@ -1447,6 +1447,10 @@ function renderRxStage() {
              data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
              CarlosAjax.request(url, {method: 'post',parameters:data,
+                 onSuccess: function () {
+                     // A corrected value was accepted: the field is no longer invalid.
+                     el.removeAttribute('aria-invalid');
+                 },
                  onFailure: function (transport) {
                      var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
                      if (error === 'INVALID_RX_DOSE') {

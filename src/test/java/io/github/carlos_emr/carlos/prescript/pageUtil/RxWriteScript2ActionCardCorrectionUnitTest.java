@@ -64,7 +64,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -304,7 +303,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
 
         private String save() {
-            try (MockedConstruction<RxPrescriptionData> data = mockConstruction(RxPrescriptionData.class,
+            try (MockedConstruction<RxPrescriptionData> _ = mockConstruction(RxPrescriptionData.class,
                     (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
                 return action.persistStash(mockLoggedInInfo, bean);
             }

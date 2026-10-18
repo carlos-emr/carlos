@@ -30,7 +30,8 @@ async function readTimeline(page) {
   // or the next navigation aborts it.
   await page.waitForFunction(() => {
     const img = document.querySelector('img[src*="method=ChartMeds"]');
-    return img && img.complete;
+    // complete is also true for a failed image; a drawn chart has a size.
+    return img && img.complete && img.naturalWidth > 0;
   });
   return page.evaluate(() => ({
     checked: [...document.querySelectorAll('input[type="checkbox"][name="drug"]')].filter(box => box.checked).map(box => box.value).sort(),

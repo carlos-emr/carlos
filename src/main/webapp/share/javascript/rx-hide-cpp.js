@@ -21,6 +21,8 @@ var RxHideCpp = (function () {
      * @param {string} options.failureMessage shown when the change was not stored
      * @param {Function} options.fetch window.fetch
      * @param {Function} options.alert window.alert
+     * @param {Function} [options.reload] re-renders the list from the stored flags; called after any
+     *     failure, because a lost or unreadable answer can follow a save that did commit
      * @return {Promise<boolean>} whether the change was stored
      */
     function save(options) {
@@ -51,9 +53,13 @@ var RxHideCpp = (function () {
             checkbox.disabled = false;
             return true;
         }, function () {
+            // The likely stored state until the list is re-read: a refusal (403, 4xx) wrote nothing,
+            // but a network failure or an unreadable answer may follow a save that did commit, so
+            // the list is reloaded from the database rather than trusted to this guess.
             checkbox.checked = !requested;
             checkbox.disabled = false;
             options.alert(options.failureMessage);
+            if (typeof options.reload === 'function') options.reload();
             return false;
         });
     }

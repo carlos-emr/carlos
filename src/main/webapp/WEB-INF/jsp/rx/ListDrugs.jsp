@@ -448,7 +448,9 @@
                             // The page's own fetch with the token it read above, so the CSRF
                             // bootstrap audit still sees this page as an AJAX sender.
                             fetch: function (url, init) { return fetch(url, init); },
-                            alert: function (message) { window.alert(message); }
+                            alert: function (message) { window.alert(message); },
+                            // SearchDrug3.jsp's profile loader re-reads the stored flags.
+                            reload: typeof refreshDrugProfile === 'function' ? refreshDrugProfile : null
                         });
                     });
                 }

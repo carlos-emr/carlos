@@ -11,12 +11,13 @@ function harness(answer, { checked = true } = {}) {
   const checkbox = { checked, disabled: false };
   const requests = [];
   const alerts = [];
+  const reloads = [];
   const saving = RxHideCpp.save({
     checkbox, url: '/carlos/rx/hideCpp', prescriptId: '42', csrfToken: 'synthetic-csrf',
-    failureMessage: 'not saved', alert: message => alerts.push(message),
+    failureMessage: 'not saved', alert: message => alerts.push(message), reload: () => reloads.push(checkbox.checked),
     fetch: (url, options) => { requests.push({ url, options }); return answer(); },
   });
-  return { checkbox, requests, alerts, saving };
+  return { checkbox, requests, alerts, reloads, saving };
 }
 
 const ok = (text = 'ok\n') => async () => ({ ok: true, status: 200, redirected: false, text: async () => text });
@@ -27,6 +28,7 @@ test('a stored change keeps the new state and raises nothing', async () => {
   assert.equal(await s.saving, true);
   assert.deepEqual(s.checkbox, { checked: true, disabled: false });
   assert.deepEqual(s.alerts, []);
+  assert.deepEqual(s.reloads, [], 'a stored change needs no re-read');
   const [request] = s.requests;
   assert.equal(request.url, '/carlos/rx/hideCpp');
   assert.equal(request.options.method, 'POST');
@@ -57,6 +59,8 @@ for (const [name, answer] of Object.entries(failures)) {
       assert.equal(await s.saving, false);
       assert.deepEqual(s.checkbox, { checked: !checked, disabled: false });
       assert.deepEqual(s.alerts, ['not saved']);
+      // A lost or unreadable answer can follow a committed save: the list is re-read from the database.
+      assert.deepEqual(s.reloads, [!checked], 'the list is re-read once, after the box shows the likely stored state');
     });
   }
 }
@@ -64,6 +68,7 @@ for (const [name, answer] of Object.entries(failures)) {
 test('ListDrugs.jsp saves every Hide CPP box through RxHideCpp with a translated message', () => {
   const jsp = fs.readFileSync('src/main/webapp/WEB-INF/jsp/rx/ListDrugs.jsp', 'utf8');
   assert.match(jsp, /RxHideCpp\.save\(\{/);
+  assert.match(jsp, /reload: typeof refreshDrugProfile === 'function' \? refreshDrugProfile : null/);
   assert.match(jsp, /failureMessage: '\$\{carlos:forJavaScript\(msg_hideCppSaveFailed\)\}'/);
   assert.match(jsp, /<fmt:message key="SearchDrug\.msgHideCPPSaveFailed" var="msg_hideCppSaveFailed"\/>/);
   assert.doesNotMatch(jsp, /fetch\('\$\{carlos:forJavaScript\(ctx\)\}\/rx\/hideCpp'/, 'no fire-and-forget fetch remains');

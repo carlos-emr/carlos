@@ -29,7 +29,7 @@ class RxDrugRefDinLookupUnitTest {
     private static final String ENDPOINT = "http://localhost/drugref2/DrugrefService";
 
     private static Object lookup(Object answer) throws Exception {
-        try (MockedConstruction<SimpleXmlRpcClient> clients = mockConstruction(SimpleXmlRpcClient.class,
+        try (MockedConstruction<SimpleXmlRpcClient> _ = mockConstruction(SimpleXmlRpcClient.class,
                 (client, context) -> when(client.execute(eq("get_drug_by_DIN"), any())).thenReturn(answer))) {
             return new RxDrugRef(ENDPOINT).getDrugByDIN("00000000", Boolean.TRUE);
         }
