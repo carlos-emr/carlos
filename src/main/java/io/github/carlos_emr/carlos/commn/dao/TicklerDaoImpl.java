@@ -163,6 +163,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @SuppressWarnings("unchecked")
     @Override
+    public int deleteById(Integer ticklerNo) {
+        Query query = entityManager.createQuery("delete from Tickler t where t.id = ?1");
+        query.setParameter(1, ticklerNo);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<Tickler> findActiveByDemographicNo(Integer demoNo) {
 
         Query query = entityManager.createQuery("select t from Tickler t where t.demographicNo = ?1 and t.status = 'A' order by t.serviceDate desc");

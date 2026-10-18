@@ -91,6 +91,7 @@
     "test:tickler-note-dialog-playwright": "node scripts/tickler-note-dialog-playwright-checks.js",
     "test:tickler-demo-main-playwright": "node scripts/tickler-demo-main-playwright-checks.js",
     "test:tickler-demo-main-status-playwright": "node scripts/tickler-demo-main-status-playwright-checks.js",
+    "test:tickler-main-list-lifecycle-playwright": "node scripts/tickler-main-list-lifecycle-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",

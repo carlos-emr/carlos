@@ -11467,7 +11467,22 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "fixtures": "Owned synthetic patient with three active ticklers due today and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
-      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely is listed but not pressed."
+      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete, Complete and Erase Completely through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely removes only the ticked deleted tickler and keeps its tickler_update history (#4993)."
+    },
+    {
+      "name": "tickler-main-list-lifecycle",
+      "script": "scripts/tickler-main-list-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient with four ticklers carrying the run marker; every tickler, comment, link, attachment and tickler_update row is removed and asserted gone.",
+      "notes": "Provider-wide task list (tickler/ViewTicklerMain) status lifecycle, issue #4993: the footer follows the status filter in place (Deleted offers Erase Completely instead of Complete and Delete, and Active gets them back); a popup edit that reactivates a Completed task refreshes the opener through the carlos_tickler_refresh_all channel without Create Report; Erase Completely removes only the ticked task from Deleted, keeps its tickler_update history and leaves an unticked deleted task alone."
     },
     {
       "name": "admin-login-agreement-upload",

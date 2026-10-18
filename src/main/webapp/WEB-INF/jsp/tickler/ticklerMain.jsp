@@ -486,8 +486,10 @@
                 });
 
                 document.getElementById('ticklerview').addEventListener('change', function () {
+                    syncStatusActions();
                     ticklerResultsTable.ajax.reload();
                 });
+                syncStatusActions();
 
                 jQuery("#formSubmitBtn").off('click').on('click', function(e) {
                     e.preventDefault();
@@ -495,6 +497,18 @@
                 });
 
             });
+
+            /**
+             * Shows the bulk actions that fit the selected status view: Erase Completely for
+             * Deleted, Complete and Delete otherwise. The filter reloads the table without
+             * re-rendering the page, so the footer must follow it.
+             */
+            function syncStatusActions() {
+                var deletedView = document.getElementById('ticklerview').value === 'D';
+                var erase = document.getElementById('eraseButton');
+                if (erase) { erase.hidden = !deletedView; }
+                jQuery('.status-action-live').each(function () { this.hidden = deletedView; });
+            }
 
             /**
              * Opens the tickler edit popup and toggles the row's pencil icon to a
@@ -683,20 +697,25 @@
                     });
             }
 
-            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
+            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows.
+            // The popups post to the patient-scoped channel and to the shared "all" channel. The
+            // provider-wide list (demoview 0) spans every patient, so it listens on "all"; a
+            // patient-scoped list keeps its own channel. Each list listens on exactly one, so a
+            // save reloads it once (#4993).
             var ticklerChannel = null;
-            try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= demographic_no %>' context="javaScript"/>');
-                ticklerChannel.onmessage = function(event) {
-                    var data = event.data;
-                    if (data && (data === 'refresh' || data.action === 'refresh')) {
-                        if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
-                            ticklerResultsTable.ajax.reload(null, false);
-                        } else {
-                            location.reload();
-                        }
+            function onTicklerRefresh(event) {
+                var data = event.data;
+                if (data && (data === 'refresh' || data.action === 'refresh')) {
+                    if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                        ticklerResultsTable.ajax.reload(null, false);
+                    } else {
+                        location.reload();
                     }
-                };
+                }
+            }
+            try {
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= isDemoView ? demographic_no : "all" %>' context="javaScript"/>');
+                ticklerChannel.onmessage = onTicklerRefresh;
                 ticklerChannel.onmessageerror = function(event) {
                     console.error('[ticklerMain] BroadcastChannel message deserialization error:', event);
                 };
@@ -998,24 +1017,21 @@
                                          href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
-                        <%
-                            if (ticklerview.compareTo("D") == 0) {
-                        %>
-                        <input type="button" class="btn btn-secondary"
-                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
+                        <%-- All three bulk-action buttons are always rendered; syncStatusActions() shows
+                             Erase Completely only for the Deleted view and Complete/Delete for the others.
+                             The filter reloads the DataTable in place, so the server cannot choose them (#4993). --%>
+                        <input type="button" class="btn btn-secondary status-action-erase" id="eraseButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>"
+                               <%= ticklerview.compareTo("D") == 0 ? "" : "hidden" %>
                                onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                        <%
-                        } else {
-                        %>
-                        <input type="button" class="btn btn-secondary" value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
-                               class="sbttn"
+                        <input type="button" class="btn btn-secondary status-action-live" id="completeButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                               <%= ticklerview.compareTo("D") == 0 ? "hidden" : "" %>
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
-                        <input type="button" class="btn btn-danger"
-                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
+                        <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
+                               <%= ticklerview.compareTo("D") == 0 ? "hidden" : "" %>
                                onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
-                        <%
-                            }
-                        %>
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">

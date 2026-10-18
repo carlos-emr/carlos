@@ -11,8 +11,9 @@
  * buttons each view offers (Complete and Delete on Active and Completed; Erase Completely, and
  * neither of the others, on Deleted), and that GET and a tokenless POST to DbTicklerDemoMain are
  * refused without writing. Complete from the Active view is also covered by
- * workflow-tickler-suggested-text; Erase Completely is listed but not pressed (what it should do
- * is not settled: it re-marks a deleted tickler deleted).
+ * workflow-tickler-suggested-text. Erase Completely removes only the ticked deleted tickler from
+ * the Deleted queue, keeps its tickler_update history and leaves the unticked deleted tickler alone
+ * (#4993).
  * Fixtures: the synthetic patient from lib/workflow-session.js, three active ticklers due today,
  * and one PDF document (row, ctl_document link and file) so the document viewer offers the list;
  * all removed and verified gone.
@@ -61,10 +62,11 @@ async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const store = documentStore();
   const docFile = path.join(store, `20260101000000${marker}-ticklers.pdf`);
+  const tickler = {};
   const ownedTicklers = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
   s.cleanup(() => {
     sql.execute([
-      `DELETE FROM tickler_update WHERE tickler_no IN (${ownedTicklers})`,
+      `DELETE FROM tickler_update WHERE tickler_no IN (${ownedTicklers}) OR tickler_no=${tickler.first || 0}`,
       `DELETE FROM tickler_comments WHERE tickler_no IN (${ownedTicklers})`,
       `DELETE FROM tickler_link WHERE tickler_no IN (${ownedTicklers})`,
       `DELETE FROM tickler WHERE demographic_no=${patient}`,
@@ -80,15 +82,15 @@ async function workflow(s) {
   });
 
   // Due today, so the document viewer's six-week tickler alert lists them.
-  const tickler = {};
   for (const label of ['first', 'second', 'third']) {
     tickler[label] = sql.value(`INSERT INTO tickler(demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
       VALUES(${patient},${h.sqlString(`${marker} ${label} tickler`)},'A',NOW(),CURDATE(),${h.sqlString(provider)},'Normal',${h.sqlString(provider)});
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(tickler[label]), `The ${label} tickler fixture was not created`);
   }
+  // An erased tickler has no row; it reads as "-".
   const statuses = () => ['first', 'second', 'third']
-    .map(label => sql.value(`SELECT status FROM tickler WHERE tickler_no=${tickler[label]}`)).join('');
+    .map(label => sql.value(`SELECT COALESCE((SELECT status FROM tickler WHERE tickler_no=${tickler[label]}),'-')`)).join('');
   const updates = (label, status) => sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler[label]}
     AND status=${h.sqlString(status)} AND provider_no=${h.sqlString(provider)}`);
 
@@ -194,6 +196,21 @@ async function workflow(s) {
     h.assert(statuses() === 'DDC', `Delete from the Completed view left first/second/third as ${statuses()}`);
   });
 
+  await s.step('Move to ▸ Deleted ▸ Erase Completely removes only the ticked tickler and keeps its history', async () => {
+    await moveTo('D');
+    await lists({ first: true, second: true, third: false });
+    await offers({ complete: false, delete: false, erase: true });
+    const history = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.first}`);
+    await box('first').check();
+    await press('erase');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${tickler.first}`) === '0', 'Erase Completely left the ticked tickler in the database');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.first}`) === history && history !== '0',
+      'Erase Completely did not keep the erased tickler\'s status history');
+    await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${tickler.second}`, 'D', 'Erase Completely changed the unticked deleted tickler');
+    await moveTo('D');
+    await lists({ first: false, second: true, third: false });
+  });
+
   await s.step('GET and a tokenless POST to DbTicklerDemoMain are refused and change nothing', async () => {
     const where = `tickler_no=${tickler.third} AND status='C'`;
     const fields = { checkbox: tickler.third, submit_form: 'Delete', demoview: patient, updateParent: 'true' };
@@ -202,7 +219,7 @@ async function workflow(s) {
       response: await s.context.request.get(route, { params: fields, maxRedirects: 0 }) });
     await h.assertRefused(s, { label: 'POST DbTicklerDemoMain without a CSRF token', table: 'tickler', where, before: '1',
       response: await s.context.request.post(route, { form: fields, maxRedirects: 0 }) });
-    h.assert(statuses() === 'DDC', `A refused request changed a tickler (first/second/third: ${statuses()})`);
+    h.assert(statuses() === '-DC', `A refused request changed a tickler (first/second/third: ${statuses()})`);
   });
 }
 

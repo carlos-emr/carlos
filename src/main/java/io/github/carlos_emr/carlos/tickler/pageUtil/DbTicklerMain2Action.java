@@ -56,7 +56,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>When checkbox values are present the action loops over each selected tickler ID,
  * determines the target {@link Tickler.STATUS} from the first character of
- * {@code submit_form}, delegates to {@link TicklerManager#updateStatus}, and then
+ * {@code submit_form}, delegates to {@link TicklerManager#updateStatus} (or
+ * {@link TicklerManager#eraseTickler} for Erase Completely), and then
  * redirects to {@code ticklerMain.jsp}.
  *
  * <p>Security: requires {@code _tickler} update privilege and POST method.
@@ -117,14 +118,19 @@ public final class DbTicklerMain2Action extends ActionSupport {
             return NONE;
         }
 
-        // Determine the requested status from the first character of submit_form
+        // The first character of submit_form selects the bulk action: Complete, Delete, or
+        // Erase Completely. Erase must not fall through to the Delete status, or the task would
+        // stay in the Deleted queue (#4993).
         String submitForm = request.getParameter("submit_form");
+        boolean erase = false;
         Tickler.STATUS status = Tickler.STATUS.A;
         if (submitForm != null && !submitForm.isEmpty()) {
             char firstChar = submitForm.charAt(0);
             if (firstChar == 'C' || firstChar == 'c') {
                 status = Tickler.STATUS.C;
-            } else if (firstChar == 'D' || firstChar == 'd' || firstChar == 'E' || firstChar == 'e') {
+            } else if (firstChar == 'E' || firstChar == 'e') {
+                erase = true;
+            } else if (firstChar == 'D' || firstChar == 'd') {
                 status = Tickler.STATUS.D;
             }
         }
@@ -134,8 +140,14 @@ public final class DbTicklerMain2Action extends ActionSupport {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
                 if (t != null) {
-                    ticklerManager.updateStatus(loggedInInfo, t.getId(),
-                            loggedInInfo.getLoggedInProviderNo(), status);
+                    if (erase) {
+                        if (!ticklerManager.eraseTickler(loggedInInfo, t.getId())) {
+                            failCount++;
+                        }
+                    } else {
+                        ticklerManager.updateStatus(loggedInInfo, t.getId(),
+                                loggedInInfo.getLoggedInProviderNo(), status);
+                    }
                 }
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);

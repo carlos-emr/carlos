@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerCategoryDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerCommentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
@@ -61,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
 import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.commn.model.TicklerLink;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
@@ -105,6 +107,9 @@ public class TicklerManagerImpl implements TicklerManager {
 
     @Autowired
     private TicklerUpdateDao ticklerUpdateDao;
+
+    @Autowired
+    private TicklerLinkDao ticklerLinkDao;
 
     @Autowired
     private ProviderDao providerDao;
@@ -577,6 +582,36 @@ public class TicklerManagerImpl implements TicklerManager {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
         updateStatus(loggedInInfo, tickler_id, provider, Tickler.STATUS.D);
+    }
+
+    @Override
+    @Transactional
+    public boolean eraseTickler(LoggedInInfo loggedInInfo, Integer ticklerId) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
+
+        Tickler tickler = ticklerId == null ? null : ticklerDao.find(ticklerId);
+        // Only the Deleted queue can be erased; a crafted POST must not erase a live task.
+        if (tickler == null || !Tickler.STATUS.D.equals(tickler.getStatus())) {
+            return false;
+        }
+
+        for (TicklerComment comment : new ArrayList<>(tickler.getComments())) {
+            ticklerCommentDao.remove(comment);
+        }
+        for (TicklerLink link : ticklerLinkDao.getLinkByTickler(ticklerId)) {
+            ticklerLinkDao.remove(link);
+        }
+        for (TicklerDocs attachment : ticklerDocsDao.findByTicklerId(ticklerId)) {
+            ticklerDocsDao.remove(attachment);
+        }
+        // tickler_update rows are deliberately kept: they are the status-change audit history.
+        // A bulk delete, so Hibernate does not null their NOT NULL tickler_no join column.
+        ticklerDao.detach(tickler);
+        ticklerDao.deleteById(ticklerId);
+
+        // --- log action ---
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.eraseTickler", "ticklerId=" + ticklerId);
+        return true;
     }
 
     @Override

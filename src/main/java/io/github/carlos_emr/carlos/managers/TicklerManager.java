@@ -143,6 +143,19 @@ public interface TicklerManager {
 
     public void deleteTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider);
 
+    /**
+     * Erases a task that is already in the Deleted queue, so "Erase Completely" removes it from
+     * that queue instead of re-applying the Deleted status. The task row, its comments, links and
+     * attachments are removed; the {@code tickler_update} status history is kept as the audit
+     * trail, and the erase itself is written to the audit log.
+     *
+     * @param loggedInInfo LoggedInInfo the acting user
+     * @param ticklerId    Integer the task to erase
+     * @return boolean true when the task was erased, false when it does not exist or is not
+     * currently Deleted (an Active or Completed task must be deleted first)
+     */
+    public boolean eraseTickler(LoggedInInfo loggedInInfo, Integer ticklerId);
+
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString);
 

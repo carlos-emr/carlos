@@ -67,6 +67,16 @@ public interface TicklerDao extends AbstractDao<Tickler> {
 
     public List<Tickler> findActiveByDemographicNo(Integer demoNo);
 
+    /**
+     * Deletes one tickler row with a bulk statement. A bulk delete is used because removing the
+     * entity would make Hibernate null the {@code tickler_no} join column on the retained
+     * {@code tickler_update} history rows, which the schema declares NOT NULL.
+     *
+     * @param ticklerNo Integer the tickler to delete
+     * @return int the number of rows deleted (0 or 1)
+     */
+    public int deleteById(Integer ticklerNo);
+
     public List<Tickler> findByTicklerNoDemo(Integer ticklerNo, Integer demoNo);
 
     /**
