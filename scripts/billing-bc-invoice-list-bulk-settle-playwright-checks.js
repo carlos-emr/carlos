@@ -18,7 +18,8 @@
  * "Sends nothing": resubmitting only re-queues a bill; the Teleplan file is made and sent from Administration ▸
  * Billing (ManageTeleplan2Action, the only caller of TeleplanAPI). The step asserts that no batch, Teleplan log line
  * or submission link was written and the Teleplan sequence did not move, that HOME_DIR (the Teleplan output
- * directory, when set) gained no file, and that the browser opened no Teleplan page and wrote to no other host.
+ * directory, which must exist when set; unset, the step says it did not look) gained no file, and that the browser
+ * opened no Teleplan page and wrote to no other host.
  *
  * Fixtures: three MSP bills (billing + billingmaster) for the workflow's own FAKE patient, made a BC patient: two
  * paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and
@@ -134,8 +135,17 @@ async function workflow(s) {
       batches: max('billactivity', 'id'), log: max('log_teleplantx', 'log_no'), links: max('teleplan_submission_link', 'id'),
       sequence: sql.rows(`SELECT id, value FROM property WHERE name=${q('teleplan_sequence')} ORDER BY id`),
     });
+    // HOME_DIR is where the Teleplan file is written (billing-bc-teleplan-file). The proof needs the folder itself, so
+    // a set but missing folder fails here, and an unset one is said plainly rather than passed over.
     const homeDir = process.env.HOME_DIR ? path.resolve(process.env.HOME_DIR) : '';
-    const homeFiles = () => (homeDir && fs.existsSync(homeDir) ? fs.readdirSync(homeDir).sort() : []);
+    if (homeDir) {
+      h.assert(fs.existsSync(homeDir) && fs.statSync(homeDir).isDirectory(),
+        `HOME_DIR (${homeDir}) is not a folder, so the Teleplan output cannot be checked`);
+    } else {
+      console.log('  NOTE billing-bc-invoice-list-bulk-settle: HOME_DIR is not set, so the Teleplan output folder was not '
+        + 'checked; the batch, log line, link and sequence assertions still run');
+    }
+    const homeFiles = () => (homeDir ? fs.readdirSync(homeDir).sort() : []);
     const teleplanBefore = teleplan();
     const homeBefore = homeFiles();
     const before = snapshot();
