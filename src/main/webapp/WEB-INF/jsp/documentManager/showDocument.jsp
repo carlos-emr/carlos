@@ -431,7 +431,9 @@
             }
         }
     %>
-    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="javaScriptAttribute"/>" method="post"
+    <%-- ackFunc is a whole statement whose values are JavaScript-encoded where it is built, so the attribute takes HTML-attribute
+         encoding: JavaScript-string encoding would escape the statement's own quotes and the handler would never run (#3941). --%>
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<carlos:encode value='<%= ackFunc %>' context="htmlAttribute"/>" method="post"
           action="javascript:void(0);">
         <input type="hidden" name="CSRF-TOKEN" value="">
         <input type="hidden" name="segmentID" value="<carlos:encode value='<%= docId %>' context="htmlAttribute"/>">
