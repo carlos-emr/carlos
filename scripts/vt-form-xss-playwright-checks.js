@@ -81,6 +81,20 @@ async function workflow(s) {
         'allergy description', 'drug custom name', 'ongoing concerns', 'smoking comment', 'foot exam comment')],
     });
   });
+  await step('vital-sign controls have visible names and follow the keyboard reading order', async () => {
+    h.assert(await page.locator('form [tabindex]').evaluateAll(elements => elements.every(element => element.tabIndex <= 0)),
+      'Positive tab indices send keyboard users out of the clinical reading order');
+    for (const code of ['BP', 'WC', 'HC', 'HR', 'HT', 'WT']) {
+      const label = page.locator(`#vt-${code}-label`);
+      const input = page.locator(`#vt-${code}-value`);
+      h.assert((await label.textContent()).trim().length > 0, `The ${code} field has no visible name`);
+      h.assert(await label.getAttribute('for') === await input.getAttribute('id'), `The ${code} label lost its field`);
+      await input.focus();
+      await page.keyboard.press('Tab');
+      h.assert(await page.locator(`#vt-${code}-comments`).evaluate(element => element === document.activeElement),
+        `Tab skipped the ${code} comment field`);
+    }
+  });
   await step('the page printed none of the stored markup as elements', async () => {
     h.assert(await page.locator('[data-xp]').count() === 0, 'Stored markup became an element on the Vascular Tracker form');
     f.assertNone('Vascular Tracker form');

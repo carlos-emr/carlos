@@ -15,14 +15,17 @@
  * (rendered as text); viewing never changes appointment status; the role update lands in
  * secUserRole for that provider only and moves it into the PHCP Nurse list; PHCP Dx and
  * service-code rows count only non-deleted bills per patient/visit, sex and age band. The last
- * three steps assert correct behaviour the application currently lacks (GET role mutation,
- * ignored Non Rostered Only filter, sort links dropping the time window).
+ * steps cover GET role refusal, Non Rostered Only across provider/group/all views, and sort
+ * links retaining the time window and roster filter, including ordinary and empty statuses.
  * Fixtures: the runWorkflow FAKE- patient, two FAKE- providers (one with an 'other' secUserRole
  * row), one mygroup row, five appointments today and three legacy billing/billingdetail rows, all
  * marker/id scoped and removed (and re-checked) in cleanup. No demo row is changed.
  */
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
+const { sessionToken } = require('./lib/mutation-replay');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -75,6 +78,9 @@ async function submitInFrame(admin, frame, button) {
 }
 
 async function workflow(s) {
+  const roleFixture = authzReadFixture({ sql: s.sql, marker: s.marker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => roleFixture.cleanup());
+
   const { sql, marker, patient, provider } = s;
   const q = h.sqlString;
   const today = sql.value('SELECT CURDATE()');
@@ -217,6 +223,23 @@ async function workflow(s) {
     h.assert(roleRows() === otherRolesBefore, 'Updating one provider changed the test login\'s roles');
   });
 
+  await s.step('a report reader cannot change a provider role with a valid CSRF token', async () => {
+    const role = roleFixture.addRole({ _appointment: 'w', _report: 'r', '_admin.reporting': 'r' });
+    const restricted = await signIn(s, roleFixture.addLogin(role));
+    try {
+      const token = await sessionToken(restricted.page, s.config.baseUrl);
+      const response = await restricted.context.request.post(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'), {
+        form: { buttonUpdate: 'Update', providerId: nurse, [`name${nurse}`]: 'doctor', 'CSRF-TOKEN': token }, maxRedirects: 0,
+      });
+      h.assert(response.status() === 403 && Object.hasOwn(response.headers(), 'x-permitted-cross-domain-policies'),
+        'The report reader was not refused by the application');
+      h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
+        'A report reader changed the stored role');
+    } finally {
+      await restricted.context.close();
+    }
+  });
+
   let phcp;
   await s.step('PHCP Go without a code and dates raises the selection alert and submits nothing', async () => {
     phcp = await openAdminFrame(admin, '/report/ViewReportonbilledphcp', 'form[name="myform"]');
@@ -351,19 +374,62 @@ async function workflow(s) {
     await sheet.close();
   });
 
-  // ── Correct behaviour the application does not have yet (asserted last) ────────────────────
+  // ── Mutation refusal and the remaining report filter checks ────────────────────
   await s.step('a GET carrying the PHCP role-update parameters does not change secUserRole', async () => {
     const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/report/ViewReportonbilledvisitprovider'
       + `?buttonUpdate=Update&providerId=${nurse}&name${nurse}=doctor`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `Role-update GET answered HTTP ${response.status()}`);
     await response.dispose();
     h.assert(sql.value(`SELECT GROUP_CONCAT(role_name) FROM secUserRole WHERE provider_no=${q(nurse)}`) === 'nurse',
       'A tokenless GET changed a security role (report/ViewReportonbilledvisitprovider mutates on GET)');
   });
   await s.step('Non Rostered Only leaves the rostered patient off the day sheet', async () => {
-    const sheet = await daySheet('day sheet non-rostered', { providerNo: provider, nonRostered: true });
-    const found = await listed(sheet);
-    await sheet.close();
-    h.assert(found.length === 0, `Non Rostered Only still listed the rostered patient's appointments [${found}]`);
+    for (const providerNo of [provider, `_grp_${state.group}`, '*']) {
+      const sheet = await daySheet('day sheet non-rostered', { providerNo, nonRostered: true });
+      const found = await listed(sheet);
+      await sheet.close();
+      h.assert(found.length === 0, `Non Rostered Only (${providerNo}) still listed the rostered patient's appointments [${found}]`);
+    }
+  });
+  await s.step('Non Rostered Only keeps non-rostered, terminated and unspecified patients', async () => {
+    try {
+      for (const status of ['NR', 'TE', '', null]) {
+        sql.execute(`UPDATE demographic SET roster_status=${status === null ? 'NULL' : q(status)} WHERE demographic_no=${patient}`);
+        const sheet = await daySheet('day sheet non-rostered positive', { providerNo: provider, nonRostered: true });
+        const found = await listed(sheet);
+        await sheet.close();
+        h.assert(same(found, ['visit', 'self']), `Non Rostered Only lost status ${status}: [${found}]`);
+      }
+    } finally {
+      sql.execute(`UPDATE demographic SET roster_status='RO' WHERE demographic_no=${patient}`);
+    }
+    h.assert(apptSnapshot() === apptsBefore, 'Roster filtering changed appointment status');
+  });
+  await s.step('sorting keeps the Non Rostered filter and time window', async () => {
+    let sheet = null;
+    try {
+      sql.execute(`UPDATE demographic SET roster_status='NR' WHERE demographic_no=${patient}`);
+      sheet = await daySheet('day sheet non-rostered sort', { providerNo: provider, nonRostered: true });
+      const labels = await sheet.locator('thead a').allTextContents();
+      for (const label of labels) {
+        await Promise.all([sheet.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+          sheet.getByRole('link', { name: label.trim(), exact: true }).first().click()]);
+        const query = new URL(sheet.url()).searchParams;
+        h.assert(query.get('rosteredStatus') === 'true' && query.get('sTime') === '8' && query.get('eTime') === '20',
+          `Sorting ${label} lost the selected filters`);
+        h.assert(query.get('provider_no') === provider && query.get('sdate') === today && query.get('edate') === today,
+          `Sorting ${label} lost the provider or date range`);
+        h.assert(same(await listed(sheet), ['visit', 'self']), `Sorting ${label} changed the selected appointments`);
+      }
+      // Keep the sorted URL but change the owned patient's status: the filter must still apply.
+      sql.execute(`UPDATE demographic SET roster_status='RO' WHERE demographic_no=${patient}`);
+      await sheet.reload({ waitUntil: 'domcontentloaded' });
+      h.assert((await listed(sheet)).length === 0, 'A sorted Non Rostered sheet included the now-rostered patient');
+    } finally {
+      sql.execute(`UPDATE demographic SET roster_status='RO' WHERE demographic_no=${patient}`);
+      // Close the popup whether or not an assertion failed, so a failure does not leave it open.
+      if (sheet && !sheet.isClosed()) await sheet.close().catch(() => {});
+    }
   });
   await s.step('sorting a time-windowed day sheet keeps its time window', async () => {
     const sheet = await daySheet('day sheet sort', { providerNo: provider });
@@ -372,6 +438,15 @@ async function workflow(s) {
     const found = await listed(sheet);
     await sheet.close();
     h.assert(same(found, ['visit', 'self']), `Sorting dropped the 8 am-8 pm window and listed [${found}]`);
+  });
+  await s.step('an unknown sort key falls back safely and keeps the selected appointments', async () => {
+    const sheet = await daySheet('day sheet unknown sort', { providerNo: provider });
+    const url = new URL(sheet.url());
+    url.searchParams.set('orderby', 'unknown_column');
+    const response = await sheet.goto(url.href, { waitUntil: 'domcontentloaded' });
+    h.assert(response.status() === 200, `Unknown sort key answered HTTP ${response.status()}`);
+    h.assert(same(await listed(sheet), ['visit', 'self']), 'An unknown sort key changed the selected appointments');
+    await sheet.close();
   });
 }
 

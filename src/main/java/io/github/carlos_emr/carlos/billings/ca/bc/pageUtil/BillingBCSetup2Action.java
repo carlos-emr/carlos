@@ -152,7 +152,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
                         loggedInInfo, demoNo, loggedInInfo.getLoggedInProviderNo());
 
                 for (DSConsequence dscon : list) {
-                    _log.debug("DSTEXT " + dscon.getText());
+                    _log.debug("DSTEXT {}", LogSafe.sanitize(dscon.getText()));
                     addActionError(getText("message.custom", new String[]{dscon.getText()}));
                 }
             } catch (Exception e) {

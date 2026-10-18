@@ -99,7 +99,15 @@ public class DemographicEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /** A container service is not action state; reacquire it if the action was deserialized. */
+    private SecurityInfoManager securityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -111,7 +119,7 @@ public class DemographicEdit2Action extends ActionSupport {
             throw new SecurityException("missing required session");
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             logger.warn("DemographicEdit2Action: provider {} lacks _demographic read privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
@@ -137,7 +145,7 @@ public class DemographicEdit2Action extends ActionSupport {
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         demographic_no = trimmedDemographicNo;

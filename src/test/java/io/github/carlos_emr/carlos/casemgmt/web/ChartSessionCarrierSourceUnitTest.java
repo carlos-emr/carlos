@@ -31,6 +31,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -102,7 +105,6 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             // download names its message.
             Pattern.compile(SESSION_ACCESS + "PDFAttachment\""),
             Pattern.compile(SESSION_RECEIVER + "\\.setAttribute\\(\\s*\"(viewMessage[A-Za-z]*|attachedDemographics)\""),
-            Pattern.compile("scope=\"session\"[^>]*var=\"bean\"|var=\"bean\"[^>]*scope=\"session\""),
             // The BC bill being built: one per window under its own key (BcBillStaging), handed to
             // the pages as a request attribute; findAttribute would fall back to the session.
             Pattern.compile(SESSION_ACCESS + "billingSessionBean\""),
@@ -114,10 +116,6 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
             // The same names through EL's session scope, JSTL or a page-context session write.
             Pattern.compile("sessionScope\\." + REPLACED_NAMES + "\\b"),
             Pattern.compile("sessionScope\\[\\s*['\"]" + REPLACED_NAMES + "['\"]\\s*\\]"),
-            Pattern.compile("<c:set\\b[^>]*\\bscope\\s*=\\s*['\"]session['\"][^>]*\\bvar\\s*=\\s*['\"]"
-                    + REPLACED_NAMES + "['\"]"),
-            Pattern.compile("<c:set\\b[^>]*\\bvar\\s*=\\s*['\"]" + REPLACED_NAMES
-                    + "['\"][^>]*\\bscope\\s*=\\s*['\"]session['\"]"),
             Pattern.compile("setAttribute\\(\\s*\"" + REPLACED_NAMES + "\"[^;]*SESSION_SCOPE"));
 
     /**
@@ -134,6 +132,9 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         List<String> offenders = new ArrayList<>();
         for (Path source : sources()) {
             String code = withoutComments(read(source), source.toString().endsWith(".java"));
+            if (hasForbiddenSessionTag(code)) {
+                offenders.add(ROOT.relativize(source) + " writes a login-wide session tag");
+            }
             for (Pattern pattern : FORBIDDEN) {
                 if (pattern.matcher(code).find()) {
                     offenders.add(ROOT.relativize(source) + " matches " + pattern.pattern());
@@ -189,8 +190,8 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
         // Read through bare EL, it offered to take a patient on no waiting list off that list.
         String jsp = withoutComments(read(ROOT.resolve(
                 "src/main/webapp/WEB-INF/jsp/appointment/appointmentaddarecord.jsp")), false);
-        assertThat(jsp).contains("${not empty requestScope.waitingListName}")
-                .doesNotContainPattern(Pattern.compile("\\$\\{[^}]*(?<![\\w.])waitingList(Name|Id|DemographicNo)\\b"));
+        assertThat(jsp).contains("${not empty requestScope.waitingListName}");
+        assertThat(hasUnscopedWaitingListExpression(jsp)).isFalse();
     }
 
     @Test
@@ -203,6 +204,60 @@ class ChartSessionCarrierSourceUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("casemgmtLabsbeans")
                 .doesNotContain("casemgmt_labsbeans")
                 .doesNotContain("${labrst");
+    }
+
+    /** Parse tag attributes once, including quoted > characters and either attribute order. */
+    private static boolean hasForbiddenSessionTag(String code) {
+        if (!code.contains("session")) {
+            return false;
+        }
+        Pattern replacedName = Pattern.compile(REPLACED_NAMES);
+        for (Element element : Jsoup.parse(code, "", Parser.xmlParser()).getAllElements()) {
+            if ("session".equals(element.attr("scope"))
+                    && ("bean".equals(element.attr("var"))
+                    || ("c:set".equals(element.tagName())
+                    && replacedName.matcher(element.attr("var")).matches()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasUnscopedWaitingListExpression(String code) {
+        Pattern bareName = Pattern.compile("(?<![\\w.])waitingList(Name|Id|DemographicNo)\\b");
+        int cursor = 0;
+        int open;
+        while ((open = code.indexOf("${", cursor)) >= 0) {
+            int close = code.indexOf('}', open + 2);
+            if (close < 0) {
+                return false;
+            }
+            if (bareName.matcher(code).region(open + 2, close).find()) {
+                return true;
+            }
+            cursor = close + 1;
+        }
+        return false;
+    }
+
+    @Test
+    void shouldDetectSessionTags_withEitherAttributeOrderAndQuotedDelimiters() {
+        assertThat(hasForbiddenSessionTag("<c:set scope='session' value='a>b' var='demographicNo'/>")).isTrue();
+        assertThat(hasForbiddenSessionTag("<c:set var='noteId' scope='session'/>")).isTrue();
+        assertThat(hasForbiddenSessionTag("<c:set var='bean' scope='session'/>")).isTrue();
+        assertThat(hasForbiddenSessionTag("<script><c:set scope='session' var='noteId'/></script>")).isTrue();
+        assertThat(hasForbiddenSessionTag("<c:set var='noteId' scope='request'/>")).isFalse();
+        assertThat(hasForbiddenSessionTag("<c:set var='unrelatedPreference' scope='session'/>")).isFalse();
+        assertThat(hasForbiddenSessionTag("<c:set " + "x ".repeat(100_000))).isFalse();
+    }
+
+    @Test
+    void shouldDetectBareWaitingListNames_insideBoundedExpressions() {
+        assertThat(hasUnscopedWaitingListExpression("${not empty waitingListName}")).isTrue();
+        assertThat(hasUnscopedWaitingListExpression("${waitingListId}")).isTrue();
+        assertThat(hasUnscopedWaitingListExpression("${requestScope.waitingListDemographicNo}")).isFalse();
+        assertThat(hasUnscopedWaitingListExpression("${not empty requestScope.waitingListName}")).isFalse();
+        assertThat(hasUnscopedWaitingListExpression("${".repeat(100_000))).isFalse();
     }
 
     private static List<Path> sources() {

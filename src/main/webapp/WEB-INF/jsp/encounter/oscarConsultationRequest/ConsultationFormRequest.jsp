@@ -3514,7 +3514,7 @@ if (userAgent != null) {
             if("${empty pageScope.consultUtil.letterheadName}" === "true") {
                 // New consultation - set default letterhead
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
-                    switchProvider("${pageScope.providerDefault}");
+                    switchProvider("${carlos:forJavaScriptBlock(pageScope.providerDefault)}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
                     switchProvider("<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>");
                 } else {
@@ -3522,7 +3522,7 @@ if (userAgent != null) {
                 }
             } else {
                 // Existing consultation - load saved letterhead
-                switchProvider("${pageScope.consultUtil.letterheadName}");
+                switchProvider("${carlos:forJavaScriptBlock(pageScope.consultUtil.letterheadName)}");
             }
         })
     </script>
