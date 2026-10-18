@@ -71,6 +71,13 @@ class ServiceCodeAssocEditorPageUnitTest {
     }
 
     @Test
+    void shouldLabelTheServiceCodeAndDiagnosisBoxes_byTheirIds() throws IOException {
+        assertThat(page())
+                .contains("<label for=\"xml_other1\">").contains("name=\"xml_other1\" id=\"xml_other1\"")
+                .contains("<label for=\"xml_diagnostic_detail1\">").contains("name=\"xml_diagnostic_detail1\" id=\"xml_diagnostic_detail1\"");
+    }
+
+    @Test
     void shouldReadTheAssociation_fromTheRequest() throws IOException {
         assertThat(page()).contains("(ServiceCodeAssociation) request.getAttribute(\"serviceCodeAssociation\")");
     }

@@ -57,6 +57,9 @@
         </script>
         <link rel="stylesheet"
               href="<%= request.getContextPath() %>/oscarBilling/CA/billing/billing.css" type="text/css">
+        <style>
+            .assocField { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: x-small; }
+        </style>
     </head>
     <%
         String mode = request.getAttribute("mode") != null ? (String) request.getAttribute("mode") : "";
@@ -96,27 +99,25 @@
                 </td>
             </tr>
             <tr bgcolor="CCCCFF">
-                <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step1"/></strong></td>
+                <td><strong><label for="xml_other1"><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step1"/></label></strong></td>
             </tr>
             <tr>
-                <td width="78%"><font
-                        face="Verdana, Arial, Helvetica, sans-serif" size="1"><%
+                <td width="78%"><span class="assocField"><%
                     boolean state = mode.equals("edit") ? true : false;
                 %> <%-- Read-only only while editing: the save replaces that service code's diagnoses. --%>
-                <input type="text" name="xml_other1" size="40" value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" <%= state ? "readonly" : "" %>/> <a href="javascript:OtherScriptAttach()">
-                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0"> </a> </font></td>
+                <input type="text" name="xml_other1" id="xml_other1" size="40" value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" <%= state ? "readonly" : "" %>/> <a href="javascript:OtherScriptAttach()">
+                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0"> </a> </span></td>
             </tr>
             <tr bgcolor="CCCCFF">
                 <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>
             </tr>
             <tr>
-                <td><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
-                    <fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.dxcode"/>
-                    <input type="text" name="xml_diagnostic_detail1" size="25" value="<carlos:encode value='<%= dx[0] %>' context="htmlAttribute"/>"/> </font> <font
-                        face="Verdana, Arial, Helvetica, sans-serif" size="1"> <a
+                <td><span class="assocField">
+                    <label for="xml_diagnostic_detail1"><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.dxcode"/></label>
+                    <input type="text" name="xml_diagnostic_detail1" id="xml_diagnostic_detail1" size="25" value="<carlos:encode value='<%= dx[0] %>' context="htmlAttribute"/>"/> </span> <span
+                        class="assocField"> <a
                         href="javascript:ScriptAttach()"> <img
-                        src="<%= request.getContextPath() %>/images/search_dx_code.jpg" border="0"> </a> </font> <font
-                        face="Verdana, Arial, Helvetica, sans-serif" size="1">&nbsp;</font>
+                        src="<%= request.getContextPath() %>/images/search_dx_code.jpg" border="0"> </a> </span>
                 </td>
             </tr>
             <!--This is really quite redundant but its code copied from bcBilling.jsp
