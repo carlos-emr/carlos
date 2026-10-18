@@ -119,7 +119,7 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
-    void shouldRaiseNoTetanusReminder_whenNoTetanusVaccineWasEverGiven() {
+    void shouldRaiseNeitherTdReminder_whenNoTetanusVaccineWasEverGiven() {
         assertThat(fireRules(adultWith()).getWarnings()).doesNotContain(REPEAT_TD, NEEDS_TD);
     }
 }
