@@ -554,6 +554,21 @@
       "env": []
     },
     {
+      "name": "consultation-overdue-tickler",
+      "script": "scripts/consultation-overdue-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Three owned FAKE-PW patients, one consultation service, two specialists and five Nothing Done referrals; the one task the Save step writes (with its tickler_update/comments/link rows). All are removed by the run's marker and the owned patients, and asserted gone.",
+      "notes": "Issue #4999: the overdue Add ticklers control must open the standard Add Tickler form with its patient and the suggested message; dismissing the confirmation or pressing Back writes nothing, Save writes exactly one task."
+    },
+    {
       "name": "consultation-nullable-fields",
       "script": "scripts/consultation-nullable-fields-playwright-checks.js",
       "tiers": [

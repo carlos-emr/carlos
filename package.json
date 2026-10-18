@@ -192,6 +192,7 @@
     "test:measurement-validation-playwright": "node scripts/measurement-validation-playwright-checks.js",
     "test:application-health-playwright": "node scripts/application-health-playwright-checks.js",
     "test:consultation-list-filters-playwright": "node scripts/consultation-list-filters-playwright-checks.js",
+    "test:consultation-overdue-tickler-playwright": "node scripts/consultation-overdue-tickler-playwright-checks.js",
     "test:consultation-nullable-fields-playwright": "node scripts/consultation-nullable-fields-playwright-checks.js",
     "test:demographic-add-playwright": "node scripts/demographic-add-playwright-checks.js",
     "test:demo-data-integrity-playwright": "node scripts/demo-data-integrity-playwright-checks.js",
