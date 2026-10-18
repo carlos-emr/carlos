@@ -82,6 +82,9 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
         holder.setPageName("addappointment");
         holder.setPageId("999998|2026-10-19|10:05|10:20");
         holder.setSession("another-session");
+        holder.setRemoteAddr("10.0.0.9");
+        holder.setProviderNo("999997");
+        holder.setProviderName("Holder, Pat");
         holder.setLocked(true);
         when(dao.findByPageName("addappointment")).thenReturn(List.of(holder));
         addRequestParameter("method", "update");
@@ -90,7 +93,12 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
         executeAction(new PageMonitoring2Action());
 
         // The overlapping holder is reported so the page can show "Viewers: N (locked)" and hide Add.
-        assertThat(mockResponse.getContentAsString()).contains("\"locked\":true");
+        String body = mockResponse.getContentAsString();
+        assertThat(body).contains("\"locked\":true").contains("\"providerName\":\"Holder, Pat\"").contains("\"self\":false");
+        // The response goes to every booker: another user's session id (a bearer credential) and
+        // address must never be echoed back, only what the page renders.
+        assertThat(body).doesNotContain("another-session").doesNotContain("\"session\"")
+                .doesNotContain("10.0.0.9").doesNotContain("remoteAddr").doesNotContain("999997");
         ArgumentCaptor<PageMonitor> persisted = ArgumentCaptor.forClass(PageMonitor.class);
         verify(dao).persist(persisted.capture());
         assertThat(persisted.getValue().isLocked()).isFalse();

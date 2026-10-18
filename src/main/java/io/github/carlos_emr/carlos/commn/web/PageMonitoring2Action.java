@@ -75,6 +75,10 @@ public class PageMonitoring2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** The only per-viewer fields the Add Appointment lock notice uses. */
+    private record MonitorView(boolean locked, boolean self, String providerName) {
+    }
+
     public String execute() throws Exception{
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         // Same right as the Add Appointment page that drives this endpoint; see the class Javadoc.
@@ -194,7 +198,14 @@ public class PageMonitoring2Action extends ActionSupport {
 
         } //end of synchronized block
 
-        ArrayNode jsonArray = objectMapper.valueToTree(otherMonitors);
+        // Every booker now reaches this endpoint, so reply with only what addappointment.jsp renders.
+        // Serializing PageMonitor itself would hand each caller the other viewers' HTTP session ids
+        // (a bearer credential), remote addresses and provider numbers.
+        List<MonitorView> views = new ArrayList<MonitorView>();
+        for (PageMonitor pm : otherMonitors) {
+            views.add(new MonitorView(pm.isLocked(), pm.isSelf(), pm.getProviderName()));
+        }
+        ArrayNode jsonArray = objectMapper.valueToTree(views);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonArray);
