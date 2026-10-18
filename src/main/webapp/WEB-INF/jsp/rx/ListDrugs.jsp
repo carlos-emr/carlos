@@ -445,7 +445,9 @@
                             prescriptId: '<%=prescriptIdInt%>',
                             csrfToken: csrfEl ? csrfEl.value : '',
                             failureMessage: '${carlos:forJavaScript(msg_hideCppSaveFailed)}',
-                            fetch: window.fetch.bind(window),
+                            // The page's own fetch with the token it read above, so the CSRF
+                            // bootstrap audit still sees this page as an AJAX sender.
+                            fetch: function (url, init) { return fetch(url, init); },
                             alert: function (message) { window.alert(message); }
                         });
                     });

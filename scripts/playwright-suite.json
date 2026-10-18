@@ -8481,9 +8481,12 @@
         "all"
       ],
       "timeoutSec": 180,
-      "env": [],
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
       "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host.",
-      "notes": "Covers #4554 in its last step: Info for a DIN this DrugRef does not know lists name-search results, searching the name part of the saved description (the words before its strength) when the whole description finds nothing. The earlier off-host redirect from rx/drugInfo (RxDrugInfo2Action; same defect as L82/L184) is fixed."
+      "notes": "Covers #4554 in its last step: Info for a DIN this DrugRef does not know lists name-search results, searching the name part of the saved description (the words before its strength) when the whole description finds nothing. The earlier off-host redirect from rx/drugInfo (RxDrugInfo2Action; same defect as L82/L184) is fixed. Its log step (#5006) reads the server log for the unknown-DIN lookup and fails on a DrugRef NoResultException; it is skipped when neither LAB_UPLOAD_JOURNAL_UNIT nor LAB_UPLOAD_SERVER_LOG is set."
     },
     {
       "name": "gap-encounter-rx-quantity-price",
@@ -12386,6 +12389,96 @@
       "env": [],
       "fixtures": "The owned FAKE- patient only. Staging is session-only; cleanup removes the patient's drugs and prescriptions by key in case a regression saved one, and asserts none remain. No clinic-wide state is changed.",
       "notes": "The Rx page's drug search box from the keyboard (SearchDrug3.jsp, jQuery UI autocomplete). Steps: typing a product name lists its products, and Enter with nothing highlighted picks nothing and submits nothing; ArrowDown highlights the first row without filling the box, and Enter stages it (one rx/WriteScript createNewRx naming that row's drug id and name, one new card); ArrowDown twice then Enter stages the second row; Escape closes the list and Enter then picks nothing; staging wrote no drugs row; LAST, a search with no match offers no row that can be picked. Optional RX_SEARCH_TERM (default LIPITOR) must list two or more DrugRef products; needs carlos-emr-drugref. The last step pins the fix for DrugRef's \"None found\" row (id 0): with no match, ArrowDown and Enter stage nothing, add no card and show no notice."
+    },
+    {
+      "name": "rx-favourite-card-handoff",
+      "script": "scripts/rx-favourite-card-handoff-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; Two marker-named favourites of the test provider (custom drugs, multiline and single-line directions, PRN, No Subs) and the drugs Save Only stores from them. Cleanup removes the favourites and the patient's drugs, prescriptions, drugReason and DigitalSignature rows.",
+      "notes": "#4996: choosing a favourite keeps its multiline directions and PRN flag on the card and in the saved drug."
+    },
+    {
+      "name": "rx-indication-patient-registry",
+      "script": "scripts/rx-indication-patient-registry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; One active 401 dxresearch row and two marker-named custom drug rows inserted directly. Cleanup removes the patient's drugReason, dxresearch, drugs and prescription rows.",
+      "notes": "#5000: a Patient Dx Registry link files its ICD9 code as the drug's indication."
+    },
+    {
+      "name": "rx-cpp-visibility-save-refusal",
+      "script": "scripts/rx-cpp-visibility-save-refusal-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; Two marker-named custom drug rows inserted directly; one Hide CPP POST is answered 403 by the browser (never reaches the server). Cleanup removes the patient's drugs and prescription rows.",
+      "notes": "#5001: a refused Hide CPP save is reported and the box shows the stored state."
+    },
+    {
+      "name": "rx-card-input-validation",
+      "script": "scripts/rx-card-input-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; Two marker-named custom drug rows inserted directly (one with a pick-up date/time) plus the cards the check stages and saves. Cleanup removes the patient's drugs, prescriptions, drugReason, partial_date and DigitalSignature rows.",
+      "notes": "#5002 (cleared pick-up fields on a renewal) and #5003 (impossible written date, non-numeric inline Min/Max)."
+    },
+    {
+      "name": "rx-timeline-clear-selection",
+      "script": "scripts/rx-timeline-clear-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; Two catalogue drug rows with marker-derived 98/99 DINs and one custom drug row, inserted directly. Cleanup removes the patient's drugs and prescription rows.",
+      "notes": "#5004: clearing every box on the medication timeline graphs nothing."
+    },
+    {
+      "name": "rx-preview-return-edit",
+      "script": "scripts/rx-preview-return-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; One marker-named control drug row inserted directly plus the cards the check saves through Save And Print and Save Only. Cleanup removes the patient's drugs, prescriptions, drugReason, partial_date and DigitalSignature rows.",
+      "notes": "#5005: correcting a card after dismissing its Save And Print preview (X and Escape) leaves one active medication."
     }
   ]
 }

@@ -1655,14 +1655,14 @@ function renderRxStage() {
         // calculateRxData while CarlosAjax inserts it, before onComplete, so the flag must be set
         // before the request: set afterwards, the directions were re-parsed into the card and a
         // saved PRN flag was cleared because the directions text does not say "prn" (#4996).
-        // prescribe.jsp clears the flag again once the cards are rendered.
+        // The cards' scripts have all run by onComplete, so the flag is cleared there whatever the
+        // answer, and a later staged drug parses its directions as usual.
         skipParseInstr = true;
         CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onComplete: function(transport) {
+                skipParseInstr = false;
                 if (transport.status >= 200 && transport.status < 300) {
                     renderRxStage();
-                } else {
-                    skipParseInstr = false;
                 }
             },
             onFailure: reportRefusedRequest

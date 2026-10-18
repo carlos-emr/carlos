@@ -703,7 +703,13 @@
     "test:rx-custom-note-playwright": "node scripts/rx-custom-note-playwright-checks.js",
     "test:rx-profile-reorder-playwright": "node scripts/rx-profile-reorder-playwright-checks.js",
     "test:rx-rerx-cancel-playwright": "node scripts/rx-rerx-cancel-playwright-checks.js",
-    "test:rx-search-keyboard-playwright": "node scripts/rx-search-keyboard-playwright-checks.js"
+    "test:rx-search-keyboard-playwright": "node scripts/rx-search-keyboard-playwright-checks.js",
+    "test:rx-favourite-card-handoff-playwright": "node scripts/rx-favourite-card-handoff-playwright-checks.js",
+    "test:rx-indication-patient-registry-playwright": "node scripts/rx-indication-patient-registry-playwright-checks.js",
+    "test:rx-cpp-visibility-save-refusal-playwright": "node scripts/rx-cpp-visibility-save-refusal-playwright-checks.js",
+    "test:rx-card-input-validation-playwright": "node scripts/rx-card-input-validation-playwright-checks.js",
+    "test:rx-timeline-clear-selection-playwright": "node scripts/rx-timeline-clear-selection-playwright-checks.js",
+    "test:rx-preview-return-edit-playwright": "node scripts/rx-preview-return-edit-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
