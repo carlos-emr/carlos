@@ -101,16 +101,15 @@ async function workflow(s) {
       history.locator('#smsHistoryPaging a[href*="page=1"]').click()]);
   });
 
-  /** The page's own form for one message, posted with fetch over the page's session; returns status and text. */
-  const replay = (fields) => history.evaluate(async ({ action, fields }) => {
-    const form = document.querySelector('#smsHistoryTable form');
-    const body = new URLSearchParams();
-    for (const [key, value] of Object.entries(fields)) body.set(key, value);
-    const token = form.querySelector('input[name="CSRF-TOKEN"]');
-    if (token) body.set('CSRF-TOKEN', token.value);
-    const response = await fetch(action, { method: 'POST', body, credentials: 'same-origin' });
-    return { status: response.status, text: await response.text() };
-  }, { action: new URL('ViewSmsHistory', history.url()).toString(), fields });
+  /** The page's own form for one message, with its CSRF token, posted over the browser's session but not from the
+   * page, so the refusal it is meant to get is asserted here rather than reported as a page problem; returns status
+   * and text. */
+  const replay = async (fields) => {
+    const token = await history.locator('#smsHistoryTable form input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '');
+    const response = await s.context.request.post(new URL('ViewSmsHistory', history.url()).toString(),
+      { form: { ...fields, ...(token ? { 'CSRF-TOKEN': token } : {}) }, maxRedirects: 0 });
+    return { status: response.status(), text: await response.text() };
+  };
 
   await s.step('Show message with a reason opens the message\'s full text and writes one audit row', async () => {
     const newest = messages[0];
