@@ -111,6 +111,26 @@ async function workflow(s) {
     await editor.locator('[name="cancel"]').click();
   });
 
+  await s.step('a row whose type was changed while the form was open is not filled with the saved contact', async () => {
+    await open();
+    // The saved association is row 1; the new row is row 2.
+    await editor.locator('a[onclick="addProContact();"]').click();
+    const search = await openExternalSearch(2);
+    await search.getByRole('link', { name: 'Add/Edit Professional Contact' }).click();
+    await search.locator('#addEditProfessionalForm').waitFor();
+    await search.locator('[id="pcontact.lastName"]').fill(lastName);
+    await search.locator('[id="pcontact.firstName"]').fill('Retyped');
+    await search.locator('[id="pcontact.workPhone"]').fill('555-0102');
+    await pro('type', 2).selectOption('0');
+    await search.locator('input[name="submitbtn"]').click();
+    await expectValue(sql, `SELECT COUNT(*) FROM Contact WHERE type='ProfessionalContact'
+      AND lastName=${sqlString(lastName)} AND firstName='Retyped'`, '1', 'The contact was not saved');
+    assert(await pro('contactId', 2).inputValue() === '0', 'A row that is no longer External was filled with the external contact');
+    assert(!search.isClosed(), 'The form closed although it did not hand the contact back');
+    await search.close();
+    await editor.locator('[name="cancel"]').click();
+  });
+
   await s.step('the Health Care Team panel still adds a new external contact as a professional specialist', async () => {
     if (!await s.master.locator('#healthCareTeam').count()) return; // panel disabled; the other steps stand
     sql.execute(`DELETE FROM DemographicContact WHERE demographicNo=${patient}`);

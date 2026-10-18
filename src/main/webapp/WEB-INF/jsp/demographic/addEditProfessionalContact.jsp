@@ -101,7 +101,7 @@
                             if (opener.popUpData(JSON.stringify(data))) {
                                 this.window.close()
                             }
-                        } else if (fillParentFields(contactId, contactName)) {
+                        } else if (fillParentFields(contactId, contactName, contactType)) {
                             // The Contacts editor only has an id and a name field on the row being filled: choose the
                             // saved contact there, the same as picking it from the search list (#4987).
                             this.window.close()
@@ -115,9 +115,11 @@
 
             /**
              * Puts the saved contact's id and name in the opener's row, as the search popup does for a picked result.
-             * Returns false when the opener named no row to fill.
+             * Returns false when the opener named no row to fill, or when the row's type was changed to something
+             * other than the saved contact's type while this popup was open: the id would then be saved under the
+             * wrong kind of contact.
              */
-            function fillParentFields(contactId, contactName) {
+            function fillParentFields(contactId, contactName, contactType) {
                 var parentForm = '${carlos:forJavaScript(param.parentForm)}';
                 var parentElementId = '${carlos:forJavaScript(param.parentElementId)}';
                 var parentElementName = '${carlos:forJavaScript(param.parentElementName)}';
@@ -125,6 +127,10 @@
                     return false;
                 }
                 var elements = opener.document.forms[parentForm].elements;
+                var rowType = elements[parentElementId.replace(/\.contactId$/, '.type')];
+                if (rowType && rowType.value !== contactType) {
+                    return false;
+                }
                 elements[parentElementId].value = contactId;
                 elements[parentElementName].value = contactName;
                 return true;

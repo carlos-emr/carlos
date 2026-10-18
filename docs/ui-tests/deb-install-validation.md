@@ -3124,7 +3124,7 @@ check`: all checks passed; `BUILD_CA_BUNDLE` named the egress proxy's CA for the
 
 | Run | `contact-external-professional` |
 |---|---|
-| fixed packages | **PASS**, 5 steps through `:443`: the External row's Add link asks for `contactType=2` (and the Health Care Team's for 3, also for a missing, `0`, `2x` or `99` type); the Add saves one `Contact` row of type `ProfessionalContact`, no `professionalSpecialists` row and no association, fills the row and closes; Contacts Save links `2\|professional\|<id>`; the External search lists the contact and selects it; the Health Care Team panel still adds a new external contact as a professional specialist on the team |
+| fixed packages | **PASS**, 6 steps through `:443`: the External row's Add link asks for `contactType=2` (and the Health Care Team's for 3, also for a missing, `0`, `2x` or `99` type); the Add saves one `Contact` row of type `ProfessionalContact`, no `professionalSpecialists` row and no association, fills the row and closes; Contacts Save links `2\|professional\|<id>`; the External search lists the contact and selects it; a row whose type was changed while the form was open is left unfilled; the Health Care Team panel still adds a new external contact as a professional specialist on the team |
 | pre-fix `procontactSearch.jsp`, `ManageContacts.jsp` and `addEditProfessionalContact.jsp` swapped into the installed webapp | **FAILS** at step 1: "External row's Add link asks for contactType=3" |
 
 `contact-lifecycle`, `health-care-team`, `health-care-team-heading` and `gap-records-health-care-team-panel` passed, and the check left no
