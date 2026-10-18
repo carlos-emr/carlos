@@ -349,7 +349,7 @@
                                         %><br/><fmt:message
                                             key="WriteScript.msgPickUpDate"/>&nbsp;<carlos:encode value='<%= drug.pickupDate %>' context="html"/>&nbsp;
                                         <%
-                                            if (!((drug.pickupTime).equals("")) && !((drug.pickupTime).equals("12:00 AM"))) {
+                                            if (!((drug.pickupTime).equals(""))) {
                                         %> &nbsp;<carlos:encode value='<%= drug.pickupTime %>' context="html"/>&nbsp;
                                         <% }
                                         } %>

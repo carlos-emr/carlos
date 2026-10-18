@@ -127,8 +127,26 @@ function expandRoutePattern(pattern, limit = 256) {
 // ---------------------------------------------------------------------------------------------
 
 function withoutXmlComments(xml) {
-  return xml.replace(/<!--[\s\S]*?-->/g, '');
+  let cursor = 0;
+  let result = '';
+  for (let start = xml.indexOf('<!--', cursor); start >= 0; start = xml.indexOf('<!--', cursor)) {
+    const end = xml.indexOf('-->', start + 4);
+    assert.ok(end >= 0, 'Unterminated XML comment in route catalogue');
+    // Keep a token boundary: deleting a comment must not concatenate its neighbours into markup.
+    result += xml.slice(cursor, start) + ' ';
+    cursor = end + 3;
+  }
+  return result + xml.slice(cursor);
 }
+
+test('XML comment removal preserves token boundaries instead of constructing new markup', () => {
+  assert.equal(withoutXmlComments('<!<!-- ignored -->-->'), '<! -->');
+  assert.equal(withoutXmlComments('<action/><!-- hidden --><package/>'), '<action/> <package/>');
+});
+
+test('an unterminated XML comment cannot silently hide route declarations', () => {
+  assert.throws(() => withoutXmlComments('<!-- <action name="not-live"/>'), /Unterminated XML comment/);
+});
 
 /**
  * Every Struts action as { path, file }: package namespace joined to the action name. Names that

@@ -280,7 +280,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
-                    String.join("; ", fieldLengthValidationErrors));
+                    LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
             request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return "validationError";
@@ -342,7 +342,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     try {
                         optOut = Integer.parseInt(consentRecord) == 1;
                     } catch (NumberFormatException e) {
-                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", consentRecord);
+                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", LogSafe.sanitize(consentRecord));
                         optOut = false;
                     }
                     patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),

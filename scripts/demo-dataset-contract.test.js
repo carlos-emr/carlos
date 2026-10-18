@@ -692,10 +692,8 @@ test('shouldFindOrphanedLinks_whenTargetRowsAreMissing', () => {
 });
 
 for (const [province, label] of [['on', 'Ontario'], ['bc', 'Bc']]) {
-  // NOT a todo, and the reason the two todos below can be trusted. A todo that passes looks exactly
-  // like a fix, so if a change to build-demo-additive.sh, demo-additive-exclude.txt or development.sql
-  // left the artifact with no link rows, or no tickler / document rows, "no orphans" would hold
-  // vacuously and the pin would quietly read as resolved. This test fails loudly in that case instead.
+  // Ensure removing orphan links never turns the checks into vacuous passes by dropping
+  // all valid links or target rows from either province artifact.
   test(`shouldParseLinkRowsAndTargets_from${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const sql = additiveArtifact(province);
     for (const [type, table] of [[LINK_TYPE.TICKLER, 'tickler'], [LINK_TYPE.DOCUMENT, 'document']]) {
@@ -706,13 +704,88 @@ for (const [province, label] of [['on', 'Ontario'], ['bc', 'Bc']]) {
     }
   });
 
-  test(`shouldLinkNoNoteToMissingTickler_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+  test(`shouldLinkNoNoteToMissingTickler_in${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.TICKLER, 'tickler');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'tickler'));
   });
 
-  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.DOCUMENT, 'document');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'document'));
   });
+}
+
+// The alpha20 fixes use existing security objects; packaged upgrades must not need a
+// development-only privilege repair or expand a report reader into a role administrator.
+for (const province of ['on', 'bc']) {
+  test(`shouldKeepReleaseFixPermissionsCompatible_with${province.toUpperCase()}SeedsAndDemo`,
+    { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+      const flyway = flywayState(province);
+      const states = [flyway.table, debDemoState(flyway.table, province).table];
+      if (province === 'on') states.push(devcontainerState(flyway.table).table);
+      const canWrite = value => ['w', 'x'].includes((value || '').split('/')[0]);
+      const canUpdate = value => ['u', 'w', 'x'].includes((value || '').split('/')[0]);
+      for (const state of states) {
+        const roleAdmins = new Set();
+        for (const object of ['_admin', '_admin.userAdmin']) {
+          for (const [role, value] of objectPrivileges(state, object)) if (canWrite(value)) roleAdmins.add(role);
+        }
+        assert.deepEqual([...roleAdmins].sort(), ['admin'], `${province}: role administration belongs to seeded administrators`);
+        assert.deepEqual([...objectPrivileges(state, '_admin.misc')].filter(([, value]) => canWrite(value)).map(([role]) => role).sort(),
+          ['admin'], `${province}: bulk reassignment requires administration write rights`);
+        for (const role of ['doctor', 'nurse', 'locum', 'RN', 'RPN', 'receptionist', 'secretary']) {
+          assert.ok(canWrite(objectPrivileges(state, '_casemgmt.issues').get(role)), `${province}: ${role} can write clinical issues`);
+          assert.ok(canUpdate(objectPrivileges(state, '_demographic').get(role)), `${province}: ${role} can update patient data`);
+          assert.ok(!roleAdmins.has(role), `${province}: ${role} cannot administer security roles`);
+        }
+        assert.ok(!canWrite(objectPrivileges(state, '_admin.misc').get('doctor')), `${province}: report access cannot grant bulk reassignment`);
+        assert.ok(canWrite(objectPrivileges(state, '_report').get('doctor')), `${province}: the doctor report path remains available`);
+      }
+    });
+}
+
+/** Document inbox routing and eForm attachment ownership must have real parent rows. */
+function orphanedDemoReferences(sql) {
+  const documents = new Set(insertedRows(sql, 'document', ['document_no']).map(row => row.document_no));
+  const eforms = new Set(insertedRows(sql, 'eform_data', ['fdid']).map(row => row.fdid));
+  const missing = {};
+  for (const [table, columns] of [
+    ['patientLabRouting', ['demographic_no', 'lab_no', 'lab_type', 'id', 'created', 'dateModified']],
+    ['providerLabRouting', ['provider_no', 'lab_no', 'status', 'comment', 'timestamp', 'lab_type', 'id']],
+  ]) {
+    missing[table] = insertedRows(sql, table, columns)
+      .filter(row => row.lab_type === 'DOC' && !documents.has(row.lab_no));
+  }
+  missing.EFormDocs = insertedRows(sql, 'EFormDocs', ['id', 'fdid', 'document_no', 'doctype', 'deleted', 'attach_date', 'provider_no'])
+    .filter(row => !eforms.has(row.fdid));
+  return missing;
+}
+
+test('shouldDetectOnlyMissingParents_inRoutingAndEformAttachmentFixtures', () => {
+  const sql = "INSERT INTO document VALUES (3);\nINSERT INTO eform_data VALUES (7);\n"
+    + "INSERT INTO patientLabRouting VALUES (1,3,'DOC',1,NULL,NULL),(1,55,'DOC',2,NULL,NULL),(1,55,'HL7',3,NULL,NULL);\n"
+    + "INSERT INTO providerLabRouting VALUES ('999998',3,'N','',NULL,'DOC',1),('999998',55,'N','',NULL,'DOC',2);\n"
+    + "INSERT INTO EFormDocs VALUES (1,7,3,'D',NULL,NULL,'999998'),(2,8,3,'D',NULL,NULL,'999998');\n";
+  const missing = orphanedDemoReferences(sql);
+  assert.deepEqual(missing.patientLabRouting.map(row => row.lab_no), ['55']);
+  assert.deepEqual(missing.providerLabRouting.map(row => row.lab_no), ['55']);
+  assert.deepEqual(missing.EFormDocs.map(row => row.fdid), ['8']);
+});
+
+for (const province of ['on', 'bc']) {
+  test(`shouldKeepOnlyRealDocumentRoutingAndEformAttachmentParents_in${province.toUpperCase()}Demo`,
+    { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+      for (const sql of [fs.readFileSync(DEV_SQL, 'utf8'), additiveArtifact(province)]) {
+        for (const [table, rows] of Object.entries(orphanedDemoReferences(sql))) {
+          assert.deepEqual(rows, [], `${province}: ${table} must not attach future IDs to historical demo work`);
+        }
+        // Valid inbox routes remain; the repair must not discard the whole routing table.
+        assert.ok(insertedRows(sql, 'patientLabRouting', ['demographic_no', 'lab_no', 'lab_type', 'id'])
+          .some(row => row.lab_type === 'DOC' && row.lab_no === '3'));
+        // Without this the orphan check could pass vacuously if the hard-coded column list drifted from the INSERT.
+        assert.ok(insertedRows(sql, 'providerLabRouting', ['provider_no', 'lab_no', 'status', 'comment', 'timestamp', 'lab_type', 'id'])
+          .some(row => row.lab_type === 'DOC' && row.lab_no === '3'),
+          `${province}: providerLabRouting must keep its valid document inbox route`);
+      }
+    });
 }

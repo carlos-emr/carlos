@@ -232,10 +232,10 @@ public class BillingOnThirdPartyInvoiceViewModelAssembler {
                 .balanceAmount(balance.toPlainString())
                 .amountsUnreadable(tracker.isUnreadable());
 
-        // Logo: only used when not in multisite mode.
+        // Logo: only used when not in multisite mode, and only when the letterhead is an image the
+        // logo action can serve; otherwise the header keeps the clinic's details.
         if (!isMultisite) {
-            String filePath = DisplayInvoiceLogo2Action.getLogoImgAbsPath();
-            b.clinicLogoImgExists(filePath != null && !filePath.isEmpty());
+            b.clinicLogoImgExists(DisplayInvoiceLogo2Action.hasServableLogo());
         }
 
         return b.build();

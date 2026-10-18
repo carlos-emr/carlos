@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
@@ -122,7 +123,7 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                     item.setURL(url);
                     String strTitle = StringUtils.maxLenString(eFormData.getFormName() + ": " + eFormData.getSubject(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
 
-                    item.setTitle(strTitle);
+                    item.setTitle(SafeEncode.forHtmlContent(strTitle));
                     item.setDate(eFormData.getFormDate());
                     Dao.addItem(item);
                 }

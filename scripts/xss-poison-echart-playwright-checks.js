@@ -97,7 +97,16 @@ async function workflow(s) {
         // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
         { match: new RegExp(`data-xp="?${docField}[">]`), reason: 'the seeded document has no file behind it, so its viewer never finishes loading' },
       ],
-      beforeItem: () => waitForNavbars(chart, 20000),
+      beforeItem: async () => {
+        // CPP links open an editor in place. Inspect it above, then use its Exit control
+        // before the next destination; leaving the editor open blocks sidebar hit targets.
+        const cppEditor = chart.locator('#showEditNote');
+        if (await cppEditor.isVisible()) {
+          await cppEditor.locator('input[type="image"][src$="/system-log-out.png"]').click({ timeout: 20000 });
+          await cppEditor.waitFor({ state: 'hidden', timeout: 20000 });
+        }
+        await waitForNavbars(chart, 20000);
+      },
       beforeClose: page => releaseChartLocks(s.context, s.config.baseUrl, [page]).catch(() => {}) });
     await releaseChartLocks(s.context, s.config.baseUrl, [chart]);
   });

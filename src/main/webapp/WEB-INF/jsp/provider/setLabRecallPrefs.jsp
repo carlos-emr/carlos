@@ -201,10 +201,11 @@ selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
 
     </div><!-- end .bg-light -->
 				</form> <%} else {%>
+				<%-- The action names a bundle key; a refused delegate ("error") is shown as an error. --%>
 				<div id="AlertBanner"
-					 class="alert alert-success alert-dismissible"
+					 class="alert <%= "error".equals(request.getAttribute("status")) ? "alert-danger" : "alert-success" %> alert-dismissible"
 					 role="alert">
-					<span id="AlertText"><%=providermsgSuccess%>"/></span>
+					<span id="AlertText"><%=bundle.getString(providermsgSuccess)%></span>
 					<button type="button"
 							class="btn-close"
 							onclick="this.closest('.alert').style.display='none'"
