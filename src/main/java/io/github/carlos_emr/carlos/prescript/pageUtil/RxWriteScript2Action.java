@@ -357,6 +357,23 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /**
+     * The first lines of a saved custom note's text: its name, when it has one, then its instructions.
+     *
+     * <p>A note's Name box may be left empty, which leaves its custom name null. Concatenating that
+     * wrote the word "null" into the stored text, and from there onto the printed prescription and the
+     * drug profile (#4873). An absent name now adds no line, and absent instructions add nothing.
+     *
+     * @param customName the note's name, possibly null or blank
+     * @param instructions the note's instructions (the prescription's special), possibly null
+     * @param newline the line separator the rest of the stored text uses
+     * @return the note's name line (if any) followed by its instructions
+     */
+    static String customNoteText(String customName, String instructions, String newline) {
+        String body = Objects.toString(instructions, "");
+        return customName == null || customName.isBlank() ? body : customName + newline + body;
+    }
+
+    /**
      * Adds, removes, or clears the drug ids staged in the Rx session for re-prescribing. Called by
      * the prescription UI as an AJAX POST; nothing is persisted here, and the staged ids are only
      * acted on later by {@link #archiveReRxDrugs}.
@@ -1683,7 +1700,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         rx.setQuantity(null);
                         rx.setUnitName(null);
                         rx.setRepeat(0);
-                        special = rx.getCustomName() + newline + rx.getSpecial();
+                        special = customNoteText(rx.getCustomName(), rx.getSpecial(), newline);
                         if (rx.getSpecialInstruction() != null && !rx.getSpecialInstruction().equalsIgnoreCase("null") && rx.getSpecialInstruction().trim().length() > 0)
                             special += newline + rx.getSpecialInstruction();
                     } else if (rx.isCustom()) {// custom drug

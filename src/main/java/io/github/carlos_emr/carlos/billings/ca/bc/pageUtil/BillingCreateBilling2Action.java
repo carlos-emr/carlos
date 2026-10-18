@@ -35,8 +35,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.entities.WCB;
@@ -54,7 +52,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -71,6 +71,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
     /** Validation-failure redirect target — the Struts entry for the billing form. */
     private static final String BILLING_REDIRECT = "/billing";
+
+    /** A billing form (service type) code as the bill form posts it. */
+    private static final Pattern BILL_FORM_CODE = Pattern.compile("[A-Za-z0-9_-]{1,20}");
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -104,7 +107,15 @@ public class BillingCreateBilling2Action extends ActionSupport {
         String other_service2_unit = this.getXml_other2_unit();
         String other_service3_unit = this.getXml_other3_unit();
 
-        BillingSessionBean bean = (BillingSessionBean) request.getSession().getAttribute("billingSessionBean");
+        // The bill this window's form belongs to, named by its key (issue #4673). It used to be the
+        // login-wide session bill, i.e. whichever bill another window opened last.
+        BillingSessionBean bean = BcBillStaging.resume(request);
+        if (bean == null) {
+            // Its bill was dropped for newer ones, or the form names none: told, as the save step
+            // tells it, that its billing session expired.
+            BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
+            return NONE;
+        }
         Demographic demo = new DemographicData().getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
         this.patientDX = vldt.getPatientDxCodes(demo.getDemographicNo().toString());
         ArrayList<BillingItem> billItem = bmanager.getDups2(service, other_service1,
@@ -113,6 +124,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                 other_service2_unit,
                 other_service3_unit);
         BillingFormData billform = new BillingFormData();
+        keepChosenBillForm(bean, billform);
         String payMeth = this.getXml_encounter();
         bean.setGrandtotal(bmanager.getGrandTotal(billItem));
         bean.setPatientLastName(demo.getLastName());
@@ -177,6 +189,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
 
         }
+        // Store the updated bill again under its key (a mutated session value is not seen by a
+        // container that persists or replicates sessions).
+        BcBillStaging.save(request, bean);
         log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
@@ -191,20 +206,20 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
         }
@@ -212,9 +227,21 @@ public class BillingCreateBilling2Action extends ActionSupport {
         if (request.getParameter("WCBid") != null) {
             MiscUtils.getLogger().debug("WCB id is not null {}", LogSafe.sanitize(request.getParameter("WCBid")));
             List<String> errs = null;
-            WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-            BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
-            WCB wcbForm = billingmasterDAO.getWCBForm(request.getParameter("WCBid"));
+            // By its bean name, as every other caller finds it: the context holds two beans of this
+            // type (the scanned billingmasterDAO and applicationContext.xml's BillingmasterDAO), so a
+            // lookup by type alone failed and every WCB Continue answered HTTP 500.
+            BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
+            WCB wcbForm = patientsWcbForm(billingmasterDAO, request.getParameter("WCBid"), demo.getDemographicNo());
+            if (wcbForm == null) {
+                // Only a crafted post names another patient's form: answered as plainly as the
+                // expired-bill refusal, without billing anything.
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setHeader("X-Content-Type-Options", "nosniff");
+                response.getWriter().write("This WCB form is not this patient's.");
+                return NONE;
+            }
 
             for (Iterator<BillingItem> iter = billItem.iterator(); iter.hasNext(); ) {
                 BillingItem item = iter.next();
@@ -227,7 +254,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     if (errs != null && errs.size() > 0) {
                         request.setAttribute("WCBcode", sc);
                         request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                        response.sendRedirect(billingRedirect());
                         return NONE;
                     }
                 } else {
@@ -237,7 +264,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
                 request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect(request.getContextPath() + BILLING_REDIRECT);
+                response.sendRedirect(billingRedirect());
                 return NONE;
             }
         }
@@ -261,6 +288,42 @@ public class BillingCreateBilling2Action extends ActionSupport {
 ////      }
 ////    }
         return SUCCESS;
+    }
+
+    /**
+     * Records on the bill the billing form the window shows now. Choosing another form reloads the
+     * code table in place without changing the staged bill, so without this a validation return
+     * or Go Back would show the code table of the form the bill was opened with. Only a known
+     * billing form is taken; anything else leaves the bill's form as it was.
+     */
+    void keepChosenBillForm(BillingSessionBean bean, BillingFormData billform) {
+        if (billForm != null && BILL_FORM_CODE.matcher(billForm).matches() && billform.serviceExists(billForm)) {
+            bean.setBillForm(billForm);
+        }
+    }
+
+    /**
+     * The bill form of this window's own bill: back to it after a validation failure.
+     */
+    /**
+     * The WCB form a WCB bill names, when it is one of the bill's own patient's forms. The bill form
+     * lists only that patient's forms; a form of another patient would be billed, and its report
+     * sent to WorkSafeBC, for this patient.
+     *
+     * @return the form, or null for a malformed id, a form that does not exist or another
+     *         patient's form
+     */
+    static WCB patientsWcbForm(BillingmasterDAO dao, String wcbId, Integer patient) {
+        if (wcbId == null || !wcbId.matches("[1-9]\\d{0,8}")) {
+            return null;
+        }
+        WCB form = dao.getWCBForm(wcbId);
+        return form != null && Integer.valueOf(form.getDemographic_no()).equals(patient) ? form : null;
+    }
+
+    private String billingRedirect() {
+        return request.getContextPath() + BILLING_REDIRECT + "?" + BcBillStaging.KEY_PARAMETER + "="
+                + request.getAttribute(BcBillStaging.KEY_ATTRIBUTE);
     }
 
     /**
@@ -527,6 +590,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
 
     private String[] service;
+    private String billForm;
     private String xml_provider, xml_location, xml_billtype;
     private String xml_appointment_date;
     private String xml_visittype, xml_vdate;
@@ -562,6 +626,17 @@ public class BillingCreateBilling2Action extends ActionSupport {
     @StrutsParameter
     public void setService(String[] service) {
         this.service = service;
+    }
+
+    /** @return the billing form (service type) the bill form showed when it was submitted */
+    public String getBillForm() {
+        return billForm;
+    }
+
+    /** @param billForm the billing form (service type) the bill form shows, as posted */
+    @StrutsParameter
+    public void setBillForm(String billForm) {
+        this.billForm = billForm;
     }
 
     public String getXml_provider() {

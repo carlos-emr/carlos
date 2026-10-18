@@ -278,10 +278,14 @@
                 String bn = prescriptDrug.getBrandName();
 
                 boolean startDateUnknown = prescriptDrug.getStartDateUnknown();
+                // A Note (Rx page ▸ Note) has no name, brand or identifier, so the static script the row's links
+                // open would match nothing and show an empty page. Its three cells keep the same element, id and
+                // colour (the page's scripts find them by id) but get no href.
+                boolean noteRow = Boolean.TRUE.equals(prescriptDrug.isCustomNote());
         %>
         <tr>
 
-        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
+        <td><a id="createDate_<%=prescriptIdInt%>"   <%=styleColor%><% if (!noteRow) { %> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"<% } %>><%=DateToString(prescriptDrug.getCreateDate())%></a></td>
             <td>
             	<% if(startDateUnknown) { %>
             		
@@ -289,8 +293,8 @@
                     String startDate = UtilDateUtilities.DateToString(prescriptDrug.getRxDate());
                     startDate = partialDateDao.getDatePartial(startDate, PartialDate.DRUGS, prescriptDrug.getId(), PartialDate.DRUGS_STARTDATE);
                 %>
-                <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%>
-                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>"><%=startDate%>
+                <a id="rxDate_<%=prescriptIdInt%>"   <%=styleColor%><% if (!noteRow) { %>
+                   href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>"<% } %>><%=startDate%>
                 </a>
                 <% } %>
             </td>
@@ -323,7 +327,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ") %>'/></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%><% if (!noteRow) { %> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"<% } %>   <%=tComment%>   ><carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ") %>'/></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>

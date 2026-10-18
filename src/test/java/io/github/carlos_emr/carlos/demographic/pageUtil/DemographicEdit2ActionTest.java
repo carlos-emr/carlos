@@ -113,6 +113,20 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
     class SecurityEnforcement {
 
         @Test
+        void shouldRestoreSecurityServiceAndRefuseRead_whenTransientReferenceIsAbsent() throws Exception {
+            java.lang.reflect.Field field = DemographicEdit2Action.class.getDeclaredField("securityInfoManager");
+            field.setAccessible(true);
+            field.set(action, null);
+            denyPrivilege("_demographic", "r");
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_demographic)");
+            verifySecurityCheck("_demographic", "r");
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
+
+        @Test
         @DisplayName("should throw SecurityException when session is null")
         void shouldThrowSecurityException_whenSessionIsNull() {
             String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";

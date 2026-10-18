@@ -36,6 +36,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
 const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const CIPRO = { term: 'CIPRO 500', name: 'CIPRO 500MG', atc: 'J01MA02' };
 const WARFARIN = { term: 'COUMADIN 5', name: 'COUMADIN TAB 5MG', atc: 'B01AA03' };
@@ -174,7 +175,7 @@ async function workflow(s) {
   const warfarin = ciproWarfarin.affecting.includes('CIPRO') ? ciproWarfarin.affected : ciproWarfarin.affecting;
   const ciprofloxacin = ciproWarfarin.affecting.includes('CIPRO') ? ciproWarfarin.affecting : ciproWarfarin.affected;
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
   h.assert(new URL(rx.url()).searchParams.get('demographicNo') === patient, 'The Rx module opened for another patient');
   await rx.locator('#searchString').waitFor({ state: 'visible' });
   await rx.waitForLoadState('networkidle');

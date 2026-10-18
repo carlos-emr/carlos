@@ -48,7 +48,9 @@
       newEncounterLayout.jsp for the same patient can reload without a full page refresh.
 
     Parameters:
-    - demographic_no:       Patient demographic number
+    - demographic_no:       Patient demographic number. Ignored when ForwardDemographicTickler2Action
+                            set PATIENT_DROPPED_FOR_DOCUMENT (the forwarding document is not that
+                            patient's, #4839); the form then asks for a patient.
     - xml_appointment_date: Initial service/appointment date (YYYY-MM-DD)
     - taskTo:               Default task assignee provider number
     - priority:             Tickler priority (High/Normal/Low)
@@ -67,11 +69,9 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -92,6 +92,7 @@
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
+<%@ page import="io.github.carlos_emr.carlos.tickler.pageUtil.ForwardDemographicTickler2Action" %>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -127,8 +128,13 @@
     String demoName = request.getParameter("name");
     String defaultTaskAssignee = "";
 
+    // A document forward whose document is not this patient's drops the patient (#4839).
+    boolean patientDroppedForDocument = Boolean.TRUE.equals(
+            request.getAttribute(ForwardDemographicTickler2Action.PATIENT_DROPPED_FOR_DOCUMENT));
+    String requestDemographicNo = patientDroppedForDocument ? null : request.getParameter("demographic_no");
+
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    Demographic demographic = demographicDao.getDemographic(request.getParameter("demographic_no"));
+    Demographic demographic = demographicDao.getDemographic(requestDemographicNo);
     if (demographic != null) {
         demoName = demographic.getFormattedName();
         demoMRP = demographic.getProviderNo();
@@ -180,7 +186,6 @@
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
 %>
 
 <%
@@ -516,7 +521,7 @@
                     }
                     // Always broadcast for cross-window listeners (e.g. ticklerMain.jsp)
                     try {
-                        var demoNo = '<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                        var demoNo = '<carlos:encode value='<%= requestDemographicNo != null ? requestDemographicNo : "0" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         var bc = new BroadcastChannel('carlos_tickler_refresh_' + demoNo);
                         bc.postMessage({ action: 'refresh' });
                         bc.close();
@@ -703,6 +708,13 @@
                         <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
                     </td>
                 </tr>
+                <% if (patientDroppedForDocument) { %>
+                <tr>
+                    <td colspan="2">
+                        <div id="choosePatientForDocument" class="alert alert-warning" role="alert"><fmt:message key="tickler.ticklerAdd.msgChoosePatientForDocument"/></div>
+                    </td>
+                </tr>
+                <% } %>
                 <tr>
                     <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formDemoName"/>:</td>
                     <td style="width: 65%;">
@@ -729,7 +741,7 @@
                 <tr>
                     <td style="width: 35%;" class="tickler-label"><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
                     <%
-                        String demoNoParam = request.getParameter("demographic_no");
+                        String demoNoParam = requestDemographicNo;
                         String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : SafeEncode.forHtmlAttribute(demoNoParam);
                     %>
                     <td style="width: 65%;"><span><input type="hidden" name="demographic_no"
@@ -763,18 +775,10 @@
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                             List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
-                            String appNo = (String) session.getAttribute("cur_appointment_no");
-                            String location = null;
-                            if (appNo != null) {
-                                try {
-                                    Appointment a = appointmentDao.find(Integer.parseInt(appNo));
-                                    if (a != null) {
-                                        location = a.getLocation();
-                                    }
-                                } catch (NumberFormatException e) {
-                                    // Malformed appointment number in session — skip location lookup
-                                }
-                            }
+                            // The clinic list starts on "select clinic". The page used to look up the
+                            // site of the login's last-opened appointment as if to preselect it, but
+                            // never applied it, so that session read (another patient's visit after a
+                            // second chart was opened, issue #4673) is gone and nothing is preselected.
                         %>
                         <script>
                             var _providers = [];

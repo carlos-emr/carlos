@@ -31,7 +31,9 @@ function fixture({globalId = '123', query = '?demographicNo=123', hidden = ['123
 test('completion appends literal text to the modern editor and dispatches dirty events before refresh and close', () => {
   const f = fixture();
   const payload = '\n</textarea><script>throw new Error("no execution")</script>\n"\' & <b>literal</b>\u2028\u2029';
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- isolated Node fixture; the script payload must remain literal textarea.value text, with no DOM execution.
   completeEncounterForm(f.popup, '123', payload);
+  // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- assertion on a plain mock object, not an HTML/script output sink.
   assert.equal(f.editor.value, `Existing draft\n${payload}`);
   assert.equal(f.otherEditor.value, 'Other editor');
   assert.deepEqual(f.actions.slice(0, 2), ['input', 'change'].map(type => ['event', type, true, f.editor.value]));

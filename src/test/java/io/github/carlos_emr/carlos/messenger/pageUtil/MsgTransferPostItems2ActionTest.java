@@ -137,8 +137,8 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should mutate session bean and redirect to ViewCreateMessage on valid POST")
-    void shouldMutateBean_andRedirectToViewCreateMessage_whenPostIsValid() throws Exception {
+    @DisplayName("should stage the items for a new compose window and redirect it there on valid POST")
+    void shouldStageItemsForNewComposeWindow_whenPostIsValid() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
@@ -152,9 +152,14 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl())
-                .endsWith("/messenger/ViewCreateMessage");
-        assertThat(bean.getAttachment()).isNotNull();
+        String redirect = getMockResponse().getRedirectedUrl();
+        assertThat(redirect).contains("/messenger/ViewCreateMessage?" + MsgAttachmentStaging.KEY_PARAMETER + "=");
+        String key = redirect.substring(redirect.indexOf('=') + 1);
+        assertThat(MsgAttachmentStaging.isKey(key)).isTrue();
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), key).itemAttachment()).contains("itemId=\"1\"");
+        // Issue #4673: the items used to go on the login-wide bean, where any compose window's
+        // next send took them.
+        assertThat(bean.getAttachment()).isNull();
     }
 
     @Test
@@ -173,6 +178,8 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(bean.getAttachment()).isNull();
+        assertThat(getMockSession().getAttributeNames().asIterator())
+                .toIterable().noneMatch(name -> name.startsWith(MsgAttachmentStaging.class.getName()));
     }
 
     private static final String SAMPLE_XML =

@@ -218,6 +218,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("replyList", replyList);
             request.setAttribute("ReSubject", subject.toString());
+            keepForwardedAttachments(message.getId());
 
             return "reply";
 
@@ -242,10 +243,25 @@ public class MsgHandleMessages2Action extends ActionSupport {
             // Set attributes for message composition page
             request.setAttribute("ReText", theSendMessage.toString());
             request.setAttribute("ReSubject", subject.toString());
+            keepForwardedAttachments(forwardMessage.getId());
             return "reply";
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Hands the compose page a key of its own that starts with the chart items saved for this
+     * message ("Save Attachments" in the view's Attachment window), so the reply or forward sends
+     * what was saved for this message and whatever is attached in this window only. The items
+     * used to wait on the login-wide messenger bean, where a compose page opened anywhere, for any
+     * patient, took them (issue #4673).
+     */
+    private void keepForwardedAttachments(Integer messageId) {
+        if (messageId != null && messageId > 0) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
+                    MsgAttachmentStaging.composeKey(request.getSession(), messageId));
+        }
     }
 
 

@@ -40,6 +40,13 @@ import org.apache.commons.text.StringEscapeUtils;
  * <p>This serializable bean maintains the state of a message being composed, including
  * attachments, recipients, and message content. It is stored in the HTTP session to
  * preserve state across multiple page requests during the message composition process.</p>
+ *
+ * <p><b>Attachments are no longer kept on the session copy.</b> One login can have several
+ * compose windows open, for different patients, and this bean is one per login: the attachments
+ * one window put on it went out with the message another window sent (issue #4673). Each compose
+ * window now stages its attachments under its own key in {@link MsgAttachmentStaging}. The
+ * attachment methods below remain as the builder of the stored chart-PDF record format, used on
+ * a scratch instance by {@link MsgAttachPDF2Action}.</p>
  * 
  * <p>Key responsibilities:
  * <ul>

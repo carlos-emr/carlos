@@ -29,15 +29,16 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
@@ -79,13 +80,20 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
     @Spy
     private NioFileManager nioFileManager = new NioFileManagerImpl();
 
-    @InjectMocks
     private EmailComposeManager emailComposeManager;
 
     @TempDir
     Path documentDir;
 
     private Path created;
+
+    /** The manager takes SecurityInfoManager through its constructor; the collaborators used here are fields. */
+    @BeforeEach
+    void createManager() {
+        emailComposeManager = new EmailComposeManager(securityInfoManager);
+        ReflectionTestUtils.setField(emailComposeManager, "documentAttachmentManager", documentAttachmentManager);
+        ReflectionTestUtils.setField(emailComposeManager, "nioFileManager", nioFileManager);
+    }
 
     @AfterEach
     void removeCreatedTempFile() throws Exception {

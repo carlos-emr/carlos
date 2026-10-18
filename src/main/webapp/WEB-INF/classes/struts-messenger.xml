@@ -103,9 +103,8 @@
         <action name="messenger/ViewPDFAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDFAttachment2Action">
             <result name="success">/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp</result>
         </action>
-        <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
-            <result name="success">/WEB-INF/jsp/messenger/ViewPDFFile.jsp</result>
-        </action>
+        <!-- Streams the PDF itself and always returns NONE: no page may follow the bytes. -->
+        <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action"/>
 
         <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
             <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>

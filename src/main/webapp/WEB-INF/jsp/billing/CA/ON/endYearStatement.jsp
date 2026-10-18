@@ -119,7 +119,7 @@
                 Patient Name: <br>
                 <div class="input-group">
                     <input class="form-control" id="nameForlooksOnly" type="text"
-                           value="${carlos:forHtmlAttribute(not empty patientNameDisplay ? patientNameDisplay : (not empty summary.patientName ? summary.patientName : ''))}">
+                           value="${carlos:forHtmlAttribute(not empty patientNameDisplay ? patientNameDisplay : (not empty requestScope.summary.patientName ? requestScope.summary.patientName : ''))}">
                     <button class="btn btn-primary" type="button" value="Search" onclick="demographicSearch()"><i
                             class="fa-solid fa-magnifying-glass"></i></button>
                 </div>
@@ -150,6 +150,17 @@
                 </div>
             </div>
 
+            <%-- The statement shown below, which Print PDF prints: the dates above can be changed in
+                 place without pressing Create Statement again (issue #4673). --%>
+            <c:if test="${not empty requestScope.statementDemographicNo}">
+                <input type="hidden" name="statementDemographicNo"
+                       value="${carlos:forHtmlAttribute(requestScope.statementDemographicNo)}"/>
+                <input type="hidden" name="statementFromDate"
+                       value="${carlos:forHtmlAttribute(requestScope.statementFromDate)}"/>
+                <input type="hidden" name="statementToDate"
+                       value="${carlos:forHtmlAttribute(requestScope.statementToDate)}"/>
+            </c:if>
+
             <div class="col-md-10">
                 <input class="btn btn-secondary" type="submit" value="Create Statement"
                        onclick="return validateFields();">
@@ -175,7 +186,7 @@
             </c:if>
         </div>
 
-    <c:if test="${not empty summary}">
+    <c:if test="${not empty requestScope.summary}">
         <table class="table table-striped table-sm">
             <tr>
                 <td width="50px">&nbsp;</td>
@@ -185,23 +196,23 @@
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Patient:</td>
                 <td>
-                    ${carlos:forHtml(summary.patientNo)}&nbsp;&nbsp;
-                    ${carlos:forHtml(summary.patientName)}&nbsp;&nbsp;
-                    ${carlos:forHtml(summary.hin)}&nbsp;&nbsp;
+                    ${carlos:forHtml(requestScope.summary.patientNo)}&nbsp;&nbsp;
+                    ${carlos:forHtml(requestScope.summary.patientName)}&nbsp;&nbsp;
+                    ${carlos:forHtml(requestScope.summary.hin)}&nbsp;&nbsp;
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Address :</td>
                 <td>
-                    ${carlos:forHtml(summary.address)}
+                    ${carlos:forHtml(requestScope.summary.address)}
                 </td>
             </tr>
             <tr>
                 <td width="50px">&nbsp;</td>
                 <td width="100px">Phone :</td>
                 <td>
-                    ${carlos:forHtml(summary.phone)}
+                    ${carlos:forHtml(requestScope.summary.phone)}
                 </td>
             </tr>
         </table>
@@ -241,12 +252,12 @@
             </tr>
             <tr bgcolor="#99FF66">
                 <td>Count: &nbsp;&nbsp;&nbsp;
-                    <c:if test="${not empty summary}">${carlos:forHtml(summary.count)}</c:if>
+                    <c:if test="${not empty requestScope.summary}">${carlos:forHtml(requestScope.summary.count)}</c:if>
                 </td>
                 <td>&nbsp;</td>
                 <td align="center">Total:</td>
-                <td><c:if test="${not empty summary}">${carlos:forHtml(summary.invoiced)}</c:if></td>
-                <td><c:if test="${not empty summary}">${carlos:forHtml(summary.paid)}</c:if></td>
+                <td><c:if test="${not empty requestScope.summary}">${carlos:forHtml(requestScope.summary.invoiced)}</c:if></td>
+                <td><c:if test="${not empty requestScope.summary}">${carlos:forHtml(requestScope.summary.paid)}</c:if></td>
             </tr>
         </table>
     </c:if>
