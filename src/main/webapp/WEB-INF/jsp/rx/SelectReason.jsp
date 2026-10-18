@@ -148,11 +148,21 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
         <script type="text/javascript">
 
+            // A Patient Dx Registry link files that diagnosis: Save reads and validates the visible
+            // jsonDxSearch box as the ICD9 code, so the code goes there and the description is shown
+            // beside it. Putting the description in the box made every registry pick fail as an
+            // invalid code (#5000).
             function assignPatientDxLink(id, name) {
                 $("#codeTxt").val(id);
-                $(".codeTxt").val(name);
-                $(".codeTxt").css('color', 'black')
+                $("#jsonDxSearch").val(id).prop('title', id + ' - ' + name).css('color', 'black');
+                $("#jsonDxSearchDescription").text(name);
             }
+
+            // Typing a different code makes the shown registry description stale.
+            $(document).on('input', '#jsonDxSearch', function () {
+                $("#codeTxt").val('');
+                $("#jsonDxSearchDescription").text('');
+            });
 
             function toggleArchiveMenu(id) {
                 $('#' + id).toggle();
@@ -233,6 +243,7 @@
                         <jsp:include page="/WEB-INF/jsp/oscarResearch/oscarDxResearch/dxJSONCodeSearch.jsp">
                             <jsp:param value="true" name="enableCodeSystemSelect"/>
                         </jsp:include>
+                        <span id="jsonDxSearchDescription" aria-live="polite"></span>
 
                         <table>
                             <tr>

@@ -198,6 +198,7 @@
 %>
 <h4 style="margin-bottom:1px;margin-top:3px;"><carlos:encode value='<%= heading %>' context="html"/></h4>
 <%}%>
+<fmt:message key="SearchDrug.msgHideCPPSaveFailed" var="msg_hideCppSaveFailed"/>
 <div class="drugProfileText" style="">
     <table class="list-drugs sortable" id="Drug_table<carlos:encode value='<%= heading %>' context="htmlAttribute"/>">
         <tr>
@@ -434,15 +435,18 @@
             (function() {
                 var element = document.getElementById('hidecpp_<%=prescriptIdInt%>');
                 if (element) {
+                    // RxHideCpp (share/javascript/rx-hide-cpp.js, loaded by SearchDrug3.jsp) restores
+                    // the stored state and says so when the save is refused or fails (#5001).
                     element.addEventListener('change', function () {
                         var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                        var csrfToken = csrfEl ? csrfEl.value : '';
-                        var val = document.getElementById('hidecpp_<%=prescriptIdInt%>').checked;
-                        fetch('${carlos:forJavaScript(ctx)}/rx/hideCpp', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': csrfToken},
-                            credentials: 'same-origin',
-                            body: 'method=update&prescriptId=<%=prescriptIdInt%>&value=' + encodeURIComponent(val)
+                        RxHideCpp.save({
+                            checkbox: element,
+                            url: '${carlos:forJavaScript(ctx)}/rx/hideCpp',
+                            prescriptId: '<%=prescriptIdInt%>',
+                            csrfToken: csrfEl ? csrfEl.value : '',
+                            failureMessage: '${carlos:forJavaScript(msg_hideCppSaveFailed)}',
+                            fetch: window.fetch.bind(window),
+                            alert: function (message) { window.alert(message); }
                         });
                     });
                 }
