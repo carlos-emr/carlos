@@ -74,7 +74,7 @@ public class FrmBCHPRecord extends FrmRecord {
                 ProviderData proData = new ProviderData();
                 proData.getProvider(providerNo);
 
-                props.setProperty("pg1_msp", proData.getOhip_no());
+                props.setProperty("pg1_msp", StringUtils.defaultString(proData.getOhip_no()));
                 props.setProperty("pg1_md", "Dr. " + proData.getLast_name());
 
             }

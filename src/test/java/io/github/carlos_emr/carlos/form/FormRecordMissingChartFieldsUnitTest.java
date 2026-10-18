@@ -29,8 +29,10 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -66,6 +68,7 @@ import static org.mockito.Mockito.when;
 class FormRecordMissingChartFieldsUnitTest extends CarlosUnitTestBase {
 
     private static final int PATIENT = 42;
+    private static final String PROVIDER = "999990";
 
     @BeforeEach
     void registerBeans() {
@@ -85,6 +88,12 @@ class FormRecordMissingChartFieldsUnitTest extends CarlosUnitTestBase {
         ClinicDAO clinicDao = mock(ClinicDAO.class);
         when(clinicDao.getClinic()).thenReturn(new Clinic());
         registerMock(ClinicDAO.class, clinicDao);
+        // The patient's provider has no OHIP/MSP number on file.
+        ProviderData provider = new ProviderData();
+        provider.setLastName("FAKE-Provider");
+        ProviderDataDao providerDataDao = mock(ProviderDataDao.class);
+        when(providerDataDao.findByProviderNo(PROVIDER)).thenReturn(provider);
+        registerMock(ProviderDataDao.class, providerDataDao);
     }
 
     private static MockedConstruction<FrmRecordHelp> savedFormRows() {
@@ -148,6 +157,20 @@ class FormRecordMissingChartFieldsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFillANewHealthPassport_whenThePatientsProviderHasNoMspNumber() throws Exception {
+        ResultSet row = chartRow();
+        when(row.getString("provider_no")).thenReturn(PROVIDER);
+        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(anyString(), any(Object[].class))).thenReturn(row);
+
+            Properties props = new FrmBCHPRecord().getFormRecord(null, PATIENT, 0);
+
+            assertThat(props.getProperty("pg1_md")).isEqualTo("Dr. FAKE-Provider");
+            assertThat(props.getProperty("pg1_msp")).isEmpty();
+        }
+    }
+
+    @Test
     void shouldReopenASavedHealthPassport_whenTheHealthNumberAndPhonesAreMissing() throws Exception {
         ResultSet row = chartRow();
         try (MockedConstruction<FrmRecordHelp> rows = savedFormRows();
@@ -162,7 +185,7 @@ class FormRecordMissingChartFieldsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSaveAMeasurementForm_whenTheChartHasNoSex() throws Exception {
+    void shouldCopyAMissingSexAsEmpty_inTheMeasurementFormSave() throws Exception {
         // The save copies the chart's sex into the form's properties; the action needs a full request to run.
         String action = Files.readString(Path.of("src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmForm2Action.java"),
                 StandardCharsets.UTF_8);
