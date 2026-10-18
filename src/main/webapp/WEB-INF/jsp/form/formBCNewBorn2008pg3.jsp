@@ -474,8 +474,8 @@
 
                 <td align="right"></td>
                 <td align="right"><b><fmt:message key="global.btnEdit"/>:</b>
-                    <a href="formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part1"/><font size=-2></font></a> |
-                    <a href="formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part2"/> </a> |
+                    <a href="form/formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part1"/><font size=-2></font></a> |
+                    <a href="form/formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part2"/> </a> |
                     <fmt:message key="form.bcnewborn.part2"/> <font size=-2>(pg.2)</font> |
                 </td>
                 <%

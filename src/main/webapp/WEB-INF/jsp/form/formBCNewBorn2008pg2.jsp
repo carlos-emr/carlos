@@ -474,10 +474,10 @@
 
                 <td align="right"></td>
                 <td align="right"><b><fmt:message key="form.bcnewborn.edit"/>:</b>
-                    <a href="formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
+                    <a href="form/formBCNewBorn2008pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">Part
                         <fmt:message key="form.bcnewborn.part1"/><font size=-2></font></a> |
                     <fmt:message key="form.bcnewborn.part2"/> | <a
-                            href="formBCNewBorn2008pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part2"/>
+                            href="form/formBCNewBorn2008pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key="form.bcnewborn.part2"/>
                         <font size=-2>(pg.2)</font></a></td>
                 <%
                     }

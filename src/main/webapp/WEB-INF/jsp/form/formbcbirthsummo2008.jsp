@@ -727,7 +727,7 @@
                                        maxlength="20" value="<%= props.getProperty("c_phn", "") %>"
                                        @oscar.formDB/></td>
                             <td><span class="small9"> <a href=#
-                                                         onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
+                                                         onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup?fieldname=c_phyMid'); return false;">PHYSICIAN
 					/ MIDWIFE NAME</a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("c_phyMid", "") %>"

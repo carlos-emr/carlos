@@ -1098,9 +1098,9 @@
 
                 <td align="right"></td>
                 <td align="right"><b>Edit:</b>AR1 | <a
-                        href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.2)</font></a></td>
                 <%
                     }
@@ -1141,7 +1141,7 @@
                             <td width="33%">
 
                                 <a href="javascript: function myFunction() {return false; }"
-                                   onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup'); return false;">
+                                   onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup'); return false;">
                                     Attending Physician/Midwife:
                                 </a><br/>
                                 <input type="text" name="pg1_priCare" style="width: 100%" size="30"
@@ -2857,15 +2857,15 @@
                 <td>
                 </td>
                 <td align="right"><b>View:</b> <a
-                        href="javascript: popupPage('formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="javascript: popupPage('formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.2)</font></a> &nbsp;
                 </td>
                 <td align="right"><b>Edit:</b>AR1 | <a
-                        href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.2)</font></a>
                 </td>
                 <%

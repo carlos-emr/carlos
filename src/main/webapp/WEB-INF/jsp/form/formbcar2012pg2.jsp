@@ -1196,10 +1196,10 @@
                 </td>
 
                 <td align="right"><b>Edit:</b>
-                    <a href="formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     AR2<font size=-2>(pg.1)</font> |
-                    <a href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.2)</font></a> |
                 </td>
                 <%
@@ -3382,10 +3382,10 @@
                 %>
 
                 <td align="right"><b>Edit:</b>
-                    <a href="formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
                     AR2<font size=-2>(pg.1)</font> |
-                    <a href="formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2012pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.2)</font></a> |
                 </td>
                 <%

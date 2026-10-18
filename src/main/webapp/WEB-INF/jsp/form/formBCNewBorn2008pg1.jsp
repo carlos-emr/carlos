@@ -475,9 +475,9 @@
 
                 <td align="right">
                 <td align="right"><b><fmt:message key='form.bcnewborn.edit'/>:</b><fmt:message key='form.bcnewborn.part1'/> | <a
-                        href="formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='form.bcnewborn.part2'/>
+                        href="form/formBCNewBorn2008pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='form.bcnewborn.part2'/>
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formBCNewBorn2008pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='form.bcnewborn.part2'/>
+                        href="form/formBCNewBorn2008pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>"><fmt:message key='form.bcnewborn.part2'/>
                     <font size=-2>(pg.2)</font></a> |
                 </td>
                 <%
@@ -658,7 +658,7 @@
                             <td colspan="2"><span class="small9">
                 
 <a href="javascript: function myFunction() {return false; }"
-   onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup?fieldname=c_phyMid'); return false;">
+   onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup?fieldname=c_phyMid'); return false;">
                 <fmt:message key='form.bcnewborn.physicianMidwifeName'/>
                     </a></span><br>
                                 <input type="text" name="c_phyMid" style="width: 100%" size="30"

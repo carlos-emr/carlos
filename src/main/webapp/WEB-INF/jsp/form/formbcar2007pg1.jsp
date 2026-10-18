@@ -1048,7 +1048,7 @@
                             </td>
                             <td width="33%"><a
                                     href="javascript: function myFunction() {return false; }"
-                                    onClick="popupFixedPage(600, 300, 'formbcarpg1namepopup'); return false;">Attending
+                                    onClick="popupFixedPage(600, 300, 'form/formbcarpg1namepopup'); return false;">Attending
                                 Physician/Midwife</a><br>
                                 <input type="text" name="pg1_priCare" style="width: 100%" size="30"
                                        maxlength="60" value="<%= props.getProperty("pg1_priCare", "") %>"
@@ -2547,15 +2547,15 @@
                     <!--a href="javascript: popPage('formlabreq?demographic_no=<%=demoNo%>&formId=0&provNo=<%=provNo%>&labType=AR','LabReq');">LAB</a-->
                 </td>
                 <td align="right"><b>View:</b> <a
-                        href="javascript: popupPage('formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="javascript: popupPage('formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
+                        href="javascript: popupPage('form/formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>&view=1');">AR2
                     <font size=-2>(pg.2)</font></a> &nbsp;
                 </td>
                 <td align="right"><b>Edit:</b>AR1 | <a
-                        href="formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2007pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.1)</font></a> | <a
-                        href="formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                        href="form/formbcar2007pg3?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                     <font size=-2>(pg.2)</font></a> |
                     <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
                 </td>
