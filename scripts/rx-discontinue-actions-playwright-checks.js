@@ -42,6 +42,10 @@ async function workflow(s){
         h.assert(response.status()===200,'Discontinuation was refused');
         await expectValue(sql,`SELECT archived_reason FROM drugs WHERE drugid=${ids[i]}`,code,'Discontinuation stored another clinical reason');
         h.assert(sql.value(`SELECT CONCAT(archived,'|',DATE(end_date)) FROM drugs WHERE drugid=${ids[i]}`)===`1|${f.end}`,'Discontinuation altered the clinical end date');
+        h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note n JOIN casemgmt_note_link l ON l.note_id=n.note_id
+          AND l.table_name=2 AND l.table_id=${ids[i]} WHERE n.demographic_no=${patient}
+          AND n.note LIKE ${h.sqlString('%Discontinued reason: '+code+'%'+marker+' '+code+'%')}`)==='1',
+          'Discontinuation did not link the exact reason and comment to its medication');
         await rx.waitForFunction(({id,code})=>document.getElementById('discont_'+id)?.textContent.trim()===code,{id:ids[i],code});
       }
       h.assert(JSON.stringify(sql.rows(`SELECT * FROM drugs WHERE drugid=${control}`))===before,'Discontinuation changed the unselected control');

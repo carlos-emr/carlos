@@ -77,7 +77,7 @@ async function workflow(s){
       h.assert((await date.innerText()).trim()===(action==='start-unknown'?'':'2026-01-02'),'Profile lost the saved start-date precision');
       return;
     }
-    if(['authoritative','comment','start-known','start-unknown'].includes(action)){
+    if(['authoritative','comment'].includes(action)){
       // A new ReRx deliberately initializes a new prescribing event's date and
       // metadata. Inspect the saved event through its real record link instead.
       await ui.clickAndAwaitReload(rx,rx.locator(`#prescrip_${replacement}`));
@@ -85,7 +85,6 @@ async function workflow(s){
       const field=async label=>(await record.locator('td.label').filter({hasText:label}).first().locator('xpath=following-sibling::td[1]').innerText()).trim();
       if(action==='authoritative')h.assert(await field('Non Authorative:')==='true','Saved record lost the non-authoritative selection');
       else if(action==='comment')h.assert(await field('Comment:')===c.after,'Saved record lost the renewal comment');
-      else h.assert((await record.locator('body').innerText()).includes(`Start Date Unknown: ${c.after==='1'?'true':'false'}`),'Saved record lost the start-date precision flag');
     }else{key=await stageExisting(rx,replacement);await shown(c.after);}
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`)==='3','Reopening renewal saved an unintended prescription');
   });

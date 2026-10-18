@@ -59,14 +59,14 @@ async function workflow(s){
       const watch=request=>{if(request.method()==='POST'&&new URL(request.url()).searchParams.get('parameterValue')==='updateProperty')sent.push(new URLSearchParams(request.postData()));};
       rx.on('request',watch);
       try{
-      for(const [field,value]of Object.entries({method:'tab',route:'PO',frequency:'BID',minimum:'0.5',maximum:'1',duration:'2',durationUnit:'W'})){
+      for(const [field,value]of Object.entries({method:'mL',route:'NG',frequency:'BID',minimum:'0.5',maximum:'1',duration:'2',durationUnit:'W'})){
         const el=rx.locator(`#${field}_${key}`);
         // The value can be empty; its visible label activates that editable
         // anchor without requiring a click on a zero-width text node.
         await rx.locator(`a[onclick="focusTo('${field}_${key}')"]`).click();await el.fill(value);await el.blur();
       }
       await rx.waitForLoadState('networkidle');
-      for(const [field,value]of Object.entries({method:'tab',route:'PO',frequency:'BID',minimum:'0.5',maximum:'1',duration:'2',durationUnit:'W'})){
+      for(const [field,value]of Object.entries({method:'mL',route:'NG',frequency:'BID',minimum:'0.5',maximum:'1',duration:'2',durationUnit:'W'})){
         const posted=sent.filter(p=>p.get('elementId')===`${field}_${key}`).at(-1);
         h.assert(posted&&posted.get('propertyValue')===value,`Blur did not send the edited ${field}; DOM: ${JSON.stringify(await rx.locator(`#${field}_${key}`).evaluate(el=>({value:el.textContent,blur:el.getAttribute('onblur'),focused:document.activeElement===el})))}`);
       }
@@ -82,7 +82,7 @@ async function workflow(s){
     if(prn)h.assert(sql.value(`SELECT prn FROM drugs WHERE drugid=${id}`)==='0','Selected PRN flag was not saved');
     else{
       const row=sql.rows(`SELECT method,route,freqcode,takemin,takemax,duration,durunit FROM drugs WHERE drugid=${id}`)[0];
-      h.assert(JSON.stringify(row)===JSON.stringify(['tab','PO','BID','0.5','1','2','W']),`Structured dose was not saved: ${JSON.stringify(row)}`);
+      h.assert(JSON.stringify(row)===JSON.stringify(['mL','NG','BID','0.5','1','2','W']),`Structured dose was not saved: ${JSON.stringify(row)}`);
     }
     h.assert(sql.value(`SELECT CONCAT(archived,'|',special) FROM drugs WHERE drugid=${control}`)==='0|1 tab PO OD x 30 days','Editing the new card altered the control medication');
   });
