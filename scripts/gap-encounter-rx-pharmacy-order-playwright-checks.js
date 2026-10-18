@@ -21,6 +21,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const q = h.sqlString;
 
@@ -52,7 +53,7 @@ async function workflow(s) {
   const order = id => sql.value(`SELECT COALESCE((SELECT preferredOrder FROM demographicPharmacy WHERE demographic_no=${patient}
     AND pharmacyID=${id} AND status='1'),'none')`);
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="rx/choosePatient"]').first(), 'pharmacy-order-rx');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, 'rx/choosePatient').first(), 'pharmacy-order-rx');
   await rx.locator('a[href$="/rx/managePharmacy"]').click();
   await rx.waitForURL(/\/rx\/managePharmacy(?:\?|$)/);
   await rx.waitForLoadState('networkidle');

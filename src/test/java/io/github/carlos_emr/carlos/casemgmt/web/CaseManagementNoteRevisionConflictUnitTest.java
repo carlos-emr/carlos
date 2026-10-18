@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
@@ -377,7 +378,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(note.getPosition()).isZero();
         assertThat(sibling.getPosition()).isEqualTo(1);
         assertThat(form.getIssueCheckList()).isSameAs(oldIssueList).isEmpty();
-        assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Previous chart text");
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Previous chart text");
         verify(manager, never()).saveAndUpdateCaseIssues(any());
         verify(manager, never()).updateNote(any());
         verify(manager, never()).saveCPP(any(), any());
@@ -401,7 +402,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         saved.setIssues(Set.of(persistedIssue));
         when(manager.saveCppNoteRevision(any(), any(), any(), any(), any())).thenAnswer(call -> {
             assertThat(form.getIssueCheckList()).isSameAs(oldIssueList).isEmpty();
-            assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Previous chart text");
+            assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Previous chart text");
             return new CaseManagementNoteSaveResult(saved, "Committed chart text");
         });
 
@@ -412,8 +413,35 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString().trim()).isEqualTo("600");
         assertThat(form.getIssueCheckList()).singleElement()
                 .satisfies(checkbox -> assertThat(checkbox.getIssue()).isSameAs(persistedIssue));
-        assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Committed chart text");
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Committed chart text");
         assertThat(note.getNote()).isEqualTo("Original");
+    }
+
+    @Test
+    void shouldRemoveOnlyThisPatientsLastEChartText_whenAnotherChartSavedLast() throws Exception {
+        prepareCppSave();
+        request.setParameter("forward", "none");
+        // Another chart window saved after this one: its text must not be looked for, and removed,
+        // in this patient's eChart record (issue #4673).
+        request.getSession().setAttribute(ChartSessionKeys.lastSavedNoteText("202"), "Other patient's chart text");
+        request.getSession().setAttribute("lastSavedNoteString", "Login-wide chart text");
+        CaseManagementIssue persistedIssue = new CaseManagementIssue();
+        persistedIssue.setId(74L);
+        persistedIssue.setIssue_id(73L);
+        persistedIssue.setIssue(manager.getIssue("73"));
+        CaseManagementNote saved = note.copyForRevision();
+        saved.setId(600L);
+        saved.setNote("CPP draft");
+        saved.setIssues(Set.of(persistedIssue));
+        when(manager.saveCppNoteRevision(any(), any(), any(), any(), any()))
+                .thenReturn(new CaseManagementNoteSaveResult(saved, "Committed chart text"));
+
+        assertThat(action.issueNoteSave()).isNull();
+
+        verify(manager).saveCppNoteRevision(any(), any(), eq("Previous chart text"), any(), any());
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("101"))).isEqualTo("Committed chart text");
+        assertThat(request.getSession().getAttribute(ChartSessionKeys.lastSavedNoteText("202"))).isEqualTo("Other patient's chart text");
+        assertThat(request.getSession().getAttribute("lastSavedNoteString")).isEqualTo("Login-wide chart text");
     }
 
     @Test
@@ -453,7 +481,7 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         request.setParameter("startdate", "2022-01-01");
         request.setParameter("resolutiondate", "not a date");
         request.setParameter("ageatonset", "44");
-        request.getSession().setAttribute("lastSavedNoteString", "Previous chart text");
+        request.getSession().setAttribute(ChartSessionKeys.lastSavedNoteText("101"), "Previous chart text");
         CaseManagementNoteExtDAO extensions = mock(CaseManagementNoteExtDAO.class);
         injectDependency(action, "caseManagementNoteExtDao", extensions);
         Issue issue = new Issue();

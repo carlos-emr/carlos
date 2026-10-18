@@ -1950,9 +1950,13 @@ function popForm2(scriptId, saveAndPrint){
 
 				var url = ctx + "/rx/WriteScript";
 				var ran_number = Math.round(Math.random() * 1000000);
+				// This page's own patient (the bean authorised for this request). The EL name
+				// demographicNo used here before resolved from session scope on routes that set no
+				// attribute of that name, i.e. to the patient of the last waiting-list, registry or
+				// allergy page in any window, and the drug was then staged for that patient (#4673).
 				var params = "parameterValue=createNewRx"
 					+ "&demographicNo="
-					+ "${ demographicNo }"
+					+ "<%= demoNo %>"
 					+ "&drugId="
 					+ encodeURIComponent(args.id)
 					+ "&text="

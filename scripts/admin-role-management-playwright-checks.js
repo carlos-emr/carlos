@@ -286,6 +286,14 @@ async function workflow(s) {
     frame = await openItem(admin, 'GroupNoAcl', 'select#chosen_group');
     // Choosing a group re-renders the page for it (onChange submits method=setGroupNo).
     await submitIn(admin, frame, () => frame.locator('select#chosen_group').selectOption(group));
+    // The page offers only active providers (PMmodule ProviderDao.getActiveProviders: status 1, and a
+    // provider number not starting with "-"). Not "exactly": a provider this check inserts by SQL can
+    // be missing from the application's cached provider list until it refreshes.
+    const listed = await frame.locator('input[name="data"]').evaluateAll(boxes => boxes.map(b => b.value));
+    const active = sql.rows("SELECT provider_no FROM provider WHERE status='1' AND provider_no NOT LIKE '-%'").map(r => r[0]);
+    const notActive = listed.filter(p => !active.includes(p));
+    h.assert(!notActive.length, `Access Control lists providers that are not active: ${notActive.join(',')}`);
+    h.assert(listed.includes(s.provider), 'Access Control does not list the administrator');
     const box = frame.locator(`input[name="data"][value="${s.provider}"]`);
     h.assert(await box.isChecked() === !restrict, 'The group\'s current restriction is not reflected');
     await box.setChecked(restrict);
@@ -304,6 +312,12 @@ async function workflow(s) {
     await accessControl(false);
     h.assert(restrictions().length === 0, 'The restriction row was not removed');
     h.assert(await groupOption() === 1, 'The un-restricted group did not return to the day sheet');
+  });
+  await s.step('a GET carrying the Access Control save is refused with 405 and stores nothing', async () => {
+    const params = new URLSearchParams({ method: 'save', chosen_group: group, data: s.provider });
+    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/admin/GroupNoAcl?${params}`), { maxRedirects: 0 });
+    h.assert(response.status() === 405, `A GET Access Control save answered ${response.status()}, not 405`);
+    h.assert(restrictions().length === 0, 'A refused GET stored a restriction');
   });
   await s.step('Fix notes with invalid role lists the owned role as a target (opened, never submitted)', async () => {
     frame = await openItem(admin, 'FixRolesOnNotes', 'select[name="role_to"]');

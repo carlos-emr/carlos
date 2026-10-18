@@ -39,7 +39,9 @@
         response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     String user_no = (String) session.getAttribute("user");
-    String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");
+    // The page's patient is moduleid, from this request. It used to also read the session's
+    // last-opened chart (casemgmt_DemoNo), another window's patient, into a variable nothing
+    // used; that session attribute no longer exists (issue #4673).
 
     String appointment = request.getParameter("appointmentNo");
     int appointmentNo = 0;
@@ -116,10 +118,6 @@
     } else if (request.getAttribute("function") != null) {
         module = (String) request.getAttribute("function");
         moduleid = (String) request.getAttribute("functionid");
-    }
-
-    if (!"".equalsIgnoreCase(moduleid) && (demographicNo == null || demographicNo.equalsIgnoreCase("null"))) {
-        demographicNo = moduleid;
     }
 
 // module can be "demographic", "provider", or "providers" (use EDocUtil.isProviderModule() for provider checks)

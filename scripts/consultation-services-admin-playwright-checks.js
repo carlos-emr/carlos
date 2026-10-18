@@ -22,11 +22,12 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { REFERRING, restoreSwitch, scriptDigests, snapshotSwitch } = require('./lib/consult-config-state');
+const { masterRecordLink } = require('./lib/master-record-link');
 const { insertId } = h;
 
 async function openNewConsultation(s, label) {
   const list = await s.popup(s.master,
-    s.master.locator("a[onclick*='ViewDisplayDemographicConsultationRequests']"), `${label}-list`);
+    masterRecordLink(s.master, 'ViewDisplayDemographicConsultationRequests'), `${label}-list`);
   const form = await s.popup(list, list.locator('a.btn', { hasText: /New Consultation/i }), label);
   await form.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached' });
   h.assert(await form.locator('#demographicNo').inputValue() === s.patient,

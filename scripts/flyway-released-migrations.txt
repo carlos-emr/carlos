@@ -1,0 +1,65 @@
+# Flyway migrations shipped in a published CARLOS release tag: <tag> <path> <sha256 of the file, line endings ignored>.
+# Read by scripts/flyway-upgrade-check.test.js. Paths are under database/mysql/migration/.
+#
+# A listed migration must never be renamed, removed or edited: installs of that tag have run it.
+# A migration not listed here must use a version above every listed version of its set
+# (common+on, common+bc), or installs of the newest listed tag could not upgrade.
+#
+# When a tag is published, append its migrations on the tag's own line and on every newer line
+# (develop at its next forward merge):  node scripts/flyway-record-release.js <tag>
+#
+# "floor <line> <version>": on that release line (the YYYY.MM of the project version in pom.xml),
+# new migrations must stay below <version>, because a newer line already uses the numbers above it.
+# Set it to the newer line's lowest version when that line starts adding its own migrations, and
+# lower it to this line's own released top (no new migrations at all) once the newer line ships a
+# release: from then on its installs could not take a later migration from this line.
+floor 2026.08 1.0.60
+#
+# Seeded on 2026-10-15 from tags 2026.08.0-alpha1 to 2026.08.0-alpha19.
+2026.08.0-alpha1 bc/V1.0.1__bc_schema.sql 0b02b8433e015280460399cbb6736061d87e21bbe9497c28c81132b6ae0e5e0e
+2026.08.0-alpha1 bc/V1.0.2__bc_data.sql 28e92ac9cb804790f15e68170ed753f69ce7912082677763c994d84132015f66
+2026.08.0-alpha1 bc/V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql f93f07586f7a884c8b91a8d99b2baad2262486aec5912c1e0440e820a83e521d
+2026.08.0-alpha1 common/V1.0.10__seed_default_measurement_groups.sql 3891416bb9028a80ff9f2565639abbd5abb06bab3af0c6adaee144fe94efa180
+2026.08.0-alpha1 common/V1.0.3__performance_indexes.sql f2a7a1c218ab26632e6afe965f03eb8305b1801529939aee5d015509c7f12b4c
+2026.08.0-alpha1 common/V1.0.5__restore_live_legacy_common_tables.sql 15256c2f66aa6f78d5612829c75e62d759b299d2e66557aea720ecf98a2f09e3
+2026.08.0-alpha1 common/V1.0.7__restore_phcp_diagnosis_groups.sql 4b46e97ef153ba3a9d5baf13eab523a9d0473c93a6a1c2085c26b45fc922114b
+2026.08.0-alpha1 common/V1.0.8__expand_appointment_type_location.sql dfbc0129ba4061295e05f4f8c8c4b9662d97ec8c51b79c878d426885a028accc
+2026.08.0-alpha1 common/V1.0.9__remove_carlosdoc_schedule_group_denial.sql abf0517457ce97e196e485232f69d8c31bc30648a965c7a95d8410181c8f291d
+2026.08.0-alpha1 common/V1__baseline_schema.sql bff3c17487c79ba751bdcac7f84d03708b2359446b1220185eb30047765c0831
+2026.08.0-alpha1 on/V1.0.11__billing_filename_unique_indexes.sql 6d75b5fba3c60b3645bd29dc3fe466095839d321d7b7b76b4a4bb3ffed213bde
+2026.08.0-alpha1 on/V1.0.1__on_schema.sql 30313aff94f53595b69d2ba7737ef49c404a437e768c6322767d4a5e0df00499
+2026.08.0-alpha1 on/V1.0.2__on_data.sql 1585a7d1c4114b6affa5deba69aa4998c2815d1a89d9be64d24283cdc770493a
+2026.08.0-alpha1 on/V1.0.4__on_performance_indexes.sql fc16910131360a418b769214872588727e93b4031252f0b55882b9ea0d8f45ce
+2026.08.0-alpha1 on/V1.0.6__restore_reporting_privilege.sql cc1a0524a29bb1cdbc680c10649f0065cfee5707db2419075a07a881e4169338
+2026.08.0-alpha2 on/V1.0.12__portable_billing_filename_unique_indexes.sql 2f99474da76e6e67f7010932305eec5e1c9bbfd57e6a6b3efb9e43ee164719a8
+2026.08.0-alpha3 common/V1.0.13__fix_phcp_diagnosis_group_backfill_collation.sql 751b50b722a93b9324d046a342702694bf81de73b65672d912e18ab63a9a5a18
+2026.08.0-alpha5 common/V1.0.14__widen_faxes_jobid_to_bigint.sql dd2125aa5b992899824ade867f855b096ad79c508dc2e4ed82fbc6cb3fdef68a
+2026.08.0-alpha5 common/V1.0.15__add_faxes_direction.sql f56970d1b163d3da1346482a1098b3ac1cd63d1ee7eb445d0525346b3f9a2607
+2026.08.0-alpha5 common/V1.0.16__add_faxes_jobid_index.sql fb45104a31a0365d10168ef954414f10df5e080749ac2e9b77090974f55466db
+2026.08.0-alpha9 common/V1.0.17__enable_digital_signatures_by_default.sql b5d070851924da4301caff9fd2e87f036e7c5a7a19acc2d2a3f9f9ab2f3f7283
+2026.08.0-alpha11 bc/V1.0.19__bc_billingmaster_indexes.sql c667950863f1c0574a6396d59b1547d2d325c24fe16c5de51edeb90999fbdfb3
+2026.08.0-alpha11 common/V1.0.18__performance_indexes_2.sql 9ca43ada157cc185db704a3a3de2c207a5bbf3a5c419bce0803b66703b98411d
+2026.08.0-alpha12 common/V1.0.20__widen_fax_destination_for_international_numbers.sql baa8964f8885dc9d6ad87659edf4e9d0ebae786fd79d14c968cca1c96689f5e5
+2026.08.0-alpha12 common/V1.0.21__serialize_missing_lab_routing_creation.sql bc294c439c6c2e552e7d450fe5d8a5cf5535cc9cec2e254e30b177d3a8e29749
+2026.08.0-alpha12 common/V1.0.22__add_lab_routing_lock_audit_columns.sql 55df3b323643d954086c8ed50400680fe490176b01139f7ebe65546038cef40d
+2026.08.0-alpha12 on/V1.0.23__activate_legacy_consultation_services.sql 9241da7327c20e94c5dd02e8d378e2cf8db867f77f3eae7f0a4996ce3eadb228
+2026.08.0-alpha14 common/V1.0.23.1__widen_email_config.sql 5dbe91b057dab8f79f2b387ca0da72f33649fda4a73e32762a33445ee1ded6b3
+2026.08.0-alpha14 common/V1.0.29__rename_placeholder_demo_clinic.sql 905c86114dd2793d9db54961f2f5f20b2a764060b4a96e74a6e24f70a987167a
+2026.08.0-alpha14 common/V1.0.30__add_ocean_setting.sql b2cca782c88dd17847129522c858ec793a1b733cdf86503a08e37f3e33474fc6
+2026.08.0-alpha14 common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql 2c5093a89990f6411734e58266a055bd96309d108e968ef298665655b48eaeab
+2026.08.0-alpha14 common/V1.0.33__aacp_provided_revised_reviewed_validation.sql 7783d5f8685974f084afc9462abba4b4843b6e9b0658ca866cbdd7aa5c3a4637
+2026.08.0-alpha14 on/V1.0.34__add_oma_uninsured_service_fees.sql b99985c46809eace86d92281274a468a7ab8990a704a4e41bb1a66c84825719f
+2026.08.0-alpha17 common/V1.0.36__serialize_messenger_membership_changes.sql a6858832f194c0eaa38f4bef613a4133a3b9d18010c9224bda15043d9bcaf8dc
+2026.08.0-alpha17 common/V1.0.39__track_automatic_mrp_routing.sql cd9cb203173123842f268337ebc2645443e08c02c22461d5a075a313fbb7763b
+2026.08.0-alpha17 common/V1.0.40__widen_lab_labels.sql 2f4246ec92f08d3f28a5bb9df4e8c48f6e19516fbf5cf931b36b45daa5798c8a
+2026.08.0-alpha18 common/V1.0.41__rtl_provider_stamp_fields.sql 533fa18886bbcda06e41444f145adc8cf8608d017aa8a6ba93935ce51e0ca349
+2026.08.0-alpha18 common/V1.0.42__tickler_docs.sql b4bb43db54d4df62deac42e99af3a674a4a29d579901030780c089253d3c935d
+2026.08.0-alpha18 common/V1.0.43__consultation_eform_lab_sources.sql b10dc5e7d8bd4822236572673ffe21e7d7748d4e298655a136777defdfbbce01
+2026.08.0-alpha19 common/V1.0.45__consultation_request_indexes.sql ade865a0847711ed1fd55232b6a754d34b9ff0705bb437018c898d5295bea545
+2026.08.0-alpha19 common/V1.0.46__field_note_report_privilege.sql f461a4e556d2d7a4205f0148d6aaef119563d4107819ba27c46b178947232cf8
+2026.08.0-alpha19 common/V1.0.47__align_measurements_deleted_columns.sql 35fc94f648f6aa740cb77775af4571ee22f1dea443192b4b71332af947adeca3
+2026.08.0-alpha19 common/V1.0.52__enforce_provider_signature_identity.sql aaf7aeb4083801918e5f5c5ac37a53b4f26b9c8d3077d32763b2e42aa2e87625
+2026.08.0-alpha19 common/V1.0.53__decode_diagnostic_description_apostrophes.sql f9033bc3836a2b1e9446adaf01022194580cdbddc5d493969a9366e282da556a
+2026.08.0-alpha19 common/V1.0.54__allow_dashboard_exclusion_history.sql 7e1fbe21032e4b9656f61857199398ae01fa1216b1602f0cfea29da76316e3cd
+2026.08.0-alpha19 common/V1.0.55__preserve_remittance_health_number_version.sql b096682e50e34aa972bdb386ea6511196e079f396463edbcd4186d5b2eecda25
+2026.08.0-alpha19 on/V1.0.56__preserve_claim_item_explanations.sql d77f37a309857008361d977880c6237f0605f3c98c60351a730734656ea99c14

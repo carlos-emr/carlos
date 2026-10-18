@@ -39,6 +39,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import org.mockito.Mock;
@@ -115,19 +117,22 @@ class BillingUpdateBilling2ActionUnitTest extends CarlosUnitTestBase {
 
     /**
      * The receipt's Update Invoice posted an empty billingNo, which ended in a NumberFormatException
-     * and an HTTP 500 (issue #4717). A missing or non-numeric number is now refused before any read
-     * or write.
+     * and an HTTP 500 (issue #4717). A missing, non-numeric or over-long number is now refused before
+     * any read or write.
      */
-    @Test
-    void shouldRefuseWithBadRequest_whenBillingNoIsMissing() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "12a", "0000000000123"})
+    void shouldRefuseWithBadRequest_whenBillingNoIsNotABillNumber(String billingNo) throws Exception {
         request.setMethod("POST");
         BillingmasterDAO billingmasterDao = mock(BillingmasterDAO.class);
         registerBillingDaos(billingmasterDao);
 
         BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
-        action.setBillingNo("");
+        action.setBillingNo(billingNo);
         String result = action.execute();
 
+        // Refused before any write: a number the receipt view refuses would otherwise be updated
+        // and then shown as an error.
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(billingmasterDao);
@@ -175,6 +180,60 @@ class BillingUpdateBilling2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verify(billingmasterDao).update(line);
         assertThat(line.getPayeeNo()).isEqualTo("999998");
+    }
+
+    /**
+     * Issue #4673: the receipt shown after Update Invoice is the view of the receipt the update
+     * came from. A private bill is saved one row per service line and its receipt combines them,
+     * so the view names every one of them, the updated bill first.
+     */
+    @Test
+    void shouldShowTheWholeReceiptAgain_whenItCombinesSeveralBills() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        registerBillingDaos(mock(BillingmasterDAO.class));
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("101");
+        action.setReceiptBillingNo(new String[]{"101", "102"});
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getReceiptView())
+                .isEqualTo("/billing/CA/BC/billingView?billing_no=101&billing_no=102&receipt=yes");
+    }
+
+    @Test
+    void shouldShowTheUpdatedBillAlone_whenTheReceiptNamesNoOtherBill() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        registerBillingDaos(mock(BillingmasterDAO.class));
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("123");
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getReceiptView()).isEqualTo("/billing/CA/BC/billingView?billing_no=123&receipt=yes");
+    }
+
+    /** The receipt's bill numbers end up in the redirect: anything else is refused before any write. */
+    @Test
+    void shouldRefuseBeforeAnyWrite_whenAReceiptBillIsNotABillNumber() throws Exception {
+        request.setMethod("POST");
+        request.getSession().setAttribute("user", "999998");
+        BillingmasterDAO billingmasterDao = mock(BillingmasterDAO.class);
+        registerBillingDaos(billingmasterDao);
+
+        BillingUpdateBilling2Action action = new BillingUpdateBilling2Action();
+        action.setBillingNo("101");
+        action.setReceiptBillingNo(new String[]{"101", "102&receipt=no"});
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getReceiptView()).isNull();
+        verifyNoInteractions(billingmasterDao);
     }
 
     /** The DAOs the update reaches through MSPReconcile, BillingViewBean and BillingNote. */

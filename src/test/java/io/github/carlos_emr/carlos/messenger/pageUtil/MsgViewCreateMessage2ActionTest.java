@@ -39,8 +39,9 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link MsgViewCreateMessage2Action}.
  *
- * <p>Covers the privilege-denied path and the success forward, which are the
- * only two branches of this view-gate action.
+ * <p>Covers the privilege-denied path, the success forward and the compose key the page is
+ * handed: the transfer step's key, or a new key holding a copy of the items saved for the message
+ * a view's Compose link names.
  *
  * @since 2026-04-13
  */
@@ -87,5 +88,59 @@ class MsgViewCreateMessage2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        // A plain visit starts a new message: the compose page makes its own key.
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should hand the compose page the key the transferred items were staged under")
+    void shouldHandOverComposeKey_whenRedirectedFromTransfer() throws Exception {
+        allowPrivilege("_msg", "r");
+        String key = MsgAttachmentStaging.newKey();
+        getMockRequest().setParameter(MsgAttachmentStaging.KEY_PARAMETER, key);
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(key);
+    }
+
+    @Test
+    @DisplayName("should hand the compose page its own key holding the items saved for the message its Compose link names")
+    void shouldHandOverCopyOfSavedItems_whenComposeLinkNamesItsMessage() throws Exception {
+        allowPrivilege("_msg", "r");
+        String forwardKey = MsgAttachmentStaging.forwardKey(getMockSession(), 100);
+        MsgAttachmentStaging.stageItems(getMockSession(), forwardKey, "<root>FAKE chart item</root>");
+        getMockRequest().setParameter(MsgViewCreateMessage2Action.FORWARD_MESSAGE_PARAMETER, "100");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        String handedOver = (String) getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE);
+        assertThat(handedOver).isNotEqualTo(forwardKey);
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), handedOver).itemAttachment())
+                .isEqualTo("<root>FAKE chart item</root>");
+    }
+
+    @Test
+    @DisplayName("should start a new message when the Compose link names no valid message")
+    void shouldStartNewMessage_whenForwardMessageIsNotAMessageId() throws Exception {
+        allowPrivilege("_msg", "r");
+        for (String value : new String[] {"0", "-1", "abc", "01", "99999999999"}) {
+            getMockRequest().setParameter(MsgViewCreateMessage2Action.FORWARD_MESSAGE_PARAMETER, value);
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).as(value).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should ignore a malformed compose key")
+    void shouldIgnoreComposeKey_whenMalformed() throws Exception {
+        allowPrivilege("_msg", "r");
+        getMockRequest().setParameter(MsgAttachmentStaging.KEY_PARAMETER, "<script>");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isNull();
     }
 }

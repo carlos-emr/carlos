@@ -41,6 +41,8 @@
 
   Request parameters:
   - demographic_no: Required patient demographic number (validated as integer)
+  - attachmentKey: the key of the compose window the chooser was opened from, posted back with
+    the ticked items so they are staged for that window's message only (issue #4673)
 
   The form posts item KEYS to messenger/Doc2PDF (item=demographic|encounter|prescriptions, or
   previewItem=<key> with isPreview=true) and the server renders each item itself
@@ -49,8 +51,9 @@
   store arbitrary markup as a chart PDF and was refused by the front-door WAF (#4133).
 
   Session dependencies:
-  - msgSessionBean: Message session state management
-  - EctSessionBean: Encounter session for patient context
+  - none for the attachments: they are staged per compose window (MsgAttachmentStaging)
+  (It no longer seeds the login-wide EctSessionBean: the encounter item's print loads its own
+  requested patient, issue #4673.)
 
   @since 2003
 --%>
@@ -66,8 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
@@ -128,19 +130,13 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
     // Same patient-level gate Doc2PDF applies (it also honours a per-patient _eChart$<id> "o"
-    // restriction): without it this page would show the patient's name, and seed the encounter
-    // session, for a patient every preview and attach would then refuse.
+    // restriction): without it this page would show the patient's name for a patient every
+    // preview and attach would then refuse.
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
         response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
         return;
     }
-
-    EctSessionBean bean = new EctSessionBean();
-    // Use validated integer-derived string to prevent raw request data in session (CWE-501)
-    bean.demographicNo = demographic_no;
-
-    request.getSession().setAttribute("EctSessionBean", bean);
 
     // Offer only the items Doc2PDF would let this user attach for this patient (module read,
     // globally and for the patient). The encounter lookup itself is skipped without _eChart
@@ -358,6 +354,10 @@
             </table>
 
             <input type="hidden" name="demographic_no" value="<%=SafeEncode.forHtmlAttribute(demographic_no)%>"/>
+            <%-- The compose window this chooser attaches to; a malformed value is dropped and Attach is refused. --%>
+            <% String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER); %>
+            <input type="hidden" name="attachmentKey"
+                   value="<%= MsgAttachmentStaging.isKey(attachmentKey) ? SafeEncode.forHtmlAttribute(attachmentKey) : "" %>"/>
             <input type="hidden" name="isPreview" value="false"/>
             <input type="hidden" name="previewItem" value=""/>
         </form>

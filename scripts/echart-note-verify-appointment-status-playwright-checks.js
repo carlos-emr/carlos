@@ -137,9 +137,9 @@ const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The E link stores the appointment number in the session with a fire-and-forget fetch
- * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession) whose body nothing reads, and
- * Chromium reports that request as ERR_ABORTED when the day sheet is reloaded, which this check does after
- * every chart. That is the browser abandoning an unread response, not an application failure. This check does
+ * (schedulePage.js.jsp storeApptNo, POST /provider/ViewStoreApptInSession), and Chromium reports that
+ * request as ERR_ABORTED when the day sheet is reloaded before it completes, which this check does after
+ * every chart. That is the browser abandoning the request, not an application failure. This check does
  * not depend on the session copy of the appointment number (the E link's own URL carries appointmentNo=, which
  * is what the chart reads), so the aborted request is excused here, not asserted. Excuse exactly those entries
  * (fetch, ERR_ABORTED, that path) and nothing else.

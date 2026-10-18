@@ -34,6 +34,7 @@ const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
 const { captureRequest } = require('./get-reject-probe');
 const { revealAuditLink } = require('./playwright-link-audit');
+const { masterRecordLink } = require('./master-record-link');
 
 const TIMEOUT = 30000;
 const q = h.sqlString;
@@ -392,7 +393,7 @@ function ticklerAdd(s) {
       h.assert(ids().length === 0, 'Owned ticklers were not removed');
     },
     async perform(tag) {
-      const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+      const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
       await list.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
       const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
       await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: TIMEOUT });
@@ -503,7 +504,7 @@ function rxSave(s) {
         + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient})`) === '0', 'Owned Rx rows were not removed');
     },
     async perform(tag) {
-      rx = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+      rx = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
       await rx.locator('#searchString').waitFor({ state: 'visible', timeout: TIMEOUT });
       await rx.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
       this.card = await stage(prefix + tag);

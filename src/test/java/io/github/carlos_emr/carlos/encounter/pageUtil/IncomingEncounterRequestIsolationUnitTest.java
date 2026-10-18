@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
@@ -20,10 +22,14 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -191,6 +197,122 @@ public class IncomingEncounterRequestIsolationUnitTest extends CarlosUnitTestBas
             assertThat(request.getAttribute("EctSessionBean")).isNull();
             assertThat(session.getAttribute("EctSessionBean")).isSameAs(stale);
         }
+    }
+
+    @Test
+    void shouldRefuseToCopyANote_whenTheAttachIsNotPosted() throws Exception {
+        MockHttpServletRequest request = attachRequest("GET", "101", "5");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(execute(request, response)).isEqualTo(ActionSupport.NONE);
+        }
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(notes);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"another client than the chart", "no note", "malformed note"})
+    void shouldRefuseToCopyANote_whenTheAttachIsMalformed(String scenario) throws Exception {
+        MockHttpServletRequest request = switch (scenario) {
+            case "another client than the chart" -> attachRequest("POST", "202", "5");
+            case "no note" -> attachRequest("POST", "101", null);
+            default -> attachRequest("POST", "101", "5x");
+        };
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(execute(request, response)).isEqualTo(ActionSupport.NONE);
+        }
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(notes);
+    }
+
+    @Test
+    void shouldAnswerNotFound_whenTheNoteToAttachDoesNotExist() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(execute(attachRequest("POST", "101", "5"), response)).isEqualTo(ActionSupport.NONE);
+        }
+        assertThat(response.getStatus()).isEqualTo(404);
+        verify(notes, never()).saveNote(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"note read", "note's record", "client note write", "client's record"})
+    void shouldRefuseToCopyANote_whenEitherPatientIsNotTheUsers(String denied) throws Exception {
+        when(notes.getNote(5L)).thenReturn(sourceNote());
+        allowAttach();
+        switch (denied) {
+            case "note read" -> when(security.hasPrivilege(login, "_casemgmt.notes", "r", "202")).thenReturn(false);
+            case "note's record" -> when(security.isAllowedAccessToPatientRecord(login, 202)).thenReturn(false);
+            case "client note write" -> when(security.hasPrivilege(login, "_casemgmt.notes", "w", "101")).thenReturn(false);
+            default -> when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(false);
+        }
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThatThrownBy(() -> execute(attachRequest("POST", "101", "5"), new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_casemgmt.notes)");
+        }
+        verify(notes, never()).saveNote(any());
+    }
+
+    @Test
+    void shouldCopyTheNoteAsANewNoteOfTheClient_whenPostedByAUserWhoMayReadAndWriteBoth() throws Exception {
+        CaseManagementNote source = sourceNote();
+        when(notes.getNote(5L)).thenReturn(source);
+        allowAttach();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var props = mockStatic(CarlosProperties.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(execute(attachRequest("POST", "101", "5"), response)).isEqualTo(ActionSupport.NONE);
+        }
+        ArgumentCaptor<CaseManagementNote> saved = ArgumentCaptor.forClass(CaseManagementNote.class);
+        verify(notes).saveNote(saved.capture());
+        CaseManagementNote copy = saved.getValue();
+        assertThat(copy.getId()).isNull();
+        assertThat(copy.getUuid()).as("a new note, not a revision of the source").isNull();
+        assertThat(copy.getDemographic_no()).isEqualTo("101");
+        assertThat(copy.getAppointmentNo()).isZero();
+        assertThat(copy.getIssues()).as("no links to the other patient's issues").isEmpty();
+        assertThat(copy.getNote()).isEqualTo("FAKE current text");
+        assertThat(copy.getHistory()).as("not the source note's earlier text").isEqualTo("FAKE current text");
+        assertThat(response.getRedirectedUrl()).isEqualTo("/encounter/IncomingEncounter?demographicNo=101&appointmentNo=0");
+    }
+
+    private void allowAttach() {
+        when(security.hasPrivilege(eq(login), eq("_casemgmt.notes"), anyString(), anyString())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
+    }
+
+    /** Patient 202's note, with an appointment, an issue link and earlier text. */
+    private static CaseManagementNote sourceNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(5L);
+        note.setUuid("00000000-0000-0000-0000-000000000202");
+        note.setDemographic_no("202");
+        note.setAppointmentNo(9002);
+        note.setNote("FAKE current text");
+        note.setHistory("FAKE earlier text\nFAKE current text");
+        Set<CaseManagementIssue> issues = new HashSet<>();
+        issues.add(new CaseManagementIssue());
+        note.setIssues(issues);
+        return note;
+    }
+
+    /** The PMM attach popup's request: attach note {@code noteId} to {@code client}, opening chart 101. */
+    private MockHttpServletRequest attachRequest(String method, String client, String noteId) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/encounter/IncomingEncounter");
+        request.setSession(session);
+        request.setParameter("demographicNo", "101");
+        request.setParameter("appointmentNo", "0");
+        request.setParameter("PEAttach", "yes");
+        request.setParameter("selectId", client);
+        if (noteId != null) request.setParameter("noteId", noteId);
+        return request;
     }
 
     private MockedConstruction<EctSessionBean> clinicalBeans() {

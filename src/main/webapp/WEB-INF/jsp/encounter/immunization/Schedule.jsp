@@ -45,10 +45,12 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
@@ -57,43 +59,39 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
-    EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-
-    String sDoc = null;
-    Immunizations currentSchedule = null;
-    String demoNo = request.getParameter("demographic_no");
-    String last_name = "";
-    String first_name = "";
-    String sex = "";
-    String age = "";
-    if (demoNo != null) {
-        DemographicData dData = new DemographicData();
-        Demographic demographic = dData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
-        last_name = demographic.getLastName();
-        first_name = demographic.getFirstName();
-        sex = demographic.getSex();
-        age = demographic.getAge();
-    } else {
-        if (bean.demographicNo != null) {
-            demoNo = bean.demographicNo;
-            last_name = bean.getPatientLastName();
-            first_name = bean.getPatientFirstName();
-            sex = bean.getPatientSex();
-            age = bean.getPatientAge();
-        }
+    // The patient this request names: the chart or prevention link that opened the schedule, or
+    // the form a save, template, delete or restore posted. Never the login-wide EctSessionBean,
+    // which follows whichever chart was entered last in any window (issue #4673).
+    String demoNo;
+    try {
+        demoNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+        return;
     }
-
-    if (demoNo != null) {
-        currentSchedule = new EctImmImmunizationData().getCurrentSchedule(demoNo);
-        sDoc = currentSchedule == null ? null : currentSchedule.getImmunizations();
+    // The record itself, as the schedule's own save, template, delete and restore check it: a
+    // patient this user is excluded from is neither shown nor offered for change.
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!SpringUtils.getBean(SecurityInfoManager.class).isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+        return;
     }
+    // Reading the record checks _demographic read for this patient.
+    Demographic demographic = new DemographicData().getDemographic(loggedInInfo, demoNo);
+    if (demographic == null) {
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
+    String last_name = demographic.getLastName();
+    String first_name = demographic.getFirstName();
+    String sex = demographic.getSex();
+    String age = demographic.getAge();
+
+    Immunizations currentSchedule = new EctImmImmunizationData().getCurrentSchedule(demoNo);
+    String sDoc = currentSchedule == null ? null : currentSchedule.getImmunizations();
     if (sDoc == null) {
-        String redirect = "loadConfig";
-
-        if (demoNo != null)
-            redirect += "?demographic_no=" + demoNo;
-
-        response.sendRedirect(redirect);
+        // demoNo is a validated, canonical patient number.
+        response.sendRedirect("loadConfig?demographic_no=" + demoNo);
         return;
     }
     Document doc = UtilXML.parseXML(sDoc);
@@ -126,7 +124,8 @@
 
         function edit(nodeName, colName) {
             windowprops = "height=443,width=630,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName), "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
+            window.open("<%= request.getContextPath() %>/encounter/immunization/ViewScheduleEdit?node=" + encodeURIComponent(nodeName) + "&name=" + encodeURIComponent(colName)
+                + "&demographic_no=<%= SafeEncode.forJavaScriptBlock(SafeEncode.forUriComponent(demoNo)) %>", "<fmt:message key='encounter.immunization.Schedule.msgRecordImm'/>", windowprops);
         }
 
         function returnEdit(nodeName, givenDate, refusedDate, lot, provider, comments) {
@@ -490,7 +489,8 @@
     <input type="hidden" name="scheduleVersion" value="<%= currentSchedule.getId() %>"/>
     <input type="hidden" name="method"/>
     <input type="hidden" name="tblSet"/>
-    <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
+    <%-- The name the redisplayed schedule (this page) and the action read; it was demoNo (#4673). --%>
+    <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>
 </form>
 </body>
 </html>

@@ -34,6 +34,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +45,9 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link MsgAdjustAttachments2Action}.
  *
  * <p>Covers privilege enforcement, POST-only method check, the xmlDoc null
- * guard, and the invalid-session-bean fallback path.
+ * guard, the invalid-session-bean fallback path, and the forwarding hand-over:
+ * the selection is staged under the key of the message view it is forwarded
+ * from, for the compose page that view's Compose link opens (issue #4673).
  *
  * @since 2026-04-13
  */
@@ -114,53 +118,86 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         MsgSessionBean bean = new MsgSessionBean();
         bean.setProviderNo(TEST_PROVIDER);
         getMockSession().setAttribute("msgSessionBean", bean);
+        addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, MsgAttachmentStaging.newKey());
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertNothingStaged();
     }
 
     @Test
-    @DisplayName("should mutate session bean and redirect to DemographicLinkMsg on valid POST")
-    void shouldMutateBean_andRedirectToDemographicLinkMsg_whenPostIsValid() throws Exception {
+    @DisplayName("should stage the selection for its own message view's compose and hand over to the patient search")
+    void shouldStageSelectionForItsMessageView_whenPostIsValid() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
         bean.setProviderNo(TEST_PROVIDER);
         getMockSession().setAttribute("msgSessionBean", bean);
+        String forwardKey = MsgAttachmentStaging.newKey();
 
-        String encodedDoc = MsgCommxml.encode64(SAMPLE_XML);
-        addRequestParameter("xmlDoc", encodedDoc);
+        addRequestParameter("xmlDoc", MsgCommxml.encode64(TWO_ITEM_XML));
         addRequestParameter("id", "42");
         addRequestParameter("item1", "on");
+        addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, forwardKey);
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
                 .endsWith("/demographic/DemographicLinkMsg");
-        assertThat(bean.getAttachment()).isNotNull();
-        assertThat(bean.getMessageId()).isEqualTo("42");
+        MsgAttachmentStaging.Staged staged = MsgAttachmentStaging.peek(getMockSession(), forwardKey);
+        assertThat(staged).isNotNull();
+        assertThat(staged.itemAttachment()).contains("itemId=\"1\"").doesNotContain("itemId=\"2\"");
+        assertThat(staged.pdfAttachment()).isNull();
+        // Issue #4673: on the login-wide bean the selection went out with the next message sent
+        // from any compose window, for any patient.
+        assertThat(bean.getAttachment()).isNull();
     }
 
     @Test
-    @DisplayName("should set bean messageId to null when id param is not digits")
-    void shouldNullifyMessageId_whenIdIsNonNumeric() throws Exception {
+    @DisplayName("should keep each message view's selection for its own compose when two views forward")
+    void shouldKeepEachViewsSelection_whenTwoMessageViewsForward() throws Exception {
         allowPrivilege("_msg", "w");
-        getMockRequest().setMethod("POST");
+        MsgSessionBean bean = new MsgSessionBean();
+        bean.setProviderNo(TEST_PROVIDER);
+        getMockSession().setAttribute("msgSessionBean", bean);
+        String firstView = MsgAttachmentStaging.newKey();
+        String secondView = MsgAttachmentStaging.newKey();
+
+        forward(firstView, "item1");
+        forward(secondView, "item2");
+
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), firstView).itemAttachment())
+                .contains("itemId=\"1\"").doesNotContain("itemId=\"2\"");
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), secondView).itemAttachment())
+                .contains("itemId=\"2\"").doesNotContain("itemId=\"1\"");
+    }
+
+    @Test
+    @DisplayName("should refuse a selection without its message view's key and stage nothing")
+    void shouldRefuseAndStageNothing_whenMessageViewKeyIsMissingOrMalformed() throws Exception {
+        allowPrivilege("_msg", "w");
         MsgSessionBean bean = new MsgSessionBean();
         bean.setProviderNo(TEST_PROVIDER);
         getMockSession().setAttribute("msgSessionBean", bean);
 
-        addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
-        addRequestParameter("id", "42; DROP TABLE demographic");
+        for (String key : new String[]{null, "", "not-a-key", MsgAttachmentStaging.newKey() + "x"}) {
+            nextRequest();
+            addRequestParameter("xmlDoc", MsgCommxml.encode64(TWO_ITEM_XML));
+            addRequestParameter("item1", "on");
+            if (key != null) {
+                addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, key);
+            }
 
-        executeAction(action);
+            String result = executeAction(action);
 
-        // MsgSessionBean.getMessageId() normalizes null to an empty string; assert
-        // the non-numeric input did not survive intact onto the bean.
-        assertThat(bean.getMessageId()).isEmpty();
+            assertThat(result).as(String.valueOf(key)).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getStatus()).as(String.valueOf(key))
+                    .isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertNothingStaged();
+        }
     }
 
     @Test
@@ -175,38 +212,69 @@ class MsgAdjustAttachments2ActionTest extends CarlosWebTestBase {
         // "this is not xml" encoded — decodes to non-empty garbage that XML
         // parsing rejects (parseXML returns null, previously NPE -> 500).
         addRequestParameter("xmlDoc", MsgCommxml.encode64("not xml"));
+        addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, MsgAttachmentStaging.newKey());
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(bean.getAttachment()).isNull();
+        assertNothingStaged();
     }
 
     @Test
     @DisplayName("should silently ignore non-digit item* parameter suffix")
-    void shouldIgnoreNonNumericItemSuffix() throws Exception {
+    void shouldIgnoreNonNumericItemSuffix_forItemParameters() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
         bean.setProviderNo(TEST_PROVIDER);
         getMockSession().setAttribute("msgSessionBean", bean);
 
+        String forwardKey = MsgAttachmentStaging.newKey();
         addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
         // itemfoo is ignored; item1 is kept.
         addRequestParameter("itemfoo", "on");
         addRequestParameter("item1", "on");
+        addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, forwardKey);
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getRedirectedUrl())
                 .endsWith("/demographic/DemographicLinkMsg");
-        // The item remained because its itemId matches "1"; the parser never
-        // saw "foo" as a valid selection.
-        assertThat(bean.getAttachment()).contains("itemId=\"1\"");
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), forwardKey).itemAttachment())
+                .contains("itemId=\"1\"");
+        assertThat(bean.getAttachment()).isNull();
+    }
+
+    /** Posts Save Attachments from the message view with {@code forwardKey}, ticking {@code item}. */
+    private void forward(String forwardKey, String item) throws Exception {
+        nextRequest();
+        addRequestParameter("xmlDoc", MsgCommxml.encode64(TWO_ITEM_XML));
+        addRequestParameter(item, "on");
+        addRequestParameter(MsgAttachmentStaging.KEY_PARAMETER, forwardKey);
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getRedirectedUrl()).endsWith("/demographic/DemographicLinkMsg");
+    }
+
+    /** A new POST in the same login session. */
+    private void nextRequest() {
+        mockRequest = new MockHttpServletRequest();
+        mockRequest.setSession(mockSession);
+        mockRequest.setMethod("POST");
+        mockResponse = new MockHttpServletResponse();
+        requestParameters.clear();
+    }
+
+    private void assertNothingStaged() {
+        assertThat(getMockSession().getAttributeNames().asIterator())
+                .toIterable().noneMatch(name -> name.startsWith(MsgAttachmentStaging.class.getName()));
     }
 
     private static final String SAMPLE_XML =
             "<root><table><item itemId=\"1\" removable=\"true\">a</item></table></root>";
+
+    private static final String TWO_ITEM_XML = "<root><table><item itemId=\"1\" removable=\"true\">a</item>"
+            + "<item itemId=\"2\" removable=\"true\">b</item></table></root>";
 }

@@ -172,8 +172,9 @@
     }
 %>
 <jsp:useBean id="DisplayMessagesBeanId" scope="session" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
+<%-- Compose attachments are kept per compose window (MsgAttachmentStaging), so opening the inbox
+     no longer discards what an open compose window has attached (issue #4673). --%>
 <% DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
-    bean.nullAttachment();
 %>
 <jsp:setProperty name="DisplayMessagesBeanId" property="*"/>
 <!DOCTYPE html>

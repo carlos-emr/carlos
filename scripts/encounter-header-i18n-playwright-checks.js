@@ -217,13 +217,14 @@ async function readChartRequestLanguage(requests) {
 /**
  * Open the chart from the Master Record.
  *
- * By the onclick, NOT by the link's text: the E-Chart link is itself translated
- * (demographic.demographiceditdemographic.btnEChart is "Dossier electronique" in
- * French), so a text matcher would find nothing in the very language this check
- * exists to exercise.
+ * By the onclick or the navigation's popup marker, NOT by the link's text: the
+ * E-Chart link is itself translated (demographic.demographiceditdemographic.btnEChart
+ * is "Dossier electronique" in French), so a text matcher would find nothing in the
+ * very language this check exists to exercise.
  */
 async function openChart(context, masterPage, recorder, timeout) {
-  const chartLink = masterPage.locator('a[onclick*="popupEChart"]').first();
+  // The record's navigation (#4468) marks its E-Chart link data-nav-popup="echart"; older pages call popupEChart().
+  const chartLink = masterPage.locator('.patient-nav a[data-nav-popup="echart"], a[onclick*="popupEChart"]').first();
   assert(await chartLink.count() > 0,
     'The Master Record offers no E-Chart control, so a clinician cannot open the chart from the patient record');
   const { page } = await clickOpensPopupOrNavigates(masterPage, chartLink, {

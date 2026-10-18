@@ -342,5 +342,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = { workflow };
+module.exports = { workflow, consumeUnloadBeacons };
 if (require.main === module) runWorkflow('echart-note-draft-recovery', workflow, { openPatient: true });

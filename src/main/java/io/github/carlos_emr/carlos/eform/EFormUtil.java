@@ -1207,7 +1207,7 @@ public class EFormUtil {
             String letterheadAddress = getContent("letterheadAddress", template, null);
             String letterheadPhone = getContent("letterheadPhone", template, null);
             String letterheadFax = getContent("letterheadFax", template, null);
-            String status = getContent("urgency", template, null);
+            String status = getContent("status", template, null);
             String source = getContent("source", template, "");
 
             ConsultationRequest consult = new ConsultationRequest();

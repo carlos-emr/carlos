@@ -386,7 +386,7 @@
                                     style="text-decoration: underline; cursor: pointer; color: blue"
                                     onclick="document.caseManagementViewForm.note_view.value='detailed';document.caseManagementViewForm.method.value='setViewType';document.caseManagementViewForm.submit();return false;">Detailed</span>
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
-                                <c:if test="${sessionScope.readonly=='false'}">
+                                <c:if test="${requestScope.readonly=='false'}">
                                     <c:url
                                             value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                             var="noteURL"/>
@@ -455,7 +455,7 @@
                                 <td>
                                     <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
                                         <c:choose>
-                                            <c:when test="${(note.editable) and (sessionScope.readonly=='false')}">
+                                            <c:when test="${(note.editable) and (requestScope.readonly=='false')}">
                                                 <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${note.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&forceNote=true"
                                                     var="notesURL"/>
                                                 <img src="${carlos:forHtmlAttribute(ctx)}/images/edit_white.png"
@@ -558,7 +558,7 @@
                                             <td width="93%">
                                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes"
                                                                 rights="u">
-                                                    <c:if test="${(note.editable) and (sessionScope.readonly=='false')}">
+                                                    <c:if test="${(note.editable) and (requestScope.readonly=='false')}">
                                                         <c:url value="/CaseManagementEntry?method=edit&from=casemgmt&noteId=${requestScope.noteId}&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                                             var="notesURL"/>
                                                         <input type="button" value="Edit and Sign"
@@ -621,7 +621,7 @@
                 <span style="text-decoration: underline; cursor: pointer; color: blue"
                     onclick="document.caseManagementViewForm.note_view.value='detailed';document.caseManagementViewForm.method.value='setViewType';document.caseManagementViewForm.submit();return false;">Detailed</span>
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
-                    <c:if test="${sessionScope.readonly=='false'}">
+                    <c:if test="${requestScope.readonly=='false'}">
                         <c:url
                                 value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                                 var="noteURL"/>
@@ -649,7 +649,7 @@
             </c:if>
         </security:oscarSec>
         <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w">
-            <c:if test="${'Current Issues'==selectedTab and empty Notes and sessionScope.readonly=='false'}">
+            <c:if test="${'Current Issues'==selectedTab and empty Notes and requestScope.readonly=='false'}">
                 <c:url
                         value="/CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=${param.demographicNo}&providerNo=${param.providerNo}"
                         var="noteURL"/>

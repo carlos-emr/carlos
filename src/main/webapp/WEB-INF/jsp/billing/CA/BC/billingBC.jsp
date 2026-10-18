@@ -119,8 +119,9 @@
     BillingPreferencesDAO billingPreferencesDAO = SpringUtils.getBean(BillingPreferencesDAO.class);
 %>
 <%
-    // current data is held in the session.
-    BillingSessionBean bean = (BillingSessionBean) pageContext.findAttribute("billingSessionBean");
+    // This window's bill, handed over by the action that opened or resumed it (BcBillStaging). It
+    // used to be the login-wide session bill: whichever bill another window opened last (#4673).
+    BillingSessionBean bean = (BillingSessionBean) request.getAttribute("billingSessionBean");
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Demographic demo = demographicManager.getDemographic(loggedInInfo, bean.getPatientNo());
 
@@ -720,7 +721,13 @@
             %>
 
             if (document.BillingCreateBillingForm.xml_billtype.value == "WCB") {
-                callReplacementWebService("wcbForms.jsp<%=wcb%>", 'wcbForms');
+                // The patient's WCB forms, through their gate action: the JSP itself is not public.
+                // Loaded once: submitting runs this again, and a reload then cleared the form the
+                // prescriber had picked while the diagnosis was still being checked, so Continue
+                // was refused with "A WCB Form must be selected."
+                if (jQuery("#wcbForms").children().length === 0) {
+                    callReplacementWebService("<%= request.getContextPath() %>/billing/CA/BC/ViewWcbForms<%=wcb%>", 'wcbForms');
+                }
             } else {
                 jQuery("#wcbForms").empty();
             }
@@ -1347,6 +1354,8 @@
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">
             <input type="hidden" name="fromBilling" value="">
+            <%-- This window's own bill (BcBillStaging); review and save read exactly this bill (issue #4673). --%>
+            <input type="hidden" name="billKey" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("billKey")) %>">
 
             <%
                 // set up this form
@@ -1437,7 +1446,10 @@
 
                                             <label for="selectBillingForm"><fmt:message key="billing.billingform"/></label>
 
-                                            <select class="form-select" id="selectBillingForm">
+                                            <%-- Posted with Continue (billForm), so a validation return or Go Back
+                                                 shows the code table of the form chosen here: choosing reloads the
+                                                 table in place without changing the window's staged bill (#4673). --%>
+                                            <select class="form-select" id="selectBillingForm" name="billForm">
                                                 <% for (int i = 0; i < billformlist.length; i++) { %>
                                                 <option <% if (bean.getBillForm().equalsIgnoreCase(billformlist[i].getFormCode())) {%>
                                                         selected

@@ -25,6 +25,7 @@ const {
   requirePoppler, pdfFacts, sha, directory, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 30000;
 
@@ -149,7 +150,7 @@ async function workflow(s) {
   });
 
   await s.step('Master Record ▸ Documents lists the source and the annotated copy', async () => {
-    const report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'annotate-edoc-report');
+    const report = await s.popup(s.master, masterRecordLink(s.master, '/documentManager/ViewDocumentReport').first(), 'annotate-edoc-report');
     await report.locator(`#docNo${source.id}`).waitFor({ state: 'attached', timeout: TIMEOUT });
     await report.locator(`#docNo${s.annotated}`).waitFor({ state: 'attached', timeout: TIMEOUT });
     h.assert(await report.locator(`a[title="${source.label} (annotated)"]`).count() === 1, 'The report does not list the annotated copy by its description');

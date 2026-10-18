@@ -164,6 +164,14 @@ public class dxResearch2Action extends ActionSupport {
 
         if (!valid) {
             request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+            // Re-render this form's own patient. The page used to take its patient and diagnoses
+            // from the session, i.e. from the registry opened last in any window, so it could show
+            // another patient, and its next submission then wrote to that patient (issue #4673).
+            if (demographicNo != null && demographicNo.matches("\\d{1,9}")) {
+                String formProvider = providerNo != null && providerNo.matches("\\d{1,10}")
+                        ? providerNo : LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+                dxSetupResearch2Action.publishPatient(request, String.valueOf(Integer.parseInt(demographicNo)), formProvider);
+            }
             return "failure";
         }
 

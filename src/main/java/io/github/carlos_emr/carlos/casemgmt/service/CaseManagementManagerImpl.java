@@ -1179,6 +1179,13 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     @Override
+    public String getDemoProviderNo(String demoNo) {
+        Demographic dg = demographicDao.getClientByDemographicNo(Integer.valueOf(demoNo));
+        if (dg == null || dg.getProviderNo() == null) return "";
+        return dg.getProviderNo();
+    }
+
+    @Override
     public String getCaisiRoleById(String id) {
         // return providerCaisiRoleDAO.getCaisiRoleById(id);
         return roleManager.getRole(id).getName();

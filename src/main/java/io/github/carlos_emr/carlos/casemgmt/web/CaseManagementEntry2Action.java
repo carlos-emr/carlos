@@ -27,6 +27,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -340,8 +341,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         prepareBillingUrl(demono);
 
-        /* remove the remembered echart string */
-        session.removeAttribute("lastSavedNoteString");
+        /* remove this patient's remembered echart string; other open charts keep theirs */
+        session.removeAttribute(ChartSessionKeys.lastSavedNoteText(demono)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         logger.debug("Get Issues and filter them");
         current = System.currentTimeMillis();
@@ -569,10 +570,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        setOrRemove(session, "note_sort", sanitizeNoteSortParam(request.getParameter("note_sort")));
-        setOrRemove(session, "filter_roles", sanitizeIdFilterArray(request.getParameterValues("filter_roles")));
-        setOrRemove(session, "filter_provider", sanitizeIdFilterArray(request.getParameterValues("filter_providers")));
-        setOrRemove(session, "issues", sanitizeIdFilterArray(request.getParameterValues("issues")));
+        // A one-use handoff to this patient's next note list. Keyed by patient so another chart's
+        // note list neither consumes nor applies it (issue #4673).
+        setOrRemove(session, ChartSessionKeys.noteFilterHandoff("note_sort", demono), sanitizeNoteSortParam(request.getParameter("note_sort")));
+        setOrRemove(session, ChartSessionKeys.noteFilterHandoff("filter_roles", demono), sanitizeIdFilterArray(request.getParameterValues("filter_roles")));
+        setOrRemove(session, ChartSessionKeys.noteFilterHandoff("filter_provider", demono), sanitizeIdFilterArray(request.getParameterValues("filter_providers")));
+        setOrRemove(session, ChartSessionKeys.noteFilterHandoff("issues", demono), sanitizeIdFilterArray(request.getParameterValues("issues")));
 
         return fwd;
     }
@@ -1350,7 +1353,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (note.getCreate_date() == null) note.setCreate_date(now);
 
         /* save note including add signature */
-        String lastSavedNoteString = (String) session.getAttribute("lastSavedNoteString");
+        // This patient's own last eChart text: another chart's would be looked for, and removed,
+        // in this patient's eChart record (issue #4673).
+        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
         List<CaseManagementNoteExt> submittedExtensions = readSubmittedCppExtensions(extNames, extKeys);
         String savedStr;
         try {
@@ -1368,8 +1373,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             bindSavedCppIssues(caseIssueList, note.getIssues());
             sessionFrm.setIssueCheckList(caseIssueList);
         }
-        /* remember the str written into echart */
-        session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        /* remember the str written into this patient's echart */
+        session.setAttribute(ChartSessionKeys.lastSavedNoteText(demo), savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         caseManagementMgr.getEditors(note);
 
@@ -1547,7 +1552,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        String lastSavedNoteString = (String) session.getAttribute("lastSavedNoteString");
+        String lastSavedNoteString = (String) session.getAttribute(ChartSessionKeys.lastSavedNoteText(demo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         // bug fix - encounter type was not being updated.
         String encounterType = request.getParameter("caseNote.encounter_type");
@@ -3123,18 +3128,43 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     public String restore() throws Exception {
 
-        request.getSession().setAttribute("restoring", "true"); // tell CaseManagementView we're handling temp note // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Tell this patient's next chart view that its unsaved draft is being restored. Keyed by
+        // patient: another chart's view must not consume the signal and withhold its own prompt.
+        String demono = getDemographicNo(request);
+        if (ChartSessionKeys.isPatientNumber(demono)) {
+            request.getSession().setAttribute(ChartSessionKeys.draftRestoring(demono), "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        }
         request.setAttribute("restore", Boolean.valueOf(true));
 
         return edit();
     }
 
+    /**
+     * Releases what one patient's chart keeps in the session ({@code method=cleanup}): its entry
+     * form, its encounter entry, the text its last save wrote into the legacy eChart record and a
+     * pending draft restore. No page sends this method at present. A request that names no patient
+     * (or names two) releases nothing.
+     *
+     * @return null, always: the method has no view
+     */
     public String cleanup() {
-        String demoNo = this.getDemographicNo(request);
+        String demoNo;
+        try {
+            demoNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException noPatient) {
+            // No chart to release, and every key below needs its patient: this used to fail with
+            // a 500 when the encounter entry was forgotten.
+            return null;
+        }
         String sessionFrmName = "caseManagementEntryForm" + demoNo;
 
         request.getSession().setAttribute(sessionFrmName, null); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         EncounterPatientContext.forgetEncounter(request, demoNo);
+        // The text this chart's last save wrote into the legacy eChart record, and a pending draft
+        // restore: kept per patient (issue #4673). Opening the editor again starts without them,
+        // as it always did.
+        request.getSession().removeAttribute(ChartSessionKeys.lastSavedNoteText(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
+        request.getSession().removeAttribute(ChartSessionKeys.draftRestoring(demoNo)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- ChartSessionKeys accepts only a digits-only patient number
 
         return null;
     }

@@ -70,6 +70,7 @@ const billing = require('./billing-on-invoice-third-party-playwright-checks');
 const rep = require('./lib/mutation-replay');
 const waf = require('./lib/waf-corpus');
 const { FACTS, controlStepLabel, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 /** The request and response exclusions relevant to a row's diagnostic. */
 const exclusionOf = (row) => {
@@ -517,7 +518,7 @@ function rows(s, ctx) {
       }
     },
     async open() {
-      this.page = await s.popup(s.master, s.master.locator('a[onclick*="/rx/choosePatient"]').first(), 'rx-module');
+      this.page = await s.popup(s.master, masterRecordLink(s.master, '/rx/choosePatient').first(), 'rx-module');
       await this.page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
       await this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     },

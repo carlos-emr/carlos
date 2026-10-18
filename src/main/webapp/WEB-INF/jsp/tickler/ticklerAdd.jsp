@@ -67,11 +67,9 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -180,7 +178,6 @@
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-    OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
 %>
 
 <%
@@ -763,18 +760,10 @@
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                             List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
-                            String appNo = (String) session.getAttribute("cur_appointment_no");
-                            String location = null;
-                            if (appNo != null) {
-                                try {
-                                    Appointment a = appointmentDao.find(Integer.parseInt(appNo));
-                                    if (a != null) {
-                                        location = a.getLocation();
-                                    }
-                                } catch (NumberFormatException e) {
-                                    // Malformed appointment number in session — skip location lookup
-                                }
-                            }
+                            // The clinic list starts on "select clinic". The page used to look up the
+                            // site of the login's last-opened appointment as if to preselect it, but
+                            // never applied it, so that session read (another patient's visit after a
+                            // second chart was opened, issue #4673) is gone and nothing is preselected.
                         %>
                         <script>
                             var _providers = [];

@@ -25,6 +25,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const PREF_TABLES = ['ProviderPreferenceAppointmentScreenForm', 'ProviderPreferenceAppointmentScreenEForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
@@ -202,7 +203,7 @@ async function workflow(s) {
   });
 
   await s.step('Master Record ▸ Create Invoice preselects the default dx code on the bill form', async () => {
-    const bill = await popup(master, master.locator('a[onclick*="/billing?"][onclick*="apptProvider_no=none"]').first(), 'bill-form');
+    const bill = await popup(master, masterRecordLink(master, '/billing?', 'apptProvider_no=none').first(), 'bill-form');
     await bill.locator('select[name="xml_billtype"]').waitFor({ state: 'visible' });
     h.assert(await bill.locator('input[name="dxCode"]').first().inputValue() === dxCode,
       'The bill form did not preselect the provider\'s default dx code');

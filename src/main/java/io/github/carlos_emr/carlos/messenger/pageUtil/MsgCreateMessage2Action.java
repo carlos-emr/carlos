@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
@@ -43,8 +44,11 @@ import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -66,6 +70,16 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *   <li>Saving sent message preferences for future use</li>
  * </ul>
  * </p>
+ *
+ * <p><b>Attachments.</b> The message takes the attachments of the compose window it was written
+ * in, named by the form's {@code attachmentKey} ({@link MsgAttachmentStaging}), and takes them
+ * once. They used to come from the login-wide {@link MsgSessionBean}, so with two compose windows
+ * open the message sent from one carried the chart PDFs attached in the other, for another patient
+ * (issue #4673). Chart PDFs are refused on a message linked to a patient other than the one they
+ * were rendered for, and a message whose attachments the session released while its window was
+ * open is refused once rather than sent without them. When the message does not go out, the
+ * attachments are put back and the compose page is shown again with the error and what was
+ * written.</p>
  * 
  * @version 2.0 Struts2 migration
  * @since 2003-07-21
@@ -128,75 +142,164 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
 
         String userName = bean.getUserName();
-        String att = bean.getAttachment();
-        String pdfAtt = bean.getPDFAttachment();
-        bean.nullAttachment();
-        String message = this.getMessage();
-        String[] providers = this.getProvider();
-        String subject = this.getSubject();
-        // Clear message data from session after retrieval
-        bean.setMessage(null);
-        bean.setSubject(null);
+        // This compose window's own attachments, taken once so a second submit of the same form
+        // cannot send them again. Every path below that does not send puts them back.
+        HttpSession session = request.getSession();
+        MsgAttachmentStaging.Staged staged = MsgAttachmentStaging.take(session, attachmentKey);
+        String att = staged == null ? null : staged.itemAttachment();
+        String pdfAtt = staged == null ? null : staged.pdfAttachment();
+        // A failure before the message is stored must not lose this window's attachments.
+        boolean sent = false;
+        try {
+            String message = this.getMessage();
+            String[] providers = this.getProvider();
+            String subject = this.getSubject();
 
-        MiscUtils.getLogger().debug("Providers: " + Arrays.toString(providers));
-        MiscUtils.getLogger().debug("Subject length: " + (subject != null ? subject.length() : 0));
-        MiscUtils.getLogger().debug("Message length: " + (message != null ? message.length() : 0));
+            MiscUtils.getLogger().debug("Providers: " + Arrays.toString(providers));
+            MiscUtils.getLogger().debug("Subject length: " + (subject != null ? subject.length() : 0));
+            MiscUtils.getLogger().debug("Message length: " + (message != null ? message.length() : 0));
 
-        String sentToWho = null;
-        String messageId = null;
-        String demographic_no = this.getDemographic_no();
-        if (demographic_no != null && (demographic_no.equals("") || "null".equals(demographic_no))) {
-            demographic_no = null;
+            String sentToWho = null;
+            String messageId = null;
+            String demographic_no = this.getDemographic_no();
+            if (demographic_no != null && (demographic_no.equals("") || "null".equals(demographic_no))) {
+                demographic_no = null;
+            }
+            // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
+            int parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+
+            // The session keeps a few compose windows' attachments, and staging in other windows
+            // released this one's while it was open. Its page may show them, so the message is not
+            // sent without them unannounced: the first send is refused with the reason, and sending
+            // again goes out without them.
+            if (staged == null && MsgAttachmentStaging.claimDropped(session, attachmentKey)) {
+                MiscUtils.getLogger().warn("Refused a message whose attachments were released before it was sent");
+                return redisplay(session, null, "This message was not sent: its attachments were released because"
+                        + " attachments were being prepared in too many other windows at once. Attach them again,"
+                        + " or send the message again without them.", parsedDemoNo);
+            }
+
+            // Chart PDFs go only on a message linked to the patient they were rendered for: the
+            // linked patient can be changed or cleared after attaching.
+            if (pdfAtt != null && staged.pdfDemographicNo() != parsedDemoNo) {
+                MiscUtils.getLogger().warn("Refused a message whose chart PDFs were attached for another patient");
+                return redisplay(session, staged, "The attached chart documents were prepared for a different patient"
+                        + " than the one this message is linked to. Attach them again for the linked patient,"
+                        + " or clear the message.", parsedDemoNo);
+            }
+
+            java.util.ArrayList<MsgProviderData> providerListing;
+
+
+            subject = (subject == null) ? "" : subject.trim();
+            if (subject.isEmpty()) {
+                subject = "none";
+            }
+
+            //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
+            MsgMessageData messageData = new MsgMessageData();
+            providers = messageData.getDups4(providers);
+            providerListing = messageData.getProviderStructure(loggedInInfo, providers);
+
+            if (providerListing == null || providerListing.isEmpty()) {
+                MiscUtils.getLogger().warn("No valid recipients after deduplication; message not sent");
+                return redisplay(session, staged, "No valid recipients selected. Please select at least one recipient.",
+                        parsedDemoNo);
+            }
+
+            sentToWho = messageData.createSentToString(providerListing);
+            if (sentToWho != null) {
+                sentToWho = sentToWho.trim();
+            }
+            messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+            sent = messageId != null && !messageId.isEmpty();
+
+            if (messageId == null || messageId.isEmpty()) {
+                MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
+                return redisplay(session, staged, "Failed to send message. Please try again.", parsedDemoNo);
+            }
+
+            // Link message and demographic if both IDs are valid (> 0).
+            Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
+            if (parsedMessageId > 0 && parsedDemoNo > 0) {
+                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
+            }
+
+            request.setAttribute("SentMessageProvs", sentToWho);
+            // A reply or forward of a message whose chart items were saved has sent them; the next
+            // reply or forward of that message starts without them, as it did when sending cleared
+            // the messenger bean (issue #4673).
+            MsgAttachmentStaging.releaseSource(session, attachmentKey);
+
+            return SUCCESS;
+        } catch (RuntimeException e) {
+            if (!sent) {
+                MsgAttachmentStaging.restore(session, attachmentKey, staged);
+            }
+            throw e;
         }
+    }
 
-        java.util.ArrayList<MsgProviderData> providerListing;
-
-
-        subject = (subject == null) ? "" : subject.trim();
-        if (subject.isEmpty()) {
-            subject = "none";
+    /**
+     * Shows this window's compose page again with {@code error}: its attachments are put back
+     * under the same key, and the subject, body, linked patient and ticked recipients are kept, so
+     * sending again, as the refusals say, reaches the same people. (The page used to come back
+     * empty, and the attachments were already gone.)
+     */
+    private String redisplay(HttpSession session, MsgAttachmentStaging.Staged staged, String error,
+                             int demographicNo) {
+        if (MsgAttachmentStaging.isKey(attachmentKey)) {
+            MsgAttachmentStaging.restore(session, attachmentKey, staged);
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, attachmentKey);
         }
-
-        //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
-        MsgMessageData messageData = new MsgMessageData();
-        providers = messageData.getDups4(providers);
-        providerListing = messageData.getProviderStructure(loggedInInfo, providers);
-
-        if (providerListing == null || providerListing.isEmpty()) {
-            MiscUtils.getLogger().warn("No valid recipients after deduplication; message not sent");
-            request.setAttribute("createMessageError", "No valid recipients selected. Please select at least one recipient.");
-            return ERROR;
+        request.setAttribute("createMessageError", error);
+        request.setAttribute("ReSubject", subject);
+        request.setAttribute("ReText", message);
+        request.setAttribute("replyList", tickedRecipients(provider));
+        if (demographicNo > 0) {
+            request.setAttribute("demographic_no", Integer.toString(demographicNo));
         }
+        return ERROR;
+    }
 
-        sentToWho = messageData.createSentToString(providerListing);
-        if (sentToWho != null) {
-            sentToWho = sentToWho.trim();
+    /**
+     * The recipients ticked on a refused message, as the compose page's {@code replyList}, which
+     * it ticks again. An id that is not a contact's composite id is left out.
+     */
+    static List<ContactIdentifier> tickedRecipients(String[] providers) {
+        List<ContactIdentifier> ticked = new ArrayList<>();
+        if (providers == null) {
+            return ticked;
         }
-        messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
-
-        if (messageId == null || messageId.isEmpty()) {
-            MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
-            request.setAttribute("createMessageError", "Failed to send message. Please try again.");
-            return ERROR;
+        for (String id : providers) {
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            try {
+                ticked.add(new ContactIdentifier(id.trim()));
+            } catch (NumberFormatException | ArrayIndexOutOfBoundsException notAContact) {
+                // Not a recipient the page offers, so there is nothing to tick for it.
+            }
         }
-
-        // Link message and demographic if both IDs are valid (> 0).
-        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
-        Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
-        Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-        if (parsedMessageId > 0 && parsedDemoNo > 0) {
-            messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
-        }
-
-        request.setAttribute("SentMessageProvs", sentToWho);
-
-        return SUCCESS;
+        return ticked;
     }
 
     private String[] provider = new String[0];
     private String message;
     private String subject;
     private String demographic_no;
+    private String attachmentKey;
+
+    /** @return the key of the compose window this message was written in */
+    public String getAttachmentKey() {
+        return attachmentKey;
+    }
+
+    /** @param attachmentKey the key of the compose window this message was written in */
+    @StrutsParameter
+    public void setAttachmentKey(String attachmentKey) {
+        this.attachmentKey = attachmentKey;
+    }
 
     /** @return String[] array of recipient provider numbers */
     public String[] getProvider() {

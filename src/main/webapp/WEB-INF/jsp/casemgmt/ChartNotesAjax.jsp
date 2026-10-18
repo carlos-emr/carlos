@@ -90,6 +90,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.EmailComposeManager"%>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager"%>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
@@ -134,8 +135,22 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
     }
+    // The session bean follows whichever chart was entered last in any window of this login
+    // (issues #4556, #4673). Only this chart's own patient may supply its entry metadata and its
+    // pending message; another chart's are neither shown here nor consumed.
+    String chartPatientNo;
+    try {
+        chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        chartPatientNo = null;
+    }
+    boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
 
-    String provNo = bean.providerNo;
+    // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+    // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+    // was entered last, so taking it only when it was this chart's still changed the same chart's
+    // edit warnings with the order its windows were opened in (issue #4673).
+    String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
 
     String dateFormat = "dd-MMM-yyyy H:mm";
     String anotherDateFormat = "dd-MM-yyyy";
@@ -885,7 +900,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         }
     }
 
-    String oscarMsg = bean.oscarMsg != null ? bean.oscarMsg : "";
+    String oscarMsg = ownChartBean && bean.oscarMsg != null ? bean.oscarMsg : "";
     boolean hasOscarMsg = renderMoreNotesScript && !oscarMsg.equals("");
     if (hasOscarMsg) {
         bean.reason = "";
@@ -1008,8 +1023,10 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     int MaxLen = 20;
     int TruncLen = 17;
     String ellipses = "...";
-    for (int j = 0; j < bean.templateNames.size(); j++) {
-        String encounterTmp = bean.templateNames.get(j);
+    // Template names are not patient data; a bean that never set up an encounter carries none.
+    List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
+    for (int j = 0; j < templateNames.size(); j++) {
+        String encounterTmp = templateNames.get(j);
         encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>

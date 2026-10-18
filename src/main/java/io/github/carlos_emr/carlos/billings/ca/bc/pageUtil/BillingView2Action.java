@@ -56,6 +56,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 public final class BillingView2Action
         extends ActionSupport {
+
+    /** Request attribute: the billing numbers (digits) of every bill the rendered receipt combines. */
+    static final String RECEIPT_BILLING_NOS = "receiptBillingNos";
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -155,7 +159,13 @@ public final class BillingView2Action
         this.setMessageNotes(bean.getMessageNotes());
         this.setBillStatus(bean.getBillingType());
         this.setPaymentMethod(bean.getPaymentMethod());
-        request.getSession().setAttribute("billingViewBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // This window's invoice, for the page this request renders. In the session it was the
+        // invoice viewed last in any window, which the receipt shown after "Update Invoice" then
+        // displayed and printed in place of the one updated (issue #4673).
+        request.setAttribute("billingViewBean", bean);
+        // Every bill this receipt combines (a private bill is saved one row per service line), so
+        // "Update Invoice" can show the same receipt again rather than its first line alone.
+        request.setAttribute(RECEIPT_BILLING_NOS, List.of(billingN));
         String receipt = request.getParameter("receipt");
         if (receipt != null && receipt.equals("yes")) {
 

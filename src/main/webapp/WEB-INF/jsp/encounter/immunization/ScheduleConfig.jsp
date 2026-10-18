@@ -46,10 +46,12 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -57,6 +59,35 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
+<%
+    // The patient this request names (the schedule's Configure button or its loadConfig redirect),
+    // never the login-wide EctSessionBean, which follows whichever chart was entered last in any
+    // window, so a template chosen here could be added to the other patient's schedule (#4673).
+    String demoNo;
+    try {
+        demoNo = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+        return;
+    }
+    // The record itself, as the template save (saveConfig) checks it: a patient this user is
+    // excluded from is neither shown nor offered a template.
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!SpringUtils.getBean(SecurityInfoManager.class).isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+        return;
+    }
+    // Reading the record checks _demographic read for this patient.
+    Demographic demographic = new DemographicData().getDemographic(loggedInInfo, demoNo);
+    if (demographic == null) {
+        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
+    String last_name = demographic.getLastName();
+    String first_name = demographic.getFirstName();
+    String sex = demographic.getSex();
+    String age = demographic.getAge();
+%>
 
 
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
@@ -65,33 +96,6 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:message key="encounter.immunization.ScheduleConfig.title"/></title>
-    <%
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-
-        String demoNo = request.getParameter("demographic_no") == null ? (String) request.getAttribute("demographic_no") : request.getParameter("demographic_no");
-
-        String last_name = "";
-        String first_name = "";
-        String sex = "";
-        String age = "";
-        if (demoNo != null) {
-            DemographicData dData = new DemographicData();
-            Demographic demographic = dData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
-            last_name = demographic.getLastName();
-            first_name = demographic.getFirstName();
-            sex = demographic.getSex();
-            age = demographic.getAge();
-        } else {
-            if (bean.demographicNo != null) {
-                demoNo = bean.demographicNo;
-                last_name = bean.getPatientLastName();
-                first_name = bean.getPatientFirstName();
-                sex = bean.getPatientSex();
-                age = bean.getPatientAge();
-            }
-        }
-    %>
-
 </head>
 <body class="BodyStyle" vlink="#0000FF">
 <!--  -->

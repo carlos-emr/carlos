@@ -46,7 +46,12 @@
 
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -62,7 +67,34 @@
     <title>Record Immunization</title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <%
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        // The dose's "given by" default is the logged-in provider. It was the provider of the
+        // login-wide EctSessionBean, named by whichever chart was entered last in any window, and
+        // the page failed before any chart was entered (issue #4673).
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
+        // The header names the patient whose schedule opened this window (Schedule.jsp passes it);
+        // a template preview (ImmunizationSetDisplay.jsp) names no patient and shows none.
+        Demographic headerPatient = null;
+        if (request.getParameter("demographic_no") != null || request.getParameter("demographicNo") != null) {
+            String headerPatientNo;
+            try {
+                headerPatientNo = EncounterPatientContext.requireDemographicNo(request);
+            } catch (IllegalArgumentException invalidPatient) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+                return;
+            }
+            // The record itself, as the schedule that opened this window checks it.
+            if (!SpringUtils.getBean(SecurityInfoManager.class).isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(headerPatientNo))) {
+                response.sendRedirect(request.getContextPath() + "/securityError?type=_demographic");
+                return;
+            }
+            // Reading the record checks _demographic read for this patient.
+            headerPatient = new DemographicData().getDemographic(loggedInInfo, headerPatientNo);
+            if (headerPatient == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+        }
         String node = request.getParameter("node").toString();
         String immName = "";
         if (request.getParameter("name") != null)
@@ -77,7 +109,7 @@
                     chgRefused(false);
                     setCurrent(frm.givenYear, frm.givenMonth, frm.givenDay);
                     if (frm.provider.value < 1) {
-                        frm.provider.value = "<carlos:encode value='<%= bean.providerNo %>' context="javaScriptBlock"/>";
+                        frm.provider.value = "<carlos:encode value='<%= loggedInProviderNo %>' context="javaScriptBlock"/>";
                     }
 
                     frm.lot.focus();
@@ -269,8 +301,8 @@
                 <tr>
                     <td class="Header"
                         style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
-                        NOWRAP><carlos:encode value='<%= bean.patientLastName %>' context="html"/>, <carlos:encode value='<%= bean.patientFirstName %>' context="html"/>
-                        <carlos:encode value='<%= bean.patientSex %>' context="html"/> <carlos:encode value='<%= bean.patientAge %>' context="html"/>
+                        NOWRAP><% if (headerPatient != null) { %><carlos:encode value='<%= headerPatient.getLastName() %>' context="html"/>, <carlos:encode value='<%= headerPatient.getFirstName() %>' context="html"/>
+                        <carlos:encode value='<%= headerPatient.getSex() %>' context="html"/> <carlos:encode value='<%= headerPatient.getAge() %>' context="html"/><% } %>
                     </td>
                     <td></td>
                     <td style="text-align: right" NOWRAP> |</td>

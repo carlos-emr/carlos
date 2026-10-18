@@ -13,6 +13,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
+const { masterRecordLink } = require('./lib/master-record-link');
 const VIEWPORTS = [{ width: 1280, height: 720 }, { width: 1600, height: 1000 }];
 const TIMEOUT = 30000;
 const ELIGIBILITY_FRAGMENT = 'Failure-claim &lt;unsafe&gt; &amp; &quot;quoted&quot;<br>'
@@ -89,8 +90,8 @@ async function checkViewport(browser, config, viewport) {
     await masterPage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     h.assert(requests === 0, 'Hovering or focusing eligibility must not request Teleplan');
 
-    const chartLink = masterPage.locator('a[onclick*="popupEChart"]').first();
-    const invoiceLink = masterPage.locator('a[onclick*="/billing/CA/BC/reprocessBill"]').first();
+    const chartLink = masterRecordLink(masterPage, 'popupEChart').first();
+    const invoiceLink = masterRecordLink(masterPage, '/billing/CA/BC/reprocessBill').first();
     for (const link of [chartLink, invoiceLink]) await assertCenterIsClickable(link);
     const invoice = await ui.clickOpensPopup(masterPage, invoiceLink, {
       context, recorder, label: 'bc-invoices', timeout: TIMEOUT,

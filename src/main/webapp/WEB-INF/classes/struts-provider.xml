@@ -229,9 +229,9 @@
         <action name="provider/ViewSchedulePageJs" class="io.github.carlos_emr.carlos.providers.gate.ViewSchedulePageJs2Action">
             <result name="success">/WEB-INF/jsp/provider/schedulePage.js.jsp</result>
         </action>
-        <action name="provider/ViewStoreApptInSession" class="io.github.carlos_emr.carlos.providers.gate.ViewStoreApptInSession2Action">
-            <result name="success">/WEB-INF/jsp/provider/storeApptInSession.jsp</result>
-        </action>
+        <!-- Day-sheet "remember this appointment" call. The action files the appointment under
+             its own patient and answers 204 itself, so there is no view (issue #4673). -->
+        <action name="provider/ViewStoreApptInSession" class="io.github.carlos_emr.carlos.providers.gate.ViewStoreApptInSession2Action"/>
         <action name="provider/ViewTabAlertsRefresh" class="io.github.carlos_emr.carlos.providers.gate.ViewTabAlertsRefresh2Action">
             <result name="success">/WEB-INF/jsp/provider/tabAlertsRefresh.jsp</result>
         </action>

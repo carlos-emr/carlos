@@ -65,7 +65,6 @@ public class DemoSearchEndYearStatement2Action extends ActionSupport {
         }
 
         PatientEndYearStatements.echoNames(request);
-        request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
 
         Demographic demographic;
         try {

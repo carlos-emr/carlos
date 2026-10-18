@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %><%--
+<%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -29,17 +29,20 @@
 
 --%>
 
+<%--
+    Closing page of the legacy encounter editor's Sign and Save / Verify and Sign
+    (EctSaveEncounter2Action). It refreshes the schedule that opened the chart when that save
+    changed a visit status, which the action reports as the refreshOpener request attribute. It
+    used to decide from the login-wide EctSessionBean, which follows whichever chart was entered
+    last in any window (issue #4673).
+--%>
 <!-- Jan 20, 2003,-->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%
-    EctSessionBean sessionbean = null;
-    if ((sessionbean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
-        response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
-        return;
-    }
+    boolean refreshOpener = Boolean.TRUE.equals(request.getAttribute("refreshOpener"));
 %>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
@@ -53,8 +56,8 @@
                 window.resizeTo(900, 50);
                 setTimeout(function() { window.close(); }, 1000);
                 <%
-                    if (sessionbean.status != null && !sessionbean.status.equals("")) {
-                        out.print("opener.refresh();");
+                    if (refreshOpener) {
+                        out.print("if (opener && typeof opener.refresh === 'function') { opener.refresh(); }");
                     }
                 %>
             }
