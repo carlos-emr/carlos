@@ -152,7 +152,7 @@ async function workflow(s) {
         `${name} is still off the encounter form list`);
     }
     chart = await s.chart();
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     for (const name of [BCAR2020, BCAR2012]) {
       await chart.getByRole('link', { name, exact: true }).waitFor({ state: 'visible', timeout: 20000 });
     }
@@ -160,7 +160,7 @@ async function workflow(s) {
 
   await s.step('BC-AR 2012 saves a field and shows it again when reopened', async () => {
     const language = `${s.marker.slice(-8)} lang`;
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     let page = await s.popup(chart, chart.getByRole('link', { name: BCAR2012, exact: true }), 'bcar2012-new');
     h.assert(await page.locator('[name="c_surname"]').inputValue() === s.marker, 'BC-AR 2012 did not fill in the surname');
     await page.locator('[name="pg1_langPref"]').fill(language);
@@ -187,7 +187,7 @@ async function workflow(s) {
   });
 
   await s.step('BC-AR 2020 opens from the form list with the patient filled in', async () => {
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     form = await s.popup(chart, chart.getByRole('link', { name: BCAR2020, exact: true }), 'bcar2020-new');
     h.assert(new URL(form.url()).pathname.endsWith('/form/formBCAR2020pg1'), `BC-AR 2020 opened ${form.url()}`);
     h.assert(await form.locator('#formId').inputValue() === '0', 'A new BC-AR 2020 should not have a form id yet');
