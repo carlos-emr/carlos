@@ -4005,6 +4005,26 @@
       "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) and the workflow's own FAKE patient, made a BC patient. Cleanup deletes the throwaway's billing_preferences row (the page creates one on first open); the fixture removes its property rows and the login. A property row without a provider written during the run fails the check and is left for a look. Everything the page saves is keyed to the throwaway, so the check can run alongside others."
     },
     {
+      "name": "billing-bc-codes-admin",
+      "script": "scripts/billing-bc-codes-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "mutates": [
+        "billingservice",
+        "diagnosticcode",
+        "ctl_servicecodes_dxcodes"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Manage Service/Diagnostic Code Associations (the list, the association's Edit, Save and Remove), the bill form's fee-code search filling in the associated diagnosis, and Manage Billing Codes (search, the code's Edit and its fee row save), opened by its address because its menu item shows only with BC_BILLING_CODE_MANAGEMENT=yes. The code part of #4439 task 9; Manage Private Bill is billing-bc-private-codes. First committed coverage of these pages. On 2026.08 the first two steps pass and the step 'Manage Billing Codes finds the owned MSP code by its code' answers 404 until #4778 (issue #4767) merges. With #4778 and #4844 (issue #4842) it then fails at 'the association's Edit opens the editor with its service code and diagnosis' on #4941. With the #4941 fix and #4892 every step but the last passes; the last step collects #4842, #4439 D14 (Create New Association links back to the list) and D13 (reached only through Create New) and stays red until D14 is fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "One MSP fee code (billingservice 9xxxx with an end date), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and one association of the fee code with the first diagnosis (ctl_servicecodes_dxcodes), for the workflow's own FAKE patient made a BC patient. Cleanup deletes the fee code's association rows and any written during the run for the owned diagnoses (the editor can store one with no service code), then the codes, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
