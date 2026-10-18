@@ -9854,7 +9854,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.",
-      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Fails at its last step until #4998 is fixed (no repeat-Td reminder appears); every earlier step passes."
+      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Fails at its last step until #4998 is fixed by #5014 (no repeat-Td reminder appears); every earlier step passes."
     },
     {
       "name": "prevention-completed-externally",
@@ -9884,7 +9884,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient (FAKE addresses and 555 phones); the Master Record updates' ext-archive and custom rows are removed in cleanup and checked gone, before the harness removes the patient's ext and archive rows.",
-      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address that did not change is listed once, not again for every save that changed something else. Fails at its last step until #5013 is fixed (the unchanged address is listed once per save); every earlier step passes."
+      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Fails at its last step until #5013 is fixed by #5015 (unchanged values are listed once per save, and each phone ends in \"x\"); every earlier step passes."
     },
     {
       "name": "gap-records-hrm-report-actions",

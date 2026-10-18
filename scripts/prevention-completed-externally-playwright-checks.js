@@ -62,6 +62,8 @@ async function workflow(s) {
   });
 
   await s.step('the vaccine given elsewhere counts as done, so the flu reminder goes away', async () => {
+    // The list shows the record first, so a page that did not render can't pass for one without the reminder.
+    await index.locator(`.preventionProcedure[onclick*="id=${id}"]`).first().waitFor({ state: 'visible' });
     const shown = await reminders();
     await index.close();
     assert(!shown.includes('Needs Flu Shot'), `The flu reminder is still shown after a flu shot given elsewhere: ${shown.slice(0, 300)}`);
