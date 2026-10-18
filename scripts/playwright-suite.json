@@ -3833,6 +3833,21 @@
       "fixtures": "Owned synthetic patient. Adds BC-AR 2020 and BC-AR 2012 to the encounter form list through Administration > Select Forms and removes them again, asserting every encounterForm row (display order included) is as it found it; a failed run restores the recorded display order. The form list is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The BC-AR 2020 and 2012 rows go with the owned patient; the PrintResourceLog row is keyed to the signed-in provider and stays. Needs Poppler pdftotext."
     },
     {
+      "name": "form-bc-newborn",
+      "script": "scripts/form-bc-newborn-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "BC-NewBorn 2008 (#4439 item 10): opens from the encounter form list with the mother filled in, saves, reopens from the chart and prints page 1. Fails at its last step 'the Part 2 page links open pages 2 and 3 of the same form' on 2026.08 and develop: the links are relative to the page's <base> without form/, so both answer 404 (#4930). Every earlier step passes.",
+      "fixtures": "Owned synthetic patient; its formBCNewBorn2008 rows go with it. Opens the form from the BC seed's encounter form list and changes no clinic-wide setting (it asserts every encounterForm row is unchanged), so it can run alongside other checks. form/createpdf writes no print log. Needs Poppler pdftotext."
+    },
+    {
       "name": "billing-bc-associations",
       "script": "scripts/billing-bc-associations-playwright-checks.js",
       "tiers": [
