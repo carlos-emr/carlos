@@ -3,6 +3,47 @@
 Target: `release/2026.08`, source commit `a7611d07b4ae9b237b4a5d252fa938e09208eb85`.
 Tests use fictitious patients and a disposable Ubuntu 26.04 systemd container.
 
+## Current coverage branch and latest validation
+
+The completed 31-round expansion adds **62 checks**, including **44 Rx checks**.
+Together with the earlier 21 additions, the manifest grows from **692 to 775**.
+Passing checks and defect reproductions are saved on local branch
+`codex/ui-workflow-coverage-2026-08` (test commits `1365345a7ea`, `d3ab4c4a6cb` and `010fd58f99e`,
+following `b94f409ad40`). No application source changes are included.
+
+| Final selection | Executed | Result |
+|---|---|---|
+| Rounds 1–9: clinical and task actions | 18 | 15 passes, 3 known failures, 0 unexpected failures, 0 skips |
+| Rounds 10–31: added Rx actions | 44 | 35 passes, 9 known failures, 0 unexpected failures, 0 skips |
+| Latest result for each existing Rx-related check, including WAF and multisite | 50 | 44 passes, 6 known failures, 0 unexpected failures, 0 skips |
+
+The initial 50-check Rx regression selection records 44 passes, 2 known failures, 4 unexpected failures, 0 skips.
+Its focused follow-up records 1 pass, 3 known failures, 0 unexpected failures, 0 skips. The table uses
+those later results for repeated checks; raw XML/logs are retained. The
+additional Info server-log verification records 0 passes, 1 known failure, 0 unexpected failures, 0 skips
+and uses `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr`.
+The medication-list follow-up enables its documented
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` prerequisite; the initial default
+false result is a configuration prerequisite, not an application defect.
+
+Across **94 distinct Rx-related checks**, the latest results are **79 passes
+and 15 known failures**, reproducing 13 Rx issues (292, 295 and 298–308).
+No selected Rx workflow remains skipped or unexpectedly failing after focused
+verification with its documented prerequisites.
+
+The strengthened inline-dose check also passes separately with actual method
+and route changes. Each grouped selection runs with the database residue audit;
+its result is retained in the evidence archive. The 152 harness, manifest,
+script-inventory and issue-log tests pass. Counts above distinguish executed
+known failures from unavailable/skipped checks; JUnit represents known failures
+with a `skipped` element whose message explicitly begins `known-fail`.
+
+The [Rx action matrix](rx-workflow-coverage-2026-10-18.md) maps existing and added
+assertions to user controls. The [31-round ledger](workflow-expansion-rounds-2026-10-18.md)
+lists every new entry. This is workflow/action coverage, not a claim that all
+775 application checks ran, every possible input was explored, or every Rx task
+works correctly.
+
 ## Coverage review
 
 The starting manifest contained 692 checks. This review focused on the clinical
@@ -296,3 +337,84 @@ Repeat this expansion in the prepared container:
 ```bash
 docker exec carlos-coverage-validation bash -c 'source /root/suite-env.sh; export LETTER_DOCUMENT_DIR="${LETTER_DOCUMENT_DIR:-${DOCUMENT_DIR:-}}"; cd /root/carlos; node scripts/run-playwright-suite.js --only rx-favourite-dose-roundtrip --only rx-favourite-editor-validation --only rx-favourite-multiline-directions --only tickler-patient-erase --only patient-letter-template-delete --only patient-letter-generation-ui --only patient-letter-stale-template --only patient-letter-manager-labels --only rx-legacy-null-fields --only patient-letters-envelopes --only tickler-demo-main-status --residue-audit'
 ```
+
+## Thirty-one further rounds: clinical tasks and Rx workflows
+
+The user-requested current round plus 10 and then 20 additional rounds total 31.
+The first nine cover episode coding/editing, clinical care teams, consultation
+follow-up, paged bulk tasks, repeated/empty patient-set saves, message selection,
+appointment-search filters/limits, prevention reminder suppression/resumption,
+and saved Rourke/lab-requisition corrections. External administration was
+removed and replaced by another reminder task. The clinical external-contact
+picker remains a care-team workflow.
+
+The remaining 22 rounds add two Rx checks each. They cover indication archive
+and patient-registry selection; CPP visibility and refused writes; inline dosing
+and PRN; empty saves and cancelled entry; 18 renewal-field changes; medication
+renaming; invalid numeric doses and written dates; double saves; all 16
+discontinuation reasons and Cancel with another draft; pharmacy removal followed
+through to save/preview; graph selection; and correction after closing preview.
+Database assertions preserve source history and untouched control medications.
+
+Findings **296–308** add thirteen confirmed defects, eleven in Rx. The new Rx failures
+are patient-diagnosis indication selection (298), a misleading Hide CPP checkbox
+after refusal (299), optional pickup clearing alerts (300), an impossible written
+date silently saved on another day (301), HTTP 500 for non-numeric doses (302),
+clear-all timeline selection reverting to all (303), and two active doses after
+correcting a saved preview (304). The existing card-options regression also
+confirms noon pickup saved as midnight (305), and saved date-only pickup
+displays an invented midnight time (306), and an empty search offers a
+selectable placeholder posted as product 0 (307). Within the 44 added Rx
+checks, minimum/maximum and X/Escape each have separate reproductions: nine
+failing checks correspond to seven causes. The existing regressions expose
+the three additional Rx issues (305–307). The server-log audit then exposes
+a DrugRef exception behind a successful missing-DIN Info fallback (308); the
+existing Info check now brackets the lookup with a journal cursor and asserts
+that no such error is emitted. Finding 82 is
+independently reproduced by the new patient-set uniqueness assertion. All remain
+assertions of correct behavior; no application fix or new error suppression is
+included.
+
+The cumulative branch adds **83 checks (692 → 775)**. The register now holds
+**24 live-confirmed findings from this coverage campaign** (284–308 except
+source-only 287), and independently reconfirms existing finding 82. Thirteen of
+the live findings concern Rx. The historical Qty/price portion of finding 99
+passes now; its other page components are not reclassified.
+
+The packages built from the target application source were reused. Test-only
+changes do not require rebuilding the WAR. Their snapshot version, renderer
+omission, stack versions and SHA256 values remain as recorded above. The
+multisite regression uses the documented temporary `multisites=on` setting and
+an explicit service restart before its selection; the original absent multisite setting
+and false consultation automatic-inclusion setting are restored afterward. No restart occurs within a completed grouped selection.
+An early regression attempt was interrupted because startup was still in
+progress; it is not counted as an application failure or final coverage. The
+final attempt starts after `carlos-ctl check` passes and synthetic-patient count
+is zero.
+
+The existing Rx selection has 50 distinct entries. Its latest non-pass outcomes after focused verification:
+
+| Check | Outcome | Detail |
+|---|---|---|
+| `rx-card-options` | known-fail | known-fail: known failure at step "a 12:30 pick-up time is stored as 12:30" (finding 305) |
+| `gap-encounter-rx-drug-info-on-host` | known-fail | known-fail: known failure at step "missing DIN fallback does not log a DrugRef server exception" (finding 308) |
+| `rx-static-script-pickup` | known-fail | known-fail: known failure at step "a pick-up date with no time is stored at midnight and shows as the date alone on both pages" (finding 306) |
+| `rx-search-keyboard` | known-fail | known-fail: known failure at step "a search with no match offers no row that can be picked: ArrowDown, Enter and a click post nothing" (finding 307) |
+| `rx-favourite-dose-roundtrip` | known-fail | known-fail: known failure at step "the edited favourite PRN flag survives staging on the prescribing card" (finding 295) |
+| `rx-favourite-multiline-directions` | known-fail | known-fail: known failure at step "multiline favourite directions retain their line break on the prescribing card" (finding 292) |
+
+Final health, server-error audit, fixture counts and machine-readable selection results are included in the validation evidence archive. Server-error signatures are reported separately from browser passes and are not silently suppressed.
+
+The final package health check reports **All checks passed**, and all eight
+synthetic-fixture marker counts are zero. The independent current-boot
+server-error audit **fails** with four previously unexplained signatures:
+the two HTTP-500 signatures are finding 302, the invalid product-load signature
+is finding 307, and the DrugRef missing-DIN signature is finding 308. These are
+now documented defects; no server-error suppression was added. Previously
+recorded findings 139 and 144 are also reconfirmed by the audit. Browser results
+and clean fixtures do not supersede the server-error audit failure.
+
+After the final Info assertion was added, all 84 manifest, issue-register and
+server-log reader checks pass. The live Info reproduction reaches its exact
+finding-308 assertion with no skip or unexpected failure. The earlier 152-check
+static selection and its raw results are retained in the evidence archive.

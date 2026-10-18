@@ -58,3 +58,39 @@ Selections run sequentially against an otherwise idle disposable installation.
 The residue audit verifies table counts, marker fixtures and declared shared
 state. A known-fail result means the script still asserts correct behavior and
 fails at exactly the documented step; it is not counted as a passing workflow.
+
+## Final results by round
+
+| Round | Passes | Known failures | Unexpected failures / skips |
+|---|---|---|---|
+| 1 | 1 | 1 | 0 / 0 |
+| 2 | 2 | 0 | 0 / 0 |
+| 3 | 1 | 1 | 0 / 0 |
+| 4 | 2 | 0 | 0 / 0 |
+| 5 | 1 | 1 | 0 / 0 |
+| 6 | 2 | 0 | 0 / 0 |
+| 7 | 2 | 0 | 0 / 0 |
+| 8 | 2 | 0 | 0 / 0 |
+| 9 | 2 | 0 | 0 / 0 |
+| 10 | 1 | 1 | 0 / 0 |
+| 11 | 1 | 1 | 0 / 0 |
+| 12 | 2 | 0 | 0 / 0 |
+| 13 | 2 | 0 | 0 / 0 |
+| 14 | 2 | 0 | 0 / 0 |
+| 15 | 2 | 0 | 0 / 0 |
+| 16 | 2 | 0 | 0 / 0 |
+| 17 | 2 | 0 | 0 / 0 |
+| 18 | 2 | 0 | 0 / 0 |
+| 19 | 2 | 0 | 0 / 0 |
+| 20 | 2 | 0 | 0 / 0 |
+| 21 | 1 | 1 | 0 / 0 |
+| 22 | 2 | 0 | 0 / 0 |
+| 23 | 2 | 0 | 0 / 0 |
+| 24 | 2 | 0 | 0 / 0 |
+| 25 | 0 | 2 | 0 / 0 |
+| 26 | 2 | 0 | 0 / 0 |
+| 27 | 1 | 1 | 0 / 0 |
+| 28 | 2 | 0 | 0 / 0 |
+| 29 | 2 | 0 | 0 / 0 |
+| 30 | 1 | 1 | 0 / 0 |
+| 31 | 0 | 2 | 0 / 0 |

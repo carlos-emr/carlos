@@ -61,3 +61,21 @@ Final selection totals, regression results and package limitations are recorded
 in [the validation report](ui-path-coverage-2026-10-18.md). The complete 31-round
 ledger is [workflow-expansion-rounds-2026-10-18.md](workflow-expansion-rounds-2026-10-18.md).
 Do not interpret registration of 775 checks as execution of the complete suite.
+
+## Final validation totals
+
+Added Rx selection: **35 passes, 9 known failures, 0 unexpected failures, 0 skips** across 44 entries.
+Existing Rx-related selection: **44 passes, 6 known failures, 0 unexpected failures, 0 skips** across 50 entries.
+Together, the **94 distinct Rx-related checks** have **79 passes and 15 known
+failures**, tied to 13 recorded Rx issues. The latest result per check is used
+after prerequisite-specific follow-up; raw initial results are retained.
+The inline method/route refinement also passes separately. The multisite
+workflow is exercised with its documented temporary setting; deployment
+settings are restored afterward. See the validation report for individual
+non-pass outcomes and the server-error audit.
+
+The Info fallback check requires a readable application/DrugRef log source:
+`LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` in the systemd container, or the documented
+`LAB_UPLOAD_LOG_FILE` alternative. It reads from a cursor taken before the
+missing-DIN request. A deployment without that source skips the log assertion;
+this validation provided the journal source and reproduced finding 308.
