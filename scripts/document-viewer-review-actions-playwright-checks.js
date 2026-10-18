@@ -22,6 +22,8 @@
  *      with the same comment, the queue link is closed (I), the viewer closes, and the other provider's row is still New.
  *   3. Acknowledge > Cancel on the comment prompt posts nothing and leaves the row New. Acknowledge > a typed comment > OK
  *      acknowledges with that comment for the test provider only and closes the queue link.
+ *   4. On an uncommented document the comment prompt offers no text (not the viewer's "No comment" placeholder), and OK as
+ *      offered acknowledges with no comment.
  *
  * Fixtures (viewerDocuments, shared with document-viewer-macros): the owned FAKE- patient (runWorkflow) and owned PDFs in
  * DOCUMENT_DIR (lib/stored-pdf-documents.js), each with its ctl_document and patientLabRouting rows, a New
@@ -142,7 +144,7 @@ async function workflow(s) {
       AND name='lab_ack_comment'`)).toLowerCase() === 'yes') {
     throw new h.SkipCheck('The test login acknowledges without the comment prompt (its lab_ack_comment preference is "yes")');
   }
-  const { docs, routing, otherRow, queueOf, routingQuery, openViewer } = viewerDocuments(s, ['comment', 'ack']);
+  const { docs, routing, otherRow, queueOf, routingQuery, openViewer } = viewerDocuments(s, ['comment', 'ack', 'plain']);
   const stamp = crypto.randomBytes(3).toString('hex');
 
   const isUpdateStatus = (response) => response.request().method() === 'POST'
@@ -239,10 +241,32 @@ async function workflow(s) {
       'Cancelling the comment prompt changed the routing row or the queue link, or closed the viewer');
 
     const text = `FAKE acknowledgement ${stamp}`;
-    h.assert(await acknowledge(viewer, doc, text) === '', 'The comment prompt of an uncommented document offered a comment');
+    await acknowledge(viewer, doc, text);
     await expectValue(sql, routingQuery(doc), `A|${text}`, 'Acknowledge did not set the test provider\'s row to A with the typed comment');
     h.assert(queueOf(doc) === 'I', `The document's queue link reads "${queueOf(doc)}" after Acknowledge, not closed (I)`);
     h.assert(otherRow(doc) === before.other, 'Acknowledge changed the other provider\'s routing row');
+  });
+
+  await s.step('Acknowledge on an uncommented document offers no comment, and OK as offered stores none', async () => {
+    const doc = docs.plain;
+    const viewer = await openViewer(doc);
+    // What the prompt offers is read on a dismissed prompt first, so OK can then be given exactly that text.
+    const offered = [];
+    const peek = (dialog) => offered.push(dialog.defaultValue());
+    viewer.on('dialog', peek);
+    await h.withExpectedDialogs(viewer, async () => {
+      await viewer.locator(`[id="ackBtn_${doc.id}"]`).click();
+      await viewer.waitForTimeout(1500);
+    }, { accept: false });
+    viewer.off('dialog', peek);
+    const shown = (await viewer.locator(`[id="comment_${doc.id}_${provider}"]`).innerText()).trim();
+    h.assert(offered.length === 1, 'Acknowledge did not ask for a comment first');
+    await acknowledge(viewer, doc, offered[0]);
+    await expectValue(sql, `SELECT status FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id}
+      AND provider_no=${q(provider)}`, 'A', 'OK as offered did not acknowledge the document');
+    h.assert(offered[0] === '' && routing(doc) === 'A|',
+      `The comment prompt of an uncommented document offered "${offered[0]}" (the viewer shows "${shown}" for no comment), `
+      + `and OK as offered stored the comment "${routing(doc).slice(2)}"`);
   });
 }
 
