@@ -252,6 +252,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin.measurements", "w"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
+            // Links a diagnosis or a drug to a patient's flowsheet (issue #4974).
+            Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action",
+                    "_demographic", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
@@ -617,6 +620,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        "io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action",
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         // (EctMeasurements2Action, HealthTrackerUpdate2Action and EctDeleteData2Action are covered by
         // the encounter.oscarMeasurements. entry in IN_SCOPE_PACKAGE_PREFIXES.)
