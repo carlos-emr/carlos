@@ -1482,6 +1482,7 @@
       "timeoutSec": 300,
       "env": [
         "FAX_CONFIG_ALLOW_OVERWRITE",
+        "FAX_CONFIG_PROBE_SRFAX",
         "FAX_CONFIG_SCREENSHOTS",
         "FAX_CONFIG_SCREENSHOT_DIR",
         "SRFAX_ACCESS_ID",
