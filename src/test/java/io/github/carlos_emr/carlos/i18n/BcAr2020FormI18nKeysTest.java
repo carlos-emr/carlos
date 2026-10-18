@@ -43,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * BC-AR 2020 pages 1, 2, 4 and 5 showed raw {@code ???key???} labels: the i18n sweep named keys that no bundle
- * defined (issue #4949). Every label key these pages render must be defined in every shipped locale.
+ * defined (issue #4949). Every label key these pages render must be defined in every shipped locale, and page 1's
+ * delivery lists must not mix English options with translated ones.
  *
  * @since 2026-10-18
  */
@@ -95,6 +96,18 @@ class BcAr2020FormI18nKeysTest {
     @Test
     void shouldUseTheTranslatedUnknownOption_onPage2() throws IOException {
         assertThat(renderedKeys("formBCAR2020pg2.jsp")).contains("form.formBCAR2020pg1.option.unknown").doesNotContain("global.unknown");
+    }
+
+    /**
+     * The obstetric-history delivery lists show every option through a key, so a translated list has no English
+     * "Vacuum" or "Forceps" beside its translated "Vacuum and Forceps". The stored values stay English.
+     */
+    @Test
+    void shouldTranslateEveryDeliveryOption_inTheObstetricHistoryLists() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/form/formBCAR2020pg1.jsp"), StandardCharsets.UTF_8);
+        assertThat(jsp).doesNotContain("<option value=\"Vacuum\">Vacuum</option>", "<option value=\"Forceps\">Forceps</option>");
+        assertThat(jsp.split("<option value=\"Vacuum\"><fmt:message key=\"form.formBCAR2020pg1.option.vacuum\"/></option>", -1)).hasSize(5);
+        assertThat(jsp.split("<option value=\"Forceps\"><fmt:message key=\"form.formBCAR2020pg1.option.forceps\"/></option>", -1)).hasSize(5);
     }
 
     /** Page 4's "Postpartum care" says what page 5's existing, translated label says, in every locale. */

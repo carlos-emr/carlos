@@ -1093,8 +1093,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1173,8 +1173,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1253,8 +1253,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1333,8 +1333,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
