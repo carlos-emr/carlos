@@ -248,6 +248,15 @@ public class WCBAction22Action extends ActionSupport {
         this.w_reportype = w_reportype;
     }
 
+    /**
+     * The WCB form posts its report type as {@code w_reporttype}, the column's name; with only the
+     * misspelt setter above, every saved form kept the default, a first report (issue #4864).
+     */
+    @StrutsParameter
+    public void setW_reporttype(String w_reporttype) {
+        this.w_reportype = w_reporttype;
+    }
+
     public String getW_fname() {
         return w_fname;
     }
@@ -783,7 +792,8 @@ public class WCBAction22Action extends ActionSupport {
         wcb.setW_feeitem(w_feeitem); //--
         wcb.setW_extrafeeitem(w_extrafeeitem); //--
         wcb.setW_servicelocation(w_servicelocation); //--
-        //wcb.setW_formNeeded(formNeeded);
+        // The Form Needed box posts 1 when ticked and nothing when clear; it was never saved (#4864).
+        wcb.setFormNeeded("1".equals(formNeeded) ? 1 : 0);
         //private List injuryLocations;
 
 

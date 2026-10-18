@@ -22,12 +22,14 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mockStatic;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -43,6 +45,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -52,8 +56,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.carlos.entities.WCB;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 /**
@@ -66,12 +73,13 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * rather than being skipped.</p>
  *
  * <p>The FAKE values carry quotes and markup, so the same renders show that each value comes back exactly as
- * saved and creates no element or attribute of its own.</p>
+ * saved and creates no element or attribute of its own. Last, each field's posted value must reach its
+ * column through the save ({@link WCBAction22Action}).</p>
  */
 @Tag("unit")
 @Tag("billing")
 @DisplayName("formwcb.jsp field bindings")
-class FormWcbJspBindingRegressionTest {
+class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
 
     private static final Path FORM_WCB_JSP = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/formwcb.jsp");
 
@@ -344,6 +352,49 @@ class FormWcbJspBindingRegressionTest {
                     setter.invoke(saved, value);
                     assertThat(selectedSide(open(saved))).as("saved w_side=%s", value).containsExactly(value);
                 }
+            }
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fields")
+    @DisplayName("should save what each field posts to its column")
+    void shouldSavePostedValue_forEachField(Field field) throws Exception {
+        createAndRegisterMock(SecurityInfoManager.class);
+        Method posted = WCBAction22Action.class.getMethod("set" + field.property(), String.class);
+        assertThat(posted.isAnnotationPresent(StrutsParameter.class))
+                .as("the save takes %s from the request", field.name()).isTrue();
+        Method column = WCB.class.getMethod("get" + field.property());
+
+        List<String> values = switch (field.kind()) {
+            case RADIO, SELECT -> field.values();
+            case CHECKBOX -> List.of("1");
+            default -> List.of(DATE_FIELDS.contains(field.name()) ? "2026-03-14" : "FAKE " + field.name() + " " + HOSTILE);
+        };
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            for (String value : values) {
+                WCBAction22Action save = new WCBAction22Action();
+                save.setDemographic_no("42");
+                if (!field.name().equals("w_duration")) {
+                    save.setW_duration("1");
+                }
+                posted.invoke(save, value);
+
+                Object saved = column.invoke(save.getWCB());
+
+                Object expected = saved instanceof Date ? value : column.getReturnType() == int.class
+                        ? (Object) Integer.parseInt(value) : value;
+                Object actual = saved instanceof Date date
+                        ? Instant.ofEpochMilli(date.getTime()).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                        : saved;
+                assertThat(actual).as("%s=%s saved", field.name(), value).isEqualTo(expected);
+            }
+            if (field.kind() == Kind.CHECKBOX) {
+                // A clear box posts nothing.
+                WCBAction22Action save = new WCBAction22Action();
+                save.setDemographic_no("42");
+                save.setW_duration("1");
+                assertThat(column.invoke(save.getWCB())).as("formNeeded clear, saved").isEqualTo(0);
             }
         }
     }
