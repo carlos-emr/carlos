@@ -691,6 +691,7 @@
     "test:waf-clinical-text-corpus-incoming-encounter-reason-playwright": "WAF_CORPUS_ONLY=incoming-encounter-reason node scripts/waf-clinical-text-corpus-playwright-checks.js",
     "test:bc-master-record-navigation-playwright": "node scripts/bc-master-record-navigation-playwright-checks.js",
     "test:echart-issues-filter-browser": "node scripts/echart-issues-filter-browser-check.js",
+    "test:echart-future-date-rejection-playwright": "node scripts/echart-future-date-rejection-playwright-checks.js",
     "test:eform-template-outputs-playwright": "node scripts/eform-template-outputs-playwright-checks.js",
     "test:eform-template-consult-playwright": "node scripts/eform-template-consult-playwright-checks.js",
     "test:eform-template-document-provider-playwright": "node scripts/eform-template-document-provider-playwright-checks.js",

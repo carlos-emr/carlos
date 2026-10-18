@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -371,7 +372,7 @@ public class FrmForm2Action extends ActionSupport {
         // return SUCCESS;
         // forward to the for with updated formId
 
-        logger.debug("submit value: " + submit);
+        logger.debug("submit value: {}", LogSafe.sanitize(submit));
         if (submit.equalsIgnoreCase("exit")) {
             request.setAttribute("demographicNo", demographicNo);
             request.setAttribute("diagnosisVT", "See Vascular Tracker Template");

@@ -46,6 +46,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
 <fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
+<fmt:message var="invalidObservationDateLabel" key="encounter.observationDateInvalid.msg"/>
+    var invalidObservationDateError = "${carlos:forJavaScriptBlock(invalidObservationDateLabel)}";
 
     var noteEditorLabel = "${carlos:forJavaScriptBlock(noteEditorLabel)}";
 
@@ -2820,6 +2822,8 @@ function updateCPPNote() {
                     if (request.status == 409) {
                         lostNoteLock = true;
                         alert(noteLockLostError);
+                    } else if (request.status == 400) {
+                        alert(invalidObservationDateError);
                     } else if (request.status == 403) {
                         alert(sessionExpiredError);
                     } else {
@@ -2933,7 +2937,7 @@ function updateCPPNote() {
                 onFailure: function (request) {
                     // In particular, a stale-revision 409 must leave the clinician's
                     // text and selected issues available to copy or recover.
-                    alert(savingNoteError + " " + request.status);
+                    alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
                     setTimer();
                 },
                 onComplete: function () { restoreControls(); }

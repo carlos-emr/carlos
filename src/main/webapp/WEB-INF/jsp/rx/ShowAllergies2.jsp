@@ -551,7 +551,7 @@
                                 <tr>
                                     <td>
                                         <b><fmt:message key="SearchDrug.nameText"/></b>
-                                        ${patient.getSurname() }, ${patient.getFirstName() }<br/>
+                                        <c:out value="${patient.getSurname()}"/>, <c:out value="${patient.getFirstName()}"/><br/>
                                     </td>
                                     <td>&nbsp;</td>
                                     <td><b>Age:</b>

@@ -56,6 +56,7 @@ async function workflow(s) {
   };
   const ownedRow = () => frame.locator('table tbody tr').filter({ hasText: code });
 
+  let stepError = null;
   try {
     const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
       { context: s.context, recorder: s.recorder, label: 'bc-private-codes-admin' });
@@ -143,6 +144,9 @@ async function workflow(s) {
       await frame.locator('h3', { hasText: 'Manage Private Bill' }).waitFor({ timeout: TIMEOUT });
       h.assert(await ownedRow().count() === 0, 'The deleted private code is still listed');
     });
+  } catch (error) {
+    stepError = error;
+    throw error;
   } finally {
     // Remove anything this run added (a failed step can leave the code, or a code posted with a bad price) with the
     // list's own Delete while the browser is open. No SQL delete: a code the page cannot remove is left for a look.
@@ -160,7 +164,12 @@ async function workflow(s) {
     }
     const remaining = owned();
     if (left.length) console.log(`    cleanup: ${left.length} code(s) left by the run, ${remaining.length} remain after the list's Delete`);
-    h.assert(remaining.length === 0, `This run's private code is still stored (${JSON.stringify(remaining)}); left for a look, no SQL delete`);
+    if (remaining.length) {
+      const message = `This run's private code is still stored (${JSON.stringify(remaining)}); left for a look, no SQL delete`;
+      // A throw here would replace the step's own (possibly expected, tagged) failure, so report it instead.
+      if (stepError) console.error(`    cleanup: ${message}`);
+      else h.assert(false, message);
+    }
   }
 }
 

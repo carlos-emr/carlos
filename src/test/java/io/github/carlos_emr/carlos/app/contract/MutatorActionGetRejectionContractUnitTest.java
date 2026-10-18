@@ -392,6 +392,8 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // PHCP provider settings: role mutations require POST; focused Alpha20RequestAuthorizationUnitTest.
+        "io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action",
         // Pregnancy lifecycle (#4557): list/new/edit are read-only; create/complete require POST.
         // Covered by Pregnancy2ActionUnitTest for both GET and HEAD.
         "io.github.carlos_emr.carlos.commn.web.Pregnancy2Action",
@@ -443,6 +445,9 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         // BC Teleplan: default page view permits GET; method dispatches are POST-only.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
+        // BC MSP Quick Billing (#4772): opening the page permits GET; add (data) and remove accept
+        // only POST, as the page sends them. Covered by QuickBillingBCSessionFormUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
         // Messenger admin: rejects GET on form-save method invocations.
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Provider phone editor: EditPhoneNum -> providerPhone.jsp is dual-purpose. A GET/HEAD renders
@@ -615,6 +620,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
+        "io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BatchBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",

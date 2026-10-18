@@ -100,6 +100,19 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRestoreSecurityServiceAndRefuseWrite_whenTransientReferenceIsAbsent() {
+        registerMock(SecurityInfoManager.class, security);
+        action.securityInfoManager = null;
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "101");
+        when(security.hasPrivilege(user, "_dxresearch", SecurityInfoManager.WRITE, "101")).thenReturn(false);
+
+        assertThatThrownBy(action::addToDx).isInstanceOf(SecurityException.class);
+        verify(security).hasPrivilege(user, "_dxresearch", SecurityInfoManager.WRITE, "101");
+        verifyNoInteractions(manager);
+    }
+
+    @Test
     void shouldRefuseWithoutWritingAnyPatient_whenADiseaseRegistryAddNamesNoPatient() throws Exception {
         request.setMethod("POST");
         request.setParameter("issue_code", "73");

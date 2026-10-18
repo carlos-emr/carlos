@@ -239,7 +239,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         // A cleanup-only close failure after the PDF bytes were streamed must not flip the
         // result to "error": Struts would forward an error JSP into the committed binary
         // response — exactly the direct-response corruption CLAUDE.md forbids.
-        Path attachedForm = Files.createTempFile("consult-print-close-fail-", ".pdf");
+        Path attachedForm = createRenderedPdf();
         try {
             EFormData eForm = mock(EFormData.class);
             when(eForm.getId()).thenReturn(7);
@@ -288,6 +288,45 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                                 .contains("Attached form \"unknown\"")
                                 .contains("form metadata is missing");
                     });
+        }
+    }
+
+    private Path createRenderedPdf() throws IOException {
+        Path root = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), "carlos-temp"));
+        return Files.createTempFile(root, "consult-print-", ".pdf");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should refuse a rendered attachment outside the application temp, directly or through a symlink")
+    void shouldRefuseRenderedAttachmentOutsideApplicationTemp_withDirectPathOrSymlink(boolean symlink) throws Exception {
+        Path foreign = Files.createTempFile("not-carlos-owned-", ".pdf");
+        Path rendered = symlink ? createRenderedPdf() : foreign;
+        try {
+            if (symlink) {
+                Files.delete(rendered);
+                try {
+                    Files.createSymbolicLink(rendered, foreign);
+                } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+                    // Windows without the privilege, or a filesystem without symlinks: the direct case still runs.
+                    org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not available here");
+                }
+            }
+            EFormData eForm = mock(EFormData.class);
+            when(eForm.getId()).thenReturn(7);
+            when(eForm.getDemographicId()).thenReturn(1);
+            when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eForm));
+            when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1))
+                    .thenReturn(rendered);
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+                org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                        .isInstanceOf(SecurityException.class);
+                assertThat(response.getContentAsByteArray()).isEmpty();
+                concat.verifyNoInteractions();
+            }
+        } finally {
+            Files.deleteIfExists(rendered);
+            Files.deleteIfExists(foreign);
         }
     }
 
@@ -356,7 +395,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @Test
     @DisplayName("should print only the consultation patient's own eForms and documents when consult docs reference another patient's")
     void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient() throws Exception {
-        Path ownForm = Files.createTempFile("consult-print-own-", ".pdf");
+        Path ownForm = createRenderedPdf();
         try {
             EFormData ownEForm = mock(EFormData.class);
             when(ownEForm.getId()).thenReturn(7);

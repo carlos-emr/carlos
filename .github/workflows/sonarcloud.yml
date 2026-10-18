@@ -84,6 +84,20 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
+      - name: Test reliability diagnostics
+        run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
+
+      # The Sonar GitHub check can expose only a subset of findings on large PRs. Report all reliability
+      # findings from the latest available analysis before starting the expensive build.
+      # This is diagnostic only; the separate Sonar quality gate remains authoritative.
+      - name: Report latest PR reliability findings
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/sonar_reliability_report.py
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 

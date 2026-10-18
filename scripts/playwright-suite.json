@@ -328,21 +328,6 @@
       ]
     },
     {
-      "name": "appointment-cancel-no-show",
-      "script": "scripts/appointment-cancel-no-show-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 600,
-      "env": [],
-      "notes": "Presses the edit popup's No show and Cancel Appt buttons (the buttoncancel branch of appointment/UpdateRecord), including the billed-appointment confirmation.",
-      "fixtures": "Throwaway login plus an owned FAKE- patient and three SQL-seeded appointments for today; appointment and archive rows deleted in cleanup."
-    },
-    {
       "name": "appointment-status-editing",
       "script": "scripts/appointment-status-editing-playwright-checks.js",
       "tiers": [
@@ -1014,20 +999,6 @@
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) and one appointment for it: the appointment and its archive rows, the notes and their rows, locks and drafts, the eChart rows and the patient are removed by key and asserted gone. It no longer runs on a demo patient, whose stored encounter-note draft a saved note makes the application delete. No clinic-wide state is changed."
     },
     {
-      "name": "echart-note-lifecycle",
-      "script": "scripts/echart-note-lifecycle-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "fixtures": "Owned synthetic patient; the notes are written through the chart and removed by patient id with their links, exts, issue rows and eChart rows, and verified gone (the runner clears the patient's note locks and drafts).",
-      "notes": "Finding 279 (#4711: Sign & Save of an edited signed note answered 500 because the edit form posted observation_date as a raw timestamp) is fixed on release/2026.08 by #4769, so every step is expected to pass there."
-    },
-    {
       "name": "echart-note-soft-wrap",
       "script": "scripts/echart-note-soft-wrap-playwright-checks.js",
       "tiers": [
@@ -1136,41 +1107,6 @@
         "eform"
       ],
       "fixtures": "Creates, edits and deletes one uniquely named library eForm ('Playwright Admin CRUD <timestamp>'); the delete only sets eform.status to 0, so an inactive row remains (a failing run leaves it active). The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
-      "name": "eform-saved-value-prefill",
-      "script": "scripts/eform-saved-value-prefill-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "eform"
-      ],
-      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1) and saved copies of them seeded by SQL (eform_data + eform_values), one deleted and one under an unused demographic number. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails at its last step on develop: attributes with a $ in their name (eform$name, var$value) are never read (EFormUtil.getAttributeMatcher), so fields meant to read another eForm silently show the current eForm's own value and count (pending finding 303). Every earlier step passes."
-    },
-    {
-      "name": "eform-measurement-prefill",
-      "script": "scripts/eform-measurement-prefill-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "eform"
-      ],
-      "fixtures": "Owned FAKE- patient with WT measurements seeded by SQL; one marker-named eForm in the clinic's eForm library (status 1) with m$WT and m$HT oscarDB fields. Cleanup deletes the eForm, any data saved from it and the patient's measurements, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "eform-admin-schedule-navigation",
@@ -1328,24 +1264,6 @@
       "env": [
         "EFORM_SUBJECT_DEMOGRAPHIC_NO"
       ]
-    },
-    {
-      "name": "eform-template-provider",
-      "script": "scripts/eform-template-provider-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "eform"
-      ],
-      "fixtures": "Owned FAKE- patient; a marker-named eForm in the clinic's eForm library (status 1) whose template writes two preventions and an encounter note, submitted once through E-Chart > eForms > Add. The other provider named in the template is the lowest-numbered active provider that is not the login. Cleanup deletes the eForm, its saved copy, and the owned patient's preventions and encounter notes with their links, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails on develop at the <provider> step: a prevention template's <provider> tag is ignored and the prevention is recorded under the login, pending finding 338 (#4802; release fix #4803). The <providers> step before it passes; the $te{eform.provider} step after it does not run (the first step logs the note, which reads provider=[] there). The check turns green when #4803 reaches develop in the forward merge; drop this note then."
     },
     {
       "name": "eform-rtl-attachment-pdf",
@@ -1824,43 +1742,6 @@
       ]
     },
     {
-      "name": "lab-recall-delegate",
-      "script": "scripts/lab-recall-delegate-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "property:lab_recall_delegate",
-        "property:labRecallMsgSubject",
-        "property:lab_recall_tickler_assignee",
-        "property:lab_recall_tickler_priority",
-        "property:lab_recall_msg_subject"
-      ],
-      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSRECALL) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the tickler saved from Recall carries the run marker. The test provider's recall settings (property lab_recall_delegate, labRecallMsgSubject, lab_recall_tickler_assignee, lab_recall_tickler_priority and lab_recall_msg_subject) are snapshotted and cleared first, then restored and verified in cleanup; the lab rows and the tickler with its ticklerdocs rows are deleted by id and asserted gone. While it runs every lab the test provider opens shows Recall, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Preferences > Lab Recall Settings saves, reopens, refuses an inactive delegate and deletes; Inbox > lab > Recall opens a message to the delegate and a tickler form for the delegate at the saved priority, and the saved tickler is linked to the lab. The last step (the recall message's Subject is the saved subject) fails until pending finding 285 (#4720) is fixed. The banner text after Submit and Delete is pending finding 286 (#4721), and the lab display once a tickler is linked to the lab is pending finding 287 (#4722); neither is asserted (Delete and its lab reopen run before the tickler is saved)."
-    },
-    {
-      "name": "lab-linked-tickler",
-      "script": "scripts/lab-linked-tickler-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSLABTICKLER) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the two ticklers saved from the lab's Tickler button carry the run marker. Cleanup deletes the ticklers with their ticklerdocs, comments and updates, then the lab rows, by id, and asserts them gone. No clinic-wide state is changed.",
-      "notes": "Regression for #4722: a lab with linked ticklers (one assigned to another provider, one to the test provider) opens again from the Inbox and lists both with their assignees; before the fix the lab display answered 500 (LazyInitializationException on Tickler.assignee)."
-    },
-    {
       "name": "rx-stash-patient-isolation",
       "script": "scripts/rx-stash-patient-isolation-playwright-checks.js",
       "tiers": [
@@ -1994,25 +1875,6 @@
       "env": [
         "CDS_EXPORT_GNUPGHOME"
       ]
-    },
-    {
-      "name": "cds-export-patient-sections",
-      "script": "scripts/cds-export-patient-sections-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "CDS_EXPORT_GNUPGHOME"
-      ],
-      "mutates": [
-        "appointment"
-      ],
-      "fixtures": "SQL-seeded on the check's own FAKE- patient: one allergy, drug, Td immunization (with its name), height and appointment, each found by the run marker or its own FAKE- text and deleted with the patient at the end. The appointment is today at 10:30 on the test login's provider, so it shows on that provider's day sheet while the check runs; it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rest-roster-enrolled-to",
@@ -2318,21 +2180,6 @@
         "SEARCH_INACTIVE_STATUSES",
         "SEARCH_TIMEOUT_MS"
       ]
-    },
-    {
-      "name": "patient-search-band-number",
-      "script": "scripts/patient-search-band-number-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "The Band Number search mode, shown only with FIRST_NATIONS_MODULE=true (SKIP otherwise); patient-search-modes leaves it out. On develop the last step fails: with two records carrying the same number only one is listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "The owned FAKE- patient and a second FAKE- record, each with a statusNum demographicExt row derived from the run marker; removed in cleanup."
     },
     {
       "name": "eform-restore-fid-validation",
@@ -2689,21 +2536,6 @@
       "fixtures": "Writes real rschedule and scheduledate rows for the selected provider over 2031-03-03 to 2031-03-28 and does not remove them (the residue audit does not diff these tables); clinic-wide schedule state, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "schedule-period-delete",
-      "script": "scripts/schedule-period-delete-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 600,
-      "env": [],
-      "fixtures": "Throwaway login (a doctor plus an owned role holding _admin.schedule), its ProviderPreference and one owned day template; two far-future periods on that provider only, made through the week setting. Cleanup deletes every row keyed by the throwaway provider and asserts it. The first step can wait about five and a half minutes for the provider list cache.",
-      "notes": "Schedule Setting ▸ week setting ▸ period menu ▸ Delete (schedule/TemplateApplying delete=1&deldate=all): a cancelled confirm changes nothing; OK marks that period and its dates deleted and leaves the other period; GET and tokenless POST of the delete are refused."
-    },
-    {
       "name": "schedule-template-crud",
       "script": "scripts/schedule-template-crud-playwright-checks.js",
       "tiers": [
@@ -2865,21 +2697,6 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Uses the disposable test provider; snapshots and restores printer, document-description and text-signature preferences."
-    },
-    {
-      "name": "document-description-templates",
-      "script": "scripts/document-description-templates-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
     },
     {
       "name": "surface-audit:referrals-surface",
@@ -3194,36 +3011,6 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
-      "name": "allergy-list-views",
-      "script": "scripts/allergy-list-views-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (#4756, pending finding 301; fix pending on release/2026.08, fix/allergy-reactivate-after-stale-guard). Every earlier step passes."
-    },
-    {
-      "name": "allergy-partial-start-date",
-      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; release fix #4810). Every earlier step passes. The check turns green when #4810 reaches develop in the forward merge; drop this note then."
-    },
-    {
       "name": "allergy-injected-form-csrf",
       "script": "scripts/allergy-injected-form-csrf-playwright-checks.js",
       "tiers": [
@@ -3330,21 +3117,6 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns and removes one synthetic lot catalogue row; exercises initial and repeated search from Administration."
-    },
-    {
-      "name": "admin-lot-number-delete",
-      "script": "scripts/admin-lot-number-delete-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
-      "env": [],
-      "notes": "Administration > Search lot number by prevention > a lot > Delete (admin/ViewLotNrDeleteRecordHtm, then a POST to admin/LotNrDeleteRecord). Two lots of an owned prevention type are seeded, one carrying an apostrophe, double quotes and an ampersand. The search for that type lists exactly both, each linking to its own delete page; the target's link opens the delete page filled in with exactly its type and lot; Delete posts exactly those, the result page says the record was deleted, the target row is soft-deleted (deleted=1, nothing else changed but the update time the entity stamps) and the control row is unchanged; a new search lists the control only; with the lot number cleared, Delete raises the page's \"must be entered\" alert and posts nothing; a GET and HEAD replay of the real delete POST aimed at the control lot passes h.assertRefused and leaves it undeleted. No known defect. The replay is sent from the page (a same-origin fetch) rather than the context's request client, because the session cookie is Secure and only the browser sends it over plain HTTP to a loopback origin (issue #4718); the check therefore runs on an HTTP or HTTPS base URL alike. Passes on develop (231f36a0e2, Ontario): 2 of 2 runs over HTTP and 1 over HTTPS. Run on Ontario only; not yet run on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
-      "fixtures": "Two PreventionsLotNrs rows of an owned prevention type ('PW' plus the run marker's tail), inserted directly as the test login. Cleanup removes both by id and asserts no row of the owned type is left. No clinic-wide state is changed."
     },
     {
       "name": "consultation-signature-fallback",
@@ -3499,24 +3271,6 @@
       "env": [
         "TICKLER_DEMOGRAPHIC_NO"
       ]
-    },
-    {
-      "name": "tickler-demo-main-status",
-      "script": "scripts/tickler-demo-main-status-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [
-        "DOCUMENT_DIR",
-        "RX_FAX_DOCUMENT_DIR"
-      ],
-      "fixtures": "Owned synthetic patient with three active ticklers due today and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
-      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely is listed but not pressed."
     },
     {
       "name": "registry-ichppc-lifecycle",
@@ -3688,63 +3442,6 @@
       "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
     },
     {
-      "name": "admin-login-agreement-upload",
-      "script": "scripts/admin-login-agreement-upload-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [
-        "DOCUMENT_DIR"
-      ],
-      "notes": "Administration > Upload Agreement (admin/uploadEntryText): the upload stores the validity as a new aua_valid_duration property and writes the text to DOCUMENT_DIR/OSCARloginText.txt; the page shows the saved validity again; a GET carrying the fields is refused with 405. SKIP without DOCUMENT_DIR, or when the menu has no entry (shown only with LOGINTEST=yes).",
-      "fixtures": "No rows created by the check itself; the aua_* property rows are snapshotted and restored and the text file is put back as it was (or removed). The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "mutates": [
-        "property:aua_valid_duration",
-        "file:OSCARloginText.txt"
-      ]
-    },
-    {
-      "name": "admin-clinic-nbr-codes",
-      "script": "scripts/admin-clinic-nbr-codes-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "notes": "Administration > Manage Clinic NBR Codes (admin/ViewClinicNbrManage, posting to admin/clinicNbrManage): Add New Code stores an active clinic_nbr row and lists it; after the page is opened again, Remove Selected marks exactly that row deleted; a GET with method=add is refused with 405. SKIP when the menu has no entry (shown only with rma_enabled=true).",
-      "fixtures": "The code the run adds carries the run marker. clinic_nbr is snapshotted byte-exact; cleanup deletes the added rows and restores every other row. The codes are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "mutates": [
-        "clinic_nbr"
-      ]
-    },
-    {
-      "name": "admin-configure-sms",
-      "script": "scripts/admin-configure-sms-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "notes": "Administration > SMS (admin/ConfigureSms): opens with every secret field empty; Save stores a FAKE 555-01xx sender with SMS and its scheduler off and keeps the typed webhook secret out of the page; a GET with method=configure is refused with 405. Never presses Send system test. SKIP when the database has no sms_config table (a build without the SMS settings page, such as release/2026.08) or when the test login holds no _admin.sms right (a database loaded from the development snapshot after its migrations needs V1.0.71 re-run).",
-      "fixtures": "No rows created by the check itself; sms_config is snapshotted byte-exact and restored (the rows the save makes are removed). SMS settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "mutates": [
-        "sms_config"
-      ]
-    },
-    {
       "name": "clinic-demo-name",
       "script": "scripts/clinic-demo-name-playwright-checks.js",
       "tiers": [
@@ -3757,22 +3454,6 @@
       "timeoutSec": 240,
       "env": [],
       "notes": "Read-only. Proves Flyway V1.0.29 applied and Administration > Clinic shows the stored (non-placeholder) clinic name."
-    },
-    {
-      "name": "clinic-address-admin",
-      "script": "scripts/clinic-address-admin-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "mutates": [
-        "clinic"
-      ],
-      "fixtures": "No owned rows: the one clinic row is clinic-wide, so the check snapshots every column first and restores the snapshot in cleanup, verified byte for byte (and that no second clinic row remains). It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "scratchpad-workflow",
@@ -3814,81 +3495,6 @@
       "env": []
     },
     {
-      "name": "billing-bc-settle-paid-claims",
-      "script": "scripts/billing-bc-settle-paid-claims-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "mutates": [
-        "billingmaster",
-        "billing_history",
-        "teleplanS00"
-      ],
-      "notes": "BC Administration ▸ Billing ▸ Settle Paid Claims: Submit settles every MSP claim paid an amount different from what was billed (explanation BG) that is still waiting on its balance. First committed coverage of this page. Because the action is clinic-wide, the check SKIPs when the database already holds a BG payment line, and before each Submit it asserts that its own FAKE claim is the only bill line in status E with a BG payment.",
-      "fixtures": "The owned FAKE- patient and one MSP bill on it: a billing row, its bill line (status E, $33.70) and a BG payment line paying $20.00 (filename = the run marker). Cleanup deletes those rows by id and marker plus the billing-history rows the page writes for that FAKE bill line. Submit acts on every qualifying claim in the clinic, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
-      "name": "billing-bc-account-reports",
-      "script": "scripts/billing-bc-account-reports-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "provider",
-        "reportprovider"
-      ],
-      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Write-Off, Payments and Refunds and Payments and Refunds summary PDFs, and the summary as a spreadsheet, for one FAKE provider and payee. First committed coverage of this page; it pins #4801 (finding 339: the PDFs printed \"Provider:null\"). On develop the Write-Off step fails with HTTP 404 until #4805 (release) is forward-merged: the form posts to an address that is not mapped. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
-      "fixtures": "The owned FAKE- patient; two FAKE providers inserted by SQL (provider and payee, last name = the run marker, each with a billing-report row); and one MSP bill on the patient for them, with a written-off line and its payment line dated today. Cleanup deletes exactly those rows by id and marker. The providers appear in the clinic's provider lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
-      "name": "billing-bc-referral-doctors",
-      "script": "scripts/billing-bc-referral-doctors-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "billingreferral"
-      ],
-      "notes": "BC Administration ▸ Billing ▸ Manage Referral Doctors: the list, its last-name search, Add Doctor and a doctor's Edit, inside the Administration panel, plus the list opened on its own. First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the empty-billing-number step fails until #4853 (release, issue #4852) is forward-merged: the form's number check throws and the form is posted, and the later steps fail on the rest of #4852 (Save leaves the panel, the address boxes, a no-match search, the Edit). Each expectedFailure is added with its finding number when the findings log is assembled.",
-      "fixtures": "Doctor A is created through Add (a free FAKE 9xxxx billing number, last name = the run marker); doctor B is SQL-seeded the same way (last name = marker + \"-B\"). The pages have no Delete, so the cleanup deletes exactly those two by billing number AND last name and fails the run if anything else carries the marker. The doctors join the clinic's referral doctor list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
-      "name": "billing-bc-private-codes",
-      "script": "scripts/billing-bc-private-codes-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "mutates": [
-        "billingservice"
-      ],
-      "notes": "BC Administration ▸ Billing ▸ Manage Private Bill: Add Code, the code's Edit (fee row save) and Delete; the private-code part of #4439 task 9 (billing-bc-codes-admin). First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the price-check step fails on a held finding (Add's price check throws and never runs), and once that is fixed the Edit step fails on another (a code added through Add has no end date, so its fee row save never finishes). Each expectedFailure is added with its finding number when the findings log is assembled.",
-      "fixtures": "None seeded: the private code is created through Add (description = the run marker) and removed with the list's own Delete while the browser is open. No SQL delete; a code the page could not remove fails the run and is left for a look. The code joins the clinic's billing code list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
@@ -3919,51 +3525,6 @@
         "step": "the save keeps the billing note exactly, apostrophe included"
       },
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
-    },
-    {
-      "name": "billing-bc-bill-create-save",
-      "script": "scripts/billing-bc-bill-create-save-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "BC MSP bill entry: Create Invoice, diagnosis and fee-code searches, Continue (review), Save Bill; asserts the billing header and billingmaster line, and a 405 for a GET Save Bill. Finding 281 (#4716: the BC bill form answered 500 on every open) is fixed on release/2026.08 by #4723, so every step is expected to pass there.",
-      "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
-    },
-    {
-      "name": "billing-bc-bill-status-filters",
-      "script": "scripts/billing-bc-bill-status-filters-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "BC Bill Status (Invoice List): status, bill-type and service-date filters list exactly the owned bills they should. Read-only page.",
-      "fixtures": "Seeds and removes three billing/billingmaster rows (MSP not submitted, MSP settled, private bill-patient) for its own FAKE patient."
-    },
-    {
-      "name": "billing-bc-private-bill-receipt",
-      "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "BC"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Finding 282 (#4717: Update Invoice answered 500 on an empty billingNo) is fixed on release/2026.08 by #4723 and finding 164 (#4551: Receive Payment saved nothing) by #4659, so every step is expected to pass there.",
-      "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
     },
     {
       "name": "billing-bc-receive-payment",
@@ -4429,41 +3990,6 @@
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
-      "name": "admin-default-encounter-issues",
-      "script": "scripts/admin-default-encounter-issues-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "mutates": [
-        "default_issue"
-      ],
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "WL_DEFAULT_ISSUE"
-      ],
-      "fixtures": "The synthetic patient (no notes) for the first-encounter step. default_issue holds one clinic-wide row: it is recorded first and restored exactly afterwards (re-inserted with its id if Remove deleted it); a row the page creates during the run is captured by id after each change and only those ids are deleted; the restored table is compared with the recorded one. default_issue is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Skips on the packaged default (caisi=off hides the CAISI group and its Default Encounter Issue link). With caisi=on and wl_default_issue off, its first-encounter step passes and shows the saved defaults are never applied (pending finding 398), and it fails at its last step: a code matches as a substring of any issue's code or description, so ICSW100 also assigns ICSW1000 (pending finding 400). Run with WL_DEFAULT_ISSUE=true when the server has wl_default_issue=true: it then fails at the first encounter, which answers HTTP 500 unless the session holds a program the login is assigned to (pending finding 399; fixed on release/2026.08 by #4843). No expectedFailure pin until those findings are in the log."
-    },
-    {
-      "name": "admin-password-pin-reset",
-      "script": "scripts/admin-password-pin-reset-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Throwaway login (hash, PIN and roles copied from the test login) reset through Administration > User Management; its cleanup removes the login, provider, SecurityArchive, preference and log rows.",
-      "notes": "Makes two refused sign-ins. When the client address is not on login_local_ip they also count against that address (login_max_failed_times, 3 in the shipped properties)."
-    },
-    {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
       "tiers": [
@@ -4771,7 +4297,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a GET performs the bulk reassignment (HTTP 200).",
+      "notes": "Authorized POSTs reassign and archive only owned patients/extensions. GET and HEAD mutations and tokenless POSTs are refused. Administrative write and patient update/access are required.",
       "fixtures": "Two marker providers and three owned patients; hashes every non-owned demographic/demographicExt row before and after, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -5012,111 +4538,6 @@
       "fixtures": "Owned patients in a 1951-1953 window, a provider group, one appointment, three billing headers and four notes; snapshots and restores the clinic-wide visitreport provider list and regenerates the reportagesex cache, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "admin-caisi-activity-report",
-      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
-      "envSet": {
-        "CAISI_REPORT": "activity"
-      },
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [
-        "CAISI_REPORT"
-      ],
-      "fixtures": "The runWorkflow FAKE patient only (unused by this entry).",
-      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries; the check looks for the Population Report entry, which stays after the fix); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step while the dead entry is still offered: it points at PMmodule/Reports/ProgramActivityReport, which has had no route since the report's pages were removed, so it opens a 404 (pending finding 404; the fix for #4855 removes the entry, which can come back when a report exists). No expectedFailure pin until the finding is in the log."
-    },
-    {
-      "name": "admin-caisi-population-report",
-      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
-      "envSet": {
-        "CAISI_REPORT": "population"
-      },
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "mutates": [
-        "program"
-      ],
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [
-        "CAISI_REPORT"
-      ],
-      "fixtures": "One FAKE Service program named with the run marker (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install) and one admission of the runWorkflow FAKE patient to it, so the report's current population is not 0; both are deleted by their captured ids. The program shows in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The report keeps its figures for an hour in static fields, so it can count the deleted admission for up to an hour after the run.",
-      "notes": "Administration > Reports > Population Report; see admin-caisi-activity-report for the shared script. Skips on the packaged default (caisi=off); needs caisi=on with ModuleNames including Caisi. Opening the report from the legacy Administration page (admin/ViewAdmin) renders every section (render only: the report caches its figures for an hour in static fields shared by every user). It then fails at its menu step: the current shell's Population Report entry has a page attribute and no href, so clicking it does nothing (pending finding 403). With nobody counted in the population the report itself answers 500 (pending finding 405); the check seeds one admission so that does not mask the menu result. No expectedFailure pin until the findings are in the log."
-    },
-    {
-      "name": "admin-cds-report",
-      "script": "scripts/admin-cds-mis-reports-playwright-checks.js",
-      "envSet": {
-        "CDS_MIS_REPORT": "cds"
-      },
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "mutates": [
-        "FunctionalCentre",
-        "program"
-      ],
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "CDS_MIS_REPORT"
-      ],
-      "fixtures": "A FAKE functional centre and one FAKE Service program on it (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install; the centre is the run's own because MIS by functional centre counts every program of the facility on it), the runWorkflow FAKE patient and three face-to-face notes on that patient in the program, one in the month reported and two in the month after; all are deleted by their captured ids. CDS 4 categories are read only. The centre and program show in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); a MySQL named lock also keeps two runs of this script apart.",
-      "notes": "Administration > Reports > CDS Report; one script backs admin-cds-report and admin-mis-report (CDS_MIS_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides both report links). With caisi=on it fails at its first step: the CDS form loads its own jQuery over the administration page's, so its validate() call throws when the panel opens (pending finding 402; finding 40 records the same class for other Reports panels). Past that error its steps pass. No expectedFailure pin until the finding is in the log."
-    },
-    {
-      "name": "admin-mis-report",
-      "script": "scripts/admin-cds-mis-reports-playwright-checks.js",
-      "envSet": {
-        "CDS_MIS_REPORT": "mis"
-      },
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "mutates": [
-        "FunctionalCentre",
-        "program"
-      ],
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "CDS_MIS_REPORT"
-      ],
-      "fixtures": "A FAKE functional centre and one FAKE Service program on it (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install; the centre is the run's own because MIS by functional centre counts every program of the facility on it), the runWorkflow FAKE patient and three face-to-face notes on that patient in the program, one in the month reported and two in the month after; all are deleted by their captured ids. CDS 4 categories are read only. The centre and program show in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); a MySQL named lock also keeps two runs of this script apart.",
-      "notes": "Administration > Reports > MIS Report; see admin-cds-report for the shared script. Skips on the packaged default (caisi=off). With caisi=on it fails at its by-functional-centre step: the MIS form's months are numbered 1-12 but go to new GregorianCalendar(year, month, 1), which counts from 0, so every MIS report covers the month after the one chosen (pending finding 401). No expectedFailure pin until the finding is in the log."
-    },
-    {
-      "name": "rx-delete-drug",
-      "script": "scripts/rx-delete-drug-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned synthetic patient; two marker-named custom drugs prescribed through the UI (no DrugRef data), one deleted and one kept as the control. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows; the audit log rows stay."
-    },
-    {
       "name": "rx-edit-discontinue",
       "script": "scripts/rx-edit-discontinue-playwright-checks.js",
       "tiers": [
@@ -5132,40 +4553,6 @@
         "RX_EDIT_DRUG_NAME"
       ],
       "fixtures": "Owned synthetic patient; prescriptions created through the UI against live DrugRef and removed by patient id."
-    },
-    {
-      "name": "rx-card-options",
-      "script": "scripts/rx-card-options-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Fails at its last step on develop: a 12:30 pick-up time is stored as 00:30, because RxWriteScript2Action parses the 24-hour field with \"hh:mm\" (pending finding 297). Every earlier step passes."
-    },
-    {
-      "name": "rx-prescription-lifecycle",
-      "script": "scripts/rx-prescription-lifecycle-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "RX_LIFECYCLE_DRUG_TERM",
-        "RX_LIFECYCLE_DRUG_NAME",
-        "RX_LIFECYCLE_ALLERGY_SEARCH",
-        "RX_LIFECYCLE_ALLERGEN"
-      ],
-      "fixtures": "Owned synthetic patient; its allergy (FAKE reaction carrying the run marker) and prescriptions are recorded through the UI against live DrugRef; drugs, prescription, partial_date, DigitalSignature, casemgmt_note (+ links) and allergies rows are removed by patient id and verified gone."
     },
     {
       "name": "admin-api-keygen",
@@ -5260,23 +4647,6 @@
       "fixtures": "Owns a patient, two PDFs (rows and files) and the refiled copy, all removed. Snapshots and restores the test provider's edoc_browser_in_document_report preference, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "document-edit-replace-file",
-      "script": "scripts/document-edit-replace-file-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "DOCUMENT_DIR"
-      ],
-      "notes": "Chooses a new file in a stored document's Edit popup (shown with ALLOW_UPDATE_DOCUMENT_CONTENT=true, the shipped default; SKIP otherwise). document-refile-combine edits the metadata with the File field blank. On develop the page-count step fails: the document keeps the old page count (a held finding; its expectedFailure is added with the finding number when the findings log is assembled; release fix #4819). The last step, which follows it, checks what that count drives in the document viewer: the page count shown, Remove first page, a 3-page Split, and, when the viewer shows page images (the default document display preference), page links to page 3; with #4819's change it passed live in both display modes, Image (the default, page links included) and PDF.",
-      "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
-    },
-    {
       "name": "report-daysheet-labs",
       "script": "scripts/report-daysheet-labs-playwright-checks.js",
       "tiers": [
@@ -5290,7 +4660,7 @@
       "env": [
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails after its positive steps on 2026.08: report/ViewReportonbilledvisitprovider changes security roles on a tokenless GET; later steps assert the ignored Non Rostered filter and the sort links that drop the time window.",
+      "notes": "PHCP role-update and read-only/GET refusals, provider/group/all-provider day sheets, and Non Rostered Only with positive/negative roster-status cases. Every sort link must preserve the selected time window and roster filter; unknown SQL sort keys fall back safely (#4910).",
       "fixtures": "Owned patient; two marker providers (800000-899999) with one secUserRole and one providersite row; one mygroup row; six appointments today; three legacy billing/billingdetail rows; all id/marker scoped and removed."
     },
     {
@@ -5341,36 +4711,6 @@
       "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
-      "name": "messenger-reply-conversation",
-      "script": "scripts/messenger-reply-conversation-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Plain Reply only: sent and delivered to the sender alone (not to the original's other recipient), the linked patient kept on the reply, and each reader marking only their own copy read. Reply All, the Sent box and Forward are messenger-reply-all-forward's (#4753).",
-      "fixtures": "Three throwaway logins (lib/throwaway-login-fixture.js) enrolled as local messenger contacts (groupMembers_tbl group 0), an owned FAKE- patient, and one message from the first to the other two (the third only receives) delivered by SQL and linked to the patient. Cleanup removes every message whose subject carries the run marker with its delivery and patient-link rows, the contact rows, then the throwaways."
-    },
-    {
-      "name": "messenger-reply-all-forward",
-      "script": "scripts/messenger-reply-all-forward-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Reply All, the Sent box (boxType=1) and Forward of a several-line message; the other messenger checks press Reply and Forward on one-line messages and read only the inbox and archive. SKIP unless messenger contacts 1 and 2 and the test login are active local members. On develop the last step fails: Forward joins the original lines into one (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "One SQL-seeded message from contact 1 to the test login and contact 2, plus the reply the check sends; every message whose subject carries the run marker is removed with its delivery rows."
-    },
-    {
       "name": "prevention-admin",
       "script": "scripts/prevention-admin-playwright-checks.js",
       "tiers": [
@@ -5386,36 +4726,6 @@
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "prevention-partial-date",
-      "script": "scripts/prevention-partial-date-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with three Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row, and a full date) and the replacements the edit form saves; cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its fourth step on develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; release fix #4815). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green when #4815 reaches develop in the forward merge; drop this note then."
-    },
-    {
-      "name": "prevention-print-selection",
-      "script": "scripts/prevention-print-selection-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with two seeded preventions, an Inf immunization and a Tuberculosis screening, on their own dates; cleanup deletes the patient's preventions and ext rows and asserts none remain. Reads each PDF with pdftotext (SKIP without Poppler).",
-      "notes": "Fails at its last step on develop: Print Immunizations Only with no box ticked skips the empty-selection check, posts the form and saves the Preventions page's HTML as Prevention.pdf (pending finding 298). Every earlier step passes."
-    },
-    {
       "name": "schedule-admin-settings",
       "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [
@@ -5429,20 +4739,6 @@
       "env": [],
       "notes": "Fails at its last step on 2026.08: the schedule date popup preselects the wrong template and Template Code Setting edit truncates apostrophes.",
       "fixtures": "Snapshots and restores one clinic-wide appointment_status label/colour/active flag, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Throwaway login with an owned role granting _admin.schedule and a seeded day template; owned template code, far-future holiday and appointment type; all deleted."
-    },
-    {
-      "name": "schedule-template-day-sheet",
-      "script": "scripts/schedule-template-day-sheet-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 600,
-      "env": [],
-      "fixtures": "Throwaway login (doctor plus an owned schedule-administrator role) with its own ProviderPreference and two owned day templates, seeded by SQL; two unused template code characters saved through Template Code Setting (the day sheet reads codes from ScheduleTemplateCodeDao's 30-minute cache, which only DAO writes evict); only the throwaway's own schedule is written (today and tomorrow). Cleanup removes the codes, the throwaway's templates, scheduledate, rschedule and ProviderPreference rows and the role, then the throwaway; the removed codes stay in that cache until the next code save or 30 minutes, which no check reads them through."
     },
     {
       "name": "demographic-cds-import",
@@ -5475,36 +4771,6 @@
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
-      "name": "consultation-appointment-time",
-      "script": "scripts/consultation-appointment-time-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned synthetic patient; a marker-named consultation service and specialist and one referral seeded by SQL. Cleanup removes the referral with its history, extension and stamped-signature rows, the service, the specialist and their link. Needs Poppler pdftotext.",
-      "notes": "Fails on develop at the two Print steps: Print prints the appointment minute without its leading zero (15:05 as 3:5 PM, a typed 16:05 as 4:5 PM), pending finding 330 (#4787; release fix #4791). The 12 AM / 12 PM save-and-reopen steps pass."
-    },
-    {
-      "name": "admin-manage-sites",
-      "script": "scripts/admin-manage-sites-playwright-checks.js",
-      "tiers": [
-        "extended"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "fixtures": "One owned site named with the run marker; removed in cleanup with any providersite link and asserted gone. Needs multisites=on; SKIPs without the Satellite-sites Admin menu entry.",
-      "notes": "Satellite-sites Admin add, open and edit, a GET save refusal, and the site pages' stylesheets. Finding 276 (#4700) is fixed by #4875, and the site pages' stylesheet link (finding 100) by #4922."
-    },
-    {
       "name": "consultation-edit-status",
       "script": "scripts/consultation-edit-status-playwright-checks.js",
       "tiers": [
@@ -5517,42 +4783,6 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (with one configured the check reports SKIP at that step), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
-    },
-    {
-      "name": "consultation-letterhead",
-      "script": "scripts/consultation-letterhead-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "property:rxAddress",
-        "property:rxCity",
-        "property:rxProvince",
-        "property:rxPostal",
-        "property:rxPhone",
-        "property:faxnumber"
-      ],
-      "fixtures": "Owned FAKE- patient; FAKE prescription contact preferences (rxAddress, rxCity, rxProvince, rxPostal, rxPhone, faxnumber) set on one existing active provider other than the signed-in one, snapshotted and restored; a FAKE service, specialist and referral seeded by SQL and deleted with their archive rows. Reads the print with pdftotext (SKIP without Poppler). The preferences belong to a clinic provider, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
-    },
-    {
-      "name": "consultation-chart-import",
-      "script": "scripts/consultation-chart-import-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with SQL-seeded CPP notes (one per history, a second revision of Medical History, an archived Ongoing Concerns note), a long-term and a short-term drug, and one allergy; the request form is never submitted. Cleanup deletes the patient's notes, issues, drugs, allergies and any referral and asserts none remain."
     },
     {
       "name": "dashboard-display",
@@ -5651,35 +4881,6 @@
       "fixtures": "The owned patient given a synthetic address; nothing is sent."
     },
     {
-      "name": "demographic-relations",
-      "script": "scripts/demographic-relations-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "Skipped when NEW_CONTACTS_UI is on (the Master Record then has no Add Relation) or caisi is on (a search result then closes the popup instead of opening the relation form).",
-      "fixtures": "The owned patient and a second FAKE patient (marker + R); cleanup deletes every relationships row of either and the second patient."
-    },
-    {
-      "name": "demographic-audit-view",
-      "script": "scripts/demographic-audit-view-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Two marker log rows for the owned patient and one for a second FAKE patient (marker + A); cleanup deletes those log rows and the second patient."
-    },
-    {
       "name": "dx-registry-status-update",
       "script": "scripts/dx-registry-status-update-playwright-checks.js",
       "tiers": [
@@ -5708,41 +4909,6 @@
       "env": [],
       "notes": "Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token.",
       "fixtures": "A patient-bound and a patient-independent marker template, the patient eForm saved through the UI and two seeded independent instances; those fdids, their eform_values rows and the templates are removed."
-    },
-    {
-      "name": "eform-open-linked",
-      "script": "scripts/eform-open-linked-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "mutates": [
-        "eform"
-      ],
-      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), copies of them saved through the UI, and one saved copy of each seeded by SQL (eform_data). Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails on develop. Step 1: the oscarOPEN button opens the internal /WEB-INF/jsp/eform/efmformadd_data.jsp path, a 404 (pending finding 304, #4773; release fix #4779). Step 2: the linked copy's save refuses the button's eform_link, which carries the opener's eForm id, so the opener never stores link$eform (pending finding 305, #4773; release fix #4779). Step 3: a saved opener's button never reads link$eform back (pending finding 303, #4764, fixed on release by #4770), and it also opens the internal path (297). All three parts run and print their outcome before the steps report them."
-    },
-    {
-      "name": "eform-show-latest-only",
-      "script": "scripts/eform-show-latest-only-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 240,
-      "env": [],
-      "mutates": [
-        "eform"
-      ],
-      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), one set to show the latest form only, and saved copies of each seeded by SQL with fixed dates, one deleted. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "patient-photo-upload",
@@ -6112,21 +5278,6 @@
       ],
       "notes": "Regression #4138: correct billed-report headers and cells, complete year-end PDF, ES/OU MOH report rendering with visible invalid-file errors, and INR edit navigation, POST save/opener refresh, and GET mutation refusal.",
       "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
-    },
-    {
-      "name": "billing-on-report-center-claims",
-      "script": "scripts/billing-on-report-center-claims-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "on"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: the four reports read the retired billing tables, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open, a submitted, an obstetric and a flu-shot Ontario claim (written in strict SQL mode), an owned role and a throwaway login; all removed in cleanup."
     },
     {
       "name": "billing-on-year-end-statement",
@@ -6580,11 +5731,11 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: each prints ???key??? for a bundle entry that does not exist. The first (Rourke 2006) is the pinned step and the other three share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: Intake Information, Position Hazard and Self Efficacy each print ???key??? for a bundle entry that does not exist. Rourke 2006's window title now resolves, so it must pass first. Intake Information is the pinned step and the other two share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "expectedFailure": {
         "finding": 234,
-        "step": "Rourke Baby Record 2006: shows no unresolved message key"
+        "step": "Intake Information: shows no unresolved message key"
       }
     },
     {
@@ -7186,27 +6337,6 @@
       "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
     },
     {
-      "name": "get-reject-note-browser-documents",
-      "script": "scripts/get-reject-note-browser-documents-playwright-checks.js",
-      "tiers": [
-        "extended"
-      ],
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
-      "assertsDatabase": true,
-      "env": [
-        "TEST_PASSWORD",
-        "TEST_PIN",
-        "MYSQL_PASSWORD",
-        "DOCUMENT_DIR",
-        "INCOMINGDOCUMENT_DIR"
-      ],
-      "fixtures": "Owned synthetic patient and two owned PDFs (document rows, ctl_document links, files in DOCUMENT_DIR); one is set to deleted by SQL. Cleanup removes the rows, the files and any refiled copy under INCOMINGDOCUMENT_DIR/1/Refile, and asserts it. SKIP when DOCUMENT_DIR or INCOMINGDOCUMENT_DIR is not set.",
-      "notes": "GET and HEAD to casemgmt/NoteBrowserDocumentDelete, NoteBrowserDocumentUndelete, NoteBrowserDocumentRefile and documentManager/DocumentDelete, DocumentUndelete must answer 405 from CARLOS and change nothing."
-    },
-    {
       "name": "get-reject-eform-editor",
       "script": "scripts/get-reject-eform-editor-playwright-checks.js",
       "tiers": [
@@ -7690,21 +6820,6 @@
       "fixtures": "Owns an eForm template, report tool and its generated ERT_ table; scoped cleanup verifies removal and deletes the owned template."
     },
     {
-      "name": "eform-report-tool-populate",
-      "script": "scripts/eform-report-tool-populate-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "notes": "EForm Report Tool (Populate) and (Mark Latest), which detached-delete-eform-report-tool does not press. On develop the last step fails: Populate copies deleted eForm instances (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
-      "fixtures": "Owned eForm template, the owned FAKE- patient and four SQL-seeded instances with values (one deleted); the report tool and its ERT_FAKEPW table are created through the UI. All removed in cleanup."
-    },
-    {
       "name": "popup-opener-master-record",
       "script": "scripts/popup-opener-master-record-playwright-checks.js",
       "tiers": [
@@ -7971,21 +7086,6 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) plus an owned FAKE- patient and one appointment on the throwaway's own schedule; the shared test provider's preferences are never touched. Cleanup removes the appointment, the throwaway's property/ProviderPreference rows and the throwaway."
-    },
-    {
-      "name": "provider-preference-effects",
-      "script": "scripts/provider-preference-effects-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 600,
-      "env": [],
-      "notes": "Expected to FAIL at its last section's first step, '\"1 months\" is stored and the chart shortens the old note to one line, keeping the recent one in full', until the fix for issue #4818 (held finding 324), release fix PR #4820, reaches develop in the forward merge. The step then turns green; drop this note then. The eChart loads its notes through CaseManagementView method=viewNotesOpt, which never passes cme_note_date to ChartNotesAjax.jsp, so the chart always applies the one-year default. The schedule navigation steps run before it.",
-      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with the test provider's program rows, plus an owned FAKE- patient with two signed notes (7 days and 3 months old); the shared test provider's preferences are never touched. Cleanup removes the notes and eChart row, the throwaway's default-program row, then the throwaway with its property rows."
     },
     {
       "name": "gap-provider-schedule-keyboard-shortcuts",
@@ -8466,20 +7566,6 @@
       "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {
-      "name": "rx-partial-dates",
-      "script": "scripts/rx-partial-dates-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned synthetic patient; a marker-named custom drug prescribed through the UI (no DrugRef data). Cleanup removes the patient's drugs and their partial_date rows, prescriptions, drugReason and DigitalSignature rows."
-    },
-    {
       "name": "boundary-date-billing-claims",
       "script": "scripts/boundary-date-billing-claims-playwright-checks.js",
       "tiers": [
@@ -8625,21 +7711,6 @@
       "env": [],
       "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
       "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
-    },
-    {
-      "name": "cpp-copy-position",
-      "script": "scripts/cpp-copy-position-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE-PW patient; three Medical History items created through the chart's '+' and the encounter note signed after Copy to Current Note; all notes, issue links, ext rows and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. No clinic-wide state is changed.",
-      "notes": "The CPP item editor's Position list (new items first, move up, move down, Archive closes the gap; casemgmt_note.position and the box order agree) and Copy to Current Note (appends the item to the open note; Sign & Save stores it in today's note, the item unchanged)."
     },
     {
       "name": "gap-clinical-chart-print-scope",
@@ -10426,9 +9497,9 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XP...) whose text columns, extension values, custom fields, contact, relationship and tickler carry inert markup, and three providers (doctor, nurse, midwife) with poisoned names. Inserts GLOBALLY VISIBLE poisoned rows while it runs (three active providers): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 118): the Master Record view prints official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type and the alert raw (demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810), the Edit form's doctor/nurse/midwife selects print provider names raw (demographic/edit-form-clinical.jsp:260,277,294), and Documents and Manage Contacts print the patient name raw through <oscar:nameage> (DemographicNameAgeTag.java:66 out.print without encoding; documentManager/documentReport.jsp:475, demographic/ManageContacts.jsp:362). Search results, Appointment/Billing/Enrollment History, Consultations, Prescriptions, Preventions, Tickler and eForms encode. Create Invoice is skipped: the WAF refuses its URL, which carries the patient name (CRS 949110). Tickler, Manage Contacts, Documents, Appointment History and Consultations must open a page of their own (an in-place change of the Master Record does not count) and show their seeded values. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "The shared DemographicNameAgeTag sink is fixed (#4905). Independent Master Record/Edit field encoding defects remain in finding 118. This broader walk has not been rerun for this fix; its final assertion remains required and the open finding is retained.",
       "expectedFailure": {
-        "finding": 117,
+        "finding": 118,
         "step": "the walk found no output-encoding defect"
       }
     },
@@ -10450,11 +9521,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XE...) with a progress note, seven CPP notes, allergy, drug, measurement, prevention, document, eForm instance, tickler and consultation request whose text carries inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 119, 120, 128): the E-Chart left navbar prints item titles raw (encounter/LeftNavBarDisplay.jsp:338) and the Rx, Tickler and eForm modules build those titles from stored text without encoding (EctDisplayRx2Action.java:112/123, EctDisplayTickler2Action.java:96/104, EctDisplayEForm2Action.java:123); Medications prints drug instructions raw (rx/ListDrugs.jsp:326); Disease Registry and the CDM Indicators flowsheet header print the patient name raw through <oscar:nameage> (oscarResearch/oscarDxResearch/dxResearch.jsp:247, TemplateFlowSheetPage.jspf:486, DemographicNameAgeTag.java:66); the chart's consultation entry opens the request form whose letterhead script breaks (finding 120); Allergies prints the patient name raw (rx/ShowAllergies2.jsp:514, finding 128). The Grid/Row Display cumulative lab views and a measurement's history (HT) print the patient name raw through <oscar:nameage> as well (lab/CumulativeLabValues3.jsp:249, lab/CumulativeLabValues.jsp:214, encounter/oscarMeasurements/DisplayHistory.jsp:130; finding 117). An entry's window is inspected even when the chart redraws itself before it appears, and a required module counts only when it opened a page of its own (the chart's own copy of a value never stands in for it). Notes, CPP, allergies, preventions, documents, eForm list and tickler list encode. Medications, Tickler, eForms and Disease Registry must open and show their seeded values; the seeded document (no file behind it), dated encounter entries and prevention-due entries the chart redraws are noted when they cannot be reopened. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
-      "expectedFailure": {
-        "finding": 117,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Required stored-markup regression across the E-Chart and navigation destinations. The shared patient-label tag and the remaining tickler/eForm titles, allergy patient names and consultation letterhead script sinks are encoded (#4905, #4910). No output-encoding defect is tolerated."
     },
     {
       "name": "vt-form-xss",
@@ -10518,11 +9585,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
-      "expectedFailure": {
-        "finding": 117,
-        "step": "the walk found no output-encoding defect"
-      }
+      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required."
     },
     {
       "name": "xss-poison-note-history",
@@ -10590,9 +9653,9 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 120, 78, 124): the Msg inbox prints the linked patient's name raw through <oscar:nameage> (messenger/DisplayMessages.jsp:610; DemographicNameAgeTag.java:66); the consultation request form writes the saved letterhead name into a script string unescaped (encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:3525), a SyntaxError that stops the page script; Compose's Search Demographic popup closes itself on load (msgSearchDemo.jsp:219, finding 78), so its results cannot be inspected; Consultation Settings > the specialist answers 500 because the stored specialty type is text (AddSpecialist.jsp:527, finding 124). The message body is Markdown rendered through DOMPurify by design (ViewMessage.jsp), so markup there is noted, not counted. The message view, consultation list, the specialist list, Show All Services and Master Record > Consultations encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "The patient-label and consultation letterhead script sinks are encoded (#4905, #4910). Other recorded messaging/consultation defects remain in findings 78 and 124, including the specialist page failure. This broader walk has not been rerun for #4910; its final assertion remains required and the independent open findings remain visible.",
       "expectedFailure": {
-        "finding": 117,
+        "finding": 124,
         "step": "the walk found no output-encoding defect"
       }
     },
@@ -11107,12 +10170,8 @@
       "env": [
         "ECHART_VERIFY_PIN"
       ],
-      "notes": "Verify & Sign on a chart note, the appointment status letters it sets, and the note's Encounter Date and encounter type, on an owned FAKE patient with two owned appointments on today's day sheet (To Do 't' and Here 'H', free slots in the provider's hours) opened through the day sheet's E link. Steps: the day sheet shows both with the icons of their stored statuses (the icon the application draws is '<second letter><icon of the first letter>', read from appointment_status) and an E link each; a chart opened from the Master Record carries appointmentNo 0 and Sign & Save there signs the note (signature line, signing provider, no appointment) and leaves both appointments and their archive rows byte-for-byte (a digest taken before and after; a control in the next step proves the digest moves when an appointment is signed); Sign & Save from the To Do appointment's chart signs the note for it and the status becomes tS, and the day sheet shows Sstarbill.gif titled 'To Do/Signed' with the status link carrying currentstatus=tS; Verify & Sign (#signVerifyImg) from the same chart writes a signed note ending with the 'Verified and Signed on' line (not the plain Signed line) and the status becomes tV (V takes S's place), with Vstarbill.gif and 'To Do/Verified' on the day sheet; Verify & Sign from the Here appointment (never signed) makes HV with Vhere.gif and 'Here/Verified'; after those charts a chart from the Master Record again carries no appointment and signs without touching either; a back-dated Encounter Date picked in the calendar (flatpickr) and saved with Save is stored exactly as shown, as is one on a note signed with Sign & Save, and reopening the chart lists every note in Encounter Date order, oldest first, with the two back-dated notes (written last) first and each showing its date; a future day picked in the calendar is stopped in the browser with the alert 'Observation date must be in the past', posts no save and writes no note; a future Encounter Date that reaches the server (the posted date is rewritten in flight to tomorrow, because the browser only refuses days after today; picking today before noon posts a time later today) is stored as the current time; the encounter type picked in the combo box (email encounter with client) is stored and shown when the chart is reopened. LAST and pinned to finding 223: Save rolls the future date back and shows the clinician nothing, where encounter.futureDate.Msg ('Observation Date set in future, rolled back to current time') is meant to be shown (no alert, not in the save response, not on the chart page); it is the last step because a script stops at its first failing step. Expected: every step above passes and this one fails. Finding 224 has its own entry running the same script with ECHART_VERIFY_PIN=archive (echart-note-verify-appointment-status-archive), so no pin hides another. The packaged default ENABLE_EDIT_APPT_STATUS=yes is assumed: if the day sheet draws the legacy icon of a signed or verified status (lts.gif, ltv.gif, hv.gif) the check SKIPs with that reason; appointment-status-editing pins the default. Not covered: Sign Save & Bill (echart-note-sign-bill), the group-note encounter types (they need group notes enabled), and a time later today picked through the calendar (the posted date is rewritten instead so the step is the same at any hour).",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 223,
-        "step": "the clinician is told with encounter.futureDate.Msg when Save rolls a future Encounter Date back"
-      }
+      "notes": "Verify/sign appointment statuses, back-dated notes, encounter types and future-date refusal with retained draft. Future dates reaching the server must not be silently substituted. Dedicated echart-future-date-rejection also covers Save, Sign & Save and Verify & Sign refusals.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and two owned appointments for it (the marker in the reason). Cleanup deletes by the patient key every note (with its link, extension and issue rows), draft, note lock and eChart row of the patient, and the appointment and appointmentArchive rows, and asserts them all gone. No clinic-wide state is changed."
     },
     {
       "name": "echart-note-verify-appointment-status-archive",
@@ -11317,23 +10376,6 @@
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the labs are matched, as the Inbox name search needs), a throwaway provider login that is the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs with unique accessions (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload files under LAB_UPLOAD_DOCUMENT_STORE), and two owned PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting / providerLabRouting / queue_document_link rows. Everything is removed by key and asserted gone (the archived lab files stay, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). Posts ReportReassign as the test login, which rewrites that login's forwarding favourites from the dialog's list (snapshotted and asserted unchanged), so it must not run concurrently with detached-delete-forward-favourites or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     },
     {
-      "name": "inbox-acknowledge-per-provider",
-      "script": "scripts/inbox-acknowledge-per-provider-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [
-        "LAB_UPLOAD_DOCUMENT_STORE"
-      ],
-      "notes": "Acknowledging an HL7 lab that two providers hold is one provider's review. A synthetic CML lab uploaded through Inbox > HL7 Lab Upload is routed to the test provider (the patient's MRP) as New, and a throwaway second provider gets a New row too; each provider's Inbox, filtered to the owned patient, lists exactly that lab, and any other provider's rows (the demo clinic forwards the test provider's labs to another provider by a rule) are recorded. The test provider opens it from the Inbox (both providers shown Not Acknowledged), presses Acknowledge and answers the comment prompt, which offers their own empty comment: UpdateStatus posts status A with the comment for this lab, reports one routing row cleared from New, and the popup closes. The test provider's row is A with the comment and a fresh time; the second provider's row is unchanged (id, status, comment, time), and so is every other provider's. The answer's body is read on its way to the page (a pass-through route), because the popup closes as soon as it arrives. The lab leaves the test provider's New list (in place and on a fresh search) and stays in the second provider's. The second provider opens it (the test provider shown Acknowledged with a time and the comment, themselves Not Acknowledged), and their prompt offers their own empty comment, not the test provider's; answered empty, their row is A with no comment, the test provider's row is exactly as before, and every other provider's row is unchanged. Finally the second provider's New list is empty and the test provider's Acknowledged list shows the lab, whose page lists both reviews with their own comments (times in the page's dd-MMM-yy HH:mm). Skips when the test login's lab_ack_comment property turns the comment prompt off. Passes on develop (231f36a0e2, Ontario; no known defect). Not run on release/2026.08, and not yet on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the lab is matched, as the Inbox name search needs), a throwaway provider login that is the second provider (lib/throwaway-login-fixture.js), and one synthetic CML lab with a unique accession (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload file under LAB_UPLOAD_DOCUMENT_STORE); the second provider's New providerLabRouting row is inserted directly. Everything is removed by key and asserted gone, with the rows the application wrote for the throwaway login (the archived lab file stays, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). The audit rows the test login's acknowledgement and page views write stay, as every check's rows for the test login do. No clinic-wide state is changed."
-    },
-    {
       "name": "legacy-lab-display",
       "script": "scripts/legacy-lab-display-playwright-checks.js",
       "envSet": {
@@ -11503,11 +10545,7 @@
       "env": [
         "AUTHZ_WRITE_MODE"
       ],
-      "notes": "May a role with chart read and no note or issue right change the state of a chart issue? The authz-write-role-matrix role (_demographic r, _appointment w, _eChart r; in the test login's programs) signs in through the login form. The owned patient has one casemgmt_issue row seeded by SQL in a known state (catalog issue CTCMM1000, all four flags 0, update_date 2020-01-01). The full login resolves it from the note editor's issue checklist (revealed by a script: nothing reveals it, finding 227) and the captured CaseManagementEntry issueChange is replayed by the full login with a second flag (major) added, which must write both; the row is then put back. The restricted login opens the patient's chart (Master Record at its address, then its E-Chart link; that is what builds the session's form bean issueChange reads), sends the same request with its own valid CSRF token, and h.assertRefused judges it: the application's 403/405/securityError AND the row still in its seeded state. Fails at \"chart issue change: the restricted login's issueChange with its own valid token is refused and the issue row is unchanged\": CaseManagementEntry2Action.execute checks only _demographic r (:154) and issueChange (:2737) checks only that a role is in the session (:2744) before saving the flags it is sent (:2790), so the issue is resolved and flagged major and only then does the result view (noteIssueList.jsp) redirect to securityError?type=_casemgmt.notes; the same shape as finding 198 (finding 229). The fixture, the control, the chart open and the POST are earlier steps; the pinned step holds only the refusal assertion. Ontario only, like authz-write-role-matrix, whose script it shares.",
-      "expectedFailure": {
-        "finding": 229,
-        "step": "chart issue change: the restricted login's issueChange with its own valid token is refused and the issue row is unchanged"
-      },
+      "notes": "An authorized clinician resolves an owned clinical issue through the editor. Replaying the same mutation with a valid CSRF token from a chart reader lacking issue-write rights must return the application refusal and preserve every issue flag. Owned patient, login, role and program fixtures are cleaned up.",
       "fixtures": "Owned FAKE patient (runWorkflow), a custom secRole FAKEPW<hex>R1 (described by the run marker) with exactly its three secObjPrivilege rows, one throwaway login from lib/authz-read-fixture.js given program_provider rows copying the test login's, and one casemgmt_issue row for the owned patient (the patient is its label; there is no text column). Opening the two charts leaves note locks for the owned patient. Cleanup removes the login, the role and its privileges, the issue row, the patient and its locks, and asserts them gone. No clinic-wide state is changed."
     },
     {
@@ -12173,6 +11211,970 @@
       ],
       "notes": "Clicks BC master-record navigation at 1280x720 and 1600x1000; eligibility opens only on activation in a dialog. Browser intercepts eligibility responses before reaching the app, so no external Teleplan request occurs.",
       "fixtures": "Uses an existing synthetic patient and releases only its own chart locks; no clinical writes."
+    },
+    {
+      "name": "echart-future-date-rejection",
+      "script": "scripts/echart-future-date-rejection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Real toolbar submissions with a future date rewritten in flight. Save, Sign & Save and Verify & Sign must refuse before persistence, show a useful message and retain the draft; retry with a valid date saves exactly once.",
+      "fixtures": "One owned FAKE patient and its notes/locks/drafts; runWorkflow removes all owned rows. No clinic-wide state is changed."
+    },
+    {
+      "name": "appointment-cancel-no-show",
+      "script": "scripts/appointment-cancel-no-show-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Presses the edit popup's No show and Cancel Appt buttons (the buttoncancel branch of appointment/UpdateRecord), including the billed-appointment confirmation.",
+      "fixtures": "Throwaway login plus an owned FAKE- patient and three SQL-seeded appointments for today; appointment and archive rows deleted in cleanup."
+    },
+    {
+      "name": "echart-note-lifecycle",
+      "script": "scripts/echart-note-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "fixtures": "Owned synthetic patient; the notes are written through the chart and removed by patient id with their links, exts, issue rows and eChart rows, and verified gone (the runner clears the patient's note locks and drafts).",
+      "notes": "Finding 279 (#4711: Sign & Save of an edited signed note answered 500 because the edit form posted observation_date as a raw timestamp) is fixed on release/2026.08 by #4769, so every step is expected to pass there."
+    },
+    {
+      "name": "eform-saved-value-prefill",
+      "script": "scripts/eform-saved-value-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1) and saved copies of them seeded by SQL (eform_data + eform_values), one deleted and one under an unused demographic number. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails at its last step on develop: attributes with a $ in their name (eform$name, var$value) are never read (EFormUtil.getAttributeMatcher), so fields meant to read another eForm silently show the current eForm's own value and count (pending finding 303). Every earlier step passes."
+    },
+    {
+      "name": "eform-measurement-prefill",
+      "script": "scripts/eform-measurement-prefill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient with WT measurements seeded by SQL; one marker-named eForm in the clinic's eForm library (status 1) with m$WT and m$HT oscarDB fields. Cleanup deletes the eForm, any data saved from it and the patient's measurements, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "eform-template-provider",
+      "script": "scripts/eform-template-provider-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; a marker-named eForm in the clinic's eForm library (status 1) whose template writes two preventions and an encounter note, submitted once through E-Chart > eForms > Add. The other provider named in the template is the lowest-numbered active provider that is not the login. Cleanup deletes the eForm, its saved copy, and the owned patient's preventions and encounter notes with their links, and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails on develop at the <provider> step: a prevention template's <provider> tag is ignored and the prevention is recorded under the login, pending finding 338 (#4802; release fix #4803). The <providers> step before it passes; the $te{eform.provider} step after it does not run (the first step logs the note, which reads provider=[] there). The check turns green when #4803 reaches develop in the forward merge; drop this note then."
+    },
+    {
+      "name": "lab-recall-delegate",
+      "script": "scripts/lab-recall-delegate-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:lab_recall_delegate",
+        "property:labRecallMsgSubject",
+        "property:lab_recall_tickler_assignee",
+        "property:lab_recall_tickler_priority",
+        "property:lab_recall_msg_subject"
+      ],
+      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSRECALL) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the tickler saved from Recall carries the run marker. The test provider's recall settings (property lab_recall_delegate, labRecallMsgSubject, lab_recall_tickler_assignee, lab_recall_tickler_priority and lab_recall_msg_subject) are snapshotted and cleared first, then restored and verified in cleanup; the lab rows and the tickler with its ticklerdocs rows are deleted by id and asserted gone. While it runs every lab the test provider opens shows Recall, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Preferences > Lab Recall Settings saves, reopens, refuses an inactive delegate and deletes; Inbox > lab > Recall opens a message to the delegate and a tickler form for the delegate at the saved priority, and the saved tickler is linked to the lab. The last step (the recall message's Subject is the saved subject) fails until pending finding 285 (#4720) is fixed. The banner text after Submit and Delete is pending finding 286 (#4721), and the lab display once a tickler is linked to the lab is pending finding 287 (#4722); neither is asserted (Delete and its lab reopen run before the tickler is saved)."
+    },
+    {
+      "name": "lab-linked-tickler",
+      "script": "scripts/lab-linked-tickler-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "One synthetic PATHL7 ORU^R01 (serviceName CARLOSLABTICKLER) in hl7TextMessage/hl7TextInfo with provider routing for the test provider and patient routing for the owned FAKE-PW patient; the two ticklers saved from the lab's Tickler button carry the run marker. Cleanup deletes the ticklers with their ticklerdocs, comments and updates, then the lab rows, by id, and asserts them gone. No clinic-wide state is changed.",
+      "notes": "Regression for #4722: a lab with linked ticklers (one assigned to another provider, one to the test provider) opens again from the Inbox and lists both with their assignees; before the fix the lab display answered 500 (LazyInitializationException on Tickler.assignee)."
+    },
+    {
+      "name": "cds-export-patient-sections",
+      "script": "scripts/cds-export-patient-sections-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_EXPORT_GNUPGHOME"
+      ],
+      "mutates": [
+        "appointment"
+      ],
+      "fixtures": "SQL-seeded on the check's own FAKE- patient: one allergy, drug, Td immunization (with its name), height and appointment, each found by the run marker or its own FAKE- text and deleted with the patient at the end. The appointment is today at 10:30 on the test login's provider, so it shows on that provider's day sheet while the check runs; it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "patient-search-band-number",
+      "script": "scripts/patient-search-band-number-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The Band Number search mode, shown only with FIRST_NATIONS_MODULE=true (SKIP otherwise); patient-search-modes leaves it out. On develop the last step fails: with two records carrying the same number only one is listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "The owned FAKE- patient and a second FAKE- record, each with a statusNum demographicExt row derived from the run marker; removed in cleanup."
+    },
+    {
+      "name": "schedule-period-delete",
+      "script": "scripts/schedule-period-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "fixtures": "Throwaway login (a doctor plus an owned role holding _admin.schedule), its ProviderPreference and one owned day template; two far-future periods on that provider only, made through the week setting. Cleanup deletes every row keyed by the throwaway provider and asserts it. The first step can wait about five and a half minutes for the provider list cache.",
+      "notes": "Schedule Setting ▸ week setting ▸ period menu ▸ Delete (schedule/TemplateApplying delete=1&deldate=all): a cancelled confirm changes nothing; OK marks that period and its dates deleted and leaves the other period; GET and tokenless POST of the delete are refused."
+    },
+    {
+      "name": "document-description-templates",
+      "script": "scripts/document-description-templates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The clinic-wide document description list (Administration ▸ Document Description Template) and the same page opened from Preferences by a provider with only the doctor role; provider-preferences covers the administrator test login's own list. On develop the last step fails: the doctor is refused (HTTP 403) on the page their Preferences link to (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "The test login's own entry and a throwaway doctor login; every entry carries the run marker. Entries and the throwaway are removed in cleanup."
+    },
+    {
+      "name": "allergy-list-views",
+      "script": "scripts/allergy-list-views-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (#4756, pending finding 301; fix pending on release/2026.08, fix/allergy-reactivate-after-stale-guard). Every earlier step passes."
+    },
+    {
+      "name": "allergy-partial-start-date",
+      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its last step on develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; release fix #4810). Every earlier step passes. The check turns green when #4810 reaches develop in the forward merge; drop this note then."
+    },
+    {
+      "name": "admin-lot-number-delete",
+      "script": "scripts/admin-lot-number-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Administration > Search lot number by prevention > a lot > Delete (admin/ViewLotNrDeleteRecordHtm, then a POST to admin/LotNrDeleteRecord). Two lots of an owned prevention type are seeded, one carrying an apostrophe, double quotes and an ampersand. The search for that type lists exactly both, each linking to its own delete page; the target's link opens the delete page filled in with exactly its type and lot; Delete posts exactly those, the result page says the record was deleted, the target row is soft-deleted (deleted=1, nothing else changed but the update time the entity stamps) and the control row is unchanged; a new search lists the control only; with the lot number cleared, Delete raises the page's \"must be entered\" alert and posts nothing; a GET and HEAD replay of the real delete POST aimed at the control lot passes h.assertRefused and leaves it undeleted. No known defect. The replay is sent from the page (a same-origin fetch) rather than the context's request client, because the session cookie is Secure and only the browser sends it over plain HTTP to a loopback origin (issue #4718); the check therefore runs on an HTTP or HTTPS base URL alike. Passes on develop (231f36a0e2, Ontario): 2 of 2 runs over HTTP and 1 over HTTPS. Run on Ontario only; not yet run on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
+      "fixtures": "Two PreventionsLotNrs rows of an owned prevention type ('PW' plus the run marker's tail), inserted directly as the test login. Cleanup removes both by id and asserts no row of the owned type is left. No clinic-wide state is changed."
+    },
+    {
+      "name": "tickler-demo-main-status",
+      "script": "scripts/tickler-demo-main-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient with three active ticklers due today and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
+      "notes": "Patient tickler list (tickler/ViewTicklerDemoMain) Delete and Complete through tickler/DbTicklerDemoMain, the Active/Completed/Deleted views and the buttons each offers, and GET and tokenless POST refusals. Erase Completely is listed but not pressed."
+    },
+    {
+      "name": "admin-login-agreement-upload",
+      "script": "scripts/admin-login-agreement-upload-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Administration > Upload Agreement (admin/uploadEntryText): the upload stores the validity as a new aua_valid_duration property and writes the text to DOCUMENT_DIR/OSCARloginText.txt; the page shows the saved validity again; a GET carrying the fields is refused with 405. SKIP without DOCUMENT_DIR, or when the menu has no entry (shown only with LOGINTEST=yes).",
+      "fixtures": "No rows created by the check itself; the aua_* property rows are snapshotted and restored and the text file is put back as it was (or removed). The agreement settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:aua_valid_duration",
+        "file:OSCARloginText.txt"
+      ]
+    },
+    {
+      "name": "admin-clinic-nbr-codes",
+      "script": "scripts/admin-clinic-nbr-codes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Administration > Manage Clinic NBR Codes (admin/ViewClinicNbrManage, posting to admin/clinicNbrManage): Add New Code stores an active clinic_nbr row and lists it; after the page is opened again, Remove Selected marks exactly that row deleted; a GET with method=add is refused with 405. SKIP when the menu has no entry (shown only with rma_enabled=true).",
+      "fixtures": "The code the run adds carries the run marker. clinic_nbr is snapshotted byte-exact; cleanup deletes the added rows and restores every other row. The codes are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "clinic_nbr"
+      ]
+    },
+    {
+      "name": "admin-configure-sms",
+      "script": "scripts/admin-configure-sms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Administration > SMS (admin/ConfigureSms): opens with every secret field empty; Save stores a FAKE 555-01xx sender with SMS and its scheduler off and keeps the typed webhook secret out of the page; a GET with method=configure is refused with 405. Never presses Send system test. SKIP when the database has no sms_config table (a build without the SMS settings page, such as release/2026.08) or when the test login holds no _admin.sms right (a database loaded from the development snapshot after its migrations needs V1.0.71 re-run).",
+      "fixtures": "No rows created by the check itself; sms_config is snapshotted byte-exact and restored (the rows the save makes are removed). SMS settings are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "sms_config"
+      ]
+    },
+    {
+      "name": "clinic-address-admin",
+      "script": "scripts/clinic-address-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "mutates": [
+        "clinic"
+      ],
+      "fixtures": "No owned rows: the one clinic row is clinic-wide, so the check snapshots every column first and restores the snapshot in cleanup, verified byte for byte (and that no second clinic row remains). It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-bc-settle-paid-claims",
+      "script": "scripts/billing-bc-settle-paid-claims-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "billingmaster",
+        "billing_history",
+        "teleplanS00"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Settle Paid Claims: Submit settles every MSP claim paid an amount different from what was billed (explanation BG) that is still waiting on its balance. First committed coverage of this page. Because the action is clinic-wide, the check SKIPs when the database already holds a BG payment line, and before each Submit it asserts that its own FAKE claim is the only bill line in status E with a BG payment.",
+      "fixtures": "The owned FAKE- patient and one MSP bill on it: a billing row, its bill line (status E, $33.70) and a BG payment line paying $20.00 (filename = the run marker). Cleanup deletes those rows by id and marker plus the billing-history rows the page writes for that FAKE bill line. Submit acts on every qualifying claim in the clinic, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-bc-account-reports",
+      "script": "scripts/billing-bc-account-reports-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "provider",
+        "reportprovider"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Write-Off, Payments and Refunds and Payments and Refunds summary PDFs, and the summary as a spreadsheet, for one FAKE provider and payee. First committed coverage of this page; it pins #4801 (finding 339: the PDFs printed \"Provider:null\"). On develop the Write-Off step fails with HTTP 404 until #4805 (release) is forward-merged: the form posts to an address that is not mapped. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "The owned FAKE- patient; two FAKE providers inserted by SQL (provider and payee, last name = the run marker, each with a billing-report row); and one MSP bill on the patient for them, with a written-off line and its payment line dated today. Cleanup deletes exactly those rows by id and marker. The providers appear in the clinic's provider lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-bc-referral-doctors",
+      "script": "scripts/billing-bc-referral-doctors-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "billingreferral"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Manage Referral Doctors: the list, its last-name search, Add Doctor and a doctor's Edit, inside the Administration panel, plus the list opened on its own. First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the empty-billing-number step fails until #4853 (release, issue #4852) is forward-merged: the form's number check throws and the form is posted, and the later steps fail on the rest of #4852 (Save leaves the panel, the address boxes, a no-match search, the Edit). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "Doctor A is created through Add (a free FAKE 9xxxx billing number, last name = the run marker); doctor B is SQL-seeded the same way (last name = marker + \"-B\"). The pages have no Delete, so the cleanup deletes exactly those two by billing number AND last name and fails the run if anything else carries the marker. The doctors join the clinic's referral doctor list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-bc-private-codes",
+      "script": "scripts/billing-bc-private-codes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "billingservice"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ Manage Private Bill: Add Code, the code's Edit (fee row save) and Delete; the private-code part of #4439 task 9 (billing-bc-codes-admin). First committed coverage of these pages. On develop the first step fails with HTTP 405 until #4778 (release) is forward-merged. After that the price-check step fails on a held finding (Add's price check throws and never runs), and once that is fixed the Edit step fails on another (a code added through Add has no end date, so its fee row save never finishes). Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "None seeded: the private code is created through Add (description = the run marker) and removed with the list's own Delete while the browser is open. No SQL delete; a code the page could not remove fails the run and is left for a look. The code joins the clinic's billing code list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-bc-bill-create-save",
+      "script": "scripts/billing-bc-bill-create-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC MSP bill entry: Create Invoice, diagnosis and fee-code searches, Continue (review), Save Bill; asserts the billing header and billingmaster line, and a 405 for a GET Save Bill. Finding 281 (#4716: the BC bill form answered 500 on every open) is fixed on release/2026.08 by #4723, so every step is expected to pass there.",
+      "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-bill-status-filters",
+      "script": "scripts/billing-bc-bill-status-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Bill Status (Invoice List): status, bill-type and service-date filters list exactly the owned bills they should. Read-only page.",
+      "fixtures": "Seeds and removes three billing/billingmaster rows (MSP not submitted, MSP settled, private bill-patient) for its own FAKE patient."
+    },
+    {
+      "name": "billing-bc-private-bill-receipt",
+      "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC private bill: Bill Status ▸ receipt ▸ Update Invoice (bill-to and note, 405 for a GET) ▸ Receive Payment (full payment marks the bill paid). Finding 282 (#4717: Update Invoice answered 500 on an empty billingNo) is fixed on release/2026.08 by #4723 and finding 164 (#4551: Receive Payment saved nothing) by #4659, so every step is expected to pass there.",
+      "fixtures": "Seeds and removes one private billing/billingmaster row for its own FAKE patient, and the bill_recipients, billingnote and billing_history rows written for it."
+    },
+    {
+      "name": "admin-default-encounter-issues",
+      "script": "scripts/admin-default-encounter-issues-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "default_issue"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "WL_DEFAULT_ISSUE"
+      ],
+      "fixtures": "The synthetic patient (no notes) for the first-encounter step. default_issue holds one clinic-wide row: it is recorded first and restored exactly afterwards (re-inserted with its id if Remove deleted it); a row the page creates during the run is captured by id after each change and only those ids are deleted; the restored table is compared with the recorded one. default_issue is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Skips on the packaged default (caisi=off hides the CAISI group and its Default Encounter Issue link). With caisi=on and wl_default_issue off, its first-encounter step passes and shows the saved defaults are never applied (pending finding 398), and it fails at its last step: a code matches as a substring of any issue's code or description, so ICSW100 also assigns ICSW1000 (pending finding 400). Run with WL_DEFAULT_ISSUE=true when the server has wl_default_issue=true: it then fails at the first encounter, which answers HTTP 500 unless the session holds a program the login is assigned to (pending finding 399; fixed on release/2026.08 by #4843). No expectedFailure pin until those findings are in the log."
+    },
+    {
+      "name": "admin-password-pin-reset",
+      "script": "scripts/admin-password-pin-reset-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Throwaway login (hash, PIN and roles copied from the test login) reset through Administration > User Management; its cleanup removes the login, provider, SecurityArchive, preference and log rows.",
+      "notes": "Makes two refused sign-ins. When the client address is not on login_local_ip they also count against that address (login_max_failed_times, 3 in the shipped properties)."
+    },
+    {
+      "name": "admin-caisi-activity-report",
+      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
+      "envSet": {
+        "CAISI_REPORT": "activity"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CAISI_REPORT"
+      ],
+      "fixtures": "The runWorkflow FAKE patient only (unused by this entry).",
+      "notes": "Administration > Reports > Activity Report; one script backs admin-caisi-activity-report and admin-caisi-population-report (CAISI_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides the CAISI report entries; the check looks for the Population Report entry, which stays after the fix); needs caisi=on with ModuleNames including Caisi, as the shipped carlos.properties pairs them. With caisi=on it fails at its only step while the dead entry is still offered: it points at PMmodule/Reports/ProgramActivityReport, which has had no route since the report's pages were removed, so it opens a 404 (pending finding 404; the fix for #4855 removes the entry, which can come back when a report exists). No expectedFailure pin until the finding is in the log."
+    },
+    {
+      "name": "admin-caisi-population-report",
+      "script": "scripts/admin-caisi-reports-menu-playwright-checks.js",
+      "envSet": {
+        "CAISI_REPORT": "population"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "program"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "CAISI_REPORT"
+      ],
+      "fixtures": "One FAKE Service program named with the run marker (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install) and one admission of the runWorkflow FAKE patient to it, so the report's current population is not 0; both are deleted by their captured ids. The program shows in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The report keeps its figures for an hour in static fields, so it can count the deleted admission for up to an hour after the run.",
+      "notes": "Administration > Reports > Population Report; see admin-caisi-activity-report for the shared script. Skips on the packaged default (caisi=off); needs caisi=on with ModuleNames including Caisi. Opening the report from the legacy Administration page (admin/ViewAdmin) renders every section (render only: the report caches its figures for an hour in static fields shared by every user). It then fails at its menu step: the current shell's Population Report entry has a page attribute and no href, so clicking it does nothing (pending finding 403). With nobody counted in the population the report itself answers 500 (pending finding 405); the check seeds one admission so that does not mask the menu result. No expectedFailure pin until the findings are in the log."
+    },
+    {
+      "name": "admin-cds-report",
+      "script": "scripts/admin-cds-mis-reports-playwright-checks.js",
+      "envSet": {
+        "CDS_MIS_REPORT": "cds"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "FunctionalCentre",
+        "program"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_MIS_REPORT"
+      ],
+      "fixtures": "A FAKE functional centre and one FAKE Service program on it (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install; the centre is the run's own because MIS by functional centre counts every program of the facility on it), the runWorkflow FAKE patient and three face-to-face notes on that patient in the program, one in the month reported and two in the month after; all are deleted by their captured ids. CDS 4 categories are read only. The centre and program show in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); a MySQL named lock also keeps two runs of this script apart.",
+      "notes": "Administration > Reports > CDS Report; one script backs admin-cds-report and admin-mis-report (CDS_MIS_REPORT picks the report), so each known failure has its own entry. Skips on the packaged default (caisi=off hides both report links). With caisi=on it fails at its first step: the CDS form loads its own jQuery over the administration page's, so its validate() call throws when the panel opens (pending finding 402; finding 40 records the same class for other Reports panels). Past that error its steps pass. No expectedFailure pin until the finding is in the log."
+    },
+    {
+      "name": "admin-mis-report",
+      "script": "scripts/admin-cds-mis-reports-playwright-checks.js",
+      "envSet": {
+        "CDS_MIS_REPORT": "mis"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "mutates": [
+        "FunctionalCentre",
+        "program"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CDS_MIS_REPORT"
+      ],
+      "fixtures": "A FAKE functional centre and one FAKE Service program on it (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install; the centre is the run's own because MIS by functional centre counts every program of the facility on it), the runWorkflow FAKE patient and three face-to-face notes on that patient in the program, one in the month reported and two in the month after; all are deleted by their captured ids. CDS 4 categories are read only. The centre and program show in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); a MySQL named lock also keeps two runs of this script apart.",
+      "notes": "Administration > Reports > MIS Report; see admin-cds-report for the shared script. Skips on the packaged default (caisi=off). With caisi=on it fails at its by-functional-centre step: the MIS form's months are numbered 1-12 but go to new GregorianCalendar(year, month, 1), which counts from 0, so every MIS report covers the month after the one chosen (pending finding 401). No expectedFailure pin until the finding is in the log."
+    },
+    {
+      "name": "rx-delete-drug",
+      "script": "scripts/rx-delete-drug-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; two marker-named custom drugs prescribed through the UI (no DrugRef data), one deleted and one kept as the control. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows; the audit log rows stay."
+    },
+    {
+      "name": "rx-card-options",
+      "script": "scripts/rx-card-options-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
+      "notes": "Fails at its last step on develop: a 12:30 pick-up time is stored as 00:30, because RxWriteScript2Action parses the 24-hour field with \"hh:mm\" (pending finding 297). Every earlier step passes."
+    },
+    {
+      "name": "rx-prescription-lifecycle",
+      "script": "scripts/rx-prescription-lifecycle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_LIFECYCLE_DRUG_TERM",
+        "RX_LIFECYCLE_DRUG_NAME",
+        "RX_LIFECYCLE_ALLERGY_SEARCH",
+        "RX_LIFECYCLE_ALLERGEN"
+      ],
+      "fixtures": "Owned synthetic patient; its allergy (FAKE reaction carrying the run marker) and prescriptions are recorded through the UI against live DrugRef; drugs, prescription, partial_date, DigitalSignature, casemgmt_note (+ links) and allergies rows are removed by patient id and verified gone."
+    },
+    {
+      "name": "document-edit-replace-file",
+      "script": "scripts/document-edit-replace-file-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Chooses a new file in a stored document's Edit popup (shown with ALLOW_UPDATE_DOCUMENT_CONTENT=true, the shipped default; SKIP otherwise). document-refile-combine edits the metadata with the File field blank. On develop the page-count step fails: the document keeps the old page count (a held finding; its expectedFailure is added with the finding number when the findings log is assembled; release fix #4819). The last step, which follows it, checks what that count drives in the document viewer: the page count shown, Remove first page, a 3-page Split, and, when the viewer shows page images (the default document display preference), page links to page 3; with #4819's change it passed live in both display modes, Image (the default, page links included) and PDF.",
+      "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
+    },
+    {
+      "name": "messenger-reply-conversation",
+      "script": "scripts/messenger-reply-conversation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Plain Reply only: sent and delivered to the sender alone (not to the original's other recipient), the linked patient kept on the reply, and each reader marking only their own copy read. Reply All, the Sent box and Forward are messenger-reply-all-forward's (#4753).",
+      "fixtures": "Three throwaway logins (lib/throwaway-login-fixture.js) enrolled as local messenger contacts (groupMembers_tbl group 0), an owned FAKE- patient, and one message from the first to the other two (the third only receives) delivered by SQL and linked to the patient. Cleanup removes every message whose subject carries the run marker with its delivery and patient-link rows, the contact rows, then the throwaways."
+    },
+    {
+      "name": "messenger-reply-all-forward",
+      "script": "scripts/messenger-reply-all-forward-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Reply All, the Sent box (boxType=1) and Forward of a several-line message; the other messenger checks press Reply and Forward on one-line messages and read only the inbox and archive. SKIP unless messenger contacts 1 and 2 and the test login are active local members. On develop the last step fails: Forward joins the original lines into one (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "One SQL-seeded message from contact 1 to the test login and contact 2, plus the reply the check sends; every message whose subject carries the run marker is removed with its delivery rows."
+    },
+    {
+      "name": "prevention-partial-date",
+      "script": "scripts/prevention-partial-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with three Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row, and a full date) and the replacements the edit form saves; cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
+      "notes": "Fails at its fourth step on develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; release fix #4815). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green when #4815 reaches develop in the forward merge; drop this note then."
+    },
+    {
+      "name": "prevention-print-selection",
+      "script": "scripts/prevention-print-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with two seeded preventions, an Inf immunization and a Tuberculosis screening, on their own dates; cleanup deletes the patient's preventions and ext rows and asserts none remain. Reads each PDF with pdftotext (SKIP without Poppler).",
+      "notes": "Fails at its last step on develop: Print Immunizations Only with no box ticked skips the empty-selection check, posts the form and saves the Preventions page's HTML as Prevention.pdf (pending finding 298). Every earlier step passes."
+    },
+    {
+      "name": "schedule-template-day-sheet",
+      "script": "scripts/schedule-template-day-sheet-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "mutates": [
+        "scheduletemplatecode"
+      ],
+      "fixtures": "Throwaway login (doctor plus an owned schedule-administrator role) with its own ProviderPreference and two owned day templates, seeded by SQL; two unused template code characters saved through Template Code Setting (the day sheet reads codes from ScheduleTemplateCodeDao's 30-minute cache, which only DAO writes evict); only the throwaway's own schedule is written (today and tomorrow). Cleanup removes the codes, the throwaway's templates, scheduledate, rschedule and ProviderPreference rows and the role, then the throwaway; the removed codes stay in that cache until the next code save or 30 minutes, which no check reads them through. Template codes are clinic-wide, and each code save evicts that shared cache for every login, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "consultation-appointment-time",
+      "script": "scripts/consultation-appointment-time-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; a marker-named consultation service and specialist and one referral seeded by SQL. Cleanup removes the referral with its history, extension and stamped-signature rows, the service, the specialist and their link. Needs Poppler pdftotext.",
+      "notes": "Fails on develop at the two Print steps: Print prints the appointment minute without its leading zero (15:05 as 3:5 PM, a typed 16:05 as 4:5 PM), pending finding 330 (#4787; release fix #4791). The 12 AM / 12 PM save-and-reopen steps pass."
+    },
+    {
+      "name": "admin-manage-sites",
+      "script": "scripts/admin-manage-sites-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "One owned site named with the run marker; removed in cleanup with any providersite link and asserted gone. Needs multisites=on; SKIPs without the Satellite-sites Admin menu entry.",
+      "notes": "Satellite-sites Admin add, open and edit, a GET save refusal, and the site pages' stylesheets. Finding 276 (#4700) is fixed by #4875, and the site pages' stylesheet link (finding 100) by #4922."
+    },
+    {
+      "name": "consultation-letterhead",
+      "script": "scripts/consultation-letterhead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "property:rxAddress",
+        "property:rxCity",
+        "property:rxProvince",
+        "property:rxPostal",
+        "property:rxPhone",
+        "property:faxnumber"
+      ],
+      "fixtures": "Owned FAKE- patient; FAKE prescription contact preferences (rxAddress, rxCity, rxProvince, rxPostal, rxPhone, faxnumber) set on one existing active provider other than the signed-in one, snapshotted and restored; a FAKE service, specialist and referral seeded by SQL and deleted with their archive rows. Reads the print with pdftotext (SKIP without Poppler). The preferences belong to a clinic provider, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "consultation-chart-import",
+      "script": "scripts/consultation-chart-import-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with SQL-seeded CPP notes (one per history, a second revision of Medical History, an archived Ongoing Concerns note), a long-term and a short-term drug, and one allergy; the request form is never submitted. Cleanup deletes the patient's notes, issues, drugs, allergies and any referral and asserts none remain."
+    },
+    {
+      "name": "demographic-relations",
+      "script": "scripts/demographic-relations-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Skipped when NEW_CONTACTS_UI is on (the Master Record then has no Add Relation) or caisi is on (a search result then closes the popup instead of opening the relation form).",
+      "fixtures": "The owned patient and a second FAKE patient (marker + R); cleanup deletes every relationships row of either and the second patient."
+    },
+    {
+      "name": "demographic-audit-view",
+      "script": "scripts/demographic-audit-view-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two marker log rows for the owned patient and one for a second FAKE patient (marker + A); cleanup deletes those log rows and the second patient."
+    },
+    {
+      "name": "eform-open-linked",
+      "script": "scripts/eform-open-linked-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), copies of them saved through the UI, and one saved copy of each seeded by SQL (eform_data). Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Fails on develop. Step 1: the oscarOPEN button opens the internal /WEB-INF/jsp/eform/efmformadd_data.jsp path, a 404 (pending finding 304, #4773; release fix #4779). Step 2: the linked copy's save refuses the button's eform_link, which carries the opener's eForm id, so the opener never stores link$eform (pending finding 305, #4773; release fix #4779). Step 3: a saved opener's button never reads link$eform back (pending finding 303, #4764, fixed on release by #4770), and it also opens the internal path (304). All three parts run and print their outcome before the steps report them."
+    },
+    {
+      "name": "eform-show-latest-only",
+      "script": "scripts/eform-show-latest-only-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned FAKE- patient; two marker-named eForms in the clinic's eForm library (status 1), one set to show the latest form only, and saved copies of each seeded by SQL with fixed dates, one deleted. Cleanup deletes the eForms and every copy saved from them and asserts none remain. The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-on-report-center-claims",
+      "script": "scripts/billing-on-report-center-claims-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The Ontario Billing Report Center (Billed, Unsettled, OB, Flu) as a login with report rights that is neither administrator nor doctor sees it; those two roles skip to the dashboard billing-on-reports-inr-eoy drives. On develop the last step fails: the four reports read the retired billing tables, so current Ontario claims are not listed (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owned patient, a FAKE- billable provider with its billingreport reportprovider row, an open, a submitted, an obstetric and a flu-shot Ontario claim (written in strict SQL mode), an owned role and a throwaway login; all removed in cleanup."
+    },
+    {
+      "name": "get-reject-note-browser-documents",
+      "script": "scripts/get-reject-note-browser-documents-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient and two owned PDFs (document rows, ctl_document links, files in DOCUMENT_DIR); one is set to deleted by SQL. Cleanup removes the rows, the files and any refiled copy under INCOMINGDOCUMENT_DIR/1/Refile, and asserts it. SKIP when DOCUMENT_DIR or INCOMINGDOCUMENT_DIR is not set.",
+      "notes": "GET and HEAD to casemgmt/NoteBrowserDocumentDelete, NoteBrowserDocumentUndelete, NoteBrowserDocumentRefile and documentManager/DocumentDelete, DocumentUndelete must answer 405 from CARLOS and change nothing."
+    },
+    {
+      "name": "eform-report-tool-populate",
+      "script": "scripts/eform-report-tool-populate-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "EForm Report Tool (Populate) and (Mark Latest), which detached-delete-eform-report-tool does not press. On develop the last step fails: Populate copies deleted eForm instances (a held finding; its expectedFailure is added with the finding number when the findings log is assembled).",
+      "fixtures": "Owned eForm template, the owned FAKE- patient and four SQL-seeded instances with values (one deleted); the report tool and its ERT_FAKEPW table are created through the UI. All removed in cleanup."
+    },
+    {
+      "name": "provider-preference-effects",
+      "script": "scripts/provider-preference-effects-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Expected to FAIL at its last section's first step, '\"1 months\" is stored and the chart shortens the old note to one line, keeping the recent one in full', until the fix for issue #4818 (held finding 324), release fix PR #4820, reaches develop in the forward merge. The step then turns green; drop this note then. The eChart loads its notes through CaseManagementView method=viewNotesOpt, which never passes cme_note_date to ChartNotesAjax.jsp, so the chart always applies the one-year default. The schedule navigation steps run before it.",
+      "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with the test provider's program rows, plus an owned FAKE- patient with two signed notes (7 days and 3 months old); the shared test provider's preferences are never touched. Cleanup removes the notes and eChart row, the throwaway's default-program row, then the throwaway with its property rows."
+    },
+    {
+      "name": "rx-partial-dates",
+      "script": "scripts/rx-partial-dates-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient; a marker-named custom drug prescribed through the UI (no DrugRef data). Cleanup removes the patient's drugs and their partial_date rows, prescriptions, drugReason and DigitalSignature rows."
+    },
+    {
+      "name": "cpp-copy-position",
+      "script": "scripts/cpp-copy-position-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient; three Medical History items created through the chart's '+' and the encounter note signed after Copy to Current Note; all notes, issue links, ext rows and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. No clinic-wide state is changed.",
+      "notes": "The CPP item editor's Position list (new items first, move up, move down, Archive closes the gap; casemgmt_note.position and the box order agree) and Copy to Current Note (appends the item to the open note; Sign & Save stores it in today's note, the item unchanged)."
+    },
+    {
+      "name": "inbox-acknowledge-per-provider",
+      "script": "scripts/inbox-acknowledge-per-provider-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Acknowledging an HL7 lab that two providers hold is one provider's review. A synthetic CML lab uploaded through Inbox > HL7 Lab Upload is routed to the test provider (the patient's MRP) as New, and a throwaway second provider gets a New row too; each provider's Inbox, filtered to the owned patient, lists exactly that lab, and any other provider's rows (the demo clinic forwards the test provider's labs to another provider by a rule) are recorded. The test provider opens it from the Inbox (both providers shown Not Acknowledged), presses Acknowledge and answers the comment prompt, which offers their own empty comment: UpdateStatus posts status A with the comment for this lab, reports one routing row cleared from New, and the popup closes. The test provider's row is A with the comment and a fresh time; the second provider's row is unchanged (id, status, comment, time), and so is every other provider's. The answer's body is read on its way to the page (a pass-through route), because the popup closes as soon as it arrives. The lab leaves the test provider's New list (in place and on a fresh search) and stays in the second provider's. The second provider opens it (the test provider shown Acknowledged with a time and the comment, themselves Not Acknowledged), and their prompt offers their own empty comment, not the test provider's; answered empty, their row is A with no comment, the test provider's row is exactly as before, and every other provider's row is unchanged. Finally the second provider's New list is empty and the test provider's Acknowledged list shows the lab, whose page lists both reviews with their own comments (times in the page's dd-MMM-yy HH:mm). Skips when the test login's lab_ack_comment property turns the comment prompt off. Passes on develop (231f36a0e2, Ontario; no known defect). Not run on release/2026.08, and not yet on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the lab is matched, as the Inbox name search needs), a throwaway provider login that is the second provider (lib/throwaway-login-fixture.js), and one synthetic CML lab with a unique accession (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload file under LAB_UPLOAD_DOCUMENT_STORE); the second provider's New providerLabRouting row is inserted directly. Everything is removed by key and asserted gone, with the rows the application wrote for the throwaway login (the archived lab file stays, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). The audit rows the test login's acknowledgement and page views write stay, as every check's rows for the test login do. No clinic-wide state is changed."
     },
     {
       "name": "eform-template-outputs",

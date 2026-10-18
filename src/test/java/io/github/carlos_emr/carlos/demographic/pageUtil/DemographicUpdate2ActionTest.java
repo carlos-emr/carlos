@@ -129,6 +129,20 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldRestoreSecurityServiceAndRefuseWrite_whenTransientReferenceIsAbsent() throws Exception {
+        java.lang.reflect.Field field = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
+        field.setAccessible(true);
+        field.set(action, null);
+        mockRequest.setMethod("POST");
+        denyPrivilege("_demographic", "w");
+
+        assertThatThrownBy(() -> executeAction(action))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_demographic)");
+        verifySecurityCheck("_demographic", "w");
+    }
+
+    @Test
     @DisplayName("should return methodNotAllowed when request is GET")
     void shouldReturnMethodNotAllowed_whenRequestIsGet() throws Exception {
         allowPrivilege("_demographic", "w");

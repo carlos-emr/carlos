@@ -53,7 +53,7 @@
         <script language="JavaScript">
         </script>
         <link rel="stylesheet"
-              href="<%= request.getContextPath() %>/oscarBilling/CA/billing/billing.css" type="text/css">
+              href="<%= request.getContextPath() %>/billing/billing.css" type="text/css">
     </head>
     <%
         String mode = request.getAttribute("mode") != null ? (String) request.getAttribute("mode") : "";

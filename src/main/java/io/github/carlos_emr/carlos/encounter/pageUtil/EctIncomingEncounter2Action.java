@@ -527,27 +527,43 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             log.warn("Default encounter issues were not assigned: wl_default_issue is on, but the login has no role in the session's CAISI program");
             return;
         }
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.valueOf(bean.getDemographicNo());
+        } catch (NumberFormatException e) {
+            log.warn("Default encounter issues were not assigned: the encounter has no numeric patient number");
+            return;
+        }
         DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);
         IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
         CaseManagementIssueDAO cmiDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
         String[] issueIds = defaultIssueDao.findAllDefaultIssueIds();
-        for (String id : issueIds) {
-            Issue issue = issueDao.getIssue(Long.valueOf(id));
+        for (String rawId : issueIds) {
+            // The admin page stores resolved ids, but a hand-edited or imported list may not be clean;
+            // one bad entry must not fail the encounter page (#4838), so skip it.
+            Long issueId;
+            try {
+                issueId = Long.valueOf(rawId.trim());
+            } catch (NumberFormatException e) {
+                log.warn("A default encounter issue was skipped: the stored default issue list holds a non-numeric id");
+                continue;
+            }
             // judge current provider can access this issue
-            if (!issueIdSet.contains(Long.parseLong(id))) {
+            if (!issueIdSet.contains(issueId)) {
                 continue;
             }
 
             // judge this issue exists or not
-            CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), id);
+            CaseManagementIssue cmi = cmiDao.getIssuebyId(bean.getDemographicNo(), issueId.toString());
             if (cmi != null) { // this issue exists
                 continue;
             }
+            Issue issue = issueDao.getIssue(issueId);
             cmi = new CaseManagementIssue();
             cmi.setAcute(false);
             cmi.setCertain(false);
-            cmi.setDemographic_no(Integer.valueOf(bean.getDemographicNo()));
-            cmi.setIssue_id(Long.valueOf(id));
+            cmi.setDemographic_no(demographicNo);
+            cmi.setIssue_id(issueId);
             cmi.setMajor(false);
             cmi.setProgram_id(programId);
             cmi.setResolved(false);
