@@ -214,6 +214,7 @@
     "test:clinical-calculators-playwright": "node scripts/clinical-calculators-playwright-checks.js",
     "test:demographic-labels-playwright": "node scripts/demographic-labels-playwright-checks.js",
     "test:inboxhub-filters-playwright": "node scripts/inboxhub-filters-playwright-checks.js",
+    "test:inboxhub-health-number-ack-today-playwright": "node scripts/inboxhub-health-number-ack-today-playwright-checks.js",
     "test:inbox-lab-versions-playwright": "node scripts/inbox-lab-versions-playwright-checks.js",
     "test:inbox-preview-acknowledge-playwright": "node scripts/inbox-preview-acknowledge-playwright-checks.js",
     "test:inbox-rapid-review-advance-playwright": "node scripts/inbox-rapid-review-advance-playwright-checks.js",

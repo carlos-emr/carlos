@@ -1672,6 +1672,27 @@
       ]
     },
     {
+      "name": "inboxhub-health-number-ack-today",
+      "script": "scripts/inboxhub-health-number-ack-today-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRouting",
+        "provider"
+      ],
+      "notes": "The Inbox criteria inboxhub-filters and inbox-document-dates leave out: the search panel's Health Number, and the list toolbar's Acknowledged toggle. Schedule ▸ Inbox (list mode), on the test login's own results (Specific provider, the default): Inbox ▸ Create Lab files one lab for each of two owned patients, routed to the test login; with the run marker as last name, each patient's Health Number lists that patient's lab and not the other's; with both acknowledged, the toggle lists the one acknowledged today and not the one acknowledged three days ago (the acknowledgement time, not the result date); the search panel's Acknowledged status lists both; last, with the first lab also routed to and acknowledged by a second provider (as a lab forwarding rule routes it), Any provider with the Acknowledged status lists each lab once. On release/2026.08 it fails at the last step until #5016 (finding 443) is fixed: the patient search groups by lab only for the receivedCreated date type, so Any provider lists the first lab twice. Notes only, no pin: #5016's release fix is in progress.",
+      "fixtures": "Two owned FAKE patients (the run marker as last name), each given a FAKE 10-digit health number that fails the Ontario check digit; one Inbox ▸ Create Lab lab per patient (the second moved to its patient by its patient routing row); both acknowledged for the test login by their routing rows, one today and one three days ago, as set-up; for the last step, a FAKE provider with no login (the run marker as last name) and its acknowledged routing row for the first lab, as set-up. The labs sit in the test login's inbox while the check runs, where other checks read it, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes both labs with all their routing and messages, their upload archives (LAB_UPLOAD_DOCUMENT_STORE), the FAKE provider and the second patient, and asserts each is gone."
+    },
+    {
       "name": "inbox-document-dates",
       "script": "scripts/inbox-document-dates-playwright-checks.js",
       "tiers": [
