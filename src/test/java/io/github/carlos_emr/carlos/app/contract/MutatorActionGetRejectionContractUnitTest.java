@@ -176,6 +176,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_billing", "w"),
             Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action",
                     "_billing", "w"),
+            // The WCB form's save writes a wcb row (issue #4864 item 8).
+            Arguments.of("io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBAction22Action",
+                    "_billing", "w"),
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),

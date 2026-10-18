@@ -65,7 +65,9 @@ import static org.mockito.Mockito.when;
  * that a Flyway-built BC install ships empty, and {@link SqlUtils#getQueryResultsList(String)}
  * answers {@code null} for no rows. Continue answered HTTP 500 for every bill (issue #4716).
  * Continue also continues only the bill its form names and keeps the billing form the window
- * shows (issue #4673), and bills a WCB form only when it is the bill's own patient's.
+ * shows (issue #4673), and bills a WCB form only when it is the bill's own patient's. A refused
+ * Continue keeps its reasons with the bill for the form it returns to (issue #4864 item 10, finding
+ * 432); they were request attributes, which its redirect dropped.
  */
 @DisplayName("BillingCreateBilling2Action")
 @Tag("unit")
@@ -153,6 +155,31 @@ class BillingCreateBilling2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(BillingCreateBilling2Action.patientsWcbForm(dao, wcbId, 101)).isNull();
         verify(dao, never()).getWCBForm(any());
+    }
+
+    @Test
+    @DisplayName("should keep a refused Continue's reasons with its bill for the form it returns to")
+    void shouldHoldTheRefusalReasons_whenContinueIsRefused() throws Exception {
+        request.setContextPath("/carlos");
+        request.setSession(new MockHttpSession());
+        BillingSessionBean bill = new BillingSessionBean();
+        String key = BcBillStaging.open(request, bill);
+        BillingCreateBilling2Action action = new BillingCreateBilling2Action();
+        action.addActionError("Diagnostic code: 9999 doesn't exist in database<br/>");
+        action.addActionError("Service code: FAKE1 requires a start time<br />");
+
+        assertThat(action.refuse(bill, List.of("oscar.billing.CA.BC.billingBC.wcb.error.enterfee")))
+                .isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/billing?billKey=" + key);
+        MockHttpServletRequest formRender = new MockHttpServletRequest("GET", "/carlos/billing");
+        formRender.setSession(request.getSession());
+        formRender.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        BillingSessionBean staged = BcBillStaging.resume(formRender);
+        // Each message is listed on its own, so the break that ended each one is dropped.
+        assertThat(staged.takeRefusalMessages()).containsExactly(
+                "Diagnostic code: 9999 doesn't exist in database", "Service code: FAKE1 requires a start time");
+        assertThat(staged.takeWcbFormNeeds()).containsExactly("oscar.billing.CA.BC.billingBC.wcb.error.enterfee");
     }
 
     @Test

@@ -75,6 +75,9 @@ public class BillingCreateBilling2Action extends ActionSupport {
     /** A billing form (service type) code as the bill form posts it. */
     private static final Pattern BILL_FORM_CODE = Pattern.compile("[A-Za-z0-9_-]{1,20}");
 
+    /** The line break a BC billing message ends in ({@code <br/>} or {@code <br />}). */
+    private static final Pattern TRAILING_BREAK = Pattern.compile("\\s*<br\\s*/?>\\s*$", Pattern.CASE_INSENSITIVE);
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -83,8 +86,6 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private ServiceCodeValidationLogic vldt = new ServiceCodeValidationLogic();
     private ArrayList<String> patientDX = new ArrayList<String>(); //List of disease codes for current patient
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
@@ -206,21 +207,18 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(billingRedirect());
-                return NONE;
+                return refuse(bean, null);
             }
             validate00120(errors, demo, billItem, bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(billingRedirect());
-                return NONE;
+                return refuse(bean, null);
             }
             this.validatePatientManagementCodes(errors, demo, billItem,
                     bean.getServiceDate());
             if (!errors.isEmpty()) {
                 validateCodeLastBilled(request, errors, demo.getDemographicNo().toString());
-                response.sendRedirect(billingRedirect());
-                return NONE;
+                return refuse(bean, null);
             }
         }
 
@@ -252,10 +250,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                     MiscUtils.getLogger().debug("Setting form needed 1");
                     errs = wcbForm.verifyEverythingOnForm();
                     if (errs != null && errs.size() > 0) {
-                        request.setAttribute("WCBcode", sc);
-                        request.setAttribute("WCBFormNeeds", errs);
-                        response.sendRedirect(billingRedirect());
-                        return NONE;
+                        return refuse(bean, errs);
                     }
                 } else {
                     errs = wcbForm.verifyFormNotNeeded();
@@ -263,9 +258,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
             if (errs != null && errs.size() > 0) {
                 MiscUtils.getLogger().debug("Setting form needed 2");
-                request.setAttribute("WCBFormNeeds", errs);
-                response.sendRedirect(billingRedirect());
-                return NONE;
+                return refuse(bean, errs);
             }
         }
 
@@ -319,6 +312,29 @@ public class BillingCreateBilling2Action extends ActionSupport {
         }
         WCB form = dao.getWCBForm(wcbId);
         return form != null && Integer.valueOf(form.getDemographic_no()).equals(patient) ? form : null;
+    }
+
+    /**
+     * Sends a refused Continue back to its bill form with the reasons held on the bill, so the
+     * form shows them on its next render (issue #4864 item 10, finding 432). They used to be set as
+     * request attributes, which the redirect drops, so the form came back without saying why.
+     *
+     * @param bean the bill being continued
+     * @param wcbFormNeeds the bundle keys of what the chosen WCB form lacks, or null
+     * @return {@code NONE}, the redirect having been sent
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    String refuse(BillingSessionBean bean, List<String> wcbFormNeeds) throws IOException {
+        List<String> messages = new ArrayList<>();
+        for (String message : getActionErrors()) {
+            // Each bundle message ends in a <br/> that laid them out in one block; the form lists them.
+            messages.add(TRAILING_BREAK.matcher(message).replaceFirst(""));
+        }
+        bean.holdRefusal(messages, wcbFormNeeds);
+        BcBillStaging.save(request, bean);
+        response.sendRedirect(billingRedirect());
+        return NONE;
     }
 
     private String billingRedirect() {

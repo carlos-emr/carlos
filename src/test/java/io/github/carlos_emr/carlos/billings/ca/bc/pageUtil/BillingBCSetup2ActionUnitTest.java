@@ -168,6 +168,33 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(session.getAttribute("billingSessionBean")).isNull();
     }
 
+    @Test
+    @DisplayName("should show a refused Continue's reasons on the form it returns to, once")
+    void shouldShowRefusalReasonsOnce_whenContinueReturnsToTheForm() throws Exception {
+        String key = openBill("101", "11");
+        BillingSessionBean bill = (BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE);
+        bill.holdRefusal(List.of("Service code: FAKE1 doesn't exist in database"),
+                List.of("oscar.billing.CA.BC.billingBC.wcb.error.enterfee"));
+
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        BillingBCSetup2Action returned = new BillingBCSetup2Action();
+        assertThat(returned.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(returned.getActionErrors()).containsExactly("Service code: FAKE1 doesn't exist in database");
+        assertThat(request.getAttribute("WCBFormNeeds"))
+                .isEqualTo(List.of("oscar.billing.CA.BC.billingBC.wcb.error.enterfee"));
+
+        // A reload of that form, or a later Go Back, does not show them again.
+        newRequest();
+        request.setParameter(BcBillStaging.KEY_PARAMETER, key);
+        BillingBCSetup2Action reloaded = new BillingBCSetup2Action();
+        assertThat(reloaded.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(reloaded.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("WCBFormNeeds")).isNull();
+    }
+
     private String openBill(String demographicNo, String appointmentNo) throws Exception {
         request.setParameter("demographic_no", demographicNo);
         request.setParameter("appointment_no", appointmentNo);

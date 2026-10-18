@@ -1328,7 +1328,7 @@
     <div class="action-errors">
         <ul>
             <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
+                <li><%= SafeEncode.forHtmlContent(error) %></li>
             <% } %>
         </ul>
     </div>
