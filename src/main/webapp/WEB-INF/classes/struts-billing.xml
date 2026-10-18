@@ -125,6 +125,8 @@
 
         <action name="billing/CA/BC/saveAssocAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs</result>
+            <!-- A refused association: the editor again, with the posted codes and the reasons. -->
+            <result name="input">/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp</result>
         </action>
 
         <action name="billing/CA/BC/AddReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action">
