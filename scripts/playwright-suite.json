@@ -8754,7 +8754,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient (FAKE addresses and 555 phones); the Master Record updates' ext-archive and custom rows are removed in cleanup and checked gone, before the harness removes the patient's ext and archive rows.",
-      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Fails at its last step until #5013 is fixed by #5015 (unchanged values are listed once per save, and each phone ends in \"x\"); every earlier step passes."
+      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Failed at its last step before #5015, merged 18 Oct (unchanged values were listed once per save, and each phone ended in \"x\"); every earlier step passed."
     },
     {
       "name": "gap-records-hrm-report-actions",
