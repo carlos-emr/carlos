@@ -4058,6 +4058,25 @@
       "fixtures": "The owned FAKE- patient made a BC patient with a street address and city and no postal code; one owned billing physician (bc.createBillingPhysician); one incomplete WCB form for the patient. Cleanup deletes the patient's wcb rows and BC billing rows, then the physician, and asserts each is gone. No bill is saved: the check stops at the review."
     },
     {
+      "name": "billing-bc-wcb-links",
+      "script": "scripts/billing-bc-wcb-links-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "encounterForm",
+        "provider"
+      ],
+      "notes": "#4439 D10 and D11 (#4965), the two links into the BC WCB pages that billing-bc-wcb-form does not take: Administration ▸ Select Forms adds BC-WCB (the BC seed ships it off the form list) and the chart's Forms menu offers it; Chart ▸ Forms ▸ BC-WCB opens a new WCB form for the patient; Administration ▸ Billing ▸ Simulate Submission File ▸ Create Report lists the owned WCB claim and its invoice link opens the claim's correction page; Settle Bill there comes back to the page with the claim settled (status S, one history row); last, Select Forms removes BC-WCB and every encounterForm row is as found. On release/2026.08 it fails at the BC-WCB step until #4966 merges: the seeded form value still names viewformwcb.do (HTTP 404), and the WCB form page itself opens only once #4944 merges. The correction link steps also wait for #4966 (the link named the WEB-INF JSP, HTTP 404). Notes only, no pin: the fixes are open PRs.",
+      "fixtures": "The owned FAKE- patient made a BC patient; one billing physician made in preflight, before login, because the simulation lists the cached active providers (the cache fills at login; the live wrapper starts a fresh Tomcat); one open WCB claim for them (billing, billingmaster and a wcb row for fee item 19937). BC-WCB is shown on the clinic's form list while the check runs, and the physician shows in clinic-wide lists, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup puts every encounterForm display order back and asserts the list as found, deletes the patient's wcb rows and the claim's history, billingmaster and billing rows, and the physician, and asserts each is gone."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
