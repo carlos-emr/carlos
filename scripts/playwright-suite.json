@@ -12864,6 +12864,1231 @@
         "finding": 294,
         "step": "Manage Letters displays readable field labels and action names without unresolved message keys"
       }
+    },
+    {
+      "name": "episode-coded-diagnosis",
+      "script": "scripts/episode-coding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "EPISODE_ACTION"
+      ],
+      "fixtures": "Owned patient and episodes; temporary provider-specific episode grants restored; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Choose ICD9 250 through real diagnosis autocomplete, save, reopen, change the end date and preserve code/coding system.",
+      "mutates": [
+        "secObjPrivilege"
+      ]
+    },
+    {
+      "name": "episode-literal-description",
+      "script": "scripts/episode-coding-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "EPISODE_ACTION"
+      ],
+      "envSet": {
+        "EPISODE_ACTION": "literal"
+      },
+      "fixtures": "Owned patient and episodes; temporary provider-specific episode grants restored; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Save ordinary apostrophes in an episode description, then reopen through the chart and require complete description/date controls.",
+      "mutates": [
+        "secObjPrivilege"
+      ],
+      "expectedFailure": {"finding": 296, "step": "reopen an episode containing an apostrophe with its complete description and dates"}
+    },
+    {
+      "name": "health-care-team-embedded-actions",
+      "script": "scripts/health-care-team-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEAM_ACTION"
+      ],
+      "fixtures": "Owned patient and team associations, existing providers read only; all association/support rows removed and verified.",
+      "notes": "Master Record Edit opens the embedded team: add two internal providers and remove one while preserving the other and both provider records."
+    },
+    {
+      "name": "health-care-team-external-picker",
+      "script": "scripts/health-care-team-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEAM_ACTION"
+      ],
+      "envSet": {
+        "TEAM_ACTION": "external"
+      },
+      "fixtures": "Owned patient, directory contact and team associations; all rows removed and verified.",
+      "notes": "Master Record Edit > embedded team > External > search > select owned directory contact: require exactly one patient association and visible team row."
+    },
+    {
+      "name": "consultation-date-completion-filters",
+      "script": "scripts/consultation-followup-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CONSULT_FOLLOWUP_ACTION"
+      ],
+      "fixtures": "Owned patient, three referrals, specialist, service and link; cleanup verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Isolate the owned consultant using the real picker; combine referral and appointment date ranges with Include Completed and verify matching and excluded rows.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-overdue-tickler",
+      "script": "scripts/consultation-followup-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "CONSULT_FOLLOWUP_ACTION"
+      ],
+      "envSet": {
+        "CONSULT_FOLLOWUP_ACTION": "tickler"
+      },
+      "fixtures": "Owned patient and referrals isolated by owned consultant before bulk control; task form is not submitted; cleanup verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Overdue Nothing Done consultations > Add Tickler: cancel confirmation without writes, accept and require patient and suggested task message to survive the handoff.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists"
+      ],
+      "expectedFailure": {"finding":297,"step":"overdue consultation Add Tickler preserves the patient and suggested follow-up message"}
+    },
+    {
+      "name": "tickler-last-page-complete",
+      "script": "scripts/tickler-paged-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TICKLER_SELECTION_ACTION"
+      ],
+      "fixtures": "Owned patient, 52 matching tasks and one hidden control, child rows removed and verified.",
+      "notes": "Next page > Check All > Complete: assert posted IDs, CSRF and database statuses prove only the last page changed."
+    },
+    {
+      "name": "tickler-first-page-delete",
+      "script": "scripts/tickler-paged-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TICKLER_SELECTION_ACTION"
+      ],
+      "envSet": {
+        "TICKLER_SELECTION_ACTION": "first"
+      },
+      "fixtures": "Owned patient, 52 matching tasks and one hidden control, child rows removed and verified.",
+      "notes": "First page > Check All > Delete: only the first 50 tasks archive; last-page and hidden controls stay active."
+    },
+    {
+      "name": "patient-set-repeat-save",
+      "script": "scripts/patient-set-cohort-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_SET_ACTION"
+      ],
+      "envSet": {
+        "PATIENT_SET_ACTION": "repeat"
+      },
+      "fixtures": "Owned patient and unique bounded set name; all set rows removed and verified.",
+      "notes": "Demographic Report Tool > save owned patient to set > repeat same real Save: require one active membership. Extends the previously reported, unasserted finding 82.",
+      "expectedFailure": {"finding":82,"step":"saving the same patient into the same set twice retains one membership"}
+    },
+    {
+      "name": "patient-set-empty-query",
+      "script": "scripts/patient-set-cohort-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_SET_ACTION"
+      ],
+      "envSet": {
+        "PATIENT_SET_ACTION": "empty"
+      },
+      "fixtures": "Owned patient and unique bounded set name; cleanup verified.",
+      "notes": "Run a patient-isolated baseline, correct its last-name filter to a no-match value and Save to Patient Set: zero rows and retained search for correction."
+    },
+    {
+      "name": "messenger-select-all-read-controls",
+      "script": "scripts/messenger-select-all-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MESSENGER_SELECTION_ACTION"
+      ],
+      "fixtures": "Three owned synthetic self-deliveries, two matching and one hidden; delivery/link/message cleanup verified.",
+      "notes": "Msg search > Select All/clear toggles bulk-action visibility; Select All > Read changes exactly both matched deliveries and leaves hidden delivery unread."
+    },
+    {
+      "name": "messenger-select-all-archive-restore",
+      "script": "scripts/messenger-select-all-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MESSENGER_SELECTION_ACTION"
+      ],
+      "envSet": {
+        "MESSENGER_SELECTION_ACTION": "archive"
+      },
+      "fixtures": "Three owned synthetic self-deliveries, two matching and one hidden; delivery/link/message cleanup verified.",
+      "notes": "Filtered Msg Select All > Archive > Archived > Select All > Unarchive: both selected messages round-trip, hidden unread delivery remains unchanged."
+    },
+    {
+      "name": "appointment-search-weekday-time-code",
+      "script": "scripts/appointment-search-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "APPOINTMENT_SEARCH_ACTION"
+      ],
+      "fixtures": "Three owned schedule dates and marker template on an existing active provider with an empty search window; established B/2 codes read only; cleanup verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Real Search view > choose an empty-schedule provider, weekday, morning range and code > verify exact slots/duration/filter persistence > click result into Add Appointment without saving."
+    },
+    {
+      "name": "appointment-search-result-limit",
+      "script": "scripts/appointment-search-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "APPOINTMENT_SEARCH_ACTION"
+      ],
+      "envSet": {
+        "APPOINTMENT_SEARCH_ACTION": "limit"
+      },
+      "fixtures": "Three owned schedule dates and marker template on an existing active provider with an empty search window; established B/2 codes read only; cleanup verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Search 24 available owned slots with Number of Results 10 and require the result list to obey that maximum."
+    },
+    {
+      "name": "prevention-next-date-never-remind",
+      "script": "scripts/prevention-followup-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PREVENTION_FOLLOWUP_ACTION"
+      ],
+      "fixtures": "Owned patient and prevention revisions/extensions; cleanup verified.",
+      "notes": "Set Next Date > Save > reopen > Never Remind and reason > Save > reopen: exact next-date and suppression settings with prior revision retained."
+    },
+    {
+      "name": "prevention-resume-reminders",
+      "script": "scripts/prevention-followup-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PREVENTION_FOLLOWUP_ACTION"
+      ],
+      "envSet": {
+        "PREVENTION_FOLLOWUP_ACTION": "resume"
+      },
+      "fixtures": "Owned patient and prevention revisions/extensions; cleanup verified.",
+      "notes": "After suppressing reminders, uncheck Never Remind, clear its reason and choose a new next date; save and reopen exact resumed settings."
+    },
+    {
+      "name": "clinical-followup-rourke-revise",
+      "script": "scripts/clinical-form-followup-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FOLLOWUP_FORM",
+        "FOLLOWUP_ACTION"
+      ],
+      "envSet": {
+        "FOLLOWUP_FORM": "rourke",
+        "FOLLOWUP_ACTION": "revise"
+      },
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Owned patient/form revisions and marker registration removed and verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Rourke Baby Record: reopen a saved form, correct birth remarks, append an immutable revision, preserve feeding/length and reopen latest."
+    },
+    {
+      "name": "clinical-followup-labreq-revise",
+      "script": "scripts/clinical-form-followup-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "FOLLOWUP_FORM",
+        "FOLLOWUP_ACTION"
+      ],
+      "envSet": {
+        "FOLLOWUP_FORM": "labreq",
+        "FOLLOWUP_ACTION": "revise"
+      },
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Owned patient/form revisions and marker registration removed and verified; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Lab requisition: reopen saved request, correct clinical information, append an immutable revision, preserve glucose selection and reopen latest."
+    },
+    {
+      "name": "rx-indication-archive",
+      "script": "scripts/rx-indication-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INDICATION_ACTION"
+      ],
+      "fixtures": "Owned patient, two drugs and indications; cleanup verified.",
+      "notes": "Profile Indication > reveal Archive then close without submitting; reopen and archive one reason with text, retain its history and preserve the other drug indication."
+    },
+    {
+      "name": "rx-indication-patient-registry",
+      "script": "scripts/rx-indication-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INDICATION_ACTION"
+      ],
+      "envSet": {
+        "RX_INDICATION_ACTION": "registry"
+      },
+      "fixtures": "Owned patient, two drugs and diagnosis; cleanup verified.",
+      "notes": "Profile Indication > Patient Dx Registry link > Save: require the chosen code in the actual submitted search field and precisely one primary drug indication.",
+      "expectedFailure": {"finding":298,"step":"the Patient Dx Registry link fills and saves exactly that drug indication"}
+    },
+    {
+      "name": "rx-cpp-visibility-roundtrip",
+      "script": "scripts/rx-cpp-visibility-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_CPP_ACTION"
+      ],
+      "fixtures": "Owned patient and two medications; clinical-row cleanup verified.",
+      "notes": "Hide CPP checkbox > save > reload > unhide > reload: selected drug only, CSRF, persistent state and no unintended archival."
+    },
+    {
+      "name": "rx-cpp-visibility-save-refusal",
+      "script": "scripts/rx-cpp-visibility-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_CPP_ACTION"
+      ],
+      "envSet": {
+        "RX_CPP_ACTION": "refused"
+      },
+      "fixtures": "Owned patient and two medications; one exact UI request receives synthetic 403 without reaching server; cleanup verified.",
+      "notes": "Refuse the actual Hide CPP UI save: require unchanged database, checkbox rollback and actionable error; all unrelated browser failures remain strict.",
+      "expectedFailure": {"finding":299,"step":"a refused Hide CPP save reports failure and restores the actual unchecked state"}
+    },
+    {
+      "name": "rx-inline-structured-dose-save",
+      "script": "scripts/rx-inline-dose-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INLINE_ACTION"
+      ],
+      "fixtures": "Owned patient, existing control drug and one UI-created card; cleanup verified.",
+      "notes": "Edit method, route, frequency, minimum/maximum dose, duration and unit through the card's actual editable links; blur each field, Save Only, exact persisted dosing/control."
+    },
+    {
+      "name": "rx-inline-prn-toggle",
+      "script": "scripts/rx-inline-dose-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INLINE_ACTION"
+      ],
+      "envSet": {
+        "RX_INLINE_ACTION": "prn"
+      },
+      "fixtures": "Owned patient, existing control drug and one UI-created card; cleanup verified.",
+      "notes": "Parse PRN instructions, click PRN off/on/off, require each property update and Save Only to store false on the new medication alone."
+    },
+    {
+      "name": "rx-renewal-long-term",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "long-term"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing long-term; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-past-medication",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "past-medication"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing past-medication; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-compliance",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "compliance"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing compliance; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-authoritative",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "authoritative"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "ReRx an owned medication, set Non Authoritative on the replacement, save and inspect the actual saved record; preserve source and untouched control."
+    },
+    {
+      "name": "rx-renewal-outside-provider",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "outside-provider"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing outside-provider; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-no-substitution",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "no-substitution"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing no-substitution; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-refill-duration",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "refill-duration"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing refill-duration; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-refill-quantity",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "refill-quantity"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing refill-quantity; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-dispense-interval",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "dispense-interval"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing dispense-interval; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-protocol",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "protocol"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing protocol; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-last-refill",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "last-refill"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing last-refill; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-comment",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "comment"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "ReRx an owned medication, add a new prescribing-event comment, save and inspect the actual saved record; preserve source and untouched control."
+    },
+    {
+      "name": "rx-renewal-pickup",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "pickup"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing pickup; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx.",
+      "expectedFailure": {"finding":300,"step":"saving the changed renewal field preserves its source and the unselected medication"}
+    },
+    {
+      "name": "rx-renewal-status",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "status"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing status; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-treatment",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "treatment"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing treatment; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-treatment-clear",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "treatment-clear"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "Renew a saved medication while changing treatment-clear; verify prefilled field, replacement value, retained archived source, unchanged control and correct field on the next ReRx."
+    },
+    {
+      "name": "rx-renewal-start-known",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "start-known"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "ReRx an owned medication, set the exact known start date and save; verify its profile date and unchanged source/control."
+    },
+    {
+      "name": "rx-renewal-start-unknown",
+      "script": "scripts/rx-renewal-fields-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENEWAL_FIELD"
+      ],
+      "envSet": {
+        "RX_RENEWAL_FIELD": "start-unknown"
+      },
+      "fixtures": "Owned patient, source medication, unselected control, renewal and prescription rows removed and verified.",
+      "notes": "ReRx an owned medication, mark its start date unknown and save; verify the profile omits a misleading date and preserves source/control."
+    },
+    {
+      "name": "rx-empty-save-only",
+      "script": "scripts/rx-entry-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_ENTRY_ACTION"
+      ],
+      "envSet": {
+        "RX_ENTRY_ACTION": "empty-save"
+      },
+      "fixtures": "Owned patient, empty Rx draft; clinical cleanup verified.",
+      "notes": "Save Only on an empty prescription must alert without posting or saving clinical rows."
+    },
+    {
+      "name": "rx-empty-save-print",
+      "script": "scripts/rx-entry-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_ENTRY_ACTION"
+      ],
+      "envSet": {
+        "RX_ENTRY_ACTION": "empty-print"
+      },
+      "fixtures": "Owned patient, empty Rx draft; clinical cleanup verified.",
+      "notes": "Save And Print on an empty prescription must alert without posting, saving or opening a print window."
+    },
+    {
+      "name": "rx-custom-drug-decline",
+      "script": "scripts/rx-entry-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_ENTRY_ACTION"
+      ],
+      "envSet": {
+        "RX_ENTRY_ACTION": "decline-custom"
+      },
+      "fixtures": "Owned patient and empty draft; no staged or saved medication; cleanup verified.",
+      "notes": "Type a proposed medication, press Custom Drug and decline its warning: preserve search, stage and save nothing."
+    },
+    {
+      "name": "rx-custom-note-decline",
+      "script": "scripts/rx-entry-guards-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_ENTRY_ACTION"
+      ],
+      "envSet": {
+        "RX_ENTRY_ACTION": "decline-note"
+      },
+      "fixtures": "Owned patient and empty draft; no staged or saved medication; cleanup verified.",
+      "notes": "Type a proposed note, press Note and decline its warning: preserve search, stage and save nothing."
+    },
+    {
+      "name": "rx-custom-name-edit",
+      "script": "scripts/rx-drug-rename-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENAME_ACTION"
+      ],
+      "fixtures": "Owned patient and one custom medication; all clinical rows removed and verified.",
+      "notes": "Edit a staged custom medication name using the actual keyup handler; save once and require exact quoted name on the stored drug and profile."
+    },
+    {
+      "name": "rx-product-name-change-confirmation",
+      "script": "scripts/rx-drug-rename-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_RENAME_ACTION"
+      ],
+      "envSet": {
+        "RX_RENAME_ACTION": "product"
+      },
+      "fixtures": "Owned patient and one DrugRef product converted to a custom medication; clinical rows removed and verified.",
+      "notes": "Stage LIPITOR, decline its name-change confirmation and retain product identity; accept a new custom name, save once and verify patient profile."
+    },
+    {
+      "name": "rx-written-date-future-correction",
+      "script": "scripts/rx-written-date-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_WRITTEN_DATE_ACTION"
+      ],
+      "fixtures": "Owned patient and one staged/custom medication; clinical cleanup verified.",
+      "notes": "Enter a future written date, Save Only, require visible refusal/no write/retained card; correct the same card and save exact valid date."
+    },
+    {
+      "name": "rx-written-date-impossible-correction",
+      "script": "scripts/rx-written-date-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_WRITTEN_DATE_ACTION"
+      ],
+      "envSet": {
+        "RX_WRITTEN_DATE_ACTION": "impossible"
+      },
+      "fixtures": "Owned patient and one staged/custom medication; clinical cleanup verified.",
+      "notes": "Enter February 31, Save Only, require visible refusal/no normalization/no write; correct the same card to February 28 and save once.",
+      "expectedFailure": {"finding":301,"step":"an invalid written date is refused visibly and retains the unsaved medication"}
+    },
+    {
+      "name": "rx-double-save-only",
+      "script": "scripts/rx-double-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_DOUBLE_SAVE_ACTION"
+      ],
+      "fixtures": "Owned patient and custom medication with its prescription; clinical cleanup verified.",
+      "notes": "Real double click Save Only: one committed drug and prescription, no stale card or unexpected UI error."
+    },
+    {
+      "name": "rx-double-save-print",
+      "script": "scripts/rx-double-save-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_DOUBLE_SAVE_ACTION"
+      ],
+      "envSet": {
+        "RX_DOUBLE_SAVE_ACTION": "print"
+      },
+      "fixtures": "Owned patient and custom medication with its prescription/signature; clinical cleanup verified.",
+      "notes": "Real double click Save And Print: one drug, one prescription and one print frame carrying that prescription identity."
+    },
+    {
+      "name": "rx-inline-minimum-validation",
+      "script": "scripts/rx-inline-dose-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INLINE_ACTION"
+      ],
+      "envSet": {
+        "RX_INLINE_ACTION": "minimum"
+      },
+      "fixtures": "Owned patient, control medication and staged card; clinical cleanup verified.",
+      "notes": "Type non-numeric minimum dose into the actual editable dose control and require a validation refusal with draft and clinical data preserved.",
+      "expectedFailure": {"finding":302,"step":"an invalid numeric dose is refused without losing the card or changing a medication"}
+    },
+    {
+      "name": "rx-inline-maximum-validation",
+      "script": "scripts/rx-inline-dose-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_INLINE_ACTION"
+      ],
+      "envSet": {
+        "RX_INLINE_ACTION": "maximum"
+      },
+      "fixtures": "Owned patient, control medication and staged card; clinical cleanup verified.",
+      "notes": "Type non-numeric maximum dose into the actual editable dose control and require a validation refusal with draft and clinical data preserved.",
+      "expectedFailure": {"finding":302,"step":"an invalid numeric dose is refused without losing the card or changing a medication"}
+    },
+    {
+      "name": "rx-discontinue-cancel-preserves-draft",
+      "script": "scripts/rx-discontinue-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_DISCONTINUE_ACTION"
+      ],
+      "fixtures": "Owned patient, medications and unsaved draft; clinical cleanup verified.",
+      "notes": "With another medication draft open, enter a discontinuation reason/comment then Cancel; preserve draft, active medications and absence of new chart notes."
+    },
+    {
+      "name": "rx-discontinue-reason-options",
+      "script": "scripts/rx-discontinue-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "RX_DISCONTINUE_ACTION"
+      ],
+      "envSet": {
+        "RX_DISCONTINUE_ACTION": "reasons"
+      },
+      "fixtures": "Owned patient, 16 medications plus control and resulting chart notes; clinical cleanup verified.",
+      "notes": "Select each of the 16 offered clinical discontinue reasons through the UI; verify exact reason, unchanged end date, one note per action and untouched control."
+    },
+    {
+      "name": "rx-pharmacy-remove-primary-return",
+      "script": "scripts/rx-pharmacy-removal-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_PHARMACY_REMOVAL"
+      ],
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Remove primary preferred pharmacy and verify fallback on returning to Rx, saved medication and preview."
+    },
+    {
+      "name": "rx-pharmacy-remove-all-return",
+      "script": "scripts/rx-pharmacy-removal-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_PHARMACY_REMOVAL"
+      ],
+      "envSet": {
+        "RX_PHARMACY_REMOVAL": "all"
+      },
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Remove all preferred pharmacies, then save/preview with no stale pharmacy binding."
+    },
+    {
+      "name": "rx-timeline-multiple-selection",
+      "script": "scripts/rx-timeline-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_TIMELINE_ACTION"
+      ],
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Graph two products then reduce to one; exclude a custom drug and leave clinical rows unchanged."
+    },
+    {
+      "name": "rx-timeline-clear-selection",
+      "script": "scripts/rx-timeline-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_TIMELINE_ACTION"
+      ],
+      "envSet": {
+        "RX_TIMELINE_ACTION": "clear"
+      },
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Uncheck all graphed products; require an empty selection/graph and unchanged clinical records.",
+      "expectedFailure": {"finding":303,"step":"clearing every medication leaves an empty graph and no checked products"}
+    },
+    {
+      "name": "rx-preview-close-return-edit",
+      "script": "scripts/rx-preview-return-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_PREVIEW_RETURN"
+      ],
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Dismiss Save And Print using X, correct the acknowledged card and retain exactly one active medication.",
+      "expectedFailure": {"finding":304,"step":"correcting the saved card after dismissal updates that medication once and clears the stage"}
+    },
+    {
+      "name": "rx-preview-escape-return-edit",
+      "script": "scripts/rx-preview-return-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_PREVIEW_RETURN"
+      ],
+      "envSet": {
+        "RX_PREVIEW_RETURN": "escape"
+      },
+      "fixtures": "Owned synthetic patient and clinical rows; pharmacy variants own both directory entries and links; cleanup verified.",
+      "notes": "Dismiss Save And Print using Escape, correct the acknowledged card and retain exactly one active medication.",
+      "expectedFailure": {"finding":304,"step":"correcting the saved card after dismissal updates that medication once and clears the stage"}
     }
   ]
 }
