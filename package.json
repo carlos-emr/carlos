@@ -284,6 +284,7 @@
     "test:form-bc-newborn-playwright": "node scripts/form-bc-newborn-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
     "test:billing-bc-settle-paid-claims-playwright": "node scripts/billing-bc-settle-paid-claims-playwright-checks.js",
+    "test:billing-bc-remittance-upload-playwright": "node scripts/billing-bc-remittance-upload-playwright-checks.js",
     "test:billing-bc-account-reports-playwright": "node scripts/billing-bc-account-reports-playwright-checks.js",
     "test:billing-bc-account-report-types-playwright": "node scripts/billing-bc-account-report-types-playwright-checks.js",
     "test:billing-bc-referral-doctors-playwright": "node scripts/billing-bc-referral-doctors-playwright-checks.js",
