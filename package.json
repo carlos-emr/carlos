@@ -621,6 +621,7 @@
     "test:gap-records-usage-report-playwright": "node scripts/gap-records-usage-report-playwright-checks.js",
     "test:gap-records-document-annotate-save-playwright": "node scripts/gap-records-document-annotate-save-playwright-checks.js",
     "test:gap-records-health-care-team-panel-playwright": "node scripts/gap-records-health-care-team-panel-playwright-checks.js",
+    "test:demographic-health-care-team-edit-playwright": "node scripts/demographic-health-care-team-edit-playwright-checks.js",
     "test:gap-records-hrm-report-actions-playwright": "node scripts/gap-records-hrm-report-actions-playwright-checks.js",
     "test:gap-records-demographic-report-criteria-playwright": "node scripts/gap-records-demographic-report-criteria-playwright-checks.js",
     "test:gap-records-lab-patient-link-playwright": "node scripts/gap-records-lab-patient-link-playwright-checks.js",

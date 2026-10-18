@@ -9643,6 +9643,21 @@
       "notes": "Verifies translated labels in the embedded panel and persisted Add/Remove membership changes (issue #4176)."
     },
     {
+      "name": "demographic-health-care-team-edit",
+      "script": "scripts/demographic-health-care-team-edit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; the professional records it creates (keyed to the marker) and the patient's team rows are removed in cleanup and checked gone. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off (packaged default on).",
+      "notes": "Health Care Team, external member. Steps: External ▸ Search ▸ Add/Edit Professional Contact saves the professional and puts it on the team with its specialty, listed with an edit control; the member's edit opens the form filled in, and Save stores the new specialty on the same team row and the new phone on the same professional; LAST, a professional named O'Brien is put on the team the same way. Fails at its last step until #4986 is fixed (the O'Brien contact is saved but not added, with a script error); every earlier step passes."
+    },
+    {
       "name": "gap-records-hrm-report-actions",
       "script": "scripts/gap-records-hrm-report-actions-playwright-checks.js",
       "tiers": [
