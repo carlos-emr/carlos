@@ -235,6 +235,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <script src="${ctx}/share/javascript/rx-interaction-warnings.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/Oscar.js"></script>
         <script type="text/javascript" src="${ctx}/js/checkDate.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-input-validation.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-hide-cpp.js"></script>
 
 
         <%-- UI library includes (Bootstrap, jQuery UI) --%>
@@ -275,6 +277,11 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
         <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
+        <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
+        <fmt:message key="SearchDrug.js.pickupDateInvalid"         var="msg_pickupDateInvalid"/>
+        <fmt:message key="SearchDrug.js.pickupTimeInvalid"         var="msg_pickupTimeInvalid"/>
+        <fmt:message key="SearchDrug.js.doseInvalid"               var="msg_doseInvalid"/>
+        <fmt:message key="SearchDrug.js.repeatsInvalid"            var="msg_repeatsInvalid"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
         <fmt:message key="SearchDrug.js.profileLoadFailed" var="msg_profileLoadFailed"/>
@@ -317,7 +324,12 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
                 deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
-                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}'
+                previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
+                dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
+                pickupDateInvalid: '${carlos:forJavaScript(msg_pickupDateInvalid)}',
+                pickupTimeInvalid: '${carlos:forJavaScript(msg_pickupTimeInvalid)}',
+                doseInvalid: '${carlos:forJavaScript(msg_doseInvalid)}',
+                repeatsInvalid: '${carlos:forJavaScript(msg_repeatsInvalid)}'
             };
 	        function saveLinks(randNumber) {
 	            document.getElementById('method_'+randNumber).onblur();
@@ -1421,15 +1433,58 @@ function renderRxStage() {
              var url=ctx + "/rx/WriteScript?parameterValue=updateProperty";
              var el=document.getElementById(elementId);
              var data="";
-             if(elementId.match("prnVal_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
-             else if(elementId.match("repeats_")!=null)
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.value);
+             var value;
+             if(elementId.match("prnVal_")!=null || elementId.match("repeats_")!=null)
+                 value=el.value;
              else
-                 data="elementId="+elementId+"&propertyValue="+encodeURIComponent(el.textContent);
+                 value=el.textContent;
+             // A Min/Max that is not a number is refused here, on the field, and the card keeps
+             // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
+             if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
+                 reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                 return;
+             }
+             data="elementId="+elementId+"&propertyValue="+encodeURIComponent(value);
              data = data + "&rand="+Math.floor(Math.random()*10001);
-             CarlosAjax.request(url, {method: 'post',parameters:data});
+             CarlosAjax.request(url, {method: 'post',parameters:data,
+                 onSuccess: function () {
+                     // A corrected value was accepted: the field is no longer invalid.
+                     el.removeAttribute('aria-invalid');
+                 },
+                 onFailure: function (transport) {
+                     var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (error === 'INVALID_RX_DOSE') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
+                     } else if (error === 'INVALID_RX_REPEATS') {
+                         reportInvalidProperty(el, RxInputValidation.format(jsMsg.repeatsInvalid, value));
+                     } else {
+                         reportRefusedRequest(transport);
+                     }
+                 }});
          }
+    }
+
+    /**
+     * The card's optional pick-up date/time (#5002). Clearing either is a valid choice and saves
+     * as no pick-up, so a blank value raises nothing; checkDate.js's isValidDate/isValidTime
+     * alerted on it, and quoted a regular expression instead of the entry. A non-blank value
+     * that is not a real yyyy-mm-dd day / HH:MM time is named in the message and cleared, as
+     * before, so it cannot be saved.
+     */
+    function checkPickupField(el, kind) {
+        var result = kind === 'time' ? RxInputValidation.pickupTime(el.value) : RxInputValidation.pickupDate(el.value);
+        el.value = result.value;
+        if (!result.ok) {
+            alert(RxInputValidation.format(kind === 'time' ? jsMsg.pickupTimeInvalid : jsMsg.pickupDateInvalid, result.value));
+            el.value = '';
+        }
+    }
+
+    /** Marks a card field whose value was refused and tells the prescriber how to correct it. */
+    function reportInvalidProperty(el, message) {
+        el.className = 'highlight';
+        el.setAttribute('aria-invalid', 'true');
+        alert(message);
     }
     function lookNonEdittable(elementId){
         document.getElementById(elementId).className='';
@@ -1600,10 +1655,17 @@ function renderRxStage() {
         var data="favoriteId="+favoriteId+"&randomId="+randomId;
         var url= ctx + "/rx/useFavorite";
         data += "&parameterValue=useFav2";
+        // The favourite already carries its dosing, PRN and quantity. The card's own script calls
+        // calculateRxData while CarlosAjax inserts it, before onComplete, so the flag must be set
+        // before the request: set afterwards, the directions were re-parsed into the card and a
+        // saved PRN flag was cleared because the directions text does not say "prn" (#4996).
+        // The cards' scripts have all run by onComplete, so the flag is cleared there whatever the
+        // answer, and a later staged drug parses its directions as usual.
+        skipParseInstr = true;
         CarlosAjax.updater({success: 'rxText'},url, {method:'post',parameters:data,evalScripts:true,insertion: 'bottom',
             onComplete: function(transport) {
+                skipParseInstr = false;
                 if (transport.status >= 200 && transport.status < 300) {
-                    skipParseInstr = true;
                     renderRxStage();
                 }
             },
@@ -2861,6 +2923,14 @@ function updateQty(element){
                     x = false;
                     return;
                 }
+                // The day-range check let 2026-02-31 through; the save then stored 2026-03-03,
+                // a date the prescriber never entered (#5003). Refuse it and keep the card.
+                if (!RxInputValidation.fullDateIsReal(str1)) {
+                    jQuery(this).focus();
+                    alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, str1));
+                    x = false;
+                    return;
+                }
             }
             var date1 = new Date(yr1, mon1, dt1);
             var now  = new Date();
@@ -3042,6 +3112,14 @@ function updateQty(element){
             alert(jsMsg.staleDraft);
         } else if (transport && transport.status === 409) {
             alert(jsMsg.saveRefused);
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'INVALID_RX_DATE') {
+            // The server refused a written/start date that is not a real day (#5003); the cards
+            // stay staged, so point at the field to correct.
+            var badDate = jQuery('input[name^="writtenDate_"], input[name^="rxDate_"]').filter(function () {
+                return !RxInputValidation.fullDateIsReal(this.value);
+            }).first();
+            alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
+            if (badDate.length) badDate.focus();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }

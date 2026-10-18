@@ -3112,6 +3112,36 @@ passed), with no files copied in; the installed picker, list and bundle files ma
 routing error path, and both legacy checks and `lab-forward-picker` seed a forwarding favourite before taking their baseline.
 With that class copied in, the three checks, `inbox-file-forward` and `detached-delete-forward-favourites` passed again.
 
+### Slot lock for bookers without the admin right (2026-10-18, issue #4917)
+
+`/PageMonitoringService` demanded `_admin` r, so every lock refresh and release from a receptionist, doctor or nurse answered 403:
+the Add Appointment notice stayed at "Viewers: N/A", a second booker was not stopped, and patient Search stayed disabled after any
+date, time or duration change. The endpoint now requires `_appointment` w (the Add Appointment page's own right), replies with
+only `locked`, `self` and `providerName` (the old reply carried every overlapping viewer's session id, address and provider
+number), and accepts only `POST`.
+
+`appointment-slot-lock-booker-playwright-checks.js` was added for it. It needs `appointment_locking_timeout>0` (the package
+default is 0; set it in `/etc/carlos-emr/carlos.properties` and restart `carlos-emr`) and SKIPs under
+`allowMultipleSameDayGroupAppt=no`, which renders no Add, Repeat or Group button. Two throwaway logins: an admin+doctor owner
+holds a slot, a doctor-only booker (no `_admin` row for any of its roles, asserted in the database) opens an overlapping slot.
+
+Run against `carlos-emr` and `carlos-emr-drugref` built from the `release/2026.08` fix branch (`5be04445`) in an Ubuntu 26.04
+container with `carlos-ctl` 1.1.2 and the demo dataset (`scripts/deb-docker-validation.sh up`, `carlos-ctl check` clean, `:443`).
+The classes of the later commits were compiled and copied into the installed webapp rather than rebuilding the packages:
+
+| Installed `PageMonitoring2Action` | Result |
+|---|---|
+| original (`_admin` gate) | FAIL at the booker step: "lock refresh returned HTTP 403" |
+| fix branch head | PASS, 7 of 7: booker gets 200 and `Viewers:1 (locked)`, Add/Repeat/Group hidden, Search back after a duration change, the lock and the buttons on a non-overlapping time, a GET answers 405 and changes nothing, `cancelPageLock()` removes the monitor, nothing booked, page locks removed and verified |
+
+`appointment-group-paste-restriction` (with `allowMultipleSameDayGroupAppt=no` and locking on, so it exercises the changed reply)
+and `gap-provider-appointment-do-not-book` passed with the head class. `do-not-book` times out clicking its Do Not Book control under
+`allowMultipleSameDayGroupAppt=no`; that was not investigated. It also leaves its throwaway providers' `PageMonitor` rows behind when
+locking is on (two rows, deleted by hand). The server-log audit had no unexplained signature.
+
+A `systemctl restart carlos-emr` repeated within a few minutes trips the unit's start-rate limit and the next one fails with "start of
+the service was attempted too often"; run `systemctl reset-failed carlos-emr` first and wait for `:443` to answer before the suite.
+
 ### Contacts: a professional contact added from the External search (2026-10-18, issue #4987)
 
 Master Record ▸ Contacts ▸ Add (professional contact) ▸ External ▸ Search ▸ "Add/Edit Professional Contact" opened the form as a

@@ -77,6 +77,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -110,6 +111,13 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String ACTION_UPDATE_PREFIX = "update";
     private static final String HEADER_ALLOW = "Allow";
     private static final String POST_REQUIRED = "POST required";
+    /** One to nine digits: an id or count that fits an int. */
+    private static final String UP_TO_NINE_DIGITS = "\\d{1,9}";
+    /** Fixed bodies of the inline-property refusals the card explains (#5003). */
+    private static final String INVALID_DOSE_JSON = "{\"error\":\"INVALID_RX_DOSE\"}";
+    private static final String INVALID_REPEATS_JSON = "{\"error\":\"INVALID_RX_REPEATS\"}";
+    /** Medication audit-log content prefix, followed by the drug id. */
+    private static final String AUDIT_DRUG_ID = "drugid=";
     private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
     /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
@@ -1339,15 +1347,26 @@ public final class RxWriteScript2Action extends ActionSupport {
             } else if (elem.equals("frequency_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
             } else if (elem.equals("minimum_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMin(Float.parseFloat(val));
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) {
+                    Float dose = parseDoseAmount(val);
+                    if (dose == null) return reportInvalidProperty(INVALID_DOSE_JSON);
+                    rx.setTakeMin(dose);
+                }
             } else if (elem.equals("maximum_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setTakeMax(Float.parseFloat(val));
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) {
+                    Float dose = parseDoseAmount(val);
+                    if (dose == null) return reportInvalidProperty(INVALID_DOSE_JSON);
+                    rx.setTakeMax(dose);
+                }
             } else if (elem.equals("duration_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDuration(val);
             } else if (elem.equals("durationUnit_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
             } else if (elem.equals("repeats_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setRepeat(Integer.parseInt(val));
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) {
+                    if (!val.matches(UP_TO_NINE_DIGITS)) return reportInvalidProperty(INVALID_REPEATS_JSON);
+                    rx.setRepeat(Integer.parseInt(val));
+                }
             } else if (elem.equals("prnVal_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     if (val.equalsIgnoreCase("true")) rx.setPrn(true);
@@ -1466,6 +1485,13 @@ public final class RxWriteScript2Action extends ActionSupport {
                         Integer.parseInt(value.trim());
                     }
                 }
+                // Date parsing below is lenient: 2026-02-31 became 2026-03-03 and was saved as a
+                // date the prescriber never entered (#5003). Refuse it before any card changes.
+                for (String field : List.of("writtenDate_", "rxDate_")) {
+                    if (!isCalendarDateOrPartial(request.getParameter(field + key))) {
+                        return reportInvalidDate();
+                    }
+                }
                 String reason = request.getParameter("reasonCode_" + key);
                 String codingSystem = request.getParameter("codingSystem_" + key);
                 reason = reason == null ? card.getDrugReasonCode() : reason.trim();
@@ -1548,7 +1574,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                                 rx.setDrugReasonCode(val);
                             }
                         } else if (elem.equals("instructions_" + num)) {
-                            rx.setSpecial(val);
+                            // A textarea posts its line breaks as CRLF; store them as the "\n"
+                            // the rest of the prescription text uses (#4996).
+                            rx.setSpecial(val.replace("\r\n", "\n").replace('\r', '\n'));
                         } else if (elem.equals("quantity_" + num)) {
                             if (val.equals("") || val == null) {
                                 rx.setQuantity("0");
@@ -1801,6 +1829,63 @@ public final class RxWriteScript2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Whether a submitted written/start date names a real day. Blank values and the partial forms
+     * {@code yyyy} and {@code yyyy-mm} keep their existing meaning; a full {@code yyyy-mm-dd}
+     * (or {@code yyyy/mm/dd}) must exist on the calendar, so 2026-02-31 is refused rather than
+     * rolled over to 2026-03-03 (#5003). Other shapes are left to the existing parsing.
+     *
+     * @param value the raw request value, possibly {@code null}
+     * @return {@code false} only for a full date that does not exist
+     */
+    static boolean isCalendarDateOrPartial(String value) {
+        if (value == null) {
+            return true;
+        }
+        java.util.regex.Matcher full = java.util.regex.Pattern
+                .compile("(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").matcher(value.trim());
+        if (!full.matches()) {
+            return true;
+        }
+        int month = Integer.parseInt(full.group(2));
+        return month >= 1 && month <= 12
+                && java.time.YearMonth.of(Integer.parseInt(full.group(1)), month).isValidDay(Integer.parseInt(full.group(3)));
+    }
+
+    private String reportInvalidDate() throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"INVALID_RX_DATE\"}");
+        return NONE;
+    }
+
+    /**
+     * Reads an inline Min/Max dose: a plain non-negative decimal such as {@code 1}, {@code 0.5},
+     * {@code .25} or the {@code 0.33333334} a computed dose is displayed as. Text, signs,
+     * exponents, NaN and Infinity are refused; Float.parseFloat accepted some of these and threw
+     * on the rest, which surfaced as an HTTP 500 (#5003).
+     *
+     * @param value the trimmed property value
+     * @return the dose, or {@code null} when the value is not a dose amount
+     */
+    static Float parseDoseAmount(String value) {
+        if (value == null || !value.matches("\\d{1,9}(\\.\\d{0,9})?|\\.\\d{1,9}")) {
+            return null;
+        }
+        return Float.valueOf(value);
+    }
+
+    /**
+     * Refuses an inline property update with 400 and one of the fixed JSON bodies above, which the
+     * card reports to the prescriber. The staged card is left unchanged.
+     */
+    private String reportInvalidProperty(String fixedJsonBody) throws IOException {
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        response.setContentType("application/json");
+        response.getWriter().write(fixedJsonBody);
+        return NONE;
+    }
+
     private String reportInvalidDraft() throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setContentType("application/json");
@@ -1853,7 +1938,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         boolean isLongTerm = Boolean.parseBoolean(request.getParameter("isLongTerm"));
 
         // A malformed id is answered like a missing one instead of a 500 from parseInt.
-        if (Objects.isNull(strId) || !strId.matches("\\d{1,9}")) {
+        if (Objects.isNull(strId) || !strId.matches(UP_TO_NINE_DIGITS)) {
 	        hm.put("success", false);
 		} else {
             int drugId = Integer.parseInt(strId);
@@ -1978,13 +2063,23 @@ public final class RxWriteScript2Action extends ActionSupport {
         // its source drug id in drugReferenceId, set by the re-prescribe newPrescription overload,
         // and only those sources may be archived as REPRESCRIBED.
         Set<Integer> represcribedSourceIds = new HashSet<>();
+        // Rows an earlier save of these same cards wrote. Save And Print keeps its acknowledged
+        // cards staged so the prescriber can correct them; saving a corrected card again writes a
+        // new row, and the row it replaces must stop being an active medication (#5005).
+        Set<Integer> supersededDrugIds = new LinkedHashSet<>();
         for (int i = 0; i < bean.getStashSize(); i++) {
             try {
                 rx = bean.getStashItem(i);
+                // drugId is 0 until Prescription.Save writes the card's row (see
+                // RxSessionBean#removePersistedStashItems), so > 0 means "saved before".
+                int earlierSave = rx.getDrugId();
                 if (!rx.Save(scriptId)) {
                     throw new IllegalStateException("Prescription drug write was refused");
                 } // new drug id available after this line
                 rx.setScript_no(scriptId);
+                if (earlierSave > 0 && earlierSave != rx.getDrugId()) {
+                    supersededDrugIds.add(earlierSave);
+                }
                 if (rx.getDrugReferenceId() > 0) {
                     represcribedSourceIds.add(rx.getDrugReferenceId());
                 }
@@ -2032,6 +2127,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         // The sources are settled: a later save from this window (Edit Rx after Save & Print)
         // must not archive them again with a second audit trail.
         bean.clearReRxDrugIdList();
+        if (!archiveSupersededSaves(loggedInInfo, bean, supersededDrugIds, ip, auditStr.toString())) {
+            throw new PrescriptionSaveException(null);
+        }
 
         LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_PRESCRIPTION, scriptId, ip, "" + bean.getDemographicNo(), auditStr.toString());
 
@@ -2242,9 +2340,58 @@ public final class RxWriteScript2Action extends ActionSupport {
         return malformed + failed + refused == 0;
     }
 
+    /**
+     * Archives, as {@link Drug#REPRESCRIBED}, the rows that an earlier save of the same staged
+     * cards wrote and that this save has just replaced (#5005). Save And Print leaves its cards
+     * staged; correcting one and saving again used to leave the original and the corrected
+     * medication both active. The original stays in the history, archived like any other
+     * replaced prescription, and a separately staged new prescription is unaffected because its
+     * card has never been saved.
+     *
+     * <p>A row that is gone, or that was already archived (deleted or discontinued from the
+     * profile in the meantime), is left as it is: its own archive reason stands.</p>
+     *
+     * @return {@code false} when a row could not be archived, so the caller reports the save as
+     *         incomplete instead of leaving two active copies silently
+     */
+    boolean archiveSupersededSaves(LoggedInInfo loggedInInfo, RxSessionBean bean, Set<Integer> supersededDrugIds,
+                                   String ip, String auditStr) {
+        if (supersededDrugIds.isEmpty()) {
+            return true;
+        }
+        DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
+        int failed = 0;
+        for (int earlierId : supersededDrugIds) {
+            // The primitive selects AbstractDao#find(int), the overload the other Rx actions use.
+            Drug earlier = drugDao.find(earlierId);
+            if (earlier != null && !earlier.isArchived()) {
+                if (archiveReplacedRow(loggedInInfo, bean, earlierId)) {
+                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION,
+                            AUDIT_DRUG_ID + earlierId, ip, "" + bean.getDemographicNo(), auditStr);
+                } else {
+                    failed++;
+                }
+            }
+        }
+        if (failed > 0) {
+            // Drug ids correlate to patient records: count only.
+            logger.warn("Could not archive {} medication(s) replaced by a corrected save", failed);
+        }
+        return failed == 0;
+    }
+
+    /** Archives one replaced row; {@code false} when it was refused or the archive failed. */
+    private boolean archiveReplacedRow(LoggedInInfo loggedInInfo, RxSessionBean bean, int earlierId) {
+        try {
+            return rxManager.archiveDrug(loggedInInfo, earlierId, bean.getDemographicNo(), Drug.REPRESCRIBED);
+        } catch (RuntimeException _) {
+            return false;
+        }
+    }
+
     /** The staged card carrying the request's key, or {@code null} for a malformed or unknown key. */
     private static RxPrescriptionData.Prescription stagedCard(RxSessionBean bean, String rawKey) {
-        if (rawKey == null || !rawKey.trim().matches("\\d{1,9}")) {
+        if (rawKey == null || !rawKey.trim().matches(UP_TO_NINE_DIGITS)) {
             return null;
         }
         return bean.getStashItem2(Integer.parseInt(rawKey.trim()));
@@ -2287,9 +2434,9 @@ public final class RxWriteScript2Action extends ActionSupport {
             return ArchiveOutcome.REFUSED;
         }
         //log that this med is being re-prescribed
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, "drugid=" + sourceId, ip, "" + bean.getDemographicNo(), auditStr);
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REPRESCRIBE, LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, ip, "" + bean.getDemographicNo(), auditStr);
         //log that the med is being discontinued buy the system
-        LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, "drugid=" + sourceId, "", "" + bean.getDemographicNo(), auditStr);
+        LogAction.addLog("-1", LogConst.DISCONTINUE, LogConst.CON_MEDICATION, AUDIT_DRUG_ID + sourceId, "", "" + bean.getDemographicNo(), auditStr);
         return ArchiveOutcome.ARCHIVED;
     }
 

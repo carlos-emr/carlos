@@ -98,6 +98,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     for(RxPrescriptionData.Prescription rx : listRxDrugs ){
          String rand            = Long.toString(rx.getRandomId());
          String instructions    = rx.getSpecial();
+         int instructionRows    = instructions == null ? 1
+                 : Math.max(1, Math.min(4, instructions.trim().split("\\r\\n|\\r|\\n", -1).length));
          String specialInstruction=rx.getSpecialInstruction();
          String startDate       = RxUtil.DateToString(rx.getRxDate(), "yyyy-MM-dd");
          String writtenDate     = RxUtil.DateToString(rx.getWrittenDate(), "yyyy-MM-dd");
@@ -317,8 +319,15 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="margin-bottom:5px;">
         <div style="display:flex;align-items:center;gap:5px;">
             <a tabindex="-1" href="javascript:void(0);" onclick="showHideSpecInst('siAutoComplete_<%=rand%>')" style="width:101px;flex-shrink:0;">${i18nShowHideSpecInst}: </a>
-            <input type="text" id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
-                   value="<carlos:encode value='<%= instructions %>' context="htmlAttribute"/>" size="60" onchange="parseIntr(this);"/><a href="javascript:void(0);" tabindex="-1"
+            <%-- A textarea, not a text input: an input's value drops line breaks, so a favourite or
+                 re-prescription whose directions span two lines ran them together ("daily.O'Neil")
+                 on the card and in the saved prescription (#4996). One row for one line, so the card
+                 looks as before; Enter still opens Special Instructions, Shift+Enter adds a line.
+                 The newline after the opening tag is the one the HTML parser drops, so directions
+                 that themselves start with a line break keep it. --%>
+            <textarea id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
+                   rows="<%= instructionRows %>" cols="60" style="resize:vertical;vertical-align:middle;" onchange="parseIntr(this);">
+<carlos:encode value='<%= instructions %>' context="html"/></textarea><a href="javascript:void(0);" tabindex="-1"
                                                                                    onclick="displayMedHistory('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"
                                                                                    style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
                                                                                    title="${i18nInstructionExamples}"><b>*</b></a>
@@ -501,11 +510,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
            </div><div>
            
             <fmt:message key="WriteScript.msgPickUpDate"/>:
+            <%-- Optional: a blank pick-up date/time is valid and saves as none (#5002). --%>
             <input type="text" id="pickupDate_<%=rand%>" name="pickupDate_<%=rand%>" value="<%=pickupDate%>"
-                   onchange="if (!isValidDate(this.value)) {this.value=null}"/>
+                   onchange="checkPickupField(this, 'date');"/>
             <fmt:message key="WriteScript.msgPickUpTime"/>:
             <input type="text" id="pickupTime_<%=rand%>" name="pickupTime_<%=rand%>" value="<%=pickupTime%>"
-                   onchange="if (!isValidTime(this.value)) {this.value=null}"/>
+                   onchange="checkPickupField(this, 'time');"/>
         </div>
         <div>
             <fmt:message key="WriteScript.msgComment"/>:
@@ -719,8 +729,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     charCode=ev.keyCode;
                 }
                 var id=inField.id.split("_")[1];
-                if(charCode==13)
+                if(charCode==13) {
+                    // Directions are a textarea (#4996): plain Enter keeps its old meaning and
+                    // adds no line; Shift+Enter enters a line break.
+                    if (ev.shiftKey) return;
+                    if (ev.preventDefault) ev.preventDefault();
                     showHideSpecInst('siAutoComplete_'+id);
+                }
             }
             showHideSpecInst=function showHideSpecInst(elementId){
               var el = document.getElementById(elementId);
@@ -808,7 +823,7 @@ if(skipParseInstr) {
 <% if (CarlosProperties.getInstance().isPropertyActive("AUTOCOMPLETE_RX_INSTRUCTIONS")) { %>
 <script type="text/javascript">
 jQuery(document).ready(function() {
-	jQuery("input[id^='instructions_']").autocomplete({
+	jQuery("[id^='instructions_']").autocomplete({
 		source: function(request, response) {
 			var randId = this.element[0].id.split("_")[1];
 			jQuery.ajax({
