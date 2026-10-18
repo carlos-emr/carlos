@@ -197,6 +197,7 @@ async function workflow(s) {
   });
 
   await s.step('Move to ▸ Deleted ▸ Erase Completely removes only the ticked tickler and keeps its history', async () => {
+    await openList();
     await moveTo('D');
     await lists({ first: true, second: true, third: false });
     await offers({ complete: false, delete: false, erase: true });
@@ -207,6 +208,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.first}`) === history && history !== '0',
       'Erase Completely did not keep the erased tickler\'s status history');
     await expectValue(sql, `SELECT status FROM tickler WHERE tickler_no=${tickler.second}`, 'D', 'Erase Completely changed the unticked deleted tickler');
+    await openList();
     await moveTo('D');
     await lists({ first: false, second: true, third: false });
   });
