@@ -115,11 +115,17 @@
                 </p>
 
                 <% if (request.getAttribute("dropOpts") == null) { %>
+                <%-- Only the consultation cut-off date is a number (of months). validateForm() and
+                     provider_form_validations.js check the box with id numericFormField, so the other
+                     preferences this page sets as text (the OntarioMD username) carry their own id. --%>
                 <input type="text"
-                        id="numericFormField"
+                        id="${method eq 'saveConsultationRequestCuffOffDate' ? 'numericFormField' : 'dateProperty.value'}"
                         name="dateProperty.value"  value="${carlos:forHtmlAttribute(dateProperty.value)}" />
                 <%if (request.getAttribute("dateProperty2") != null) {%>
-                <input type="text" name="dateProperty2.value" id="dateProperty2.value" />
+                <%-- The OntarioMD password. It opens empty and an empty box keeps the stored password;
+                     new-password stops the browser filling in the CARLOS sign-in password. --%>
+                <input type="password" name="dateProperty2.value" id="dateProperty2.value" autocomplete="new-password"
+                       aria-label="<fmt:message key='Logon.passWord'/>" />
                 <%}%>
                 <% } else { %>
                 <select name="dateProperty.value" id="dateProperty.value">
