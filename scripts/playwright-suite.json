@@ -1438,6 +1438,24 @@
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that the eForm is saved for, and an imported template with a unique name: the instance and its values are deleted by the patient's key, the template by name, then the patient, and each is asserted gone. It no longer saves for demo patient 1 or leaves its template active. No clinic-wide state is changed."
     },
     {
+      "name": "eform-toolbar-fax-recipient",
+      "script": "scripts/eform-toolbar-fax-recipient-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "mutates": [
+        "eform"
+      ],
+      "notes": "eForm toolbar ▸ Fax to a recipient typed in its options (name and fax 555-0177): with an active fax account the save (eform/addEForm) carries faxEForm=true and exactly the typed recipient and number, one instance of the owned eForm is saved, and the cover page (after EFormFaxPreparation's auto-submit to fax/faxAction prepareFax) is for that instance with the typed recipient and number filled in, and its staged PDF carries the eForm's text; Cancel answers and the staged copy is no longer served. With no active account the toolbar's Fax is disabled. No fax job exists for the patient at any step, and Send is never pressed. SKIPs after the save where the eForm cannot be rendered to PDF (no eForm render browser service).",
+      "fixtures": "One owned eForm template (eform row named with the run marker) is in the clinic-wide eForm library while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Also the owned FAKE- patient; cleanup removes the template, its instances and their eform_values, and asserts them gone. Needs pdftotext."
+    },
+    {
       "name": "eform-test-pattern",
       "script": "scripts/eform-test-pattern-playwright-checks.js",
       "tiers": [

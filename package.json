@@ -104,6 +104,7 @@
     "test:eform-runtime-compat-playwright": "node scripts/eform-runtime-compat-playwright-checks.js",
     "test:eform-corpus-soak": "node scripts/eform-corpus-soak-playwright-checks.js",
     "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js",
+    "test:eform-toolbar-fax-recipient-playwright": "node scripts/eform-toolbar-fax-recipient-playwright-checks.js",
     "test:eform-test-pattern-playwright": "node scripts/eform-test-pattern-playwright-checks.js",
     "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js",
     "test:eform-apcache-renderer-playwright": "node scripts/eform-apcache-renderer-playwright-checks.js",
