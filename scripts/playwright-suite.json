@@ -5032,8 +5032,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the guideline list answers 500 (EL char coercion) and the detail page judges every condition by the first condition's cached rule.",
-      "fixtures": "Owned patient; a marker Drools guideline (dxcodes icd9:2700 AND sex F) mapped to the test provider; one dxresearch row on the owned patient; all deleted by marker or owned id."
+      "notes": "Decision Support Alerts in the chart, the guideline detail and list, a control patient, and the Dx Registry resolve. Passes on 2026.08 since #4327 (the list's 500 and the detail's per-condition evaluation).",
+      "fixtures": "Owned patient; a marker Drools guideline (dxcodes icd9:2700 AND sex F) mapped through dsGuidelineProviderMap to a throwaway login only, so no other provider sees it (the test login's chart is checked to list nothing from it); one dxresearch row on the owned patient; a second owned patient as the control. All deleted by marker or owned id; the throwaway login and its program rows go with its fixture."
     },
     {
       "name": "eform-email-attachment-binding",
