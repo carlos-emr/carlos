@@ -11854,6 +11854,23 @@
       "fixtures": "Owns a patient and one PDF document (row and file); the replacement is uploaded through the popup with the run marker in its name. All removed."
     },
     {
+      "name": "document-viewer-macro",
+      "script": "scripts/document-viewer-macro-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Runs the provider's lab macros (Preferences > Lab Recall Macros) from the document viewer's Macros menu (#4988): an acknowledge-only macro acknowledges the document with its comment and files no tickler; a run naming another patient is refused as a whole; an acknowledge + tickler macro acknowledges the document and files the tickler for the document's patient with the document attached as a document (ticklerdocs doctype D, not a lab). lab-macro-tickler covers the same macros on an HL7 lab.",
+      "fixtures": "Owns a patient, one PDF document (row, file, patient link) with a New routing row for the login's provider, and two labMacroJSON macros set on that provider for the run. The provider's macro list is restored; the ticklers (with attachments), routing row, document and file are removed and verified gone."
+    },
+    {
       "name": "messenger-reply-conversation",
       "script": "scripts/messenger-reply-conversation-playwright-checks.js",
       "tiers": [

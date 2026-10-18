@@ -372,6 +372,7 @@
     "test:admin-role-management-playwright": "node scripts/admin-role-management-playwright-checks.js",
     "test:document-refile-combine-playwright": "node scripts/document-refile-combine-playwright-checks.js",
     "test:document-edit-replace-file-playwright": "node scripts/document-edit-replace-file-playwright-checks.js",
+    "test:document-viewer-macro-playwright": "node scripts/document-viewer-macro-playwright-checks.js",
     "test:report-daysheet-labs-playwright": "node scripts/report-daysheet-labs-playwright-checks.js",
     "test:antenatal-annual-review-planner-playwright": "node scripts/antenatal-annual-review-planner-playwright-checks.js",
     "test:lab-forwarding-rules-playwright": "node scripts/lab-forwarding-rules-playwright-checks.js",
