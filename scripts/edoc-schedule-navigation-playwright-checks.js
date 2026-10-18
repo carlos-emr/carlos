@@ -425,6 +425,42 @@ async function addDocument(page, pdfPath) {
   ), { waitUntil: 'domcontentloaded', timeout: 60000 });
 }
 
+/**
+ * Delete Document dismissed at its confirmation: no DocumentDelete post, the row keeps its status and stays listed.
+ * The page's only dialog listener here is this one, so the dismiss is what checkDelete() sees.
+ */
+async function dismissDeleteDocument(page) {
+  const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
+  await row.waitFor({ state: 'visible', timeout: 15000 });
+  const state = () => sql(`SELECT GROUP_CONCAT(CONCAT_WS(':', document_no, status) ORDER BY document_no)
+    FROM document WHERE docdesc='${docDescription}'`);
+  const before = state();
+  assert(/^\d+:A$/.test(before), `The uploaded document is not one active row before the dismissed delete: ${before}`);
+  const dialogs = [];
+  let posts = 0;
+  const count = (request) => {
+    if (new URL(request.url()).pathname.endsWith('/documentManager/DocumentDelete')) posts += 1;
+  };
+  page.on('request', count);
+  page.once('dialog', (dialog) => {
+    dialogs.push({ type: dialog.type(), text: dialog.message() });
+    dialog.dismiss().catch(() => {});
+  });
+  try {
+    await row.locator('a[onclick^="checkDelete("]').first().click();
+    // Long enough for the delete form's post to start, had the page sent it.
+    await page.waitForTimeout(1500);
+  } finally {
+    page.off('request', count);
+  }
+  assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text.includes(docDescription),
+    `Delete Document did not ask once to confirm deleting the document: ${JSON.stringify(dialogs)}`);
+  assert(posts === 0, `A dismissed Delete Document still posted ${posts} time(s) to DocumentDelete`);
+  assert(state() === before, 'A dismissed Delete Document changed the document row');
+  assert((await page.locator(`a[title="${docDescription}"]`).count()) === 1,
+    'A dismissed Delete Document dropped the document from the list');
+}
+
 async function deleteDocument(page) {
   const row = page.locator('tr', { has: page.locator(`a[title="${docDescription}"]`) }).first();
   await row.waitFor({ state: 'visible', timeout: 15000 });
@@ -546,6 +582,9 @@ async function run() {
     await page.locator(`a[title="${docDescription}"]`).waitFor({ state: 'attached', timeout: 30000 });
     await screenshot(page, 'after-add');
     console.log(`document "${docDescription}" added; navigation header intact`);
+
+    await cancellation.run(() => dismissDeleteDocument(page));
+    console.log(`Delete Document dismissed at its confirmation; "${docDescription}" kept`);
 
     await cancellation.run(() => deleteDocument(page));
     assertScheduleNavRetained(page, 'after deleting a document');

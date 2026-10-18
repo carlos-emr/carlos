@@ -286,6 +286,38 @@ async function workflow(s) {
     }
   });
 
+  await s.step('Unbill dismissed at its confirmation sends nothing and leaves the bill as it was', async () => {
+    if (!history.isClosed()) await history.close();
+    history = await openHistory(s);
+    const row = historyRow(history, headerId);
+    await row.waitFor({ state: 'visible', timeout: 20000 });
+    const state = () => sql.value(`SELECT CONCAT_WS('|',
+      (SELECT CONCAT_WS(',', status, total) FROM billing_on_cheader1 WHERE id=${headerId}),
+      (SELECT GROUP_CONCAT(status) FROM billing_on_item WHERE ch1_id=${headerId}),
+      (SELECT COUNT(*) FROM billing_on_proc WHERE object=${h.sqlString(headerId)}))`);
+    const before = state();
+    const pagesBefore = s.context.pages().length;
+    let posts = 0;
+    const count = request => { if (new URL(request.url()).pathname.endsWith('/billing/CA/ON/BillingDeleteNoAppt')) posts++; };
+    s.context.on('request', count);
+    try {
+      const dialogs = await h.withExpectedDialogs(history, async () => {
+        await row.locator('a', { hasText: 'Unbill' }).first().click();
+        // Long enough for the unbill popup and its post to start, had the page sent them.
+        await history.waitForTimeout(1500);
+      }, { accept: false });
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === UNBILL_CONFIRM,
+        'Unbill must ask the bundle\'s confirmation question exactly once');
+    } finally {
+      s.context.off('request', count);
+    }
+    h.assert(posts === 0, `A dismissed Unbill still sent ${posts} request(s) to BillingDeleteNoAppt`);
+    h.assert(s.context.pages().length === pagesBefore, 'A dismissed Unbill opened the unbill popup');
+    h.assert(state() === before, 'A dismissed Unbill changed the bill, its items or its audit rows');
+    h.assert(await historyRow(history, headerId).locator('a', { hasText: 'Unbill' }).count() === 1,
+      'Billing History no longer offers Unbill for the bill after a dismissed Unbill');
+  });
+
   await s.step('Unbill asks for confirmation, marks header and items deleted and writes the audit rows', async () => {
     if (!history.isClosed()) await history.close();
     history = await openHistory(s);

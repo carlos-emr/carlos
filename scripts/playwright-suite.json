@@ -325,7 +325,8 @@
         "APPOINTMENT_DAYS_AHEAD",
         "APPOINTMENT_DEMOGRAPHIC_NO",
         "APPOINTMENT_PROVIDER_NO"
-      ]
+      ],
+      "notes": "Two confirmations are dismissed before the accepted ones: Cancel Appt on the appointment marked billed (status B, the one case that asks) and Delete; each sends no UpdateRecord or DeleteRecord and leaves the appointment and the archive as they were (coverage plan Task 38). Update & Receipt reads the receipt PDF with pdftotext."
     },
     {
       "name": "appointment-cancel-no-show",
@@ -1101,7 +1102,8 @@
       "env": [
         "EDOC_NAV_DOCUMENT_STORE",
         "EDOC_NAV_SCREENSHOT_DIR"
-      ]
+      ],
+      "notes": "Before the delete that is accepted, Delete Document is dismissed at its confirmation: no DocumentDelete post, and the document row keeps status A and stays listed (coverage plan Task 38)."
     },
     {
       "name": "eform-admin",
@@ -4986,7 +4988,7 @@
         "BILLING_CORRECTION_CODE"
       ],
       "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record ▸ Billing History; owned rows removed.",
-      "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403)."
+      "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403). Before the Unbill that is accepted, one is dismissed at its confirmation: no BillingDeleteNoAppt request, no popup, and the header, items and billing_on_proc rows are unchanged (coverage plan Task 38)."
     },
     {
       "name": "demographic-report-favourites",
@@ -5996,7 +5998,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token.",
+      "notes": "Fails on 2026.08: Restore posts a JavaScript-built form without a CSRF token (403); independent Delete is also rejected for a missing token. Before the patient list Delete that is accepted, one is dismissed at its confirmation: no removeEForm post and the instance stays current and listed (coverage plan Task 38).",
       "fixtures": "A patient-bound and a patient-independent marker template, the patient eForm saved through the UI and two seeded independent instances; those fdids, their eform_values rows and the templates are removed."
     },
     {
