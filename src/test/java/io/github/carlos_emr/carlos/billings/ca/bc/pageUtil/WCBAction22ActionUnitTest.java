@@ -135,4 +135,47 @@ class WCBAction22ActionUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getProvider_no()).isEqualTo("97001");
         assertThat(response.getStatus()).isNotEqualTo(405);
     }
+
+    @ParameterizedTest(name = "wcbFormId={0}")
+    @ValueSource(strings = {"7", " 12 ", "0.5"})
+    @DisplayName("should refuse a save that names a saved form, and write nothing")
+    void shouldRefuseWithoutSaving_forSavedFormId(String formId) throws Exception {
+        request.setMethod("POST");
+        WCBAction22Action action = postedForm();
+        action.setWcbFormId(formId);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        verifyNoInteractions(billingmasterDao);
+    }
+
+    @ParameterizedTest(name = "wcbFormId={0}")
+    @ValueSource(strings = {"0", " 0 ", ""})
+    @DisplayName("should save a new form, which posts no saved form id")
+    void shouldSaveTheForm_forNewFormId(String formId) throws Exception {
+        request.setMethod("POST");
+        WCBAction22Action action = postedForm();
+        action.setWcbFormId(formId);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        verify(billingmasterDao).save(any(WCB.class));
+        assertThat(response.getStatus()).isNotEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should send a plain Save to the saved form's own view")
+    void shouldRedirectToSavedForm_forPlainSave() throws Exception {
+        request.setMethod("POST");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.<WCB>getArgument(0).setId(88);
+            return null;
+        }).when(billingmasterDao).save(any(WCB.class));
+
+        assertThat(postedForm().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/carlos/billing/CA/BC/viewformwcb?demographic_no=42&formId=88&provNo=97001");
+    }
 }

@@ -72,7 +72,7 @@ public class ViewWCB2Action extends ActionSupport {
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
+    public String execute() throws java.io.IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
@@ -80,6 +80,12 @@ public class ViewWCB2Action extends ActionSupport {
         String providerNo = request.getParameter("provNo");
         BillingFormData data = new BillingFormData();
         String formId = request.getParameter("formId");
+        // Without a numeric formId there is no form to open; an absent one used to be read as a saved form and
+        // failed on a null bean (#4947).
+        if (formId == null || !formId.matches("\\d+")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         // formwcb.jsp reads its fields from this bean (request attribute "WCBForm"); nothing set it since the
         // page left Struts 1, so every open of the page failed on a null bean (#4864).
         WCBForm form = new WCBForm();
@@ -142,7 +148,12 @@ public class ViewWCB2Action extends ActionSupport {
             // rest of BC billing uses.
             BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
-            form.setWCBForms(billingmasterDAO.getWCBForm(formId));
+            WCB saved = billingmasterDAO.getWCBForm(formId);
+            if (saved == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            form.setWCBForms(saved);
         }
         request.setAttribute("WCBForm", form);
         return SUCCESS;

@@ -255,6 +255,18 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should offer no save button on a saved form's read-only view, and name the form in wcbFormId")
+    void shouldHideSaveButtons_forReadOnlyView() {
+        int guard = jsp.indexOf("<% if (!readonly) { %>");
+        assertThat(guard).as("the read-only guard").isPositive();
+        int close = jsp.indexOf("<% } %>", guard);
+        for (String button : List.of("name=\"save\"", "name=\"saveAndClose\"", "name=\"saveandbill\"")) {
+            assertThat(jsp.indexOf(button)).as("%s sits inside the guard", button).isBetween(guard, close);
+        }
+        assertThat(jsp).contains("name=\"wcbFormId\" id=\"wcbFormId\" value=\"<carlos:encode value='<%= bound.getWcbFormId() %>'");
+    }
+
+    @Test
     @DisplayName("should name the form WCBForm, which the page's lookups and scripts address it by")
     void shouldNameTheForm_forItsLookupsAndScripts() {
         assertThat(jsp).contains("<form name=\"WCBForm\" " + FORM_ACTION)

@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -92,6 +94,13 @@ public class WCBAction22Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        // A save always stores a new row, so a form that names a saved one (the read-only view of it) would store a
+        // second copy of it. A new form posts "0" or nothing (#4947).
+        if (wcbFormId != null && !wcbFormId.isBlank() && !"0".equals(wcbFormId.trim())) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "A saved WCB form cannot be saved again.");
+            return NONE;
+        }
+
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
 
         // The web context holds two beans of this type (the scanned billingmasterDAO and
@@ -140,7 +149,12 @@ public class WCBAction22Action extends ActionSupport {
 
 
         MiscUtils.getLogger().debug("OVER AND OUT.");
-        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/viewformwcb");
+        // A plain Save shows the saved form (read only); viewformwcb needs the form's own patient, id and provider
+        // to find it (#4947).
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/viewformwcb"
+                + "?demographic_no=" + URLEncoder.encode(String.valueOf(wcb.getDemographic_no()), StandardCharsets.UTF_8)
+                + "&formId=" + URLEncoder.encode(String.valueOf(wcb.getId()), StandardCharsets.UTF_8)
+                + "&provNo=" + URLEncoder.encode(String.valueOf(wcb.getProvider_no()), StandardCharsets.UTF_8));
         return NONE;
     }
 

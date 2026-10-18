@@ -38,6 +38,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -70,6 +73,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
     private static final String PROVIDER = "97001";
 
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LegacyJdbcQuery> jdbc;
     private DemographicManager demographics;
@@ -84,7 +88,8 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(session, login);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
-        servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        response = new MockHttpServletResponse();
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
 
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), eq("_billing"), eq("r"), any())).thenReturn(true);
@@ -127,7 +132,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         return demographic;
     }
 
-    private WCBForm open(String formId) {
+    private WCBForm open(String formId) throws Exception {
         request.setParameter("demographic_no", PATIENT);
         request.setParameter("provNo", PROVIDER);
         request.setParameter("formId", formId);
@@ -139,7 +144,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should give a new form the patient's details and the billing provider's numbers")
-    void shouldPrefillNewForm_fromPatientAndProvider() {
+    void shouldPrefillNewForm_fromPatientAndProvider() throws Exception {
         patient("V6B 1A1");
 
         WCBForm form = open("0");
@@ -161,7 +166,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should open a new form for a patient without a postal code")
-    void shouldOpenNewForm_forPatientWithoutPostalCode() {
+    void shouldOpenNewForm_forPatientWithoutPostalCode() throws Exception {
         patient(null);
 
         WCBForm form = open("0");
@@ -172,7 +177,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should give an existing form its saved values, read only")
-    void shouldShowSavedValues_forExistingForm() {
+    void shouldShowSavedValues_forExistingForm() throws Exception {
         WCB saved = new WCB();
         saved.setDemographic_no(Integer.parseInt(PATIENT));
         saved.setW_lname("FAKE-PW-saved");
@@ -197,5 +202,33 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(form.getW_problem()).isEqualTo("FAKE problem text");
         assertThat(form.getW_duration()).isEqualTo("2");
         assertThat(form.getFormNeeded()).isEqualTo("true");
+    }
+
+    @ParameterizedTest(name = "formId={0}")
+    @NullSource
+    @ValueSource(strings = {"", "abc", "-1"})
+    @DisplayName("should answer 400, not fail on a null form, when no saved form is named")
+    void shouldRefuse_forMissingOrNonNumericFormId(String formId) throws Exception {
+        request.setParameter("demographic_no", PATIENT);
+        request.setParameter("provNo", PROVIDER);
+        if (formId != null) {
+            request.setParameter("formId", formId);
+        }
+
+        assertThat(new ViewWCB2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("WCBForm")).isNull();
+    }
+
+    @Test
+    @DisplayName("should answer 404 when the named form does not exist")
+    void shouldAnswerNotFound_forUnknownFormId() throws Exception {
+        request.setParameter("formId", "999");
+        when(billingmasterDao.getWCBForm("999")).thenReturn(null);
+
+        assertThat(new ViewWCB2Action().execute()).isEqualTo("none");
+
+        assertThat(response.getStatus()).isEqualTo(404);
     }
 }

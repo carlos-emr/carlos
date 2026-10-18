@@ -470,7 +470,9 @@
                value="<%= SafeEncode.forHtmlAttribute(form.getProviderNo()) %>"/>
         <input type="hidden" name="bNewForm" value="1"/>
         <input type="hidden" name="fromBilling" value="<carlos:encode value='<%= fromBilling %>' context="htmlAttribute"/>"/>
-        <input type="hidden" name="wcbFormId" id="wcbFormId"/>
+        <%-- Names the form this page shows: "0" for a new one, the saved form's id otherwise. The save refuses a saved
+             form's id, since a save always stores a new row (#4947). --%>
+        <input type="hidden" name="wcbFormId" id="wcbFormId" value="<carlos:encode value='<%= bound.getWcbFormId() %>' context="htmlAttribute"/>"/>
 
         <%
             java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
@@ -824,11 +826,14 @@
                 <%if (hideToBill) { %>
                 <hidden name="hideToBill" value="true"/>
                 <%}%>
+                <%-- A saved form opens for viewing only: a save stores a new copy rather than updating it (#4947). --%>
+                <% if (!readonly) { %>
                 <input type="submit" name="save" value="Save"/>|
                 <input type="submit" name="saveAndClose" value="Save and Close"/>|
                 <%if (!hideToBill) {%>
                 <input type="submit" name="saveandbill" value="Save and Bill"/>|
                 <%}%>
+                <% } %>
                 <input type="button" value="Cancel" onClick="window.close();"/> |
                 <input type="button" value="Print" onClick="window.print()"/>
             </td>
