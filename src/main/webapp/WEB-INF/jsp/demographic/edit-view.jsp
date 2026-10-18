@@ -629,8 +629,9 @@
                                                                                 <c:if test="${ not empty patientConsent.optout}">
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
+                                    <%-- The popup shows the consent type's description as text. --%>
                           			<span class="popup label"
-                                          onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
+                                          onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtml(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
 									</span>
 
