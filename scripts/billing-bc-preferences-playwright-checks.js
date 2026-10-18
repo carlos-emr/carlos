@@ -172,8 +172,15 @@ async function workflow(s) {
       `billing_preferences holds ${JSON.stringify(rows.pref)}, not referral 2 and the custom payee`);
     const expected = {
       default_billing_form: choice.form, default_billing_provider: 'clinicdefault', bc_default_service_location: choice.location,
-      invoice_payee_info: choice.payeeInfo, invoice_payee_display_clinic: 'false', auto_populate_refer: String(!globalAutoPopulate),
+      invoice_payee_info: choice.payeeInfo, invoice_payee_display_clinic: 'false',
     };
+    // While the clinic-wide setting is on, the box is disabled and Save keeps the provider's own row, which a new
+    // throwaway does not have; otherwise the ticked box is stored.
+    if (globalAutoPopulate) {
+      h.assert(!('auto_populate_refer' in rows.props), `auto_populate_refer was stored as ${JSON.stringify(rows.props.auto_populate_refer)} while the clinic-wide setting is on`);
+    } else {
+      expected.auto_populate_refer = 'true';
+    }
     for (const [name, value] of Object.entries(expected)) {
       h.assert(rows.props[name] === value, `${name} is stored as ${JSON.stringify(rows.props[name])}, not ${JSON.stringify(value)}`);
     }
