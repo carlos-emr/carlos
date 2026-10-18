@@ -7918,6 +7918,21 @@
       "fixtures": "Owned patient, isolated provider/group/preferences and one copied appointment; appointment/archive rows, group/preferences and owned page locks are removed and verified."
     },
     {
+      "name": "appointment-slot-lock-non-admin",
+      "script": "scripts/appointment-slot-lock-non-admin-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Requires appointment_locking_timeout>0 (skips otherwise). Three throwaway logins share one Add Appointment slot: the owner (the test login's roles) holds it, then two bookers without the admin right (doctor role) each see it locked with Add/Repeat/Group hidden, take it over in turn, and A's patient Search works again after a time change. Fails at 'booker A without the admin right sees the slot locked and cannot book' on 2026.08 and develop: the slot-lock refresh refuses users without the admin right, so such a booker never sees the lock (#4917).",
+      "fixtures": "Three throwaway logins (the owner with the test login's roles; A and B with only the doctor role), the owner's schedule group and preferences, and the page-lock rows the three sessions write; all are keyed to the throwaway provider numbers and removed and verified at teardown. Nothing is booked."
+    },
+    {
       "name": "gap-provider-appointment-type-booking",
       "script": "scripts/gap-provider-appointment-type-booking-playwright-checks.js",
       "tiers": [
