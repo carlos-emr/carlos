@@ -2480,7 +2480,7 @@
       ],
       "timeoutSec": 240,
       "fixtures": "Two report_letters templates inserted with the run marker in their names, owned by the test provider, with a tiny FAKE file; cleanup deletes both by id and asserts none remain. No clinic-wide state is changed.",
-      "notes": "Manage Letters' Delete (report/DeleteLetter), reached from the Master Record's Print / Labels ▸ Generate Letters. Steps: the page lists both owned templates with Download and Delete; Delete on the first reloads the page without it and keeps its row archived (archive '1'), while the second stays listed; LAST, Generate Letters' letter choice offers the second and not the first. patient-letters-envelopes uploads and downloads a template, and patient-letters-entry reaches the page; neither deletes one."
+      "notes": "Manage Letters' Delete (report/DeleteLetter), reached from the Master Record's Print / Labels ▸ Generate Letters. Steps: the page lists both owned templates with Download and Delete; Delete on the first reloads the page without it and keeps its row archived (archive '1'), while the second stays listed; then Generate Letters' letter choice offers the second and not the first; LAST, Manage Letters shows its title, labels, headings and buttons, not raw ???message keys???. The last step fails until pending finding 385 (#4929) is fixed. patient-letters-envelopes uploads and downloads a template, and patient-letters-entry reaches the page; neither deletes one."
     },
     {
       "name": "rx-fax-pharmacy-phone",

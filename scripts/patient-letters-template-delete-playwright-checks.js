@@ -8,7 +8,8 @@
 // User path: Schedule ▸ Search ▸ Master Record ▸ Print / Labels ▸ Generate Letters ▸ Manage Letters ▸ Delete.
 //   1. Manage Letters lists both owned templates, each with its Download link and Delete button;
 //   2. Delete on the first reloads the page without it and keeps its row, archived; the second stays listed;
-//   3. LAST: Generate Letters' letter choice offers the second template and not the first.
+//   3. Generate Letters' letter choice offers the second template and not the first;
+//   4. LAST: Manage Letters shows its title, labels, headings and buttons, not raw ???message keys???.
 // Fixtures: two report_letters rows inserted with the run marker in their names, owned by the test provider, each
 // with a tiny FAKE file. Cleanup deletes both rows by id and asserts none remain. Needs the _report read right.
 const h = require('./lib/playwright-harness');
@@ -51,8 +52,11 @@ async function workflow(s) {
   const letters = await openLetters('patient letters');
   await ui.clickAndAwaitReload(letters, letters.locator('a[href$="/report/ViewManageLetters"]'), { label: 'Manage Letters' });
   await h.assertNotErrorPage(letters, 'Manage Letters');
-  const row = template => letters.locator('tbody tr').filter({ hasText: template.name });
-  const deleteButton = template => row(template).locator('form[action$="/report/DeleteLetter"] button[type="submit"]');
+  const rowOn = (page, template) => page.locator('tbody tr').filter({ hasText: template.name });
+  const deleteButtonOn = (page, template) =>
+    rowOn(page, template).locator('form[action$="/report/DeleteLetter"] button[type="submit"]');
+  const row = template => rowOn(letters, template);
+  const deleteButton = template => deleteButtonOn(letters, template);
 
   await s.step('Manage Letters lists both owned templates, each with its Download link and Delete button', async () => {
     for (const template of [first, second]) {
@@ -78,7 +82,6 @@ async function workflow(s) {
     h.assert(archive(second) === '0', `The other template's row reads archive "${archive(second)}", not "0"`);
   });
 
-  // Last: what the letter choice offers after the delete.
   await s.step('Generate Letters\' letter choice offers the second template and not the first', async () => {
     await letters.close();
     const again = await openLetters('patient letters again');
@@ -90,6 +93,23 @@ async function workflow(s) {
     h.assert(!offered.some(option => option.value === String(first.id)),
       `Generate Letters still offers the deleted template ${first.name}`);
     await again.close();
+  });
+
+  // Last: it reads the page's text only, so a failure here leaves the steps above standing.
+  await s.step('Manage Letters shows its title, labels, headings and buttons, not message keys', async () => {
+    const generate = await openLetters('patient letters for the labels');
+    await ui.clickAndAwaitReload(generate, generate.locator('a[href$="/report/ViewManageLetters"]'), { label: 'Manage Letters' });
+    await h.assertNotErrorPage(generate, 'Manage Letters');
+    // Button inputs (Upload) carry their label in value, which innerText leaves out.
+    const buttonValues = await generate.locator('input[type="submit"], input[type="button"]').evaluateAll(inputs =>
+      inputs.map(input => input.value).join(' '));
+    const text = `${await generate.title()} ${await generate.locator('body').innerText()} ${buttonValues}`;
+    const keys = [...new Set(text.match(/\?\?\?[^?\s]+\?\?\?/g) || [])];
+    h.assert(keys.length === 0, `Manage Letters shows ${keys.length} message key(s) instead of text: ${keys.join(', ')}`);
+    h.assert(await generate.title() === 'Manage Letters', `Manage Letters is titled "${await generate.title()}"`);
+    h.assert(await deleteButtonOn(generate, second).innerText() === 'Delete',
+      `The Delete button reads "${await deleteButtonOn(generate, second).innerText()}"`);
+    await generate.close();
   });
 }
 
