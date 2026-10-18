@@ -76,6 +76,6 @@ non-pass outcomes and the server-error audit.
 
 The Info fallback check requires a readable application/DrugRef log source:
 `LAB_UPLOAD_JOURNAL_UNIT=carlos-emr` in the systemd container, or the documented
-`LAB_UPLOAD_LOG_FILE` alternative. It reads from a cursor taken before the
+`LAB_UPLOAD_SERVER_LOG` alternative. It reads from a cursor taken before the
 missing-DIN request. A deployment without that source skips the log assertion;
 this validation provided the journal source and reproduced finding 308.

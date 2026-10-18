@@ -418,3 +418,13 @@ After the final Info assertion was added, all 84 manifest, issue-register and
 server-log reader checks pass. The live Info reproduction reaches its exact
 finding-308 assertion with no skip or unexpected failure. The earlier 152-check
 static selection and its raw results are retained in the evidence archive.
+
+## Issue and PR tracking completed
+
+The [tracking audit](defect-tracking-2026-10-18.md) maps every campaign finding
+and the three reconfirmed older defects to a specific issue. It reuses seven
+existing tickets (four have open release PRs) and creates 13 focused tickets for
+21 previously untracked findings. Related RH, tickler, favourite and input
+validation findings are grouped; the source-only RH handler remains explicitly
+blocked. No finding is marked fixed merely because a PR exists. All created
+tickets were read back and verified, and the issue register carries their URLs.
