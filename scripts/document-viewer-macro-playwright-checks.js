@@ -42,8 +42,9 @@ async function workflow(s) {
 
   const owned = () => ({ sql, marker, patient, docs: [doc], files: [doc.file] });
   const propertyWhere = `provider_no=${h.sqlString(provider)} AND name='labMacroJSON'`;
-  const macrosBefore = sql.value(`SELECT COUNT(*) FROM property WHERE ${propertyWhere}`) === '0'
-    ? null : sql.value(`SELECT IFNULL(value,'') FROM property WHERE ${propertyWhere} ORDER BY id DESC LIMIT 1`);
+  // property has no uniqueness on (provider_no, name): keep every row's own value, by id, so cleanup
+  // restores each one rather than writing the newest value over all of them.
+  const macrosBefore = sql.rows(`SELECT id, IFNULL(value,'') FROM property WHERE ${propertyWhere} ORDER BY id`);
   const ticklerIds = () => sql.rows(`SELECT tickler_no FROM tickler WHERE message=${h.sqlString(ticklerMessage)} ORDER BY tickler_no`).map(row => row[0]);
   const routingStatus = () => sql.value(`SELECT CONCAT(status,'|',IFNULL(comment,'')) FROM providerLabRouting
     WHERE lab_no=${doc.id} AND lab_type='DOC' AND provider_no=${h.sqlString(provider)} ORDER BY id DESC LIMIT 1`);
@@ -54,8 +55,8 @@ async function workflow(s) {
         DELETE FROM tickler WHERE tickler_no=${Number(id)}`);
     }
     if (doc.id) sql.execute(`DELETE FROM providerLabRouting WHERE lab_no=${Number(doc.id)} AND lab_type='DOC'`);
-    if (macrosBefore === null) sql.execute(`DELETE FROM property WHERE ${propertyWhere}`);
-    else sql.execute(`UPDATE property SET value=${h.sqlString(macrosBefore)} WHERE ${propertyWhere}`);
+    if (macrosBefore.length === 0) sql.execute(`DELETE FROM property WHERE ${propertyWhere}`);
+    else for (const [id, value] of macrosBefore) sql.execute(`UPDATE property SET value=${h.sqlString(value)} WHERE id=${Number(id)}`);
     removeOwnedPdfDocuments(owned());
     assertOwnedPdfDocumentsRemoved(owned());
     h.assert(ticklerIds().length === 0, 'The macro ticklers were not removed');
@@ -64,7 +65,7 @@ async function workflow(s) {
   seedOwnedPdfDocuments({ sql, store, patient, provider, docs: [doc] });
   const macrosJson = JSON.stringify([ackOnly, withTickler]);
   h.assert(macrosJson.length < 2000, 'The macro fixture does not fit the property column');
-  if (macrosBefore === null) {
+  if (macrosBefore.length === 0) {
     sql.execute(`INSERT INTO property (name,value,provider_no) VALUES ('labMacroJSON',${h.sqlString(macrosJson)},${h.sqlString(provider)})`);
   } else {
     sql.execute(`UPDATE property SET value=${h.sqlString(macrosJson)} WHERE ${propertyWhere}`);
