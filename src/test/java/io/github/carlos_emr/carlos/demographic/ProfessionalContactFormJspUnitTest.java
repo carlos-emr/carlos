@@ -80,6 +80,21 @@ class ProfessionalContactFormJspUnitTest {
     }
 
     @Test
+    void shouldHandTheContactToTheContactsEditorRow_throughTheEncodedParentFields() throws IOException {
+        // #4987: the Contacts editor has no popUpData, so the form fills the row the search was opened for.
+        assertThat(quotedScriptValues()).contains(
+                "${carlos:forJavaScript(param.parentForm)}",
+                "${carlos:forJavaScript(param.parentElementId)}",
+                "${carlos:forJavaScript(param.parentElementName)}");
+        String page = Files.readString(PAGE, StandardCharsets.UTF_8);
+        assertThat(page).contains("typeof opener.popUpData === 'function'", "fillParentFields(contactId, contactName)");
+        assertThat(page).contains(
+                "name=\"parentForm\" value=\"${carlos:forHtmlAttribute(param.parentForm)}\"",
+                "name=\"parentElementId\" value=\"${carlos:forHtmlAttribute(param.parentElementId)}\"",
+                "name=\"parentElementName\" value=\"${carlos:forHtmlAttribute(param.parentElementName)}\"");
+    }
+
+    @Test
     void shouldKeepANameWithAnApostrophe_inOneScriptString() {
         assertThat(SafeEncode.forJavaScript("O'Brien, Team")).doesNotContain("'").contains("Brien, Team");
     }

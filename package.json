@@ -235,6 +235,7 @@
     "test:allergy-partial-start-date-playwright": "node scripts/allergy-partial-start-date-playwright-checks.js",
     "test:allergy-injected-form-csrf-playwright": "node scripts/allergy-injected-form-csrf-playwright-checks.js",
     "test:contact-lifecycle-playwright": "node scripts/contact-lifecycle-playwright-checks.js",
+    "test:contact-external-professional-playwright": "node scripts/contact-external-professional-playwright-checks.js",
     "test:consultation-directory-crud-playwright": "node scripts/consultation-directory-crud-playwright-checks.js",
     "test:measurement-history-playwright": "node scripts/measurement-history-playwright-checks.js",
     "test:provider-preferences-playwright": "node scripts/provider-preferences-playwright-checks.js",
