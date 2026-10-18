@@ -279,6 +279,7 @@
     "test:pharmacy-editor-workflow-playwright": "node scripts/pharmacy-editor-workflow-playwright-checks.js",
     "test:incoming-pdf-extraction-playwright": "node scripts/incoming-pdf-extraction-playwright-checks.js",
     "test:rh-form-workflow-playwright": "node scripts/rh-form-workflow-playwright-checks.js",
+    "test:form-bc-antenatal-record-playwright": "node scripts/form-bc-antenatal-record-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
     "test:billing-bc-settle-paid-claims-playwright": "node scripts/billing-bc-settle-paid-claims-playwright-checks.js",
     "test:billing-bc-account-reports-playwright": "node scripts/billing-bc-account-reports-playwright-checks.js",
