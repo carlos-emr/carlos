@@ -422,6 +422,7 @@
     "test:demographic-cds-import-playwright": "node scripts/demographic-cds-import-playwright-checks.js",
     "test:admin-sites-clinic-numbers-playwright": "node scripts/admin-sites-clinic-numbers-playwright-checks.js",
     "test:consultation-appointment-time-playwright": "node scripts/consultation-appointment-time-playwright-checks.js",
+    "test:consultation-appointment-clear-will-book-playwright": "node scripts/consultation-appointment-clear-will-book-playwright-checks.js",
     "test:admin-manage-sites-playwright": "node scripts/admin-manage-sites-playwright-checks.js",
     "test:consultation-edit-status-playwright": "node scripts/consultation-edit-status-playwright-checks.js",
     "test:consultation-submit-and-fax-playwright": "node scripts/consultation-submit-and-fax-playwright-checks.js",

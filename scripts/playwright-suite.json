@@ -12942,6 +12942,26 @@
       "notes": "Fails on develop at the two Print steps: Print prints the appointment minute without its leading zero (15:05 as 3:5 PM, a typed 16:05 as 4:5 PM), pending finding 330 (#4787; release fix #4791). The 12 AM / 12 PM save-and-reopen steps pass."
     },
     {
+      "name": "consultation-appointment-clear-will-book",
+      "script": "scripts/consultation-appointment-clear-will-book-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ],
+      "notes": "Consultation request (Schedule ▸ Consultations ▸ the referral): the × beside the appointment time empties the time box and its hidden hour and minute; with the date still set, Update is refused (\"Please enter appointment time…\") and nothing is posted or changed; clearing the date too, Update saves the referral with no appointment date or time, and the reopened referral shows neither. Where CONSULTATION_PATIENT_WILL_BOOK=true, ticking Patient will book disables the appointment date fields, Update stores the flag and the reopened referral shows it ticked, and unticking and Update clears it. Where the setting is off (the packaged default) the box isn't rendered, and the check asserts it is absent and the date stays editable.",
+      "fixtures": "The owned consultation service, consultant and their link are in the clinic-wide service and consultant pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). FAKE- patient, service, consultant, link and one referral with a date and time seeded by SQL; cleanup deletes the referral with its archive / ext rows, the consultation signature an update records for the patient, and every owned row, and asserts them gone."
+    },
+    {
       "name": "admin-manage-sites",
       "script": "scripts/admin-manage-sites-playwright-checks.js",
       "tiers": [
