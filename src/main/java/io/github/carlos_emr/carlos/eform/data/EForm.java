@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import jakarta.servlet.http.HttpSession;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -425,7 +426,17 @@ public class EForm extends EFormBase {
     }
 
     // --------------------------Setting oscarOPEN behaviours ----------------------------------------
-    public void setOscarOPEN(String requestURI) {
+    /**
+     * Gives each {@code oscarOPEN} button the {@code onclick} that opens its eForm
+     * ({@link EFormLoader#getOpenEform}).
+     *
+     * @param route      the page's public route, {@code <context>/eform/efmformadd_data} or
+     *                   {@code <context>/eform/efmshowform_data}. Not the request URI: the page is
+     *                   rendered by an internal JSP, whose URI the browser cannot open
+     * @param session    the session the buttons' links are issued in
+     * @param providerNo the signed-in provider
+     */
+    public void setOscarOPEN(String route, HttpSession session, String providerNo) {
         StringBuilder html = new StringBuilder(this.formHtml);
         EFormLoader.getInstance();
         String opener = EFormLoader.getOpener(); // default: opener: "oscarOPEN="
@@ -443,7 +454,7 @@ public class EForm extends EFormBase {
             // sets up the pointer where to write the value
             String fdid = EFormUtil.removeQuotes(EFormUtil.getAttribute(OPENER_VALUE, fieldHeader));
             EFormLoader.getInstance();
-            String onclick = EFormLoader.getOpenEform(requestURI, fdid, EFormUtil.removeQuotes(efmName), fieldName, this);
+            String onclick = EFormLoader.getOpenEform(route, fdid, EFormUtil.removeQuotes(efmName), fieldName, this, providerNo, session);
             int pointer = EFormUtil.getAttributePos("onclick", fieldHeader);
             String type = pointer < 0 ? "onclick" : "onclick_append";
             if (pointer < 0) {

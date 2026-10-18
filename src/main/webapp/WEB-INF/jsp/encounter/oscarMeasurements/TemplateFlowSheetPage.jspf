@@ -609,6 +609,12 @@ div.recommendations ul{
                     RxPrescriptionData prescriptData = new RxPrescriptionData();
                     RxPrescriptionData.Prescription [] arr = {};
                     arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(demographic_no));
+                    // Drugs are linked by ATC code. A drug already linked to this flowsheet is shown as linked, like
+                    // a linked diagnosis, rather than offered again; one without an ATC code has nothing to link by.
+                    Set<String> linkedAtcCodes = new HashSet<>();
+                    for (FlowSheetDrug linkedDrug : flowSheetDrugDao.getFlowSheetDrugs(temp, Integer.parseInt(demographic_no))) {
+                        linkedAtcCodes.add(linkedDrug.getAtcCode());
+                    }
                     if (arr.length > 0){%>
                 <ul>
                     <%for (int i = 0; i < arr.length; i++){
@@ -618,17 +624,24 @@ div.recommendations ul{
                         rxP = rxP + "   " + arr[i].getEndDate();
                         String styleColor = "";
                         if(arr[i].isCurrent()){
+                            String rxAtc = arr[i].getAtcCode();
                     %>
                     <li title="<carlos:encode value='<%= rxD %>' context="htmlAttribute"/> - <carlos:encode value='<%= rxP %>' context="htmlAttribute"/>">
+                        <% if (rxAtc != null && linkedAtcCodes.contains(rxAtc)) { %>
+                            <span style="background-color: yellow;">- <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/></span>
+                        <% } else if (rxAtc == null || rxAtc.isBlank()) { %>
+                            - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
+                        <% } else { %>
                             <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
                                 <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
-                                <input type="hidden" name="atcCode" value="<carlos:encode value='<%= arr[i].getAtcCode() %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="atcCode" value="<carlos:encode value='<%= rxAtc %>' context="htmlAttribute"/>"/>
                                 <a href="javascript:void(0);" onclick="this.closest('form').submit();">
                                 - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
                                 </a>
                             </form>
+                        <% } %>
                     </li>
                     <%  }
                     }%>

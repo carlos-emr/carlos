@@ -56,11 +56,11 @@
 
             function captureParameters(id) {
 
-                var keyword = '${ param.keyword }';
+                var keyword = '${carlos:forJavaScript(param.keyword)}';
                 var keywordLastName = null;
                 var keywordFirstName = null;
-                var firstName = '${ pcontact.firstName }';
-                var lastName = '${ pcontact.lastName }';
+                var firstName = '${carlos:forJavaScript(pcontact.firstName)}';
+                var lastName = '${carlos:forJavaScript(pcontact.lastName)}';
 
                 if (keyword && keyword.includes(",")) {
                     keywordLastName = keyword.split(",")[0].trim();
@@ -79,11 +79,11 @@
 
             function forwardToParent() {
 
-                var contactId = '${ requestScope.contactId }'; // server returns the id that was saved.
-                var demographicContactId = '${ requestScope.demographicContactId }';
-                var contactRole = '${ requestScope.contactRole }';
-                var contactName = '${ requestScope.contactName }';
-                var contactType = '${ requestScope.contactType }';
+                var contactId = '${carlos:forJavaScript(requestScope.contactId)}'; // server returns the id that was saved.
+                var demographicContactId = '${carlos:forJavaScript(requestScope.demographicContactId)}';
+                var contactRole = '${carlos:forJavaScript(requestScope.contactRole)}';
+                var contactName = '${carlos:forJavaScript(requestScope.contactName)}';
+                var contactType = '${carlos:forJavaScript(requestScope.contactType)}';
 
                 if (contactId) {
 
@@ -96,7 +96,14 @@
                     data.contactType = contactType;
 
                     try {
-                        if (opener.popUpData(JSON.stringify(data))) {
+                        if (typeof opener.popUpData === 'function') {
+                            // The Health Care Team panel takes the whole contact and links it to the patient.
+                            if (opener.popUpData(JSON.stringify(data))) {
+                                this.window.close()
+                            }
+                        } else if (fillParentFields(contactId, contactName)) {
+                            // The Contacts editor only has an id and a name field on the row being filled: choose the
+                            // saved contact there, the same as picking it from the search list (#4987).
                             this.window.close()
                         }
                     } catch (error) {
@@ -104,6 +111,23 @@
                     }
 
                 }
+            }
+
+            /**
+             * Puts the saved contact's id and name in the opener's row, as the search popup does for a picked result.
+             * Returns false when the opener named no row to fill.
+             */
+            function fillParentFields(contactId, contactName) {
+                var parentForm = '${carlos:forJavaScript(param.parentForm)}';
+                var parentElementId = '${carlos:forJavaScript(param.parentElementId)}';
+                var parentElementName = '${carlos:forJavaScript(param.parentElementName)}';
+                if (!parentForm || !parentElementId || !parentElementName) {
+                    return false;
+                }
+                var elements = opener.document.forms[parentForm].elements;
+                elements[parentElementId].value = contactId;
+                elements[parentElementName].value = contactName;
+                return true;
             }
 
             function onSearch() {
@@ -214,7 +238,10 @@
         <input type="hidden" name="demographicContactId" value="${ demographicContactId }"/>
         <input type="hidden" name="keywordFirstName" id="keywordFirstName" value=""/>
         <input type="hidden" name="keywordLastName" id="keywordLastName" value=""/>
-        <input type="hidden" name="contactType" id="contactType" value="${ param.contactType }"/>
+        <input type="hidden" name="contactType" id="contactType" value="${carlos:forHtmlAttribute(param.contactType)}"/>
+        <input type="hidden" name="parentForm" value="${carlos:forHtmlAttribute(param.parentForm)}"/>
+        <input type="hidden" name="parentElementId" value="${carlos:forHtmlAttribute(param.parentElementId)}"/>
+        <input type="hidden" name="parentElementName" value="${carlos:forHtmlAttribute(param.parentElementName)}"/>
 
         <table width="100%" border="0" cellspacing="2" cellpadding="2">
             <tr>
@@ -224,7 +251,7 @@
                 <td align="right"><b><fmt:message key="demographic.contactForm.lastName"/></b></td>
                 <td>
                     <input type="text" name="pcontact.lastName" id="pcontact.lastName"
-                           value="${ pcontact.lastName }" size="30">
+                           value="${carlos:forHtmlAttribute(pcontact.lastName)}" size="30">
                 </td>
             </tr>
             <tr>

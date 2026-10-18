@@ -152,7 +152,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
                         loggedInInfo, demoNo, loggedInInfo.getLoggedInProviderNo());
 
                 for (DSConsequence dscon : list) {
-                    _log.debug("DSTEXT " + dscon.getText());
+                    _log.debug("DSTEXT {}", LogSafe.sanitize(dscon.getText()));
                     addActionError(getText("message.custom", new String[]{dscon.getText()}));
                 }
             } catch (Exception e) {
@@ -162,14 +162,36 @@ public final class BillingBCSetup2Action extends ActionSupport {
                 MiscUtils.getLogger().error("BC billing-guideline rules failed for demoNo {}: setup will continue without consequences",
                         LogSafe.sanitize(demoNo), e);
             }
-        } else if (BcBillStaging.resume(request) == null) {
-            // No new bill and no open bill named by this request (a validation return, Go Back, or
-            // the encounter's save-and-bill forward name theirs). Never another window's bill: the
-            // window is told its billing session expired, as the save step tells it.
-            BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
-            return NONE;
+        } else {
+            BillingSessionBean resumed = BcBillStaging.resume(request);
+            if (resumed == null) {
+                // No new bill and no open bill named by this request (a validation return, Go Back, or
+                // the encounter's save-and-bill forward name theirs). Never another window's bill: the
+                // window is told its billing session expired, as the save step tells it.
+                BillingSaveBilling2Action.rejectExpiredBillingSession(request, response);
+                return NONE;
+            }
+            showHeldRefusal(request, resumed);
         }
         return SUCCESS;
+    }
+
+    /**
+     * A refused Continue comes back here by redirect, its reasons held on the bill (issue #4864
+     * item 10, finding 432). They are shown on this render and cleared, so a reload or a later Go
+     * Back does not show them again.
+     */
+    private void showHeldRefusal(HttpServletRequest request, BillingSessionBean bill) {
+        List<String> messages = bill.takeRefusalMessages();
+        List<String> wcbFormNeeds = bill.takeWcbFormNeeds();
+        if (messages.isEmpty() && wcbFormNeeds.isEmpty()) {
+            return;
+        }
+        messages.forEach(this::addActionError);
+        if (!wcbFormNeeds.isEmpty()) {
+            request.setAttribute("WCBFormNeeds", wcbFormNeeds);
+        }
+        BcBillStaging.save(request, bill);
     }
 
     private void fillBean(HttpServletRequest request, BillingSessionBean bean) {

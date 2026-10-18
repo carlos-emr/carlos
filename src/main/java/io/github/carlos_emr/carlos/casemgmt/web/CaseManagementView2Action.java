@@ -117,7 +117,15 @@ public class CaseManagementView2Action extends ActionSupport {
     protected RolesManager roleMgr = SpringUtils.getBean(RolesManager.class);
     protected ProgramManager programMgr = SpringUtils.getBean(ProgramManager.class);
     protected AdmissionManager admissionMgr = SpringUtils.getBean(AdmissionManager.class);
-    protected SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    protected transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /** A container service is not action state; reacquire it if the action was deserialized. */
+    private SecurityInfoManager securityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
+    }
 
     static {
         // Initialize CPP 
@@ -1353,8 +1361,8 @@ public class CaseManagementView2Action extends ActionSupport {
             return NONE;
         }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.WRITE, demoNo)
-                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_dxresearch", SecurityInfoManager.WRITE, demoNo)
+                || !securityInfoManager().isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demoNo))) {
             throw new SecurityException("missing required sec object (_dxresearch)");
         }
         String codingSystem = null;

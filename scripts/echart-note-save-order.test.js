@@ -142,7 +142,7 @@ function switchHarness() {
     $F: id => h.fields[id]?.value, validDate: () => true,
     clearAutoSaveTimer: () => effects.push('pause autosave'), setTimer: () => effects.push('resume autosave'),
     finishChangeToView: () => effects.push('teardown'),
-    noteLockLostError: 'lock lost', sessionExpiredError: 'session expired',
+    noteLockLostError: 'lock lost', sessionExpiredError: 'session expired', invalidObservationDateError: 'invalid encounter date; draft retained',
   });
   h.context.CarlosAjax.request = (url, options) => h.updates.push(options);
   for (const [name, next] of [['changeToView', 'finishChangeToView'], ['ajaxSaveNote', 'saveNoteAjax']]) {
@@ -151,7 +151,7 @@ function switchHarness() {
   return { ...h, editor, form, effects };
 }
 
-for (const status of [0, 403, 409, 500, 200]) {
+for (const status of [0, 400, 403, 409, 500, 200]) {
   test(`save-on-switch retains text and controls on ${status === 200 ? 'unacknowledged HTTP 200' : `HTTP ${status}`} and does not navigate`, () => {
     const h = switchHarness(); let navigations = 0;
     assert.equal(h.context.changeToView('editor1', () => navigations++), false);
@@ -175,6 +175,7 @@ for (const status of [0, 403, 409, 500, 200]) {
     assert.ok(!h.effects.includes('teardown'));
     assert.equal(navigations, 0);
     assert.equal(h.alerts.length, 1);
+    if (status === 400) assert.equal(h.alerts[0], 'invalid encounter date; draft retained');
     assert.equal(h.context.noteSwitchSavePending, false);
   });
 }

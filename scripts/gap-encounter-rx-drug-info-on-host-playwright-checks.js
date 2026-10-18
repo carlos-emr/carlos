@@ -20,6 +20,7 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { serverLogFromEnvironment, splitLogEvents } = require('./lib/server-log');
 
 const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
@@ -140,6 +141,31 @@ async function workflow(s) {
     h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
     h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
     h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+  });
+
+  await s.step('missing DIN fallback does not log a DrugRef server exception', async () => {
+    // #5006: DrugRef resolved the DIN with getSingleResult, so an absent DIN was logged as an ERROR
+    // (NoResultException from TablesDao.getDrugIdFromDIN) on every such Info open, although the
+    // page went on to a correct name search. The log read is bracketed by a mark taken right before
+    // the request, so only what this lookup caused is judged. No log source: the half is skipped.
+    const log = serverLogFromEnvironment();
+    if (!log.configured) {
+      console.log('    SKIP server-log half: neither LAB_UPLOAD_JOURNAL_UNIT nor LAB_UPLOAD_SERVER_LOG is set');
+      return;
+    }
+    const mark = log.mark();
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    // The log is written asynchronously; give the lookup's events time to arrive before judging.
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    const logged = splitLogEvents(log.since(mark))
+      .filter(event => /NoResultException|getDrugIdFromDIN|getDrugpKeyFromDIN/.test(event.text));
+    h.assert(logged.length === 0, `An unknown DIN logged ${logged.length} DrugRef exception event(s) in ${log.source}: `
+      + logged.map(event => `${event.level} ${event.logger}`).join('; '));
   });
 }
 
