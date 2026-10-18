@@ -15,6 +15,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -158,7 +159,7 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const primary = await context.newPage();

@@ -247,6 +247,21 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(found).isNull();
         }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should load and lock the patient row for a read-compare-write (issue #4225)")
+        void shouldLoadThePatientRow_whenLockedForUpdate() {
+            // When
+            Demographic locked = demographicDao.findForUpdate(demo1.getDemographicNo());
+
+            // Then
+            assertThat(locked).isNotNull();
+            assertThat(locked.getDemographicNo()).isEqualTo(demo1.getDemographicNo());
+            assertThat(locked.getLastName()).isEqualTo("Smith");
+            assertThat(demographicDao.findForUpdate(-999)).isNull();
+            assertThat(demographicDao.findForUpdate(null)).isNull();
+        }
     }
 
     /**

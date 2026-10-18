@@ -130,6 +130,13 @@ async function workflow(s) {
   await s.step('"Patients in abnormal range" 3 to 5 counts only the owned patient whose latest reading is 4 (1 of 2)', async () => {
     const page = await openScreen(s, group, 'patientInAbnormalRange');
     const row = await rowOf(page, 'measurementTypeC', type);
+    for (const [field, label] of [['upperBound', 'Upper Bound'], ['lowerBound', 'Lower Bound']]) {
+      h.assert(await page.getByRole('columnheader', {name: label, exact: true}).count() === 1,
+        `The ${label} heading was replaced by a validation-message template`);
+      h.assert((await page.locator(`input[name="${field}"]`).nth(row).getAttribute('aria-label'))
+        === `${display} - ${label}`, `The ${label} accessible name contains an unfilled argument`);
+    }
+
     await page.locator('input[name="patientSeenCheckbox"]').uncheck();
     await page.locator(`input[name="abnormalCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="lowerBound"]').nth(row).fill('3');

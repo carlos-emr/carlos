@@ -37,7 +37,9 @@
     again on every filter or save reload. newEncounterLayout.jsp must never also
     include it server-side; that produced two note panels per chart. Displays
     filtered and sorted clinical notes for a patient, with inline editing, issue
-    assignment, and template insertion.
+    assignment, and template insertion. Patient-specific links (Browse Notes) use
+    the patient this request carries; the login-wide EctSessionBean supplies entry
+    metadata only when it belongs to this chart's patient (issue #4556).
 
     The 1 MB buffer (page directive + response.setBufferSize) prevents Tomcat 11
     from truncating large AJAX forward responses. Without it, the
@@ -94,6 +96,7 @@
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
@@ -154,8 +157,23 @@
             response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
             return;
         }
+        // The session bean follows whichever chart was entered last in any window of this login
+        // (issue #4556). Only this chart's own patient may supply its entry metadata; links that
+        // name a patient use the patient this request carries.
+        String chartPatientNo;
+        try {
+            chartPatientNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            chartPatientNo = null;
+        }
+        boolean ownChartBean = chartPatientNo != null && chartPatientNo.equals(bean.demographicNo);
+        pageContext.setAttribute("chartPatientNo", chartPatientNo);
 
-        String provNo = bean.providerNo;
+        // This chart's own entry provider: the patient's remembered entry, or the logged-in provider
+        // when this login has not entered the chart. The login-wide bean's belongs to whichever chart
+        // was entered last, so taking it only when it was this chart's still changed the same chart's
+        // edit warnings with the order its windows were opened in (issue #4673).
+        String provNo = EncounterPatientContext.entryProvider(request, loggedInInfo, chartPatientNo);
         String dateFormat = "dd-MMM-yyyy H:mm";
         SimpleDateFormat jsfmt = new SimpleDateFormat("MMM dd, yyyy");
         Date dToday = new Date();
@@ -213,12 +231,10 @@
     notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
-        notesLoader(0, notesIncrement, demographicNo);
-        // Filter and save reloads re-render this fragment into #notCPP and run this handler
-        // again in the same window. Without the stop, the earlier interval handle would be
-        // overwritten here and its timer would poll on, unstoppable, for the life of the chart.
-        stopNotesScrollCheck();
-        notesScrollCheckInterval = setInterval('notesIncrementAndLoadMore()', 1000);
+        // Resets the pagination state an earlier render of this fragment left behind, loads
+        // the newest page and arms the scroll poll; see notesLoadFirstPage() in
+        // newCaseManagementView.js.jsp.
+        notesLoadFirstPage();
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>
@@ -305,6 +321,8 @@
                 </fieldset>
             </c:if>
         </div>        
+        <button type="button" id="notesFilterToggle" aria-controls="filter" aria-expanded="false"
+                onclick="return showFilter();"><fmt:message key="encounter.Filter.title"/></button>
         <div id="filter" style="display:none;margin-top: 5px; margin-left: 5px;margin-right: 5px;">
             <input type="button" value="Hide" onclick="return filter(false);"/>
             <input type="button" value="<fmt:message key="encounter.resetFilter.title"/>"
@@ -556,6 +574,12 @@
     <span id="notesLoading">
 		<img src="${carlos:forHtmlAttribute(ctx)}/images/DMSLoader.gif">Loading Notes...
 	</span>
+    <%-- Shown by notesLoader() when a notes fetch rendered nothing (issue #3609); the link
+         asks for the batch again and re-arms the scroll poll. Hidden until then. --%>
+    <span id="notesLoadFailed" role="alert" style="display: none;">
+        <fmt:message key="encounter.Index.msgNotesLoadFailed"/>
+        <button type="button" onclick="notesRetryLoad();"><fmt:message key="encounter.Index.btnRetryLoadNotes"/></button>
+    </span>
 
 
     <div id="issueList"
@@ -627,7 +651,8 @@
                            onclick="document.forms['caseManagementEntryForm'].sign.value='on';document.forms['caseManagementEntryForm'].verify.value='on';event.preventDefault();event.stopPropagation();return savePage('saveAndExit', '');"
                            title='<fmt:message key="encounter.Index.btnSign"/>'>
                     <%
-                        if (bean.source == null) {
+                        // A chart entered from the messenger hides Bill; another window's entry must not.
+                        if (!ownChartBean || bean.source == null) {
                     %>
                     <input type='image'
                            src="${carlos:forHtmlAttribute(ctx)}/encounter/graphics/dollar-sign-icon.png"
@@ -650,9 +675,11 @@
         </div>
         <div class="row">
             <div id="note-control-panel">
+                <c:if test="${not empty chartPatientNo}">
                 <button type="button"
-                        onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/ViewNoteBrowser?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
+                        onclick="popupPage(500,200,'noteBrowser${carlos:forJavaScriptAttribute(chartPatientNo)}','casemgmt/ViewNoteBrowser?demographic_no=${carlos:forJavaScriptAttribute(carlos:forUriComponent(chartPatientNo))}&FirstTime=1');">
                     <fmt:message key="encounter.Index.BrowseNotes"/></button>
+                </c:if>
                 <button type="button" onclick="notesLoadAll();"><fmt:message key="encounter.Index.btnLoadAllNotes"/></button>
                 <button type="button" onclick="toggleFullViewForAll();"><fmt:message key="encounter.Index.btneExpandLoadedNotes"/></button>
                 <button type="button" onclick="toggleCollapseViewForAll();"><fmt:message key="encounter.Index.btnCollapseLoadedNotes"/></button>
@@ -663,38 +690,8 @@
 </form>
 
 <script type="text/javascript">
-    /**
-     * enable autocomplete for Issue search menus.
-     */
-    jQuery(document).ready(function($) {
-        var autocompleteUrl = ctx + "/CaseManagementEntry?method=issueList&demographicNo=" + demographicNo + "&providerNo=" + providerNo;
-        
-        $(".issueAutocomplete").autocomplete({
-            source: function(request, response) {
-                $.get(autocompleteUrl + "&term=" + request.term)
-                    .done(function(data) {
-                        // Transform the data to the format expected by jQuery UI autocomplete
-                        var transformedData = $.map(data, function(item) {
-                            return {
-                                label: item.description.trim() + ' (' + item.code + ')',
-                                value: item.description.trim(),
-                                id: item.id
-                            };
-                        });
-                        response(transformedData);
-                    })
-                    .fail(function(xhr, status, error) {
-                        console.error("Autocomplete request failed:", status, error);
-                        response([]);
-                    });
-            },
-            delay: 100,
-            minLength: 3,
-            select: function (event, ui) {
-                document.getElementById("newIssueId").value = ui.item.id;
-                document.getElementById("newIssueName").value = ui.item.value;
-            }
-        });
+    jQuery(function () {
+        initializeIssueAutocomplete(document);
     });
 </script>
 

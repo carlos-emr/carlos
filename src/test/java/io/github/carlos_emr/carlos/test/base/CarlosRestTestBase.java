@@ -171,10 +171,10 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         MockHttpSession mockSession = new MockHttpSession();
         mockServletRequest.setSession(mockSession);
 
-        // Set LoggedInInfo in both session and request attributes.
-        // Both locations are needed: AbstractServiceImpl.getLoggedInInfo() reads
-        // from session first, but falls back to request attributes when the session
-        // value has a null loggedInProvider (which mocks do by default).
+        // Set LoggedInInfo in both session and request attributes, as either surface
+        // could carry it. AbstractServiceImpl.getLoggedInInfo() reads the request first
+        // (where OAuthInterceptor puts the /ws/services principal) and then the session
+        // (/ws/rs); AbstractServiceImplLoggedInInfoEndpointTest covers each shape alone.
         LoggedInInfo.setLoggedInInfoIntoRequest(mockServletRequest, mockLoggedInInfo);
         LoggedInInfo.setLoggedInInfoIntoSession(mockSession, mockLoggedInInfo);
 
@@ -255,6 +255,10 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
      * in applicationContextREST.xml: combined Jackson + JAXB annotation
      * introspector for proper transfer object serialization.
      *
+     * <p>That is the OAuth {@code /ws/services} surface's mapper. The session
+     * {@code /ws/rs} mapper in spring_ws.xml does not register SmartDateModule, so
+     * it writes unannotated {@code java.util.Date} values as epoch milliseconds (issue #3446).
+     *
      * @return ObjectMapper configured for CARLOS REST API
      */
     protected ObjectMapper createTestObjectMapper() {
@@ -273,7 +277,14 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         JAXBElementProvider<Object> jaxbProvider = new JAXBElementProvider<>();
         jaxbProvider.setProduceMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
         jaxbProvider.setConsumeMediaTypes(List.of(MediaType.APPLICATION_XML, MediaType.TEXT_XML));
-        return List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider);
+        List<Object> providers = new ArrayList<>(List.of(new JacksonJsonProvider(createTestObjectMapper()), jaxbProvider));
+        providers.addAll(additionalProviders());
+        return providers;
+    }
+
+    /** Production providers needed by a particular service, such as its exception mappers. */
+    protected List<Object> additionalProviders() {
+        return List.of();
     }
 
     /**

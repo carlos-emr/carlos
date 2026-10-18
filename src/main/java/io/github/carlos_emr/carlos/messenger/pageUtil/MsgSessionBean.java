@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Session bean for maintaining message composition state across requests in the messaging module.
@@ -39,6 +40,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>This serializable bean maintains the state of a message being composed, including
  * attachments, recipients, and message content. It is stored in the HTTP session to
  * preserve state across multiple page requests during the message composition process.</p>
+ *
+ * <p><b>Attachments are no longer kept on the session copy.</b> One login can have several
+ * compose windows open, for different patients, and this bean is one per login: the attachments
+ * one window put on it went out with the message another window sent (issue #4673). Each compose
+ * window now stages its attachments under its own key in {@link MsgAttachmentStaging}. The
+ * attachment methods below remain as the builder of the stored chart-PDF record format, used on
+ * a scratch instance by {@link MsgAttachPDF2Action}.</p>
  * 
  * <p>Key responsibilities:
  * <ul>
@@ -206,8 +214,16 @@ public class MsgSessionBean implements java.io.Serializable {
         return "<PDF><FILE_ID>" + currentAttachmentCount + "</FILE_ID>";
     }
 
+    /**
+     * Builds the {@code <TITLE>} element of a stored PDF attachment record.
+     *
+     * <p>The title is user-influenced, and the attachment list is a flat string whose records
+     * are located by tag name, so markup in a title could forge extra elements. XML special
+     * characters are therefore escaped; readers must {@code unescapeXml} before display
+     * (see {@code ViewPDFAttachment.jsp}).</p>
+     */
     public String getPDFTitleTag(String pdfTitle) {
-        return "<TITLE>" + pdfTitle + "</TITLE>";
+        return "<TITLE>" + StringEscapeUtils.escapeXml10(pdfTitle == null ? "" : pdfTitle) + "</TITLE>";
     }
 
     public String getContentTag(String binStr) {

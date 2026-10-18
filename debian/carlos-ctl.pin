@@ -11,4 +11,12 @@
 # floor. Raise the floor when the postinst starts using a new verb or flag;
 # raise the pin when a CLI release should reach operators with the next
 # carlos release.
-tag=1.1.1
+tag=1.1.2
+#
+# Until that tag is PUBLISHED, CI (debian-python-tests.yml,
+# script-regressions.yml) checks out this commit of carlos-emr/carlos-ctl
+# instead, so the contract tests run against the CLI this release will pin
+# before the CLI release exists. The release build never uses it
+# (debian/fetch-carlos-ctl.sh downloads the tag's published asset or
+# fails). Drop the line, or leave it: once the tag exists it is not read.
+fallback=9ad4938898f2baf7a1eecb4f22dfda1c3b32c7e9

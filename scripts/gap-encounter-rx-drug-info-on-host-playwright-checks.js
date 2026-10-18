@@ -125,6 +125,22 @@ async function workflow(s) {
     h.assert(JSON.stringify(storedValues) === JSON.stringify([[generic, brand, din]]),
       'Viewing drug reference information changed the saved drug names or DIN');
   });
+
+  await s.step('Info for a DIN this DrugRef does not know lists name-search results instead of a blank page', async () => {
+    // #4554: an old or imported DIN can be missing from the DrugRef extract. The exact DIN lookup still
+    // comes first; when it finds nothing, rx/drugInfo searches the saved generic name rather than showing
+    // nothing or another product's monograph. 00000000 is not a DIN Health Canada assigns. The page is
+    // read through the session's request context, the way the Info address was checked above.
+    const target = new URL(`${config.baseUrl}/rx/drugInfo`);
+    target.searchParams.set('GN', generic);
+    target.searchParams.set('DIN', '00000000');
+    const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
+    const html = await response.text();
+    await response.dispose();
+    h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
+    h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
+    h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+  });
 }
 
 if (require.main === module) runWorkflow('gap-encounter-rx-drug-info-on-host', workflow, { openPatient: true });

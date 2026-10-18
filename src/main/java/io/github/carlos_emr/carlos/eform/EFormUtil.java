@@ -1038,7 +1038,7 @@ public class EFormUtil {
         /* write to prevention
          * <prevention>
          * 		<type>{preventionType: must be identical to Oscar prevention types}</type>
-         * 		<providers>{optional:providerNo}</providers>
+         * 		<provider>{optional:providerNo}</provider> (or <providers>)
          * 		<date>{optional:preventionDate}</date>
          * 		<status>{optional:completed/refused/ineligible}</status>
          * 		<name>{optional}</name>
@@ -1060,7 +1060,10 @@ public class EFormUtil {
             String preventionType = getEqualIgnoreCase(preventionManager().getPreventionTypeList(), getContent("type", template, null));
             if (preventionType == null) continue;
 
-            String preventionProvider = getContent("providers", template, eForm.getProviderNo());
+            // <provider> is the tag eForm templates have always used; a 2025 package rename changed the
+            // reader to <providers>. Read the old tag first and keep the new one working.
+            String preventionProvider = getContent("provider", template, null);
+            if (preventionProvider == null) preventionProvider = getContent("providers", template, eForm.getProviderNo());
             String preventionDate = getContent("date", template, eForm.getFormDate());
             String preventionStatus = getContent("status", template, "completed"); //completed(0)/refused(1)/ineligible(2)
 
@@ -1207,7 +1210,7 @@ public class EFormUtil {
             String letterheadAddress = getContent("letterheadAddress", template, null);
             String letterheadPhone = getContent("letterheadPhone", template, null);
             String letterheadFax = getContent("letterheadFax", template, null);
-            String status = getContent("urgency", template, null);
+            String status = getContent("status", template, null);
             String source = getContent("source", template, "");
 
             ConsultationRequest consult = new ConsultationRequest();
@@ -1528,8 +1531,10 @@ public class EFormUtil {
     private static String putTemplateEformValues(EForm eForm, String fdid, String path, String template) {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
-        String[] efields = {"name", "subject", "patient", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
+        // $te{eform.provider} is the field eForm templates have always used; a 2025 package rename changed it
+        // to $te{eform.providers}. Both give the submitting provider.
+        String[] efields = {"name", "subject", "patient", "provider", "providers", "link"};
+        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
 
         String tag = "$te{";
         String nwTemplate = "";

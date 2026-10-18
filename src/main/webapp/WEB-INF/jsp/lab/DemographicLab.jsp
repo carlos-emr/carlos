@@ -131,7 +131,7 @@
                 }
             }
             if (aBoxIsChecked) {
-                popupStart(300, 400, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
+                popupStart(397, 700, '${ctx}/oscarMDS/ViewSelectProvider', 'providerselect');
             } else {
                 alert('<fmt:message key="oscarMDS.index.msgSelectOneLab"/>');
             }
@@ -278,7 +278,9 @@
                     <tr class="<%=rowClass%>">
                         <%  if (demographicNo == null) { %>
                         <td>
-                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"/>
+                            <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
+                            <input type="checkbox" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
+                                   data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>
                         <% } %>
                         <td><%=SafeEncode.forHtmlContent(formattedDate)%></td>

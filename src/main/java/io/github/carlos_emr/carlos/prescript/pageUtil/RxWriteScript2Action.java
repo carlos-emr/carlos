@@ -62,7 +62,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -98,6 +97,15 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static final String DEFAULT_QUANTITY = "30";
+
+    /**
+     * Request attribute holding the bundle key of the notice createNewRx leaves in the staging pane when the picked
+     * item could not be staged. prescribe.jsp shows it in the user's language.
+     */
+    static final String STAGE_ERROR_KEY_ATTRIBUTE = "rxStageErrorKey";
+    static final String STAGE_NOT_PRESCRIBABLE_KEY = "SearchDrug.msgStageNotPrescribable";
+    static final String STAGE_ALREADY_STAGED_KEY = "SearchDrug.msgStageAlreadyStaged";
+    static final String STAGE_LOAD_FAILED_KEY = "SearchDrug.msgStageLoadFailed";
     /** Prefix of every {@code action} that rewrites or saves the staged item. */
     private static final String ACTION_UPDATE_PREFIX = "update";
     private static final String HEADER_ALLOW = "Allow";
@@ -355,6 +363,23 @@ public final class RxWriteScript2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid prescription date");
         }
         return date;
+    }
+
+    /**
+     * The first lines of a saved custom note's text: its name, when it has one, then its instructions.
+     *
+     * <p>A note's Name box may be left empty, which leaves its custom name null. Concatenating that
+     * wrote the word "null" into the stored text, and from there onto the printed prescription and the
+     * drug profile (#4873). An absent name now adds no line, and absent instructions add nothing.
+     *
+     * @param customName the note's name, possibly null or blank
+     * @param instructions the note's instructions (the prescription's special), possibly null
+     * @param newline the line separator the rest of the stored text uses
+     * @return the note's name line (if any) followed by its instructions
+     */
+    static String customNoteText(String customName, String instructions, String newline) {
+        String body = Objects.toString(instructions, "");
+        return customName == null || customName.isBlank() ? body : customName + newline + body;
     }
 
     /**
@@ -842,16 +867,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 
             // The page names the card's key; it must be unused in this stash (#3908).
             rx.setRandomId(RxStashIds.acceptOrNext(bean, request.getParameter("randomId"), RxStashIds.DEFAULT_BOUND));
+            // Kept raw: the chosen name is clinical text that is saved and printed, and every page that shows it
+            // encodes it for its own context. Escaping it here (Encode.forJava) stored backslashes before quotes,
+            // which the card and the printed prescription then showed (#3952).
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
-
-			if (text != null) {
-				text = Encode.forJava(text);
-			}
-
-			if (drugId != null) {
-				drugId = Encode.forJava(drugId);
-			}
 
             logger.debug("requesting drug from drugref id={}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);
@@ -866,10 +886,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     || (dmono.name == null
                         && (dmono.getProduct() == null || dmono.getProduct().isEmpty()))) {
                 logger.warn("createNewRx: no prescribable DrugRef product for drug id {}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                request.setAttribute("rxStageError",
-                    "The selected item could not be added as a prescription. "
-                    + "Please choose a specific drug product (a brand or a strength), "
-                    + "not a drug class or ingredient.");
+                request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_NOT_PRESCRIBABLE_KEY);
                 return success;
             }
 
@@ -1003,8 +1020,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // Duplicate of something already staged: the stash de-dupes, but the
                 // pane is re-rendered from listRxDrugs, so leaving it empty blanked the
                 // pane with no explanation. Surface a notice instead of a silent blank.
-                request.setAttribute("rxStageError",
-                    "That prescription is already staged.");
+                request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_ALREADY_STAGED_KEY);
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
@@ -1025,8 +1041,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.error("Error ({})", e.getClass().getSimpleName());
             // Fail loud: prescribe.jsp renders this notice in the staging pane rather
             // than returning an empty 200 that looks like "nothing happened" to the user.
-            request.setAttribute("rxStageError",
-                "Could not load the selected drug. Please try again or choose another product.");
+            request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_LOAD_FAILED_KEY);
         }
         logger.debug("=============END createNewRx RxWriteScript2Action.java===============");
 
@@ -1591,7 +1606,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                             }
                         } else if (elem.equals("pickupTime_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
-                                pickupTime = RxUtil.StringToDate(val, "hh:mm");
+                                pickupTime = RxUtil.parsePickupTime(val);
                             }
                         } else if (elem.equals("writtenDate_" + num)) {
                             if (val == null || (val.equals(""))) {
@@ -1633,7 +1648,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                             } else {
                                 isStartDateUnknown = false;
                             }
-                        } else if (elem.equals("comment_" + num)) {
+                        } else if (elem.equals("rxComment_" + num)
+                                || (elem.equals("comment_" + num) && request.getParameter("rxComment_" + num) == null)) {
+                            // Keep older open Rx forms readable, but prefer the Rx-specific
+                            // name (including an intentional empty comment) regardless of order.
                             rx.setComment(val);
                         } else if (elem.equals("patientCompliance_" + num)) {
                             if ("yes".equals(val)) {
@@ -1686,7 +1704,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                         rx.setQuantity(null);
                         rx.setUnitName(null);
                         rx.setRepeat(0);
-                        special = rx.getCustomName() + newline + rx.getSpecial();
+                        special = customNoteText(rx.getCustomName(), rx.getSpecial(), newline);
                         if (rx.getSpecialInstruction() != null && !rx.getSpecialInstruction().equalsIgnoreCase("null") && rx.getSpecialInstruction().trim().length() > 0)
                             special += newline + rx.getSpecialInstruction();
                     } else if (rx.isCustom()) {// custom drug

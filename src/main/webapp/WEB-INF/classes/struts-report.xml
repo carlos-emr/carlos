@@ -105,9 +105,6 @@
             <!-- No printable patient selected: redisplay Generate Letters with a notice (issue #3963). -->
             <result name="input">/WEB-INF/jsp/report/GenerateLetters.jsp</result>
         </action>
-        <action name="report/GenerateSpreadsheet" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action">
-            <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
-        </action>
         <action name="report/GenerateLetters" class="io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action">
             <result name="success">/WEB-INF/jsp/oscarReport/ReportDemographicReport.jsp</result>
             <!-- No printable patient selected: redisplay Generate Letters with a notice (issue #3963). -->
@@ -318,7 +315,7 @@
         <action name="report/ViewReportonbilledphcp" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportonbilledphcp.jsp</result>
         </action>
-        <action name="report/ViewReportonbilledvisitprovider" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
+        <action name="report/ViewReportonbilledvisitprovider" class="io.github.carlos_emr.carlos.report.gate.ReportProviderRoles2Action">
             <result name="success">/WEB-INF/jsp/report/reportonbilledvisitprovider.jsp</result>
         </action>
 

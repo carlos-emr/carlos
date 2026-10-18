@@ -50,10 +50,12 @@
  *
  * Request Attributes:
  * - PDFAttachment: XML/data string containing PDF file information
+ * - attId: the message the list belongs to; the download form posts it back
  *
  * Session Dependencies:
- * - msgSessionBean: Required for attachment context
- * - PDFAttachment: Stored in session for form processing
+ * - msgSessionBean: Required for attachment context (validity check only)
+ * - Nothing about the message: the list used to be kept in session "PDFAttachment", which the
+ *   download read, so the last viewer opened in any window decided the document (issue #4673)
  *
  * Processing:
  * 1. Extracts PDF file titles from attachment data using Doc2PDF utility
@@ -61,8 +63,8 @@
  * 3. Submits selected file ID to ViewPDFFile action for download
  *
  * Form Integration:
- * - Posts to ViewPDFFile action with file_id parameter
- * - Passes attachment data as hidden form field
+ * - Posts to ViewPDFFile action with file_id and attId (the message) parameters; the
+ *   download reads the PDFs from that message, so the page never carries them
  *
  * @since 2003
  */
@@ -98,7 +100,7 @@
     <c:redirect url="/index"/>
 </c:if>
 <c:if test="${not empty msgSessionBean}">
-    <c:set var="bean" value="${msgSessionBean}" scope="session"/>
+    <c:set var="bean" value="${msgSessionBean}" scope="page"/>
     <c:if test="${bean.valid == 'false'}">
         <c:redirect url="/index"/>
     </c:if>
@@ -112,9 +114,11 @@
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
     <%
-        // Extract and store PDF attachment data for processing
+        // This message's PDF attachment list. It stays on this page: the download names the
+        // message (attId below). It used to be copied into the session, so a download from this
+        // window returned a document of whichever message another viewer window opened last,
+        // possibly another patient's (issue #4673).
         String pdfAttch = (String) request.getAttribute("PDFAttachment");
-        session.setAttribute("PDFAttachment", pdfAttch);
     %>
 
     <title><fmt:message key="messenger.ViewPDFAttachment.title"/></title>
@@ -143,10 +147,10 @@
             <span class="fw-semibold"><fmt:message key="messenger.CreateMessage.msgMessenger"/></span>
         </div>
         <div class="d-flex align-items-center gap-3">
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
@@ -174,7 +178,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml(org.apache.commons.text.StringEscapeUtils.unescapeXml((String) attVector.get(i))) %>
                         </td>
                         <td>
                           <button type="submit"
@@ -189,7 +193,7 @@
                             <% }  %>
                     </table>
                         <input type="hidden" name="file_id" id="file_id"/>
-                        <input type="hidden" name="attachment" id="attachment" value="<%= SafeEncode.forHtmlAttribute(pdfAttch) %>"/>
+                        <input type="hidden" name="attId" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
 
         </form>
     </div>

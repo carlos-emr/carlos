@@ -103,7 +103,7 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
                     .contains(SafeEncode.forHtmlContent(SCRIPT_NAME))
                     .contains(SafeEncode.forHtmlContent("<b>98</b>"))
                     .contains(SafeEncode.forHtmlContent("<u>01</u>"))
-                    .contains("adjustBill.jsp?billingmaster_no=0000042")
+                    .contains("reprocessBill?billingmaster_no=0000042")
                     .doesNotContain("<script>")
                     .doesNotContain("<img")
                     .doesNotContain("<b>")

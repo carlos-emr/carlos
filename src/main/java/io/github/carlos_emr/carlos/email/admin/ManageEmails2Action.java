@@ -12,8 +12,12 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -212,6 +216,8 @@ public class ManageEmails2Action extends ActionSupport {
      *   <li>Refreshes all email attachments by re-rendering PDF documents</li>
      *   <li>Retrieves patient consent status and email addresses</li>
      *   <li>Populates request attributes for the email compose page</li>
+     *   <li>Stages the attachments under this window's own one-time key, bound to the email's
+     *       patient, for the send (#4425)</li>
      * </ul>
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
@@ -240,11 +246,25 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        if (emailLog == null) {
+            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            return null;
+        }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
+        boolean attachmentsRefreshed = false;
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
-        } catch (PDFGenerationException e) {
-            request.setAttribute("emailErrorMessage", "This previously sent email cannot be re-opened for editing/resending. Please generate a new email instead. \\n\\n" + e.getMessage());
+            attachmentsRefreshed = true;
+        } catch (SecurityException e) {
+            // A refusal is not a preparation failure: it goes to the access-denied page.
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
+            // As for an eForm email: the exception's text stays out of the page and the log.
+            String reference = EmailFailureMessage.newReference();
+            logger.error("Unable to prepare attachments to resend an email; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            request.setAttribute("emailErrorMessage", EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.RESEND_ATTACHMENTS_KEY, reference));
             request.setAttribute("isEmailError", true);
         }
 
@@ -273,7 +293,17 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Stage the resend's attachments under this window's own key, bound to the logged email's
+        // patient, exactly as a compose does (#4425). A session-wide list would let a compose or
+        // resend in another window replace what this window sends. A failed refresh stages nothing:
+        // its page only reports the error and closes, and without a key any send is refused.
+        request.getSession().removeAttribute("emailAttachmentList");
+        if (attachmentsRefreshed) {
+            EmailAttachmentStaging.Staged stagedAttachments =
+                    EmailAttachmentStaging.stage(request.getSession(), demographicNo, emailAttachmentList);
+            request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
+            request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
+        }
 
         return "compose";
     }
@@ -308,7 +338,7 @@ public class ManageEmails2Action extends ActionSupport {
      * @param emailLog EmailLog containing the list of attachments to refresh
      * @return List<EmailAttachment> the updated list of email attachments with refreshed PDF paths and sizes
      * @throws PDFGenerationException if any document cannot be rendered to PDF
-     * @throws RuntimeException if the user lacks required _email security privilege
+     * @throws SecurityException if the user lacks the _email read privilege
      * @see DocumentAttachmentManager#renderDocument
      * @see FormsManager#renderForm
      * @see DocumentType
@@ -316,7 +346,7 @@ public class ManageEmails2Action extends ActionSupport {
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();

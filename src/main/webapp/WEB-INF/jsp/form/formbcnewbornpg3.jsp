@@ -1010,13 +1010,13 @@
                 </td>
                 <td colspan="2"><B>14. <fmt:message key='form.bcnewborn.statusAtDischarge'/></B> <textarea
                         name="ar2_14" style="width: 100%" cols="30"
-                        rows="3"> <%= props.getProperty("ar2_14", "") %> </textarea>
+                        rows="3"><carlos:encode value='<%= props.getProperty("ar2_14", "") %>'/></textarea>
                 </td>
             </tr>
             <tr>
                 <td colspan="2"><fmt:message key='form.bcnewborn.problemsRequiringFollowup'/><br>
                     <textarea name="ar2_14Problem" style="width: 100%" cols="30"
-                              rows="3"> <%= props.getProperty("ar2_14Problem", "") %> </textarea>
+                              rows="3"><carlos:encode value='<%= props.getProperty("ar2_14Problem", "") %>'/></textarea>
                     <fmt:message key='form.bcnewborn.feeding'/>: <input type="checkbox" name="ar2_14Breast"
                             <%= props.getProperty("ar2_14Breast", "") %> />
                     <fmt:message key='form.bcnewborn.breast'/>&nbsp;&nbsp;&nbsp; <input type="checkbox" name="ar2_14VitD"
@@ -1039,7 +1039,7 @@
                             class="small8"><fmt:message key='form.bcnewborn.other'/> HOSPITAL</span><br>
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<I>(specify)</I><br>
                     <textarea name="ar2_15OtherHospSpec" style="width: 100%" cols="15"
-                              rows="2"> <%= props.getProperty("ar2_15OtherHospSpec", "") %> </textarea>
+                              rows="2"><carlos:encode value='<%= props.getProperty("ar2_15OtherHospSpec", "") %>'/></textarea>
                 </td>
                 <td>
 

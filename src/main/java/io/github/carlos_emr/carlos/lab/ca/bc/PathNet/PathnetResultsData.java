@@ -154,7 +154,6 @@ public class PathnetResultsData {
 				Hl7Msh msh = o.getHl7Msh();
 				Hl7Pid pid = o.getHl7Pid();
 				Hl7Orc orc = o.getHl7Orc();
-				Long stat = o.getMinResultStatus();
 
 				String providerLabRoutingStatus = null;
 				if (Objects.nonNull(o.getProviderLabRouting())) {
@@ -186,13 +185,8 @@ public class PathnetResultsData {
                 //priority
                 lbData.priority = "----";
                 lbData.requestingClient = justGetDocName(orc.getOrderingProvider());
-                lbData.reportStatus = "" + stat;
-
-                if (lbData.reportStatus != null && lbData.reportStatus.equals("F")) {
-                    lbData.finalRes = true;
-                } else {
-                    lbData.finalRes = false;
-                }
+                lbData.reportStatus = o.getMinResultStatus();
+                lbData.finalRes = "F".equals(lbData.reportStatus);
 
                 labResults.add(lbData);
             }

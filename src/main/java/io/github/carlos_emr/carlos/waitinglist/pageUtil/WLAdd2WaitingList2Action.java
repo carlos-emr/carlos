@@ -28,11 +28,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
-import io.github.carlos_emr.carlos.waitinglist.util.WaitingListAccess;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -40,6 +42,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * to the demographic edit page. Replaces the scriptlet-driven
  * {@code waitinglist/Add2WaitingList.jsp} which ran {@code add2WaitingList}
  * against any GET request without privilege or HTTP-method enforcement.
+ *
+ * <p>The list must still be one {@link WaitingListAvailabilityService} offers the
+ * provider: this POST is the second half of the Master Record save (posted by
+ * {@code demographicupdatearecord.jsp}, after a confirm when the patient has an
+ * upcoming appointment), so it re-checks rather than trusting the first half.</p>
  */
 public final class WLAdd2WaitingList2Action extends ActionSupport {
 
@@ -74,10 +81,12 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
             return NONE;
         }
 
-        // The confirmation may arrive after a list or the provider's group changes.
-        if (!WaitingListAccess.isAvailable(loggedInInfo, listId)) {
+        ProviderPreference providerPreference = (ProviderPreference) request.getSession()
+                .getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
+        if (!SpringUtils.getBean(WaitingListAvailabilityService.class)
+                .isSelectable(providerPreference, Integer.parseInt(listId))) {
             response.sendError(HttpServletResponse.SC_CONFLICT,
-                    "The selected waiting list is no longer available. Reload the form and choose an active list.");
+                    "The selected waiting list is no longer available. Reload the patient record and choose a current list.");
             return NONE;
         }
 

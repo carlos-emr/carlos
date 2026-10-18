@@ -11,12 +11,15 @@
 
 </head>
 
+<!-- The shared age parser the other chart risk calculators use (issue #3665). -->
+<script type="text/javascript" charset="utf-8"
+        src="../../../share/javascript/clinicalCalculatorAge.js"></script>
 <script type="text/javascript" language="javascript" charset="utf-8"
         src="js/js.js">
 
 </script>
 
-<body onload="UpdateDiabetic()">
+<body onload="PrefillFromChart(); UpdateDiabetic()">
 
 <div id="wrapper">
 
@@ -33,7 +36,7 @@
 
     <div id="nav">You are using the <span class="ttl">UKPDS
 Risk Calculator</span>, intended<br/>
-        for patients who are diabetic. <a href="index.html">Is the patient
+        for patients who are diabetic. <a id="otherCalculator" href="index.html">Is the patient
             not diabetic?</a></div>
 
     <div id="content">

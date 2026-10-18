@@ -25,7 +25,7 @@ for (const [error, expectedCode, expectedStatus] of [
       chromium: { launch() { assert.fail('Preflight failure must prevent browser launch'); } },
       removeSecretsDir() { cleaned = true; },
       baseUrl: new URL('http://localhost/carlos'), visited: [], findings: [], artifactDir: '/unused',
-      browserErrorClass: e => e.name,
+      browserErrorClass: e => e.name, errorSourceLocation: () => '', fixtureErrorTag: () => '',
       buildArtifactPath: () => '/unused/result.json',
       fs: { writeFileSync(_file, body) { summary = JSON.parse(body); } },
       console: { log: value => output.push(value), error: value => output.push(value) },
@@ -51,7 +51,7 @@ test('clinical forms registers a PDF preflight before the workflow can create fi
     return { requirePoppler(tool) { calls.push(tool); throw new SkipCheck('missing tool'); } };
   }, { main: module });
   vm.runInNewContext(registration, {
-    require, module, NAME: 'clinical-forms-save-reopen', FORMS: [],
+    require, module, NAME: 'clinical-forms-save-reopen', FORMS: [], testing: {},
     workflow() { assert.fail('Missing PDF tool must prevent fixture creation'); },
     runWorkflow(name, workflow, options) {
       assert.equal(name, 'clinical-forms-save-reopen');

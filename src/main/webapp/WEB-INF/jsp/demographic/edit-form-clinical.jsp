@@ -58,7 +58,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -155,15 +154,15 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    boolean waitingListEnabled = oscarProps != null
-            && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"));
-    ProviderPreference waitingListPreference = (ProviderPreference) session.getAttribute(
-            io.github.carlos_emr.carlos.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
-    List<WaitingListName> activeWaitingListNames = waitingListEnabled && waitingListPreference != null
-            && waitingListPreference.getMyGroupNo() != null
-            ? waitingListNameDao.findCurrentByGroup(waitingListPreference.getMyGroupNo())
-            : Collections.emptyList();
-    String wLReadonly = activeWaitingListNames.isEmpty() ? "readonly" : "";
+    // DemographicEdit2Action supplies the lists WaitingListAvailabilityService offers this
+    // provider; the section is editable exactly when it offers one (issue #4229).
+    @SuppressWarnings("unchecked")
+    List<WaitingListName> selectableWaitingLists =
+            (List<WaitingListName>) request.getAttribute("selectableWaitingLists");
+    if (selectableWaitingLists == null) {
+        selectableWaitingLists = java.util.Collections.emptyList();
+    }
+    String wLReadonly = selectableWaitingLists.isEmpty() ? "readonly" : "";
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -1097,7 +1096,7 @@
                                                                     </tr>
                                                                     <tr>
                                                                         <td align="right" nowrap><b>
-                                                                            <label for="waiting_list_name"><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</label></b>
+                                                                            <fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</b>
                                                                         </td>
                                                                         <td align="left">
                                                                             <%
@@ -1119,7 +1118,7 @@
 
                                                                             %> <input type="hidden" name="wlId"
                                                                                       value="<%=wlId%>"> <select
-                                                                                name="list_id" id="waiting_list_name">
+                                                                                name="list_id">
                                                                             <%if ("".equals(wLReadonly)) {%>
                                                                             <option value="0"><fmt:message key="demographic.demographiceditdemographic.optSelectWaitList"/></option>
                                                                             <%} else {%>
@@ -1127,38 +1126,34 @@
                                                                                 <fmt:message key="demographic.demographiceditdemographic.optCreateWaitList"/></option>
                                                                             <%} %>
                                                                             <%
-
-                                                                                for (WaitingListName wln : activeWaitingListNames) {
+                                                                                for (WaitingListName wln : selectableWaitingLists) {
                                                                             %>
                                                                             <option value="<%=wln.getId()%>"
-                                                                                    <%=wln.getId().toString().equals(listID) ? " selected" : ""%>>
-                                                                                <%=SafeEncode.forHtml(wln.getName())%>
-                                                                            </option>
+                                                                                    <%=wln.getId().toString().equals(listID) ? " selected" : ""%>><carlos:encode value='<%= wln.getName() %>'/></option>
                                                                             <%
                                                                                 }
 
                                                                             %>
                                                                         </select></td>
-                                                                        <td align="right" nowrap><b><label for="waiting_list_note"><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </label></b>
+                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 name="waiting_list_note"
-                                                                                                id="waiting_list_note"
-                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlnote)%>"
+                                                                                                value="<carlos:encode value='<%= wlnote %>' context="htmlAttribute"/>"
                                                                                 <%=wLReadonly%>></td>
                                                                     </tr>
                                                                     <tr>
 
-                                                                        <td align="right" nowrap><b><label for="waiting_list_referral_date"><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </label></b>
+                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 placeholder="yyyy-mm-dd"
                                                                                                 name="waiting_list_referral_date"
                                                                                                 id="waiting_list_referral_date"
                                                                                                 size="11"
-                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>" <%=wLReadonly%>><img
+                                                                                                value="<carlos:encode value='<%= wlReferralDate %>' context="htmlAttribute"/>" <%=wLReadonly%>><img
                                                                                 src="<%= request.getContextPath() %>/images/cal.gif"
-                                                                                id="referral_date_cal">
+                                                                                id="referral_date_cal" alt="Calendar">
                                                                         </td>
                                                                         <td><!-- padding --></td>
                                                                         <td><!-- padding --></td>
@@ -1377,6 +1372,9 @@
                                                                 <fmt:message key="demographic.demographiceditdemographic.printAndLabels"/>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
+                                                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                                                    <li><a class="dropdown-item" href="<%=request.getContextPath()%>/report/ViewGenerateLetters?demo=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>" target="_blank" rel="noopener"><fmt:message key="report.GenerateLetters.title"/></a></li>
+                                                                </security:oscarSec>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printEnvelope%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFEnvelope"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printLbl%><%=demographic.getDemographicNo()%>&appointment_no=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFLabel"/></a></li>
                                                                 <li><a class="dropdown-item" href="#" onclick="popupPage(400,700,'<%=printAddressLbl%><%=demographic.getDemographicNo()%>');return false;"><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFAddressLabel"/></a></li>

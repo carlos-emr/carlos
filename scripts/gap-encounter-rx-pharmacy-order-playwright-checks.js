@@ -21,6 +21,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const q = h.sqlString;
 
@@ -39,8 +40,9 @@ async function workflow(s) {
     }
   });
   const make = (key, address, city) => {
-    const id = sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,postalCode,phone1,fax,email,notes,status)
-      VALUES(${q(names[key])},${q(address)},${q(city)},'ON','M1A 1A1','416-555-0301','416-555-0302','pharmacy@example.invalid',${q(notes)},'1');
+    // uid is NOT NULL with no default: strict sql_mode refuses a row that omits it.
+    const id = sql.value(`INSERT INTO pharmacyInfo(uid,name,address,city,province,postalCode,phone1,fax,email,notes,status)
+      VALUES(0,${q(names[key])},${q(address)},${q(city)},'ON','M1A 1A1','416-555-0301','416-555-0302','pharmacy@example.invalid',${q(notes)},'1');
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'A pharmacy fixture was not created');
     ids.push(id);
@@ -51,7 +53,7 @@ async function workflow(s) {
   const order = id => sql.value(`SELECT COALESCE((SELECT preferredOrder FROM demographicPharmacy WHERE demographic_no=${patient}
     AND pharmacyID=${id} AND status='1'),'none')`);
 
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="rx/choosePatient"]').first(), 'pharmacy-order-rx');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, 'rx/choosePatient').first(), 'pharmacy-order-rx');
   await rx.locator('a[href$="/rx/managePharmacy"]').click();
   await rx.waitForURL(/\/rx\/managePharmacy(?:\?|$)/);
   await rx.waitForLoadState('networkidle');

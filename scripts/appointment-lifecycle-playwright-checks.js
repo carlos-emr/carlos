@@ -59,6 +59,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -675,7 +676,7 @@ async function main() {
     cleanupRows();
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
     // appointmentaddarecord.jsp calls self.close() on a SUCCESSFUL add, tearing the
     // confirmation down before it can be read. Neutralising close keeps the page
     // inspectable; the flag it sets is what the booking asserts instead.

@@ -342,6 +342,8 @@ function clickLoadDiv(e) {
 function loadDiv(div, url) {
     CarlosAjax.request(url, {
         method: 'post',
+        postBody: 'demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
+            + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0'),
         onSuccess: function (request) {
             carlosExtractAndExecScripts(document.getElementById(div), request.responseText);
         },
@@ -353,7 +355,8 @@ function loadDiv(div, url) {
 }
 
 function popLeftColumn(url, div, params) {
-    params = "cmd=" + params;
+    params = "cmd=" + params + '&demographicNo=' + encodeURIComponent(encounterConfig.demographicNo)
+        + '&appointmentNo=' + encodeURIComponent(encounterConfig.appointmentNo || '0');
     CarlosAjax.request(url, {
         method: 'post',
         postBody: params,
@@ -468,7 +471,9 @@ function navBarLoader() {
     };
 
     this.popColumn = function (url, div, params, navBar) {
-        params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
+        params = "reloadURL=" + encodeURIComponent(url) + "&numToDisplay=6&cmd=" + params
+            + "&demographicNo=" + encodeURIComponent(encounterConfig.demographicNo)
+            + "&appointmentNo=" + encodeURIComponent(encounterConfig.appointmentNo || "0");
         CarlosAjax.request(url, {
             method: 'post',
             postBody: params,

@@ -114,10 +114,20 @@
     let measurementTypeMap = {
         'WT': {'name': 'Weight', 'instructions': 'in kg'},
         'HT': {'name': 'Height', 'instructions': 'in cm'},
+        'HEAD': {'name': 'Head circumference', 'instructions': 'in cm'},
         'HR': {'name': 'Heart Rate', 'instructions': 'in BPMB'},
         'BP': {'name': 'Blood Pressure', 'instructions': ''}
     };
     let existingMeasurementUsed = false;
+
+    /**
+     * Formats a Date as yyyy-MM-dd in the browser's local time zone. toISOString() is UTC and
+     * yields tomorrow's date in the evening for clinics west of UTC (issue #4421).
+     */
+    function formatLocalIsoDate(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
 
     /**
      * This function will retrieve specific demographic measurement data and display it in a modal for the user to select and import into the desired form field
@@ -172,7 +182,7 @@
                 let obsDateInput = document.createElement('input');
                 obsDateInput.type = 'date';
                 obsDateInput.id = 'currentMeasurementObservationDate';
-                obsDateInput.value = new Date().toISOString().slice(0, 10);
+                obsDateInput.value = formatLocalIsoDate(new Date());
                 inputDiv.appendChild(obsDateInput);
 
                 bodyContent.appendChild(inputDiv);
@@ -216,7 +226,9 @@
                             ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
-                        let obsDate = hasObservationDate ? dateObserved.toISOString().slice(0, 10) : '';
+                        // Prefer the server-formatted calendar day: dates are stored as midnight in the server's
+                        // zone, so re-deriving the day from the epoch in the browser's zone can show the previous day.
+                        let obsDate = this.dateObservedLocal || (hasObservationDate ? formatLocalIsoDate(dateObserved) : '');
 
                         // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
                         // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
@@ -269,7 +281,14 @@
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
-                    if (accepted) document.getElementById(elementId).value = currentValueInput.value;
+                    if (accepted) {
+                        const target = document.getElementById(elementId);
+                        if (target.value !== currentValueInput.value) {
+                            target.value = currentValueInput.value;
+                            // The dialog lives outside the form; notify its autosave and unsaved-change handlers.
+                            target.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
                 });
             }
         });

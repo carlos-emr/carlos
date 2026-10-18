@@ -46,6 +46,7 @@ import java.util.TreeMap;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 
@@ -1694,6 +1695,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
             list = q.getResultList();
         return list;
+    }
+
+    @Override
+    public Demographic findForUpdate(Integer demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Override

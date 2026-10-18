@@ -492,7 +492,6 @@
                 <value>io.github.carlos_emr.carlos.commn.model.ScratchPad</value>
                 <value>io.github.carlos_emr.carlos.commn.model.SecPrivilege</value>
                 <value>io.github.carlos_emr.carlos.commn.model.SnomedCore</value>
-                <value>io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript</value>
                 <value>io.github.carlos_emr.carlos.commn.model.Validations</value>
                 <value>io.github.carlos_emr.carlos.commn.model.WaitingList</value>
                 <value>io.github.carlos_emr.carlos.commn.model.WaitingListName</value>
@@ -622,6 +621,10 @@
     <bean id="providerLinkingRulesService" class="io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService" autowire="constructor" />
     <bean id="hrmProviderRoutingService" class="io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService" autowire="constructor" />
     <bean id="mrpRoutingService" class="io.github.carlos_emr.carlos.lab.service.MrpRoutingService" autowire="constructor" />
+    <!-- Measurement group creation (issue #3335): a real tx proxy so
+         MeasurementGroupCreationServiceIntegrationTest can prove a failed member insert
+         rolls back the group's style row. -->
+    <bean id="measurementGroupCreationService" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService" autowire="constructor" />
     <!-- Real FaxManagerImpl so @Transactional gets a genuine tx proxy (tx:annotation-driven above);
          FaxManagerImplTransactionIntegrationTest exercises real per-recipient persist rollback.
          Its @Autowired FaxDocumentManager/FaxSchedulerJob dependencies are mocked below (a real

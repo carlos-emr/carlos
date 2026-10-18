@@ -100,6 +100,39 @@ class ScopedFlowSheetCustomizationUnitTest extends CarlosUnitTestBase {
         assertEquals(List.of("BP"), builtIn.getVisibleMeasurementList());
     }
 
+    @Test
+    void shouldContinuePatientCustomizations_whenBroaderScopeDeletesAnAbsentItem() {
+        MeasurementFlowSheet result = config.getFlowSheet("tracker", "42", 101, List.of(
+                change(FlowSheetCustomization.DELETE, "BP", null),
+                change(FlowSheetCustomization.ADD, null, "<item measurement_type=\"WT\" display_name=\"Patient weight\"/>"),
+                change(FlowSheetCustomization.UPDATE, "A1C", "<item measurement_type=\"A1C\" display_name=\"Patient A1C\"/>")));
+
+        assertEquals(List.of("A1C", "HT", "WT"), result.getVisibleMeasurementList());
+        assertEquals("Patient A1C", result.getMeasurementFlowSheetInfo("A1C").get("display_name"));
+        assertEquals(List.of("A1C", "HT"), scoped.getVisibleMeasurementList());
+    }
+
+    @Test
+    void shouldAppendAddition_whenItsAnchorIsAbsentFromTheScopedDefinition() {
+        MeasurementFlowSheet result = config.getFlowSheet("tracker", "42", 101, List.of(
+                change(FlowSheetCustomization.ADD, "BP", "<item measurement_type=\"WT\" display_name=\"Patient weight\"/>"),
+                change(FlowSheetCustomization.UPDATE, "A1C", "<item measurement_type=\"A1C\" display_name=\"Patient A1C\"/>")));
+
+        assertEquals(List.of("A1C", "HT", "WT"), result.getVisibleMeasurementList());
+        assertEquals("Patient A1C", result.getMeasurementFlowSheetInfo("A1C").get("display_name"));
+        assertEquals(List.of("A1C", "HT"), scoped.getVisibleMeasurementList());
+    }
+
+    @Test
+    void shouldSkipAnUpdateToAnAbsentItem_withoutReintroducingItOrLosingLaterAdditions() {
+        MeasurementFlowSheet result = config.getFlowSheet("tracker", "42", 101, List.of(
+                change(FlowSheetCustomization.UPDATE, "BP", "<item measurement_type=\"BP\" display_name=\"Broad-scope BP\"/>"),
+                change(FlowSheetCustomization.ADD, null, "<item measurement_type=\"WT\" display_name=\"Patient weight\"/>")));
+
+        assertEquals(List.of("A1C", "HT", "WT"), result.getMeasurementList());
+        assertEquals(List.of("A1C", "HT"), scoped.getMeasurementList());
+    }
+
     private static MeasurementFlowSheet sheet(String... types) {
         MeasurementFlowSheet result = new MeasurementFlowSheet();
         result.setName("tracker");

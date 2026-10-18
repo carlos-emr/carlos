@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Renders a configured chart navigation module and its patient-specific items.
+    Features include permission-aware headings, expandable item lists, and issue
+    headings that clear the note filter through the chart's guarded reset handler.
+    Request attributes: DAO supplies the module heading, links and items; navbarName
+    identifies the module and cmd selects its write permission. Optional reloadURL
+    and numToDisplay parameters control refresh and the number of visible items.
+    @since 2026-10-14 (issue-heading reset behavior)
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -183,6 +193,12 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         if (leftCfg != null) { %>
         <h3><a href="javascript:void(0)" onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
+<%      } else if ("unresolvedIssues".equals(navbarName) || "resolvedIssues".equals(navbarName)) { %>
+        <%-- These two modules clear the notes filter. Keep the handler fixed rather
+             than treating the legacy DAO leftURL statement as executable input. --%>
+        <h3><button type="button" onclick="return clearIssueFilter();"
+                    style="display: block; width: 100%; text-align: left; white-space: nowrap; margin: 0; padding: 1px 10px; border: 0; background: inherit; color: inherit; font: inherit; cursor: pointer;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
+        </button></h3>
 <%      } else { %>
         <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
@@ -299,49 +315,49 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             bgColour = item.getBgColour().equals("") ? "background-color: #f3f3f3;" : "background-color: " + item.getBgColour() + ";";
             String dateColour = "background-color: white;";
             if ((j % 2) == 0) {
-                stripe = "style=\"overflow: hidden; clear:both; position:relative; display:block; white-space:nowrap; " + bgColour + "\"";
+                stripe = "style=\"overflow: hidden; clear:both; position:relative; display:flex; white-space:nowrap; " + bgColour + "\"";
                 dateColour = bgColour;
             } else {
-                stripe = "style=\"overflow: hidden; clear:both; position:relative; display:block; white-space:nowrap; \"";
+                stripe = "style=\"overflow: hidden; clear:both; position:relative; display:flex; white-space:nowrap; \"";
             }
             out.println("<li " + stripe + ">");
 
             if (curNum == 0 && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; order:3; flex-shrink:0; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
                 js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
                 js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && xpanded) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a href='#' onclick=\"return false;\" style='text-decoration:none; width:7px; order:3; flex-shrink:0; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/messenger/img/collapse.gif'/>&nbsp;&nbsp;</a>");
                 js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickListDisplay.bindAsEventListener(obj,'" + jsNavbarName + "', '" + displayThreshold + "');");
                 js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else if (j == (numToDisplay - 1) && numItems > (curNum + 1)) {
                 imgName = "img" + navbarName + curNum;
-                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a href='#' onclick=\"return false;\" title='" + String.valueOf(numItems - j - 1) + " more items' style=' text-decoration:none; width:7px; order:3; flex-shrink:0; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img id='" + SafeEncode.forHtmlAttribute(imgName) + "' src='" + request.getContextPath() + "/encounter/graphics/expand.gif'/>&nbsp;&nbsp;</a>");
                 js.append("imgfunc['" + SafeEncode.forJavaScript(imgName) + "'] = clickLoadDiv.bindAsEventListener(obj,'" + jsNavbarName + "','" + jsReloadUrl + "');");
                 js.append("Element.observe($('" + SafeEncode.forJavaScript(imgName) + "'), 'click', imgfunc['" + SafeEncode.forJavaScript(imgName) + "']);");
             } else {
-                out.println("<a border=0 style='text-decoration:none; width:7px; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + SafeEncode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
+                out.println("<a border=0 style='text-decoration:none; width:7px; order:3; flex-shrink:0; z-index: 100; " + dateColour + " position:relative; margin: 0px; padding-bottom: 0px;  vertical-align: bottom; display: inline; float: right; clear:both;'><img  id='" + SafeEncode.forHtmlAttribute("img" + navbarName + curNum) + "' src='" + request.getContextPath() + "/images/clear.gif'/>&nbsp;&nbsp;</a>");
             }
             ++curNum;
 
-            out.println("<span style=\" z-index: 1; position:absolute; margin-right:10px; width:90%; overflow:hidden;  height:1.2em; white-space:nowrap; float:left; text-align:left; \">");
+            out.println("<span style=\" z-index: 1; position:relative; order:1; flex:1; min-width:0; overflow:hidden;  height:1.2em; white-space:nowrap; float:left; text-align:left; \">");
             String url = item.getURL();
             //This should be done in the display classes but I'll keep it here for future reference
             //url = StringUtils.replaceEach(url, new String[] {"'","\\\""}, new String[] {"\'","\\\""});
             if (item.isURLJavaScript()) {
                 divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
+                out.println("<a class='links' style='" + colour + "display:block;overflow:hidden;text-overflow:ellipsis;' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href='#' onclick=\"" + divReloadInfo + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "'>");
             } else {
-                out.println("<a class='links' style='" + colour + "' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
+                out.println("<a class='links' style='" + colour + "display:block;overflow:hidden;text-overflow:ellipsis;' onmouseover=\"this.className='linkhover'\" onmouseout=\"this.className='links'\" href=\"" + url + "\" title='" + SafeEncode.forHtmlAttribute(item.getLinkTitle()) + "' target=\"_blank\">");
             }
             out.println(item.getTitle());
             out.println("</a>");
             out.println("</span>");
 
             if (item.getDate() != null) {
-                out.println("<span style=\"z-index: 100; " + dateColour + " overflow:hidden;   position:relative; height:1.2em; white-space:nowrap; float:right; text-align:right;\">");
+                out.println("<span style=\"z-index: 100; order:2; flex-shrink:0; " + dateColour + " overflow:hidden;   position:relative; height:1.2em; white-space:nowrap; float:right; text-align:right;\">");
 
                 if (item.isURLJavaScript()) {
                     divReloadInfo = trackWindowString(url, divReloadUrl, cmd, pattern);

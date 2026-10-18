@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-alpha19-SNAPSHOT</version>
+    <version>2026.08.0-alpha21-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -110,12 +110,12 @@
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
-        <spring.version>7.0.8</spring.version>
+        <spring.version>7.0.9</spring.version>
         <spring-security.version>7.0.5</spring-security.version>
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.22.2</jackson.version>
+        <jackson.version>2.22.3</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.3</httpclient5.version>
         <!-- Version of the provided-scope Tomcat artifacts we compile against. The servlet
@@ -1540,6 +1540,7 @@
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
                         <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ttc</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>
@@ -1798,6 +1799,15 @@
                         <include>**/*Test.java</include>
                         <include>**/*Tests.java</include>
                     </includes>
+                    <!-- Fork test JVMs under the locale the packaged service runs with
+                         (carlos-emr.service sets LANG=C.UTF-8). The JVM derives its filename
+                         encoding (sun.jnu.encoding) from the locale and it cannot be overridden
+                         by a system property, so under a POSIX/C shell non-ASCII document names
+                         fail with InvalidPathException in tests but never in production. -->
+                    <environmentVariables>
+                        <LANG>C.UTF-8</LANG>
+                        <LC_ALL>C.UTF-8</LC_ALL>
+                    </environmentVariables>
                     <argLine>
                        @{argLine}
                        -Xmx2048m

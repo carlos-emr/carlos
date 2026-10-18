@@ -22,11 +22,12 @@
  */
 
 const { chromium } = require('playwright');
-const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -52,6 +53,9 @@ const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through e
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -133,7 +137,10 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
@@ -456,19 +463,31 @@ async function deleteTicklerFromList(page, message) {
   await waitForTicklerStatus('D');
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupRows();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
-  cleanupRows();
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');
@@ -511,8 +530,11 @@ async function deleteTicklerFromList(page, message) {
     await browser.close().catch(() => {});
     cleanupRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
+  signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
   process.exit(1);

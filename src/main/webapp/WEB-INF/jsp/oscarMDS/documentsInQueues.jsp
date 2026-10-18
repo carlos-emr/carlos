@@ -1749,29 +1749,6 @@
             return docType[docNo];
         }
 
-        function checkSelected() {
-
-            //oscarLog('in checkSelected()');
-            aBoxIsChecked = false;
-            if (document.reassignForm.flaggedLabs.length == undefined) {
-                if (document.reassignForm.flaggedLabs.checked == true) {
-                    aBoxIsChecked = true;
-                }
-            } else {
-                for (i = 0; i < document.reassignForm.flaggedLabs.length; i++) {
-                    if (document.reassignForm.flaggedLabs[i].checked == true) {
-                        //oscarLog(document.reassignForm.flaggedLabs[i].value);
-                        aBoxIsChecked = true;
-                    }
-                }
-            }
-            if (aBoxIsChecked) {
-                popupStart(397, 700, '<%= request.getContextPath() %>/oscarMDS/ViewSelectProvider', 'providerselect');
-            } else {
-                alert(msgSelectOneLab);
-            }
-        }
-
         function updateDocLabData(doclabid, inQueue) {//remove doclabid from global variables
 //console.log('in updatedoclabdata='+doclabid);
             if (doclabid) {

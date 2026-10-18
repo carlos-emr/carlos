@@ -127,8 +127,9 @@ public class Wcb extends AbstractModel<Integer> {
     @Column(name = "w_rphysician")
     private String rPhysician;
 
+    // Nullable column (tinyint): an Integer, so a NULL row loads instead of failing the whole query (#4864).
     @Column(name = "w_duration")
-    private int duration;
+    private Integer duration;
 
     @Column(name = "w_problem")
     private String problem;
@@ -211,7 +212,8 @@ public class Wcb extends AbstractModel<Integer> {
     @Column(name = "w_servicelocation")
     private String serviceLocation;
 
-    private int formNeeded;
+    // Nullable column (int(1)): an Integer, so a NULL row loads instead of failing the whole query (#4864).
+    private Integer formNeeded;
 
     public Integer getId() {
         return id;
@@ -421,8 +423,9 @@ public class Wcb extends AbstractModel<Integer> {
         this.rPhysician = rPhysician;
     }
 
+    /** @return the duration code, or 0 when the column is NULL (not chosen) */
     public int getDuration() {
-        return duration;
+        return duration == null ? 0 : duration;
     }
 
     public void setDuration(int duration) {
@@ -637,8 +640,9 @@ public class Wcb extends AbstractModel<Integer> {
         this.serviceLocation = serviceLocation;
     }
 
+    /** @return 1 when a WCB form is needed, 0 otherwise (including a NULL column) */
     public int getFormNeeded() {
-        return formNeeded;
+        return formNeeded == null ? 0 : formNeeded;
     }
 
     public void setFormNeeded(int formNeeded) {

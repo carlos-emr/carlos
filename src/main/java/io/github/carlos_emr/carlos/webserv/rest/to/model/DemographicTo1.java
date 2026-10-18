@@ -35,6 +35,8 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.xml.bind.annotation.XmlRootElement;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.github.carlos_emr.carlos.webserv.rest.util.DateOnlySerializer;
 
 @XmlRootElement
 public class DemographicTo1 implements Serializable {
@@ -195,6 +197,8 @@ public class DemographicTo1 implements Serializable {
         this.ver = ver;
     }
 
+    // A birth date remains a date even on the epoch day or a DST midnight gap.
+    @JsonSerialize(using = DateOnlySerializer.class)
     public Date getDateOfBirth() {
         return dateOfBirth;
     }

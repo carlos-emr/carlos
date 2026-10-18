@@ -28,6 +28,34 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AddPreventionDataDisambiguate.jsp - Prevention Vaccine Picker Popup
+
+    Shown when a prevention type maps to more than one Canadian Vaccine Catalogue (CVC)
+    immunization. Lists each matching CVC immunization by picklist name so the user can
+    choose which one to record, then links on to the AddPreventionData popup with the
+    chosen SNOMED concept ID.
+
+    Features:
+      - Looks up CVC mappings for the requested prevention type and lists each matching
+        immunization (mappings with no CVC immunization record are skipped)
+      - Header shows the patient's name, sex and age (age calculated at today's date)
+      - Each choice links to /prevention/ViewAddPreventionData with snomedId, prevention,
+        demographic_no and prevResultDesc carried forward
+      - About/License footer links are tagged js-popup and opened by popupLink.js in a
+        script-opened window, so the target pages' window.close() still works
+
+    Request Parameters:
+      - demographic_no  (String) patient demographic identifier
+      - prevention      (String) prevention type name used to look up CVC mappings
+      - prevResultDesc  (String, optional) result description passed through to the entry form
+
+    Security:
+      - Served through the ViewAddPreventionDataDisambiguate2Action gate
+      - Requires '_prevention' read privilege; redirects to securityError if absent
+
+    @since 2018-06-01 (BIS transfer work), popupLink.js About/License fix 2026-08-31
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
@@ -262,7 +290,7 @@
 
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="disableifchecked(document.getElementById('neverWarn'),'nextDate');">
+    <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
@@ -279,9 +307,7 @@
 
                         </td>
                         <td style="text-align:right">
-                            <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+                            <%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %>
                         </td>
                     </tr>
                 </table>

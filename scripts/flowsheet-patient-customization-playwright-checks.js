@@ -10,10 +10,17 @@
 // and the target colour fire on a seeded value and stop after Revert, that the trash removes only its
 // item, and that custom print lists the patient's customised item and reading and previews it.
 // health-tracker seeds its customization rows with SQL; flowsheet-admin covers clinic-wide editing.
+// Last (pinned to app-findings-log.md finding 176): after a patient-scope customization, a flowsheet-level
+// decision-support message must still show. The Health Tracker's own tracker.drl holds no rules, so this
+// uses the CKD flowsheet (ckd.drl: "An Alb: creat ratio value has not been recorded" for a patient with no
+// urine ACR): its message shows, a patient-scope Hide of one item is applied, and the message must remain.
+// makeNewFlowsheet re-parses an export that omits the root ds_rules, so the customized copy has no rule base.
 // Fixtures: the owned FAKE-PW patient (runWorkflow) and one seeded WT and HT reading carrying the
-// marker. Cleanup deletes this patient's tracker customization rows and readings, asserting both.
+// marker. Cleanup deletes this patient's tracker and CKD customization rows and readings, asserting both.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn, probe, forbiddenByApp } = require('./lib/authz-read-probe');
 
 async function navigate(page, locator) {
   await Promise.all([
@@ -28,15 +35,19 @@ async function workflow(s, { editorOnly = false } = {}) {
   const { sql, patient, provider, marker } = s;
   const items = { WT: `${marker} Weight`, HT: `${marker} Height` };
   const warning = `${marker} weight above 100`;
+  let printUrl;
   const rows = (where) => `SELECT COUNT(*) FROM flowsheet_customization WHERE flowsheet='tracker'
     AND demographic_no=${patient} AND provider_no=${h.sqlString(provider)} ${where}`;
   const addRow = (type) => `AND action='add' AND measurement IS NULL
     AND payload LIKE ${h.sqlString(`%measurement_type="${type}"%`)} AND payload LIKE ${h.sqlString(`%${items[type]}%`)}`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet='tracker' AND demographic_no=${patient};
-      DELETE FROM measurements WHERE demographicNo=${patient}`);
+    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet IN ('tracker','ckd') AND demographic_no=${patient};
+      DELETE FROM measurements WHERE demographicNo=${patient};
+      DELETE FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient} AND displayName=${h.sqlString(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM flowsheet_customization WHERE demographic_no=${patient}`) === '0',
       'Owned flowsheet customization rows were not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient} AND displayName=${h.sqlString(marker)}`) === '0',
+      'Owned scoped definition was not removed');
     h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '0',
       'Owned readings were not removed');
   });
@@ -166,6 +177,7 @@ async function workflow(s, { editorOnly = false } = {}) {
   await s.step('custom print lists the customised item and its reading', async () => {
     await navigate(page, page.locator('a[title="Print this flowsheet"]'));
     h.assert(/\/ViewTemplateFlowSheetPrint$/.test(new URL(page.url()).pathname), 'Print did not open the custom print page');
+    printUrl = page.url();
     const section = page.locator('.preventionSection').filter({ has: page.locator('#printHPWT') });
     h.assert(await section.count() === 1,
       'Custom print from the Health Tracker does not list the patient\'s customised WT item');
@@ -185,6 +197,125 @@ async function workflow(s, { editorOnly = false } = {}) {
     const section = page.locator('.preventionSection').filter({ hasText: items.WT });
     await section.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
     await page.getByRole('button', { name: 'Print' }).waitFor({ state: 'visible' });
+  });
+  await s.step('a missing deletion target in a scoped definition does not discard patient additions', async () => {
+    const scopedXml = `<flowsheet name="tracker" display_name="${marker}" ds_rules="tracker.drl" top_HTML="" warning_colour="#E00000" recommendation_colour="yellow">`
+      + `<indicator key="HIGH" colour="orange"/><item measurement_type="A1C" display_name="${marker} Scoped A1C" graphable="yes" value_name="A1C" guideline=""/></flowsheet>`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient}`) === '0',
+      'The owned patient already has a scoped definition');
+    sql.execute(`INSERT INTO FlowSheetUserCreated
+      (name,displayName,archived,createdDate,createdBy,scope,scopeDemographicNo,template,xmlContent)
+      VALUES ('PWFS',${h.sqlString(marker)},0,CURDATE(),${h.sqlString(provider)},'patient',${patient},'tracker',${h.sqlString(scopedXml)});
+      INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('tracker','delete','BP',NULL,${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    await page.goto(printUrl, { waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(page, 'scoped print with absent deletion target');
+    h.assert(await page.locator('#printHPA1C').count() === 1, 'Print lost the resolved scoped definition');
+    h.assert(await page.getByText(`${marker} Scoped A1C`, { exact: true }).count() === 1, 'Print lost the scoped item label');
+    h.assert(await page.locator('#printHPWT').count() === 1, 'An absent deletion target discarded the patient weight item');
+    h.assert(await page.locator('#printHPBP').count() === 0, 'Print introduced an item absent from the scoped definition');
+  });
+
+  await s.step('an absent addition anchor appends the item and an absent update target stays absent', async () => {
+    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet='tracker' AND demographic_no=${patient}
+      AND action='delete' AND measurement='BP';
+      UPDATE flowsheet_customization SET measurement='BP' WHERE flowsheet='tracker' AND demographic_no=${patient}
+      AND action='add' AND archived=0 AND payload LIKE ${h.sqlString('%measurement_type="WT"%')};
+      INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('tracker','update','BP',${h.sqlString('<item measurement_type="BP" display_name="Absent BP"/>')},
+        ${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    await page.goto(printUrl, { waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(page, 'scoped print with absent addition anchor');
+    h.assert(await page.locator('#printHPA1C').count() === 1, 'Print lost the scoped definition after adding an item');
+    const weight = page.locator('.preventionSection').filter({ has: page.locator('#printHPWT') });
+    h.assert(await weight.count() === 1, 'Print discarded the item whose anchor is absent');
+    await weight.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
+    h.assert(await page.locator('#printHPBP').count() === 0, 'An update reintroduced an absent item');
+  });
+
+  await s.step('patient locks refuse both print selection and preview without disclosing custom readings', async () => {
+    const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
+    s.cleanup(() => fixture.cleanup());
+    for (const object of ['_demographic', '_eChart']) {
+      const login = fixture.addLogin('doctor');
+      const restricted = await signIn(s, login);
+      try {
+        const selection = await restricted.page.goto(printUrl, { waitUntil: 'networkidle' });
+        h.assert(selection.status() === 200, `Unlocked doctor could not open print before applying ${object}`);
+        await restricted.page.locator('label[for="printHPWT"]').click();
+        const preview = restricted.page.waitForResponse(r => r.request().method() === 'POST'
+          && new URL(r.url()).pathname.endsWith('/ViewTemplateFlowSheetPrint'));
+        await navigate(restricted.page, restricted.page.locator('button.preview'));
+        h.assert((await preview).status() === 200, `Unlocked doctor could not preview before applying ${object}`);
+        await restricted.page.locator('.preventionSection').filter({ hasText: items.WT })
+          .locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
+        fixture.lockPatient(login, patient, [object]);
+        for (const method of ['GET', 'HEAD', 'POST']) {
+          const url = new URL(printUrl);
+          if (method === 'POST') {
+            url.searchParams.set('printView', 'true');
+            url.searchParams.set('printHP', 'WT');
+          }
+          const answer = await probe(restricted.context, url.href, { method, needles: [marker, items.WT] });
+          h.assert(forbiddenByApp(answer), `${object} patient lock did not refuse ${method} print in CARLOS (HTTP ${answer.status})`);
+          h.assert(answer.found.length === 0, 'A locked patient print request disclosed the custom reading label');
+        }
+      } finally {
+        await restricted.context.close();
+      }
+    }
+  });
+
+  // ---- Finding 176: a customized flowsheet loses its flowsheet-level decision support -----------
+  // The CKD flowsheet (ds_rules="ckd.drl") warns when no urine ACR is on file; the patient has none.
+  const ckdWarning = 'An Alb: creat ratio value has not been recorded';
+  const ckdAceItem = 'ACE-I OR ARB';
+  const ckd = async (label) => {
+    const flowsheet = await s.context.newPage();
+    await h.gotoApp(flowsheet, s.config.baseUrl,
+      `/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=${patient}&template=ckd`);
+    await flowsheet.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await h.assertNotErrorPage(flowsheet, label);
+    // The recommendations list is in the page, hidden until its toggle is opened; read the DOM, not the screen.
+    const messages = (await flowsheet.locator('div.recommendations li').allTextContents()).map(text => text.trim());
+    const itemShown = await flowsheet.getByText(ckdAceItem, { exact: false }).count() > 0;
+    return { flowsheet, messages, itemShown };
+  };
+
+  await s.step('the CKD flowsheet warns that no urine ACR is recorded and lists the ACE-I or ARB item', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM flowsheet_customization WHERE flowsheet='ckd' AND demographic_no=${patient}`) === '0',
+      'The owned patient already has a CKD flowsheet customization');
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient} AND type='ACR'`) === '0',
+      'The owned patient already has a urine ACR reading');
+    const { flowsheet, messages, itemShown } = await ckd('CKD flowsheet before customization');
+    h.assert(messages.includes(ckdWarning), 'The uncustomized CKD flowsheet shows no warning for the missing urine ACR');
+    h.assert(itemShown, `The uncustomized CKD flowsheet does not list ${ckdAceItem}`);
+    await flowsheet.close();
+  });
+
+  await s.step('a patient-scope Hide of the ACE-I or ARB item takes effect on the CKD flowsheet', async () => {
+    // The row the flowsheet editor's "Hide this measurement" writes for one patient.
+    sql.execute(`INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('ckd','delete','AORA',NULL,${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    const { flowsheet, itemShown } = await ckd('CKD flowsheet after customization');
+    h.assert(!itemShown, `The customized CKD flowsheet still lists ${ckdAceItem}, so the customization was not applied`);
+    await flowsheet.close();
+  });
+
+  // The page the pinned step judges is loaded here, with its not-an-error-page check (inside ckd()), so a page that
+  // fails to render reads failed-elsewhere and only a rendered flowsheet that lost its warning reads known-fail.
+  let customizedMessages = null;
+  await s.step('the customized CKD flowsheet renders and its recommendations list is read', async () => {
+    const { flowsheet, messages } = await ckd('CKD flowsheet after customization, recommendations');
+    customizedMessages = messages;
+    await flowsheet.close();
+  });
+
+  // Pinned: holds only the assertion finding 176 breaks.
+  await s.step('the customized CKD flowsheet still warns that no urine ACR is recorded', async () => {
+    h.assert(customizedMessages.includes(ckdWarning),
+      'The customized CKD flowsheet shows no warning for the missing urine ACR '
+      + '(its flowsheet-level decision-support rules were lost when the customized copy was built)');
   });
 }
 

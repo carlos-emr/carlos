@@ -13,6 +13,9 @@
  * resident are the FROM provider; cleanup deletes only those rows and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
+const { sessionToken } = require('./lib/mutation-replay');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -36,6 +39,9 @@ function pickUnusedProviderNo(sql, taken = []) {
 }
 
 async function workflow(s) {
+  const roleFixture = authzReadFixture({ sql: s.sql, marker: s.marker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => roleFixture.cleanup());
+
   const { sql, context, config, recorder, marker } = s;
   const from = pickUnusedProviderNo(sql);
   const to = pickUnusedProviderNo(sql, [from]);
@@ -77,15 +83,18 @@ async function workflow(s) {
   const residents = () => sql.rows(`SELECT value FROM demographicExt WHERE demographic_no IN (${ids()}) AND key_val='resident'
     ORDER BY demographic_no`).map(r => r[0]);
   // Every row this run does not own, fingerprinted over EVERY column (QUOTE keeps NULL distinct
-  // from text), so any change to a non-owned row fails the invariant. EXCLUSIVE=1 keeps other
-  // checks from changing them meanwhile.
+  // from text: it yields the string 'NULL', so CONCAT_WS never skips a column), so any change to a
+  // non-owned row fails the invariant; NULL demographic_no rows (demographicExt allows them) are
+  // included explicitly because NOT IN drops them. EXCLUSIVE=1 keeps other checks from changing
+  // them meanwhile.
   const fingerprint = table => {
     const columns = sql.rows(`SELECT column_name FROM information_schema.columns
       WHERE table_schema=DATABASE() AND table_name=${h.sqlString(table)} ORDER BY ordinal_position`).map(r => r[0]);
     h.assert(columns.length && columns.every(column => /^\w+$/.test(column)), `Unexpected ${table} column names`);
     const row = `SHA2(CONCAT_WS(':',${columns.map(column => `QUOTE(\`${column}\`)`).join(',')}),256)`;
     const key = table === 'demographic' ? 'demographic_no' : 'id';
-    return `(SELECT SHA2(COALESCE(GROUP_CONCAT(${row} ORDER BY ${key}),''),256) FROM ${table} WHERE demographic_no NOT IN (${ids()}))`;
+    return `(SELECT SHA2(COALESCE(GROUP_CONCAT(${row} ORDER BY ${key}),''),256) FROM ${table}
+      WHERE demographic_no IS NULL OR demographic_no NOT IN (${ids()}))`;
   };
   const others = () => sql.value(`SET SESSION group_concat_max_len=67108864;
     SELECT CONCAT(${fingerprint('demographic')},'|',${fingerprint('demographicExt')})`);
@@ -169,6 +178,38 @@ async function workflow(s) {
     h.assert(response.status() === 405 && reassigned === 0,
       `GET answered HTTP ${response.status()} and reassigned ${reassigned} owned patient(s); expected 405 and none`);
   });
+  await s.step('HEAD mutations and tokenless POSTs are refused before reassignment', async () => {
+    const endpoint = h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider');
+    const form = { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' };
+    const head = await context.request.head(endpoint, { params: form, maxRedirects: 0 });
+    h.assert(head.status() === 405, `HEAD reassignment answered HTTP ${head.status()}`);
+    const post = await context.request.post(endpoint, { form, maxRedirects: 0 });
+    h.assert(post.status() === 403 && Object.hasOwn(post.headers(), 'x-permitted-cross-domain-policies'),
+      'A tokenless reassignment POST was not refused by the application');
+    h.assert(mrp().every(no => no === from), 'A refused request changed the owned MRP');
+  });
+  await s.step('an administrator with read-only misc permission cannot reassign with a valid CSRF token', async () => {
+    const role = roleFixture.addRole({ _appointment: 'w', _admin: 'r', '_admin.misc': 'r', _demographic: 'u' });
+    const restricted = await signIn(s, roleFixture.addLogin(role));
+    const token = await sessionToken(restricted.page, config.baseUrl);
+    const response = await restricted.context.request.post(h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider'), {
+      form: { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F', 'CSRF-TOKEN': token },
+      maxRedirects: 0,
+    });
+    h.assert(response.status() === 403 && Object.hasOwn(response.headers(), 'x-permitted-cross-domain-policies'),
+      'The read-only administrator was not refused by the application');
+    h.assert(mrp().every(no => no === from), 'The read-only administrator changed the owned MRP');
+    await restricted.context.close();
+  });
+
+  await s.step('No Provider clears owned MRP and resident assignments through the existing forms', async () => {
+    h.assert(await reassign('oldcust5', 'newcust5', from, '', 'F', 'F') === 3, 'Clearing the MRP did not update three patients');
+    h.assert(mrp().every(no => no === ''), 'No Provider did not clear every owned MRP');
+    h.assert(await reassign('oldcust2', 'newcust2', to, '', 'F', 'F') === 2, 'Clearing residents did not update two extensions');
+    h.assert(residents().every(no => no === ''), 'No Provider did not clear every owned resident');
+    h.assert(others() === othersBefore, 'Clearing an assignment changed a non-owned row');
+  });
+
 }
 if (require.main === module) runWorkflow('admin-update-demographic-provider', workflow, { openPatient: false });
 module.exports = { workflow };

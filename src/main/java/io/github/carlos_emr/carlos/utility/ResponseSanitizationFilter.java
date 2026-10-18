@@ -332,6 +332,31 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             chain.doFilter(request, wrapper);
         } catch (IOException | ServletException | RuntimeException e) {
+            if (ClientAbort.isClientAbort(e)) {
+                // The browser closed the page or cancelled a download (#4438). Nothing failed on the server.
+                // Handled here and NOT rethrown: Tomcat 11's StandardWrapperValve logs any IOException or
+                // ServletException that escapes the filter chain at ERROR, which would only move the noise
+                // from this filter to the container log. This is the outermost filter, and
+                // DbConnectionFilter rethrows aborts to it without logging, so this is the one log line.
+                String abortedUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
+                if (httpResponse.isCommitted()) {
+                    LOGGER.debug("Client aborted the response [uri={}]", abortedUri, e);
+                    return;
+                }
+                // Not yet committed: possibly a read-side abort, such as a slow request body timing out,
+                // with the client still connected. Keep it visible at WARN and answer with the sanitized
+                // 500 if the connection can still take it.
+                String correlationId = generateCorrelationId();
+                // The throwable is kept: a pre-commit abort may be a server-side read timeout worth diagnosing.
+                LOGGER.warn("Client aborted before the response was committed [uri={} correlationId={}]",
+                        abortedUri, correlationId, e);
+                try {
+                    sendSanitizedError(httpResponse, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, correlationId);
+                } catch (IOException | RuntimeException unwritable) {
+                    LOGGER.debug("Could not send the sanitized error after a client abort [uri={}]", abortedUri);
+                }
+                return;
+            }
             // An exception escaped the entire filter chain.
             // Always log for operational visibility and auditability, even when the response
             // is already committed, so failures are never silently swallowed.
@@ -369,12 +394,9 @@ public class ResponseSanitizationFilter implements Filter {
                 int status = wrapper.getStatus();
                 if (status >= 400) {
                     String correlationId = generateCorrelationId();
-                    LOGGER.error("Late output-stream error response bypassed capture; "
-                                    + "replacing buffered body [status={} uri={} correlationId={} committed={}]",
-                            status,
-                            LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                            correlationId,
-                            httpResponse.isCommitted());
+                    logSanitizedBody("Late output-stream error response bypassed capture; replacing buffered body"
+                                    + " (committed=" + httpResponse.isCommitted() + ")",
+                            status, (HttpServletRequest) request, correlationId, "late-bypass");
                     if (!httpResponse.isCommitted()) {
                         sendSanitizedError(httpResponse, status, correlationId);
                     }
@@ -390,12 +412,8 @@ public class ResponseSanitizationFilter implements Filter {
             String reason = sanitizationReason(status, capturedBody, webServiceRequest);
             if (reason != null) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Sanitizing output-stream error response body "
-                                + "[status={} uri={} correlationId={} reason={}]",
-                        status,
-                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                        correlationId,
-                        reason);
+                logSanitizedBody("Sanitizing output-stream error response body", status,
+                        (HttpServletRequest) request, correlationId, reason);
                 if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
                     return;
                 }
@@ -427,12 +445,8 @@ public class ResponseSanitizationFilter implements Filter {
             // Tainted (stack trace) or web-service 5xx partial body: log correlation details
             // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            LOGGER.error("Sanitizing error response body "
-                    + "[status={} uri={} correlationId={} reason={}]",
-                    status,
-                    LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                    correlationId,
-                    reason);
+            logSanitizedBody("Sanitizing error response body", status,
+                    (HttpServletRequest) request, correlationId, reason);
             if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
                 return;
             }
@@ -440,6 +454,29 @@ public class ResponseSanitizationFilter implements Filter {
         } else {
             // Safe response — write captured content through to the real response.
             writeToResponse(httpResponse, capturedBody);
+        }
+    }
+
+    /**
+     * Records that an error body was replaced. A 5xx is a server failure and stays at ERROR. A 4xx is a
+     * request refused as designed, so it is not an ERROR (#4438); the expected anonymous {@code /ws/services}
+     * 401s used to land here on every call. They no longer do, because the OAuth refusals are plain text
+     * now, so a 4xx that still reaches this point carried stack-trace markers: a real leak worth a WARN, but
+     * not one that should page anyone. The correlation id is logged either way, so the generic page's
+     * reference can still be traced.
+     */
+    private static void logSanitizedBody(String what, int status, HttpServletRequest request,
+                                         String correlationId, String reason) {
+        logByStatus(status, what + " [status={} uri={} correlationId={} reason={}]",
+                status, LogSafe.sanitizeUri(request.getRequestURI()), correlationId, reason);
+    }
+
+    /** ERROR for a 5xx, WARN for a 4xx: the level rule of {@link #logSanitizedBody}, for every replacement path. */
+    private static void logByStatus(int status, String format, Object... args) {
+        if (status >= 500) {
+            LOGGER.error(format, args);
+        } else {
+            LOGGER.warn(format, args);
         }
     }
 
@@ -1433,7 +1470,7 @@ public class ResponseSanitizationFilter implements Filter {
             int status = realResponse.getStatus();
             if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Large output-stream error response exceeded sanitization capture limit; "
+                logByStatus(status, "Large output-stream error response exceeded sanitization capture limit; "
                                 + "replacing body to avoid leaking stack traces [status={} correlationId={}]",
                         status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);
@@ -1604,7 +1641,7 @@ public class ResponseSanitizationFilter implements Filter {
             String capturedPrefix = buffer.toString();
             if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Large error response exceeded sanitization capture limit; replacing body "
+                logByStatus(status, "Large error response exceeded sanitization capture limit; replacing body "
                                 + "to avoid leaking late stack traces [status={} correlationId={}]",
                         status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);

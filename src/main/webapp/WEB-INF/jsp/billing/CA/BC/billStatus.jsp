@@ -372,11 +372,15 @@
                     <div class="mb-3">
 
                         <% String billTypes = request.getParameter("billTypes");
-                            if (billTypes == null) {
-                                billTypes = MSPReconcile.REJECTED;
-                            }
                             if ("true".equals(readonly)) {
-                                billTypes = "%";
+                                // The Master Record's Invoice List opens on all of the patient's bills, and a blank
+                                // status keeps All; a status picked from the radios then filters them, as on the
+                                // clinic-wide page.
+                                if (billTypes == null || billTypes.isBlank()) {
+                                    billTypes = "%";
+                                }
+                            } else if (billTypes == null) {
+                                billTypes = MSPReconcile.REJECTED;
                             }
 
                         %>
@@ -484,7 +488,8 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="post" action="reprocessBill">
+    <%-- Absolute: this page sets <base href> to the context root, so a relative action posted to /reprocessBill (404). --%>
+    <form name="ReProcessBillingForm" method="post" action="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
                value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
