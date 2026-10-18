@@ -162,7 +162,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === '0', 'Staging wrote a drugs row before Save');
   });
 
-  // Last: picking the no-match row (pending a release fix).
+  // Last: the no-match row, which the drug search lists but no longer lets anyone pick.
   await s.step('a search with no match offers no row that can be picked: ArrowDown, Enter and a click post nothing', async () => {
     const before = await cardIds();
     const messages = await rx.locator('.rx-stage-message').count();
