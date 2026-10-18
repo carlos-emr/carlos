@@ -788,6 +788,30 @@
       ]
     },
     {
+      "name": "incoming-docs-delete-pdf-mrp",
+      "script": "scripts/incoming-docs-delete-pdf-mrp-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "INCOMINGDOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_RECYCLEBIN"
+      ],
+      "mutates": [
+        "file:incoming-document-queue",
+        "providerLabRouting"
+      ],
+      "notes": "Incoming Docs controls incoming-pdf-extraction leaves out (it sends Delete PDF only as a refused GET): Schedule ▸ Inbox ▸ Incoming Docs, queue 1, File. Delete PDF with its confirmation dismissed sends nothing and the queue is unchanged; accepted, it removes exactly that PDF from the queue, with the same bytes in the File_deleted recycle folder (INCOMINGDOCUMENT_RECYCLEBIN, on by default; set it to false where the install turns it off), and every other queued file is unchanged; MRP before a patient is chosen alerts and flags nobody; last, choosing the owned patient flags nobody by itself, MRP flags exactly the patient's MRP (the test login), and Save files the document for the patient routed to that provider only. PASS expected.",
+      "fixtures": "Three synthetic PDFs named with the run marker, written into INCOMINGDOCUMENT_DIR/1/File (which must exist, owned like the application); the owned FAKE patient, whose MRP is the test login, and its program admission (incoming-filing-program-fixture), which filing needs. The queue is shared by every login, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the filed document with its routing, links and stored file (DOCUMENT_DIR), the queued PDFs left and the recycled copy, and asserts each is gone."
+    },
+    {
       "name": "lab-upload",
       "script": "scripts/lab-upload-playwright-checks.js",
       "tiers": [
