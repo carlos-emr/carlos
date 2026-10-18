@@ -24,6 +24,12 @@ async function workflow(s) {
   const chart = await s.chart();
   let index = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
   const reminders = async () => (await index.locator('.recommendations').innerText().catch(() => '')).replace(/\s+/g, ' ');
+  /** The reminders once the reopened list shows the given record, so a page that did not render can't pass. */
+  async function remindersListing(id) {
+    await index.locator(`.preventionProcedure[onclick*="id=${id}"]`).first().waitFor({ state: 'visible' });
+    return reminders();
+  }
+  /** Records a given vaccine of the type on the date through its form and returns the new record's id. */
   async function record(type, date) {
     const link = index.locator(`a[onclick*="ViewAddPreventionData"][onclick*="prevention=${type}&"]`).first();
     const editor = await s.popup(index, link, 'prevention-editor');
@@ -34,8 +40,10 @@ async function workflow(s) {
     if (!editor.isClosed()) await editor.waitForEvent('close');
     await expectValue(sql, `SELECT COUNT(*) FROM preventions WHERE demographic_no=${patient} AND prevention_type=${sqlString(type)}
       AND deleted=0 AND refused=0 AND DATE(prevention_date)=${sqlString(date)}`, '1', `The ${type} was not recorded on ${date}`);
+    const id = sql.value(`SELECT MAX(id) FROM preventions WHERE demographic_no=${patient} AND prevention_type=${sqlString(type)}`);
     await index.close();
     index = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
+    return id;
   }
   const today = sql.value('SELECT CURDATE()');
   const twelveYearsAgo = sql.value('SELECT DATE_SUB(CURDATE(), INTERVAL 12 YEAR)');
@@ -47,14 +55,12 @@ async function workflow(s) {
   });
 
   await s.step('recording a flu shot today takes the flu reminder away', async () => {
-    await record('Inf', today);
-    const shown = await reminders();
+    const shown = await remindersListing(await record('Inf', today));
     assert(!shown.includes('Needs Flu Shot'), `The flu reminder is still shown after today's flu shot: ${shown.slice(0, 300)}`);
   });
 
   await s.step('a Td from twelve years ago, the only tetanus vaccine, raises "Needs repeat Td"', async () => {
-    await record('Td', twelveYearsAgo);
-    const shown = await reminders();
+    const shown = await remindersListing(await record('Td', twelveYearsAgo));
     await index.close();
     assert(shown.includes('Needs repeat Td'), `No repeat-Td reminder for a Td twelve years old: ${shown.slice(0, 300)}`);
   });

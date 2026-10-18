@@ -6,7 +6,8 @@
  * User path: Master Record ▸ Edit ▸ a new address ▸ Update Record (twice); ▸ Edit ▸ a new home phone ▸ Update Record
  * (twice); point at Address History and Home phone History.
  * Asserts: the address history lists each address the patient had, dated; the home phone history lists each home
- * phone; LAST, an address that did not change is listed once, not again for every save that changed something else.
+ * phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something
+ * else, and a phone without an extension shows no "x".
  * Fixtures: the runWorkflow FAKE- patient (FAKE addresses and 555 phones); the update's ext-archive and custom rows are
  * removed before the harness removes the patient's ext and archive rows.
  */
@@ -66,10 +67,13 @@ async function workflow(s) {
     }
   });
 
-  await s.step('an address that did not change is listed once, not again for every other save', async () => {
+  await s.step('an address or phone that did not change is listed once, and a phone without an extension shows no "x"', async () => {
     const rows = await history('Address History');
     const latest = rows.filter(([, value]) => value.startsWith('30 FAKE Third St'));
     h.assert(latest.length === 1, `The unchanged address is listed ${latest.length} times: ${JSON.stringify(rows)}`);
+    const phones = (await history('Home phone History')).map(([, value]) => value);
+    h.assert(new Set(phones).size === phones.length, `A home phone is listed more than once: ${JSON.stringify(phones)}`);
+    h.assert(!phones.some(phone => phone.endsWith('x')), `A home phone without an extension ends in "x": ${JSON.stringify(phones)}`);
   });
 }
 
