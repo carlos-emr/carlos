@@ -992,7 +992,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 %>
                 <td>
                     <a href="javascript: function myFunction() {return false; }"
-                       title="<fmt:message key='form.bcar.doubleClickHint'/>"
+                       title="<fmt:message key='form.bcar.doubleClickShadedFields'/>"
                        onClick="showHideBox('Instrdiv',1);return false;"><font color='red'><fmt:message key="form.bcar.instruction"/></font></a>
                 </td>
 
