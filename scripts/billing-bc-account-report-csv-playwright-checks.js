@@ -2,8 +2,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * BC Administration ▸ Billing ▸ Accounting Reports as a spreadsheet: the Invoice, A/R and Rejection reports' CSV rows
- * are the claims SQL selects for the same range. billing-bc-account-reports reads the Write-Off and Payments and Refunds
- * PDFs; nothing read these three reports' spreadsheets.
+ * are the claims SQL selects for the same range. billing-bc-account-report-types reads these three reports' PDFs and
+ * their payer boxes, and billing-bc-account-reports the Write-Off and Payments and Refunds PDFs; this check reads the
+ * three reports' spreadsheets against SQL.
  *
  * User path: Schedule ▸ Administration ▸ Billing ▸ Accounting Reports (billing/CA/BC/ViewBillingAccountReports, in the
  * #dynamic-content iframe) ▸ Report type, Account ALL, Format Spread Sheet, From/To dates ▸ Create Report (POST
