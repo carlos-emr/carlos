@@ -4129,6 +4129,26 @@
       "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
     },
     {
+      "name": "billing-bc-bill-form-popups",
+      "script": "scripts/billing-bc-bill-form-popups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "provider",
+        "billingreferral",
+        "billing_on_3rdPartyAddress"
+      ],
+      "notes": "BC billing popups: the day sheet's B opens the BC bill form for the owned appointment, and its dx reference (billing/CA/BC/ViewDxReference) lists the patient's earlier diagnosis; picking it fills the first diagnosis box; the referral search (billing/CA/BC/ViewBillingReferCodeSearch) with one match fills Referral 1, and with two matches lists both and Confirm fills Referral 2 with the ticked one; Save Bill writes the claim with that diagnosis and both referral numbers; the private receipt's bill-to search (billing/CA/BC/ViewOnSearch3rdBillAddr) finds the owned address and fills the recipient; Add/Edit Address (billing/CA/BC/OnAddEdit3rdAddr) saves a new name, which the search then finds. billing-bc-bill-create-save covers the fee and diagnosis searches; billing-bc-day-sheet-unbill covers B, the claim and the appointment's billed status. On release/2026.08 the last step fails until #4962 is fixed: Add/Edit Address's Search and Save throw a script error (they call a service-code check for fields the page doesn't have), so Save never asks to confirm; the address is still saved in English.",
+      "fixtures": "One billing physician (bc.createBillingPhysician); the workflow's own FAKE patient made a BC patient, with one earlier MSP claim (diagnosis 780, 1995) and one private bill; one appointment for it today on the test login's day sheet; two referral doctors (billingreferral, last name = the run marker) and one bill-to address (billing_on_3rdPartyAddress, company name starting with the marker); step 7 adds a second address named with the marker. The physician, the referral doctors and the addresses show in clinic-wide lists while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes every BC billing row of the patient, its appointment and archive rows, the addresses and referral doctors named with the marker, and the physician, and asserts each is gone."
+    },
+    {
       "name": "billing-bc-day-sheet-unbill",
       "script": "scripts/billing-bc-day-sheet-unbill-playwright-checks.js",
       "tiers": [
