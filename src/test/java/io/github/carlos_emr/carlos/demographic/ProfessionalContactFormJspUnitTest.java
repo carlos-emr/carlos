@@ -87,7 +87,7 @@ class ProfessionalContactFormJspUnitTest {
                 "${carlos:forJavaScript(param.parentElementId)}",
                 "${carlos:forJavaScript(param.parentElementName)}");
         String page = Files.readString(PAGE, StandardCharsets.UTF_8);
-        assertThat(page).contains("typeof opener.popUpData === 'function'", "fillParentFields(contactId, contactName)");
+        assertThat(page).contains("typeof opener.popUpData === 'function'", "fillParentFields(contactId, contactName, contactType)");
         assertThat(page).contains(
                 "name=\"parentForm\" value=\"${carlos:forHtmlAttribute(param.parentForm)}\"",
                 "name=\"parentElementId\" value=\"${carlos:forHtmlAttribute(param.parentElementId)}\"",
