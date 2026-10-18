@@ -22,7 +22,7 @@
  *
  * The labs, all CML 3767 HEMOGLOBIN A1C unless said:
  *   - an A1C WITHIN the flowsheet's target (dated 2026-06-15, observed at 12:15: the noon hour, which the handler's
- *     12-hour time pattern misreads, finding 259; only the date reaches the flowsheet, so no other step minds),
+ *     12-hour time pattern misread until #4631, finding 259; only the date reaches the flowsheet),
  *   - an A1C ABOVE it (2026-09-30), filed together with CML 2010 HEMOGLOBIN 137 g/L, a code measurementMap maps to
  *     LOINC 718-7 but which no FLOWSHEET row shares, so it is the unmapped code,
  *   - only in the entry that pins finding 257: an A1C reported as a FRACTION, 0.095 (dated 2026-08-15), the form
@@ -62,9 +62,9 @@
  *             mapped to a flowsheet type of its own, so the A1C steps never see it. On a packaged install the step
  *             also proves the postinst rewrote the old stock line in /etc/carlos-emr/carlos.properties, the
  *             override that wins over the WAR default (an upgraded install keeps the line it was first given).
- *   time      Pinned to finding 259, right after step 4: a result observed at 12:15 is filed with that time of day.
- *             The handler parses the 24-hour observation time with the 12-hour pattern hh, which reads 12 as 0, so
- *             12:15 is stored as 00:15 (the date is right; the order of same-day results is not).
+ *   time      Finding 259 (fixed by #4631), right after step 4: a result observed at 12:15 is filed with that time
+ *             of day. The handler parsed the 24-hour observation time with the 12-hour pattern hh, which reads 12 as
+ *             0, so 12:15 was stored as 00:15 (the date was right; the order of same-day results was not).
  *   fraction  Pinned to finding 257, right after step 8: the flowsheet flags an A1C reported as a fraction above
  *             the target. MeasurementDSHelper.getDataAsDouble() scales an A1C below 1 by 100 (finding 257, fixed), so the
  *             flowsheet's single 'above 7' rule flags 0.095 as 9.5%.
@@ -367,7 +367,7 @@ async function workflow(s) {
     h.assert(JSON.stringify(typed) === JSON.stringify(['A1C']), `The patient has measurements of type ${JSON.stringify(typed)}; only A1C is expected`);
   });
 
-  // ---- Pin: finding 259 -------------------------------------------------------------------------------------------
+  // ---- Finding 259, fixed by #4631 --------------------------------------------------------------------------------
   if (PIN === 'time') {
     // The control is step 3: the measurement is filed with its type, lab number, unit and date, and carries the time the
     // lab gave (measurementsExt datetime) in the form the pin compares against.
