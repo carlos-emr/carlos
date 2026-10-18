@@ -340,5 +340,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = { workflow };
+module.exports = { workflow, eformPdfRenders };
 if (require.main === module) runWorkflow('double-submit-eform', workflow, { openPatient: true });

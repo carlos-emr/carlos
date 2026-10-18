@@ -20,8 +20,8 @@
  *      appointment date or time, and the reopened referral shows neither.
  *   2. Where CONSULTATION_PATIENT_WILL_BOOK=true: ticking Patient will book disables the appointment date fields, Update
  *      stores the flag, and the reopened referral shows it ticked; 3. unticking it and Update clears the flag.
- *   Where the setting is off (the packaged default) the box isn't rendered: that last step asserts it is absent and the date
- *   stays editable instead.
+ *   Where the setting is off (the packaged default) the box isn't rendered: the Patient will book step asserts it is
+ *   absent and the date stays editable instead, and the untick step does not run.
  * Fixtures: FAKE- patient (runWorkflow), FAKE- service, consultant and their link, and one referral with an appointment date
  * and time, seeded by SQL. The service and consultant are in the clinic-wide pickers while the run lasts, so the check must
  * not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup deletes the referral with its archive / ext
@@ -92,7 +92,8 @@ async function workflow(s) {
     await form.close();
   };
 
-  await s.step('× empties the time; with the date still set, Update is refused and saves nothing', async () => {
+  await s.step('× empties the time; with the date still set Update is refused and saves nothing, and with the date '
+    + 'cleared too Update saves the referral with no appointment', async () => {
     const form = await openRequest('consultation-clear-time');
     h.assert(await form.locator('#appointmentTimeDisplay').inputValue() === '14:30', 'The saved appointment time did not render');
     await form.locator('#clearTimeBtn').click();
@@ -103,8 +104,10 @@ async function workflow(s) {
     const watch = (request) => { if (request.method() === 'POST') posted.push(new URL(request.url()).pathname); };
     form.on('request', watch);
     const refused = await h.withExpectedDialogs(form, async () => {
-      await form.locator('input[name="update"]').click();
-      await form.waitForTimeout(1500);
+      await Promise.all([form.waitForEvent('dialog'), form.locator('input[name="update"]').click()]);
+      // The script that raised the alert has finished once the page answers again, so a submit it made has started.
+      await form.evaluate(() => document.readyState);
+      await form.waitForLoadState('networkidle');
     });
     form.off('request', watch);
     h.assert(refused.length === 1 && /enter appointment time/i.test(refused[0].text),
@@ -123,23 +126,20 @@ async function workflow(s) {
     await reopened.close();
   });
 
-  // The checkbox renders only where CONSULTATION_PATIENT_WILL_BOOK=true (packaged default false).
-  const probe = await openRequest('consultation-will-book-probe');
-  const offered = await probe.locator('#patientWillBook').count() === 1;
-  await probe.close();
-  if (!offered) {
-    await s.step('where CONSULTATION_PATIENT_WILL_BOOK is off, the referral offers no Patient will book box', async () => {
-      const form = await openRequest('consultation-will-book-off-install');
-      h.assert(await form.locator('#patientWillBook').count() === 0 && await form.locator('#appointmentDate').isEnabled(),
-        'The referral offers Patient will book, or its date is not editable, on an install with the setting off');
-      await form.close();
-    });
-    return;
-  }
-
-  await s.step('ticking Patient will book stores the flag and disables the appointment date fields', async () => {
+  // The checkbox renders only where CONSULTATION_PATIENT_WILL_BOOK=true (packaged default false), so the step reads
+  // which install it is on from the referral it opens.
+  let offered;
+  await s.step('ticking Patient will book stores the flag and disables the appointment date fields (where '
+    + 'CONSULTATION_PATIENT_WILL_BOOK is off, the referral offers no such box)', async () => {
     const form = await openRequest('consultation-will-book');
     const box = form.locator('#patientWillBook');
+    offered = await box.count() === 1;
+    if (!offered) {
+      h.assert(await form.locator('#appointmentDate').isEnabled(),
+        'The referral\'s appointment date is not editable on an install with Patient will book off');
+      await form.close();
+      return;
+    }
     h.assert(!(await box.isChecked()), 'The referral already shows Patient will book');
     await box.check();
     h.assert(await form.locator('#appointmentDate').isDisabled(), 'Patient will book did not disable the appointment date');
@@ -149,6 +149,7 @@ async function workflow(s) {
     h.assert(await reopened.locator('#patientWillBook').isChecked(), 'The reopened referral does not show Patient will book');
     await reopened.close();
   });
+  if (!offered) return;
 
   await s.step('unticking Patient will book and Update clears the flag', async () => {
     const form = await openRequest('consultation-will-book-off');

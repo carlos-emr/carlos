@@ -20,30 +20,28 @@
  *     exists after the save, after the preparation page's auto-submit or on the cover page. Cancel answers, the staged copy
  *     is no longer served, and still no fax job exists.
  *   - With no active fax account: the toolbar's Fax is disabled ("No active fax senders"), and nothing is saved or queued.
- *   - Where the eForm cannot be rendered to PDF (no eForm render browser service), the check SKIPs after the save.
+ *   - The check SKIPs after the save only where the install cannot render an eForm PDF at all, proven apart from
+ *     prepareFax: a Download of the saved instance comes back without one too (eformPdfRenders, the probe
+ *     double-submit-eform uses). Where eForm PDFs render, a prepareFax that answers HTTP >= 400, never answers or
+ *     does not reach the cover page FAILs with its status.
  * Fixtures: the owned FAKE- patient and one owned eForm template (eform row named with the run marker) in the clinic-wide eForm
  * library while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup
  * removes the template, its instances and their eform_values, and asserts them gone. Needs pdftotext. The recipient number
  * is 555-0177, which is never assigned.
  */
-const { spawnSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { requirePoppler, pdfTextBuffer } = require('./lib/export-content-helpers');
+const { eformPdfRenders } = require('./double-submit-eform-playwright-checks');
 
 const NAME = 'eform-toolbar-fax-recipient';
 const TIMEOUT = 90000;
 const q = h.sqlString;
 const RECIPIENT = { name: 'FAKE-PW Fax Recipient', fax: '555-0177' };
 
-function pdfText(bytes) {
-  const text = spawnSync('pdftotext', ['-', '-'], { input: bytes });
-  h.assert(text.status === 0, 'The staged fax PDF is not readable');
-  return text.stdout.toString().replace(/\s+/g, ' ');
-}
-
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
-  if (spawnSync('pdftotext', ['-v']).error) throw new h.SkipCheck('Install Poppler pdftotext to read the staged fax PDF');
+  requirePoppler('pdftotext');
   const formName = `${marker} fax form`;
   const heading = marker.replace(/-/g, '');
   const html = '<html><head><title>fax fixture</title></head><body>'
@@ -108,13 +106,21 @@ async function workflow(s) {
     [fdid] = instances();
     h.assert(faxJobs() === '0', 'Saving the eForm for fax queued a fax job');
     const preparation = await prepared.catch(() => null);
-    if (!preparation || preparation.status() >= 400) {
-      throw new h.SkipCheck('This install did not prepare the eForm fax (no eForm render browser service?); nothing was queued');
-    }
     fax = form;
     const cover = fax.locator('#coverPageForm');
-    await cover.waitFor({ state: 'attached', timeout: TIMEOUT });
+    const coverShown = Boolean(preparation) && preparation.status() < 400
+      && await cover.waitFor({ state: 'attached', timeout: TIMEOUT }).then(() => true, () => false);
     h.assert(faxJobs() === '0', 'Preparing the fax queued a fax job');
+    if (!coverShown) {
+      // A missing eForm render browser service is the one reason to SKIP, and it is proven apart from prepareFax:
+      // a Download of the same saved instance must come back without a PDF too. Anywhere else prepareFax failed.
+      const answer = preparation ? `HTTP ${preparation.status()}` : 'no answer';
+      if (!(await eformPdfRenders(s, formName))) {
+        throw new h.SkipCheck(`This install cannot render an eForm PDF (prepareFax: ${answer}; a Download of the saved `
+          + 'instance came back without one either), so the fax cannot be prepared; nothing was queued');
+      }
+      h.assert(false, `The eForm fax did not reach the cover page (prepareFax: ${answer}) although this install renders eForm PDFs`);
+    }
     const value = (name) => cover.locator(`input[name="${name}"]`).first().inputValue();
     h.assert(await value('transactionType') === 'EFORM' && await value('transactionId') === fdid && await value('demographicNo') === patient,
       'The cover page is not for the saved eForm instance and its patient');
@@ -125,7 +131,7 @@ async function workflow(s) {
     const preview = await s.context.request.get(await fax.locator('#previewPdfLink').evaluate((a) => a.href));
     const bytes = await preview.body();
     h.assert(preview.status() === 200 && bytes.subarray(0, 4).toString('latin1') === '%PDF', 'The cover page\'s staged PDF is not a PDF');
-    h.assert(pdfText(bytes).includes(heading), 'The staged PDF is not the saved eForm');
+    h.assert(pdfTextBuffer(bytes).replace(/\s+/g, ' ').includes(heading), 'The staged PDF is not the saved eForm');
     h.assert(faxJobs() === '0', 'Loading the cover page queued a fax job');
   });
 

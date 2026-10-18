@@ -17,31 +17,26 @@
  *     its patient), offering the active accounts; the staged PDF it previews carries the document's text; no fax job exists
  *     for the patient after Fax, after the preparation page's auto-submit or after the cover page loads. Cancel answers, the
  *     staged copy is no longer served, and still no fax job exists.
- *   - With no active fax account: Fax explains that no fax account is configured, and no fax job exists.
+ *   - With no active fax account: the viewer offers no Fax button, the button's own route (as a stale page or
+ *     bookmark opens it) explains that no fax account is configured, and no fax job exists.
  * Send is pressed in neither case. Fax recipient fields are left as the page fills them.
  * Fixtures: viewerDocuments (document-viewer-review-actions-playwright-checks.js): the owned FAKE- patient and one owned
  * PDF routed New to the test login and another active provider, with an active queue link, so the check must not run
  * concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the document's rows and file and asserts them
  * gone. Needs a pdftotext (Poppler) to read the staged copy.
  */
-const { spawnSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopup } = require('./lib/playwright-ui');
+const { requirePoppler, pdfTextBuffer } = require('./lib/export-content-helpers');
 const { runWorkflow } = require('./lib/workflow-session');
 const { viewerDocuments } = require('./document-viewer-review-actions-playwright-checks');
 
 const NAME = 'document-viewer-fax';
 const TIMEOUT = 60000;
 
-function pdfText(bytes) {
-  const text = spawnSync('pdftotext', ['-', '-'], { input: bytes });
-  h.assert(text.status === 0, 'The staged fax PDF is not readable');
-  return text.stdout.toString().replace(/\s+/g, ' ');
-}
-
 async function workflow(s) {
   const { sql, patient, marker } = s;
-  if (spawnSync('pdftotext', ['-v']).error) throw new h.SkipCheck('Install Poppler pdftotext to read the staged fax PDF');
+  requirePoppler('pdftotext');
   const faxJobs = () => sql.value(`SELECT COUNT(*) FROM faxes WHERE demographicNo=${patient}`);
   h.assert(faxJobs() === '0', 'The owned patient already has fax jobs');
   const accounts = sql.rows(`SELECT faxNumber FROM fax_config WHERE active=1 AND faxNumber IS NOT NULL ORDER BY id`).map(([n]) => n);
@@ -50,15 +45,17 @@ async function workflow(s) {
 
   let fax;
   if (accounts.length === 0) {
-    await s.step('with no active fax account, Fax explains that none is configured and queues nothing', async () => {
+    await s.step('with no active fax account, the viewer offers no Fax and its fax route explains that none is configured', async () => {
       const viewer = await openViewer(doc);
-      fax = await clickOpensPopup(viewer, viewer.locator(`[id="faxBtn_${doc.id}"]`), { context: s.context, recorder: s.recorder,
-        label: 'document-fax', timeout: TIMEOUT });
-      await fax.waitForLoadState('domcontentloaded');
-      h.assert(/\/documentManager\/FaxDocument$/.test(new URL(fax.url()).pathname), 'Fax did not open documentManager/FaxDocument');
-      h.assert(/No active fax accounts are configured/.test(await fax.locator('body').innerText()),
-        'Fax with no active account did not say that no fax account is configured');
-      h.assert(faxJobs() === '0', 'Fax queued a fax job');
+      // showDocument renders the button only when FaxManager.isEnabled() finds an active account.
+      h.assert(await viewer.locator('#printBtn_' + doc.id).count() === 1
+        && await viewer.locator(`[id="faxBtn_${doc.id}"]`).count() === 0, 'The viewer offers Fax with no active fax account');
+      // The button's own route, as a stale page or bookmark would open it: it must refuse, not stage a copy.
+      fax = await s.context.newPage();
+      await h.gotoApp(fax, s.config.baseUrl, `/documentManager/FaxDocument?docId=${doc.id}`);
+      await fax.getByText('No active fax accounts are configured').first().waitFor({ timeout: TIMEOUT });
+      h.assert(faxJobs() === '0', 'Opening the fax route queued a fax job');
+      await fax.close();
     });
     return;
   }
@@ -89,7 +86,7 @@ async function workflow(s) {
     const preview = await fax.context().request.get(await fax.locator('#previewPdfLink').evaluate((a) => a.href));
     const bytes = await preview.body();
     h.assert(preview.status() === 200 && bytes.subarray(0, 4).toString('latin1') === '%PDF', 'The cover page\'s staged PDF is not a PDF');
-    h.assert(pdfText(bytes).includes(`${marker} fax`), 'The staged PDF is not the document being faxed');
+    h.assert(pdfTextBuffer(bytes).replace(/\s+/g, ' ').includes(`${marker} fax`), 'The staged PDF is not the document being faxed');
     h.assert(faxJobs() === '0', 'Loading the cover page queued a fax job');
   });
 
