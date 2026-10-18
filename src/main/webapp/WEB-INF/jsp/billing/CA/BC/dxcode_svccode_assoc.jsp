@@ -9,6 +9,9 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.title"/></title>
+        <style>
+            .assocField { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: x-small; }
+        </style>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
         <script language="JavaScript">
@@ -57,9 +60,6 @@
         </script>
         <link rel="stylesheet"
               href="<%= request.getContextPath() %>/oscarBilling/CA/billing/billing.css" type="text/css">
-        <style>
-            .assocField { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: x-small; }
-        </style>
     </head>
     <%
         String mode = request.getAttribute("mode") != null ? (String) request.getAttribute("mode") : "";
