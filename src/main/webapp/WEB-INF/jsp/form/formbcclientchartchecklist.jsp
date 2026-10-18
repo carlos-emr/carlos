@@ -303,41 +303,22 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].pg1_formDate) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birFHR) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate1) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate2) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate3) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate4) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate5) == false) {
-                b = false;
+            // This form's own date boxes (pg1_formDate and the date<...> boxes), dd/mm/yyyy as their calendars fill
+            // them in. The check used to name the Labour and Birth Summary's fields, which this form does not
+            // have, so it threw on every Save and the form posted with none of its dates checked.
+            var elements = document.forms[0].elements;
+            for (var i = 0; i < elements.length; i++) {
+                if (/^(date|pg1_formDate$)/.test(elements[i].name || '') && valDate(elements[i]) == false) {
+                    return false;
+                }
             }
-
-            return b;
+            return true;
         }
 
         function checkAllTimes() {
-            var b = true;
-            if (valTime(document.forms[0].birTimeHour1) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour2) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour3) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour4) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour5) == false) {
-                b = false;
-            }
-
-            return b;
+            // This form has no time boxes. The check used to name the Labour and Birth Summary's time
+            // fields, which this form does not have.
+            return true;
         }
 
         function calculateDiffDateTime(sDate, sTime, eDate, eTime, objHour, objMin) {

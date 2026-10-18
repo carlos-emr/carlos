@@ -355,41 +355,22 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].pg1_formDate) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birFHR) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate1) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate2) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate3) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate4) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].birTimeDate5) == false) {
-                b = false;
+            // This form's own date boxes (dateStart, date<n> and repeat<n>), dd/mm/yyyy as their calendars fill
+            // them in. The check used to name the Labour and Birth Summary's fields, which this form does not
+            // have, so it threw on every Save and the form posted with none of its dates checked.
+            var elements = document.forms[0].elements;
+            for (var i = 0; i < elements.length; i++) {
+                if (/^(date|repeat)/.test(elements[i].name || '') && valDate(elements[i]) == false) {
+                    return false;
+                }
             }
-
-            return b;
+            return true;
         }
 
         function checkAllTimes() {
-            var b = true;
-            if (valTime(document.forms[0].birTimeHour1) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour2) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour3) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour4) == false) {
-                b = false;
-            } else if (valTime(document.forms[0].birTimeHour5) == false) {
-                b = false;
-            }
-
-            return b;
+            // This form has no time boxes. The check used to name the Labour and Birth Summary's time
+            // fields, which this form does not have.
+            return true;
         }
 
         function calToday(field) {
@@ -436,7 +417,7 @@
                 %> <input type="submit" value="<fmt:message key='global.btnExit'/>"
                           onclick="javascript:return onExit();"/> <input type="button"
                                                                          value="<fmt:message key='global.btnPrint'/>"
-                                                                         onclick="javascript:window.print();return false()"/>
+                                                                         onclick="javascript:window.print();return false;"/>
                 </td>
             </tr>
         </table>
@@ -671,7 +652,7 @@
                           onclick="javascript:return onExit();"/>
                     <!-- input type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript:return onPrint();return false()"/ -->
                     <input type="button" value="<fmt:message key='global.btnPrint'/>"
-                           onclick="javascript:window.print();return false()"/></td>
+                           onclick="javascript:window.print();return false;"/></td>
             </tr>
         </table>
 
