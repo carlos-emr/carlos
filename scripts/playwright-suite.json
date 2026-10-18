@@ -4166,7 +4166,7 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "One waitingListName created for the provider's group through Report ▸ Waiting List ▸ Create List, a second one with a markup-bearing name seeded by SQL, and the owned patient's waitingList rows; all removed in cleanup and asserted gone.",
-      "notes": "Issue #4229: with DEMOGRAPHIC_WAITING_LIST=true the Master Record shows the Waiting List link and an editable list, note and date; Report ▸ Waiting List is the entry to the list manager; a list archived after the form was drawn is refused with 409 by DemographicUpdate and Add2WaitingList before any write. SKIPs when the login has no ProviderPreference.myGroupNo."
+      "notes": "Issue #4229: with DEMOGRAPHIC_WAITING_LIST=true the Master Record shows the Waiting List link and an editable list, note and date; Report ▸ Waiting List is the entry to the list manager; a list archived or moved to another group after the form was drawn is refused with 409 by DemographicUpdate and Add2WaitingList before any write, while a list_id=0 save still saves the patient. SKIPs when the login has no ProviderPreference.myGroupNo."
     },
     {
       "name": "appointment-search-history",
