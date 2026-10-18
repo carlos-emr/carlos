@@ -3174,6 +3174,21 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient with a diabetes diagnosis and saved NRTF readings; local disposable database only."
     },
     {
+      "name": "flowsheet-dx-drug-links",
+      "script": "scripts/flowsheet-dx-drug-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [],
+      "notes": "#4974: the Diabetes Flowsheet's left panel links a current diagnosis or drug to the flowsheet (encounter/oscarMeasurements/FlowSheetDrugAction). The flowsheet offers the owned diagnosis and current drug as links; linking the diagnosis saves one flowsheet_dx row and comes back to the flowsheet showing it linked; a reload of that page saves nothing more; linking the drug saves one flowsheet_drug row and the flowsheet shows it linked instead of offering it; last, the same drug clicked in a flowsheet window opened before the link saves nothing more. On release/2026.08 it fails at the diagnosis step until #4981 (#4974's release fix) merges: the link saves the row, then answers HTTP 500, a reload saves it again, and a linked drug is still offered. Notes only, no pin: the fix is an open PR.",
+      "fixtures": "The owned FAKE- patient, with one active ICD-9 250 diagnosis and one current FAKE drug (ATC C10AA05), both set-up rather than the behaviour under test. Every row the check writes or makes the application write is keyed to that patient; cleanup deletes the patient's flowsheet_dx and flowsheet_drug rows, the diagnosis and the drug, and asserts each is gone."
+    },
+    {
       "name": "prevention-lifecycle",
       "script": "scripts/prevention-lifecycle-playwright-checks.js",
       "tiers": [
