@@ -709,15 +709,17 @@ rule "Td 1"
         prev.addWarning("Td", "Needs Td");
 end
 
+// The most recent tetanus vaccine is ten or more years old: a vaccine the patient never had (-1 months) does not
+// count as a recent one.
 rule "Td 2"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") >= 1 )
         eval( prev.getHowManyMonthsSinceLast("Td") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap") == -1 || prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
     then
         prev.log("Td 2");
         prev.addWarning("Td", "Needs repeat Td");
