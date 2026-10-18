@@ -311,6 +311,7 @@
     "test:billing-bc-quick-billing-playwright": "node scripts/billing-bc-quick-billing-playwright-checks.js",
     "test:billing-bc-teleplan-file-playwright": "node scripts/billing-bc-teleplan-file-playwright-checks.js",
     "test:billing-bc-bill-status-filters-playwright": "node scripts/billing-bc-bill-status-filters-playwright-checks.js",
+    "test:billing-bc-invoice-list-bulk-settle-playwright": "node scripts/billing-bc-invoice-list-bulk-settle-playwright-checks.js",
     "test:billing-bc-private-bill-receipt-playwright": "node scripts/billing-bc-private-bill-receipt-playwright-checks.js",
     "test:billing-bc-receive-payment-playwright": "node scripts/billing-bc-receive-payment-playwright-checks.js",
     "test:eform-email-two-windows-playwright": "node scripts/eform-email-two-windows-playwright-checks.js",

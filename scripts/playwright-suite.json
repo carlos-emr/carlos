@@ -12567,6 +12567,23 @@
       "fixtures": "Seeds and removes three billing/billingmaster rows (MSP not submitted, MSP settled, private bill-patient) for its own FAKE patient."
     },
     {
+      "name": "billing-bc-invoice-list-bulk-settle",
+      "script": "scripts/billing-bc-invoice-list-bulk-settle-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "HOME_DIR"
+      ],
+      "notes": "BC Invoice List's ticked-bill buttons, which billing-bc-bill-status-filters (filters only) and billing-bc-reprocess-bill (one bill through Adjust Bill) leave out: Master record ▸ Billing ▸ Invoice List lists the three owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked; Settle settles exactly the two ticked bills, changing nothing else on them, and leaves the unticked bill unchanged in every column; last, Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted (queued for the next Teleplan file), changing nothing else on it, leaves the settled bills unchanged, and sends nothing: no Teleplan batch, log line or submission link, the sequence unmoved, no new file in HOME_DIR (when set), and no Teleplan page or write to another host from the browser. PASS expected.",
+      "fixtures": "Three MSP bills (billing + billingmaster) for its own FAKE patient, made a BC patient: two paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing row of that patient, with the history and notes the saves wrote, and asserts none is left."
+    },
+    {
       "name": "billing-bc-private-bill-receipt",
       "script": "scripts/billing-bc-private-bill-receipt-playwright-checks.js",
       "tiers": [
