@@ -3939,6 +3939,21 @@
       "fixtures": "Seeds and removes one FAKE provider (provider, OHIP and billing number one free 5-digit number, last name = the run marker) with its billing-report row, and five claims for it on the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of the patient, then the billing-report row and the provider, and asserts each is gone."
     },
     {
+      "name": "billing-bc-account-report-csv",
+      "script": "scripts/billing-bc-account-report-csv-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports as a spreadsheet: the Invoice, A/R and Rejection CSVs list exactly the claims SQL selects over billing and billingmaster for the same day (Invoice: not deleted; A/R: neither deleted nor written off; Rejection: rejected), with Account ALL and all four payer boxes; a login with report read but not billing read gets the app's refusal and no file; LAST, the Rejection spreadsheet prints each rejected claim's full claim number and the patient's birth date. billing-bc-account-reports reads the Write-Off and Payments and Refunds PDFs. On release/2026.08 every Create Report answers HTTP 404 until #4805 (#4801) merges, so the Invoice step fails there. With #4805, the refusal step fails until pending finding 453 (#4940) is fixed (the billing package maps no SecurityException, so the refusal is a 500 error page), and the last step until pending finding 452 (#4939) is fixed (the Rejection report cuts the claim number and prints the birth date as 1 January).",
+      "fixtures": "The owned FAKE- patient made a BC patient, and six MSP claims on it billed to the test provider: one each in billingmaster status O, B, R, X and D on one 1990s service day picked per run, and one O claim on the next day; the rejected claim's remittance and refusal line (teleplanS21 and teleplanC12 named with the run marker). An owned role (report read, no billing read) and a throwaway login for the refusal step. Cleanup deletes the claims, the remittance rows, the role and the login, and asserts they are gone. No provider or report-provider row is added."
+    },
+    {
       "name": "billing-bc-referral-doctors",
       "script": "scripts/billing-bc-referral-doctors-playwright-checks.js",
       "tiers": [

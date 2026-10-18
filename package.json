@@ -287,6 +287,7 @@
     "test:billing-bc-remittance-upload-playwright": "node scripts/billing-bc-remittance-upload-playwright-checks.js",
     "test:billing-bc-account-reports-playwright": "node scripts/billing-bc-account-reports-playwright-checks.js",
     "test:billing-bc-account-report-types-playwright": "node scripts/billing-bc-account-report-types-playwright-checks.js",
+    "test:billing-bc-account-report-csv-playwright": "node scripts/billing-bc-account-report-csv-playwright-checks.js",
     "test:billing-bc-referral-doctors-playwright": "node scripts/billing-bc-referral-doctors-playwright-checks.js",
     "test:billing-bc-private-codes-playwright": "node scripts/billing-bc-private-codes-playwright-checks.js",
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
