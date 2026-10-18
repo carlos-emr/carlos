@@ -10,6 +10,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
@@ -136,5 +138,33 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
                 .isInstanceOf(SecurityException.class);
         verify(dao, never()).cancelPageIdForProvider(anyString(), anyString(), anyString());
         verify(dao, never()).persist(any(PageMonitor.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectRequest_whenMethodIsGetOrHead(String httpMethod) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
+        mockRequest.setMethod(httpMethod);
+
+        String result = executeAction(new PageMonitoring2Action());
+
+        // No method parameter would otherwise fall through to cancel() and delete the caller's monitor rows.
+        assertThat(result).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldRejectUpdate_whenMethodIsGet() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
+        mockRequest.setMethod("GET");
+        addRequestParameter("method", "update");
+        addRequestParameter("lock", "true");
+
+        executeAction(new PageMonitoring2Action());
+
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        verifyNoInteractions(dao);
     }
 }
