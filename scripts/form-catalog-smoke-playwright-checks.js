@@ -119,7 +119,7 @@ const FORMS = [
     prose: { name: 'tradeName', limit: 50 }, fields: [check('doseAdminIM')], print: { kind: 'window', button: 'Print' } },
   { key: 'intakeinfo', code: 'INT', title: 'Intake Information', view: 'formintakeinfo', table: 'formIntakeInfo',
     prose: { name: 'ethnoCulturalGr' }, fields: [check('maritalStMarried'), typed('nbpplInHousehold', '4')],
-    print: { kind: 'window', button: 'Print' } },
+    print: { kind: 'window', button: 'Print' }, known: { keys: claims.ASSERTION_ONLY } },
   { key: 'fdidisability', code: 'FDID', title: 'FDI Disability', view: 'formlatelifeFDIdisability', table: 'formLateLifeFDIDisability',
     prose: null, fields: [check('D1Often'), check('D2Little')], print: { kind: 'window', button: 'Print' },
     reveal: async page => { await page.getByText('Questionnaire', { exact: true }).first().click(); } },
@@ -177,7 +177,7 @@ const PINNED = Object.freeze({
   'alpha.open': 'ALPHA: opens from the Forms menu with no error page, script error or failed asset',
   'cesd.redisplay': 'CESD: Save redisplays the saved record in the window it was pressed in',
   'cesd.restore': 'CESD: the redisplayed and the reopened form show every saved value again',
-  'rourke2006.keys': 'Rourke Baby Record 2006: shows no unresolved message key',
+  'intakeinfo.keys': 'Intake Information: shows no unresolved message key',
   'rourke2006.reopen': "Rourke Baby Record 2006: a fresh chart's saved-form entry reopens the saved record",
   'positionhazard.open': 'Position Hazard: opens from the Forms menu with no error page, script error or failed asset',
 });

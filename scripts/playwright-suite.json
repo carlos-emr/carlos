@@ -6584,11 +6584,11 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: each prints ???key??? for a bundle entry that does not exist. The first (Rourke 2006) is the pinned step and the other three share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "Rourke 2006, Intake Information, Position Hazard and Self Efficacy, pinned to finding 234: Intake Information, Position Hazard and Self Efficacy each print ???key??? for a bundle entry that does not exist. Rourke 2006's window title now resolves, so it must pass first. Intake Information is the pinned step and the other two share the defect. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "expectedFailure": {
         "finding": 234,
-        "step": "Rourke Baby Record 2006: shows no unresolved message key"
+        "step": "Intake Information: shows no unresolved message key"
       }
     },
     {
