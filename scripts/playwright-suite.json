@@ -9474,6 +9474,21 @@
       "notes": "PASS expected; fails at the first stored-field comparison naming the lost field, or at the last step if a refused duplicate-HIN update still writes part of the submission."
     },
     {
+      "name": "demographic-paper-chart-country",
+      "script": "scripts/demographic-paper-chart-country-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; cleanup removes its demographicExtArchive and demographiccust rows before the harness removes its demographicExt and demographicArchive rows, and checks them gone.",
+      "notes": "Master Record Edit: Archived paper chart (Yes with a date, then No) and Country of origin, which gap-records-demographic-edit-clinical does not cover. Steps: Yes + date + Canada are stored (demographicExt, demographic.country_of_origin) and archive the patient once; the read view and the reopened Edit form show them; No clears the date and program, Not Set clears the country, and the read view drops both. PASS expected."
+    },
+    {
       "name": "gap-records-enrollment-history",
       "script": "scripts/gap-records-enrollment-history-playwright-checks.js",
       "tiers": [
