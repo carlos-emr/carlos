@@ -52,6 +52,7 @@ import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -130,6 +131,33 @@ class BillingPreferencesProviderUnitTest extends CarlosUnitTestBase {
         verify(preferencesDao).persist(preference.capture());
         assertThat(preference.getValue().getProviderNo()).isEqualTo(SIGNED_IN);
         verify(request).setAttribute("providerNo", SIGNED_IN);
+    }
+
+    @Test
+    void shouldKeepTheProvidersAutoPopulateChoice_whileTheClinicWideSettingIsOn() {
+        Property clinicWide = new Property();
+        clinicWide.setName(Property.PROPERTY_KEY.auto_populate_refer.name());
+        clinicWide.setValue("true");
+        when(propertyDao.findGlobalByName(Property.PROPERTY_KEY.auto_populate_refer)).thenReturn(List.of(clinicWide));
+        Property own = new Property();
+        own.setName(Property.PROPERTY_KEY.auto_populate_refer.name());
+        own.setProviderNo(SIGNED_IN);
+        own.setValue("true");
+        when(propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.auto_populate_refer, SIGNED_IN)).thenReturn(List.of(own));
+        // The page disables the box then, so the form posts nothing for it.
+        SaveBillingPreferences2Action save = new SaveBillingPreferences2Action();
+        save.setReferral("1");
+        save.setPayeeProviderNo("NONE");
+        save.setDefaultBillingForm("clinicdefault");
+        save.setDefaultBillingProvider("clinicdefault");
+        save.setDefaultServiceLocation("clinicdefault");
+
+        save.execute();
+
+        assertThat(own.getValue()).isEqualTo("true");
+        verify(propertyDao, never()).merge(own);
+        verify(propertyDao, never()).persist(argThat((Property property) ->
+                Property.PROPERTY_KEY.auto_populate_refer.name().equals(property.getName())));
     }
 
     @Test

@@ -105,7 +105,10 @@
                     %>
                     <td class="MainTableRightColumn">
                         <label for="autoPopulateRefer" class="form-check form-check-inline">
-                            <input type="checkbox" id="autoPopulateRefer" name="autoPopulateRefer" disabled="<%=globalAutoPopulateRefer%>"/>
+                            <%-- Disabled only while the clinic-wide setting is on: a disabled box is not posted, and
+                                 the save stores the missing value as off. --%>
+                            <input type="checkbox" class="form-check-input" id="autoPopulateRefer" name="autoPopulateRefer" value="true"
+                                   <%= autoPopulateRefer ? "checked" : "" %> <%= globalAutoPopulateRefer ? "disabled" : "" %>/>
                             Auto-populate Referring Physician on Billing Form</label>
                         <% if (globalAutoPopulateRefer) { %>
                         <p class="text-warning">Note: The Auto-Populate option above cannot be changed per provider,
@@ -267,8 +270,6 @@
     </div>
 
     <script type="text/javascript">
-        document.getElementsByName('autoPopulateRefer')[0].checked = <%= autoPopulateRefer %>;
-
         function defaultPayeeSelect() {
             let invoicePayeeInfoTA = document.getElementById("invoicePayeeInfo");
             let payeeProviderNoSelect = document.getElementById("payeeProviderNo");

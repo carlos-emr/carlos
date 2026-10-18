@@ -163,13 +163,16 @@ public class SaveBillingPreferences2Action
 
         propList = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.auto_populate_refer, this.getProviderNo());
         Property autoPopulateRefer = propList.isEmpty() ? null : propList.get(0);
-        if (autoPopulateRefer == null) {
+        // The page disables the box while the clinic-wide setting is on, so nothing is posted for it then: keep the
+        // provider's own choice for when that setting is turned off.
+        boolean autoPopulateReferPosted = !clinicWideAutoPopulateRefer(propertyDao);
+        if (autoPopulateReferPosted && autoPopulateRefer == null) {
             autoPopulateRefer = new Property();
             autoPopulateRefer.setValue(Boolean.toString(this.isAutoPopulateRefer()));
             autoPopulateRefer.setProviderNo(this.getProviderNo());
             autoPopulateRefer.setName(Property.PROPERTY_KEY.auto_populate_refer.name());
             propertyDao.persist(autoPopulateRefer);
-        } else {
+        } else if (autoPopulateReferPosted) {
             autoPopulateRefer.setValue(Boolean.toString(this.isAutoPopulateRefer()));
             propertyDao.merge(autoPopulateRefer);
         }
@@ -210,6 +213,12 @@ public class SaveBillingPreferences2Action
         }
         request.setAttribute("providerNo", this.getProviderNo());
         return SUCCESS;
+    }
+
+    /** Whether the clinic-wide auto-populate setting is on: as on the page, any clinic-wide row that is true. */
+    private static boolean clinicWideAutoPopulateRefer(PropertyDao propertyDao) {
+        return propertyDao.findGlobalByName(Property.PROPERTY_KEY.auto_populate_refer).stream()
+                .anyMatch(property -> Boolean.parseBoolean(property.getValue()));
     }
 
     // Core provider and billing identifiers

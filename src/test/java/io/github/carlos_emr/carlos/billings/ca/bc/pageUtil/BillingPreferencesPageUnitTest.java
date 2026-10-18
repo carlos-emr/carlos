@@ -37,7 +37,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The BC Billing Preferences page lost its Struts form tags in a migration: the selects stopped showing the saved
  * values, so every Save stored each select's first option (a billing-provider override and a payee nobody chose), and
- * the payee text, the "display clinic information" box and the script's warning lost their wiring (issue #4936).
+ * the payee text, the "display clinic information" and "auto-populate" boxes and the script's warning lost their
+ * wiring (issue #4936).
  *
  * @since 2026-10-18
  */
@@ -82,6 +83,14 @@ class BillingPreferencesPageUnitTest {
     void shouldOfferDisplayClinicInformation_asARealCheckbox() throws IOException {
         assertThat(page()).contains("<input type=\"checkbox\" class=\"form-check-input\" id=\"invoicePayeeDisplayClinicInfo\"")
                 .doesNotContain("<checkbox");
+    }
+
+    @Test
+    void shouldLetTheProviderTickAutoPopulate_unlessTheClinicWideSettingIsOn() throws IOException {
+        // disabled="false" still disables a box, and a disabled box is not posted, so every Save stored it as off.
+        assertThat(page()).contains("name=\"autoPopulateRefer\" value=\"true\"")
+                .contains("<%= autoPopulateRefer ? \"checked\" : \"\" %> <%= globalAutoPopulateRefer ? \"disabled\" : \"\" %>")
+                .doesNotContain("disabled=\"<%=globalAutoPopulateRefer%>\"");
     }
 
     @Test
