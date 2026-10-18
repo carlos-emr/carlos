@@ -138,6 +138,7 @@ async function readForm(popup) {
     patient: await form.locator('input[name="demographic_no"]').inputValue(),
     searchBox: await popup.locator('form[name="ADDAPPT"] input[name="keyword"]').inputValue(),
     message: await popup.locator('#ticklerMessage').inputValue(),
+    messageLabels: await popup.locator('label[for="ticklerMessage"]').count(),
     chooseWarning: await popup.locator('#choosePatientForDocument').count(),
   };
 }
@@ -257,6 +258,7 @@ async function workflow(s) {
     h.assert(form.searchBox.includes(marker), `the form's patient box does not name the patient ("${form.searchBox}")`);
     h.assert(form.message === SUGGESTED_MESSAGE, `overdue consultation Add Tickler preserves the suggested follow-up message: the box holds "${form.message}"`);
     h.assert(form.chooseWarning === 0, 'the form asks the clinician to choose a patient although it was given one');
+    h.assert(form.messageLabels === 1, `the Reminder Message box has ${form.messageLabels} associated label(s); expected 1`);
     await h.screenshot(popup, s.config.screenshotDir, 'consultation-overdue-tickler-form');
     // Cancel without saving: the form's Back button closes it.
     const closed = popup.waitForEvent('close', { timeout: TIMEOUT });

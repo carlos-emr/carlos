@@ -98,10 +98,10 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         Map<String, String> parameters = queryParameters(path);
         // #4999: the list used to send "demo" and "message", which ticklerAdd.jsp never reads, so
         // the form opened with no patient and an empty message. These two names are the form's own.
-        assertThat(parameters).containsOnlyKeys("demographic_no", "ticklerMessage");
-        assertThat(parameters.get("demographic_no")).isEqualTo("42");
-        assertThat(parameters.get("ticklerMessage"))
-                .isEqualTo(EctViewConsultationRequestsUtil.OVERDUE_TICKLER_MESSAGE);
+        assertThat(parameters)
+                .containsOnlyKeys("demographic_no", "ticklerMessage")
+                .containsEntry("demographic_no", "42")
+                .containsEntry("ticklerMessage", EctViewConsultationRequestsUtil.OVERDUE_TICKLER_MESSAGE);
     }
 
     @Test
@@ -110,8 +110,8 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         String path = EctViewConsultationRequestsUtil.overdueTicklerPath("", "7");
 
         // Quotes, spaces and the ampersand-free sentence must decode to exactly what was suggested.
-        assertThat(queryParameters(path).get("ticklerMessage"))
-                .isEqualTo("Patient has Consultation Letter with a status of 'Nothing Done' for over one week");
+        assertThat(queryParameters(path)).containsEntry("ticklerMessage",
+                "Patient has Consultation Letter with a status of 'Nothing Done' for over one week");
         assertThat(path).doesNotContain(" ").doesNotContain("'");
     }
 

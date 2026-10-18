@@ -61,11 +61,24 @@ class TicklerAddOverdueConsultationJspRegressionTest {
     void shouldFillMessageTextarea_fromEncodedSuggestion() throws IOException {
         String form = Files.readString(TICKLER_ADD_JSP, StandardCharsets.UTF_8);
 
-        assertThat(form).contains("String suggestedMessage = Objects.toString(request.getParameter(\"ticklerMessage\"), \"\");");
-        // Written inline: any whitespace between the tags would become part of the submitted text.
-        assertThat(form).contains("<textarea name=\"ticklerMessage\" id=\"ticklerMessage\" class=\"form-control\">"
-                + "<carlos:encode value='<%= suggestedMessage %>' context=\"html\"/></textarea>");
-        assertThat(form).doesNotContain("class=\"form-control\"></textarea>");
+        // The textarea is written inline: any whitespace between the tags would become part of the
+        // submitted text.
+        assertThat(form)
+                .contains("String suggestedMessage = Objects.toString(request.getParameter(\"ticklerMessage\"), \"\");")
+                .contains("<textarea name=\"ticklerMessage\" id=\"ticklerMessage\" class=\"form-control\">"
+                        + "<carlos:encode value='<%= suggestedMessage %>' context=\"html\"/></textarea>")
+                .doesNotContain("class=\"form-control\"></textarea>");
+    }
+
+    @Test
+    @DisplayName("should associate the Reminder Message text with its box so assistive technology names it")
+    void shouldLabelMessageTextarea_forAssistiveTechnology() throws IOException {
+        String form = Files.readString(TICKLER_ADD_JSP, StandardCharsets.UTF_8);
+
+        // SonarCloud Web:InputWithoutLabelCheck: the caption sat in a neighbouring cell with no
+        // programmatic link to the textarea.
+        assertThat(form).contains("<td class=\"tickler-label\"><label for=\"ticklerMessage\">"
+                + "<fmt:message key=\"tickler.ticklerAdd.formReminder\"/>:</label></td>");
     }
 
     @Test
@@ -73,7 +86,8 @@ class TicklerAddOverdueConsultationJspRegressionTest {
     void shouldBuildOverdueLink_withHelper() throws IOException {
         String list = Files.readString(CONSULTATION_LIST_JSP, StandardCharsets.UTF_8);
 
-        assertThat(list).contains("EctViewConsultationRequestsUtil.overdueTicklerPath(");
-        assertThat(list).doesNotContain("\"demo=").doesNotContain("&demo=").doesNotContain("&message=");
+        assertThat(list)
+                .contains("EctViewConsultationRequestsUtil.overdueTicklerPath(")
+                .doesNotContain("\"demo=").doesNotContain("&demo=").doesNotContain("&message=");
     }
 }

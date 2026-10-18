@@ -946,7 +946,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
+                    <td class="tickler-label"><label for="ticklerMessage"><fmt:message key="tickler.ticklerAdd.formReminder"/>:</label></td>
                     <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"><carlos:encode value='<%= suggestedMessage %>' context="html"/></textarea>
                     </td>
                 </tr>
