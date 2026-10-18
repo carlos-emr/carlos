@@ -3309,7 +3309,7 @@
             </tr>
             <tr>
                 <td colspan="4">
-                    <textarea name="pg2_probComment" style="width:100%" cols="40" rows="1"  @oscar.formDB dbType="varchar(255)" ><carlos:encode value='<%= props.getProperty("pg2_probComment", "") %>'/></textarea>
+                    <textarea name="pg2_probComment" aria-label="<fmt:message key='form.bcar.comments'/>" style="width:100%" cols="40" rows="1"  @oscar.formDB dbType="varchar(255)" ><carlos:encode value='<%= props.getProperty("pg2_probComment", "") %>'/></textarea>
                 </td>
                 <td></td>
             </tr--%>

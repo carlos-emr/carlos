@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The BC form pages (BC-AR, BC-AR 2007 and 2012, the Labour and Birth Summary and the Birth Summary 2008, BC-NewBorn
  * and BC-NewBorn 2008) show a saved form's notes in textareas. They printed the stored text with a space before and
- * after it, so every reopen and save added two spaces (finding 470). Each textarea that shows a stored value must now
+ * after it, so every reopen and save added two spaces (#4968). Each textarea that shows a stored value must now
  * show exactly that value: encoded, and with nothing between the tags and the value.
  *
  * @since 2026-10-18
