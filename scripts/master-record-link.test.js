@@ -11,12 +11,13 @@ const fakePage = () => ({ locator: selector => ({ selector }) });
 
 test('shouldMatchTheNavigationHrefOrAnOnclick_forOneFragment', () => {
   assert.equal(masterRecordLink(fakePage(), '/rx/choosePatient').selector,
-    '.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"]');
+    '.patient-nav a[href*="/rx/choosePatient"], a[onclick*="/rx/choosePatient"], a[href*="/rx/choosePatient"][onclick*="this.href"]');
 });
 
 test('shouldRequireEveryFragment_inEachForm', () => {
   assert.equal(masterRecordLink(fakePage(), '/billing?', 'apptProvider_no=none').selector,
-    '.patient-nav a[href*="/billing?"][href*="apptProvider_no=none"], a[onclick*="/billing?"][onclick*="apptProvider_no=none"]');
+    '.patient-nav a[href*="/billing?"][href*="apptProvider_no=none"], a[onclick*="/billing?"][onclick*="apptProvider_no=none"], '
+      + 'a[href*="/billing?"][href*="apptProvider_no=none"][onclick*="this.href"]');
 });
 
 test('shouldRefuseFragments_thatWouldBreakTheSelector', () => {
