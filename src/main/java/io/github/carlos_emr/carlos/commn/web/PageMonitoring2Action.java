@@ -83,7 +83,7 @@ public class PageMonitoring2Action extends ActionSupport {
      * Dispatches a slot-lock request: {@code method=update} refreshes or takes the lock and replies with
      * the overlapping viewers as JSON; anything else releases the caller's monitor for the page.
      *
-     * @return {@code NONE} after refusing GET/HEAD, otherwise the result of the dispatched operation
+     * @return {@code NONE} after refusing any method other than POST, otherwise the result of the dispatched operation
      * @throws SecurityException when there is no session or the caller lacks {@code _appointment} w
      */
     public String execute() throws Exception{
@@ -94,9 +94,9 @@ public class PageMonitoring2Action extends ActionSupport {
         }
 
         // Both actions mutate PageMonitor rows (update persists, the default path deletes the caller's),
-        // and addappointment.jsp only ever POSTs. Refuse GET/HEAD before any side effect.
-        String httpMethod = request.getMethod();
-        if ("GET".equalsIgnoreCase(httpMethod) || "HEAD".equalsIgnoreCase(httpMethod)) {
+        // and addappointment.jsp only ever POSTs. Refuse every other method before any side effect.
+        // HTTP method names are case-sensitive, so an exact match is the correct comparison.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

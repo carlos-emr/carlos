@@ -141,8 +141,8 @@ class PageMonitoring2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD"})
-    void shouldRejectRequest_whenMethodIsGetOrHead(String httpMethod) throws Exception {
+    @ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE"})
+    void shouldRejectRequest_whenMethodIsNotPost(String httpMethod) throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull())).thenReturn(true);
         mockRequest.setMethod(httpMethod);
 
