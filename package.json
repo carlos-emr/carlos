@@ -437,6 +437,7 @@
     "test:session-heartbeat-timeout-playwright": "node scripts/session-heartbeat-timeout-playwright-checks.js",
     "test:workflow-tickler-suggested-text-playwright": "node scripts/workflow-tickler-suggested-text-playwright-checks.js",
     "test:billing-on-invoice-third-party-playwright": "node scripts/billing-on-invoice-third-party-playwright-checks.js",
+    "test:billing-on-invoice-letterhead-playwright": "node scripts/billing-on-invoice-letterhead-playwright-checks.js",
     "test:billing-on-ohip-simulation-report-playwright": "node scripts/billing-on-ohip-simulation-report-playwright-checks.js",
     "test:provider-signature-contact-playwright": "node scripts/provider-signature-contact-playwright-checks.js",
     "test:billing-on-payment-status-playwright": "node scripts/billing-on-payment-status-playwright-checks.js",

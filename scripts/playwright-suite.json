@@ -6072,6 +6072,28 @@
       "fixtures": "Owned private bill for an owned patient, its payments, an owned bill-to address and the invoice PDFs it prints under INVOICE_DIR; all removed."
     },
     {
+      "name": "billing-on-invoice-letterhead",
+      "script": "scripts/billing-on-invoice-letterhead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR",
+        "INVOICE_LOGO_DOCTYPE"
+      ],
+      "mutates": [
+        "document",
+        "ctl_document"
+      ],
+      "notes": "Master Record ▸ Billing History ▸ Print, with and without the clinic's invoice letterhead (an active document of the invoice_head_logo_doctype type, 'invoice letterhead' by default): with one, the third-party invoice header shows its image (billing/ca/on/DisplayInvoiceLogo) in place of the clinic's name, address and phone; once it is archived, the header shows the clinic's details again; LAST, with it active again, the image request answers its exact PNG bytes and the browser draws it. The last step fails until pending finding 387 (#4931) is fixed. billing-on-invoice-third-party prints the invoice without a letterhead.",
+      "fixtures": "Owned private (PAT) bill for an owned patient, and an owned letterhead: a document of the letterhead type filed under the test provider (ctl_document 'providers') with a 1 x 1 PNG in DOCUMENT_DIR named with the run marker; all removed. Every invoice uses the clinic's active letterhead while it exists, so the check refuses to run when the clinic already has one, and it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-on-ohip-simulation-report",
       "script": "scripts/billing-on-ohip-simulation-report-playwright-checks.js",
       "tiers": [
