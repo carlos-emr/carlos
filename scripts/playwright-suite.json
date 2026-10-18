@@ -5706,6 +5706,21 @@
       "fixtures": "One SQL-seeded message from contact 1 to the test login and contact 2, plus the reply the check sends; every message whose subject carries the run marker is removed with its delivery rows."
     },
     {
+      "name": "messenger-reply-send-archive",
+      "script": "scripts/messenger-reply-send-archive-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Messenger Reply ▸ Send and Archive (CreateMessage.jsp #sendArchive): the background POST to messenger/DisplayMessages archives exactly the message replied to (btnDelete=archive, its messageNo, taken from the compose page's referrer) and is accepted, then the reply is sent: one reply from the test login, delivered to the sender only. The message replied to is 'del' for the test login only (the other recipient's row is unchanged); the inbox no longer lists it and the archive box (boxType=2) does.",
+      "fixtures": "One message seeded by SQL the way a local send writes it (sender messenger contact 1; recipients the test login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the test login. Cleanup deletes every message whose subject carries the marker, with its delivery and patient-link rows, and asserts they are gone."
+    },
+    {
       "name": "prevention-admin",
       "script": "scripts/prevention-admin-playwright-checks.js",
       "tiers": [
@@ -5856,6 +5871,21 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned patient, service, specialist, referral and active drug; cleanup also removes archive/ext rows and the stamp DigitalSignature. The fax boundary needs no active fax_config sender while it runs (with one configured the check reports SKIP at that step), so it must not run concurrently with fax checks (live wrapper: EXCLUSIVE=1). Needs pdftotext."
+    },
+    {
+      "name": "consultation-submit-and-fax",
+      "script": "scripts/consultation-submit-and-fax-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "New consultation request ▸ Additional Fax Recipients ▸ Add Recipient refuses a number that isn't a fax number (alert, no row) and lists a valid one; Submit And Fax saves exactly one request with the chosen service, consultant and reason and opens the fax cover page (posting to ConsultationFormFax) addressed to the consultant's fax with the added recipient among its copy recipients and no fax job. With no active fax sender account, Send is refused with an alert and queues nothing; where an active sender exists that last step SKIPs before pressing Send (nothing ever leaves the host).",
+      "fixtures": "FAKE- patient, service, consultant (with a fax number) and service link seeded by SQL. Cleanup deletes the request with its archive / ext rows, the consultation signature the save records for the owned patient, and every owned row, and asserts them gone."
     },
     {
       "name": "consultation-letterhead",
@@ -9333,6 +9363,24 @@
       "fixtures": "createBillingFixture, five owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
     },
     {
+      "name": "billing-on-review-dx-registry",
+      "script": "scripts/billing-on-review-dx-registry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [
+        "quickList"
+      ],
+      "notes": "Ontario bill review (ViewBillingONReview) ▸ Dx quick pick ▸ Add to Disease Registry: with nothing ticked it alerts and posts nothing; with a code ticked a dismissed confirmation posts nothing; confirmed, it posts exactly the ticked code for the owned patient to oscarResearch/oscarDxResearch/dxResearch (answered by a redirect to the refreshed quick code list), adds one active dxresearch row (icd9 401), the refreshed quick pick drops that code and keeps the other, the review page keeps its Save button and no claim is saved. It uses its own ICD-9 quick list because the seeded List1 names coding system 'ichppc', which the quick pick never reads (#4989).",
+      "fixtures": "quickList is clinic-wide: the owned Dx quick list (two quickList rows named with the run marker, ICD-9 401 and 493) shows on every review page and the registry page while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Also createBillingFixture (owned billing provider and HIN on the owned patient) and one owned appointment today. Cleanup removes the quick list, the patient's dxresearch rows and any claim the browser wrote, and asserts them gone."
+    },
+    {
       "name": "gap-billing-correction-admin-actions",
       "script": "scripts/gap-billing-correction-admin-actions-playwright-checks.js",
       "tiers": [
@@ -9981,6 +10029,21 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned synthetic patient and one marker-named custom drug saved by Save And Print; cleanup removes the drug, its prescription and any signature rows (clearOwnedPrescriptionRows) and asserts them gone."
+    },
+    {
+      "name": "rx-print-remove-pharmacy",
+      "script": "scripts/rx-print-remove-pharmacy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Rx print window (rx/viewScript) for a patient with a preferred pharmacy: the printable preview (rx/ViewPreview2 #pharmInfo) names the pharmacy (name, address, fax) with the Remove pharmacy info link and the paper-size warning shows. The link empties the pharmacy block and hides the warning while the drug stays; a note typed in Additional Rx Notes reloads the preview with the note and still without the pharmacy; Print prints the preview without it (the preview frame's print() is replaced for that one call by a recorder of the text it would print).",
+      "fixtures": "The synthetic patient, one owned pharmacy (pharmacyInfo, named with the run marker) linked as its preferred pharmacy, and one custom drug named with the run marker. Cleanup removes the drug and its script (with any signature row the print stamped), the link and the pharmacy, and asserts them gone."
     },
     {
       "name": "gap-encounter-rx-pharmacy-order",
@@ -11928,6 +11991,42 @@
       ],
       "notes": "Inbox Forward and File for HL7 labs and a document. Three synthetic CML labs are uploaded through Inbox > HL7 Lab Upload (the patient's MRP is the test provider, so each is routed to it) and two owned PDFs get New routing and an active queue link. From the lab popup and from a preview card (an iframe of the same lab page) Forward, through the dialog's provider search, posts ReportReassign for exactly that lab and provider: the throwaway recipient gets one providerLabRouting row, status N, and the sender's row (id, status, comment, timestamp) and every other provider's row (the demo clinic forwards the test provider's labs to a second provider by a rule) are unchanged; the recipient, logged in, finds exactly the forwarded labs in their own Inbox. List-mode File on a forwarded lab sets the sender's row to F only (not A, comment untouched), the recipient's row stays N and still shows in their Inbox; the document viewer's File (FileLabs method=fileLabAjax) files the document and sets every queue_document_link of it to I. A GET and HEAD replay of the real FileLabs (both shapes) and ReportReassign (popup and card) POSTs, aimed at untouched control items, passes h.assertRefused (the application's 405 carrying its own header) with the owned rows unchanged. Passes on 2026.08 (no known defect). Run on Ontario only; not yet run on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the labs are matched, as the Inbox name search needs), a throwaway provider login that is the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs with unique accessions (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload files under LAB_UPLOAD_DOCUMENT_STORE), and two owned PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting / providerLabRouting / queue_document_link rows. Everything is removed by key and asserted gone (the archived lab files stay, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). Posts ReportReassign as the test login, which rewrites that login's forwarding favourites from the dialog's list (snapshotted and asserted unchanged), so it must not run concurrently with detached-delete-forward-favourites or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+    },
+    {
+      "name": "document-viewer-review-actions",
+      "script": "scripts/document-viewer-review-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "notes": "The document viewer's Comment and Acknowledge (through its comment prompt), opened from the E-Chart's Documents list (documentManager/ViewShowDocument?inWindow=true). Comment posts UpdateStatus method=addComment: the test provider's DOC routing row keeps status N with the typed comment and the viewer shows it. Acknowledge on the reopened document offers that comment in its prompt and keeps it (A, same comment), the queue link closes (I) and the viewer closes. Cancelling the comment prompt posts nothing; a typed comment acknowledges with it. Another provider's New row on each document is unchanged throughout. Fails on 2026.08 at its step 'Acknowledge on the commented document offers its comment and keeps it, closes the queue link and the viewer' until #3941 is fixed: the acknowledge form's onsubmit is the whole handler JavaScript-string encoded, so it doesn't compile (SyntaxError) and Acknowledge posts nothing.",
+      "fixtures": "Owns the synthetic patient and two PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting rows, a New providerLabRouting row for the test login and one for another active provider, and an active queue_document_link each, plus the routing lock rows the run created for the documents' numbers; all removed and verified gone. SKIPs where the test login's lab_ack_comment preference skips the comment prompt."
+    },
+    {
+      "name": "document-viewer-macros",
+      "script": "scripts/document-viewer-macros-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "notes": "The document viewer's Macros menu: the test login's lab macros run on a document (documentManager/inboxManage isDocumentLinkedToDemographic, then oscarMDS/RunMacro with the document's patient). An acknowledge-only macro answers success and acknowledged and sets the test provider's DOC row to A with the macro's comment, filing no tickler; a macro that also files a tickler acknowledges and files one tickler for the document's patient, assigned to the test login and attached to the document (ticklerdocs doctype D). Another provider's New row is unchanged. Fails on 2026.08 at its step 'Macros > a macro with a tickler acknowledges the document and files the tickler for its patient' until #4988 is fixed: RunMacro attaches the document as a lab, the attachment is refused, and the whole macro answers success false (alert 'Macro execution failed', nothing acknowledged, no tickler).",
+      "fixtures": "Per-user state: the test login's labMacroJSON preference holds the two owned macros for the run and is restored exactly afterwards (the row deleted if there was none); lab-macro-tickler writes it too, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owns the synthetic patient and two PDFs with the same rows as document-viewer-review-actions (lib in that script), and the macro tickler with its ticklerdocs / tickler_link / tickler_comments / tickler_update rows; all removed and verified gone."
     },
     {
       "name": "inbox-acknowledge-per-provider",
