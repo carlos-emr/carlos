@@ -4495,6 +4495,23 @@
       "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403). Before the Unbill that is accepted, one is dismissed at its confirmation: no BillingDeleteNoAppt request, no popup, and the header, items and billing_on_proc rows are unchanged (coverage plan Task 38)."
     },
     {
+      "name": "billing-on-correction-save-another",
+      "script": "scripts/billing-on-correction-save-another-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_CORRECTION_CODE"
+      ],
+      "notes": "Ontario invoice correction (Billing History ▸ Edit) ▸ Save&Correct Another: posts the update for exactly the first owned invoice and saves its units, fee (schedule fee x units), dx and header total with one item audit snapshot; the correction page comes back (closeReload) with an empty invoice lookup and no invoice loaded. Looking up the second owned invoice there loads it as stored with nothing from the first; saving a dx change on it changes only the second invoice, and the first keeps its correction.",
+      "fixtures": "Two owned open OHIP (HCP) bills for the owned FAKE- patient through seedOwnedBill (billing-on-invoice-third-party), whose cleanup removes every row the bills and their corrections write, by id and marker, and asserts them gone."
+    },
+    {
       "name": "demographic-report-favourites",
       "script": "scripts/demographic-report-favourites-playwright-checks.js",
       "tiers": [
