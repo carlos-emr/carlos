@@ -19,8 +19,8 @@
  * they are gone. The PDFs are read in memory; each download's temporary file is deleted once read.
  *
  * PDF text is read with Poppler pdftotext (lib/export-content-helpers.js); without it the check SKIPs.
- * Expected (see the manifest notes): on develop the first report step fails with HTTP 404 until #4805 (release) is
- * forward-merged.
+ * Expected (see the manifest notes): on release and develop the first report step fails with HTTP 404 until #4805
+ * (#4801's release fix) merges.
  */
 const { randomInt } = require('node:crypto');
 const fs = require('node:fs');
