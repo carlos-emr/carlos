@@ -41,7 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The yearly flu reminder in {@code prevention.drl}: a patient aged 65 or over whose most recent flu shot, recorded as
  * "Inf" or under the older name "Flu", was a year or more ago is told "Needs Flu Shot" (rule "Inf 2", #5008), and one
- * who never had a flu shot is told so once (rule "Inf 3").
+ * who never had a flu shot is told so once (rule "Inf 3"). A next date set on the last Inf takes precedence over the
+ * yearly rule: the patient is told once that date has passed (rule "Inf Set Date").
  *
  * @since 2026-10-18
  */
@@ -81,6 +82,13 @@ class InfPreventionRulesDroolsUnitTest {
         return prev;
     }
 
+    /** A 70-year-old whose only flu shot is an Inf 24 months old with a next date the given number of months ahead. */
+    private static Prevention patientWithInfNextDate(int nextDateMonthsAhead) {
+        Prevention prev = new Prevention("F", monthsAgo(70 * 12));
+        prev.addPreventionItem(new PreventionItem("Inf", monthsAgo(24), "0", monthsAgo(-nextDateMonthsAhead)));
+        return prev;
+    }
+
     private static int fluReminders(Prevention prev) {
         KieSession session = kieBase.newKieSession();
         try {
@@ -115,6 +123,16 @@ class InfPreventionRulesDroolsUnitTest {
     @Test
     void shouldRemindOnce_whenNoFluShotWasEverGiven() {
         assertThat(fluReminders(patient(70))).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRemindOnce_whenTheLastInfIsTwoYearsOldAndItsNextDateHasPassed() {
+        assertThat(fluReminders(patientWithInfNextDate(-1))).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotRemind_whenTheLastInfIsTwoYearsOldAndItsNextDateIsStillAhead() {
+        assertThat(fluReminders(patientWithInfNextDate(1))).isZero();
     }
 
     @Test
