@@ -97,7 +97,7 @@ public class ViewWCB2Action extends ActionSupport {
                 form.setW_lname(demographic.getLastName());
                 form.setW_gender(demographic.getSex());
                 if (demographic.getPhone() != null && demographic.getPhone().length() > 0) {
-                    form.setW_phone(Misc.phoneNumber(demographic.getPhone().replaceAll("-", "")));
+                    form.setW_phone(Misc.phoneNumber(demographic.getPhone().replace("-", "")));
                     form.setW_area(Misc.areaCode(demographic.getPhone()));
                 }
 

@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
@@ -48,6 +49,7 @@ import java.util.stream.Stream;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.BeforeAll;
@@ -160,17 +162,21 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
     private static final Pattern CONTROL = Pattern.compile("<(input|textarea|select)\\b[^>]*>");
     private static final Pattern NAME = Pattern.compile("\\bname=\"([^\"]*)\"");
     private static final Pattern VALUE = Pattern.compile("\\bvalue=\"([^\"]*)\"");
+    private static final Pattern ID = Pattern.compile("\\bid=\"([^\"]*)\"");
     private static final Pattern BOUND_VALUE =
             Pattern.compile("SafeEncode\\.(forHtmlAttribute|forHtmlContent)\\(bound\\.(get\\w+)\\(\\)\\)");
     private static final Pattern BOUND_CHECKED = Pattern.compile("checkedIf\\(bound\\.(get\\w+)\\(\\), \"([^\"]*)\"\\)");
     private static final String FORM_NEEDED_CHECKED =
             "checkedIf(\"true\".equals(bound.getFormNeeded()) ? \"1\" : bound.getFormNeeded(), \"1\")";
-    private static final String CHECKED_IF = "private static String checkedIf(String actual, String value) {\n"
-            + "        return value.equals(actual) ? \" checked=\\\"checked\\\"\" : \"\";\n    }";
-    private static final String SIDE_OPTION = "<option value=\"${carlos:forHtmlAttribute(injury.sidetype)}\""
-            + "<c:if test=\"${injury.sidetype eq wcbSide}\"> selected=\"selected\"</c:if>>\n"
-            + "                            ${carlos:forHtmlContent(injury.sidedesc)}\n"
-            + "                    </option>";
+    private static final String CHECKED_IF = """
+            private static String checkedIf(String actual, String value) {
+                    return value.equals(actual) ? " checked=\\"checked\\"" : "";
+                }""";
+    private static final String SIDE_OPTION = """
+            <option value="${carlos:forHtmlAttribute(injury.sidetype)}"<c:if test="${injury.sidetype eq wcbSide}"> \
+            selected="selected"</c:if>>
+                                        ${carlos:forHtmlContent(injury.sidedesc)}
+                                </option>""";
     private static final Pattern JS_STRING = Pattern.compile("'((?:[^'\\\\]|\\\\.)*)'");
 
     private static String jsp;
@@ -224,6 +230,28 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
             }
         }
         assertThat(jsp).as("the checked-state helper the radio and checkbox bindings use").contains(CHECKED_IF);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fields")
+    @DisplayName("should label each of the field's controls")
+    void shouldLabelEachControl_ofEachField(Field field) {
+        for (String control : CONTROLS.get(field.name())) {
+            if (control.contains("type=\"hidden\"")) {
+                continue; // nothing to label: the user never sees it
+            }
+            Matcher id = ID.matcher(control);
+            assertThat(id.find()).as("a %s control has an id", field.name()).isTrue();
+            assertThat(jsp).as("the label for %s", id.group(1)).contains("<label for=\"" + id.group(1) + "\"");
+        }
+    }
+
+    @Test
+    @DisplayName("should give each control of the form its own id")
+    void shouldGiveEachControlItsOwnId_inTheForm() {
+        List<String> ids = CONTROLS.values().stream().flatMap(List::stream).map(ID::matcher)
+                .filter(Matcher::find).map(id -> id.group(1)).toList();
+        assertThat(ids).doesNotHaveDuplicates();
     }
 
     @Test
@@ -317,7 +345,7 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
         if (DATE_FIELDS.contains(field.name())) {
             assertThat(type).isEqualTo(Date.class);
             WCB saved = new WCB();
-            setter.invoke(saved, Date.from(LocalDate.of(2026, 3, 14).atStartOfDay(ZoneId.systemDefault()).toInstant()));
+            setter.invoke(saved, Date.from(LocalDate.of(2026, Month.MARCH, 14).atStartOfDay(ZoneId.systemDefault()).toInstant()));
             assertShows(field, open(saved), "2026-03-14");
             return;
         }
@@ -371,7 +399,7 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
             case CHECKBOX -> List.of("1");
             default -> List.of(DATE_FIELDS.contains(field.name()) ? "2026-03-14" : "FAKE " + field.name() + " " + HOSTILE);
         };
-        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+        try (MockedStatic<ServletActionContext> _ = mockStatic(ServletActionContext.class)) {
             for (String value : values) {
                 WCBAction22Action save = new WCBAction22Action();
                 save.setDemographic_no("42");
@@ -480,9 +508,9 @@ class FormWcbJspBindingRegressionTest extends CarlosUnitTestBase {
         assertThat(control.val()).as("the %s value", field.name()).isEqualTo(expected);
 
         Element blank = renderField(field, new WCBForm()).selectFirst("[name=" + field.name() + "]");
-        assertThat(control.attributes().asList().stream().map(a -> a.getKey()).toList())
+        assertThat(control.attributes().asList().stream().map(Attribute::getKey).toList())
                 .as("the %s attributes", field.name())
-                .isEqualTo(blank.attributes().asList().stream().map(a -> a.getKey()).toList());
+                .isEqualTo(blank.attributes().asList().stream().map(Attribute::getKey).toList());
     }
 
     private static void assertInert(Document page) {

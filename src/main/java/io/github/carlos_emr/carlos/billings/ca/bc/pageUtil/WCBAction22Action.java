@@ -794,7 +794,6 @@ public class WCBAction22Action extends ActionSupport {
         wcb.setW_servicelocation(w_servicelocation); //--
         // The Form Needed box posts 1 when ticked and nothing when clear; it was never saved (#4864).
         wcb.setFormNeeded("1".equals(formNeeded) ? 1 : 0);
-        //private List injuryLocations;
 
 
         return wcb;
