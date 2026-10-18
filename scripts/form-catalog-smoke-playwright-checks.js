@@ -334,7 +334,9 @@ async function workflow(s, { select = validatePin() } = {}) {
   async function openFromMenu(entry) {
     const { form } = entry;
     const link = await claims.asPrecondition(async () => {
-      await chart.locator('#menuTitle1 a').hover();
+      // Forced: showPopup opens the menu under the cursor (popupmenu.js offsets -30/-5), so after the mouseover its
+      // heading covers the "+" and Playwright's actionability re-check never settles. The listed link below is the test.
+      await chart.locator('#menuTitle1 a').hover({ force: true });
       const found = chart.getByRole('link', { name: entry.name, exact: true });
       const listed = await found.count();
       claims.precondition(listed === 1, `the Forms menu lists the registered form ${listed} times, not once`);
