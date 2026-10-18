@@ -117,6 +117,16 @@ class ServiceCodeAssocEditorPageUnitTest {
     }
 
     @Test
+    void shouldSayTheSaveFailed_inThePolishDuplicateMessage() throws IOException {
+        Properties bundle = new Properties();
+        try (var reader = Files.newBufferedReader(Path.of("src/main/resources/oscarResources_pl.properties"), StandardCharsets.UTF_8)) {
+            bundle.load(reader);
+        }
+        // "Operacja nie powiodła się" (the operation failed), as the English says; it read "the operation succeeded".
+        assertThat(bundle.getProperty("oscar.billing.CA.BC.billingBC.error.assocexists")).startsWith("Operacja nie powiod&#X142;a si&#X119;");
+    }
+
+    @Test
     void shouldShowTheEditorAgain_forARefusedSave() throws IOException {
         assertThat(Files.readString(STRUTS, StandardCharsets.UTF_8))
                 .contains("<result name=\"input\">/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp</result>");
