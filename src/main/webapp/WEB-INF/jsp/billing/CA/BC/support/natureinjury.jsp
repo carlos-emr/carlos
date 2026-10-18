@@ -65,7 +65,7 @@
     <%} else {%>
     self.close();
     opener.document["<carlos:encode value='<%= form %>' context="javaScriptBlock"/>"]["<carlos:encode value='<%= field %>' context="javaScriptBlock"/>"].value = index;
-    opener.document.focus();
+    opener.focus();
     <%}%>
     }
     </script>
