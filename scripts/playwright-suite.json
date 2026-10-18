@@ -9519,6 +9519,21 @@
       "notes": "Master Record patient consents. Steps: Opt In stores one consent dated today and the read view shows Consented; Opt Out flips the same row with its opt-out date (read view and reopened Edit); a GET to Update Record with a consent choice is refused and stores nothing; Clear (confirmed) marks the row deleted and the read view drops it; LAST, a consent opted in again shows its description in the popup when pointed at, without a script error. Fails at its last step until #4984 is fixed (the consent popup raises a script error); every earlier step passes."
     },
     {
+      "name": "demographic-professional-contact",
+      "script": "scripts/demographic-professional-contact-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Operator prerequisite: NEW_CONTACTS_UI=true and NEW_CONTACTS_UI_EXTERNAL_CONTACT=true in carlos.properties (both the packaged default), then restart. The runWorkflow FAKE- patient; the professional record it creates and a SQL-seeded personal contact with its association, all keyed to the marker, are removed in cleanup and checked gone.",
+      "notes": "Master Record contacts. Steps: the professional search's Add/Edit Professional Contact form stores one record with the typed name, specialty, CPSO and work phone; a personal contact's Edit from Other Contacts ▸ details stores the changed details on the same Contact row; LAST, the External search lists the contact just added. Fails at its last step until #4987 is fixed (the form saves a professional specialist, which the External search does not list); every earlier step passes."
+    },
+    {
       "name": "gap-records-enrollment-history",
       "script": "scripts/gap-records-enrollment-history-playwright-checks.js",
       "tiers": [
