@@ -38,8 +38,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -90,9 +88,10 @@ public class WCBAction22Action extends ActionSupport {
 
         MiscUtils.getLogger().debug("In WCBAction22Action Jackson");
 
-        //Get rid of this
-        WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
-        BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
+        // The web context holds two beans of this type (the scanned billingmasterDAO and
+        // applicationContext.xml's), so a lookup by type there fails; SpringUtils resolves the one the
+        // rest of BC billing uses (#4864).
+        BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
         //save new wcb form
         WCB wcb = this.getWCB();
