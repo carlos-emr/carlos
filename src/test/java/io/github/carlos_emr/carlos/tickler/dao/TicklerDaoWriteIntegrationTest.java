@@ -133,7 +133,7 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
 
         // A bulk statement, so Hibernate does not null the join column of the tickler_update
         // history rows the manager deliberately keeps (production has no foreign key on them).
-        int deleted = ticklerDao.deleteById(erasedId);
+        int deleted = ticklerDao.deleteDeletedById(erasedId);
         entityManager.clear();
 
         assertThat(deleted).isEqualTo(1);
@@ -144,6 +144,17 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
     @Test
     @DisplayName("should delete nothing when the tickler does not exist")
     void shouldDeleteNothing_whenTicklerMissing() {
-        assertThat(ticklerDao.deleteById(987654321)).isZero();
+        assertThat(ticklerDao.deleteDeletedById(987654321)).isZero();
+    }
+
+    @Test
+    @DisplayName("should keep a tickler that is no longer deleted")
+    void shouldKeepTickler_whenNotDeletedAnymore() {
+        Tickler reactivated = createTickler(5003, "Reactivated meanwhile", Tickler.STATUS.A);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(ticklerDao.deleteDeletedById(reactivated.getId())).isZero();
+        assertThat(ticklerDao.find(reactivated.getId())).isNotNull();
     }
 }

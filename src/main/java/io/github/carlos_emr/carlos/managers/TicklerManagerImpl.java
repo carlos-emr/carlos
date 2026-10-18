@@ -589,7 +589,9 @@ public class TicklerManagerImpl implements TicklerManager {
     public boolean eraseTickler(LoggedInInfo loggedInInfo, Integer ticklerId) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
-        Tickler tickler = ticklerId == null ? null : ticklerDao.find(ticklerId);
+        // Lock the row so a concurrent reactivate or complete cannot slip in between the status
+        // check and the delete.
+        Tickler tickler = ticklerId == null ? null : ticklerDao.lockForAttachmentSync(ticklerId);
         // Only the Deleted queue can be erased; a crafted POST must not erase a live task.
         if (tickler == null || !Tickler.STATUS.D.equals(tickler.getStatus())) {
             return false;
@@ -601,13 +603,17 @@ public class TicklerManagerImpl implements TicklerManager {
         for (TicklerLink link : ticklerLinkDao.getLinkByTickler(ticklerId)) {
             ticklerLinkDao.remove(link);
         }
-        for (TicklerDocs attachment : ticklerDocsDao.findByTicklerId(ticklerId)) {
+        // Every attachment row, detached (deleted = 'Y') ones included.
+        for (TicklerDocs attachment : ticklerDocsDao.findAllByTicklerIdForUpdate(ticklerId)) {
             ticklerDocsDao.remove(attachment);
         }
         // tickler_update rows are deliberately kept: they are the status-change audit history.
         // A bulk delete, so Hibernate does not null their NOT NULL tickler_no join column.
         ticklerDao.detach(tickler);
-        ticklerDao.deleteById(ticklerId);
+        if (ticklerDao.deleteDeletedById(ticklerId) != 1) {
+            // Rolls back the dependants removed above.
+            throw new IllegalStateException("tickler " + ticklerId + " was no longer Deleted when erased");
+        }
 
         // --- log action ---
         LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.eraseTickler", "ticklerId=" + ticklerId);
