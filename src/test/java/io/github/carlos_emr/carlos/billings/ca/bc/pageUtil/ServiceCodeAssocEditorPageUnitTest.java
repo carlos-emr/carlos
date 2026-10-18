@@ -95,6 +95,27 @@ class ServiceCodeAssocEditorPageUnitTest {
         assertThat(MessageFormat.format(bundle.getProperty(key), "Z0000")).isEqualTo(expected);
     }
 
+    /** In every locale, formatting one of the editor's messages changes nothing but the code it names. */
+    @ParameterizedTest
+    @CsvSource({
+            "en, invaliddxcode", "en, invalidsvccode", "en, assocexists",
+            "fr, invaliddxcode", "fr, invalidsvccode", "fr, assocexists",
+            "es, invaliddxcode", "es, invalidsvccode", "es, assocexists",
+            "pl, invaliddxcode", "pl, invalidsvccode", "pl, assocexists",
+            "pt_BR, invaliddxcode", "pt_BR, invalidsvccode", "pt_BR, assocexists",
+    })
+    void shouldShowEachLocalesMessageAsWritten_whenFormatted(String locale, String key) throws IOException {
+        Properties bundle = new Properties();
+        try (var reader = Files.newBufferedReader(Path.of("src/main/resources/oscarResources_" + locale + ".properties"),
+                StandardCharsets.UTF_8)) {
+            bundle.load(reader);
+        }
+        String text = bundle.getProperty("oscar.billing.CA.BC.billingBC.error." + key);
+        assertThat(text).as(locale + " " + key).isNotNull().contains("{0}");
+        assertThat(MessageFormat.format(text, "Z0000")).as(locale + " " + key)
+                .isEqualTo(text.replace("''", "'").replace("{0}", "Z0000"));
+    }
+
     @Test
     void shouldShowTheEditorAgain_forARefusedSave() throws IOException {
         assertThat(Files.readString(STRUTS, StandardCharsets.UTF_8))
