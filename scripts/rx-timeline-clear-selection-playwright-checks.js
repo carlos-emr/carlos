@@ -26,6 +26,12 @@ function insertDrug(sql, provider, patient, { brand = null, custom = null, din =
 }
 
 async function readTimeline(page) {
+  // The chart is drawn by a separate image request; let it finish before reading or submitting,
+  // or the next navigation aborts it.
+  await page.waitForFunction(() => {
+    const img = document.querySelector('img[src*="method=ChartMeds"]');
+    return img && img.complete;
+  });
   return page.evaluate(() => ({
     checked: [...document.querySelectorAll('input[type="checkbox"][name="drug"]')].filter(box => box.checked).map(box => box.value).sort(),
     offered: [...document.querySelectorAll('input[type="checkbox"][name="drug"]')].map(box => box.value).sort(),

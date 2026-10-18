@@ -19,6 +19,17 @@ const isPost = (route, value) => response => response.request().method() === 'PO
   && h.pathOnly(response.url()).endsWith(route)
   && (!value || new URL(response.url()).searchParams.get('parameterValue') === value);
 
+/** The print window and its preview are frames over the Rx page; poll Playwright's frame list. */
+async function waitForFrame(page, pattern, timeout = 60000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const frame = page.frames().find(f => pattern.test(f.url()));
+    if (frame) return frame;
+    await page.waitForTimeout(250);
+  }
+  throw new Error(`The preview frame ${pattern} did not open`);
+}
+
 async function enterDirections(rx, key, text) {
   const [parsed] = await Promise.all([
     rx.waitForResponse(isPost('/rx/UpdateScript')),
@@ -52,7 +63,12 @@ async function workflow(s) {
 
   for (const [label, dismiss] of [
     ['X', page => page.locator('#carlosModal .btn-close').click()],
-    ['Escape', page => page.keyboard.press('Escape')],
+    // The preview frame takes the keyboard while it loads; the prescriber's Escape is meant for the
+    // dialog, so focus goes to the dialog's title bar first, as a click there would put it.
+    ['Escape', async page => {
+      await page.locator('#carlosModalLabel').click();
+      await page.keyboard.press('Escape');
+    }],
   ]) {
     const name = `${marker} ${label}`;
     const rows = () => sql.rows(`SELECT drugid, archived, archived_reason, freqcode, duration FROM drugs
@@ -71,6 +87,11 @@ async function workflow(s) {
       const modal = rx.locator('#carlosModal');
       await modal.waitFor({ state: 'visible' });
       await rx.locator('#carlosModal.show').waitFor({ state: 'attached' });
+      // Dismiss the preview the prescriber has seen: wait for the print window and its preview to load.
+      const script = await waitForFrame(rx, /\/rx\/viewScript\?/);
+      await script.waitForLoadState('load');
+      const preview = await waitForFrame(rx, /\/rx\/ViewPreview2\?/);
+      await preview.waitForLoadState('load');
       await dismiss(rx);
       await modal.waitFor({ state: 'hidden' });
       h.assert(await rx.locator(`#instructions_${key}`).count() === 1, `Dismissing the preview with ${label} lost the acknowledged card`);

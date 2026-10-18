@@ -100,16 +100,28 @@ public class RxDrugRef {
      *
      * @param DIN     String the Drug Identification Number to look up
      * @param boolVal Boolean whether to include additional product details in the response
-     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if not found
-     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if no product carries the DIN
+     * @throws Exception if the DrugRef service is unavailable, returns a non-zero fault, or answers with
+     *         something other than a list
      * @since 2026-02-26
      */
     public Hashtable<String, Object> getDrugByDIN(String DIN, Boolean boolVal) throws Exception {
         Vector params = new Vector();
         params.addElement(DIN);
         params.addElement(boolVal);
-        Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) callWebserviceLite("get_drug_by_DIN", params);
-        if (vec == null || vec.isEmpty()) {
+        Object answer = callWebserviceLite("get_drug_by_DIN", params);
+        // An unknown DIN is "not found", not a failure (#5006): DrugRef answers it with an empty
+        // array, and a DrugRef that returned a Java null for it put an XML-RPC empty string on
+        // the wire. Both mean "no product"; the caller then searches by name. Any other shape is
+        // a broken answer and stays an error.
+        if (answer == null || "".equals(answer)) {
+            return null;
+        }
+        if (!(answer instanceof Vector)) {
+            throw new Exception("DrugRef: unexpected get_drug_by_DIN answer (" + answer.getClass().getSimpleName() + ")");
+        }
+        Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) answer;
+        if (vec.isEmpty()) {
             return null;
         }
         return vec.get(0);
