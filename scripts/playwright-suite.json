@@ -7010,6 +7010,21 @@
       "fixtures": "Throwaway login with its own day sheet plus an owned FAKE- patient; the eight recurring appointments it books belong to the throwaway provider and are deleted (with archive rows) in cleanup."
     },
     {
+      "name": "appointment-slot-lock-booker",
+      "script": "scripts/appointment-slot-lock-booker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Requires appointment_locking_timeout>0; issue #4917. A booker holding only the doctor role (no _admin) must get the slot lock: the viewer count, the locked state, hidden Add/Repeat/Group, Search back after a duration change, and a released monitor on close.",
+      "fixtures": "Two throwaway logins (admin+doctor owner, doctor booker); nothing is booked; both providers' PageMonitor rows are removed and verified at teardown."
+    },
+    {
       "name": "appointment-group-paste-restriction",
       "script": "scripts/appointment-group-paste-restriction-playwright-checks.js",
       "tiers": [
