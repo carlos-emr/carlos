@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * BC billing report centre, Billed mode: the report lists exactly the provider's bills in the range that SQL selects,
- * and each row's account number opens that bill. billing-unbilled-report covers the Unbilled mode by typed URL; this
- * check drives the Billed mode from the user's path.
+ * BC billing report centre, Billed and Unbilled modes from the user's path: each report lists exactly the rows SQL
+ * selects for the provider and range, and each row's link opens that bill, or the bill form for that appointment.
+ * billing-unbilled-report covers the Unbilled mode's No-Show and Cancelled filters by typed URL.
  *
  * User path: Schedule ▸ Report (report/ViewReportindex popup) ▸ "Generate a billing report" (new page,
  * billing/CA/BC/ViewBillingReportCenter) ▸ Billed, Select provider, Service Date-Range ▸ Create Report (GET
@@ -14,16 +14,21 @@
  *      the range, not deleted, submitted or settled), each under its account number with the patient and the status
  *      described (Bill MSP, Bill WCB, Bill Patient, Do Not Bill, Capitated Bill);
  *   3. each listed bill's account number opens that bill: its patient, PHN and total;
- *   4. LAST: a login without report read is refused by both the report centre and the report, with the app's
+ *   4. Unbilled lists exactly the appointments SQL selects (OscarAppointmentDao.findUnbilledAppointments: the
+ *      provider's appointments in the range that are not billed, cancelled or no-show), each under its reason, and
+ *      each row's Bill link opens the BC bill form for that appointment and patient;
+ *   5. LAST: a login without report read is refused by both the report centre and the report, with the app's
  *      refusal page and none of the bills.
  *
  * Fixtures: the owned FAKE- patient made a BC patient (lib/bc-billing-fixture.js) and nine bills on it billed to the
  * test provider: on one service day picked for this run in 1990-1999, one each in billing status O, W, P, N and H
  * (listed, each with its own total) and B, S and D (not listed); and one O bill on the next day, outside the range.
+ * Five appointments for the patient and provider on the same day: status t and H (listed) and B, C and N (not
+ * listed), each with its own reason, and one t appointment on the next day.
  * The report's provider list holds only report-provider rows ('billingreport'); when the test provider has none, one
  * is added for the run. It shows in every user's report-provider lists, so the check runs EXCLUSIVE. The throwaway
- * login holds one owned role. Cleanup deletes the bills (registerOwnedBcBillCleanup), the report-provider row it
- * added, the role and the login, and asserts they are gone.
+ * login holds one owned role. Cleanup deletes the bills (registerOwnedBcBillCleanup), the appointments, the
+ * report-provider row it added, the role and the login, and asserts they are gone.
  * Expected (see the manifest notes): on release/2026.08 the refusal step fails until #4940 is fixed (the billing
  * package maps no SecurityException, so the refusal is a 500 error page).
  */
@@ -38,6 +43,7 @@ const TIMEOUT = 30000;
 const CENTRE_ROUTE = '/billing/CA/BC/ViewBillingReportCenter';
 const REPORT_ROUTE = '/billing/CA/BC/ViewBillingReportControl';
 const BILL_ROUTE = '/billing/CA/BC/billingView';
+const BILL_FORM_ROUTE = '/billing';
 // What the refusal step's login needs to log in to the schedule: no report read.
 const GRANTS = [['_appointment', 'r'], ['_msg', 'r'], ['_demographic', 'r'], ['_search', 'r']];
 // One bill per billing status. The report lists every status but D (deleted), S (settled) and B (submitted), and
@@ -53,10 +59,21 @@ const BILLS = [
   { status: 'D', billingtype: 'MSP', amount: '28.00' },
   { status: 'O', billingtype: 'MSP', amount: '29.00', nextDay: true },
 ];
+// One appointment per status. Unbilled lists every status but billed (B), cancelled (C) and no-show (N) by default;
+// the out-of-range one is the day after the report's range.
+const APPOINTMENTS = [
+  { status: 't', time: '09:00:00', listed: true },
+  { status: 'H', time: '09:15:00', listed: true },
+  { status: 'B', time: '09:30:00' },
+  { status: 'C', time: '09:45:00' },
+  { status: 'N', time: '10:00:00' },
+  { status: 't', time: '10:15:00', nextDay: true },
+];
 const STEP = {
   open: 'Schedule ▸ Report ▸ Generate a billing report opens the BC report centre with the Billed mode and the provider',
   billed: 'Billed lists exactly the provider\'s bills in the range that are not deleted, submitted or settled',
   links: 'each listed bill\'s account number opens that bill',
+  unbilled: 'Unbilled lists exactly the provider\'s unbilled appointments in the range, and each Bill link opens the bill form for it',
   refusal: 'a login without report read is refused by the report centre and the report, and sees none of the bills',
 };
 
@@ -79,6 +96,22 @@ async function workflow(s) {
     return { ...bill, ...seeded };
   });
   const patientName = sql.value(`SELECT CONCAT(last_name, ', ', first_name) FROM demographic WHERE demographic_no=${s.patient}`);
+
+  const appointments = [];
+  s.cleanup(() => {
+    if (!appointments.length) return;
+    const ids = appointments.map(a => a.id).join(',');
+    sql.execute(`DELETE FROM appointment WHERE appointment_no IN (${ids}) AND demographic_no=${s.patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no IN (${ids})`) === '0', 'The appointments were not removed');
+  });
+  for (const appt of APPOINTMENTS) {
+    const reason = `${marker} ${appt.status}${appt.nextDay ? ' next' : ''}`;
+    const id = h.insertId(sql, `INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
+        demographic_no, program_id, reason, status, createdatetime, updatedatetime, creator, lastupdateuser)
+      VALUES (${q(provider)}, ${q(appt.nextDay ? nextDay : day)}, ${q(appt.time)}, ${q(appt.time)}, ${q(`${marker},Workflow`)},
+        ${s.patient}, 0, ${q(reason)}, ${q(appt.status)}, NOW(), NOW(), 'playwright', ${q(provider)})`, 'appointment');
+    appointments.push({ ...appt, id, reason });
+  }
 
   // The report's provider list is the clinic's report-provider rows for 'billingreport'.
   let reportProviderId = null;
@@ -160,6 +193,50 @@ async function workflow(s) {
       h.assert(text.includes(patientName) && text.includes(phn) && text.includes(bill.amount),
         `The bill ${bill.billingNo} does not show its patient, PHN and total ${bill.amount}`);
       await view.close();
+    }
+  });
+
+  await s.step(STEP.unbilled, async () => {
+    await report.locator('input[name="reportAction"][value="unbilled"]').check();
+    await report.locator('select[name="providerview"]').selectOption(provider);
+    await report.locator('input[name="xml_vdate"]').fill(day);
+    await report.locator('input[name="xml_appointment_date"]').fill(day);
+    const [response] = await Promise.all([
+      report.waitForResponse(r => h.pathOnly(r.url()).endsWith(REPORT_ROUTE) && r.request().resourceType() === 'document', { timeout: TIMEOUT }),
+      report.locator('input[type="submit"][name="Submit"]').click(),
+    ]);
+    h.assert(response.status() === 200, `Create Report answered HTTP ${response.status()}`);
+    await report.waitForLoadState('domcontentloaded');
+    // Each listed appointment is a row of five cells: service date, time, patient, reason, and the Bill link.
+    const listed = await report.locator('table[border="2"] tr').evaluateAll(trs => trs
+      .map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.replace(/\s+/g, ' ').trim()))
+      .filter(cells => cells.length === 5));
+    const expected = sql.rows(`SELECT reason FROM appointment WHERE provider_no=${q(provider)}
+        AND appointment_date BETWEEN ${q(day)} AND ${q(day)} AND status NOT LIKE 'B%' AND status NOT LIKE 'C%'
+        AND status NOT LIKE 'N%' AND demographic_no<>0`).map(([reason]) => reason);
+    const reasons = listed.map(cells => cells[3]);
+    const missing = expected.filter(reason => !reasons.includes(reason));
+    const extra = reasons.filter(reason => !expected.includes(reason));
+    h.assert(!missing.length && !extra.length && reasons.length === expected.length,
+      `Unbilled does not list the appointments SQL selects: missing ${JSON.stringify(missing)}, extra ${JSON.stringify(extra)}`);
+    for (const appt of appointments) {
+      const row = listed.find(cells => cells[3] === appt.reason);
+      h.assert(Boolean(row) === Boolean(appt.listed), `Unbilled ${appt.listed ? 'does not list' : 'lists'} the appointment in status ${appt.status}${appt.nextDay ? ' on the next day' : ''}`);
+      if (!row) continue;
+      h.assert(row[0] === day && row[1] === appt.time && row[2] === `${marker},Workflow` && row[4].includes('Bill'),
+        `Unbilled shows the status ${appt.status} appointment as ${JSON.stringify(row)}`);
+      const link = report.locator('table[border="2"] tr', { hasText: appt.reason }).locator('a', { hasText: 'Bill' });
+      const { page: form } = await ui.clickOpensPopupOrNavigates(report, link, { context: s.context, recorder, label: `bc-report-centre-bill-form-${appt.status}` });
+      await form.waitForLoadState('domcontentloaded');
+      const url = new URL(form.url());
+      h.assert(h.pathOnly(form.url()).endsWith(BILL_FORM_ROUTE) && url.searchParams.get('appointment_no') === appt.id
+        && url.searchParams.get('demographic_no') === String(s.patient),
+        `The Bill link for the status ${appt.status} appointment opened ${h.pathOnly(form.url())} for appointment `
+        + `${url.searchParams.get('appointment_no')} and patient ${url.searchParams.get('demographic_no')}`);
+      await form.locator('form[action$="/billing/CA/BC/CreateBilling"]').waitFor({ timeout: TIMEOUT });
+      h.assert(await form.locator('#xml_appointment_date').inputValue() === day,
+        `The bill form for the status ${appt.status} appointment shows the service date ${await form.locator('#xml_appointment_date').inputValue()}`);
+      await form.close();
     }
   });
 
