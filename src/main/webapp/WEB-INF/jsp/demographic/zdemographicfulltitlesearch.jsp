@@ -368,7 +368,7 @@
 
             <caisi:isModuleLoad moduleName="caisi">
                 <input type="button" value="cancel"
-                       onclick="location.href='${request.contextPath}/PMmodule/ProviderInfo'">
+                       onclick="location.href='${pageContext.request.contextPath}/PMmodule/ProviderInfo'">
             </caisi:isModuleLoad>
         </div>
 

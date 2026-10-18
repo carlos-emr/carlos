@@ -57,7 +57,7 @@
 
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link href="${request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
+        <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
         <style>.button {
             border: 1px solid #666666;
         } </style>

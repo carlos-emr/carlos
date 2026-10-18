@@ -42,7 +42,7 @@
 
         <td align="right">
             <caisi:isModuleLoad moduleName="caisi">
-            <a href='${request.contextPath}/PMmodule/ProviderInfo'>
+            <a href='${pageContext.request.contextPath}/PMmodule/ProviderInfo'>
                 </caisi:isModuleLoad>
                 <caisi:isModuleLoad moduleName="caisi" reverse="true">
                 <a href="#" onClick="self.close();">
