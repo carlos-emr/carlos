@@ -12257,11 +12257,7 @@
         "appointment"
       ],
       "fixtures": "Owned FAKE- patient; a marker-named waiting-list name whose name carries an apostrophe (for the login's schedule group) and the patient's row on it, seeded by SQL as waiting-list does. The check books two appointments for the patient from the Schedule (its reason carries the marker). Cleanup deletes those appointments (and any appointmentArchive rows for them), the waiting-list rows and the list name, and asserts none remain. An active list name makes every booking in the clinic look for waiting-list rows, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Booking an appointment for a patient on a waiting list (AppointmentAddRecord2Action, appointmentaddarecord.jsp): the result page asks 'Click OK to remove patient from the waiting list: <name>' and OK posts waitinglist/RemoveFromWaitingList; waiting-list covers the Master Record's waiting-list controls. Steps: the booking is saved and the question names the list as written (apostrophe included), Cancel keeps the patient on the list; a second booking and OK takes the patient off the list (the row becomes history); LAST, the pages on the way link only stylesheets the webapp ships. Set MANUALLY_CLEANUP_WL=yes to mirror a server whose carlos.properties sets it: the check then asserts the booking asks nothing and the patient stays on the list. Passes on release/2026.08 in both modes. Fails at its last step on develop, pinned to finding 100: removeFromWaitingListResult.jsp, the self-closing page OK opens, links /styles.css, which the webapp does not ship (the link came with #1674; release/2026.08's copy of the page has none); the earlier steps pass.",
-      "expectedFailure": {
-        "finding": 100,
-        "step": "the booking and waiting-list pages link only stylesheets the webapp ships"
-      }
+      "notes": "Books a waiting-list patient from Schedule, verifies the removal prompt names the owned list, Cancel retains membership, and a second booking with OK archives it. Checks every stylesheet on the path. Set MANUALLY_CLEANUP_WL=yes to mirror that server property and assert no prompt instead. Passes on packaged release/2026.08 (2026-10-18); its develop-only finding-100 expected-failure pin is removed on this branch."
     },
     {
       "name": "document-tickler",
@@ -12388,6 +12384,486 @@
       "env": [],
       "fixtures": "The owned FAKE- patient only. Staging is session-only; cleanup removes the patient's drugs and prescriptions by key in case a regression saved one, and asserts none remain. No clinic-wide state is changed.",
       "notes": "The Rx page's drug search box from the keyboard (SearchDrug3.jsp, jQuery UI autocomplete). Steps: typing a product name lists its products, and Enter with nothing highlighted picks nothing and submits nothing; ArrowDown highlights the first row without filling the box, and Enter stages it (one rx/WriteScript createNewRx naming that row's drug id and name, one new card); ArrowDown twice then Enter stages the second row; Escape closes the list and Enter then picks nothing; staging wrote no drugs row; LAST, a search with no match offers no row that can be picked. Optional RX_SEARCH_TERM (default LIPITOR) must list two or more DrugRef products; needs carlos-emr-drugref. Fails on develop at the last step (release/2026.08 has the same code): the no-match search lists DrugRef's \"None found\" row (id 0), and ArrowDown+Enter or a click stages it (createNewRx drugId=0, answered by a \"Could not load the selected drug\" notice), pending a finding filed separately. The check turns green when that fix reaches develop; drop this note then."
+    },
+    {
+      "name": "rh-workflow-queue",
+      "script": "scripts/rh-workflow-queue-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RH_QUEUE_ONLY"
+      ],
+      "notes": "RH Form Save, WorkFlow queue membership and RH link, close, later pregnancy. Requires WORKFLOW=yes. Verifies persisted state and rendered queue; leaves closed history intact. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 284.",
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 284,
+        "step": "the queue RH link reopens the saved form for that pregnancy"
+      }
+    },
+    {
+      "name": "rh-injection-workflow",
+      "script": "scripts/rh-injection-workflow-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RH_INJECTION_ONLY"
+      ],
+      "notes": "RH Form > Add Injection > Save Injection > Delete. Verifies the real popup, prevention fields and the opener injection panel. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 285.",
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 285,
+        "step": "Add Injection opens for the saved RH form and the same patient and workflow"
+      }
+    },
+    {
+      "name": "tickler-bulk-actions",
+      "script": "scripts/tickler-bulk-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TICKLER_BULK_ONLY"
+      ],
+      "notes": "Task-list Check All / Clear All, selected-only Complete/Delete, Completed-to-Active through the row pencil and opener refresh, and Deleted action availability. Four owned tasks include a hidden control. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 289.",
+      "expectedFailure": {
+        "finding": 289,
+        "step": "the Completed row pencil reactivates one task and refreshes the opener"
+      }
+    },
+    {
+      "name": "rh-workflow-queue-lifecycle",
+      "script": "scripts/rh-workflow-queue-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RH_QUEUE_ONLY"
+      ],
+      "notes": "RH queue lifecycle from the chart form: close removes the active queue entry; a later pregnancy creates a separate workflow. Runs independently of the queue link check, so a broken link cannot hide lifecycle failures.",
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "envSet": {
+        "RH_QUEUE_ONLY": "lifecycle"
+      }
+    },
+    {
+      "name": "rh-injection-existing",
+      "script": "scripts/rh-injection-workflow-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RH_INJECTION_ONLY"
+      ],
+      "notes": "An existing injection on the current pregnancy is displayed through the RH form and archived by its panel Delete link. Independent of Add Injection so that a broken add path cannot hide display/delete failures. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 288.",
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "envSet": {
+        "RH_INJECTION_ONLY": "existing"
+      },
+      "expectedFailure": {
+        "finding": 288,
+        "step": "a saved RH form displays an existing injection with its lot, product, dose and reason"
+      }
+    },
+    {
+      "name": "tickler-bulk-state-actions",
+      "script": "scripts/tickler-bulk-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TICKLER_BULK_ONLY"
+      ],
+      "notes": "Bulk task states and Deleted action buttons after an explicit Create Report refresh. Runs independently of the automatic-opener-refresh assertion so one defect does not hide later task operations. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 286.",
+      "envSet": {
+        "TICKLER_BULK_ONLY": "state-actions"
+      },
+      "expectedFailure": {
+        "finding": 286,
+        "step": "the Deleted filter offers Erase Completely and hides Complete and Delete"
+      }
+    },
+    {
+      "name": "rh-injection-log-privacy",
+      "script": "scripts/rh-injection-workflow-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RH_INJECTION_ONLY",
+        "CARLOS_LOG_JOURNAL_UNIT",
+        "CARLOS_LOG_AUDIT_SINCE"
+      ],
+      "notes": "Opens a current pregnancy with an existing RH injection through the chart and scans the server journal for the unique synthetic clinical marker. Verifies the panel request and that the journal was read; requires CARLOS_LOG_JOURNAL_UNIT. Independent of the blank panel assertion. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 290.",
+      "mutates": [
+        "encounterForm"
+      ],
+      "fixtures": "Temporarily registers RH Form if absent and restores it; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "envSet": {
+        "RH_INJECTION_ONLY": "privacy"
+      },
+      "expectedFailure": {
+        "finding": 290,
+        "step": "the RH injection panel writes no clinical fixture data to the server log"
+      }
+    },
+    {
+      "name": "waiting-list-management",
+      "script": "scripts/waiting-list-management-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
+      "notes": "Rename an occupied list, reject a duplicate name and occupied-list deletion, archive an empty list; verify members and picker choices."
+    },
+    {
+      "name": "waiting-list-row-edit",
+      "script": "scripts/waiting-list-row-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
+      "notes": "Manager row Update: multiline/quoted note and date, reprioritization, untouched control patient, history, clearing the note and unedited Update."
+    },
+    {
+      "name": "waiting-list-manager-remove",
+      "script": "scripts/waiting-list-row-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "WAITING_LIST_ACTION"
+      ],
+      "fixtures": "Owned marker-named lists in the login schedule group and two synthetic patients; no clinic preferences changed.",
+      "notes": "Manager row Remove: cancelled confirm writes nothing; accepted confirm archives only the selected patient, refreshes the opener and preserves the control.",
+      "envSet": {
+        "WAITING_LIST_ACTION": "remove"
+      }
+    },
+    {
+      "name": "waiting-list-booking",
+      "script": "scripts/waiting-list-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MANUALLY_CLEANUP_WL"
+      ],
+      "fixtures": "Two synthetic patients on an owned list in the login schedule group; books only a future free rendered slot; owned appointment cleanup.",
+      "notes": "Make Appointment from a manager row: verify patient/provider/slot prefill, save exactly one appointment, Cancel waiting-list removal, preserve both members."
+    },
+    {
+      "name": "waiting-list-booking-navigation",
+      "script": "scripts/waiting-list-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "WAITING_LIST_BOOKING"
+      ],
+      "fixtures": "Two synthetic patients on an owned list in the login schedule group; books only a future free rendered slot; owned appointment cleanup.",
+      "notes": "Make Appointment from a manager row, Next Month, then a free slot: the booking form must retain the selected patient/provider/date/time. Confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291.",
+      "envSet": {
+        "WAITING_LIST_BOOKING": "navigate"
+      },
+      "expectedFailure": {
+        "finding": 291,
+        "step": "Next Month retains the waiting-list patient when a free slot is selected"
+      }
+    },
+    {
+      "name": "waiting-list-booking-provider",
+      "script": "scripts/waiting-list-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "WAITING_LIST_BOOKING"
+      ],
+      "fixtures": "Two synthetic patients and a list; temporarily adds two marker-owned memberships for existing active providers to the login group and verifies their removal. Does not modify provider records or preferences; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Make Appointment from a waiting-list row, change provider in Flip View, then select a free slot: the patient/provider/date/time must stay correct. Confirmed live on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 291.",
+      "envSet": {
+        "WAITING_LIST_BOOKING": "provider"
+      },
+      "mutates": [
+        "mygroup"
+      ],
+      "expectedFailure": {
+        "finding": 291,
+        "step": "changing provider retains the waiting-list patient when a free slot is selected"
+      }
+    },
+    {
+      "name": "rx-favourite-dose-roundtrip",
+      "script": "scripts/rx-favourite-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_FAVOURITE_ACTION"
+      ],
+      "fixtures": "Owned synthetic patient and marker-named rows only; cleanup verifies removal.",
+      "notes": "Chart > Rx > Edit favourites: change dosing, frequency, duration, quantity, repeats, flags and quoted directions; save/reopen, stage from sidebar, preserve a control and save no prescription. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 295.",
+      "expectedFailure": {
+        "finding": 295,
+        "step": "the edited favourite PRN flag survives staging on the prescribing card"
+      }
+    },
+    {
+      "name": "rx-favourite-editor-validation",
+      "script": "scripts/rx-favourite-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_FAVOURITE_ACTION"
+      ],
+      "fixtures": "Owned synthetic patient and marker-named rows only; cleanup verifies removal.",
+      "notes": "Real editor validation for six required fields, correction/retry, cancelled Delete, confirmed Delete and sidebar/control isolation.",
+      "envSet": {
+        "RX_FAVOURITE_ACTION": "validation"
+      }
+    },
+    {
+      "name": "tickler-patient-erase",
+      "script": "scripts/tickler-patient-erase-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient, three tasks and one PDF document/file; cleanup removes and verifies tasks, their history/links, the document and chart support rows.",
+      "notes": "E-Chart > document > open ticklers > Deleted > Erase Completely: empty selection changes nothing; selected task disappears while deleted/active controls remain; retention of audit data is permitted. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 293.",
+      "expectedFailure": {
+        "finding": 293,
+        "step": "Erase Completely removes only the checked task from Deleted and preserves unchecked tasks"
+      }
+    },
+    {
+      "name": "patient-letter-template-delete",
+      "script": "scripts/patient-letter-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_LETTER_ACTION",
+        "LETTER_DOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "report_letters"
+      ],
+      "fixtures": "Two UI-uploaded marker-named templates and an owned synthetic patient; any generated letter file, document, note and log rows removed and verified. The template library is shared; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Upload two owned Jasper templates through Manage Letters; download exact source bytes/name, archive only one through Delete, preserve its bytes, and verify the generation picker/control."
+    },
+    {
+      "name": "patient-letter-generation-ui",
+      "script": "scripts/patient-letter-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_LETTER_ACTION",
+        "LETTER_DOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "report_letters"
+      ],
+      "fixtures": "Two UI-uploaded marker-named templates and an owned synthetic patient; any generated letter file, document, note and log rows removed and verified. The template library is shared; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Generate Letters from the Master Record: empty-recipient validation, real submit, correct selected template/recipient/CSRF, readable downloaded PDF, one filed patient document and one log row.",
+      "envSet": {
+        "PATIENT_LETTER_ACTION": "generate"
+      }
+    },
+    {
+      "name": "patient-letter-stale-template",
+      "script": "scripts/patient-letter-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_LETTER_ACTION",
+        "LETTER_DOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "report_letters"
+      ],
+      "fixtures": "Two UI-uploaded marker-named templates and an owned synthetic patient; any generated letter file, document, note and log rows removed and verified. The template library is shared; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Open generation, delete that template in its manager, then submit the stale form: actionable 400, selected patient retained and no document/log writes.",
+      "envSet": {
+        "PATIENT_LETTER_ACTION": "stale"
+      }
+    },
+    {
+      "name": "rx-favourite-multiline-directions",
+      "script": "scripts/rx-favourite-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "RX_FAVOURITE_ACTION"
+      ],
+      "envSet": {
+        "RX_FAVOURITE_ACTION": "multiline"
+      },
+      "notes": "Edit a favourite with multiline directions through the actual editor, reopen it, choose it from Rx and require the prescribing card to preserve its line break. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 292.",
+      "fixtures": "Owned patient and two marker-named favourites; staging saves no prescription; cleanup verified.",
+      "expectedFailure": {
+        "finding": 292,
+        "step": "multiline favourite directions retain their line break on the prescribing card"
+      }
+    },
+    {
+      "name": "patient-letter-manager-labels",
+      "script": "scripts/patient-letter-actions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "PATIENT_LETTER_ACTION",
+        "LETTER_DOCUMENT_DIR",
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "envSet": {
+        "PATIENT_LETTER_ACTION": "labels"
+      },
+      "notes": "Master Record > Generate Letters > Manage Letters: field labels and action names must not show unresolved resource keys. Independent of template deletion and generation. Confirmed on packaged release/2026.08 at a7611d07b4a (Ubuntu 26.04); finding 294.",
+      "fixtures": "Two UI-uploaded owned templates and an owned patient; cleanup verified. The template library is shared; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "report_letters"
+      ],
+      "expectedFailure": {
+        "finding": 294,
+        "step": "Manage Letters displays readable field labels and action names without unresolved message keys"
+      }
     }
   ]
 }

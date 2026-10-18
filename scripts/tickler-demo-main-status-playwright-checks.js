@@ -11,8 +11,9 @@
  * buttons each view offers (Complete and Delete on Active and Completed; Erase Completely, and
  * neither of the others, on Deleted), and that GET and a tokenless POST to DbTicklerDemoMain are
  * refused without writing. Complete from the Active view is also covered by
- * workflow-tickler-suggested-text; Erase Completely is listed but not pressed (what it should do
- * is not settled: it re-marks a deleted tickler deleted).
+ * workflow-tickler-suggested-text; the independent tickler-patient-erase check now presses
+ * Erase Completely and requires that only the checked task leave the ordinary Deleted queue,
+ * while permitting retention of audit history.
  * Fixtures: the synthetic patient from lib/workflow-session.js, three active ticklers due today,
  * and one PDF document (row, ctl_document link and file) so the document viewer offers the list;
  * all removed and verified gone.
