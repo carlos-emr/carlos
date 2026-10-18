@@ -12,6 +12,26 @@ var dtCh = '/';
 
 var provNo;
 
+/*
+ * The form's save address as the JSP writes it (<context>/form/BCAR2020), read once and without a query string.
+ * Every page carries <base href="<context>/">, so the relative addresses the script used before resolved
+ * outside the application (issue #4919); all addresses are built from this one instead.
+ */
+var formAction;
+
+function bcarFormAction() {
+    if (!formAction) {
+        formAction = document.forms[0].getAttribute('action').split('?')[0];
+    }
+    return formAction;
+}
+
+/* The extensionless route of a BC-AR 2020 page: 1-5, or 6 for Attachments. */
+function bcarPageUrl(pageNo) {
+    var view = String(pageNo) !== '6' ? 'formBCAR2020pg' + pageNo : 'formBCAR2020Attachments';
+    return bcarFormAction().replace(/BCAR2020$/, view);
+}
+
 var page = 0;
 
 
@@ -580,7 +600,7 @@ function toggleFieldRules(fieldName) {
 
 function reset() {
     document.forms[0].target = "";
-    document.forms[0].action = "../form/BCAR2020";
+    document.forms[0].action = bcarFormAction();
 }
 
 function onSave() {
@@ -1158,6 +1178,10 @@ function dialogs(page) {
     loggedInProviderNo = $('#user').val();
     demographicNo = $('#demographicNo').val();
 
+    // The print dialog's page choices sit in a form of their own, which jquery.are-you-sure would otherwise
+    // track: ticking a page made the browser ask whether to leave, and declining cancelled the print (issue #4919).
+    $('#print-dialog :input').addClass('ays-ignore');
+
     $("#print-dialog").dialog({
         autoOpen: false,
         height: 350,
@@ -1175,7 +1199,7 @@ function dialogs(page) {
                 $("#printPg6").val($("#print_att").prop('checked'));
 
                 if ($("#printPg1").val() === "true" || $("#printPg2").val() === "true" || $("#printPg3").val() === "true" || $("#printPg4").val() === "true" || $("#printPg5").val() === "true" || $("#printPg6").val() === "true") {
-                    document.forms[0].action = "../form/BCAR2020?method=print";
+                    document.forms[0].action = bcarFormAction() + "?method=print";
                     $("#printBtn").trigger('click');
                 }
 
@@ -1195,8 +1219,7 @@ function onPageChange(pageNo) {
     var params = 'demographic_no=' + encodeURIComponent(demographicNo)
         + '&formId=' + encodeURIComponent(formId)
         + '&provNo=' + encodeURIComponent(provNo);
-    var page = pageNo !== '6' ? 'formBCAR2020pg' + pageNo + '.jsp' : 'formBCAR2020Attachments.jsp';
-    var url = page + '?' + params;
+    var url = bcarPageUrl(pageNo) + '?' + params;
 
     var result = false;
     var isValid = validate();
@@ -1207,6 +1230,9 @@ function onPageChange(pageNo) {
             result = true;
             document.forms[0].method.value = "save";
             document.forms[0].forwardTo.value = pageNo;
+            // submit() fires no submit event, so jquery.are-you-sure would still see a changed form and the
+            // browser would ask a second time whether to leave the page. The changes are being saved.
+            $(document.forms[0]).removeClass('dirty');
             document.forms[0].submit();
         } else {
             location.href = url;

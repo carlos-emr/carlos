@@ -223,12 +223,16 @@ public class FrmBCAR2020Record extends FrmRecord {
         }
     }
 
+    /**
+     * One row of section 17 (prenatal visits) on page 2. The calendar image is addressed relative to the page's
+     * {@code <base href="<context>/">}; "../images/cal.gif" resolved outside the application (issue #4919).
+     */
     public String createPrenatalVisitRow(Properties props, String rowCount) {
         String row = "<tr>\n" +
                 "<td>\n" +
                 "    <div class=\"div-center\">\n" +
                 "        <input type=\"text\" id=\"d_prenatalVisitDate" + rowCount + "\" name=\"d_prenatalVisitDate" + rowCount + "\" title=\"17. Prenatal Visit Line " + rowCount + " - Visit Date\" size=\"9\" maxlength=\"150\" value=\"" + UtilMisc.htmlEscape(props.getProperty("d_prenatalVisitDate" + rowCount, "")) + "\" />\n" +
-                "        <img src=\"../images/cal.gif\" id=\"d_prenatalVisitDate" + rowCount + "_cal\">\n" +
+                "        <img src=\"images/cal.gif\" id=\"d_prenatalVisitDate" + rowCount + "_cal\">\n" +
                 "    </div>\n" +
                 "</td>\n" +
                 "<td>\n" +
