@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("BC-AR 2020 label keys")
 @Tag("unit")
 @Tag("i18n")
-class BcAr2020FormI18nKeysTest {
+class BcAr2020FormI18nKeysUnitTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
 
@@ -72,7 +72,7 @@ class BcAr2020FormI18nKeysTest {
     }
 
     private static Properties bundle(String locale) throws IOException {
-        try (InputStream in = BcAr2020FormI18nKeysTest.class.getResourceAsStream("/oscarResources_" + locale + ".properties")) {
+        try (InputStream in = BcAr2020FormI18nKeysUnitTest.class.getResourceAsStream("/oscarResources_" + locale + ".properties")) {
             assertThat(in).as("oscarResources_%s.properties on the classpath", locale).isNotNull();
             Properties properties = new Properties();
             properties.load(in);
