@@ -30,8 +30,8 @@
  * Expected (see the manifest notes): on 2026.08 the first two steps pass and Manage Billing Codes answers 404 until
  * #4778 (issue #4767) merges. With #4778 and #4844 (issue #4842) the MSP steps pass, and the association's Edit fails
  * on #4941: the editor opens with every box empty and a service-code box that cannot be typed in, so its Save stores
- * the diagnosis with no service code. With the #4941 fix and #4892 (the editor's stylesheet address) the Edit, Save
- * and Remove steps pass too, and the last step stays red on D14; D13 (fixed with #4941) is reached only through
+ * the diagnosis with no service code. With #4943 (its fix) and #4892 (the editor's stylesheet address) the Edit, Save
+ * and Remove steps pass too, and the last step stays red on D14; D13 (fixed by #4943) is reached only through
  * Create New, so it is checked once D14 is fixed.
  */
 const h = require('./lib/playwright-harness');
