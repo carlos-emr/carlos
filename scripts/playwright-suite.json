@@ -3208,6 +3208,21 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "prevention-screening-result",
+      "script": "scripts/prevention-screening-result-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Screening preventions (the PAPMAM layout: PAP, MAM, FOBT, PSA, HPV-CERVIX, BMD, COLONOSCOPY and the rest) record a Result (Pending, Normal, Abnormal, Other with a reason); the injection-layout checks never reach it. Steps: a new PAP opens Pending, Completed + Abnormal + reason is stored; the list marks it result:abnormal on the abnormal colour; reopened it shows both, Normal stores one replacement the list no longer marks; Never Remind with a reason is stored with no next date and reopens ticked with its reason. PASS expected."
+    },
+    {
       "name": "echart-prevention-row-links",
       "script": "scripts/echart-prevention-row-links-playwright-checks.js",
       "tiers": [

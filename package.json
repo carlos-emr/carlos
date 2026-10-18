@@ -233,6 +233,7 @@
     "test:flowsheet-measurement-delete-playwright": "node scripts/flowsheet-measurement-delete-playwright-checks.js",
     "test:flowsheet-dx-drug-links-playwright": "node scripts/flowsheet-dx-drug-links-playwright-checks.js",
     "test:prevention-lifecycle-playwright": "node scripts/prevention-lifecycle-playwright-checks.js",
+    "test:prevention-screening-result-playwright": "node scripts/prevention-screening-result-playwright-checks.js",
     "test:echart-prevention-row-links-playwright": "node scripts/echart-prevention-row-links-playwright-checks.js",
     "test:allergy-custom-lifecycle-playwright": "node scripts/allergy-custom-lifecycle-playwright-checks.js",
     "test:allergy-list-views-playwright": "node scripts/allergy-list-views-playwright-checks.js",
