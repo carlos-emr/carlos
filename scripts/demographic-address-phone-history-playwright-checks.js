@@ -72,6 +72,8 @@ async function workflow(s) {
     const latest = rows.filter(([, value]) => value.startsWith('30 FAKE Third St'));
     h.assert(latest.length === 1, `The unchanged address is listed ${latest.length} times: ${JSON.stringify(rows)}`);
     const phones = (await history('Home phone History')).map(([, value]) => value);
+    // The popup is shared with the address history: a home phone in it shows this is the phone list, not a stale read.
+    h.assert(phones.some(phone => phone.startsWith('613-555-0188')), `The home phone history was not read: ${JSON.stringify(phones)}`);
     h.assert(new Set(phones).size === phones.length, `A home phone is listed more than once: ${JSON.stringify(phones)}`);
     h.assert(!phones.some(phone => phone.endsWith('x')), `A home phone without an extension ends in "x": ${JSON.stringify(phones)}`);
   });
