@@ -6695,7 +6695,7 @@
       "script": "scripts/form-catalog-smoke-playwright-checks.js",
       "envSet": {
         "FORM_CATALOG_ONLY": "",
-        "FORM_CATALOG_EXCEPT": "alpha,cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore,cesd.redisplay,letterhead.restore,rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys,positionhazard.open,rourke2006.reopen,rourke2006.print,adfv2.redisplay,selfmanagement.restore,positionhazard.bare,healthpassport.bare"
+        "FORM_CATALOG_EXCEPT": "alpha,cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore,cesd.redisplay,letterhead.restore,rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys,positionhazard.open,rourke2006.reopen,rourke2006.print,adfv2.redisplay,selfmanagement.restore,positionhazard.bare,healthpassport.bare,bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn"
       },
       "tiers": [
         "core"
@@ -6884,6 +6884,156 @@
         "finding": 235,
         "step": "Position Hazard: opens from the Forms menu with no error page, script error or failed asset"
       }
+    },
+    {
+      "name": "form-catalog-smoke-bc",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn",
+        "FORM_CATALOG_EXCEPT": "bcar2007.bare,bcbirthsum2008.keys,bcinr.redisplay,bcchecklist.redisplay,bcinr.print,bcar.restore,bclabourbirth.restore,bcbirthsum2008.restore,bcnewborn.restore"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "British Columbia forms through the form-catalog-smoke flow (Forms menu, open, keys, Save, redisplay, reopen, restore, Print): BC-AR, BC-AR 2007, the Labour and Birth Summary, the Birth Summary 2008, BC-INR, Chart Checklist and BC-NewBorn. This entry claims every BC pair that passes on release/2026.08; BC-AR 2012/2020 are form-bc-antenatal-record and BC-NewBorn 2008 form-bc-newborn, and the seed's ECARES registration has no code behind it (finding 427). Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-bc-bare-contact",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcar2007.bare",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "BC-AR 2007 opened for a patient whose address, phone and health-card columns are NULL (the bare fixture row every workflow inserts): FrmBCAR2007Record copies them into Properties, so release/2026.08 renders an error page (#4953). Known failure until #4958 merges. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-bc-message-keys",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcbirthsum2008.keys",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "BC Birth Summary 2008 shows 23 unresolved ???key??? labels on release/2026.08 (#4949). Known failure until #4955 merges. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-bc-date-check",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcinr.redisplay,bcchecklist.redisplay",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 400,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "BC-INR and Chart Checklist: Save throws \"Cannot read properties of undefined (reading 'name')\". Each carries the Labour and Birth Summary's checkAllDates() over fields it does not have, so the handler throws and the form posts anyway with its own dates unchecked (finding 429, the class of #4597). Known failure until fixed. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-bc-inr-print",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcinr.print",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "BC-INR's Print runs window.print();return false(), so every Print ends in an uncaught \"false is not a function\" (finding 428). Known failure until fixed. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "form-catalog-smoke-bc-textarea-restore",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcar.restore,bclabourbirth.restore,bcbirthsum2008.restore,bcnewborn.restore",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "BC-AR page 1, both Birth Summaries and BC-NewBorn print saved notes with a space before and after the value, so the redisplayed and the reopened text is one or two characters longer and each reopen-and-save adds two spaces (finding 470, the class of finding 233). Known failure until fixed. Notes-only known failures (no pin): each known defect has its own form-catalog-smoke-bc-* entry so it flips on its own. The entries: form-catalog-smoke-bc (every BC pair that passes on release/2026.08), -bc-bare-contact (#4953, #4958), -bc-message-keys (#4949, #4955), -bc-date-check (finding 429), -bc-inr-print (finding 428), -bc-textarea-restore (finding 470).",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-rourke2006-reopen",
