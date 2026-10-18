@@ -278,12 +278,14 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 
         <fmt:message key="SearchDrug.js.profileLoadFailed" var="msg_profileLoadFailed"/>
         <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
+        <fmt:message key="SearchDrug.js.drugSearchNoMatch" var="msg_drugSearchNoMatch"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
                 profileLoadFailed: '${carlos:forJavaScript(msg_profileLoadFailed)}',
                 favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
+                drugSearchNoMatch: '${carlos:forJavaScript(msg_drugSearchNoMatch)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
                 medRecCompleted: '${carlos:forJavaScript(msg_medRecCompleted)}',
@@ -1946,6 +1948,21 @@ function popForm2(scriptId, saveAndPrint){
     RxInteractionWarnings.watch(document.getElementById('rxText'), updateCurrentInteractions, window.MutationObserver);
 
 
+			// DrugRef answers a search with no match with one placeholder row, "None found", whose id is 0.
+			// It becomes a translated note that cannot be picked; every other row is a product.
+			function toDrugSearchItem(item, keyword) {
+				if (String(item.id) === '0') {
+					return {label: jsMsg.drugSearchNoMatch, value: '', id: null, noMatch: true, keyword: keyword};
+				}
+				return {
+					label: item.name,
+					value: item.description,
+					id: item.id,
+					active: item.isInactive,
+					keyword: keyword
+				};
+			}
+
 			function searchResultsHandler(type, args) {
 
 				var url = ctx + "/rx/WriteScript";
@@ -2042,13 +2059,7 @@ function popForm2(scriptId, saveAndPrint){
 						jQuery.each(cache, function (key, data) {
 							if (term.indexOf(key) === 0 && data.length > 0) {
 								response(jQuery.map(cache.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 
 								foundInCache = true;
@@ -2079,13 +2090,7 @@ function popForm2(scriptId, saveAndPrint){
 								setDrugSearchAlert(null);
 
 								response(jQuery.map(data.results, function (item) {
-									return {
-										label: item.name,
-										value: item.description,
-										id: item.id,
-										active: item.isInactive,
-										keyword: request.term
-									};
+									return toDrugSearchItem(item, request.term);
 								}))
 							},
 							// Without this the search failed silently: dataType "json" means any
@@ -2124,6 +2129,11 @@ function popForm2(scriptId, saveAndPrint){
 					},
 					select: function (event, ui) {
 						event.preventDefault();
+						// The arrow keys can highlight the no-match note and Enter selects it, so refuse it here:
+						// it stages nothing and keeps the typed text.
+						if (ui.item.noMatch) {
+							return;
+						}
 						searchResultsHandler(null, ui.item);
 						jQuery('#searchString').val("");
 					},
@@ -2137,6 +2147,13 @@ function popForm2(scriptId, saveAndPrint){
 					}
 
 				}).data("ui-autocomplete")._renderItem = function (ul, item) {
+					if (item.noMatch) {
+						// ui-state-disabled: the menu ignores a click on it. No link, so nothing looks pickable.
+						return jQuery("<li class='ui-state-disabled'></li>")
+							.data("item.autocomplete", item)
+							.append(jQuery("<div></div>").text(item.label))
+							.appendTo(ul);
+					}
 					var inactivedrug = item.active ? " inactiveDrug" : "";
 					return jQuery("<li></li>")
 						.data("item.autocomplete", item)

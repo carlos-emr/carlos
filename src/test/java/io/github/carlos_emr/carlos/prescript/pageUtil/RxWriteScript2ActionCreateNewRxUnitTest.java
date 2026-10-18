@@ -84,6 +84,8 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
 
     private static final int DEMOGRAPHIC_NO = 1001;
     private static final String DRUG_ID = "17210";
+    /** The request attribute naming the staging pane's notice by bundle key. */
+    private static final String STAGE_ERROR_KEY = "rxStageErrorKey";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -194,7 +196,7 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
 
         assertThat(staged.getDrugPrescribed()).isEqualTo(pickedName);
         assertThat(staged.getBrandName()).isEqualTo("CHILDREN'S BENADRYL ALLERGY LIQUID");
-        assertThat(request.getAttribute("rxStageError")).isNull();
+        assertThat(request.getAttribute(STAGE_ERROR_KEY)).isNull();
     }
 
     @Test
@@ -207,6 +209,55 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         assertThat(staged.getBrandName()).isEqualTo("CHILDREN'S \"JUNIOR\" SYRUP");
         assertThat(staged.getDrugPrescribed()).isEqualTo("CHILDREN'S \"JUNIOR\" SYRUP");
         assertThat(staged.getBrandName()).doesNotContain("\\");
+    }
+
+    @Test
+    @DisplayName("should leave the not-prescribable notice's bundle key when DrugRef has no product for the id")
+    void shouldLeaveNotPrescribableKey_whenDrugRefHasNoProduct() throws Exception {
+        request.setParameter("text", "STATINS");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class,
+                (mock, context) -> when(mock.getDrug2(anyString())).thenReturn(new RxDrugData().new DrugMonograph()))) {
+            action.createNewRx();
+        }
+
+        assertThat(request.getAttribute(STAGE_ERROR_KEY))
+                .isEqualTo("SearchDrug.msgStageNotPrescribable");
+        assertThat(bean.getStashSize()).as("nothing is staged").isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the load-failed notice's bundle key when looking the drug up throws")
+    void shouldLeaveLoadFailedKey_whenDrugLookupThrows() throws Exception {
+        // DrugRef's no-match placeholder row has id 0; looking it up threw a ClassCastException.
+        request.setParameter("drugId", "0");
+        request.setParameter("text", "None found");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class,
+                (mock, context) -> when(mock.getDrug2(anyString())).thenThrow(new ClassCastException()))) {
+            action.createNewRx();
+        }
+
+        assertThat(request.getAttribute(STAGE_ERROR_KEY))
+                .isEqualTo("SearchDrug.msgStageLoadFailed");
+        assertThat(bean.getStashSize()).as("nothing is staged").isZero();
+    }
+
+    @Test
+    @DisplayName("should leave the already-staged notice's bundle key when the same drug is picked twice")
+    void shouldLeaveAlreadyStagedKey_whenSameDrugPickedTwice() throws Exception {
+        request.setParameter("text", "CHILDREN'S BENADRYL ALLERGY LIQUID");
+        stage(monograph("CHILDREN'S BENADRYL ALLERGY LIQUID"));
+        request.removeAttribute(STAGE_ERROR_KEY);
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class,
+                (mock, context) -> when(mock.getDrug2(anyString())).thenReturn(monograph("CHILDREN'S BENADRYL ALLERGY LIQUID")))) {
+            action.createNewRx();
+        }
+
+        assertThat(request.getAttribute(STAGE_ERROR_KEY))
+                .isEqualTo("SearchDrug.msgStageAlreadyStaged");
+        assertThat(bean.getStashSize()).as("the stash keeps one copy").isEqualTo(1);
     }
 
     private RxPrescriptionData.Prescription stage(RxDrugData.DrugMonograph monograph) throws Exception {

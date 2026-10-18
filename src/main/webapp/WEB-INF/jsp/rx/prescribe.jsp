@@ -791,20 +791,17 @@ if(skipParseInstr) {
 }
 </script>
 <%}%>
-<%-- Fail-loud staging feedback: createNewRx sets rxStageError when the picked item
-     could not be staged (no prescribable DrugRef product, an unexpected error, or a
-     duplicate). Without this the pane rendered empty and the pick looked ignored. --%>
-<%
-    String rxStageError = (String) request.getAttribute("rxStageError");
-    if (rxStageError != null && !rxStageError.isEmpty()) {
-%>
+<%-- Fail-loud staging feedback: createNewRx sets rxStageErrorKey, the bundle key of a notice, when the
+     picked item could not be staged (no prescribable DrugRef product, an unexpected error, or a
+     duplicate). Without this the pane rendered empty and the pick looked ignored. The notice is shown
+     in the user's language. --%>
+<c:if test="${not empty requestScope.rxStageErrorKey}">
+    <fmt:message key="${requestScope.rxStageErrorKey}" var="rxStageMessage"/>
     <div class="rx-stage-message" role="status"
          style="color:#8a1c1c;background:#fdecec;border:1px solid #e0a3a3;padding:10px 12px;margin:8px;border-radius:4px;">
-        <carlos:encode value="<%= rxStageError %>"/>
+        <carlos:encode value="${rxStageMessage}"/>
     </div>
-<%
-    }
-%>
+</c:if>
 <%-- Autocomplete for instructions field - drawn from med history (same source as displayMedHistory).
      Rendered once after all prescription cards, to avoid re-initializing on every card.
      Controlled by AUTOCOMPLETE_RX_INSTRUCTIONS property (default: true). --%>

@@ -97,6 +97,15 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static final String DEFAULT_QUANTITY = "30";
+
+    /**
+     * Request attribute holding the bundle key of the notice createNewRx leaves in the staging pane when the picked
+     * item could not be staged. prescribe.jsp shows it in the user's language.
+     */
+    static final String STAGE_ERROR_KEY_ATTRIBUTE = "rxStageErrorKey";
+    static final String STAGE_NOT_PRESCRIBABLE_KEY = "SearchDrug.msgStageNotPrescribable";
+    static final String STAGE_ALREADY_STAGED_KEY = "SearchDrug.msgStageAlreadyStaged";
+    static final String STAGE_LOAD_FAILED_KEY = "SearchDrug.msgStageLoadFailed";
     /** Prefix of every {@code action} that rewrites or saves the staged item. */
     private static final String ACTION_UPDATE_PREFIX = "update";
     private static final String HEADER_ALLOW = "Allow";
@@ -877,10 +886,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     || (dmono.name == null
                         && (dmono.getProduct() == null || dmono.getProduct().isEmpty()))) {
                 logger.warn("createNewRx: no prescribable DrugRef product for drug id {}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                request.setAttribute("rxStageError",
-                    "The selected item could not be added as a prescription. "
-                    + "Please choose a specific drug product (a brand or a strength), "
-                    + "not a drug class or ingredient.");
+                request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_NOT_PRESCRIBABLE_KEY);
                 return success;
             }
 
@@ -1014,8 +1020,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 // Duplicate of something already staged: the stash de-dupes, but the
                 // pane is re-rendered from listRxDrugs, so leaving it empty blanked the
                 // pane with no explanation. Surface a notice instead of a silent blank.
-                request.setAttribute("rxStageError",
-                    "That prescription is already staged.");
+                request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_ALREADY_STAGED_KEY);
             }
             int rxStashIndex = bean.addStashItem(loggedInInfo, rx);
             bean.setStashIndex(rxStashIndex);
@@ -1036,8 +1041,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.error("Error ({})", e.getClass().getSimpleName());
             // Fail loud: prescribe.jsp renders this notice in the staging pane rather
             // than returning an empty 200 that looks like "nothing happened" to the user.
-            request.setAttribute("rxStageError",
-                "Could not load the selected drug. Please try again or choose another product.");
+            request.setAttribute(STAGE_ERROR_KEY_ATTRIBUTE, STAGE_LOAD_FAILED_KEY);
         }
         logger.debug("=============END createNewRx RxWriteScript2Action.java===============");
 
