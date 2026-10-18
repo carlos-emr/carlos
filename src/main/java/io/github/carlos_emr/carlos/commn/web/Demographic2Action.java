@@ -237,14 +237,14 @@ public class Demographic2Action extends ActionSupport {
                     postal = archive.getPostal();
                 }
 
-                if (!Objects.equals(phone, archive.getPhone()) || (extMap.get("hPhoneExt") != null && !extMap.get("hPhoneExt").getValue().equals(hPhoneExt))) {
+                if (!Objects.equals(phone, archive.getPhone()) || (extMap.get("hPhoneExt") != null && !Objects.equals(extMap.get("hPhoneExt").getValue(), hPhoneExt))) {
                     //new home phone
                     items.add(new DemographicHistoryItem(archive.getPhone() + extensionSuffix(extMap.get("hPhoneExt")), "phone", archive.getLastUpdateDate()));
                     phone = archive.getPhone();
                     hPhoneExt = extMap.get("hPhoneExt") != null ? extMap.get("hPhoneExt").getValue() : "";
                 }
 
-                if (!Objects.equals(phone2, archive.getPhone2()) || (extMap.get("wPhoneExt") != null && !extMap.get("wPhoneExt").getValue().equals(wPhoneExt))) {
+                if (!Objects.equals(phone2, archive.getPhone2()) || (extMap.get("wPhoneExt") != null && !Objects.equals(extMap.get("wPhoneExt").getValue(), wPhoneExt))) {
                     //new work phone
                     items.add(new DemographicHistoryItem(archive.getPhone2() + extensionSuffix(extMap.get("wPhoneExt")), "phone2", archive.getLastUpdateDate()));
                     phone2 = archive.getPhone2();

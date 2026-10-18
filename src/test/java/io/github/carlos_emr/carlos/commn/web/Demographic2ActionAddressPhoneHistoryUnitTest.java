@@ -183,6 +183,15 @@ class Demographic2ActionAddressPhoneHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldListThePhones_whenAnExtensionRowHasNoValue() throws Exception {
+        version("20 FAKE Second Ave", "613-555-0100", "613-555-0300", null, null);
+        version("20 FAKE Second Ave", "613-555-0177", "613-555-0300", null, null);
+
+        assertThat(history("phone")).containsExactly("613-555-0100", "613-555-0177");
+        assertThat(history("phone2")).containsExactly("613-555-0300");
+    }
+
+    @Test
     void shouldListAPhoneOnce_whenAnEarlierVersionHadNoAddressOrPhone() throws Exception {
         version(null, null, null, "", "");
         version(null, null, null, "", "");
