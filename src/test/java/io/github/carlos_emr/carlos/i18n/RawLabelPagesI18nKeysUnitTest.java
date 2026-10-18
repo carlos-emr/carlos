@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Raw-label page keys")
 @Tag("unit")
 @Tag("i18n")
-class RawLabelPagesI18nKeysTest {
+class RawLabelPagesI18nKeysUnitTest {
 
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
 
@@ -72,7 +72,7 @@ class RawLabelPagesI18nKeysTest {
     }
 
     private static Properties bundle(String locale) throws IOException {
-        try (InputStream in = RawLabelPagesI18nKeysTest.class.getResourceAsStream("/oscarResources_" + locale + ".properties")) {
+        try (InputStream in = RawLabelPagesI18nKeysUnitTest.class.getResourceAsStream("/oscarResources_" + locale + ".properties")) {
             assertThat(in).as("oscarResources_%s.properties on the classpath", locale).isNotNull();
             Properties properties = new Properties();
             properties.load(in);
