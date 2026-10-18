@@ -48,7 +48,7 @@ async function workflow(s) {
     key = await stageCustomDrug(rx, cardDrug);
     await rx.locator(`#instructions_${key}`).fill('Take one tablet twice daily');
     await rx.locator(`#instructions_${key}`).blur();
-    // Leaving the Qty box throws (getCost: Insertion is not defined, known defect), so Qty is left alone here.
+    // Qty/price updates are covered separately; keep this scenario focused on favourite persistence.
     await rx.locator(`#repeats_${key}`).fill('2');
     await rx.locator(`#repeats_${key}`).blur();
     h.assert(await rx.locator(`#set_${key}`).count() === 1, 'The custom drug card was not staged');

@@ -5146,7 +5146,8 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient and marker-named custom drugs saved through the UI; cleanup removes the patient's drugs, prescription, partial_date, drugReason and DigitalSignature rows and asserts none remain. No DrugRef data needed.",
-      "notes": "Fails at its last step on develop: a 12:30 pick-up time is stored as 00:30, because RxWriteScript2Action parses the 24-hour field with \"hh:mm\" (pending finding 297). Every earlier step passes."
+      "notes": "A 12:30 pick-up time is saved as 00:30 on the packaged target branch (finding 305); initial option persistence and renewal restoration pass.",
+      "expectedFailure": {"finding":305,"step":"a 12:30 pick-up time is stored as 12:30"}
     },
     {
       "name": "rx-prescription-lifecycle",
@@ -9376,7 +9377,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned synthetic patient and marker-named favourites of the signed-in provider; the staged custom drugs are session-only (nothing is saved to the chart). Cleanup deletes the favourites by marker and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: Add to Favorites on the write-script page for a custom drug staged by rx/chooseDrug (no instructions) answers HTTP 500 'Column special cannot be null' (RxPrescriptionData.Favorite.Save). Every earlier step passes."
+      "notes": "Card and legacy write-script Add to Favorites, prompt cancellation, re-use and a custom drug without instructions all pass on the packaged target branch; empty special text is normalized before persistence."
     },
     {
       "name": "gap-encounter-rx-script-notes",
@@ -9418,9 +9419,10 @@
         "all"
       ],
       "timeoutSec": 180,
-      "env": [],
-      "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host.",
-      "notes": "Covers #4554 in its last step: Info for a DIN this DrugRef does not know lists name-search results, searching the name part of the saved description (the words before its strength) when the whole description finds nothing. The earlier off-host redirect from rx/drugInfo (RxDrugInfo2Action; same defect as L82/L184) is fixed."
+      "env": ["RX_INFO_DRUG_TERM", "RX_INFO_DRUG_NAME", "LAB_UPLOAD_JOURNAL_UNIT", "LAB_UPLOAD_SERVER_LOG"],
+      "fixtures": "The owned synthetic patient and one session-only custom drug. window.open is replaced by a recorder; the recorded CARLOS address is read without following redirects and only the Location host is examined, so nothing is sent off-host. Server log prerequisite: LAB_UPLOAD_JOURNAL_UNIT (carlos-emr on the package) or LAB_UPLOAD_SERVER_LOG, readable by the runner; missing historical DIN must fall back without a DrugRef exception. Run against an otherwise idle installation so its journal window contains only this lookup.",
+      "notes": "Covers #4554 in its last step: Info for a DIN this DrugRef does not know lists name-search results, searching the name part of the saved description (the words before its strength) when the whole description finds nothing. The earlier off-host redirect from rx/drugInfo (RxDrugInfo2Action; same defect as L82/L184) is fixed. Its HTML fallback passes, but the cursor-bounded server-log assertion reproduces finding 308 for a missing historical DIN.",
+      "expectedFailure": {"finding":308,"step":"missing DIN fallback does not log a DrugRef server exception"}
     },
     {
       "name": "gap-encounter-rx-quantity-price",
@@ -9435,7 +9437,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
-      "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
+      "notes": "Edit Qty/Mitte twice through the actual blur handler; require the server draft and rx/ViewDrugPrice to receive each exact quantity without a script error, while leaving the prescription unsaved."
     },
     {
       "name": "search-sort-patient-order",
@@ -12308,7 +12310,8 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned FAKE- patient and two marker-named custom drugs written through the Rx card (Save Only), one with a pick-up date and time, one with a pick-up date only. Cleanup removes the patient's drugs, prescriptions, drugReason and DigitalSignature rows, and asserts none remain. No clinic-wide state is changed.",
-      "notes": "The pick-up line of a saved prescription on the static script (rx/ViewStaticScript2) and on the drug record it links to (rx/ViewDisplayRxRecord); rx-card-options (open PR) covers saving and re-prescribing a pick-up date and time. Steps: a pick-up date with the time 14:30 is stored as 14:30 and both pages show the time; LAST, a pick-up date with no time is stored at midnight and both pages show the date alone. Fails on develop and on release/2026.08 at the last step: the static script prints 12:00 a.m. and the drug record 00:00, pending #4861 (release fix #4862). The check turns green when that fix reaches develop in the forward merge; drop this note then."
+      "notes": "Real profile link and drug-record popup after Save Only: 14:30 pickup is stored/displayed correctly; date-only pickup displays invented midnight times on the pinned packaged target (finding 306; existing #4861).",
+      "expectedFailure": {"finding":306,"step":"a pick-up date with no time is stored at midnight and shows as the date alone on both pages"}
     },
     {
       "name": "rx-represcribe-long-term",
@@ -12383,7 +12386,8 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned FAKE- patient only. Staging is session-only; cleanup removes the patient's drugs and prescriptions by key in case a regression saved one, and asserts none remain. No clinic-wide state is changed.",
-      "notes": "The Rx page's drug search box from the keyboard (SearchDrug3.jsp, jQuery UI autocomplete). Steps: typing a product name lists its products, and Enter with nothing highlighted picks nothing and submits nothing; ArrowDown highlights the first row without filling the box, and Enter stages it (one rx/WriteScript createNewRx naming that row's drug id and name, one new card); ArrowDown twice then Enter stages the second row; Escape closes the list and Enter then picks nothing; staging wrote no drugs row; LAST, a search with no match offers no row that can be picked. Optional RX_SEARCH_TERM (default LIPITOR) must list two or more DrugRef products; needs carlos-emr-drugref. Fails on develop at the last step (release/2026.08 has the same code): the no-match search lists DrugRef's \"None found\" row (id 0), and ArrowDown+Enter or a click stages it (createNewRx drugId=0, answered by a \"Could not load the selected drug\" notice), pending a finding filed separately. The check turns green when that fix reaches develop; drop this note then."
+      "notes": "Keyboard selection of first/second DrugRef products, Enter without highlight and Escape all pass without saving drugs. An empty search still offers a selectable None found placeholder that posts createNewRx with drugId=0 (finding 307); no medication-save claim is made. RX_SEARCH_TERM defaults to LIPITOR and must list two products.",
+      "expectedFailure": {"finding":307,"step":"a search with no match offers no row that can be picked: ArrowDown, Enter and a click post nothing"}
     },
     {
       "name": "rh-workflow-queue",

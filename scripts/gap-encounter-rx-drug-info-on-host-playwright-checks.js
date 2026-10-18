@@ -20,11 +20,15 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { serverLogFromEnvironment, splitLogEvents } = require('./lib/server-log');
 
 const DRUG_TERM = process.env.RX_INFO_DRUG_TERM || 'LIPITOR 20';
 const DRUG_NAME = process.env.RX_INFO_DRUG_NAME || 'LIPITOR 20MG';
 
 async function workflow(s) {
+  const serverLog = serverLogFromEnvironment();
+  if (!serverLog.configured) throw new h.SkipCheck('Rx Info log verification needs LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG');
+  let missingDinMark;
   const { patient, config, sql } = s;
   const appHost = new URL(config.baseUrl).host;
   s.cleanup(() => {
@@ -134,12 +138,23 @@ async function workflow(s) {
     const target = new URL(`${config.baseUrl}/rx/drugInfo`);
     target.searchParams.set('GN', generic);
     target.searchParams.set('DIN', '00000000');
+    missingDinMark = serverLog.mark();
     const response = await s.context.request.get(target.toString(), { maxRedirects: 0 });
     const html = await response.text();
     await response.dispose();
     h.assert(response.status() === 200, `rx/drugInfo answered HTTP ${response.status()} for an unknown DIN`);
     h.assert(!html.includes('id="drug-reference-details"'), 'An unknown DIN showed a product monograph');
     h.assert(/id="drug-info-matches"[\s\S]*?<a /.test(html), 'An unknown DIN did not offer name-search results');
+  });
+  await s.step('missing DIN fallback does not log a DrugRef server exception', async () => {
+    // Bracket only the expected missing historical/imported DIN lookup. The
+    // page can return a useful 200 while its downstream service throws.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const errors = splitLogEvents(serverLog.since(missingDinMark)).filter(event =>
+      ['ERROR', 'FATAL', 'SEVERE'].includes(event.level)
+      && /TablesDao\.getDrugIdFromDIN/.test(event.text)
+      && /NoResultException/.test(event.text));
+    h.assert(errors.length === 0, `Missing DIN fallback logged ${errors.length} DrugRef NoResultException event(s)`);
   });
 }
 
