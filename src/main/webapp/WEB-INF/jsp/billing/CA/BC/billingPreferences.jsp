@@ -28,6 +28,9 @@
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     BillingPreference billingPreference = billingPreferencesDAO.getUserBillingPreference(provider.getProviderNo());
     boolean autoPopulateRefer = propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_populate_refer, provider.getProviderNo());
+    // Displayed under the payee unless the provider has turned it off (no row means on).
+    boolean invoicePayeeDisplayClinicInfo = propertyDao.findByNameAndProvider(Property.PROPERTY_KEY.invoice_payee_display_clinic, provider.getProviderNo()).isEmpty()
+            || propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.invoice_payee_display_clinic, provider.getProviderNo());
 
 %>
 <!DOCTYPE HTML>
@@ -53,7 +56,6 @@
     <body class="BodyStyle">
     <div class="container">
         <form action="${pageContext.request.contextPath}/billing/CA/BC/saveBillingPreferencesAction" method="POST">
-            <input type="hidden" name="providerNo" id="providerNo"/>
             <h2>Billing Preferences</h2>
             <table class="table-sm" id="scrollNumber1">
 
@@ -64,7 +66,7 @@
                             <select name="defaultBillingProvider" class="form-select"
                                          id="defaultBillingProvider">
                                 <c:forEach var="billing" items="${billingProviderList}">
-                                    <option value="${billing.providerNo}">
+                                    <option value="${billing.providerNo}" ${billing.providerNo == defaultBillingProvider ? 'selected' : ''}>
                                             ${billing.fullName}
                                     </option>
                                 </c:forEach>
@@ -81,9 +83,9 @@
                     <td class="MainTableRightColumn">
                         <label for="referral"> Select Default Referral Type:</label>
                         <select id="referral" class="form-select" name="referral">
-                        <option value="1">Refer To</option>
-                        <option value="2">Refer By</option>
-                        <option value="3">Neither</option>
+                        <option value="1" ${referral == '1' ? 'selected' : ''}>Refer To</option>
+                        <option value="2" ${referral == '2' ? 'selected' : ''}>Refer By</option>
+                        <option value="3" ${referral == '3' ? 'selected' : ''}>Neither</option>
                         </select>
                 </tr>
                 <tr>
@@ -119,7 +121,7 @@
                         <select name="defaultBillingForm" class="form-select"
                                      id="defaultBillingForm">
                             <c:forEach var="billing" items="${billingFormList}">
-                                <option value="${billing.formCode}">
+                                <option value="${billing.formCode}" ${billing.formCode == defaultBillingForm ? 'selected' : ''}>
                                         ${billing.description}
                                 </option>
                             </c:forEach>
@@ -133,7 +135,7 @@
                         <select name="defaultServiceLocation" class="form-select"
                                      id="defaultServiceLocation">
                             <c:forEach var="serviceLocation" items="${serviceLocationList}">
-                                <option value="${serviceLocation.visitType}">
+                                <option value="${serviceLocation.visitType}" ${serviceLocation.visitType == defaultServiceLocation ? 'selected' : ''}>
                                         ${serviceLocation.description}
                                 </option>
                             </c:forEach>
@@ -146,7 +148,7 @@
                         <select name="payeeProviderNo" class="form-select" id="payeeProviderNo"
                                      onchange="defaultPayeeSelect()">
                             <c:forEach var="provider" items="${providerList}">
-                                <option value="${provider.providerNo}">
+                                <option value="${provider.providerNo}" ${provider.providerNo == payeeProviderNo ? 'selected' : ''}>
                                         ${provider.fullName}
                                 </option>
                             </c:forEach>
@@ -156,13 +158,14 @@
                     <td class="MainTableRightColumn">
                         <label for="invoicePayeeInfo">Set Your Payee Information:</label>
                         <textarea rows="4" cols="35" class="form-control" id="invoicePayeeInfo"
-                                       name="invoicePayeeInfo">&amp;</textarea>
+                                       name="invoicePayeeInfo"><carlos:encode value="${invoicePayeeInfo}"/></textarea>
                     </td>
                 </tr>
                 <tr>
                     <td class="MainTableRightColumn">
                         <label for="invoicePayeeDisplayClinicInfo" class="form-check form-check-inline">
-                            <checkbox id="invoicePayeeDisplayClinicInfo" name="invoicePayeeDisplayClinicInfo"></checkbox>
+                            <input type="checkbox" class="form-check-input" id="invoicePayeeDisplayClinicInfo"
+                                   name="invoicePayeeDisplayClinicInfo" value="true" <%= invoicePayeeDisplayClinicInfo ? "checked" : "" %>/>
                             Display Clinic Information Under Payee</label>
                     </td>
                 </tr>
@@ -298,11 +301,11 @@
                 // disable other settings whenever a default providers is selected to override.
                 if (selected && selected !== defaultValue) {
 
-                    document.getElementById("default-providers-alert").style.display = '';
+                    document.getElementById("default-provider-alert").style.display = '';
 
                 } else {
 
-                    document.getElementById("default-providers-alert").style.display = 'none';
+                    document.getElementById("default-provider-alert").style.display = 'none';
                 }
             }
 

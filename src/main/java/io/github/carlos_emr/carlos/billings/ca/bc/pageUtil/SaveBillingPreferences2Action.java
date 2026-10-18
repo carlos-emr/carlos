@@ -90,8 +90,8 @@ public class SaveBillingPreferences2Action
      * </ul>
      * <p>
      * For each preference, the method checks if a record exists and either creates
-     * a new one or updates the existing record. The providerNo is set as a request
-     * attribute for use by the result page.
+     * a new one or updates the existing record, always for the signed-in provider. The providerNo is set as a
+     * request attribute for use by the result page.
      *
      * @return String "success" to forward to the result page
      */
@@ -100,6 +100,9 @@ public class SaveBillingPreferences2Action
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
+        // The preferences are the signed-in provider's own; a provider number posted with the form is not used. The
+        // form never filled it, and an empty one stored the preferences as clinic-wide settings (issue #4936).
+        this.providerNo = loggedInInfo.getLoggedInProviderNo();
 
         BillingPreferencesDAO dao = SpringUtils.getBean(BillingPreferencesDAO.class);
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
