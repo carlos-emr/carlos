@@ -4206,6 +4206,21 @@
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
     },
     {
+      "name": "billing-bc-adjust-bill-code-search",
+      "script": "scripts/billing-bc-adjust-bill-code-search-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "BC Adjust Bill's own searches (billing/CA/BC/reprocessBill, adjustBill.jsp), which billing-bc-reprocess-bill (opens the page, settles) and billing-bc-bill-form-popups (the bill form's searches) leave out: Master record ▸ Invoice List ▸ Edit opens the owned claim's Adjust Bill page; the service code's Search/Update (support/BillingFeeItem) lists the typed BC fee code and picking it fills the service code and the line's fee with that code's current fee; Dx 1's search (ViewBillingDigNewSearch) lists the codes for a typed word, nothing ticked, and Confirm fills Dx 1 with the ticked code; last, Reprocess Bill stores the picked code, its fee and the diagnosis on the claim. On release/2026.08 it fails at the fee item step until #4995 (#4990's release fix) merges: the popup's pick ends in TypeError: opener.document.focus is not a function. Notes only, no pin: the fix is an open PR.",
+      "fixtures": "One open BC claim (billing and billingmaster) for the owned FAKE patient; the fee code and the diagnosis are existing BC reference rows picked by SQL, and neither search's own update is pressed, so nothing clinic-wide is written. Cleanup deletes the patient's billingmaster, billing_history, billingnote and billing rows and asserts them gone. BC installs only (billregion=BC)."
+    },
+    {
       "name": "billing-bc-bill-create-save",
       "script": "scripts/billing-bc-bill-create-save-playwright-checks.js",
       "tiers": [
