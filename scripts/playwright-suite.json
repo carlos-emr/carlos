@@ -11541,6 +11541,25 @@
       ]
     },
     {
+      "name": "multisite-schedule-visibility",
+      "script": "scripts/multisite-schedule-visibility-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "The multisite day sheet (multisites=on), as a login without site access privacy linked to two of three owned sites: the clinic selector offers All Clinics and every active site; choosing a clinic shows only the group's providers there and only their visits there; All Clinics shows the whole group and every visit again; Add Appointment's location menu lists the login's own sites and not the third; last, Edit Appointment moves a visit to another site, which is stored and drops out of the first site's view. Passes on release/2026.08 with multisites=on (5/5). Reports SKIP when multisites is off.",
+      "fixtures": "Operator prerequisite: multisites=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards. Three active sites named '<marker> SA/SB/SC', which every login's clinic lists show while the check runs, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); two FAKE providers at SA and SB, made in preflight before login because the day sheet's provider menu reads the active providers cached at login; a group of the two; a throwaway doctor login linked to SA and SB with a preference row on that group; four visits of the owned patient today. Cleanup removes every owned row by key, including the rows the application writes for the throwaway login, and asserts it gone.",
+      "mutates": [
+        "site",
+        "providersite"
+      ]
+    },
+    {
       "name": "echart-note-draft-recovery",
       "script": "scripts/echart-note-draft-recovery-playwright-checks.js",
       "tiers": [
