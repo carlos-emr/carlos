@@ -12194,6 +12194,25 @@
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "admin-message-expiry-calendar",
+      "script": "scripts/admin-message-expiry-calendar-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "None: the editors are opened and their calendars used, but nothing is saved, so no message rows are written. SKIPs when the CAISI module (caisi=on) is off, because both editors' menu entries are CAISI-gated.",
+      "notes": "The System Message and Facility Message editors' Expiry Day calendar (calendar/oscarCalendarPopup?type=caisi). Steps: the System Messages calendar opens on the current month for the editor's form and field; Next and Last move one month each way; the Facility Messages calendar opens for its own form and field; LAST, picking a day closes the popup and writes the date into the editor's Expiry Day box, in both editors. Fails at the last step on 2026.08 and develop: the editors' forms lost the names the popup looks them up by when the Struts 1 tags went, so the pick writes nothing (#4916; #4923 is its release fix). The check turns green when #4923 merges; drop this note then. Skips on the packaged default (caisi=off)."
+    },
+    {
       "name": "bc-master-record-navigation",
       "script": "scripts/bc-master-record-navigation-playwright-checks.js",
       "tiers": [
