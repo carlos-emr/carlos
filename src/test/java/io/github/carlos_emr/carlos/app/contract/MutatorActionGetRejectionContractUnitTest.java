@@ -422,6 +422,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // billCheck or billingmasterNo is save intent and needs POST.
         // Covered by BillingReProcessBill2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
+        // BC WCB claim correction: GET with billing_no opens the correction page; id, billingNo
+        // or submit is save intent and needs POST. Covered by TeleplanCorrectionActionWCB2ActionUnitTest.
+        "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
         // Rx: only method=updateDB mutates (it rebuilds the DrugRef database) and rejects
         // GET; the read-only status methods stay reachable by GET. Covered in detail by
         // RxUpdateDrugref2ActionUnitTest.
@@ -607,6 +610,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
         "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+        // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB correction registers explicitly.
+        "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",

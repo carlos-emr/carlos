@@ -262,6 +262,10 @@ public final class FormViewRoutes {
         if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly) || "/formBPMH.do".equals(pathOnly)) {
             return "/formBPMH" + query;
         }
+        // The BC seed registers BC-WCB as "../billing/CA/BC/viewformwcb.do?demographic_no=" the same way.
+        if ("/billing/CA/BC/viewformwcb.do".equals(pathOnly)) {
+            return "/billing/CA/BC/viewformwcb" + query;
+        }
         if (!pathOnly.startsWith(PUBLIC_FORM_PREFIX)) {
             return null;
         }

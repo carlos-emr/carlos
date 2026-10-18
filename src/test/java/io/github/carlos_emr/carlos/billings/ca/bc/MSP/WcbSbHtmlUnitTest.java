@@ -68,7 +68,7 @@ class WcbSbHtmlUnitTest extends CarlosUnitTestBase {
         assertThat(html)
                 .contains(SafeEncode.forHtmlContent("<script>alert(1)</script>,Jane"))
                 .contains(SafeEncode.forHtmlContent("<b>9876543210</b>"))
-                .contains("openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=0000077'")
+                .contains("openBrWindow('billingTeleplanCorrectionWCB?billing_no=0000077'")
                 .doesNotContain("<script>")
                 .doesNotContain("<b>");
     }
@@ -81,7 +81,7 @@ class WcbSbHtmlUnitTest extends CarlosUnitTestBase {
                 "19950", "10.00", "250", "", "");
 
         assertThat(html)
-                .contains("billingTeleplanCorrectionWCB.jsp?billing_no=")
+                .contains("billingTeleplanCorrectionWCB?billing_no=")
                 .doesNotContain("');alert(1)");
     }
 
@@ -91,7 +91,7 @@ class WcbSbHtmlUnitTest extends CarlosUnitTestBase {
 
         assertThat(html)
                 .startsWith("<tr bgcolor='red'>")
-                .contains("billingTeleplanCorrectionWCB.jsp?billing_no=0000077")
+                .contains("billingTeleplanCorrectionWCB?billing_no=0000077")
                 .contains("ICD9 may only contain Numbers")
                 .contains("WCB claim # may only contain Numbers");
     }
