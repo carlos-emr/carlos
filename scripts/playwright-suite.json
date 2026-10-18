@@ -4043,6 +4043,21 @@
       "fixtures": "One MSP fee code (billingservice 9xxxx with an end date), two diagnostic codes (diagnosticcode Zxxxx), all described by the run marker, and one association of the fee code with the first diagnosis (ctl_servicecodes_dxcodes), for the workflow's own FAKE patient made a BC patient. Cleanup deletes the fee code's association rows and any written during the run for the owned diagnoses (the editor can store one with no service code), then the codes, and asserts each is gone. The codes and the association are visible clinic-wide while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-bc-wcb-form",
+      "script": "scripts/billing-bc-wcb-form-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "#4439 item 5, the BC WCB form: Billing Type WCB ▸ New WCB Form opens the form prefilled for the patient and the chosen billing physician; Save and Close stores it as filled in, and the bill form's list then offers it, chosen; the list's date link opens the saved form with its values; a WCB Continue with a code that needs the report (19937) and that form reaches the review; LAST, a WCB Continue with an incomplete form returns to the bill form saying what the form lacks, once. billing-bc-two-window-isolation bills WCB with a seeded form. Fails on 2026.08 at the first step until #4944 (#4864 part 1) merges: New WCB Form opens a relative address (HTTP 404), and the form page answers HTTP 500 on every open. With #4944, the last step fails until #4954 (#4864 part 2) merges: a refused Continue comes back without saying why. On a release WAR with both, every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "The owned FAKE- patient made a BC patient with a street address and city and no postal code; one owned billing physician (bc.createBillingPhysician); one incomplete WCB form for the patient. Cleanup deletes the patient's wcb rows and BC billing rows, then the physician, and asserts each is gone. No bill is saved: the check stops at the review."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
