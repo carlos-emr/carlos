@@ -679,8 +679,9 @@ public class AddEForm2Action extends ActionSupport {
                     : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
+        // efmfid: the template this submission was made from (read the same way the save path reads it).
         return EFormSavedRenderResponse.missing(request, approvalService, loggedInInfo, e,
-                requestFdid, demographicNo, operation, null, false,
+                requestFdid, demographicNo, request.getParameter("efmfid"), operation, null, false,
                 message, approvalAction, approvalButtonLabelKey);
     }
 

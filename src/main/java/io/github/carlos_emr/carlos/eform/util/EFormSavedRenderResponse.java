@@ -31,10 +31,10 @@ public final class EFormSavedRenderResponse {
     }
 
     public static String missing(HttpServletRequest request, EFormRenderApprovalService service,
-            LoggedInInfo user, EformContentUnavailableException failure, int fdid, String patient,
+            LoggedInInfo user, EformContentUnavailableException failure, int fdid, String patient, String formId,
             EFormRenderApprovalService.Operation operation, EFormRenderApproval previous, boolean autoClose) {
         boolean edoc = operation == EFormRenderApprovalService.Operation.EDOC;
-        return missing(request, service, user, failure, fdid, patient, operation, previous, autoClose,
+        return missing(request, service, user, failure, fdid, patient, formId, operation, previous, autoClose,
                 edoc ? "This eForm could not be fully rendered, so it was not added to the patient's documents. Review the omissions below before archiving it."
                         : "Some content of this eForm could not be rendered. Review the omissions below before downloading it.",
                 edoc ? "eform/saveEFormAsEDoc" : "eform/downloadEFormPdf",
@@ -42,7 +42,7 @@ public final class EFormSavedRenderResponse {
     }
 
     public static String missing(HttpServletRequest request, EFormRenderApprovalService service,
-            LoggedInInfo user, EformContentUnavailableException failure, int fdid, String patient,
+            LoggedInInfo user, EformContentUnavailableException failure, int fdid, String patient, String formId,
             EFormRenderApprovalService.Operation operation, EFormRenderApproval previous, boolean autoClose,
             String message, String action, String buttonKey) {
         // An expired approval must not seed fresh consent for omissions not shown on this page.
@@ -53,6 +53,12 @@ public final class EFormSavedRenderResponse {
         request.setAttribute("renderApproval", token);
         request.setAttribute("fdid", String.valueOf(fdid));
         request.setAttribute("demographicNo", patient);
+        // The eForm's template id, for the approval form's action URL. The page the approval returns (the eForm
+        // view) is a POST result, and APCache.js finds the form id in that page's own query string: without it every
+        // APCache lookup there answers "Invalid fid" and the fields stay blank (#4979).
+        if (formId != null && formId.matches("\\d+")) {
+            request.setAttribute("approvalFormId", formId);
+        }
         request.setAttribute("missingContentMessage", message);
         request.setAttribute("approvalAction", action);
         request.setAttribute("approvalButtonLabelKey", buttonKey);
