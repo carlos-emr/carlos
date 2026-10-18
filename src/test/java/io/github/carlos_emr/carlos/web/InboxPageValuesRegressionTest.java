@@ -116,6 +116,18 @@ class InboxPageValuesRegressionTest {
     }
 
     @Test
+    @DisplayName("should open a report URL without encoding its escapes a second time")
+    void shouldOpenReportUrl_withoutReEncoding() throws IOException {
+        String js = Files.readString(INDEX_JS, StandardCharsets.UTF_8);
+
+        // this.href already holds %27 and %25; encodeURI turned them into %2527 and %2525.
+        assertThat(js)
+                .doesNotContain("window.open(encodeURI(page)")
+                .contains("window.open(normalizeReportUrl(page), \"labreport\", windowprops)")
+                .contains("new URL(page, document.baseURI).href");
+    }
+
+    @Test
     @DisplayName("should open the consultation popup with a defined window name")
     void shouldOpenConsultationPopup_withDefinedWindowName() throws IOException {
         // The consult link now has a real href: if popupConsultation throws, the browser follows the link
