@@ -20,7 +20,7 @@
  * the install already has; removed in cleanup and asserted gone). The clinic row is clinic-wide: the check snapshots every
  * column first (as HEX, NULL kept apart from '') and restores it with UNHEX in cleanup, verifying it the same way,
  * so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Reading the PDF needs Poppler's
- * pdftotext; without it the check is skipped.
+ * pdftotext; without it only that assertion is skipped, and the run prints a SKIP line for it.
  */
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
@@ -219,7 +219,8 @@ async function workflow(s) {
       'The owned referral was not removed');
   });
 
-  await s.step('a new referral offers the edited clinic as its letterhead, and its printed PDF carries it', async () => {
+  let referralPdf;
+  await s.step('a new referral offers the edited clinic as its letterhead and prints a PDF', async () => {
     const clinicAddress = squash([typed['clinic.clinicAddress'], typed['clinic.clinicCity'], typed['clinic.clinicProvince'],
       typed['clinic.clinicPostal']].join(' '));
     const chart = await s.chart();
@@ -263,15 +264,33 @@ async function workflow(s) {
     await form.locator('textarea[name="reasonForConsultation"]').fill(reason);
     const download = form.waitForEvent('download', { timeout: 30000 });
     await ui.clickAndAwaitReload(form, form.locator('input[name="submitAndPrint"]'));
-    const text = squash(pdfTextBuffer(fs.readFileSync(await (await download).path())));
-    h.assert(text.includes(reason), 'The PDF is not the new referral');
-    const header = text.slice(0, Math.max(0, text.indexOf(reason)));
-    for (const [field, value] of Object.entries({ name: typed['clinic.clinicName'], address: typed['clinic.clinicAddress'],
-      city: typed['clinic.clinicCity'], phone: typed['clinic.clinicPhone'], fax: typed['clinic.clinicFax'] })) {
-      h.assert(header.includes(squash(value)), `The referral PDF's letterhead does not carry the edited ${field}: ${JSON.stringify(header.slice(0, 300))}`);
-    }
+    referralPdf = fs.readFileSync(await (await download).path());
+    h.assert(referralPdf.subarray(0, 5).toString('latin1') === '%PDF-', 'Submit Consultation Request And Print Preview did not answer a PDF');
     await form.close();
   });
+
+  // Reading the PDF needs Poppler's pdftotext. Without it only this assertion is skipped, and the run says so.
+  const pdfLabel = 'the referral PDF\'s letterhead carries the edited clinic name, address, city, phone and fax';
+  let poppler = true;
+  try {
+    requirePoppler('pdftotext');
+  } catch (error) {
+    if (!(error instanceof h.SkipCheck || (error && error.name === 'SkipCheck'))) throw error;
+    poppler = false;
+  }
+  if (!poppler) {
+    console.log(`  SKIP clinic-address-admin: ${pdfLabel} -- Poppler's pdftotext is not installed, so the printed PDF was not read`);
+  } else {
+    await s.step(pdfLabel, async () => {
+      const text = squash(pdfTextBuffer(referralPdf));
+      h.assert(text.includes(reason), 'The PDF is not the new referral');
+      const header = text.slice(0, Math.max(0, text.indexOf(reason)));
+      for (const [field, value] of Object.entries({ name: typed['clinic.clinicName'], address: typed['clinic.clinicAddress'],
+        city: typed['clinic.clinicCity'], phone: typed['clinic.clinicPhone'], fax: typed['clinic.clinicFax'] })) {
+        h.assert(header.includes(squash(value)), `The referral PDF's letterhead does not carry the edited ${field}: ${JSON.stringify(header.slice(0, 300))}`);
+      }
+    });
+  }
 
   await s.step('GET and HEAD carrying the save are refused and change nothing', async () => {
     const probeName = `FAKE ${tag} written by GET`;
@@ -286,7 +305,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) {
-  runWorkflow('clinic-address-admin', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
-}
+if (require.main === module) runWorkflow('clinic-address-admin', workflow, { openPatient: true });
 module.exports = { workflow };
