@@ -3990,6 +3990,21 @@
       "fixtures": "None seeded: the private code is created through Add (description = the run marker) and removed with the list's own Delete while the browser is open. No SQL delete; a code the page could not remove fails the run and is left for a look. The code joins the clinic's billing code list while the check runs, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-bc-preferences",
+      "script": "scripts/billing-bc-preferences-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Preferences ▸ BC Billing Preferences, as a throwaway login: with nothing saved the page offers Clinic Default and no payee and posts no provider number; Save stores every choice for the provider (billing_preferences and its property rows) and no clinic-wide setting; reopening shows them; a Save that changes only the referral keeps the rest; the next bill form shows the saved billing form and service location. The preferences part of #4439 task 9. First committed coverage of this page. Fails on 2026.08 at the first step, 'Preferences ▸ BC Billing Preferences opens the throwaway's own billing preferences', until #4938 (issue #4936) merges: the page's script throws on every open. Behind it, the form posts an empty provider number, so Save stores every preference as a clinic-wide setting, the selects show their first option instead of the saved value, and the auto-populate box can never be ticked; the step with nothing saved checks the form before any Save, so on 2026.08 nothing is saved. On a release WAR with #4938 applied every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) and the workflow's own FAKE patient, made a BC patient. Cleanup deletes the throwaway's billing_preferences row (the page creates one on first open); the fixture removes its property rows and the login. A property row without a provider written during the run fails the check and is left for a look. Everything the page saves is keyed to the throwaway, so the check can run alongside others."
+    },
+    {
       "name": "billing-bc-simulation-encoding",
       "script": "scripts/billing-bc-simulation-encoding-playwright-checks.js",
       "tiers": [
