@@ -404,6 +404,7 @@
     "test:inbox-file-forward-playwright": "node scripts/inbox-file-forward-playwright-checks.js",
     "test:document-viewer-review-actions-playwright": "node scripts/document-viewer-review-actions-playwright-checks.js",
     "test:document-viewer-macros-playwright": "node scripts/document-viewer-macros-playwright-checks.js",
+    "test:document-viewer-fax-playwright": "node scripts/document-viewer-fax-playwright-checks.js",
     "test:inbox-acknowledge-per-provider-playwright": "node scripts/inbox-acknowledge-per-provider-playwright-checks.js",
     "test:legacy-lab-display-playwright": "LEGACY_LAB_TYPE=cml node scripts/legacy-lab-display-playwright-checks.js",
     "test:legacy-lab-display-mds-playwright": "LEGACY_LAB_TYPE=mds node scripts/legacy-lab-display-playwright-checks.js",

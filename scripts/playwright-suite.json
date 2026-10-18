@@ -11120,6 +11120,28 @@
       ]
     },
     {
+      "name": "document-viewer-fax",
+      "script": "scripts/document-viewer-fax-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "providerLabRouting",
+        "queue_document_link"
+      ],
+      "notes": "The document viewer's Fax on a PDF document (documentManager/FaxDocument → EFormFaxPreparation's auto-submit → fax/faxAction prepareFax): with an active fax account the cover page is for exactly this document (transactionType DOCUMENT, its id and patient), offers the active accounts, and its staged PDF carries the document's text; Cancel answers and the staged copy is no longer served. With no active account, Fax says none is configured. No fax job exists for the patient at any step, and Send is never pressed, so nothing can leave the host.",
+      "fixtures": "Its owned PDF is routed New to another active provider's Inbox too and linked to the first document queue, both shared by every provider's Inbox, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owns the synthetic patient and one PDF in DOCUMENT_DIR with document / ctl_document / patientLabRouting rows, New providerLabRouting rows for the test login and another active provider, an active queue_document_link, and the routing lock rows the run created (viewerDocuments in document-viewer-review-actions); all removed and verified gone. Needs pdftotext."
+    },
+    {
       "name": "legacy-lab-display",
       "script": "scripts/legacy-lab-display-playwright-checks.js",
       "envSet": {
