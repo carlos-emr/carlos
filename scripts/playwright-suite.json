@@ -5502,11 +5502,7 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "One owned site named with the run marker; removed in cleanup with any providersite link and asserted gone. Needs multisites=on; SKIPs without the Satellite-sites Admin menu entry.",
-      "expectedFailure": {
-        "finding": 276,
-        "step": "Add New Site ▸ Save stores the new site and lists it"
-      },
-      "notes": "Satellite-sites Admin add, open and edit, and a GET save refusal. Expected to fail at the Save step while finding 276 (#4700) stands: the detail form's site.* fields do not bind, the list's edit link is a GET with method=update that the GET guard refuses, and the edit form shows no stored values."
+      "notes": "Satellite-sites Admin add, open and edit, a GET save refusal, and the site pages' stylesheets. Finding 276 (#4700) is fixed by #4875, and the site pages' stylesheet link (finding 100) by #4922."
     },
     {
       "name": "consultation-edit-status",
