@@ -1471,7 +1471,8 @@
         "APCACHE_PROBE_URL",
         "APCACHE_SCREENSHOT_DIR"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that two eForms are filled in and saved for, and two imported templates with unique names: after the UI cleanup the instances and their values are deleted by the patient's key, the templates by name, then the patient, and each is asserted gone. It no longer saves instances for demo patient 1. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that two eForms are filled in and saved for, and two imported templates with unique names: after the UI cleanup the instances and their values are deleted by the patient's key, the templates by name, then the patient, and each is asserted gone. It no longer saves instances for demo patient 1. No clinic-wide state is changed.",
+      "notes": "Part 2 continues on the approval page: Approve and download downloads a %PDF and saves no second eform_data row, and replaying the same approval (its one-time renderApproval token) is answered with the expired-approval message (eform.download.approvalExpired) and no PDF. Last assertion: the eForm view the approved download leaves on screen must answer its APCache lookups; on release/2026.08 it fails until #4979 is fixed (a POST result with no query string, so APCache.js sends no fid and efmformapconfig_lookup answers 400; finding 458). Needs the eForm PDF renderer and, on a private Tomcat, the packaged connector's relaxedQueryChars."
     },
     {
       "name": "eform-saved-render",
