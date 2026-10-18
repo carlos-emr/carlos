@@ -747,12 +747,15 @@ rule "Inf 1"
         prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
+// The most recent flu shot, recorded as "Inf" or under the older name "Flu", is a year or more old: a name the patient
+// has no record under (-1 months) does not count as a recent shot. "Inf 3" covers a patient with neither.
 rule "Inf 2"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >=65 )
-        eval( prev.getHowManyMonthsSinceLast("Inf") >= 12 )
-        eval( prev.getHowManyMonthsSinceLast("Flu") >= 12 )
+        eval( prev.getNumberOfPreventionType("Inf") + prev.getNumberOfPreventionType("Flu") >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("Inf") == -1 || prev.getHowManyMonthsSinceLast("Inf") >= 12 )
+        eval( prev.getHowManyMonthsSinceLast("Flu") == -1 || prev.getHowManyMonthsSinceLast("Flu") >= 12 )
     then
         prev.log("Inf 2");
         prev.addWarning("Inf", "Needs Flu Shot ");
