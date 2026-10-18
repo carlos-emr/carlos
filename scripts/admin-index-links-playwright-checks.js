@@ -28,7 +28,7 @@
  * (issue #3377) -- both green through every check the suite had.
  *
  * READ-ONLY. It opens each item and closes it again; it submits no form, so it
- * seeds nothing and has nothing to clean up. The three items that would not be
+ * seeds nothing and has nothing to clean up. The items that would not be
  * read-only are listed in SKIP_ITEMS with the reason.
  *
  * Defaults are for the local devcontainer:
@@ -67,6 +67,12 @@ const SKIP_ITEMS = [
   {
     match: /^log\s*out$/i,
     reason: 'ends the session the remaining items need',
+  },
+  {
+    // Both BC File2 items: their labels are swapped (#4439 D4), so which label the generating one carries
+    // depends on whether that is fixed. The simulation is read-only; billing-bc-teleplan-file covers both.
+    match: /^\s*(simulate\s+submission|generate\s+teleplan)\s+file2\s*$/i,
+    reason: 'on BC, opening Generate Teleplan File writes a Teleplan batch (#4439 D3); billing-bc-teleplan-file covers both items and restores what they write',
   },
 ];
 

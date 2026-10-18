@@ -3934,6 +3934,30 @@
       "env": []
     },
     {
+      "name": "billing-bc-teleplan-file",
+      "script": "scripts/billing-bc-teleplan-file-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "HOME_DIR"
+      ],
+      "mutates": [
+        "billactivity",
+        "log_teleplantx",
+        "teleplan_submission_link",
+        "property:teleplan_sequence",
+        "file:teleplan-home-dir"
+      ],
+      "notes": "BC Administration ▸ Billing ▸ the Teleplan File2 items (NEW_BC_TELEPLAN=yes). The simulation, a dry run, lists exactly the owned claims. Generate for the owned physician writes one batch: its MSP file in HOME_DIR holds exactly the owned claims as C02 records, which are marked billed, logged and linked to the batch, and the Teleplan sequence moves. The Activity List lists the batch, and a second simulation lists none. Nothing is sent to MSP. First committed coverage of these pages. Fails on 2026.08 at the step 'opening the Teleplan file item from the menu writes no batch of its own' (#4439 D3). The two steps after it, the Activity List's file link (D5) and the File2 labels (D4), are #4439 defects too, so the check stays red until all three are fixed. Each expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician; its unique practitioner number keeps Generate to the owned claims) and two MSP claims on the workflow's own FAKE patient, made a BC patient; cleanup deletes every BC billing row of the patient and the physician and asserts each is gone. Records the clinic-wide Teleplan state first (the billactivity, log_teleplantx and teleplan_submission_link high-water marks and the teleplan_sequence property) and restores it at the end: it deletes the rows written after the record, once each is proven the run's (each batch written during the run, each log line an owned claim's or a batch header, each link a run batch's to an owned claim) and the HOME_DIR files those batches name (batch file names only, inside HOME_DIR), puts the sequence back or removes it, and asserts all of it. Needs HOME_DIR, the server's Teleplan output directory reachable from the runner (SKIP without it). The batch number and the sequence are clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "billing-bc-reprocess-bill",
       "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
       "tiers": [
