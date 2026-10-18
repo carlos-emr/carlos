@@ -733,19 +733,19 @@
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(homePhoneHistory);"
                                                                             title="Home phone History">History</span>):</span>
-                                                                        <span class="info"><%=StringUtils.trimToEmpty(demographic.getPhone())%> <%=StringUtils.trimToEmpty(demoExt.get("hPhoneExt"))%></span>
+                                                                        <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone()) %>' context="html"/> <carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("hPhoneExt")) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPhoneW"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(workPhoneHistory);"
                                                                             title="Work phone History">History</span>):</span>
-                                                                        <span class="info"><%=StringUtils.trimToEmpty(demographic.getPhone2())%> <%=StringUtils.trimToEmpty(demoExt.get("wPhoneExt"))%></span>
+                                                                        <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPhone2()) %>' context="html"/> <carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("wPhoneExt")) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formPhoneC"/>(<span
                                                                             class="popup"
                                                                             onmouseover="nhpup.popup(cellPhoneHistory);"
                                                                             title="cell phone History">History</span>):</span>
-                                                                        <span class="info"><%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%></span>
+                                                                        <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("demo_cell")) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</span>
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demoExt.get("phoneComment")) %>' context="html"/></span>
