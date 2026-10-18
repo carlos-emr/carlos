@@ -9489,6 +9489,21 @@
       "notes": "Master Record Edit: Archived paper chart (Yes with a date, then No) and Country of origin, which gap-records-demographic-edit-clinical does not cover. Steps: Yes + date + Canada are stored (demographicExt, demographic.country_of_origin) and archive the patient once; the read view and the reopened Edit form show them; No clears the date and program, Not Set clears the country, and the read view drops both. PASS expected."
     },
     {
+      "name": "demographic-patient-consents",
+      "script": "scripts/demographic-patient-consents-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Operator prerequisite: USE_NEW_PATIENT_CONSENT_MODULE=true and privateConsentEnabled=true in carlos.properties (both the packaged default), then restart; the seeds' active electronic_communication_consent type. The runWorkflow FAKE- patient; cleanup removes its Consent, demographicExtArchive and demographiccust rows and checks them gone.",
+      "notes": "Master Record patient consents. Steps: Opt In stores one consent dated today and the read view shows Consented; Opt Out flips the same row with its opt-out date (read view and reopened Edit); a GET to Update Record with a consent choice is refused and stores nothing; Clear (confirmed) marks the row deleted and the read view drops it; LAST, a consent opted in again shows its description in the popup when pointed at, without a script error. Fails at its last step until #4984 is fixed (the consent popup raises a script error); every earlier step passes."
+    },
+    {
       "name": "gap-records-enrollment-history",
       "script": "scripts/gap-records-enrollment-history-playwright-checks.js",
       "tiers": [
