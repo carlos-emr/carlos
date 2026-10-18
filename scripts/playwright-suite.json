@@ -9842,6 +9842,51 @@
       "notes": "Health Care Team, external member. Steps: External ▸ Search ▸ Add/Edit Professional Contact saves the professional and puts it on the team with its specialty, listed with an edit control; the member's edit opens the form filled in, and Save stores the new specialty on the same team row and the new phone on the same professional; LAST, a professional named O'Brien is put on the team the same way. Fails at its last step until #4986 is fixed (the O'Brien contact is saved but not added, with a script error); every earlier step passes."
     },
     {
+      "name": "prevention-reminders",
+      "script": "scripts/prevention-reminders-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.",
+      "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Fails at its last step until #4998 is fixed (no repeat-Td reminder appears); every earlier step passes."
+    },
+    {
+      "name": "prevention-completed-externally",
+      "script": "scripts/prevention-completed-externally-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL so the flu reminder applies; its preventions and their ext rows are removed in cleanup.",
+      "notes": "A vaccine given elsewhere. Steps: Inf saved as Completed externally with an outside provider's name is stored as given elsewhere (refused=3) by that provider; the list shows it without the refused or ineligible colour, and the reopened form shows the status and the name; it counts as done, so the patient's \"Needs Flu Shot\" reminder goes away."
+    },
+    {
+      "name": "demographic-address-phone-history",
+      "script": "scripts/demographic-address-phone-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient (FAKE addresses and 555 phones); the Master Record updates' ext-archive and custom rows are removed in cleanup and checked gone, before the harness removes the patient's ext and archive rows.",
+      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address that did not change is listed once, not again for every save that changed something else. Fails at its last step until #5013 is fixed (the unchanged address is listed once per save); every earlier step passes."
+    },
+    {
       "name": "gap-records-hrm-report-actions",
       "script": "scripts/gap-records-hrm-report-actions-playwright-checks.js",
       "tiers": [
