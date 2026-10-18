@@ -19,7 +19,9 @@
  *      among its copy recipients and no fax job.
  *   3. With no active fax sender account, Send is refused with an alert and queues no fax job (nothing leaves the host).
  *      Where an active sender account exists this step SKIPs before pressing Send, as consultation-edit-status does.
- * Fixtures: FAKE- patient (runWorkflow), FAKE- service, consultant (with a fax number) and service link seeded by SQL.
+ * Fixtures: FAKE- patient (runWorkflow), FAKE- service, consultant (with a fax number) and service link seeded by SQL. The
+ * service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with
+ * other checks (live wrapper: EXCLUSIVE=1).
  * Cleanup deletes the request with its archive / ext rows and the consultation signature the save records for the owned
  * patient, and every owned row, and asserts them gone.
  */

@@ -26,7 +26,9 @@
  * Fixtures (viewerDocuments, shared with document-viewer-macros): the owned FAKE- patient (runWorkflow) and owned PDFs in
  * DOCUMENT_DIR (lib/stored-pdf-documents.js), each with its ctl_document and patientLabRouting rows, a New
  * providerLabRouting row for the test provider and one for another active provider, and an active queue_document_link.
- * The check SKIPs where the test login acknowledges without the comment prompt (its lab_ack_comment preference). Cleanup
+ * The owned PDFs are in another provider's Inbox and the shared queue while the run lasts, so the check must not run
+ * concurrently with other checks (live wrapper: EXCLUSIVE=1). The check SKIPs where the test login acknowledges without the
+ * comment prompt (its lab_ack_comment preference). Cleanup
  * removes the documents' routing, queue and lock rows, the documents and files, and asserts them gone.
  */
 const fs = require('node:fs');

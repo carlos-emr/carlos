@@ -20,7 +20,8 @@
  *   4. Print prints the preview without the pharmacy (the preview frame's print() is replaced, for this one call, by a
  *      recorder of the text it would print, since a headless browser prints nothing).
  * Fixtures: the owned synthetic patient, one owned pharmacy (pharmacyInfo, name with the run marker) linked to it as its
- * preferred pharmacy, and one custom drug named with the run marker. Cleanup removes the drug and its script (with any
+ * preferred pharmacy, and one custom drug named with the run marker. The pharmacy is in the clinic-wide pharmacy search while
+ * the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the drug and its script (with any
  * signature row the print stamped), the link and the pharmacy, and asserts them gone.
  */
 const h = require('./lib/playwright-harness');
