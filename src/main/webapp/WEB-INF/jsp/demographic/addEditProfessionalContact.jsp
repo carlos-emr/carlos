@@ -29,6 +29,20 @@
 
 --%>
 
+<%--
+    Add/edit form for a professional contact, shown in the search popup's window.
+    Features: saves through Contact2Action saveProContact, then hands the saved
+    contact back to the opener.
+    Parameters: contactType is 2 for an external professional contact or 3 for a
+    professional specialist; pcontact.id edits an existing contact. The hand-back
+    goes to the opener's popUpData callback when it has one (Health Care Team panel,
+    which links the contact to the patient). Otherwise (Contacts editor) it fills
+    the opener's parentForm fields parentElementId and parentElementName, provided
+    that row's type select still matches the saved contact; the Contacts editor
+    links the patient when it is saved.
+    @since 2026.08 (#4987)
+--%>
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
