@@ -1222,7 +1222,7 @@
                 </td>
                 <td width="40%">Medications/herbals <textarea
                         name="pg1_curMedic" style="width: 100%" cols="30" rows="2"
-                        @oscar.formDB dbType="varchar(255)"><%= props.getProperty("pg1_curMedic", "") %></textarea>
+                        @oscar.formDB dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_curMedic", "") %>'/></textarea>
                 </td>
                 <td valign="bottom">Beliefs & Practices <input type="text"
                                                                name="pg1_beliPract" style="width: 100%" size="60"
@@ -1845,7 +1845,7 @@
                             <td width="30%" valign="top"><span class="small8">Surgery</span></td>
                             <td><textarea name="pg1_operationSpec" style="width: 100%"
                                           cols="60" rows="1" @oscar.formDB
-                                          dbType="varchar(255)"><%= props.getProperty("pg1_operationSpec", "") %></textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_operationSpec", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1968,7 +1968,7 @@
 					illness</span></td>
                 <td><textarea name="pg1_deprPsySpec" style="width: 100%"
                               cols="60" rows="1" @oscar.formDB
-                              dbType="varchar(255)"><%= props.getProperty("pg1_deprPsySpec", "") %></textarea>
+                              dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg1_deprPsySpec", "") %>'/></textarea>
             </tr>
             <tr>
                 <td></td>
@@ -2506,7 +2506,7 @@
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg1_summary" style="width:100%" cols="100" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg1_summary", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg1_summary", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>

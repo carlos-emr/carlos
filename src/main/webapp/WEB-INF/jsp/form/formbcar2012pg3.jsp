@@ -3094,7 +3094,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg3_investigation" style="width:100%" cols="50" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg3_investigation", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg3_investigation", "") %>'/></textarea>
                             </td>
                             <td></td>
                         </tr>

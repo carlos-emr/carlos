@@ -1045,7 +1045,7 @@
                         <td>
                             <b>16. <fmt:message key='form.bcnewborn.statusAtDischarge'/></b><br>
                             <textarea name="Section16Text" @oscar.formDB
-                                      dbType="text"/> <%= props.getProperty("Section16Text", "") %></textarea>
+                                      dbType="text"/><carlos:encode value='<%= props.getProperty("Section16Text", "") %>'/></textarea>
                             <br>
                             <input type="checkbox"
                                    name="Section16Exclusive" <%= props.getProperty("Section16Exclusive", "") %>
@@ -1068,7 +1068,7 @@
                         <td>
                             <fmt:message key='form.bcnewborn.problemsRequiringFollowup'/>:<br>
                             <textarea name="ProblemsrequiringFollowup"
-                                      @oscar.formDB/> <%= props.getProperty("ProblemsrequiringFollowup", "") %> </textarea>
+                                      @oscar.formDB/><carlos:encode value='<%= props.getProperty("ProblemsrequiringFollowup", "") %>'/></textarea>
                         </td>
                     </tr>
                 </table>

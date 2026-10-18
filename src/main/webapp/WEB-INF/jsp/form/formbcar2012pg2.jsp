@@ -1950,7 +1950,7 @@
                 	<textarea name="pg2_followUpCmnt"
                               cols="70" rows="5"
                               @oscar.formDB
-                              dbType="varchar(255)"><%= props.getProperty("pg2_followUpCmnt", "") %></textarea>
+                              dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("pg2_followUpCmnt", "") %>'/></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -3309,7 +3309,7 @@
             </tr>
             <tr>
                 <td colspan="4">
-                    <textarea name="pg2_probComment" style="width:100%" cols="40" rows="1"  @oscar.formDB dbType="varchar(255)" ><%= props.getProperty("pg2_probComment", "") %></textarea>
+                    <textarea name="pg2_probComment" style="width:100%" cols="40" rows="1"  @oscar.formDB dbType="varchar(255)" ><carlos:encode value='<%= props.getProperty("pg2_probComment", "") %>'/></textarea>
                 </td>
                 <td></td>
             </tr--%>
@@ -3322,7 +3322,7 @@
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg2_investigation" style="width:100%" cols="50" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg2_investigation", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg2_investigation", "") %>'/></textarea>
                             </td>
                             <td></td>
                         </tr>

@@ -1618,7 +1618,7 @@
                             </td>
                             <td><textarea name="birMDPres" style="width: 100%" cols="30"
                                           rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birMDPres", "") %> </textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birMDPres", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1627,7 +1627,7 @@
                             </td>
                             <td><textarea name="birNurPres" style="width: 100%" cols="30"
                                           rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birNurPres", "") %> </textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birNurPres", "") %>'/></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1636,7 +1636,7 @@
                             </td>
                             <td><textarea name="birOtherPres" style="width: 100%"
                                           cols="30" rows="3" @oscar.formDB
-                                          dbType="varchar(255)"> <%= props.getProperty("birOtherPres", "") %> </textarea>
+                                          dbType="varchar(255)"><carlos:encode value='<%= props.getProperty("birOtherPres", "") %>'/></textarea>
                             </td>
                         </tr>
                     </table>
@@ -1671,7 +1671,7 @@
             <tr>
                 <td colspan="2"><textarea name="comLabBirth" style="width: 100%"
                                           cols="100" rows="2" @oscar.formDB
-                                          dbType="text"> <%= props.getProperty("comLabBirth", "") %> </textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("comLabBirth", "") %>'/></textarea>
                 </td>
             </tr>
         </table>
