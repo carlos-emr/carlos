@@ -3363,7 +3363,10 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes owned FAKE-PW patients, directory contact and relationship fixtures; local disposable database only."
+      "mutates": [
+        "Contact"
+      ],
+      "fixtures": "Its owned directory contact is in the clinic-wide contact list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Creates and removes owned FAKE-PW patients, directory contact and relationship fixtures; local disposable database only."
     },
     {
       "name": "consultation-directory-crud",
@@ -7883,7 +7886,10 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
+      "mutates": [
+        "Contact"
+      ],
+      "fixtures": "The marker Contact row the page creates is in the clinic-wide contact list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
       "notes": "Expected to FAIL at the last step until demographic/Contact method=saveContact rejects GET/HEAD writes. Editor script behavior is also independently covered by contact-editor."
     },
     {
@@ -8007,7 +8013,8 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "professionalSpecialists"
       ],
       "notes": "UpdateServiceSpecialists, pinned to finding 263: the action has no method check and HttpMethodGuardFilter leaves \"Update*\" alone on purpose, so a GET or a HEAD with serviceId and specialists replaces the service's consultant links and answers HTTP 200 with the Show All Services page. The owned service's links are cleared before each probe. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
@@ -8038,7 +8045,9 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "Institution",
+        "Department"
       ],
       "notes": "UpdateInstitutionDepartment, pinned to finding 263: the action has no method check and HttpMethodGuardFilter leaves \"Update*\" alone on purpose, so a GET or a HEAD with id and specialists replaces the institution's department links and answers HTTP 200 with the Show All Institutions page. The owned institution's links are cleared before each probe. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
@@ -8069,7 +8078,8 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "professionalSpecialists"
       ],
       "notes": "UpdateServiceSpecialists, pinned to finding 264: the action checks _con r and nothing more, while the page that posts to it (and its result JSP) needs _admin or _admin.consult. A login holding only _con r, with its own valid token, writes the service's consultant links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the restricted replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
@@ -8100,7 +8110,9 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "Institution",
+        "Department"
       ],
       "notes": "UpdateInstitutionDepartment, pinned to finding 264: the action checks _con r and nothing more, while the page that posts to it (and its result JSP) needs _admin or _admin.consult. A login holding only _con r, with its own valid token, writes the institution's department links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the restricted replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
@@ -8224,7 +8236,8 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "professionalSpecialists"
       ],
       "notes": "UpdateServiceSpecialists, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to UpdateServiceSpecialists (_con r) replaces the service's consultant links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
@@ -8255,7 +8268,9 @@
       "mutates": [
         "property:consultRequestEnabled",
         "property:consultResponseEnabled",
-        "consultationServices"
+        "consultationServices",
+        "Institution",
+        "Department"
       ],
       "notes": "UpdateInstitutionDepartment, pinned to finding 264: the seeded doctor role holds _con x (read, update and write) and neither _admin nor _admin.consult, so the page that hosts the form redirects it to /securityError (asserted first, as a precondition), yet its POST to UpdateInstitutionDepartment (_con r) replaces the institution's department links; the answer is then a 302 to /securityError?type=_admin&type=_admin.consult, sent by the result page after the write. The control, the full login's replay of the same request, is asserted before the doctor replay. Each known defect has its own entry; CONSULT_CONFIG_ONLY and CONSULT_CONFIG_EXCEPT choose the (action, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the actions it asserts. The entries: get-reject-consult-config (everything not below), -enable-get, -update-service-get and -update-institution-get (263), -update-service-restricted and -update-institution-restricted (264), -add-service-doctor, -del-service-doctor, -enable-doctor, -update-service-doctor and -update-institution-doctor (264).",
       "fixtures": "Marker-named consultation services (seeded by SQL, or created through Add Service), one consultant (professionalSpecialists, fName FAKE), one institution and one department; for the _con r and doctor pairs, throwaway logins (one with a role of its own, one with the seeded doctor role; secRole, secObjPrivilege, security, provider, secUserRole). Enable Request/Response and its probes change the clinic-wide consultRequestEnabled and consultResponseEnabled properties and the Referring Doctor service: both are snapshotted before anything runs and restored verbatim, however the run ends, and the legacy specialistsJavascript script, which the writes no longer regenerate (finding 260, #4617), is asserted unchanged by MD5. Cleanup removes every owned row by key and asserts it. It changes state every consultation check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
