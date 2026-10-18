@@ -106,7 +106,7 @@
                     boolean state = mode.equals("edit") ? true : false;
                 %> <%-- Read-only only while editing: the save replaces that service code's diagnoses. --%>
                 <input type="text" name="xml_other1" id="xml_other1" size="40" value="<carlos:encode value='<%= serviceCode %>' context="htmlAttribute"/>" <%= state ? "readonly" : "" %>/> <a href="javascript:OtherScriptAttach()">
-                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0"> </a> </span></td>
+                    <img src="<%= request.getContextPath() %>/images/search_code.jpg" border="0" alt="<fmt:message key='global.btnSearch'/>"> </a> </span></td>
             </tr>
             <tr bgcolor="CCCCFF">
                 <td><strong><fmt:message key="oscar.billing.CA.BC.billingBC.dxcode_svccode_assoc.step2"/></strong></td>
@@ -117,7 +117,7 @@
                     <input type="text" name="xml_diagnostic_detail1" id="xml_diagnostic_detail1" size="25" value="<carlos:encode value='<%= dx[0] %>' context="htmlAttribute"/>"/> </span> <span
                         class="assocField"> <a
                         href="javascript:ScriptAttach()"> <img
-                        src="<%= request.getContextPath() %>/images/search_dx_code.jpg" border="0"> </a> </span>
+                        src="<%= request.getContextPath() %>/images/search_dx_code.jpg" border="0" alt="<fmt:message key='global.btnSearch'/>"> </a> </span>
                 </td>
             </tr>
             <!--This is really quite redundant but its code copied from bcBilling.jsp

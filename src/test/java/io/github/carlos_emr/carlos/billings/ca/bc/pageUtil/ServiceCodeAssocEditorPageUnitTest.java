@@ -78,6 +78,11 @@ class ServiceCodeAssocEditorPageUnitTest {
     }
 
     @Test
+    void shouldNameBothSearchIcons_withTheTranslatedSearchLabel() throws IOException {
+        assertThat(page().split("alt=\"<fmt:message key='global.btnSearch'/>\"", -1)).hasSize(3);
+    }
+
+    @Test
     void shouldReadTheAssociation_fromTheRequest() throws IOException {
         assertThat(page()).contains("(ServiceCodeAssociation) request.getAttribute(\"serviceCodeAssociation\")");
     }
