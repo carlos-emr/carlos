@@ -3954,6 +3954,21 @@
       "fixtures": "Seeds and removes one billing physician (clone of the test login's provider, FAKE practitioner and payee numbers), one BC fee code and one diagnostic code (described by the run marker), and every BC bill of its own FAKE patient."
     },
     {
+      "name": "billing-bc-quick-billing",
+      "script": "scripts/billing-bc-quick-billing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Administration ▸ Billing ▸ BC MSP Quick Billing: a batch of MSP bills for one billing physician, service location and day. The first add, a second patient's add, remove, a refused GET add or remove, Submit (one MSP bill and billingmaster line per patient, with its history and note), a replayed Submit and a refused GET Save. First committed coverage of this page. Fails at the first step on 2026.08: the page answers HTTP 500 on every request (#4772; #4789 is its release fix). The check turns green when #4789 merges: on a release WAR with #4789 applied every step passes. The expectedFailure is added with its finding number when the findings log is assembled.",
+      "fixtures": "Seeds and removes one billing physician (bc.createBillingPhysician: a clone of the test login's provider with FAKE practitioner and payee numbers), one BC fee code described by the run marker, and a second FAKE patient beside the workflow's own; both get a synthetic BC PHN and an admission to the login's first program, which the name search needs. Cleanup deletes every BC billing row of the two patients (billing, billingmaster, billing_history, billingnote, bill_recipients) and their admissions, then the patient, the code and the physician, and asserts each is gone."
+    },
+    {
       "name": "billing-bc-bill-status-filters",
       "script": "scripts/billing-bc-bill-status-filters-playwright-checks.js",
       "tiers": [

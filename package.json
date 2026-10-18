@@ -288,6 +288,7 @@
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
     "test:billing-bc-reprocess-bill-playwright": "node scripts/billing-bc-reprocess-bill-playwright-checks.js",
     "test:billing-bc-bill-create-save-playwright": "node scripts/billing-bc-bill-create-save-playwright-checks.js",
+    "test:billing-bc-quick-billing-playwright": "node scripts/billing-bc-quick-billing-playwright-checks.js",
     "test:billing-bc-bill-status-filters-playwright": "node scripts/billing-bc-bill-status-filters-playwright-checks.js",
     "test:billing-bc-private-bill-receipt-playwright": "node scripts/billing-bc-private-bill-receipt-playwright-checks.js",
     "test:billing-bc-receive-payment-playwright": "node scripts/billing-bc-receive-payment-playwright-checks.js",
