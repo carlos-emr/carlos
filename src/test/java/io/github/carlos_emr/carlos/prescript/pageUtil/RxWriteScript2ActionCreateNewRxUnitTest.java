@@ -44,6 +44,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
@@ -54,6 +55,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 import java.util.Vector;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -258,6 +261,35 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(STAGE_ERROR_KEY))
                 .isEqualTo("SearchDrug.msgStageAlreadyStaged");
         assertThat(bean.getStashSize()).as("the stash keeps one copy").isEqualTo(1);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "en    | That prescription is already staged.",
+            "fr    | Cette prescription a déjà été ajoutée.",
+            "es    | Esta prescripción ya se agregó.",
+            "pl    | Ta recepta jest już dodana.",
+            "pt-BR | Esta prescrição já foi adicionada.",
+    })
+    @DisplayName("should show the already-staged notice in the user's language when the same drug is picked twice")
+    void shouldShowAlreadyStagedNoticeInUserLanguage_whenSameDrugPickedTwice(String languageTag, String expected)
+            throws Exception {
+        request.setParameter("text", "CHILDREN'S BENADRYL ALLERGY LIQUID");
+        stage(monograph("CHILDREN'S BENADRYL ALLERGY LIQUID"));
+        request.removeAttribute(STAGE_ERROR_KEY);
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class,
+                (mock, context) -> when(mock.getDrug2(anyString())).thenReturn(monograph("CHILDREN'S BENADRYL ALLERGY LIQUID")))) {
+            action.createNewRx();
+        }
+
+        // prescribe.jsp shows the notice with <fmt:message key="${requestScope.rxStageErrorKey}"/> from the
+        // oscarResources bundle in the user's locale; look the key up the same way, with no fallback locale.
+        String key = (String) request.getAttribute(STAGE_ERROR_KEY);
+        assertThat(key).as("the staging pane gets the notice's bundle key").isNotNull();
+        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(languageTag),
+                ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));
+        assertThat(bundle.getString(key)).isEqualTo(expected);
     }
 
     private RxPrescriptionData.Prescription stage(RxDrugData.DrugMonograph monograph) throws Exception {
