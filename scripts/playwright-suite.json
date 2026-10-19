@@ -4792,6 +4792,17 @@
       "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope) and, for finding 176, one patient-scope Hide row on the CKD flowsheet; all owned rows removed."
     },
     {
+      "name": "flowsheet-prevention-print",
+      "script": "scripts/flowsheet-prevention-print-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned synthetic patient with three preventions and four A1C readings; all removed and verified by workflow cleanup.",
+      "notes": "Issue #3884: a selected prevention posts no printStyle and retains its history in preview and print media. Unchecked preventions stay hidden; explicit all, numeric and date-range measurement filters remain effective."
+    },
+    {
       "name": "flowsheet-customized-rules",
       "script": "scripts/flowsheet-customized-rules-playwright-checks.js",
       "tiers": [
