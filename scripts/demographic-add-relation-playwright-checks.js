@@ -7,6 +7,7 @@
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const name = `${s.marker}-relation`;
@@ -30,7 +31,7 @@ async function workflow(s) {
   let popup;
 
   await s.step('Add Relation opens the search form with GET and creates no relationship', async () => {
-    const link = s.master.locator('a[onclick*="/demographic/AddRelation?"]');
+    const link = masterRecordLink(s.master, '/demographic/AddRelation?');
     if (await link.count()) popup = await s.popup(s.master, link.first(), 'add-relation');
     else {
       // The modern contacts UI hides this legacy link; the legacy route remains supported.
