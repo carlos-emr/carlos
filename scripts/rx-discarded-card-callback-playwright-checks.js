@@ -21,7 +21,7 @@ async function workflow(s) {
   const log = requiredRxServerLog();
   const variant = variants[mode], fixture = await prepareRx(s);
   const control = fixture.seed('untouched control');
-  const stored = () => JSON.stringify(s.sql.rows(`SELECT * FROM drugs WHERE demographic_no=${s.patient} ORDER BY drugid`));
+  const stored = () => JSON.stringify(s.sql.rows('SELECT * FROM drugs WHERE demographic_no=? ORDER BY drugid', [s.patient]));
   const before = stored(), rx = await fixture.open();
   await verifyActiveRxServerLog(log, s, rx);
   const key = await stageCustomDrug(rx, s.marker + ' discarded callback');
@@ -84,7 +84,7 @@ async function workflow(s) {
       await rx.reload({ waitUntil: 'domcontentloaded' });
       await rx.locator('#drugProfile[aria-busy="false"]').waitFor({ state: 'attached' });
       h.assert(await rx.locator('[id^="drugName_"]').count() === 0, 'The discarded draft returned after the callback');
-      h.assert(stored() === before && s.sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${s.patient}`) === '0',
+      h.assert(stored() === before && s.sql.value('SELECT COUNT(*) FROM prescription WHERE demographic_no=?', [s.patient]) === '0',
         'The stale callback changed clinical records');
       h.assert(await rx.locator(`#hidecpp_${control}`).count() === 1, 'The untouched control medication disappeared');
     });

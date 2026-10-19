@@ -123,7 +123,10 @@ judging a defect, the checks also require a fresh application warning from a
 read-only, invalid-key Rx history lookup. Empty, unrelated or historical logs
 cannot satisfy that positive control. Unreadable sources, including a read
 failure after preflight, produce a prerequisite skip outside defect classification.
-The fresh
+The SQL harness also supports optional server-side prepared statements; both new
+callback checks bind their patient IDs in the clinical-row assertions. Focused
+regressions and a read-only MariaDB round-trip cover hostile/Unicode strings,
+null, boolean and numeric values, alongside the live browser controls. The fresh
 package evidence remains pinned to application source `4c33e615976`; its affected
 Rx controller and DrugRef pin are unchanged in `fefceecc62aa`. The inherited
 release also changes CSRF replay diagnostics; this is not a claim of a freshly
