@@ -1441,6 +1441,37 @@
       "timeoutSec": 300
     },
     {
+      "name": "eform-bootstrap-isolation",
+      "script": "scripts/eform-bootstrap-isolation-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
+      "name": "eform-bootstrap-print-fidelity",
+      "script": "scripts/eform-bootstrap-print-fidelity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ],
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js) the legacy-layout eForm is opened and downloaded for, and a template inserted under a FAKE-PW run-marker name. The instance the download stores (eform_data, eform_values, EFormDocs above the run's mark), the template and the patient are removed by key and asserted gone. Needs pdftotext (poppler-utils)."
+    },
+    {
       "name": "eform-apcache-renderer",
       "script": "scripts/eform-apcache-renderer-playwright-checks.js",
       "tiers": [
@@ -7827,6 +7858,21 @@
       "env": [],
       "fixtures": "Marker-subject messages to the test login (already a messenger contact); cleanup deletes messagelisttbl/msgDemoMap/messagetbl rows with the run marker and asserts them gone. Changes no group membership.",
       "notes": "Fails at its final assertion on 2026.08: Send Message double Enter, a re-click during a slow response and a POST replay (reload of the result page) each deliver two messages (CreateMessage.jsp:485-486,585 no guard; MsgCreateMessage2Action.java:175 sendMessage2 is not idempotent; SentMessage.jsp is rendered directly, no redirect-after-POST)."
+    },
+    {
+      "name": "classic-note-editor-billing-link",
+      "script": "scripts/classic-note-editor-billing-link-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owns the synthetic patient only; opens and closes the billing window without saving, so no billing rows are written.",
+      "notes": "Issue #4677: the E-Chart note editor's add billing button opens the billing route with the context path once. Before the fix it opened /carlos/carlos/billing (casemgmt_oscar_baseurl already holds the context path)."
     },
     {
       "name": "double-submit-chart-note",

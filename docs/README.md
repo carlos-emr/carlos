@@ -37,6 +37,7 @@ Key testing resources:
 |----------|-------------|
 | [MyDrugref](MyDrugref.md) | Drug reference system documentation |
 | [Form Resources README](README-form-resources.md) | Medical forms and resources |
+| [eForm chrome styling](eform-chrome-bootstrap-scope.md) | Why the eForm toolbar, alert and picker use a scoped Bootstrap copy, and the rule against global stylesheets on eForm pages |
 
 ### 🔧 Technical References
 

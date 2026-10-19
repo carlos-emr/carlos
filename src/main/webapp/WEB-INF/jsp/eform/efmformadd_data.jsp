@@ -173,7 +173,9 @@
     // the add page too, because a template-seeded letter takes the same load path.
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
-    thisEForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    // Scoped Bootstrap for the CARLOS chrome only, never the plain stylesheet: see the matching
+    // note in efmshowform_data.jsp (#3944).
+    thisEForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css", "all");
     thisEForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     thisEForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 
