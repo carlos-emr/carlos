@@ -25,6 +25,7 @@
     <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div class="container py-5">
@@ -40,7 +41,7 @@
                 <label class="form-check-label" for="offerFileForOthers">
                     <fmt:message key="provider.setHl7LabResultPrefs.offerFileForOthers"/>
                 </label>
-                <div class="form-text text-muted"><fmt:message key="provider.setHl7LabResultPrefs.defaultYes"/></div>
+                <div class="form-text text-muted"><fmt:message key="provider.setHl7LabResultPrefs.defaultNo"/></div>
             </div>
 
             <div class="form-check form-switch mb-3">
@@ -62,10 +63,18 @@
 
 <script>
     function updatePreference(methodName, key, value) {
+        const token = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (!token || !token.value) {
+            jQuery('#' + key).prop('checked', !value);
+            alert('Please wait for the page to finish loading and try again.');
+            return;
+        }
+        jQuery('#' + key).prop('disabled', true);
         ShowSpin(true);
         jQuery.ajax({
             url: '${pageContext.request.contextPath}/setProviderStaleDate?method=' + methodName,
             method: 'POST',
+            headers: {'CSRF-TOKEN': token.value},
             data: {
                 key: key,
                 value: value
@@ -83,6 +92,7 @@
             },
             complete: function () {
                 HideSpin();
+                jQuery('#' + key).prop('disabled', false);
             }
         });
     }

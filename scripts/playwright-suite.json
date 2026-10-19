@@ -15483,6 +15483,25 @@
         "finding": 312,
         "step": "a discarded draft calculation is handled without a server exception"
       }
+    },
+    {
+      "name": "lab-file-for-others",
+      "script": "scripts/lab-file-for-others-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on",
+        "other"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns a synthetic lab and two throwaway providers; restores the offer preference. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:hl7_offer_file_for_others"
+      ],
+      "notes": "Issue #3970: real preferences, consent, atomic rejection, filing comments and audit, and combined acknowledgement dialog."
     }
   ]
 }
