@@ -12629,7 +12629,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Invoice, Accounts Receivable and Rejection reports as PDFs, and the payer boxes, for one FAKE provider's five claims (MSP open, private, ICBC rejected, MSP deleted, MSP written off), each with its own amount. Invoice takes all but the deleted claim; Accounts Receivable, the open ones; Rejection, the rejected one only. With one payer box ticked, Invoice takes that payer's claims only. billing-bc-account-reports covers Write-Off and Payments and Refunds. Failed at the Invoice step on 2026.08 before #4805 (#4801's release fix) merged on 18 Oct, and on develop fails until that is forward-merged: the form posts to an address that is not mapped (HTTP 404). On a release WAR with #4805 every step passes. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
+      "notes": "BC Administration ▸ Billing ▸ Accounting Reports: the Invoice, Accounts Receivable and Rejection reports as PDFs, and the payer boxes, for one FAKE provider's five claims (MSP open, private, ICBC rejected, MSP deleted, MSP written off), each with its own amount. Invoice takes all but the deleted claim; Accounts Receivable, the open ones; Rejection, the rejected one only. With one payer box ticked, Invoice takes that payer's claims only. billing-bc-account-reports covers Write-Off and Payments and Refunds. Failed at the Invoice step on 2026.08 before #4805 (#4801's release fix) merged on 18 Oct, and on develop fails until that is forward-merged: the form posts to an address that is not mapped (HTTP 404). Also verifies payment plus internal-adjustment balances, negative history totals and a later payment balancing the private claim: Invoice refreshes and A/R omits it (#3967). On a release WAR with #4805 the original report-selection steps pass. Needs Poppler pdftotext (SKIP without it). The expectedFailure is added with its finding number when the findings log is assembled.",
       "fixtures": "Seeds and removes one FAKE provider (provider, OHIP and billing number one free 5-digit number, last name = the run marker) with its billing-report row, and five claims for it on the workflow's own FAKE patient, made a BC patient. Cleanup deletes every BC billing row of the patient, then the billing-report row and the provider, and asserts each is gone."
     },
     {
@@ -12846,7 +12846,7 @@
       "env": [
         "HOME_DIR"
       ],
-      "notes": "BC Invoice List's ticked-bill buttons, which billing-bc-bill-status-filters (filters only) and billing-bc-reprocess-bill (one bill through Adjust Bill) leave out: Master record ▸ Billing ▸ Invoice List lists the three owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked; Settle settles exactly the two ticked bills, changing nothing else on them, and leaves the unticked bill unchanged in every column; last, Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted (queued for the next Teleplan file), changing nothing else on it, leaves the settled bills unchanged, and sends nothing: no Teleplan batch, log line or submission link, the sequence unmoved, no new file in HOME_DIR (which must exist when set; unset, the step prints that it did not look), and no Teleplan page or write to another host from the browser. PASS expected.",
+      "notes": "BC Invoice List's ticked-bill buttons, which billing-bc-bill-status-filters (filters only) and billing-bc-reprocess-bill (one bill through Adjust Bill) leave out: Master record ▸ Billing ▸ Invoice List lists the three owned bills, with Settle and Reprocess And Resubmit disabled until one is ticked; Settle settles exactly the two ticked bills, changing nothing else on them, and leaves the unticked bill unchanged in every column; last, Reprocess And Resubmit puts exactly the ticked rejected bill back to Not Submitted (queued for the next Teleplan file), changing nothing else on it, leaves the settled bills unchanged, and sends nothing: no Teleplan batch, log line or submission link, the sequence unmoved, no new file in HOME_DIR (which must exist when set; unset, the step prints that it did not look), and no Teleplan page or write to another host from the browser. PASS expected. Also verifies a private bill's PAID excludes internal adjustments while OWED includes them, and both refresh after another payment and adjustment (#3967).",
       "fixtures": "Three MSP bills (billing + billingmaster) for its own FAKE patient, made a BC patient: two paid with explanation (E) and one rejected (R), all dated today, holding the creation date, name check and provider billing numbers a bill-form save stores (a reprocess writes those again). Cleanup deletes every BC billing row of that patient, with the history and notes the saves wrote, and asserts none is left."
     },
     {
@@ -15479,6 +15479,25 @@
         "finding": 312,
         "step": "a discarded draft calculation is handled without a server exception"
       }
+    },
+    {
+      "name": "lab-file-for-others",
+      "script": "scripts/lab-file-for-others-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on",
+        "other"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns a synthetic lab and two throwaway providers; restores the offer preference. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "property:hl7_offer_file_for_others"
+      ],
+      "notes": "Issue #3970: real preferences, consent, atomic rejection, filing comments and audit, and combined acknowledgement dialog."
     },
     {
       "name": "consultation-specialty-selection",

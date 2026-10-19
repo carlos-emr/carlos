@@ -144,6 +144,7 @@ async function login(context) {
 
 async function openPatientFromSearch(context, schedulePage) {
   const searchPopup = context.waitForEvent('page');
+  searchPopup.catch(() => {});
   await schedulePage.locator('a').filter({ hasText: /^Search$/ }).click();
   const searchPage = await searchPopup;
   wirePage(searchPage, 'search');
@@ -157,6 +158,9 @@ async function openPatientFromSearch(context, schedulePage) {
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   const patientPopup = context.waitForEvent('page');
+  // Handle an early waiter rejection even if the click itself fails first, so
+  // the main finally block can remove this check's patient fixture.
+  patientPopup.catch(() => {});
   await searchPage.locator(`a[onclick*='DemographicEdit?demographic_no=${demographicNo}']`).first().click();
   const patientPage = await patientPopup;
   wirePage(patientPage, 'patient');
