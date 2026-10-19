@@ -18,14 +18,18 @@ async function workflow(s){
       const before=JSON.stringify(state()),mark=failureMark(s.recorder);
       await rx.route('**/rx/hideCpp',route=>route.fulfill({status:403,contentType:'text/plain',body:'Synthetic refusal'}));
       try{
-        const [response]=await Promise.all([rx.waitForResponse(isSave),box.check()]);
+        let response;
+        const dialogs=await h.withExpectedDialogs(rx,async()=>{
+          [response]=await Promise.all([rx.waitForResponse(isSave),box.check()]);
+          await rx.waitForLoadState('networkidle');
+        });
         h.assert(response.status()===403,'Refusal fixture did not answer the UI request');
         await rx.waitForLoadState('networkidle');
         consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/rx\/hideCpp$/});
         h.assert(JSON.stringify(state())===before,'Refused Hide CPP changed clinical state');
         h.assert(!await box.isChecked(),'The checkbox claims Hidden after its save was refused');
-        const text=await rx.locator('[role="alert"],.alert-danger,.rx-error').allInnerTexts();
-        h.assert(text.some(x=>/fail|refus|unable|error/i.test(x)),'Refused Hide CPP showed no actionable error');
+        h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&/not saved|fail|refus|unable|error/i.test(dialogs[0].text)
+          &&/try again|reload/i.test(dialogs[0].text),'Refused Hide CPP showed no actionable error');
       }finally{await rx.unroute('**/rx/hideCpp');}
     });
   }else{

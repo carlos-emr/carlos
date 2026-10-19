@@ -9541,7 +9541,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XP...) whose text columns, extension values, custom fields, contact, relationship and tickler carry inert markup, and three providers (doctor, nurse, midwife) with poisoned names. Inserts GLOBALLY VISIBLE poisoned rows while it runs (three active providers): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "The shared DemographicNameAgeTag sink is fixed (#4905). Independent Master Record/Edit field encoding defects remain in finding 118. This broader walk has not been rerun for this fix; its final assertion remains required and the open finding is retained."
+      "notes": "The shared DemographicNameAgeTag sink is fixed (#4905). Independent Master Record/Edit field encoding defects remain in finding 118. This broader walk has not been rerun for this fix; its final assertion remains required and the open finding is retained.",
+      "expectedFailure": {
+        "finding": 118,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-echart",
@@ -9693,7 +9697,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "The patient-label and consultation letterhead script sinks are encoded (#4905, #4910). Other recorded messaging/consultation defects remain in findings 78 and 124, including the specialist page failure. This broader walk has not been rerun for #4910; its final assertion remains required and the independent open findings remain visible."
+      "notes": "The patient-label and consultation letterhead script sinks are encoded (#4905, #4910). Other recorded messaging/consultation defects remain in findings 78 and 124, including the specialist page failure. This broader walk has not been rerun for #4910; its final assertion remains required and the independent open findings remain visible.",
+      "expectedFailure": {
+        "finding": 124,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-billing",

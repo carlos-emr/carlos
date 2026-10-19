@@ -7,7 +7,6 @@ const h=require('./lib/playwright-harness');
 const {runWorkflow,expectValue}=require('./lib/workflow-session');
 const {prepareRx,saveOnly}=require('./lib/rx-ui-workflow');
 const {stageCustomDrug}=require('./rx-stash-patient-isolation-playwright-checks');
-const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support');
 const prn=process.env.RX_INLINE_ACTION==='prn';
 const invalid=['minimum','maximum'].includes(process.env.RX_INLINE_ACTION)?process.env.RX_INLINE_ACTION:null;
 const name=invalid?`rx-inline-${invalid}-validation`:prn?'rx-inline-prn-toggle':'rx-inline-structured-dose-save';
@@ -28,17 +27,26 @@ async function workflow(s){
     await s.step('an invalid numeric dose is refused without losing the card or changing a medication',async()=>{
       const el=rx.locator(`#${invalid}_${key}`);
       await rx.locator(`a[onclick="focusTo('${invalid}_${key}')"]`).click();await el.fill('not-a-number');
-      const mark=failureMark(s.recorder);
-      const [response]=await Promise.all([rx.waitForResponse(r=>property(r,invalid)),el.blur()]);
-      h.assert([400,422].includes(response.status()),`Invalid dose answered HTTP ${response.status()} instead of a validation refusal`);
-      await rx.waitForLoadState('networkidle');
-      consumeExpectedFailure(s.recorder,mark,{status:response.status(),path:/\/rx\/WriteScript$/});
+      let writes=0;
+      const watch=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.endsWith('/rx/WriteScript')
+        &&new URL(request.url()).searchParams.get('parameterValue')==='updateProperty'
+        &&new URLSearchParams(request.postData()).get('elementId')===`${invalid}_${key}`)writes++;};
+      rx.on('request',watch);
+      let dialogs;
+      try{
+        dialogs=await h.withExpectedDialogs(rx,()=>el.blur());
+        await rx.waitForLoadState('networkidle');
+      }finally{rx.off('request',watch);}
+      h.assert(writes===0,'The non-numeric dose was sent instead of being refused on the card');
+      h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&dialogs[0].text.includes('not-a-number')
+        &&/number|numeric|dose/i.test(dialogs[0].text),'Invalid dose showed no correction guidance naming the input');
       h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`)==='1','Invalid dose saved a medication');
       h.assert(await rx.locator(`#drugName_${key}`).isVisible(),'Invalid dose lost the draft');
-      h.assert((await rx.locator('[role="alert"],.alert-danger,.rx-error').allInnerTexts()).some(x=>/dose|number|numeric|valid/i.test(x)),'Invalid dose showed no correction guidance');
+      h.assert(await el.getAttribute('aria-invalid')==='true','The invalid dose field was not identified');
       await rx.locator(`a[onclick="focusTo('${invalid}_${key}')"]`).click();await el.fill('1');
       const [fixed]=await Promise.all([rx.waitForResponse(r=>property(r,invalid)),el.blur()]);
       h.assert(fixed.status()===200,'Corrected dose was refused');
+      await rx.waitForFunction(id=>!document.getElementById(id).hasAttribute('aria-invalid'),`${invalid}_${key}`);
       await saveOnly(rx);
       await expectValue(sql,`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`,'2','Corrected dose did not save once');
       h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${control}`)==='0','Dose correction archived the control');
