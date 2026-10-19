@@ -58,6 +58,9 @@ function listing(directory) {
 
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
+  // Admission belongs to the login provider. Register it before the temporary MRP
+  // so reverse cleanup restores that provider before the admission ownership check.
+  prepareIncomingFilingProgram(s);
   const isolatedMrp = prepareIsolatedMrp(s);
   const mrpProvider = isolatedMrp.number;
   const q = h.sqlString;
@@ -77,8 +80,7 @@ async function workflow(s) {
   const name = { remove: `${marker}-delete.pdf`, keep: `${marker}-keep.pdf`, file: `${marker}-file.pdf` };
   const description = `${marker} incoming MRP filing`;
   const owned = [];
-  // Before the filing cleanup, which the program fixture's own cleanup must follow (callbacks unwind in reverse).
-  prepareIncomingFilingProgram(s);
+  // Reverse cleanup: filing, isolated MRP restore, program/admission, owned patient.
   s.cleanup(() => {
     cleanupFiling(s, description, store);
     for (const file of owned) if (fs.existsSync(file)) fs.unlinkSync(file);
