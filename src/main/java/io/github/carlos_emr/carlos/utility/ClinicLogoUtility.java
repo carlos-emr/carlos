@@ -49,7 +49,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.List;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -71,16 +71,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class ClinicLogoUtility {
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static EctConsultationFormRequestUtil ectConsultationFormRequestUtil;
     private static final float HEADER_HEIGHT = 70f;
     private static final float LOGO_HEIGHT = 65f;
 
     /**
      * Creates a PDF table containing the clinic logo image configured in CARLOS properties.
      *
-     * <p>Resolves the logo from site-specific settings (multi-site mode) or the
-     * {@code clinicLetterheadLogo} / {@code faxLogoInConsultation} properties.
-     * The logo is normally stored in the document directory.</p>
+     * <p>This no-context entry point always uses the configured global
+     * {@code clinicLetterheadLogo} / {@code faxLogoInConsultation} default.
+     * Explicit site calls never leave request context behind for a fax cover.</p>
      *
      * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
@@ -88,61 +87,138 @@ public final class ClinicLogoUtility {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static PdfPTable createLogoHeader() {
-
-        PdfPTable infoTable = new PdfPTable(1);
-        CarlosProperties props = CarlosProperties.getInstance();
-
-        String filename = "";
-        if (props.getProperty("multisites") != null && "on".equalsIgnoreCase(props.getProperty("multisites")) && ectConsultationFormRequestUtil != null) {
-            DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-            SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
-            Site site = siteDao.getById(Integer.valueOf(ectConsultationFormRequestUtil.siteName));
-            if (site != null) {
-                if (site.getSiteLogoId() != null) {
-                    Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    String dir = props.getProperty("DOCUMENT_DIR");
-                    filename = dir.concat(d.getDocfilename());
-                } else {
-                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
-                    filename = props.getProperty("clinicLetterheadLogo");
-                    if (filename == null) {
-                        filename = props.getProperty("faxLogoInConsultation");
-                    }
-                }
-            }
-        } else {
-            filename = props.getProperty("clinicLetterheadLogo");
-            if (filename == null) {
-                filename = props.getProperty("faxLogoInConsultation");
-            }
-        }
-
-        try {
-            File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-            Path path = logoFile.toPath();
-            if (Files.exists(path)) {
-                addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
-            }
-        } catch (SecurityException e) {
-            // A blank/misconfigured logo path must not abort the surrounding document; skip the logo.
-            logger.warn("Skipping clinic logo: invalid logo file path", e);
-        }
-        return infoTable;
-
+        return logoTable(configuredLogo(CarlosProperties.getInstance(), false));
     }
 
     /**
      * Creates a logo header table using the site context from a consultation form request.
      *
-     * <p>Sets the consultation form utility for multi-site logo resolution, then delegates
-     * to {@link #createLogoHeader()}.</p>
+     * <p>This compatibility overload accepts the historical numeric site identifier.
+     * Its request context is local to this call and never affects later global headers.
+     * Name-valued consultation records use {@link #resolveConsultationLogo(String)}.</p>
      *
      * @param ectConsultationFormRequestUtil EctConsultationFormRequestUtil providing site context
      * @return PdfPTable the logo header table
      */
     public static PdfPTable createLogoHeader(EctConsultationFormRequestUtil ectConsultationFormRequestUtil) {
-        ClinicLogoUtility.ectConsultationFormRequestUtil = ectConsultationFormRequestUtil;
-        return createLogoHeader();
+        CarlosProperties props = CarlosProperties.getInstance();
+        String siteId = ectConsultationFormRequestUtil == null ? null : ectConsultationFormRequestUtil.siteName;
+        File logo = siteLogo(props, siteId, false);
+        return logoTable(logo == null ? configuredLogo(props, false) : logo);
+    }
+
+    /**
+     * Resolves a consultation's stored site name without changing its PDF layout.
+     * The current form stores names; a numeric value is a legacy ID only when
+     * no exact name exists. A numeric name must not change ID-only callers.
+     * Consultation headers retain their faxLogoInConsultation-only fallback.
+     */
+    public static File resolveConsultationLogo(String siteName) {
+        CarlosProperties props = CarlosProperties.getInstance();
+        File logo = siteLogo(props, siteName, true);
+        return logo == null ? configuredLogo(props, true) : logo;
+    }
+
+    private static PdfPTable logoTable(File logo) {
+        PdfPTable table = new PdfPTable(1);
+        if (logo != null) {
+            addImage(table, logo, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+        }
+        return table;
+    }
+
+    private static File configuredLogo(CarlosProperties props, boolean consultation) {
+        String filename = consultation ? props.getProperty("faxLogoInConsultation") : props.getProperty("clinicLetterheadLogo");
+        if (!consultation && filename == null) {
+            filename = props.getProperty("faxLogoInConsultation");
+        }
+        if (filename == null || filename.isBlank()) {
+            return null;
+        }
+        try {
+            File file = PathValidationUtils.resolveTrustedPath(new File(filename));
+            if (Files.isRegularFile(file.toPath()) && Files.isReadable(file.toPath())) {
+                return file;
+            }
+        } catch (SecurityException e) {
+            logger.warn("Skipping clinic logo: invalid configured logo path");
+            return null;
+        }
+        logger.warn("Skipping clinic logo: configured logo is unavailable");
+        return null;
+    }
+
+    private static File siteLogo(CarlosProperties props, String reference, boolean nameFirst) {
+        if (!"on".equalsIgnoreCase(props.getProperty("multisites")) || reference == null || reference.isBlank()) {
+            return null;
+        }
+        SiteDao siteDao = SpringUtils.getBean(SiteDao.class);
+        Site site = null;
+        if (nameFirst) {
+            // Do not use findByName: its case-insensitive DB lookup and swallowed
+            // duplicate/query exceptions cannot prove an exact unique name.
+            List<Site> allSites = siteDao.getAllSites();
+            if (allSites == null) {
+                logger.warn("Using configured clinic logo: site lookup is unavailable");
+                return null;
+            }
+            for (Site candidate : allSites) {
+                if (candidate != null && reference.equals(candidate.getName())) {
+                    if (site != null) {
+                        logger.warn("Using configured clinic logo: requested site name is ambiguous");
+                        return null;
+                    }
+                    site = candidate;
+                }
+            }
+        }
+        if (site == null) {
+            Integer id = legacySiteId(reference);
+            if (id != null) {
+                site = siteDao.getById(id);
+            }
+        }
+        if (site == null) {
+            logger.warn("Using configured clinic logo: requested site is unavailable");
+            return null;
+        }
+        if (site.getSiteLogoId() == null) {
+            return null;
+        }
+        DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+        Document document = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
+        if (document == null || document.getDocfilename() == null || document.getDocfilename().isBlank()) {
+            logger.warn("Using configured clinic logo: site logo metadata is unavailable");
+            return null;
+        }
+        try {
+            File directory = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            File logo = PathValidationUtils.resolveTrustedPath(new File(directory, document.getDocfilename()));
+            // Validate and then USE the same canonical file: a DB path or a
+            // symlink must not read outside the configured document store.
+            PathValidationUtils.validateExistingPath(logo, directory);
+            if (Files.isRegularFile(logo.toPath()) && Files.isReadable(logo.toPath())) {
+                return logo;
+            }
+        } catch (SecurityException e) {
+            // The containment helper retains its security diagnostic. Do not
+            // append clinical filenames, site text or causes to this warning.
+            logger.warn("Using configured clinic logo: invalid site logo path");
+            return null;
+        }
+        logger.warn("Using configured clinic logo: site logo file is unavailable");
+        return null;
+    }
+
+    private static Integer legacySiteId(String reference) {
+        try {
+            // Preserve Integer.valueOf's positive legacy forms, including +2
+            // and 002; malformed/overflow/absent references have no site.
+            int id = Integer.parseInt(reference);
+            return id > 0 ? id : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

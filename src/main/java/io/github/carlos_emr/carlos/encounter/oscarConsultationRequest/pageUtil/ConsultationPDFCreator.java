@@ -22,17 +22,15 @@ import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
-import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
-import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.ClinicLogoUtility;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -51,8 +49,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.Set;
@@ -395,31 +391,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         PdfPTable infoTable = new PdfPTable(1);
 
-        String filename = "";
-        if (props.getProperty("multisites") != null && "on".equalsIgnoreCase(props.getProperty("multisites"))) {
-            DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
-            SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
-            Site site = siteDao.getById(Integer.valueOf(reqFrm.siteName));
-            if (site != null) {
-                if (site.getSiteLogoId() != null) {
-                    io.github.carlos_emr.carlos.commn.model.Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    // Validate the DB-stored logo filename stays within DOCUMENT_DIR - a docfilename
-                    // like "../../outside.png" would otherwise resolve outside it and be opened below.
-                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-                    filename = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).getPath();
-                } else {
-                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
-                    filename = props.getProperty("faxLogoInConsultation");
-                }
-            }
-        } else {
-            filename = props.getProperty("faxLogoInConsultation");
-        }
-
-        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
-        Path path = imageFile.toPath();
-        if (Files.exists(path)) {
-            addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
+        // The consultation form stores a site NAME, not its numeric database ID.
+        // Resolve that explicit contract without changing this letter's existing
+        // 50pt/padding-zero logo geometry to the fax cover's different layout.
+        File imageFile = ClinicLogoUtility.resolveConsultationLogo(reqFrm.siteName);
+        if (imageFile != null) {
+            addImage(infoTable, imageFile.getPath(), PageSize.LETTER.getWidth() * 0.5f, 50f);
         }
         return infoTable;
 
