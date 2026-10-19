@@ -78,3 +78,11 @@ test('the legacy encounter uses its own configured context for the check', async
   assert.equal(f.requests[0].pathname, '/clinic/encounter/formExists');
   assert.equal(f.requests[0].searchParams.get('demographicNo'), '123');
 });
+
+test('both encounter layouts load the guard and its dialog dependency', () => {
+  for (const file of ['casemgmt/newEncounterLayout.jsp', 'encounter/includes/encounter-head.jspf']) {
+    const page = fs.readFileSync(`src/main/webapp/WEB-INF/jsp/${file}`, 'utf8');
+    assert.match(page, /jquery-ui-1\.14\.2\.min\.js/);
+    assert.match(page, /\/js\/formOpenGuard\.js/);
+  }
+});

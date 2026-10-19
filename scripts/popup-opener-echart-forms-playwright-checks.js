@@ -11,14 +11,18 @@
  * forwarded without COOP, severing the opener, and menu items registered no
  * reloadWindows entry. The common response filter and Forms menu tracking must
  * keep the opener live, register the popup and refresh after a successful save.
- * Asserts the form opens for the owned patient, Save and Exit writes one
- * formRourke2017 row and closes the popup, and the chart's Forms module then lists
- * the saved form without a manual reload.
- * Fixtures: the owned FAKE- patient; cleanup deletes its formRourke2017 rows and
- * asserts they are gone.
+ * Asserts Save refreshes the chart while preserving its unsaved draft, Save and Exit
+ * appends a historical version and closes, and reopening the template offers the
+ * latest saved version, explicit blank creation, or Cancel. A second open chart
+ * must not borrow the first patient's saved form.
+ * Fixtures: two owned FAKE patients; cleanup removes their support rows and the
+ * Rourke2017 form/checkbox rows, and asserts removal.
  */
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
+const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
+const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { documentChain, openerState, consumeClosingAbort } = require('./lib/popup-opener-helpers');
 
@@ -89,6 +93,26 @@ async function workflow(s) {
       `The chart's Forms module never listed the saved form (the form popup's window.opener was ${state}; `
       + `form documents: ${chain.describe(form)})`);
   });
+  await s.step('A second open chart with no saved form opens blank without borrowing the first chart record', async () => {
+    const marker = newOwnedMarker();
+    const otherPatient = createOwnedPatient(sql, {marker, provider: s.provider});
+    s.cleanup(() => removeOwnedPatient(sql, otherPatient, marker));
+    const secondSchedule = await s.context.newPage();
+    await secondSchedule.goto(s.schedule.url(), {waitUntil: 'domcontentloaded'});
+    const {masterPage} = await openMasterRecord(s.context, secondSchedule, s.recorder, {
+      searchTerm: marker, preferredDemographicNo: otherPatient, timeout: 20000,
+    });
+    const otherChart = await openChart(s.context, masterPage, s.recorder, 20000);
+    await waitForNavbars(otherChart, 20000);
+    const link = otherChart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
+    await revealAuditLink(otherChart, link, 20000);
+    const blank = await s.popup(otherChart, link, 'other-chart-rourke');
+    h.assert(new URL(blank.url()).searchParams.get('demographic_no') === otherPatient, 'The second chart opened the first patient');
+    h.assert(await blank.locator('input[name="formId"]').first().inputValue() === '0', 'The second chart borrowed a saved form');
+    await blank.close();
+    await chart.bringToFront();
+  });
+
   await s.step('Reopening the template warns before starting blank, and Cancel creates no record', async () => {
     const link = chart.locator('#forms .menu a[data-encounter-form-name="Rourke2017"]');
     await revealAuditLink(chart, link, 20000);

@@ -7561,8 +7561,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Regressions #4141/#3354: Rourke2017 retains its opener, Save and Exit refreshes Forms, and reopening its template offers existing, explicit blank, and cancel choices without changing saved versions.",
-      "fixtures": "Owns the synthetic patient; cleanup deletes its formRourke2017 checkbox values and rows and asserts they are gone."
+      "notes": "Regressions #4141/#3354: Rourke2017 retains its opener; Save and Save and Exit refresh Forms without changing the encounter draft; reopening offers existing, explicit blank, and cancel choices; two open charts keep their own patient.",
+      "fixtures": "Owns two synthetic patients; cleanup deletes their support rows and formRourke2017 checkbox values and rows and asserts they are gone."
     },
     {
       "name": "popup-opener-dx-registry-back",

@@ -191,3 +191,10 @@ test('the legacy chart refresh uses encounterConfig and rejects conflicting conf
     if (patient === '123') assert.match(f.actions[0][2], /\/clinic\/encounter\/displayForms/);
   }
 });
+
+test('the generic Save and Exit page supplies either legacy or BC-AR patient parameter to the shared completion helper', () => {
+  const page = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/close.jsp'), 'utf8');
+  assert.match(page, /completeEncounterForm\(window,/);
+  assert.match(page, /not empty param\.demographic_no \? param\.demographic_no : param\.demographicNo/);
+  assert.doesNotMatch(page, /window\.opener\.location\.reload\(/);
+});
