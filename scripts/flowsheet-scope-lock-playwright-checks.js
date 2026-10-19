@@ -3,7 +3,7 @@
 /*
  * Flowsheet editor: which Custom List rows are locked by a HIGHER scope (issue #3962).
  *
- * User path: Master Record > E-Chart > Measurements > Health Tracker > Add Measurements (the patient
+ * User path: Master Record > E-Chart > Measurements > Health Tracker > Edit (the patient
  * editor of the built-in `tracker` flowsheet) > Your Patients > All Patients.
  *
  * EditFlowsheet.jsp used to carry its own copy of the clinic/provider/patient classification and now asks
@@ -20,7 +20,8 @@
  * this page to look at.
  *
  * Fixtures: the owned FAKE-PW patient and three flowsheet_customization rows on `tracker` written by SQL
- * (clinic, provider, patient), each carrying the run marker in its display name. Cleanup deletes the rows
+ * (clinic HT, provider WT, patient BP), each carrying the run marker in its display name; the Custom List
+ * names a row by its measurement type, so the check finds each row by that. Cleanup deletes the rows
  * by marker and asserts they are gone.
  */
 const h = require('./lib/playwright-harness');
@@ -65,7 +66,13 @@ async function workflow(s) {
   const page = await s.popup(chart, trackerLink, 'health-tracker');
   await page.waitForLoadState('networkidle').catch(() => {});
 
-  const row = level => page.locator('table.table-sm tbody tr', {hasText: items[level].display});
+  // The Custom List card, not the measurement table above it (that one offers Hide / Show on inherited items).
+  // A CSS match, not a role query: the card lives in a tab pane that is not the one showing.
+  const customList = page.locator('div.card', {has: page.locator('h4', {hasText: 'Custom List:'})});
+  // The list names a row by its measurement type, not its display name; the three types are distinct.
+  const row = level => customList.locator('tbody tr').filter({
+    has: page.locator('td', {hasText: new RegExp(`^\\s*${items[level].type}\\s*$`)}),
+  });
   const expectLocked = async (level, createdAt, where) => {
     const r = row(level);
     h.assert(await r.count() === 1, `${where}: the Custom List does not show the ${level} item exactly once`);
@@ -84,9 +91,10 @@ async function workflow(s) {
   };
 
   await s.step('the patient editor locks the clinic and provider items and leaves the patient item removable', async () => {
-    await navigate(page, page.getByRole('link', {name: 'Add Measurements'}));
+    // The link reads "Add Measurements" until the patient has a customization, then "Edit"; this patient has one.
+    await navigate(page, page.locator('a[href*="/adminFlowsheet/ViewEditFlowsheet"][href*="demographic="]'));
     h.assert(new URL(page.url()).searchParams.get('demographic') === String(patient),
-      'Add Measurements did not open the editor for this patient');
+      'The tracker\'s Edit link did not open the editor for this patient');
     await expectLocked('clinic', 'clinic', 'patient editor');
     await expectLocked('provider', 'provider', 'patient editor');
     await expectRemovable('patient', 'patient editor');
