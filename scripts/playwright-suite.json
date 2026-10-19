@@ -709,7 +709,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -717,7 +717,8 @@
       "env": [
         "PLAYWRIGHT_TIMEOUT",
         "SMOKE_STAMP"
-      ]
+      ],
+      "fixtures": "One patient named with the run marker (FAKE-PW<16 hex>), created, read, edited and inactivated through the Master Record. The run removes it by its key with its archive, extension, custom, admission and report rows (lib/owned-patient), and asserts it gone; the audit log keeps its entries."
     },
     {
       "name": "demo-data-integrity",
