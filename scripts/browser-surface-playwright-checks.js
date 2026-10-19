@@ -30,6 +30,8 @@ const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { clickOpensPopup } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -215,13 +217,10 @@ async function checkDemographicCrud(context) {
   }
 }
 
-async function clickPopupLink(context, page, selector, label) {
-  const popupPromise = context.waitForEvent('page');
-  await page.locator(selector).first().click();
-  const popup = await popupPromise;
+async function clickPopupLink(context, page, fragment, label) {
+  const popup = await clickOpensPopup(page, masterRecordLink(page, fragment).first(),
+    { context, label, timeout: 30000 });
   wirePage(popup, label);
-  await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   return popup;
 }
 
@@ -240,7 +239,7 @@ async function checkPatientPopups(context, patientPage) {
   const tickler = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='/tickler/ViewTicklerMain']",
+    '/tickler/ViewTicklerMain',
     'tickler'
   );
   await tickler.locator('body').waitFor({ state: 'visible', timeout: 15000 });
@@ -252,7 +251,7 @@ async function checkPatientPopups(context, patientPage) {
   const consultation = await clickPopupLink(
     context,
     patientPage,
-    "a[onclick*='ViewDisplayDemographicConsultationRequests']",
+    'ViewDisplayDemographicConsultationRequests',
     'consultation'
   );
   await consultation.locator('body').waitFor({ state: 'visible', timeout: 15000 });
