@@ -8828,6 +8828,21 @@
       "notes": "A patient's prevention reminders (the Prevention Recommendations box). Steps: a 70-year-old with no flu shot is told \"Needs Flu Shot\" and decision support reports no error; recording a flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises \"Needs repeat Td\". Its last step checks #4998 (no repeat-Td reminder appeared); its fix #5014 merged on 18 Oct. Every earlier step passes."
     },
     {
+      "name": "prevention-screening-reminder-controls",
+      "script": "scripts/prevention-screening-reminder-controls-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, made a 60-year-old woman by SQL; its preventions and their ext rows are removed in cleanup.",
+      "notes": "What a screening's own reminder controls do to the patient's reminders (the Prevention Recommendations box), which the checks that store them (prevention-screening-result, prevention-immunization-site-next-date, prevention-followup-actions) don't read. Steps: a 60-year-old woman whose last mammogram was 30 months ago is told \"Mammogram is overdue for this patient\"; a next date a month ahead holds that back; a next date a month ago gives \"MAM is overdue for this patient\"; LAST, Never Remind shows neither warning, and the list still shows the mammogram."
+    },
+    {
       "name": "prevention-completed-externally",
       "script": "scripts/prevention-completed-externally-playwright-checks.js",
       "tiers": [
@@ -8855,7 +8870,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient (FAKE addresses and 555 phones); the Master Record updates' ext-archive and custom rows are removed in cleanup and checked gone, before the harness removes the patient's ext and archive rows.",
-      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Failed at its last step before #5015, merged 18 Oct (unchanged values were listed once per save, and each phone ended in \"x\"); every earlier step passed."
+      "notes": "Master Record address and phone history. Steps: after two address changes, the Address History popup lists each address with the date it was entered; after two home phone changes, the Home phone History lists each home phone; after two work phone changes, the second with an extension, the Work phone History lists each work phone, the one with an extension followed by \"x\" and the extension; after two cell phone changes, the cell phone History lists each cell phone once; LAST, an address or phone that did not change is listed once, not again for every save that changed something else, and a phone without an extension shows no \"x\". Failed at its last step before #5015, merged 18 Oct (unchanged values were listed once per save, and each phone ended in \"x\"); every earlier step passed."
     },
     {
       "name": "gap-records-hrm-report-actions",
