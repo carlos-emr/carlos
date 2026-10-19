@@ -206,8 +206,8 @@ public class DemographicMerged {
             }
             current = next;
         }
-        logger.warn("Merge cycle detected in demographic_merged chain starting at demographic "
-                + LogSafe.sanitizeObject(demographic_no));
+        logger.warn("Merge cycle detected in demographic_merged chain starting at demographic {}",
+                LogSafe.sanitizeObject(demographic_no));
         return null;
     }
 

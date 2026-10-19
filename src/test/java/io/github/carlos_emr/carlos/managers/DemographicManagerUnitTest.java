@@ -1387,14 +1387,18 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             alreadyMerged.setMergedTo(1000);
             when(mockDemographicMergedDao.findCurrentByDemographicNo(1001)).thenReturn(List.of(alreadyMerged));
 
+            List<Integer> plainSource = List.of(1002);
+            List<Integer> sourcesWithMerged = List.of(1002, 1001);
+            List<Integer> selfSource = List.of(1000);
+
             // the target is itself merged into another record
-            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1001, List.of(1002)))
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1001, plainSource))
                 .isInstanceOf(IllegalArgumentException.class);
             // a source that is already merged
-            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1002, 1001)))
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, sourcesWithMerged))
                 .isInstanceOf(IllegalArgumentException.class);
             // a record merged into itself
-            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, List.of(1000)))
+            assertThatThrownBy(() -> manager.mergeDemographics(mockLoggedInInfo, 1000, selfSource))
                 .isInstanceOf(IllegalArgumentException.class);
 
             verify(mockDemographicMergedDao, never()).persist(any(DemographicMerged.class));

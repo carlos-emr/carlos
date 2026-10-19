@@ -63,6 +63,8 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DemographicMergeRecord2Action extends ActionSupport {
+    private static final String FAILURE = "failure";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,7 +87,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         }
 
         if (request.getParameterValues("records") == null) {
-            return "failure";
+            return FAILURE;
         }
         String outcome = "success";
         ArrayList<String> records = new ArrayList<String>(Arrays.asList(request.getParameterValues("records")));
@@ -100,11 +102,11 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             // Validate every id before the first write so a rejected request leaves no partial merge behind.
             if (!isMergeable(dmDAO, records, head)) {
                 logger.warn("Rejected demographic merge: a selected record is not a mergeable head record");
-                outcome = "failure";
+                outcome = FAILURE;
             } else {
-                for (String record : records) {
-                    if (!record.equals(head))
-                        dmDAO.Merge(loggedInInfo, record, head);
+                for (String recordId : records) {
+                    if (!recordId.equals(head))
+                        dmDAO.Merge(loggedInInfo, recordId, head);
 
                 }
             }
@@ -118,7 +120,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             }
 
         } else {
-            outcome = "failure";
+            outcome = FAILURE;
         }
         request.setAttribute("mergeoutcome", outcome);
 
@@ -137,13 +139,13 @@ public class DemographicMergeRecord2Action extends ActionSupport {
      */
     private static boolean isMergeable(DemographicMerged dmDAO, List<String> records, String head) {
         try {
-            for (String record : records) {
-                if (dmDAO.isMergedSource(Integer.parseInt(record))) {
+            for (String recordId : records) {
+                if (dmDAO.isMergedSource(Integer.parseInt(recordId))) {
                     return false;
                 }
             }
             return !dmDAO.isMergedSource(Integer.parseInt(head));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
