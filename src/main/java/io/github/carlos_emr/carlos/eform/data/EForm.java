@@ -39,6 +39,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
@@ -87,7 +88,7 @@ public class EForm extends EFormBase {
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
-    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in the CDN alias. */
+    /** A whole opening &lt;script ...&gt; tag, for the SRI strip in jQuery aliases. */
     private static final Pattern ALIASED_SCRIPT_TAG =
             Pattern.compile("<script\\b[^>]*>", Pattern.CASE_INSENSITIVE);
     /** An {@code integrity=} or {@code crossorigin=} attribute, either quoting style. */
@@ -582,6 +583,7 @@ public class EForm extends EFormBase {
                     .replace(attributeReference(legacy), attributeReference(assetUrl))
                     .replace(singleQuotedAttributeReference(legacy), singleQuotedAttributeReference(assetUrl));
         }
+        boolean aliasedToLocalBundle = !html.equals(rewritten);
         // A webapp-relative reference to a jQuery build this CARLOS no longer ships. 28 of 199
         // shared-corpus packages pin /library/jquery/jquery-3.6.4.min.js, which 404s and takes the
         // form's scripts down with it. This is CARLOS's own library path, not a third-party host,
@@ -597,42 +599,43 @@ public class EForm extends EFormBase {
         for (String legacyPath : LEGACY_LIBRARY_JQUERY_PATHS) {
             for (String prefix : new java.util.LinkedHashSet<>(java.util.List.of(contextPath, "..", ""))) {
                 String reference = prefix + legacyPath;
+                String before = rewritten;
                 rewritten = rewritten
                         .replace(attributeReference(reference), attributeReference(assetUrl))
                         .replace(singleQuotedAttributeReference(reference), singleQuotedAttributeReference(assetUrl));
+                aliasedToLocalBundle |= !before.equals(rewritten);
             }
         }
-        boolean aliasedFromCdn = false;
         for (String cdnUrl : CDN_JQUERY_URLS) {
             String before = rewritten;
             rewritten = rewritten
                     .replace(attributeReference(cdnUrl), attributeReference(assetUrl))
                     .replace(singleQuotedAttributeReference(cdnUrl), singleQuotedAttributeReference(assetUrl));
-            aliasedFromCdn |= !before.equals(rewritten);
+            aliasedToLocalBundle |= !before.equals(rewritten);
         }
-        return aliasedFromCdn ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
+        return aliasedToLocalBundle ? stripSubresourceIntegrity(rewritten, assetUrl) : rewritten;
     }
 
     /**
      * Drops {@code integrity}/{@code crossorigin} from script tags whose src we just re-pointed at
      * the local bundle.
      *
-     * <p>Corpus forms pin their CDN jQuery with Subresource Integrity, e.g.
-     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the CDN's
+     * <p>Corpus forms pin their CDN or legacy jQuery with Subresource Integrity, e.g.
+     * {@code integrity="sha256-gvQgAFz…" crossorigin="anonymous"}. That hash describes the original
      * bytes, so once the src points at our own bundle the browser finds no valid digest and
      * <em>refuses to execute the script at all</em> — leaving the form worse off than before the
      * alias. The integrity guarantee is not lost, only relocated: the replacement is a local file
      * we ship and serve ourselves, not something fetched over the network.</p>
      *
-     * <p>Scoped to tags carrying the alias URL so a form's own SRI on any other resource is left
-     * intact.</p>
+     * <p>Scoped to tags whose actual {@code src} equals the alias URL so a form's own SRI on any
+     * other resource is left intact, even if a data attribute mentions the local bundle.</p>
      */
     private static String stripSubresourceIntegrity(String html, String assetUrl) {
         Matcher scriptTag = ALIASED_SCRIPT_TAG.matcher(html);
         StringBuilder out = new StringBuilder();
         while (scriptTag.find()) {
             String tag = scriptTag.group();
-            if (!tag.contains(assetUrl)) {
+            if (!tag.contains(assetUrl) || !hasSrcAttribute(tag, assetUrl)) {
                 scriptTag.appendReplacement(out, Matcher.quoteReplacement(tag));
                 continue;
             }
@@ -641,6 +644,15 @@ public class EForm extends EFormBase {
         }
         scriptTag.appendTail(out);
         return out.toString();
+    }
+
+    /**
+     * Reads only the opening tag's attributes, accepting HTML whitespace and either quote style.
+     * The parsed fragment is never serialized: viewer markup and document.write strings stay raw.
+     */
+    private static boolean hasSrcAttribute(String tag, String assetUrl) {
+        Element script = Jsoup.parseBodyFragment(tag).selectFirst(SCRIPT_TAG);
+        return script != null && assetUrl.equals(script.attr("src"));
     }
 
     /** {@code src="<url>"} — built via format so no value is concatenated between quote literals. */
