@@ -53,6 +53,7 @@
  *
  * After the recipient first sees the lab, re-forwarding also covers #3878: a removed (X) row
  * is reused and visible in their Inbox again; A, F and N rows retain their review fields.
+ * A removed legacy duplicate alongside an A, F or N row stays removed and preserves Inbox visibility.
  *
  * Fixtures: the owned FAKE- patient (runWorkflow; its NULL HIN set to the empty HIN the demographic form
  * stores, which the Inbox name search needs, after the labs are matched), a throwaway provider login that is
@@ -448,6 +449,33 @@ async function workflow(s) {
       const before = theirs('HL7', labPopup.labNo);
       await forwardPopupAgain();
       h.assert(theirs('HL7', labPopup.labNo) === before, `Repeat forwarding changed the ${status} routing review fields`);
+    }
+  });
+
+  await s.step('removed legacy duplicates do not reopen an existing recipient review', async () => {
+    const originalId = sql.value(`SELECT id FROM providerLabRouting WHERE ${recipientScope}`);
+    const beforeMine = mine('HL7', labPopup.labNo);
+    const beforeOthers = others('HL7', labPopup.labNo);
+    sql.execute(`INSERT INTO providerLabRouting (provider_no, lab_no, lab_type, status, comment, timestamp)
+      VALUES (${q(recipientNo)}, ${labPopup.labNo}, 'HL7', 'X', 'synthetic removed duplicate', '2000-01-01 00:00:00')`);
+    try {
+      for (const status of ['A', 'F', 'N']) {
+        sql.execute(`UPDATE providerLabRouting SET status=${q(status)} WHERE ${recipientScope} AND id=${originalId}`);
+        const before = theirs('HL7', labPopup.labNo);
+        await search(recipientInbox);
+        const visibleBefore = (await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`);
+        h.assert(visibleBefore === (status === 'N'), `Unexpected Inbox visibility for ${status} plus removed duplicate`);
+        await forwardPopupAgain();
+        h.assert(theirs('HL7', labPopup.labNo) === before,
+          `Forwarding changed the ${status} routing or its removed duplicate`);
+        await search(recipientInbox);
+        h.assert((await shownRows(recipientInbox)).includes(`HL7:${labPopup.labNo}`) === visibleBefore,
+          `Forwarding changed Inbox visibility for ${status} plus removed duplicate`);
+      }
+      h.assert(mine('HL7', labPopup.labNo) === beforeMine, 'Duplicate routing changed the sender routing');
+      h.assert(others('HL7', labPopup.labNo) === beforeOthers, 'Duplicate routing changed another provider routing');
+    } finally {
+      sql.execute(`DELETE FROM providerLabRouting WHERE ${recipientScope} AND id<>${originalId}`);
     }
   });
 

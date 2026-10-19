@@ -194,6 +194,21 @@ class ProviderLabRoutingCreationUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"A", "F", "N"})
+    @DisplayName("should keep removed duplicates inactive when a clinical routing already exists")
+    void shouldPreserveMixedDuplicateRouting_whenForwardedAgain(String status) throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7','X')");
+            fixture.jdbc.update("INSERT INTO routing VALUES(170,'999998','HL7',?)", status);
+            fixture.route(0, true);
+            assertThat(fixture.jdbc.queryForList("SELECT status FROM routing", String.class))
+                    .containsExactlyInAnyOrder("X", status);
+            verify(fixture.dao, never()).persist(any());
+            verify(fixture.dao, never()).merge(any());
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = {0, 1, 2})
     @DisplayName("should reuse removed routing and apply forwarding once even with a cycle")
     void shouldReactivateAndForward_oncePerProvider(int entrypoint) throws Exception {

@@ -92,8 +92,9 @@ public class ProviderLabRouting {
 
     /**
      * Creates missing provider routing and forwarding rows in the acknowledgement lock domain.
-     * Removed rows are reactivated using the current forwarding rules. Acknowledged,
-     * filed and new routing status is preserved on repeated delivery.
+     * Removed rows are reactivated using the current forwarding rules only when no
+     * active matching routing exists. Acknowledged, filed and new routing status is
+     * preserved on repeated delivery, including alongside legacy removed duplicates.
      * @param labId report identifier
      * @param provider_no destination provider identifier
      * @param labType exact routing type
@@ -119,14 +120,15 @@ public class ProviderLabRouting {
         if (!visited.add(providerNo)) return false;
         List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, providerNo);
         boolean created = routings.isEmpty();
+        boolean hasActiveRouting = routings.stream().anyMatch(row -> !"X".equals(row.getStatus()));
         ForwardingRules rules = new ForwardingRules();
         boolean changed = false;
         for (ProviderLabRoutingModel row : routings) {
-            boolean reactivated = "X".equals(row.getStatus());
+            boolean reactivated = !hasActiveRouting && "X".equals(row.getStatus());
             boolean promoted = demographicNo == null && row.getMrpDemographicNo() != null;
             if (reactivated) {
-                // Reuse the removed assignment; forwarding must restore inbox visibility
-                // without reopening another row's acknowledgement or filing decision.
+                // Inspect every matching row first: a removed legacy duplicate must
+                // not reopen an existing acknowledgement or filing decision.
                 row.setStatus(rules.getStatus(providerNo, labType));
                 row.setTimestamp(new Date());
             }
