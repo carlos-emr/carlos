@@ -136,6 +136,7 @@ async function workflow(s) {
     h.assert(await form.locator('[name="reasonForConsultation"]').inputValue() === reason, 'Referral reason was lost');
     h.assert(await form.locator('[name="clinicalInformation"]').inputValue() === clinical, 'Clinical information was lost');
     h.assert(await form.locator('#service').inputValue() === service, 'Service selection was lost');
+    h.assert(await form.locator('#serviceInput').inputValue() === marker, 'Service name was lost');
     if (!requestId) {
       for (const field of letterheadFields) h.assert(await form.locator(`#${field}`).inputValue() === savedLetterhead[field],
         `${field} was overwritten on the retry form`);
@@ -180,14 +181,16 @@ async function workflow(s) {
   });
   await s.step('legacy unassigned consultation remains readable and invalid updates preserve it', async () => {
     const requestId = sql.value(`SELECT requestId FROM consultationRequests WHERE demographicNo=${patient}`);
-    // Model an explicitly unassigned historical referral; normal saves must assign it.
+    // Model an unassigned historical referral whose service was later deactivated.
     sql.execute(`UPDATE consultationRequests SET specId=NULL, signature_img=NULL WHERE requestId=${requestId};
+      UPDATE consultationServices SET active='02' WHERE serviceId=${service};
       DELETE FROM DigitalSignature WHERE demographicId=${patient}`);
     form = await s.context.newPage();
     h.wireStrictPage(form, 'legacy-unassigned', s.recorder);
     await form.goto(`${s.config.baseUrl}/encounter/ViewRequest?requestId=${requestId}`);
     await waitForm();
     h.assert(await form.locator('[name="reasonForConsultation"]').inputValue() === reason, 'Legacy referral is unreadable');
+    h.assert(await form.locator('#serviceInput').inputValue() === marker, 'Legacy inactive service name was lost');
     for (const id of ['', 'abc', inactive]) await reject(id, 'Update Consultation Request', requestId);
     h.assert(sql.value(`SELECT IFNULL(specId,'unassigned') FROM consultationRequests WHERE requestId=${requestId}`) === 'unassigned',
       'Rejected update changed the legacy consultant');

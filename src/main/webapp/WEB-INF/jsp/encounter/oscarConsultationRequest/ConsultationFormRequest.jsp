@@ -3437,7 +3437,7 @@ if (userAgent != null) {
                                         }
                                         initializeConsultation(
                                             restoredService,
-                                            (allServicesData.find(function(s) { return String(s.serviceId) === '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>'; }) || {}).serviceDesc || '',
+                                            '<carlos:encode value='<%= consultUtil.getServiceName(thisForm.getService()) %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= request.getAttribute("consultationSubmittedValues") == null ? consultUtil.specialist : thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
