@@ -11,12 +11,14 @@
  * emailLog/emailAttachment rows, that the patient's .invalid address is never sent to, that a send
  * with the sink closed is reported as NOT sent and logged FAILED, that Manage Emails lists and
  * filters exactly the owned log rows, and that Resolve persists RESOLVED.
- * Fixtures: owned emailConfig, eForm template, patient email; cleanup removes the owned log,
+ * Fixtures: owned emailConfig, eForm template, patient email and, when none is saved, a FAKE clinic
+ * email footer (scripts/lib/clinic-email-footer-fixture.js); cleanup removes the owned log,
  * attachment, eForm and config rows and asserts them gone. EXCLUSIVE=1: the owned sender is offered
  * clinic-wide while the check runs. Implements coverage plan §3.7 admin-email-config.
  */
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
+const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
@@ -92,6 +94,8 @@ async function workflow(s) {
   if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(s.config.baseUrl.hostname.toLowerCase())) {
     throw new h.SkipCheck('The SMTP sink binds the runner\'s loopback, which CARLOS can reach only when BASE_URL is loopback');
   }
+  // Send stays disabled until a clinic email footer is saved (#3981).
+  ensureClinicEmailFooter(s);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const recipient = `patient-${hex}@example.com`;

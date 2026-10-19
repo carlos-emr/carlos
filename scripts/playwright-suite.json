@@ -4545,6 +4545,35 @@
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "email-footer-settings",
+      "script": "scripts/email-footer-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Changes clinic-wide footer settings while it runs (restored after), so it must not run concurrently with checks that send email (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Snapshots the clinic rows of email_footer_clinic_default, email_footer_clinic_mode and email_footer_logo_shown and restores them exactly; a FAKE clinic footer when none is saved; never uploads a logo (both pictures offered are refused); removes the audit rows it wrote."
+    },
+    {
+      "name": "email-personal-footer-window",
+      "script": "scripts/email-personal-footer-window-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Snapshots the test user's own email_footer rows and restores them exactly; FAKE footer text only; removes the audit rows it wrote."
+    },
+    {
       "name": "eform-email-two-windows",
       "script": "scripts/eform-email-two-windows-playwright-checks.js",
       "tiers": [
@@ -6277,8 +6306,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and one marker tickler seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, eChart rows and the tickler, and asserts it.",
-      "notes": "Expected to FAIL at the last step 'chart-note writes refuse GET/HEAD, and the tickler note dialog itself saves by POST': CaseManagementEntry method=issueNoteSave and method=ticklerSaveNote write on GET, and ticklerMain.jsp saveNoteDialog() sends its save as a GET."
+      "fixtures": "Owned synthetic patient (E-Chart lock taken by opening the chart) and two marker ticklers seeded by SQL; cleanup deletes the patient's notes, note links/exts/issue links, casemgmt_issue, casemgmt_cpp, casemgmt_tmpsave, eChart rows and the ticklers, and asserts it.",
+      "notes": "The CaseManagementEntry methods that change a note, an issue, a draft or a note lock accept only POST (CaseManagementEntry2Action.POST_ONLY_METHODS); both tickler note dialogs (ticklerMain.jsp, ticklerDemoMain.jsp) save by POST."
     },
     {
       "name": "get-reject-eform-editor",
@@ -10910,6 +10939,19 @@
         "step": "the stored row is unchanged after the patient was found and its Master Record opened"
       },
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "portal-booking-prompt",
+      "script": "scripts/portal-booking-prompt-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": ["PORTAL_BOOKING_SCREENSHOT", "CHROME_PATH"]
     },
     {
       "name": "sms-history",

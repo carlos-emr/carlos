@@ -103,6 +103,70 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
+## Email Footers
+
+By default every new CARLOS email requires the current clinic footer. An administrator sets its text on **Admin > Emails > Configure Email**; staff cannot edit or remove that clinic text from an individual email. While the footer is required, an empty clinic setting refuses preparation before any outbox row, archive, or transport action; compose disables Send and says where to set it, and a Patient Portal invitation is refused before the portal prepares any code (`clinic_footer_missing`). Before enabling production mail, configure a real clinic footer and verify it with the clinic. This change supplies no invented contact details.
+
+**Edit footer** opens one window holding the text, whether the clinic footer is **Required** (the default, and the behaviour before this choice existed) or **Off**, and **Add a logo to emails**; its **Save footer** saves all three in one step, with no second Save button on the page (My Email Footer's window saves the personal footer the same way). The window's choices are as follows. Off means emails sent from CARLOS carry no clinic footer and no logo and may be sent without one; personal footers are still added, and compose and My Email Footer say the footer is turned off. Off covers CARLOS's own emails only: the Patient Portal's emails still need the saved clinic footer (see below). The text and both choices are saved in one transaction under the footer lock, and each change is audited (`emailFooterClinicDefault`, `emailFooterClinicMode`, `emailFooterLogoShown`). Changing it, like changing the text, refuses a draft prepared before the change until staff review the new preview.
+
+A refused save (too long, or saved over a footer another administrator changed meanwhile) keeps what was typed: the text, and the choices made with it, come back in the window, marked not saved, for one view; a logo upload after that carries them through its own reload. After another administrator's change, the current footer is in the editor and the typed text is shown beside it to copy from.
+
+The compose screen shows optional personal text above a separate, read-only clinic preview. **Edit footer** changes only the personal text for that email. Removing all personal text keeps the clinic footer. An eForm's `footerEmail` supplies optional personal text, interpreted as plain text with its spacing and line breaks retained; changing the sender account does not change these footers. Saved personal defaults are managed under Preferences > Personal email footer, which opens the footer window on the Preferences page itself: the window reads the saved footer from the server and its one **Save footer** saves it there (an AJAX POST with the page's CSRF token, refused if the footer changed in another window meanwhile). The compose screen's **Edit my saved personal footer** opens the same window for the saved footer, leaving the email's own footer as it is. **My Email Footer** (`/email/myEmailFooter`) stays for direct visits and browsers without the window's scripts. A new composer uses the logged-in user’s saved personal text when an eForm supplies no personal field; an explicitly empty eForm field means no personal text. Clearing the saved personal default never removes the mandatory clinic footer. Clinic edits do not replace personal text. The optional “Also save this as my personal footer” updates only personal text after confirmed transport acceptance; failure or uncertain acceptance leaves the default unchanged. A failure to confirm that optional update keeps the result window open for review.
+
+At new send preparation, the server reads the current trusted clinic text and logo. If either differs from the server-owned compose preview, it refuses before outbox/archive/transport, preserves personal text, refreshes the clinic preview and issues a new single-use submission token. Staff review the changed preview and send again. Once an outbox row and message are prepared, that footer and logo stay frozen through dispatch and history even if an administrator edits the clinic setting.
+
+Both SMTP and SendGrid send a plain-text and formatted version, in order: message, optional personal footer, clinic logo in HTML, clinic footer. Formatting permits bold, italic, paragraph/div line breaks and HTTPS or mailto links. Server cleaning is authoritative; browser DOMPurify supports editing and preview. Both footers remain outside the password-protected message PDF and outside the chart note. Never put patient information in either footer.
+
+`emailLog.footer` stores the cleaned combined footer used to prepare the email. The outbound archive retains the prepared MIME/API payload and logo; usable portal invitation credentials are removed from every decoded archived text alternative before transport, while the transmitted copy stays unchanged. Redacted archive copies may be re-encoded. **Manage Emails** displays saved footer text in a section initially collapsed, with delivery status separate. A legacy log without footer content says none was recorded, rather than showing today's clinic setting. A resend is a new preparation with current clinic settings and the logged-in user’s current saved personal text; historical combined content never becomes the new personal footer.
+
+Each personal or clinic footer may contain at most 2,000 UTF-16 text units (including expanded link addresses) and 10,000 HTML units. Oversize submissions are refused. The combined UTF-8/base64 representation must fit the existing footer storage field; it is refused rather than cut. Plain eForm personal text is capped before compose by the existing eForm workflow.
+
+An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 200 pixels. The page checks the type, file size and pixel size before sending a picture, naming both limits, so a picture CARLOS would refuse never reloads the page; the server checks everything again. CARLOS decodes and re-saves it, removes metadata, and embeds verified bytes under a CID rather than a hosted URL. Replaced/removed logo rows and admin changes remain auditable. Use RGB/grayscale; unsupported JPEG variants are refused. More than 64 raw JPEG start-of-scan markers are refused before decoding, conservatively including marker bytes in metadata.
+
+Until a clinic uploads its own logo, emails carry the CARLOS logo (the 96 × 96 "birdman", shipped as `email/carlos-default-email-logo.png`); **Remove logo** takes the clinic's own away and the CARLOS logo takes its place. **Add a logo to emails**, in the Edit footer window (on by default), is the one way to send without a logo; off, no logo goes into emails, previews or the Patient Portal footer snapshot. *Upgrade note:* clinics that never uploaded a logo start sending the CARLOS logo with every patient email after this change.
+
+**Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer, even when an administrator turned the footer **Off** for CARLOS's own emails (a Portal follow-up may change this). Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. In Configure Email, staff with `_admin` READ can expand Patient Portal email footer history for a UTC date. Each attempt starts collapsed and displays the saved plain footer text and its separately recorded prepared/accepted/failed/unknown outcome. The viewer signs an audit-read request to the existing private Portal API; it never substitutes current clinic text for missing or unavailable history. Older results use an exclusive cursor. An unavailable audit service leaves clinic configuration visible and shows a localized error; it does not display an empty-history success.
+
+**Portal footer read credential.** The Portal's web and outbox processes need
+`PATIENT_PORTAL_EMAIL_FOOTER_READ_TOKEN`: a credential derived from CARLOS's `patient_portal.service_token`
+and `patient_portal.clinic_id` that opens only `/ws/portal/email-footer`. If it does not match, CARLOS answers
+401 and the Portal refuses every email. Derive it on the CARLOS server as root. The script reads the override
+properties file (Debian: `/etc/carlos-emr/carlos.properties`), so neither secret appears on a command line, and
+writes the result to a new private file. It expects plain `key=value` lines; CARLOS ignores spaces around the
+value and uses the last line for a key, and so does the script. It does not decode Java properties escapes, so a
+service token containing `\` gives a credential that does not match (the check below then answers 401).
+
+```sh
+umask 077
+python3 - /etc/carlos-emr/carlos.properties > /root/portal-footer-read-token <<'EOF'
+import hashlib, hmac, sys
+values = {}
+for line in open(sys.argv[1], encoding="utf-8"):
+    key, sep, value = line.partition("=")
+    if sep and key.strip() in ("patient_portal.service_token", "patient_portal.clinic_id"):
+        values[key.strip()] = value.strip()
+token = values["patient_portal.service_token"].encode("utf-8")
+clinic = values["patient_portal.clinic_id"].encode("utf-8")
+message = b"carlos-portal-email-footer-read-v1\0" + len(clinic).to_bytes(8, "big") + clinic
+print(hmac.new(token, message, hashlib.sha256).hexdigest())
+EOF
+```
+
+Copy the 64-character value into the Portal's private deployment files for web and outbox. Then check it
+from the Portal host with bash, reading the value from a private file there; it stays off the command line here too:
+
+```bash
+nonce=$(python3 -c 'import base64, secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode())')
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -H @<(printf 'Authorization: Bearer %s\n' "$(cat /root/portal-footer-read-token)") \
+  "https://carlos.example.ca/carlos/ws/portal/email-footer?nonce=$nonce"
+```
+
+`200` means the Portal can read the footer. `401`: the credential does not match the current service token and
+clinic id. `503`: no clinic footer is saved, or CARLOS's Portal signing settings are incomplete. Delete
+`/root/portal-footer-read-token` afterwards. Derive a new credential whenever the service token or clinic id changes.
+
+**Web application firewall.** Personal HTML is posted in `footerEmail`; admin clinic HTML uses `clinicFooter`. No broad XSS exemption is added. Test the configured ModSecurity rules and real clinic formatting before production deployment. These checks have not been run in the current private environment.
 ## Local Development
 
 Local development must not send real patient email.
@@ -382,6 +446,9 @@ is not the same as true end-to-end encrypted email.
 Password-protected PDFs reduce exposure for attachments or message PDFs, but the
 password clue and surrounding email body remain normal email content. Choose
 subjects, body text, and password clues accordingly.
+
+The footer and the clinic logo are always normal email content, even when the
+message is encrypted. Never put patient information in a footer.
 
 ## Known Gaps and Related Work
 
