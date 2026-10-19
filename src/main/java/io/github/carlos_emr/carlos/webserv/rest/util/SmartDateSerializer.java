@@ -29,9 +29,10 @@ import java.util.Date;
  * or a clock time (a {@code TIME} column, always on 1970-01-01). A field that holds a full
  * timestamp would otherwise turn into a string whenever its value happened to fall on midnight,
  * and integrations that read epoch milliseconds break on it (issue #3877). Such a field must carry
- * {@code @JsonFormat(shape = JsonFormat.Shape.NUMBER)}; {@code RestTransferObjectDateShapeContractUnitTest}
- * fails the build for a REST transfer object {@code Date} that is neither annotated nor listed
- * there as a calendar date or clock time.
+ * {@code @JsonFormat(shape = JsonFormat.Shape.NUMBER)}, including on an entity a REST response
+ * embeds. {@code RestTransferObjectDateShapeContractUnitTest} walks every {@code Date} a
+ * {@code /ws/services} response can carry and fails the build for one that is neither epoch-shaped
+ * nor listed there as a calendar date or clock time.
  */
 public class SmartDateSerializer extends JsonSerializer<Date> implements ContextualSerializer {
 
