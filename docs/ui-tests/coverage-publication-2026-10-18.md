@@ -111,3 +111,15 @@ The original issue audit remains a dated record. The post-publication total adds
 one newly tracked finding (312) and one grouped ticket (#5036); the original
 missing-DIN ticket is reused. The primary contribution's 83 registrations remain
 intact, alongside these two additions and the latest release's independent tests.
+
+The follow-up integrates release `fefceecc62aa` (#4927), preserving all 836
+release registrations and adding the two callback checks: **838 entries**. Its
+Rx selection covers 104 distinct checks, including the upstream print/pharmacy
+workflow and revised Rx-notes path. Latest actual results are 101 passes and
+three exact known failures (Info finding 311; both discarded-card callbacks
+finding 312), with zero unexpected failures/skips and clean residue audits.
+The readable journal is mandatory for these server-error assertions. The fresh
+package evidence remains pinned to application source `4c33e615976`; its affected
+Rx controller and DrugRef pin are unchanged in `fefceecc62aa`. The inherited
+release also changes CSRF replay diagnostics; this is not a claim of a freshly
+built WAR for the follow-up test head.

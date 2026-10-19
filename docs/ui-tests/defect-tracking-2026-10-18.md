@@ -150,3 +150,27 @@ See the [validation report](ui-path-coverage-2026-10-18.md),
 [Rx action matrix](rx-workflow-coverage-2026-10-18.md),
 [31-round ledger](workflow-expansion-rounds-2026-10-18.md), and
 [complete application findings](app-findings-log.md).
+
+## Post-publication verification — 19 October 2026 UTC
+
+The dated audit above is retained. Fresh Ubuntu deb validation at
+`4c33e615976` adds one confirmed finding, current register **312**, grouped in
+[#5036](https://github.com/carlos-emr/carlos/issues/5036): delayed quantity and
+directions calculations for a card discarded in another Rx window log NPEs.
+Both real-UI checks preserve the absent draft and unchanged control medication
+before their exact server-error assertion fails. Open/closed issue and PR
+searches for the endpoint, source method, quantity/NPE and stale/discarded
+callbacks found no matching tracker; the latest release has the same affected
+Rx source. The created ticket was read back and verified.
+
+The missing-DIN server exception remains covered by open
+[#5006](https://github.com/carlos-emr/carlos/issues/5006), current finding **311**.
+Its earlier fixed classification was too broad: the CARLOS empty-reply fix did
+not change the pinned DrugRef absence path. The log-required assertion and exact
+known-failure classification are retained. No duplicate ticket or server-log
+suppression is added. Closed #4915 remains the separate, fixed no-match placeholder.
+
+Across the campaign and this follow-up, 29 recorded findings are covered by
+14 newly created grouped tickets (22 initially untracked findings) and seven
+reused trackers. The original 28-finding audit and original IDs remain historical
+evidence; finding 312 has no pre-publication ID.

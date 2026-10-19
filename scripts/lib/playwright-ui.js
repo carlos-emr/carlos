@@ -763,6 +763,20 @@ const REQUIRED_SECTIONS = [
   'administration', 'preferences', 'logout',
 ];
 
+/**
+ * Hover the eChart Forms module's "+" (#menuTitle1 a) so its Add Form menu (#menu1) shows.
+ *
+ * The hover is forced. showPopup (share/javascript/popupmenu.js) opens the menu under the cursor (offsets -30/-5),
+ * so after the mouseover the menu's own heading covers the "+", and on a layout where it does Playwright's
+ * actionability re-check never settles ("locator.hover: Timeout", before the check reaches its form). A user simply
+ * lands in the open menu. Callers still prove the entry by finding its link in the menu and clicking it.
+ *
+ * @param {import('playwright').Page} chart the eChart page
+ */
+async function openFormsMenu(chart) {
+  await chart.locator('#menuTitle1 a').hover({ force: true });
+}
+
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
@@ -777,6 +791,7 @@ module.exports = {
   expectOpenerRefresh,
   inFrame,
   markOpener,
+  openFormsMenu,
   pathOnly,
   pickDate,
   pressShortcut,

@@ -28,7 +28,6 @@
  * own FAKE patient made a BC patient. Cleanup deletes every BC billing row of that patient, then the
  * codes and the physician, and asserts each is gone. BC installs only (billregion=BC).
  */
-const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
@@ -37,40 +36,6 @@ const { masterRecordLink } = require('./lib/master-record-link');
 
 const TIMEOUT = 30000;
 const FEE = '12.34';
-
-function unused(sql, prefix, digits, taken) {
-  for (let i = 0; i < 50; i++) {
-    const candidate = prefix + String(randomInt(0, 10 ** (digits - prefix.length))).padStart(digits - prefix.length, '0');
-    if (!taken(candidate)) return candidate;
-  }
-  throw new Error(`No free ${digits}-character number with prefix ${prefix}`);
-}
-
-/** A billing physician the BC form lists: the test login's provider row with FAKE BC numbers. */
-function createBillingPhysician(s) {
-  const { sql, marker, provider } = s;
-  const q = h.sqlString;
-  const owned = {};
-  s.cleanup(() => {
-    if (!owned.providerNo) return;
-    sql.execute(`DELETE FROM provider WHERE provider_no=${q(owned.providerNo)} AND last_name=${q(marker)}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(owned.providerNo)}`) === '0', 'The owned billing physician was not removed');
-  });
-  owned.providerNo = unused(sql, '97', 6, c => sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(c)}`) !== '0');
-  owned.ohipNo = unused(sql, '9', 5, c => sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE ohip_no=${q(c)})
-    + (SELECT COUNT(*) FROM billingmaster WHERE practitioner_no=${q(c)})`) !== '0');
-  owned.payeeNo = unused(sql, '8', 5, c => sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE billing_no=${q(c)})
-    + (SELECT COUNT(*) FROM billingmaster WHERE payee_no=${q(c)})`) !== '0');
-  const columns = sql.value(`SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='provider'`).split(',');
-  const overrides = { provider_no: q(owned.providerNo), ohip_no: q(owned.ohipNo), billing_no: q(owned.payeeNo),
-    last_name: q(marker), first_name: "'Billing'", status: "'1'" };
-  sql.execute(`INSERT INTO provider (${columns.map(c => `\`${c}\``).join(',')})
-    SELECT ${columns.map(c => overrides[c] || `\`${c}\``).join(',')} FROM provider WHERE provider_no=${q(provider)}`);
-  h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(owned.providerNo)} AND ohip_no=${q(owned.ohipNo)}`) === '1',
-    'The owned billing physician was not created');
-  return owned;
-}
 
 /** One BC fee code and one diagnostic code, each described by the run marker so a search finds only it. */
 function createCodes(s) {
@@ -83,10 +48,10 @@ function createCodes(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM billingservice WHERE description LIKE ${q(`${marker}%`)})
       + (SELECT COUNT(*) FROM diagnosticcode WHERE description LIKE ${q(`${marker}%`)})`) === '0', 'The owned fee or diagnostic code was not removed');
   });
-  codes.fee = unused(sql, '9', 5, c => sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=${q(c)}`) !== '0');
+  codes.fee = bc.unusedNumber('9', 5, c => sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=${q(c)}`) !== '0');
   sql.execute(`INSERT INTO billingservice (service_code,description,value,percentage,billingservice_date,specialty,region,anaesthesia)
     VALUES (${q(codes.fee)},${q(`${marker} fee`)},${q(FEE)},'',DATE_SUB(CURDATE(),INTERVAL 1 YEAR),'','BC','00')`);
-  codes.dx = unused(sql, 'Z', 5, c => sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=${q(c)}`) !== '0');
+  codes.dx = bc.unusedNumber('Z', 5, c => sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=${q(c)}`) !== '0');
   sql.execute(`INSERT INTO diagnosticcode (diagnostic_code,description,status,region)
     VALUES (${q(codes.dx)},${q(`${marker} diagnosis`)},'A','BC')`);
   return codes;
@@ -95,7 +60,7 @@ function createCodes(s) {
 async function workflow(s) {
   const { sql, marker, patient } = s;
   const q = h.sqlString;
-  const physician = createBillingPhysician(s);
+  const physician = bc.createBillingPhysician(s);
   const codes = createCodes(s);
   const phn = bc.makeBcPatient(s);
   bc.registerOwnedBcBillCleanup(s);
@@ -111,8 +76,11 @@ async function workflow(s) {
     h.assert(await form.locator('form[action$="/billing/CA/BC/CreateBilling"]').count() === 1, 'Create Invoice did not open the BC bill form');
     h.assert(await form.locator(`#xml_provider option[value="${physician.providerNo}"]`).count() === 1,
       'The bill form does not list the owned billing physician');
-    await form.locator('#xml_provider').selectOption(physician.providerNo);
-    await form.locator('#xml_billtype').selectOption('MSP');
+    // Each change reloads parts of the form in place; wait for them, or Continue abandons one.
+    await bc.changeBillFormSelect(form, '#xml_provider', physician.providerNo, 2, 'choosing the billing physician');
+    if (await form.locator('#xml_billtype').inputValue() !== 'MSP') {
+      await bc.changeBillFormSelect(form, '#xml_billtype', 'MSP', 1, 'choosing the MSP bill type');
+    }
   });
 
   // Fee code first, then the diagnosis, as the form is used: picking a fee code writes that code's
